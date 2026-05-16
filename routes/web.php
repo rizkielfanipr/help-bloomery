@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// Root redirect ke panel helpdesk
+Route::get('/', fn () => redirect('/helpdesk'));
+
+require __DIR__.'/auth.php';

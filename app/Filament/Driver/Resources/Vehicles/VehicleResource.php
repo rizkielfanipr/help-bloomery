@@ -1,0 +1,140 @@
+<?php
+
+namespace App\Filament\Driver\Resources\Vehicles;
+
+use App\Filament\Driver\Resources\Vehicles\Pages\CreateVehicle;
+use App\Filament\Driver\Resources\Vehicles\Pages\EditVehicle;
+use App\Filament\Driver\Resources\Vehicles\Pages\ListVehicles;
+use App\Models\Vehicle;
+use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
+
+class VehicleResource extends Resource
+{
+    protected static ?string $model = Vehicle::class;
+
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-key';
+
+    protected static ?int $navigationSort = 2;
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasAnyRole(['super_admin']);
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Section::make('Informasi Kendaraan')
+                    ->schema([
+                        TextInput::make('license_plate')
+                            ->label('Nomor Polisi')
+                            ->required()
+                            ->unique(ignoreRecord: true),
+
+                        TextInput::make('brand')
+                            ->label('Merek')
+                            ->required(),
+
+                        TextInput::make('model')
+                            ->label('Model')
+                            ->required(),
+
+                        TextInput::make('year')
+                            ->label('Tahun')
+                            ->numeric()
+                            ->minValue(1900)
+                            ->maxValue(date('Y') + 1)
+                            ->required(),
+
+                        Toggle::make('is_active')
+                            ->label('Aktif')
+                            ->default(true),
+                    ])
+                    ->columns(2),
+            ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                TextColumn::make('license_plate')
+                    ->label('Nomor Polisi')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('brand')
+                    ->label('Merek')
+                    ->searchable(),
+
+                TextColumn::make('model')
+                    ->label('Model')
+                    ->searchable(),
+
+                TextColumn::make('year')
+                    ->label('Tahun')
+                    ->sortable(),
+
+                IconColumn::make('is_active')
+                    ->label('Aktif')
+                    ->boolean(),
+
+                TextColumn::make('driver_logs_count')
+                    ->label('Total Log')
+                    ->counts('driverLogs')
+                    ->sortable(),
+            ])
+            ->filters([
+                TrashedFilter::make(),
+            ])
+            ->recordActions([
+                EditAction::make(),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                    ForceDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                ]),
+            ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => ListVehicles::route('/'),
+            'create' => CreateVehicle::route('/create'),
+            'edit' => EditVehicle::route('/{record}/edit'),
+        ];
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
+    }
+}

@@ -8,7 +8,6 @@ use Database\Factories\ErpRepairRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
@@ -53,11 +52,6 @@ class ErpRepairRequest extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assignee_id');
-    }
-
-    public function maintenanceSchedules(): HasMany
-    {
-        return $this->hasMany(MaintenanceSchedule::class);
     }
 
     public function getActivitylogOptions(): LogOptions

@@ -45,7 +45,7 @@ class AppServiceProvider extends ServiceProvider
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
-        $superAdmin = Role::findByName('super_admin', 'web');
+        $superAdmin = Role::where('name', 'super_admin')->where('guard_name', 'web')->first();
         $superAdmin?->syncPermissions(Permission::all());
 
         Cache::forever($cacheKey, true);

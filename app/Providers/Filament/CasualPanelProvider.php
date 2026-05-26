@@ -2,15 +2,14 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Casual\Pages\Auth\Register;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
-use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -29,18 +28,15 @@ class CasualPanelProvider extends PanelProvider
             ->when($domain, fn (Panel $p) => $p->domain($domain)->path(''))
             ->when(! $domain, fn (Panel $p) => $p->path('casual'))
             ->login()
+            ->registration(Register::class)
             ->colors([
                 'primary' => Color::Purple,
             ])
             ->discoverResources(in: app_path('Filament/Casual/Resources'), for: 'App\Filament\Casual\Resources')
             ->discoverPages(in: app_path('Filament/Casual/Pages'), for: 'App\Filament\Casual\Pages')
-            ->pages([
-                Dashboard::class,
-            ])
+            ->pages([])
             ->discoverWidgets(in: app_path('Filament/Casual/Widgets'), for: 'App\Filament\Casual\Widgets')
-            ->widgets([
-                AccountWidget::class,
-            ])
+            ->widgets([])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

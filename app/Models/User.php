@@ -15,7 +15,7 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'employee_id', 'department_id', 'phone', 'avatar', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'employee_id', 'department_id', 'phone', 'avatar', 'is_active', 'casual_position_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -50,6 +50,11 @@ class User extends Authenticatable implements FilamentUser
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function casualPosition(): BelongsTo
+    {
+        return $this->belongsTo(CasualPosition::class, 'casual_position_id');
     }
 
     public function getActivitylogOptions(): LogOptions

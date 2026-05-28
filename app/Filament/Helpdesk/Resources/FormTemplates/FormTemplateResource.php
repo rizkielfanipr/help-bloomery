@@ -350,7 +350,7 @@ class FormTemplateResource extends Resource
                     ->sortable(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()->iconButton()->tooltip('Edit')->color('info'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -178,7 +178,7 @@ class TripResource extends Resource
             ])
             ->defaultSort('trip_date', 'desc')
             ->recordActions([
-                ViewAction::make(),
+                ViewAction::make()->iconButton()->tooltip('Lihat')->color('primary'),
             ]);
     }
 

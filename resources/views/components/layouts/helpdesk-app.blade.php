@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html
+    lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+    x-data="helpdeskLayout"
+    x-init="init()"
+    :class="dark ? 'dark' : ''"
+    class="h-full"
+>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@yield('title', config('app.name')) — Helpdesk</title>
+
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=inter:300,400,500,600,700,800&display=swap" rel="stylesheet">
+
+    @vite(['resources/css/filament/helpdesk/theme.css', 'resources/js/app.js'])
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        html, body { font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+
+@php
+    $user     = auth()->user();
+    $initials = $user
+        ? collect(explode(' ', $user->name))->map(fn ($w) => strtoupper($w[0] ?? ''))->take(2)->join('')
+        : 'HD';
+
+    // Helper: safe route() that falls back to '#'
+    $r = fn (string $name, array $params = []) => app('router')->has($name)
+        ? route($name, $params)
+        : '#';
+
+    // Current path for active-state detection
+    $path = request()->path();
+
+    // Auto-open the group that contains the current page
+    $initialOpen = [];
+    if (str_contains($path, 'casual'))                                   { $initialOpen[] = 'casual'; }
+    if (preg_match('/trip|vehicle|driver/', $path))                      { $initialOpen[] = 'driver'; }
+    if (preg_match('/service-request|technician/', $path))               { $initialOpen[] = 'technician'; }
+    if (preg_match('/helpdesk-request|form-template/', $path))           { $initialOpen[] = 'helpdesk-ops'; }
+    if (preg_match('/\busers?\b|\broles?\b|department/', $path))         { $initialOpen[] = 'management'; }
+
+    // Nav groups definition — each item gets an 'active' flag resolved via PHP
+    $navGroups = [
+        [
+            'id'    => 'casual',
+            'label' => 'Human Resources',
+            'icon'  => 'users-round',
+            'items' => [
+                ['label' => 'Posisi Casual',      'href' => $r('filament.helpdesk.resources.casual-positions.index'),             'active' => request()->is('helpdesk/casual-positions*')],
+                ['label' => 'Token Registrasi',   'href' => $r('filament.helpdesk.resources.casual-registration-tokens.index'),   'active' => request()->is('helpdesk/casual-registration-tokens*')],
+                ['label' => 'Jadwal Shift',        'href' => $r('filament.helpdesk.resources.casual-shifts.index'),                'active' => request()->is('helpdesk/casual-shifts*')],
+                ['label' => 'Absensi Casual',      'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),         'active' => request()->is('helpdesk/casual-clock-records*')],
+            ],
+        ],
+        [
+            'id'    => 'driver',
+            'label' => 'Driver',
+            'icon'  => 'truck',
+            'items' => [
+                ['label' => 'Perjalanan',          'href' => $r('filament.helpdesk.resources.trips.index'),           'active' => request()->is('helpdesk/trips*')],
+                ['label' => 'Rute Perjalanan',     'href' => $r('filament.helpdesk.resources.trip-routes.index'),     'active' => request()->is('helpdesk/trip-routes*')],
+                ['label' => 'Kendaraan',           'href' => $r('filament.helpdesk.resources.vehicles.index'),        'active' => request()->is('helpdesk/vehicles*')],
+                ['label' => 'Pengaturan Trip',     'href' => $r('filament.helpdesk.pages.driver-trip-settings'),      'active' => request()->is('helpdesk/driver-trip-settings*')],
+            ],
+        ],
+        [
+            'id'    => 'technician',
+            'label' => 'Technician',
+            'icon'  => 'wrench',
+            'items' => [
+                ['label' => 'Permintaan Servis',   'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => request()->is('helpdesk/service-requests*')],
+                ['label' => 'Pengaturan Teknisi',  'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => request()->is('helpdesk/technician-settings*')],
+            ],
+        ],
+        [
+            'id'    => 'purchasing',
+            'label' => 'Purchasing',
+            'icon'  => 'shopping-cart',
+            'items' => [
+                ['label' => 'Permintaan Pembelian', 'href' => '#', 'active' => false],
+                ['label' => 'Approval Pembelian',   'href' => '#', 'active' => false],
+                ['label' => 'Vendor',               'href' => '#', 'active' => false],
+                ['label' => 'Monitoring Barang',    'href' => '#', 'active' => false],
+            ],
+        ],
+        [
+            'id'    => 'it',
+            'label' => 'Information Technology',
+            'icon'  => 'monitor',
+            'items' => [
+                ['label' => 'Permintaan IT',        'href' => '#', 'active' => false],
+                ['label' => 'Pengaduan IT',          'href' => '#', 'active' => false],
+                ['label' => 'Asset IT',              'href' => '#', 'active' => false],
+                ['label' => 'Monitoring Jaringan',   'href' => '#', 'active' => false],
+            ],
+        ],
+        [
+            'id'    => 'finance',
+            'label' => 'Finance',
+            'icon'  => 'credit-card',
+            'items' => [
+                ['label' => 'Permintaan Finance',   'href' => '#', 'active' => false],
+                ['label' => 'Approval Finance',      'href' => '#', 'active' => false],
+                ['label' => 'Pengeluaran',           'href' => '#', 'active' => false],
+                ['label' => 'Laporan Keuangan',      'href' => '#', 'active' => false],
+            ],
+        ],
+        [
+            'id'    => 'helpdesk-ops',
+            'label' => 'Helpdesk',
+            'icon'  => 'headphones',
+            'items' => [
+                ['label' => 'Semua Permintaan',     'href' => $r('filament.helpdesk.resources.helpdesk-requests.index'),  'active' => request()->is('helpdesk/helpdesk-requests*')],
+                ['label' => 'Template Form',         'href' => $r('filament.helpdesk.resources.form-templates.index'),    'active' => request()->is('helpdesk/form-templates*')],
+                ['label' => 'Pengumuman',            'href' => '#', 'active' => false],
+                ['label' => 'FAQ',                   'href' => '#', 'active' => false],
+            ],
+        ],
+        [
+            'id'    => 'management',
+            'label' => 'Management Access',
+            'icon'  => 'shield',
+            'items' => [
+                ['label' => 'Pengguna',             'href' => $r('filament.helpdesk.resources.users.index'),       'active' => request()->is('helpdesk/users*')],
+                ['label' => 'Role & Permission',    'href' => $r('filament.helpdesk.resources.roles.index'),       'active' => request()->is('helpdesk/roles*')],
+                ['label' => 'Department',           'href' => $r('filament.helpdesk.resources.departments.index'), 'active' => request()->is('helpdesk/departments*')],
+                ['label' => 'Pengaturan',           'href' => '#', 'active' => false],
+            ],
+        ],
+    ];
+@endphp
+
+<body class="antialiased h-full">
+<div class="flex h-screen overflow-hidden bg-[#F8FAFC] dark:bg-[#020617] transition-colors duration-300">
+
+{{-- ═══════════════════════ SIDEBAR ═══════════════════════ --}}
+<aside
+    class="overflow-hidden transition-all duration-300 ease-in-out shrink-0 fixed inset-y-0 left-0 z-50 w-[280px] lg:relative lg:inset-auto lg:z-auto"
+    :class="sidebarOpen ? 'translate-x-0 lg:w-[280px]' : '-translate-x-full lg:w-0 lg:translate-x-0'"
+>
+<div class="flex h-full w-[280px] shrink-0 flex-col border-r border-slate-200 bg-white dark:border-white/5 dark:bg-[#0F172A]">
+
+    {{-- Logo --}}
+    <div class="flex h-20 shrink-0 items-center justify-center border-b border-slate-100 px-5 dark:border-white/5">
+        <img
+            src="{{ asset('images/bloomery-icon.png') }}"
+            alt="Bloomery Patisserie"
+            class="h-12 w-12 object-contain dark:brightness-200 dark:opacity-80"
+        >
+    </div>
+
+    {{-- Navigation --}}
+    <nav class="flex-1 overflow-y-auto px-2.5 py-3 space-y-0.5">
+
+        {{-- Dashboard --}}
+        <a
+            href="{{ url('helpdesk') }}"
+            class="flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150
+                {{ request()->is('helpdesk')
+                    ? 'bg-blue-50 font-semibold text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
+                    : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5' }}"
+        >
+            <i data-lucide="layout-dashboard" class="h-4 w-4 shrink-0"></i>
+            Dashboard
+        </a>
+
+        {{-- Nav Groups --}}
+        @foreach ($navGroups as $group)
+            <div>
+                <button
+                    @click="toggleGroup('{{ $group['id'] }}')"
+                    class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium text-slate-600 transition-all duration-150 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
+                >
+                    <i data-lucide="{{ $group['icon'] }}" class="h-4 w-4 shrink-0"></i>
+                    <span class="flex-1 text-left">{{ $group['label'] }}</span>
+                    <i
+                        data-lucide="chevron-right"
+                        class="h-3.5 w-3.5 text-slate-300 transition-transform duration-200 dark:text-slate-600"
+                        :class="isOpen('{{ $group['id'] }}') ? 'rotate-90' : ''"
+                    ></i>
+                </button>
+
+                <div
+                    x-show="isOpen('{{ $group['id'] }}')"
+                    x-transition:enter="transition ease-out duration-150"
+                    x-transition:enter-start="opacity-0 -translate-y-1"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    x-transition:leave="transition ease-in duration-100"
+                    x-transition:leave-start="opacity-100 translate-y-0"
+                    x-transition:leave-end="opacity-0 -translate-y-1"
+                    class="ml-6 mt-0.5 space-y-0.5 border-l border-slate-100 pb-1 pl-3 dark:border-white/5"
+                >
+                    @foreach ($group['items'] as $item)
+                        <a
+                            href="{{ $item['href'] }}"
+                            class="block rounded-lg px-3 py-1.5 text-[13px] transition-all duration-150
+                                {{ $item['active']
+                                    ? 'bg-blue-50 font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
+                                    : ($item['href'] === '#'
+                                        ? 'cursor-not-allowed text-slate-400 dark:text-slate-600'
+                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300') }}"
+                            @if($item['href'] === '#') @click.prevent="" @endif
+                        >{{ $item['label'] }}</a>
+                    @endforeach
+                </div>
+            </div>
+        @endforeach
+    </nav>
+
+    {{-- User footer --}}
+    <div class="shrink-0 border-t border-slate-100 p-3 dark:border-white/5">
+        <div class="flex items-center gap-3 rounded-xl p-2.5 transition-all duration-150 hover:bg-slate-50 dark:hover:bg-white/5">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-xs font-bold text-white">
+                {{ $initials }}
+            </div>
+            <div class="min-w-0 flex-1">
+                <p class="truncate text-[13px] font-semibold leading-none text-slate-800 dark:text-white">{{ $user?->name ?? 'Guest' }}</p>
+                <p class="mt-0.5 truncate text-[11px] text-slate-400">{{ $user?->email ?? '' }}</p>
+            </div>
+            <a
+                href="{{ $r('filament.helpdesk.auth.logout') }}"
+                class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-red-50 hover:text-red-400 dark:text-slate-600 dark:hover:bg-red-500/10"
+                title="Keluar"
+                onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+            >
+                <i data-lucide="log-out" class="h-4 w-4"></i>
+            </a>
+            <form id="logout-form" method="POST" action="{{ $r('filament.helpdesk.auth.logout') }}" class="hidden">
+                @csrf
+            </form>
+        </div>
+    </div>
+</div>
+</aside>
+
+{{-- Backdrop (mobile) --}}
+<div
+    x-show="sidebarOpen"
+    @click="sidebarOpen=false"
+    class="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+    x-transition:enter="transition duration-200"
+    x-transition:enter-start="opacity-0"
+    x-transition:enter-end="opacity-100"
+    x-transition:leave="transition duration-150"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    x-cloak
+></div>
+
+{{-- ═══════════════════════ MAIN ═══════════════════════ --}}
+<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+
+    {{-- Topbar --}}
+    <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-slate-200/80 bg-white/80 px-4 backdrop-blur-xl transition-colors duration-300 dark:border-white/5 dark:bg-[#020617]/80 lg:px-6">
+
+        <button
+            @click="sidebarOpen=!sidebarOpen"
+            class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-all hover:bg-slate-100 dark:hover:bg-white/5"
+        >
+            <i data-lucide="menu" class="h-4 w-4"></i>
+        </button>
+
+        {{-- Search --}}
+        <div class="mx-2 hidden max-w-sm flex-1 md:block">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                <input
+                    type="text"
+                    placeholder="Cari tiket, pengguna..."
+                    class="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-4 text-sm text-slate-700 placeholder-slate-400 outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-500/15 dark:border-white/5 dark:bg-white/5 dark:text-slate-200 dark:placeholder-slate-600"
+                >
+            </div>
+        </div>
+
+        <div class="ml-auto flex items-center gap-1">
+            {{-- Notifications --}}
+            <button class="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-all hover:bg-slate-100 dark:hover:bg-white/5">
+                <i data-lucide="bell" class="h-4 w-4"></i>
+            </button>
+
+            {{-- Dark mode toggle --}}
+            <button
+                @click="toggleTheme()"
+                class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-all hover:bg-slate-100 dark:hover:bg-white/5"
+                :title="dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+            >
+                <i data-lucide="sun"  x-show="dark"  class="h-4 w-4 text-amber-400"></i>
+                <i data-lucide="moon" x-show="!dark" class="h-4 w-4"></i>
+            </button>
+
+            {{-- Profile chip --}}
+            <div class="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-white/5 cursor-default transition-all">
+                <div class="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-xs font-bold text-white shrink-0">
+                    {{ $initials }}
+                </div>
+                <span class="hidden text-[13px] font-semibold text-slate-700 dark:text-slate-200 sm:block">{{ $user?->name ?? 'Guest' }}</span>
+                <i data-lucide="chevron-down" class="hidden h-3.5 w-3.5 text-slate-400 sm:block"></i>
+            </div>
+        </div>
+    </header>
+
+    {{-- Page content --}}
+    <main class="flex-1 overflow-y-auto">
+        <div class="w-full px-4 py-6 lg:px-6">
+            {{ $slot }}
+        </div>
+    </main>
+</div>
+
+</div>{{-- end flex wrapper --}}
+
+@livewireScripts
+
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('helpdeskLayout', () => ({
+        dark: localStorage.getItem('theme') === 'dark'
+            || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches),
+        sidebarOpen: window.innerWidth >= 1024,
+        openGroups: @json($initialOpen),
+
+        init() {
+            // Apply saved theme to <html> immediately
+            document.documentElement.classList.toggle('dark', this.dark);
+
+            this.$watch('dark', v => {
+                document.documentElement.classList.toggle('dark', v);
+                localStorage.setItem('theme', v ? 'dark' : 'light');
+            });
+
+            this.$nextTick(() => {
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        },
+
+        toggleTheme() {
+            this.dark = !this.dark;
+            this.$nextTick(() => {
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        },
+
+        toggleGroup(id) {
+            this.openGroups.includes(id)
+                ? (this.openGroups = this.openGroups.filter(g => g !== id))
+                : this.openGroups.push(id);
+        },
+
+        isOpen(id) { return this.openGroups.includes(id); },
+    }));
+});
+</script>
+</body>
+</html>

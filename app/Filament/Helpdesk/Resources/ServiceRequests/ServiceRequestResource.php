@@ -7,22 +7,27 @@ use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\CreateServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\EditServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ViewServiceRequest;
+use App\Models\Department;
 use App\Models\ServiceRequest;
-use App\Models\ServiceTemplate;
+use App\Models\ServiceRequestRepair;
+use App\Models\TechnicianSettings;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -45,47 +50,47 @@ class ServiceRequestResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Detail Pekerjaan')->schema([
-                Select::make('service_template_id')
-                    ->label('Template Pekerjaan')
-                    ->options(ServiceTemplate::where('is_active', true)->pluck('name', 'id'))
+            Section::make('Detail Permintaan')->schema([
+                Select::make('department_id')
+                    ->label('Divisi Pemohon')
+                    ->options(Department::pluck('name', 'id'))
                     ->searchable()
-                    ->nullable()
-                    ->live()
-                    ->afterStateUpdated(function ($state, callable $set): void {
-                        if ($state) {
-                            $template = ServiceTemplate::find($state);
-                            if ($template) {
-                                $set('title', $template->name);
-                                $set('description', $template->description);
-                            }
-                        }
-                    })
-                    ->helperText('Opsional — pilih untuk mengisi otomatis judul & deskripsi'),
-
-                TextInput::make('title')
-                    ->label('Judul Pekerjaan')
-                    ->required()
-                    ->maxLength(255),
-
-                Textarea::make('description')
-                    ->label('Deskripsi / Keluhan')
-                    ->rows(4)
                     ->nullable(),
-            ]),
 
-            Section::make('Penugasan')->schema([
-                Grid::make(2)->schema([
-                    Select::make('technician_id')
-                        ->label('Teknisi')
-                        ->options(User::role('technician')->pluck('name', 'id'))
-                        ->searchable()
-                        ->required(),
+                DatePicker::make('scheduled_date')
+                    ->label('Tanggal Penjadwalan')
+                    ->required()
+                    ->minDate(today())
+                    ->live()
+                    ->helperText(function ($state): string {
+                        if (! $state) {
+                            return 'Pilih tanggal untuk melihat ketersediaan slot.';
+                        }
 
-                    DateTimePicker::make('scheduled_at')
-                        ->label('Jadwal Kunjungan')
-                        ->nullable(),
-                ]),
+                        $max = TechnicianSettings::instance()->max_jobs_per_day;
+                        $booked = ServiceRequest::whereDate('scheduled_date', $state)->count();
+                        $remaining = max(0, $max - $booked);
+
+                        if ($remaining === 0) {
+                            return "⛔ Kuota penuh untuk tanggal ini ({$booked}/{$max} pekerjaan). Pilih tanggal lain.";
+                        }
+
+                        return "✅ {$remaining} slot tersisa dari {$max} untuk tanggal ini.";
+                    }),
+
+                Textarea::make('requestor_notes')
+                    ->label('Catatan Pemohon')
+                    ->rows(4)
+                    ->nullable()
+                    ->placeholder('Deskripsikan kebutuhan / keluhan secara singkat...'),
+
+                FileUpload::make('attachments')
+                    ->label('Lampiran')
+                    ->multiple()
+                    ->disk('public')
+                    ->directory('service-requests/attachments')
+                    ->nullable()
+                    ->helperText('Upload foto, dokumen, atau file pendukung lainnya.'),
             ]),
         ]);
     }
@@ -93,40 +98,89 @@ class ServiceRequestResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Detail Pekerjaan')->schema([
+            Section::make('Detail Permintaan')->schema([
                 Grid::make(2)->schema([
-                    TextEntry::make('serviceTemplate.name')->label('Template')->placeholder('-'),
+                    TextEntry::make('department.name')->label('Divisi Pemohon')->placeholder('-'),
                     TextEntry::make('status')->label('Status')->badge(),
                 ]),
-                TextEntry::make('title')->label('Judul'),
-                TextEntry::make('description')->label('Deskripsi')->placeholder('-'),
                 Grid::make(2)->schema([
-                    TextEntry::make('technician.name')->label('Teknisi'),
                     TextEntry::make('scheduledBy.name')->label('Dijadwalkan Oleh'),
-                    TextEntry::make('scheduled_at')->label('Jadwal')->dateTime('d M Y H:i')->placeholder('-'),
+                    TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),
+                ]),
+                Grid::make(2)->schema([
+                    TextEntry::make('technician.name')->label('Teknisi')->placeholder('Belum ditugaskan'),
                     TextEntry::make('warranty_expires_at')->label('Garansi Hingga')->dateTime('d M Y H:i')->placeholder('-'),
                 ]),
+                TextEntry::make('requestor_notes')->label('Catatan Pemohon')->placeholder('-'),
             ]),
 
-            Section::make('Kondisi Sebelum Perbaikan')
+            Section::make('Lampiran')
                 ->schema([
-                    Grid::make(2)->schema([
-                        TextEntry::make('started_at')->label('Mulai')->dateTime('d M Y H:i')->placeholder('-'),
-                    ]),
-                    TextEntry::make('before_notes')->label('Catatan Sebelum')->placeholder('-'),
-                    ImageEntry::make('before_photo')->label('Foto Sebelum')->disk('public')->size(300)->default(null),
+                    ImageEntry::make('attachments')
+                        ->label('Lampiran')
+                        ->disk('public')
+                        ->size(200)
+                        ->default(null),
                 ])
-                ->visible(fn (ServiceRequest $r): bool => $r->before_photo !== null || $r->before_notes !== null),
+                ->visible(fn (ServiceRequest $r): bool => ! empty($r->attachments)),
 
-            Section::make('Kondisi Setelah Perbaikan')
+            Section::make('Riwayat Perbaikan')
                 ->schema([
-                    Grid::make(2)->schema([
-                        TextEntry::make('completed_at')->label('Selesai')->dateTime('d M Y H:i')->placeholder('-'),
-                    ]),
-                    TextEntry::make('after_notes')->label('Catatan Setelah')->placeholder('-'),
-                    ImageEntry::make('after_photo')->label('Foto Setelah')->disk('public')->size(300)->default(null),
+                    RepeatableEntry::make('repairs')
+                        ->label('')
+                        ->schema([
+                            TextEntry::make('cycle_label')
+                                ->label('Tahap')
+                                ->weight(FontWeight::Bold)
+                                ->size(TextSize::Large),
+
+                            Grid::make(2)->schema([
+                                TextEntry::make('technician.name')
+                                    ->label('Teknisi')
+                                    ->placeholder('-'),
+                                TextEntry::make('started_at')
+                                    ->label('Mulai Dikerjakan')
+                                    ->dateTime('d M Y H:i')
+                                    ->placeholder('-'),
+                            ]),
+
+                            TextEntry::make('before_notes')
+                                ->label('Catatan Kondisi Sebelum')
+                                ->placeholder('-'),
+
+                            ImageEntry::make('before_photo')
+                                ->label('Foto Kondisi Sebelum')
+                                ->disk('public')
+                                ->size(280)
+                                ->default(null)
+                                ->visible(fn (ServiceRequestRepair $record): bool => $record->before_photo !== null),
+
+                            Grid::make(2)->schema([
+                                TextEntry::make('completed_at')
+                                    ->label('Selesai Dikerjakan')
+                                    ->dateTime('d M Y H:i')
+                                    ->placeholder('Sedang dikerjakan...'),
+                                TextEntry::make('warranty_expires_at')
+                                    ->label('Garansi Hingga')
+                                    ->dateTime('d M Y H:i')
+                                    ->placeholder('-'),
+                            ]),
+
+                            TextEntry::make('after_notes')
+                                ->label('Catatan Kondisi Setelah')
+                                ->placeholder('-')
+                                ->visible(fn (ServiceRequestRepair $record): bool => $record->completed_at !== null),
+
+                            ImageEntry::make('after_photo')
+                                ->label('Foto Kondisi Setelah')
+                                ->disk('public')
+                                ->size(280)
+                                ->default(null)
+                                ->visible(fn (ServiceRequestRepair $record): bool => $record->after_photo !== null),
+                        ])
+                        ->contained(false),
                 ])
-                ->visible(fn (ServiceRequest $r): bool => $r->after_photo !== null || $r->after_notes !== null),
+                ->visible(fn (ServiceRequest $r): bool => $r->repairs->isNotEmpty()),
         ]);
     }
 
@@ -134,22 +188,24 @@ class ServiceRequestResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('title')->label('Pekerjaan')->searchable()->limit(40),
-                TextColumn::make('serviceTemplate.name')->label('Template')->placeholder('-'),
-                TextColumn::make('technician.name')->label('Teknisi')->searchable()->sortable(),
+                TextColumn::make('department.name')->label('Divisi')->placeholder('-')->sortable(),
+                TextColumn::make('scheduled_date')->label('Tanggal')->date('d M Y')->sortable(),
+                TextColumn::make('scheduledBy.name')->label('Pemohon')->searchable(),
+                TextColumn::make('technician.name')->label('Teknisi')->placeholder('Belum ditugaskan')->searchable()->sortable(),
                 TextColumn::make('status')->label('Status')->badge()->sortable(),
-                TextColumn::make('scheduled_at')->label('Jadwal')->dateTime('d M Y H:i')->sortable()->placeholder('-'),
                 TextColumn::make('warranty_expires_at')->label('Garansi Hingga')->dateTime('d M Y')->placeholder('-'),
             ])
             ->filters([
                 SelectFilter::make('status')->label('Status')->options(ServiceRequestStatus::class),
                 SelectFilter::make('technician_id')->label('Teknisi')
                     ->options(User::role('technician')->pluck('name', 'id'))->searchable(),
+                SelectFilter::make('department_id')->label('Divisi')
+                    ->options(Department::pluck('name', 'id'))->searchable(),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('scheduled_date', 'desc')
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->iconButton()->tooltip('Lihat')->color('primary'),
+                EditAction::make()->iconButton()->tooltip('Edit')->color('info'),
             ]);
     }
 
@@ -165,6 +221,6 @@ class ServiceRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['serviceTemplate', 'technician', 'scheduledBy']);
+        return parent::getEloquentQuery()->with(['department', 'technician', 'scheduledBy', 'repairs.technician']);
     }
 }

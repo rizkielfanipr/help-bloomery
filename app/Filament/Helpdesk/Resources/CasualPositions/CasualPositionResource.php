@@ -5,11 +5,14 @@ namespace App\Filament\Helpdesk\Resources\CasualPositions;
 use App\Filament\Helpdesk\Resources\CasualPositions\Pages\CreateCasualPosition;
 use App\Filament\Helpdesk\Resources\CasualPositions\Pages\EditCasualPosition;
 use App\Filament\Helpdesk\Resources\CasualPositions\Pages\ListCasualPositions;
+use App\Filament\Helpdesk\Resources\CasualPositions\Pages\ViewCasualPosition;
 use App\Models\CasualPosition;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -18,7 +21,9 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class CasualPositionResource extends Resource
 {
@@ -86,11 +91,39 @@ class CasualPositionResource extends Resource
                     ->sortable(),
 
                 IconColumn::make('is_active')
-                    ->label('Aktif')
-                    ->boolean(),
+                    ->label('Status')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-check-circle')
+                    ->falseIcon('heroicon-o-x-circle')
+                    ->trueColor('success')
+                    ->falseColor('danger'),
+
+                TextColumn::make('created_at')
+                    ->label('Dibuat')
+                    ->date('d M Y')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                SelectFilter::make('is_active')
+                    ->label('Status')
+                    ->options([
+                        '1' => 'Aktif',
+                        '0' => 'Tidak Aktif',
+                    ])
+                    ->placeholder('Semua Status')
+                    ->query(function (Builder $query, array $data): Builder {
+                        if ($data['value'] === null || $data['value'] === '') {
+                            return $query;
+                        }
+
+                        return $query->where('is_active', (bool) $data['value']);
+                    }),
             ])
             ->recordActions([
-                EditAction::make(),
+                ViewAction::make()->iconButton()->tooltip('Lihat')->color('primary'),
+                EditAction::make()->iconButton()->tooltip('Edit')->color('info'),
+                DeleteAction::make()->iconButton()->tooltip('Hapus')->color('danger'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -109,6 +142,7 @@ class CasualPositionResource extends Resource
         return [
             'index' => ListCasualPositions::route('/'),
             'create' => CreateCasualPosition::route('/create'),
+            'view' => ViewCasualPosition::route('/{record}'),
             'edit' => EditCasualPosition::route('/{record}/edit'),
         ];
     }

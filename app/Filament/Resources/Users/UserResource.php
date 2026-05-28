@@ -163,7 +163,7 @@ class UserResource extends Resource
                     ->falseLabel('Nonaktif'),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()->iconButton()->tooltip('Edit')->color('info'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

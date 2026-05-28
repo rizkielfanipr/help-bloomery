@@ -1,0 +1,736 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/Helpdesk/**/*';
+@source '../../../../app/Filament/Resources/**/*';
+@source '../../../../resources/views/filament/helpdesk/**/*';
+@source '../../../../resources/views/components/layouts/**/*';
+@source '../../../../resources/views/vendor/filament-panels/**/*';
+
+/* ════════════════════════════════════════════════════════════════
+   GLOBAL TYPOGRAPHY & BODY
+════════════════════════════════════════════════════════════════ */
+
+body.fi-body {
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif !important;
+    overflow: hidden;
+    height: 100dvh;
+}
+
+.fi-main {
+    padding-inline-start: 0 !important;
+    padding-inline-end: 0 !important;
+    padding-block-start: 0 !important;
+    padding-block-end: 0 !important;
+    max-width: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   PAGE HEADER
+════════════════════════════════════════════════════════════════ */
+
+.fi-page {
+    @apply space-y-4;
+}
+
+.fi-page-header-main-ctn {
+    @apply space-y-4;
+}
+
+/* Header: title left + actions right */
+.fi-header {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 1rem !important;
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+}
+
+.fi-header > div:first-child {
+    min-width: 0;
+    flex: 1;
+}
+
+.fi-header-heading {
+    @apply text-2xl font-bold tracking-tight text-slate-900 dark:text-white;
+    line-height: 1.3 !important;
+}
+
+.fi-header-subheading {
+    @apply mt-1 text-sm text-slate-500 dark:text-slate-400;
+}
+
+/* Subheading / count line */
+.fi-page-header-main-ctn .fi-header-subheading,
+.fi-page > .fi-header ~ * .fi-header-subheading {
+    @apply mt-0.5 text-sm text-slate-500 dark:text-slate-400;
+}
+
+/* Penerimaan status badge button — styled as a read-only pill badge */
+.fi-badge-penerimaan.fi-btn {
+    border-radius: 9999px !important;
+    height: 28px !important;
+    padding-inline: 0.75rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    cursor: default !important;
+    pointer-events: none !important;
+    opacity: 1 !important;
+}
+
+/* Breadcrumbs */
+.fi-breadcrumbs {
+    @apply mb-1;
+}
+
+.fi-breadcrumbs ol {
+    @apply flex items-center gap-1;
+}
+
+.fi-breadcrumbs-item-label {
+    @apply text-xs text-slate-400 dark:text-slate-600;
+}
+
+.fi-breadcrumbs-item:last-child .fi-breadcrumbs-item-label {
+    @apply font-medium text-slate-600 dark:text-slate-300;
+}
+
+.fi-breadcrumbs-separator {
+    @apply text-slate-300 dark:text-slate-700;
+}
+
+/* Actions container — right side of header */
+.fi-header-actions-ctn {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    flex-shrink: 0 !important;
+    flex-wrap: wrap !important;
+    padding-top: 0.125rem;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   BUTTONS
+════════════════════════════════════════════════════════════════ */
+
+.fi-btn {
+    @apply rounded-xl text-sm font-medium transition-all duration-150;
+    height: 36px !important;
+    padding-inline: 0.875rem !important;
+}
+
+.fi-btn:focus-visible {
+    @apply outline-none ring-2 ring-blue-500/50 ring-offset-2;
+}
+
+/* Primary button */
+.fi-btn-color-primary {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    @apply text-white shadow-sm shadow-blue-900/20;
+}
+
+.fi-btn-color-primary:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+    @apply shadow-md shadow-blue-900/20;
+}
+
+/* Secondary / gray button */
+.fi-btn-color-gray {
+    @apply border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-200 dark:hover:bg-white/[0.08];
+}
+
+/* Danger button */
+.fi-btn-color-danger {
+    @apply text-white shadow-sm;
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+}
+
+/* Success button */
+.fi-btn-color-success {
+    @apply text-white shadow-sm;
+    background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   ICON BUTTONS (table row actions + toolbar)
+════════════════════════════════════════════════════════════════ */
+
+.fi-icon-btn {
+    height: 1.875rem !important;
+    width: 1.875rem !important;
+    border-radius: 0.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 150ms !important;
+    @apply border border-slate-200/80 bg-white text-slate-500 shadow-none hover:bg-slate-50 hover:text-slate-700 dark:border-white/[0.07] dark:bg-transparent dark:text-slate-400 dark:hover:bg-white/[0.05] dark:hover:text-slate-200;
+}
+
+.fi-icon-btn.fi-color-danger,
+.fi-icon-btn[class*="danger"] {
+    @apply hover:border-red-200 hover:bg-red-50 hover:text-red-500 dark:hover:border-red-500/20 dark:hover:bg-red-500/10 dark:hover:text-red-400;
+}
+
+.fi-icon-btn.fi-color-warning,
+.fi-icon-btn[class*="warning"] {
+    @apply hover:border-amber-200 hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-500/10 dark:hover:text-amber-400;
+}
+
+.fi-icon-btn.fi-color-success,
+.fi-icon-btn[class*="success"] {
+    @apply hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-400;
+}
+
+/* Record actions in table rows — tighten spacing */
+.fi-ta-row .fi-ta-actions {
+    @apply flex items-center gap-1 justify-end;
+}
+
+/* Solid colored icon buttons in table row actions */
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-primary {
+    background-color: #2563eb !important;
+    color: white !important;
+    border-color: #2563eb !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-primary:hover {
+    background-color: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-info {
+    background-color: #0891b2 !important;
+    color: white !important;
+    border-color: #0891b2 !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-info:hover {
+    background-color: #0e7490 !important;
+    border-color: #0e7490 !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-danger {
+    background-color: #dc2626 !important;
+    color: white !important;
+    border-color: #dc2626 !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-danger:hover {
+    background-color: #b91c1c !important;
+    border-color: #b91c1c !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-success {
+    background-color: #16a34a !important;
+    color: white !important;
+    border-color: #16a34a !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-success:hover {
+    background-color: #15803d !important;
+    border-color: #15803d !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-warning {
+    background-color: #d97706 !important;
+    color: white !important;
+    border-color: #d97706 !important;
+}
+
+.fi-ta-row .fi-ta-actions .fi-icon-btn.fi-color-warning:hover {
+    background-color: #b45309 !important;
+    border-color: #b45309 !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TABLE — CONTAINER
+════════════════════════════════════════════════════════════════ */
+
+.fi-ta-ctn {
+    @apply rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-white/[0.06] dark:bg-[#0F172A] overflow-hidden;
+}
+
+/* ── Table top header (title + create button) ── */
+.fi-ta-header-ctn {
+    @apply flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-3.5 dark:border-white/[0.06];
+}
+
+.fi-ta-header {
+    @apply flex flex-1 min-w-0 items-center justify-between gap-3;
+}
+
+.fi-ta-header-heading {
+    @apply text-sm font-semibold text-slate-800 dark:text-white;
+}
+
+.fi-ta-header-description {
+    @apply text-xs text-slate-400 dark:text-slate-600;
+}
+
+/* Header actions (Create button etc.) */
+.fi-ta-header-ctn > .fi-ta-actions {
+    @apply flex items-center gap-2 flex-shrink-0;
+}
+
+/* ── Toolbar (search + filters) ── */
+.fi-ta-header-toolbar {
+    @apply flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02];
+}
+
+/* Left side of toolbar (bulk actions, filter triggers) */
+.fi-ta-header-toolbar > .fi-ta-actions:first-child {
+    @apply flex items-center gap-2;
+}
+
+/* Right side of toolbar */
+.fi-ta-header-toolbar > div:last-child,
+.fi-ta-header-toolbar .fi-ta-search {
+    @apply flex items-center gap-2;
+}
+
+/* Search input in toolbar */
+.fi-ta-search-field {
+    @apply relative;
+}
+
+/* ── Column headers ── */
+.fi-ta-header-row {
+    @apply border-b border-slate-100 dark:border-white/[0.05];
+    background: rgba(248, 250, 252, 0.8);
+}
+
+.dark .fi-ta-header-row {
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.fi-ta-header-cell {
+    @apply px-3 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600;
+    white-space: nowrap;
+}
+
+.fi-ta-header-cell:first-child {
+    @apply pl-5;
+}
+
+/* Sort button in header */
+.fi-ta-header-cell-sort-btn {
+    @apply flex items-center gap-1.5 hover:text-slate-600 dark:hover:text-slate-300 transition-colors;
+}
+
+/* Actions column header — right aligned, no label */
+.fi-ta-actions-header-cell {
+    @apply w-px px-3 py-2.5 text-right;
+}
+
+/* ── Data rows ── */
+.fi-ta-row {
+    @apply border-b border-slate-50 transition-colors last:border-0 dark:border-white/[0.03];
+}
+
+.fi-ta-row:hover {
+    background: rgba(248, 250, 252, 0.7);
+}
+
+.dark .fi-ta-row:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Data cells ── */
+.fi-ta-cell {
+    @apply px-3 py-2.5 text-[13px] text-slate-700 dark:text-slate-200;
+}
+
+.fi-ta-cell:first-child {
+    @apply pl-5;
+}
+
+/* Actions cell — right aligned */
+.fi-ta-cell:has(.fi-ta-actions) {
+    @apply pr-4 text-right;
+}
+
+/* ── Selection checkbox cell ── */
+.fi-ta-selection-cell {
+    @apply w-px px-3 py-2.5 pl-5;
+}
+
+/* ── Empty state ── */
+.fi-ta-empty-state {
+    @apply flex flex-col items-center justify-center py-16 text-center;
+}
+
+.fi-ta-empty-state-icon {
+    @apply flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 dark:bg-white/[0.04] mb-4;
+}
+
+.fi-ta-empty-state-heading {
+    @apply text-sm font-semibold text-slate-700 dark:text-slate-200;
+}
+
+.fi-ta-empty-state-description {
+    @apply mt-1 text-sm text-slate-400 dark:text-slate-600;
+}
+
+/* ── Pagination ── */
+.fi-ta-pagination-ctn {
+    @apply border-t border-slate-100 dark:border-white/[0.06];
+}
+
+.fi-ta-pagination {
+    @apply flex items-center justify-between gap-4 px-5 py-3;
+}
+
+.fi-ta-pagination-results {
+    @apply text-xs text-slate-400 dark:text-slate-600;
+}
+
+/* Per-page selector */
+.fi-ta-pagination-records-per-page-select {
+    @apply rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 shadow-none focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/15 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300;
+}
+
+/* Pagination nav buttons */
+.fi-pagination {
+    @apply flex items-center gap-1;
+}
+
+.fi-pagination-item-btn {
+    @apply flex h-8 w-8 items-center justify-center rounded-lg text-xs font-medium text-slate-600 transition-all hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/[0.06];
+}
+
+.fi-pagination-item-btn[aria-current="page"] {
+    @apply bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FORM OVERRIDES
+════════════════════════════════════════════════════════════════ */
+
+.fi-fo-section {
+    @apply rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-white/[0.06] dark:bg-[#0F172A];
+}
+
+.fi-fo-section-header {
+    @apply border-b border-slate-100 px-6 py-4 dark:border-white/[0.06];
+}
+
+.fi-fo-section-header-label {
+    @apply text-base font-semibold text-slate-800 dark:text-white;
+}
+
+.fi-fo-section-description {
+    @apply mt-0.5 text-sm text-slate-500 dark:text-slate-400;
+}
+
+.fi-fo-section-content {
+    @apply p-6;
+}
+
+.fi-input-wrp {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm transition-all duration-150 dark:border-white/[0.08] dark:bg-white/[0.05];
+}
+
+.fi-input-wrp:focus-within {
+    @apply border-blue-400 ring-2 ring-blue-500/15;
+}
+
+.fi-input {
+    @apply rounded-xl bg-transparent px-3 py-2 text-sm text-slate-700 placeholder-slate-400 dark:text-slate-200 dark:placeholder-slate-600;
+}
+
+.fi-select-input {
+    @apply rounded-xl border border-slate-200 bg-white text-sm shadow-sm dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-200;
+}
+
+.fi-select-input:focus {
+    @apply border-blue-400 ring-2 ring-blue-500/15 outline-none;
+}
+
+.fi-fo-field-wrp-label {
+    @apply text-sm font-medium text-slate-700 dark:text-slate-200;
+}
+
+.fi-fo-field-wrp-hint {
+    @apply text-xs text-slate-400 dark:text-slate-600;
+}
+
+.fi-fo-field-wrp-error-message {
+    @apply text-xs font-medium text-red-500 dark:text-red-400;
+}
+
+.fi-textarea-input {
+    @apply rounded-xl border border-slate-200 bg-white text-sm shadow-sm dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-200;
+}
+
+.fi-textarea-input:focus {
+    @apply border-blue-400 ring-2 ring-blue-500/15 outline-none;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MODALS & DIALOGS
+════════════════════════════════════════════════════════════════ */
+
+.fi-modal-window {
+    @apply rounded-2xl border border-slate-100 bg-white shadow-2xl dark:border-white/[0.06] dark:bg-[#0F172A];
+    box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.fi-modal-header {
+    @apply border-b border-slate-100 p-6 dark:border-white/[0.06];
+}
+
+.fi-modal-heading {
+    @apply text-base font-semibold text-slate-900 dark:text-white;
+}
+
+.fi-modal-description {
+    @apply mt-1 text-sm text-slate-500 dark:text-slate-400;
+}
+
+.fi-modal-content {
+    @apply p-6;
+}
+
+.fi-modal-footer {
+    @apply border-t border-slate-100 px-6 py-4 dark:border-white/[0.06];
+}
+
+.fi-modal-footer-actions {
+    @apply flex items-center gap-3;
+}
+
+.fi-modal-close-overlay {
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+.fi-modal-slide-over .fi-modal-window {
+    @apply rounded-none rounded-l-2xl;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   DROPDOWN PANEL
+════════════════════════════════════════════════════════════════ */
+
+.fi-dropdown-panel {
+    @apply rounded-2xl border border-slate-100 bg-white p-1 shadow-xl dark:border-white/[0.08] dark:bg-[#1E293B];
+    box-shadow: 0 10px 40px -8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.fi-dropdown-list-item-label {
+    @apply text-sm text-slate-700 dark:text-slate-200;
+}
+
+.fi-dropdown-list-item:hover {
+    @apply rounded-xl bg-slate-50 dark:bg-white/[0.05];
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SECTION / CARD COMPONENT
+════════════════════════════════════════════════════════════════ */
+
+.fi-section {
+    @apply rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-white/[0.06] dark:bg-[#0F172A];
+}
+
+.fi-section-header {
+    @apply border-b border-slate-100 px-6 py-4 dark:border-white/[0.06];
+}
+
+.fi-section-header-heading {
+    @apply text-base font-semibold text-slate-800 dark:text-white;
+}
+
+.fi-section-content {
+    @apply p-6;
+}
+
+.fi-section-content-ctn {
+    @apply p-6;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   INFOLIST (View pages)
+════════════════════════════════════════════════════════════════ */
+
+.fi-in-section {
+    @apply rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-white/[0.06] dark:bg-[#0F172A];
+}
+
+.fi-in-section-header {
+    @apply border-b border-slate-100 px-6 py-4 dark:border-white/[0.06];
+}
+
+.fi-in-section-header-heading {
+    @apply text-base font-semibold text-slate-800 dark:text-white;
+}
+
+.fi-in-section-content {
+    @apply p-6;
+}
+
+.fi-in-text-item-label {
+    @apply text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600;
+}
+
+.fi-in-text-item-state {
+    @apply mt-1 text-sm font-medium text-slate-800 dark:text-slate-200;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   BADGES & STATUS
+════════════════════════════════════════════════════════════════ */
+
+.fi-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════════════════════════ */
+
+.fi-tabs {
+    @apply flex items-center gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/[0.06];
+}
+
+.fi-tabs-tab {
+    @apply rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition-all dark:text-slate-400;
+}
+
+.fi-tabs-tab[aria-selected="true"] {
+    @apply bg-white text-slate-900 shadow-sm dark:bg-[#0F172A] dark:text-white;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   NOTIFICATIONS
+════════════════════════════════════════════════════════════════ */
+
+.fi-notifications {
+    @apply space-y-3;
+}
+
+.fi-notification {
+    @apply rounded-2xl border border-slate-100 bg-white/95 shadow-xl backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#0F172A]/95;
+    box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.15) !important;
+}
+
+.fi-notification-title {
+    @apply text-sm font-semibold text-slate-800 dark:text-white;
+}
+
+.fi-notification-body {
+    @apply text-sm text-slate-500 dark:text-slate-400;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   WIDGETS
+════════════════════════════════════════════════════════════════ */
+
+/* Remove default widget wrapper padding/bg */
+.fi-wi-stats-overview {
+    padding: 0 !important;
+}
+
+/* Widget container — remove background and padding that Filament adds */
+.fi-page-content > .fi-wi,
+.fi-page-content > [class*="fi-wi"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+/* Ensure widgets sit flush without extra card chrome */
+.fi-widget-ctn,
+.fi-wi-chart {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SIDEBAR & TOPBAR (hide Filament's built-in — we use custom)
+════════════════════════════════════════════════════════════════ */
+
+.fi-sidebar,
+.fi-topbar,
+.fi-layout-sidebar-toggle-btn-ctn {
+    display: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CONTENT WRAPPER
+════════════════════════════════════════════════════════════════ */
+
+.fi-main-ctn {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.fi-layout {
+    display: contents !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LOADING / SKELETON
+════════════════════════════════════════════════════════════════ */
+
+.fi-loading-section {
+    @apply relative overflow-hidden;
+}
+
+.fi-loading-section::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FOCUS RING
+════════════════════════════════════════════════════════════════ */
+
+*:focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.5) !important;
+    outline-offset: 2px !important;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   SCROLLBAR
+════════════════════════════════════════════════════════════════ */
+
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.dark * {
+    scrollbar-color: #1e293b transparent;
+}
+
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #cbd5e1; border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb { background: #1e293b; }
+
+/* ════════════════════════════════════════════════════════════════
+   TRANSITIONS
+════════════════════════════════════════════════════════════════ */
+
+.fi-page,
+.fi-ta-ctn,
+.fi-modal-window,
+.fi-section,
+.fi-btn {
+    transition-property: background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}

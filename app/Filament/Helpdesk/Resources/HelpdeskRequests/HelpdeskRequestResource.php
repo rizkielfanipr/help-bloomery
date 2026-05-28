@@ -276,8 +276,8 @@ class HelpdeskRequestResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->iconButton()->tooltip('Lihat')->color('primary'),
+                EditAction::make()->iconButton()->tooltip('Edit')->color('info'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

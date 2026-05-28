@@ -137,7 +137,7 @@ class TripRouteResource extends Resource
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()->iconButton()->tooltip('Edit')->color('info'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

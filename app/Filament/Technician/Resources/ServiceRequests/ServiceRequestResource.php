@@ -42,15 +42,16 @@ class ServiceRequestResource extends Resource
             ->columns([
                 TextColumn::make('status')->label('Status')->badge()->sortable(),
 
-                TextColumn::make('title')->label('Pekerjaan')->searchable()->limit(50),
+                TextColumn::make('department.name')->label('Divisi')->placeholder('-'),
 
-                TextColumn::make('serviceTemplate.name')->label('Template')->placeholder('-'),
+                TextColumn::make('scheduled_date')
+                    ->label('Tanggal')
+                    ->date('d M Y')
+                    ->sortable(),
 
-                TextColumn::make('scheduled_at')
-                    ->label('Jadwal')
-                    ->dateTime('d M Y H:i')
-                    ->sortable()
-                    ->placeholder('-'),
+                TextColumn::make('technician.name')
+                    ->label('Teknisi')
+                    ->placeholder('Belum ditugaskan'),
 
                 TextColumn::make('warranty_expires_at')
                     ->label('Garansi Hingga')
@@ -62,7 +63,7 @@ class ServiceRequestResource extends Resource
                     ->label('Status')
                     ->options(ServiceRequestStatus::class),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('scheduled_date', 'asc')
             ->recordActions([
                 ViewAction::make()->label('Tindak Lanjut'),
             ]);
@@ -78,12 +79,16 @@ class ServiceRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['serviceTemplate']);
+        $query = parent::getEloquentQuery()->with(['department', 'technician', 'repairs.technician']);
 
         if (auth()->user()->hasRole('super_admin')) {
             return $query;
         }
 
-        return $query->where('technician_id', auth()->id());
+        // Show unassigned jobs + jobs assigned to this technician
+        return $query->where(function (Builder $q): void {
+            $q->whereNull('technician_id')
+                ->orWhere('technician_id', auth()->id());
+        });
     }
 }

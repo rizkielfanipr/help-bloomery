@@ -135,7 +135,7 @@ class CasualClockRecordResource extends Resource
             ])
             ->defaultSort('date', 'desc')
             ->recordActions([
-                ViewAction::make(),
+                ViewAction::make()->iconButton()->tooltip('Lihat')->color('primary'),
             ]);
     }
 

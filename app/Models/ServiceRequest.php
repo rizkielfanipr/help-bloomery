@@ -3,25 +3,26 @@
 namespace App\Models;
 
 use App\Enums\ServiceRequestStatus;
+use Database\Factories\ServiceRequestFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ServiceRequest extends Model
 {
+    /** @use HasFactory<ServiceRequestFactory> */
+    use HasFactory;
+
     protected $fillable = [
-        'service_template_id',
+        'department_id',
         'technician_id',
         'scheduled_by',
-        'title',
-        'description',
+        'scheduled_date',
+        'requestor_notes',
+        'attachments',
         'status',
-        'scheduled_at',
-        'before_photo',
-        'before_notes',
-        'after_photo',
-        'after_notes',
-        'started_at',
-        'completed_at',
         'warranty_expires_at',
     ];
 
@@ -29,16 +30,15 @@ class ServiceRequest extends Model
     {
         return [
             'status' => ServiceRequestStatus::class,
-            'scheduled_at' => 'datetime',
-            'started_at' => 'datetime',
-            'completed_at' => 'datetime',
+            'scheduled_date' => 'date',
+            'attachments' => 'array',
             'warranty_expires_at' => 'datetime',
         ];
     }
 
-    public function serviceTemplate(): BelongsTo
+    public function department(): BelongsTo
     {
-        return $this->belongsTo(ServiceTemplate::class);
+        return $this->belongsTo(Department::class);
     }
 
     public function technician(): BelongsTo
@@ -49,6 +49,18 @@ class ServiceRequest extends Model
     public function scheduledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'scheduled_by');
+    }
+
+    /** @return HasMany<ServiceRequestRepair, $this> */
+    public function repairs(): HasMany
+    {
+        return $this->hasMany(ServiceRequestRepair::class)->orderBy('cycle');
+    }
+
+    /** The current open (in-progress) repair, i.e. not yet completed. */
+    public function activeRepair(): HasOne
+    {
+        return $this->hasOne(ServiceRequestRepair::class)->whereNull('completed_at')->latestOfMany('cycle');
     }
 
     public function checkAndAutoComplete(): void

@@ -36,6 +36,11 @@ class CasualShift extends Model
         return $this->hasMany(CasualClockRecord::class, 'shift_id');
     }
 
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class, 'casual_shift_id');
+    }
+
     /**
      * Calculate how many minutes late a given timestamp is from the shift start.
      * Returns 0 if not late (within tolerance).

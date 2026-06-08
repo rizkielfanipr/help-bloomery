@@ -28,6 +28,7 @@ class DriverPanelProvider extends PanelProvider
             ->when($domain, fn (Panel $p) => $p->domain($domain)->path(''))
             ->when(! $domain, fn (Panel $p) => $p->path('driver'))
             ->login()
+            ->viteTheme('resources/css/filament/driver/theme.css')
             ->colors([
                 'primary' => Color::Green,
             ])

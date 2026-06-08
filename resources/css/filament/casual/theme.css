@@ -1,0 +1,32 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/Casual/**/*';
+@source '../../../../resources/views/filament/casual/**/*';
+
+/* Hide sidebar and topbar entirely for this mobile-only panel */
+.fi-sidebar,
+.fi-topbar,
+.fi-layout-sidebar-toggle-btn-ctn {
+    display: none !important;
+}
+
+/* Remove the left offset that the sidebar normally creates */
+.fi-main-ctn {
+    padding-inline-start: 0 !important;
+    margin-inline-start: 0 !important;
+}
+
+/* Strip all page padding so clock page can go full-bleed */
+.fi-page-content {
+    padding: 0 !important;
+}
+
+/* Hide empty page header */
+.fi-header:empty,
+.fi-page-header-main-ctn:empty {
+    display: none !important;
+}
+
+.fi-page {
+    --spacing: 0;
+}

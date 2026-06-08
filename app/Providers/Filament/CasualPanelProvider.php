@@ -29,6 +29,9 @@ class CasualPanelProvider extends PanelProvider
             ->when(! $domain, fn (Panel $p) => $p->path('casual'))
             ->login()
             ->registration(Register::class)
+            ->viteTheme('resources/css/filament/casual/theme.css')
+            ->navigation(false)
+            ->topbar(false)
             ->colors([
                 'primary' => Color::Purple,
             ])

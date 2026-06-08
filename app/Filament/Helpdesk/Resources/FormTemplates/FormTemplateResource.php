@@ -8,7 +8,9 @@ use App\Filament\Helpdesk\Resources\FormTemplates\Pages\EditFormTemplate;
 use App\Filament\Helpdesk\Resources\FormTemplates\Pages\ListFormTemplates;
 use App\Models\HelpdeskFormTemplate;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\ColorPicker;
@@ -17,6 +19,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -350,9 +353,43 @@ class FormTemplateResource extends Resource
                     ->sortable(),
             ])
             ->recordActions([
-                EditAction::make()->iconButton()->tooltip('Edit')->color('info'),
+                EditAction::make()->iconButton()->tooltip('Edit')->color('warning'),
+                DeleteAction::make()->iconButton()->tooltip('Hapus')->color('danger'),
             ])
             ->toolbarActions([
+                Action::make('create')
+                    ->icon('heroicon-o-plus-circle')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Tambah Template')
+                    ->url(static::getUrl('create')),
+
+                Action::make('import_excel')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('warning')
+                    ->iconButton()
+                    ->tooltip('Import Excel')
+                    ->action(function (): void {
+                        Notification::make()
+                            ->title('Segera hadir')
+                            ->body('Fitur Import Excel belum tersedia.')
+                            ->warning()
+                            ->send();
+                    }),
+
+                Action::make('export_excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Export Excel')
+                    ->action(function (): void {
+                        Notification::make()
+                            ->title('Segera hadir')
+                            ->body('Fitur Export Excel belum tersedia.')
+                            ->warning()
+                            ->send();
+                    }),
+
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

@@ -3,17 +3,17 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Models\CasualClockRecord;
-use App\Models\CasualShift;
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
+use Livewire\WithFileUploads;
 
 class ClockPage extends Page
 {
+    use WithFileUploads;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-finger-print';
 
     protected static ?string $navigationLabel = 'Absensi';
@@ -22,19 +22,35 @@ class ClockPage extends Page
 
     protected string $view = 'filament.casual.pages.clock-page';
 
-    /** Form state for clock in */
-    public ?array $clockInData = [];
+    protected static string $layout = 'filament.casual.layouts.bare';
 
-    /** Form state for clock out */
-    public ?array $clockOutData = [];
-
-    /** Captured GPS coordinates */
     public ?float $latitude = null;
 
     public ?float $longitude = null;
 
-    /** Key to force FileUpload re-mount between clock-in and clock-out */
-    public int $formKey = 0;
+    public $clockInPhoto = null;
+
+    public $clockOutPhoto = null;
+
+    public function getTitle(): string|Htmlable
+    {
+        return new HtmlString('');
+    }
+
+    public function getBreadcrumbs(): array
+    {
+        return [];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [];
+    }
 
     public function mount(): void
     {
@@ -44,32 +60,7 @@ class ClockPage extends Page
     }
 
     #[Computed]
-    public function activeShifts(): Collection
-    {
-        return CasualShift::where('is_active', true)->orderBy('start_time')->get();
-    }
-
-    #[Computed]
     public function todayRecord(): ?CasualClockRecord
-    {
-        $shiftId = $this->clockInData['shift_id'] ?? null;
-
-        if (! $shiftId) {
-            // Return any record for today (for post-clock-in state)
-            return CasualClockRecord::where('user_id', auth()->id())
-                ->where('date', today())
-                ->latest()
-                ->first();
-        }
-
-        return CasualClockRecord::where('user_id', auth()->id())
-            ->where('shift_id', $shiftId)
-            ->where('date', today())
-            ->first();
-    }
-
-    #[Computed]
-    public function anyTodayRecord(): ?CasualClockRecord
     {
         return CasualClockRecord::where('user_id', auth()->id())
             ->where('date', today())
@@ -77,86 +68,55 @@ class ClockPage extends Page
             ->first();
     }
 
-    public function clockInForm(Schema $schema): Schema
-    {
-        return $schema
-            ->components([
-                Select::make('shift_id')
-                    ->label('Pilih Shift')
-                    ->options(
-                        CasualShift::where('is_active', true)
-                            ->orderBy('start_time')
-                            ->get()
-                            ->mapWithKeys(fn ($s) => [
-                                $s->id => $s->name.' ('.$s->start_time.' - '.$s->end_time.')',
-                            ])
-                    )
-                    ->required()
-                    ->searchable(),
-
-                FileUpload::make('photo')
-                    ->label('Foto Selfie')
-                    ->image()
-                    ->disk('public')
-                    ->directory('casual-clocks')
-                    ->imageEditor()
-                    ->required(),
-            ])
-            ->statePath('clockInData');
-    }
-
-    public function clockOutForm(Schema $schema): Schema
-    {
-        return $schema
-            ->components([
-                FileUpload::make('photo')
-                    ->label('Foto Selfie')
-                    ->image()
-                    ->disk('public')
-                    ->directory('casual-clocks')
-                    ->imageEditor()
-                    ->required(),
-            ])
-            ->statePath('clockOutData');
-    }
-
-    public function setLocation(float $lat, float $lng): void
-    {
-        $this->latitude = $lat;
-        $this->longitude = $lng;
-    }
-
     public function clockIn(): void
     {
-        $data = $this->clockInForm->getState();
-        $shift = CasualShift::findOrFail($data['shift_id']);
+        $user = auth()->user();
+        $shift = $user->casualShift;
 
-        // Check if already clocked in for this shift today
-        $existing = CasualClockRecord::where('user_id', auth()->id())
+        if (! $shift) {
+            Notification::make()
+                ->title('Shift belum diatur')
+                ->body('Hubungi HR Admin untuk mengatur shift Anda.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if (! $this->clockInPhoto) {
+            Notification::make()
+                ->title('Foto selfie diperlukan')
+                ->body('Ambil foto selfie sebelum clock in.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $existing = CasualClockRecord::where('user_id', $user->id)
             ->where('shift_id', $shift->id)
             ->where('date', today())
             ->first();
 
         if ($existing) {
             Notification::make()
-                ->title('Sudah clock in untuk shift ini hari ini')
+                ->title('Sudah clock in hari ini')
                 ->warning()
                 ->send();
 
             return;
         }
 
-        // Location validation
         if ($shift->location_required && $this->latitude && $this->longitude) {
             $distance = $this->calculateDistance(
                 $this->latitude, $this->longitude,
-                $shift->location_lat, $shift->location_lng
+                $shift->location_lat, $shift->location_lng,
             );
 
             if ($distance > $shift->location_radius_meters) {
                 Notification::make()
                     ->title('Di luar area')
-                    ->body('Anda berada '.round($distance).'m dari lokasi shift. Radius yang diperbolehkan: '.$shift->location_radius_meters.'m.')
+                    ->body('Anda berada '.round($distance).'m dari lokasi shift. Radius: '.$shift->location_radius_meters.'m.')
                     ->danger()
                     ->send();
 
@@ -164,39 +124,39 @@ class ClockPage extends Page
             }
         }
 
+        $photoPath = $this->clockInPhoto->store('casual-clocks', 'public');
         $now = now();
         $lateMinutes = $shift->calculateLateMinutes($now);
         $isLate = $lateMinutes > 0;
 
-        $record = CasualClockRecord::create([
-            'user_id' => auth()->id(),
+        CasualClockRecord::create([
+            'user_id' => $user->id,
             'shift_id' => $shift->id,
             'date' => today(),
             'clock_in_at' => $now,
-            'clock_in_photo' => $data['photo'],
+            'clock_in_photo' => $photoPath,
             'clock_in_lat' => $this->latitude,
             'clock_in_lng' => $this->longitude,
             'is_late' => $isLate,
             'late_minutes' => $isLate ? $lateMinutes : null,
         ]);
 
-        $this->clockInData = [];
+        $this->clockInPhoto = null;
         $this->latitude = null;
         $this->longitude = null;
-        $this->formKey++;
 
-        unset($this->todayRecord, $this->anyTodayRecord);
+        unset($this->todayRecord);
 
         if ($isLate) {
             Notification::make()
-                ->title('Clock In berhasil — Terlambat '.$lateMinutes.' menit')
+                ->title('Clock In — Terlambat '.$lateMinutes.' menit')
                 ->body('Jadwal masuk: '.$shift->start_time.'. Anda masuk: '.$now->format('H:i').'.')
                 ->warning()
                 ->send();
         } else {
             Notification::make()
                 ->title('Clock In berhasil!')
-                ->body('Selamat bekerja di shift '.$shift->name.'.')
+                ->body('Selamat bekerja, shift '.$shift->name.'.')
                 ->success()
                 ->send();
         }
@@ -204,7 +164,15 @@ class ClockPage extends Page
 
     public function clockOut(): void
     {
-        $data = $this->clockOutForm->getState();
+        if (! $this->clockOutPhoto) {
+            Notification::make()
+                ->title('Foto selfie diperlukan')
+                ->body('Ambil foto selfie sebelum clock out.')
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         $record = CasualClockRecord::where('user_id', auth()->id())
             ->where('date', today())
@@ -215,11 +183,10 @@ class ClockPage extends Page
         $shift = $record->shift;
         $now = now();
 
-        // Location validation
         if ($shift->location_required && $this->latitude && $this->longitude) {
             $distance = $this->calculateDistance(
                 $this->latitude, $this->longitude,
-                $shift->location_lat, $shift->location_lng
+                $shift->location_lat, $shift->location_lng,
             );
 
             if ($distance > $shift->location_radius_meters) {
@@ -233,28 +200,28 @@ class ClockPage extends Page
             }
         }
 
+        $photoPath = $this->clockOutPhoto->store('casual-clocks', 'public');
         $earlyOutMinutes = $shift->calculateEarlyOutMinutes($now);
         $isEarlyOut = $earlyOutMinutes > 0;
 
         $record->update([
             'clock_out_at' => $now,
-            'clock_out_photo' => $data['photo'],
+            'clock_out_photo' => $photoPath,
             'clock_out_lat' => $this->latitude,
             'clock_out_lng' => $this->longitude,
             'is_early_out' => $isEarlyOut,
             'early_out_minutes' => $isEarlyOut ? $earlyOutMinutes : null,
         ]);
 
-        $this->clockOutData = [];
+        $this->clockOutPhoto = null;
         $this->latitude = null;
         $this->longitude = null;
-        $this->formKey++;
 
-        unset($this->todayRecord, $this->anyTodayRecord);
+        unset($this->todayRecord);
 
         if ($isEarlyOut) {
             Notification::make()
-                ->title('Clock Out berhasil — Pulang lebih awal '.$earlyOutMinutes.' menit')
+                ->title('Clock Out — Pulang lebih awal '.$earlyOutMinutes.' menit')
                 ->body('Jadwal keluar: '.$shift->end_time.'. Anda keluar: '.$now->format('H:i').'.')
                 ->warning()
                 ->send();
@@ -267,9 +234,6 @@ class ClockPage extends Page
         }
     }
 
-    /**
-     * Calculate distance between two coordinates in meters (Haversine formula).
-     */
     private function calculateDistance(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $earthRadius = 6371000;
@@ -279,8 +243,6 @@ class ClockPage extends Page
         $a = sin($dLat / 2) ** 2
             + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
 
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadius * $c;
+        return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 }

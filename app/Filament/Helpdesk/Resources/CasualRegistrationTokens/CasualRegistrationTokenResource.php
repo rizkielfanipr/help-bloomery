@@ -6,10 +6,13 @@ use App\Filament\Helpdesk\Resources\CasualRegistrationTokens\Pages\CreateCasualR
 use App\Filament\Helpdesk\Resources\CasualRegistrationTokens\Pages\ListCasualRegistrationTokens;
 use App\Models\CasualRegistrationToken;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -110,7 +113,44 @@ class CasualRegistrationTokenResource extends Resource
                     }),
             ])
             ->defaultSort('created_at', 'desc')
+            ->recordActions([
+                DeleteAction::make()->iconButton()->tooltip('Hapus')->color('danger')
+                    ->hidden(fn ($record) => $record->used_at !== null),
+            ])
             ->toolbarActions([
+                Action::make('create')
+                    ->icon('heroicon-o-plus-circle')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Tambah Token')
+                    ->url(static::getUrl('create')),
+
+                Action::make('import_excel')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('warning')
+                    ->iconButton()
+                    ->tooltip('Import Excel')
+                    ->action(function (): void {
+                        Notification::make()
+                            ->title('Segera hadir')
+                            ->body('Fitur Import Excel belum tersedia.')
+                            ->warning()
+                            ->send();
+                    }),
+
+                Action::make('export_excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Export Excel')
+                    ->action(function (): void {
+                        Notification::make()
+                            ->title('Segera hadir')
+                            ->body('Fitur Export Excel belum tersedia.')
+                            ->warning()
+                            ->send();
+                    }),
+
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->hidden(fn ($records) => $records?->filter(fn ($r) => $r->used_at !== null)->isNotEmpty()),

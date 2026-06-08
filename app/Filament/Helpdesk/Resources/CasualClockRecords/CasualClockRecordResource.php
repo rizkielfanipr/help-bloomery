@@ -8,10 +8,14 @@ use App\Models\CasualClockRecord;
 use App\Models\CasualShift;
 use App\Models\User;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -135,7 +139,38 @@ class CasualClockRecordResource extends Resource
             ])
             ->defaultSort('date', 'desc')
             ->recordActions([
-                ViewAction::make()->iconButton()->tooltip('Lihat')->color('primary'),
+                ViewAction::make()->iconButton()->tooltip('Lihat')->color('info'),
+            ])
+            ->toolbarActions([
+                Action::make('import_excel')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('warning')
+                    ->iconButton()
+                    ->tooltip('Import Excel')
+                    ->action(function (): void {
+                        Notification::make()
+                            ->title('Segera hadir')
+                            ->body('Fitur Import Excel belum tersedia.')
+                            ->warning()
+                            ->send();
+                    }),
+
+                Action::make('export_excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Export Excel')
+                    ->action(function (): void {
+                        Notification::make()
+                            ->title('Segera hadir')
+                            ->body('Fitur Export Excel belum tersedia.')
+                            ->warning()
+                            ->send();
+                    }),
+
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
             ]);
     }
 

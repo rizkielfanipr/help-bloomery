@@ -3,6 +3,7 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Models\CasualClockRecord;
+use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -66,6 +67,71 @@ class ClockPage extends Page
             ->where('date', today())
             ->latest()
             ->first();
+    }
+
+    #[Computed]
+    public function monthlyStats(): array
+    {
+        $now = now();
+        $startOfMonth = $now->copy()->startOfMonth();
+
+        $records = CasualClockRecord::where('user_id', auth()->id())
+            ->whereBetween('date', [$startOfMonth->toDateString(), $now->toDateString()])
+            ->get();
+
+        $presentCount = $records->count();
+        $lateCount = $records->where('is_late', true)->count();
+
+        $workingDays = 0;
+        $day = $startOfMonth->copy();
+        while ($day->lte($now)) {
+            if ($day->isWeekday()) {
+                $workingDays++;
+            }
+            $day->addDay();
+        }
+
+        return [
+            'present' => $presentCount,
+            'absent' => max(0, $workingDays - $presentCount),
+            'late' => $lateCount,
+        ];
+    }
+
+    #[Computed]
+    public function workingHours(): string
+    {
+        $record = $this->todayRecord;
+        if (! $record?->clock_in_at || ! $record?->clock_out_at) {
+            return '00:00:00';
+        }
+        $seconds = $record->clock_in_at->diffInSeconds($record->clock_out_at);
+
+        return sprintf('%02d:%02d:%02d', intdiv($seconds, 3600), intdiv($seconds % 3600, 60), $seconds % 60);
+    }
+
+    #[Computed]
+    public function unreadCount(): int
+    {
+        return auth()->user()->unreadNotifications()->count();
+    }
+
+    public function requestLeave(): void
+    {
+        Notification::make()
+            ->title('Segera Hadir')
+            ->body('Fitur pengajuan izin/cuti sedang dalam pengembangan.')
+            ->info()
+            ->send();
+    }
+
+    public function comingSoon(): void
+    {
+        Notification::make()
+            ->title('Segera Hadir')
+            ->body('Fitur ini sedang dalam pengembangan.')
+            ->info()
+            ->send();
     }
 
     public function clockIn(): void
@@ -146,20 +212,22 @@ class ClockPage extends Page
         $this->longitude = null;
 
         unset($this->todayRecord);
+        unset($this->unreadCount);
 
         if ($isLate) {
-            Notification::make()
+            $notif = Notification::make()
                 ->title('Clock In — Terlambat '.$lateMinutes.' menit')
-                ->body('Jadwal masuk: '.$shift->start_time.'. Anda masuk: '.$now->format('H:i').'.')
-                ->warning()
-                ->send();
+                ->body('Anda masuk pukul '.$now->format('H:i').'. Jadwal: '.Carbon::parse($shift->start_time)->format('H:i').'.')
+                ->warning();
         } else {
-            Notification::make()
-                ->title('Clock In berhasil!')
-                ->body('Selamat bekerja, shift '.$shift->name.'.')
-                ->success()
-                ->send();
+            $notif = Notification::make()
+                ->title('Clock In berhasil — Pukul '.$now->format('H:i'))
+                ->body('Selamat bekerja! Semoga hari Anda menyenangkan.')
+                ->success();
         }
+
+        $notif->send();
+        $user->notifyNow($notif->toDatabase());
     }
 
     public function clockOut(): void
@@ -218,20 +286,23 @@ class ClockPage extends Page
         $this->longitude = null;
 
         unset($this->todayRecord);
+        unset($this->unreadCount);
+        unset($this->userNotifications);
 
         if ($isEarlyOut) {
-            Notification::make()
+            $notif = Notification::make()
                 ->title('Clock Out — Pulang lebih awal '.$earlyOutMinutes.' menit')
-                ->body('Jadwal keluar: '.$shift->end_time.'. Anda keluar: '.$now->format('H:i').'.')
-                ->warning()
-                ->send();
+                ->body('Anda keluar pukul '.$now->format('H:i').'. Jadwal: '.Carbon::parse($shift->end_time)->format('H:i').'.')
+                ->warning();
         } else {
-            Notification::make()
-                ->title('Clock Out berhasil!')
-                ->body('Terima kasih, sampai jumpa!')
-                ->success()
-                ->send();
+            $notif = Notification::make()
+                ->title('Clock Out berhasil — Pukul '.$now->format('H:i'))
+                ->body('Selamat beristirahat! Terima kasih atas kerja keras Anda hari ini.')
+                ->success();
         }
+
+        $notif->send();
+        auth()->user()->notifyNow($notif->toDatabase());
     }
 
     private function calculateDistance(float $lat1, float $lng1, float $lat2, float $lng2): float

@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Casual\Pages\Auth\Login;
 use App\Filament\Casual\Pages\Auth\Register;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -27,13 +28,13 @@ class CasualPanelProvider extends PanelProvider
             ->id('casual')
             ->when($domain, fn (Panel $p) => $p->domain($domain)->path(''))
             ->when(! $domain, fn (Panel $p) => $p->path('casual'))
-            ->login()
+            ->login(Login::class)
             ->registration(Register::class)
             ->viteTheme('resources/css/filament/casual/theme.css')
             ->navigation(false)
             ->topbar(false)
             ->colors([
-                'primary' => Color::Purple,
+                'primary' => Color::Blue,
             ])
             ->discoverResources(in: app_path('Filament/Casual/Resources'), for: 'App\Filament\Casual\Resources')
             ->discoverPages(in: app_path('Filament/Casual/Pages'), for: 'App\Filament\Casual\Pages')

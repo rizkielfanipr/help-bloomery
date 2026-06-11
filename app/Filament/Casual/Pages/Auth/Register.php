@@ -6,11 +6,22 @@ use App\Models\CasualRegistrationToken;
 use Filament\Auth\Pages\Register as BaseRegister;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\ValidationException;
 
 class Register extends BaseRegister
 {
+    protected static string $layout = 'filament.casual.layouts.bare';
+
+    protected string $view = 'filament.casual.pages.auth.register';
+
+    public function getTitle(): string|Htmlable
+    {
+        return new HtmlString('');
+    }
+
     /** @var CasualRegistrationToken|null Stored between mutate and afterRegister hooks */
     protected ?CasualRegistrationToken $tokenRecord = null;
 

@@ -39,7 +39,11 @@ class HelpdeskPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => Blade::render('<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>'),
+                fn (): string => Blade::render(
+                    '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+                     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>'
+                ),
             )
             ->discoverResources(in: app_path('Filament/Helpdesk/Resources'), for: 'App\Filament\Helpdesk\Resources')
             ->resources([

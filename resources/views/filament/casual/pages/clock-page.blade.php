@@ -174,12 +174,9 @@
                  }).addTo(this.locMap);
 
                  // Shift center pin
-                 this.locMarkerShift = L.marker([this.shiftLat, this.shiftLng], {
-                     icon: L.divIcon({
-                         className: '',
-                         html: '<div style=\"width:14px;height:14px;background:#3b82f6;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(59,130,246,0.6)\"></div>',
-                         iconSize: [14,14], iconAnchor: [7,7]
-                     })
+                 this.locMarkerShift = L.circleMarker([this.shiftLat, this.shiftLng], {
+                     radius: 8, color: 'white', weight: 3,
+                     fillColor: '#3b82f6', fillOpacity: 1
                  }).addTo(this.locMap).bindTooltip('Lokasi Kerja', {direction:'top'});
 
                  // If location already detected when map opens
@@ -190,16 +187,16 @@
          updateUserMarker() {
              if (!this.locMap || !this.lat || !this.lng) return;
              this.calcDistance();
-             const color = this.locInArea ? '#10b981' : '#ef4444';
-             const html  = `<div style=\"width:18px;height:18px;background:${color};border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.35)\"></div>`;
-             const icon  = L.divIcon({ className:'', html, iconSize:[18,18], iconAnchor:[9,9] });
+             const fillColor = this.locInArea ? '#10b981' : '#ef4444';
 
              if (this.locMarkerUser) {
-                 this.locMarkerUser.setLatLng([this.lat, this.lng]).setIcon(icon);
+                 this.locMarkerUser.setLatLng([this.lat, this.lng]);
+                 this.locMarkerUser.setStyle({ fillColor });
              } else {
-                 this.locMarkerUser = L.marker([this.lat, this.lng], { icon })
-                     .addTo(this.locMap)
-                     .bindTooltip('Posisi Anda', {direction:'top'});
+                 this.locMarkerUser = L.circleMarker([this.lat, this.lng], {
+                     radius: 10, color: 'white', weight: 3,
+                     fillColor, fillOpacity: 1
+                 }).addTo(this.locMap).bindTooltip('Posisi Anda', {direction:'top'});
 
                  // Fit map to show both markers
                  try {

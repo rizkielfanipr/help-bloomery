@@ -1,7 +1,3 @@
-@push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-@endpush
-
 @php
     $user      = auth()->user();
     $shift     = $user->casualShift;
@@ -1012,7 +1008,3 @@
 
 </div>
 
-@push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-@endpush

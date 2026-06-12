@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CasualPosition extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'name',
         'fee_per_day',
@@ -25,5 +28,10 @@ class CasualPosition extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class, 'casual_position_id');
+    }
+
+    public function openings(): HasMany
+    {
+        return $this->hasMany(CasualPositionOpening::class);
     }
 }

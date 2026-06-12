@@ -33,5 +33,37 @@ class AdminUserSeeder extends Seeder
         );
 
         $admin->assignRole('super_admin');
+
+        $hrDepartment = Department::firstOrCreate(['code' => 'HR'], ['name' => 'Human Resources']);
+
+        $hr = User::firstOrCreate(
+            ['email' => 'hr@bloomery.test'],
+            [
+                'name' => 'HR Staff',
+                'username' => 'hr.staff',
+                'password' => Hash::make('password'),
+                'employee_id' => 'EMP-HR01',
+                'department_id' => $hrDepartment->id,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ],
+        );
+
+        $hr->assignRole('hr_staff');
+
+        $casual = User::firstOrCreate(
+            ['email' => 'casual@bloomery.test'],
+            [
+                'name' => 'Casual Worker',
+                'username' => 'casual.worker',
+                'password' => Hash::make('password'),
+                'employee_id' => 'EMP-CS01',
+                'department_id' => $hrDepartment->id,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ],
+        );
+
+        $casual->assignRole('casual_staff');
     }
 }

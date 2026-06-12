@@ -48,7 +48,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
                     </svg>
                 </a>
-                <h1 class="text-xl font-bold text-white">Laporan Kinerja</h1>
+                <h1 class="text-xl font-semibold text-white">Laporan Kinerja</h1>
             </div>
 
             {{-- Download PDF --}}
@@ -80,7 +80,7 @@
                 </svg>
             </button>
             <div class="text-center">
-                <p class="text-xl font-bold text-white">
+                <p class="text-xl font-semibold text-white">
                     {{ $monthNames[$month->month - 1] }} {{ $month->year }}
                 </p>
                 <p class="text-xs text-blue-200">{{ $workingDays }} hari kerja</p>
@@ -119,7 +119,7 @@
                             stroke-dashoffset="0"/>
                 </svg>
                 <div class="absolute flex flex-col items-center">
-                    <span @class(['text-3xl font-extrabold',
+                    <span @class(['text-3xl font-semibold',
                                   $attendanceRate >= 80 ? 'text-green-600' : ($attendanceRate >= 60 ? 'text-amber-500' : 'text-red-500')])>
                         {{ $attendanceRate }}%
                     </span>
@@ -135,7 +135,7 @@
         <div class="px-5">
             <div class="grid grid-cols-3 gap-3">
                 {{-- Hadir --}}
-                <div class="rounded-2xl bg-white p-4 text-center shadow-sm dark:bg-gray-900">
+                <div class="rounded-2xl bg-white p-4 text-center dark:bg-gray-900">
                     <div class="mb-1 flex justify-center">
                         <div class="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40">
                             <svg class="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -143,12 +143,12 @@
                             </svg>
                         </div>
                     </div>
-                    <p class="text-2xl font-extrabold text-gray-800 dark:text-white">{{ $presentCount }}</p>
+                    <p class="text-2xl font-semibold text-gray-800 dark:text-white">{{ $presentCount }}</p>
                     <p class="text-xs text-gray-400">Hadir</p>
                 </div>
 
                 {{-- Absen --}}
-                <div class="rounded-2xl bg-white p-4 text-center shadow-sm dark:bg-gray-900">
+                <div class="rounded-2xl bg-white p-4 text-center dark:bg-gray-900">
                     <div class="mb-1 flex justify-center">
                         <div class="flex h-9 w-9 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
                             <svg class="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -156,12 +156,12 @@
                             </svg>
                         </div>
                     </div>
-                    <p class="text-2xl font-extrabold text-gray-800 dark:text-white">{{ $absentCount }}</p>
+                    <p class="text-2xl font-semibold text-gray-800 dark:text-white">{{ $absentCount }}</p>
                     <p class="text-xs text-gray-400">Absen</p>
                 </div>
 
                 {{-- Terlambat --}}
-                <div class="rounded-2xl bg-white p-4 text-center shadow-sm dark:bg-gray-900">
+                <div class="rounded-2xl bg-white p-4 text-center dark:bg-gray-900">
                     <div class="mb-1 flex justify-center">
                         <div class="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40">
                             <svg class="h-5 w-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -169,7 +169,7 @@
                             </svg>
                         </div>
                     </div>
-                    <p class="text-2xl font-extrabold text-gray-800 dark:text-white">{{ $lateCount }}</p>
+                    <p class="text-2xl font-semibold text-gray-800 dark:text-white">{{ $lateCount }}</p>
                     <p class="text-xs text-gray-400">Terlambat</p>
                 </div>
             </div>
@@ -177,7 +177,7 @@
             {{-- Secondary stats --}}
             <div class="mt-3 grid grid-cols-2 gap-3">
                 {{-- Tepat Waktu --}}
-                <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
+                <div class="rounded-2xl bg-white p-4 dark:bg-gray-900">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/40">
                             <svg class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -185,14 +185,14 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-lg font-extrabold leading-none text-gray-800 dark:text-white">{{ $punctualityRate }}%</p>
+                            <p class="text-lg font-semibold leading-none text-gray-800 dark:text-white">{{ $punctualityRate }}%</p>
                             <p class="text-xs text-gray-400">Tepat Waktu</p>
                         </div>
                     </div>
                 </div>
 
                 {{-- Keluar Awal --}}
-                <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
+                <div class="rounded-2xl bg-white p-4 dark:bg-gray-900">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-900/40">
                             <svg class="h-5 w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -200,14 +200,14 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-lg font-extrabold leading-none text-gray-800 dark:text-white">{{ $earlyOutCount }}</p>
+                            <p class="text-lg font-semibold leading-none text-gray-800 dark:text-white">{{ $earlyOutCount }}</p>
                             <p class="text-xs text-gray-400">Keluar Awal</p>
                         </div>
                     </div>
                 </div>
 
                 {{-- Total Jam Kerja --}}
-                <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
+                <div class="rounded-2xl bg-white p-4 dark:bg-gray-900">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-900/40">
                             <svg class="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -215,14 +215,14 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-lg font-extrabold leading-none text-gray-800 dark:text-white">{{ $fmtHours($totalSeconds) }}</p>
+                            <p class="text-lg font-semibold leading-none text-gray-800 dark:text-white">{{ $fmtHours($totalSeconds) }}</p>
                             <p class="text-xs text-gray-400">Total Jam Kerja</p>
                         </div>
                     </div>
                 </div>
 
                 {{-- Rata-rata Jam --}}
-                <div class="rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
+                <div class="rounded-2xl bg-white p-4 dark:bg-gray-900">
                     <div class="flex items-center gap-3">
                         <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-900/40">
                             <svg class="h-5 w-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -230,7 +230,7 @@
                             </svg>
                         </div>
                         <div>
-                            <p class="text-lg font-extrabold leading-none text-gray-800 dark:text-white">{{ $fmtHours($avgSeconds) }}</p>
+                            <p class="text-lg font-semibold leading-none text-gray-800 dark:text-white">{{ $fmtHours($avgSeconds) }}</p>
                             <p class="text-xs text-gray-400">Rata-rata/Hari</p>
                         </div>
                     </div>
@@ -241,7 +241,7 @@
         {{-- ── Records List ── --}}
         <div class="mt-5 px-5">
             <div class="mb-3 flex items-center justify-between">
-                <h2 class="text-sm font-bold text-gray-700 dark:text-gray-300">Rincian Harian</h2>
+                <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Rincian Harian</h2>
                 <span class="text-xs text-gray-400">{{ $presentCount }} catatan</span>
             </div>
 
@@ -260,14 +260,14 @@
                                 ? $fmtHours((int) $rec->clock_in_at->diffInSeconds($rec->clock_out_at))
                                 : null;
                         @endphp
-                        <div class="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm dark:bg-gray-900">
+                        <div class="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 dark:bg-gray-900">
 
                             {{-- Date badge --}}
                             <div class="flex w-11 flex-shrink-0 flex-col items-center rounded-xl bg-blue-50 py-2 dark:bg-blue-900/30">
                                 <span class="text-[11px] font-semibold uppercase text-blue-400">
                                     {{ $dayNames[$rec->date->dayOfWeek] }}
                                 </span>
-                                <span class="text-base font-extrabold leading-none text-blue-700 dark:text-blue-300">
+                                <span class="text-base font-semibold leading-none text-blue-700 dark:text-blue-300">
                                     {{ $rec->date->format('d') }}
                                 </span>
                             </div>

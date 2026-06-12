@@ -18,7 +18,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
                 </svg>
             </a>
-            <h1 class="text-xl font-bold text-white">Riwayat Absensi</h1>
+            <h1 class="text-xl font-semibold text-white">Riwayat Absensi</h1>
         </div>
     </div>
 
@@ -50,7 +50,7 @@
 
                 {{-- Month header --}}
                 <div class="mb-2 mt-5 px-5 first:mt-0">
-                    <p class="text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                    <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
                         {{ $monthLabel }}
                     </p>
                 </div>
@@ -71,7 +71,7 @@
                             }
                         @endphp
 
-                        <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+                        <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
 
                             {{-- Card header: date + shift + work hours --}}
                             <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
@@ -93,7 +93,7 @@
                                         @endif
                                     </div>
                                     <div>
-                                        <p class="font-bold text-gray-900 dark:text-white text-sm">{{ $dateStr }}</p>
+                                        <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ $dateStr }}</p>
                                         @if($record->shift)
                                             <p class="text-xs text-gray-400">{{ $record->shift->name }}</p>
                                         @endif
@@ -102,7 +102,7 @@
                                 @if($workHours)
                                     <div class="text-right">
                                         <p class="text-xs text-gray-400">Durasi</p>
-                                        <p class="font-mono text-sm font-bold text-gray-700 dark:text-gray-300">{{ $workHours }}</p>
+                                        <p class="font-mono text-sm font-semibold text-gray-700 dark:text-gray-300">{{ $workHours }}</p>
                                     </div>
                                 @endif
                             </div>
@@ -119,7 +119,7 @@
                                     </div>
                                     <div>
                                         <p class="text-xs text-gray-400">Masuk</p>
-                                        <p class="font-mono font-bold text-gray-900 dark:text-white">
+                                        <p class="font-mono font-semibold text-gray-900 dark:text-white">
                                             {{ $hasClockedIn ? $record->clock_in_at->format('H:i') : '--:--' }}
                                         </p>
                                     </div>
@@ -154,7 +154,7 @@
                                     </div>
                                     <div>
                                         <p class="text-xs text-gray-400">Keluar</p>
-                                        <p class="font-mono font-bold text-gray-900 dark:text-white">
+                                        <p class="font-mono font-semibold text-gray-900 dark:text-white">
                                             {{ $hasClockedOut ? $record->clock_out_at->format('H:i') : '--:--' }}
                                         </p>
                                     </div>

@@ -3,7 +3,7 @@
     Parent must have: x-data="selfieCam('propertyName')"
 --}}
 <div class="px-4 pb-3">
-    <div class="overflow-hidden rounded-3xl bg-black shadow-xl">
+    <div class="overflow-hidden rounded-3xl bg-black">
 
         {{-- Live preview (square) --}}
         <div class="relative w-full" style="aspect-ratio:1/1;">
@@ -50,7 +50,7 @@
 
             {{-- Photo ready badge --}}
             <div x-show="hasPhoto && !uploading"
-                 class="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white shadow">
+                 class="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white">
                 <svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/>
                 </svg>
@@ -59,7 +59,7 @@
 
             {{-- Uploading badge --}}
             <div x-show="uploading"
-                 class="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white shadow">
+                 class="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white">
                 <svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
@@ -71,7 +71,7 @@
             <div x-show="hasStream && !hasPhoto"
                  class="absolute bottom-5 left-0 right-0 flex justify-center">
                 <button @click="shoot()"
-                        class="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-xl transition active:scale-90">
+                        class="flex h-16 w-16 items-center justify-center rounded-full bg-white transition active:scale-90">
                     <div class="h-11 w-11 rounded-full bg-white ring-4 ring-gray-300"></div>
                 </button>
             </div>

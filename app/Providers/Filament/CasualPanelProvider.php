@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Casual\Pages\Auth\Login;
 use App\Filament\Casual\Pages\Auth\Register;
+use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -31,6 +32,7 @@ class CasualPanelProvider extends PanelProvider
             ->login(Login::class)
             ->registration(Register::class)
             ->viteTheme('resources/css/filament/casual/theme.css')
+            ->defaultThemeMode(ThemeMode::Light)
             ->navigation(false)
             ->topbar(false)
             ->colors([

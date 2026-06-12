@@ -2,9 +2,9 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualShifts\RelationManagers;
 
-use Filament\Actions\AttachAction;
-use Filament\Actions\DetachAction;
-use Filament\Actions\DetachBulkAction;
+use Filament\Actions\AssociateAction;
+use Filament\Actions\DissociateAction;
+use Filament\Actions\DissociateBulkAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -40,16 +40,16 @@ class UsersRelationManager extends RelationManager
                     ->searchable(),
             ])
             ->toolbarActions([
-                AttachAction::make()
+                AssociateAction::make()
                     ->preloadRecordSelect()
                     ->recordSelectOptionsQuery(fn ($query) => $query->whereHas('roles', fn ($q) => $q->where('name', 'casual_staff')))
                     ->tooltip('Assign Staff'),
             ])
             ->recordActions([
-                DetachAction::make()->iconButton()->tooltip('Lepas dari shift ini'),
+                DissociateAction::make()->iconButton()->tooltip('Lepas dari shift ini'),
             ])
             ->groupedBulkActions([
-                DetachBulkAction::make(),
+                DissociateBulkAction::make(),
             ]);
     }
 }

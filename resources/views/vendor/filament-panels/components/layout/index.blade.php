@@ -36,6 +36,7 @@
             'icon'  => 'users-round',
             'items' => [
                 ['label' => 'Posisi Casual',     'href' => $r('filament.helpdesk.resources.casual-positions.index'),           'active' => request()->is('helpdesk/casual-positions*')],
+                ['label' => 'Lowongan Posisi',   'href' => $r('filament.helpdesk.resources.casual-position-openings.index'),  'active' => request()->is('helpdesk/casual-position-openings*')],
                 ['label' => 'Token Registrasi',  'href' => $r('filament.helpdesk.resources.casual-registration-tokens.index'), 'active' => request()->is('helpdesk/casual-registration-tokens*')],
                 ['label' => 'Jadwal Shift',       'href' => $r('filament.helpdesk.resources.casual-shifts.index'),              'active' => request()->is('helpdesk/casual-shifts*')],
                 ['label' => 'Absensi Casual',     'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),       'active' => request()->is('helpdesk/casual-clock-records*')],

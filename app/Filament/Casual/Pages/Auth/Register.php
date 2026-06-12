@@ -3,8 +3,10 @@
 namespace App\Filament\Casual\Pages\Auth;
 
 use App\Models\CasualRegistrationToken;
+use App\Models\User;
 use Filament\Auth\Pages\Register as BaseRegister;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
@@ -32,8 +34,6 @@ class Register extends BaseRegister
                 TextInput::make('token')
                     ->label('Token Registrasi')
                     ->required()
-                    ->placeholder('Masukkan token dari HR Admin')
-                    ->helperText('Token diberikan oleh HR Admin untuk proses pendaftaran')
                     ->extraAttributes(['autocomplete' => 'off']),
 
                 $this->getNameFormComponent(),
@@ -41,6 +41,46 @@ class Register extends BaseRegister
                 $this->getPasswordFormComponent(),
                 $this->getPasswordConfirmationFormComponent(),
             ]);
+    }
+
+    protected function getNameFormComponent(): Component
+    {
+        return TextInput::make('name')
+            ->label('Nama Lengkap')
+            ->required()
+            ->maxLength(255)
+            ->autofocus();
+    }
+
+    protected function getEmailFormComponent(): Component
+    {
+        return TextInput::make('email')
+            ->label('Email')
+            ->email()
+            ->required()
+            ->maxLength(255)
+            ->autocomplete('email');
+    }
+
+    protected function getPasswordFormComponent(): Component
+    {
+        return TextInput::make('password')
+            ->label('Kata Sandi')
+            ->password()
+            ->revealable(filament()->arePasswordsRevealable())
+            ->required()
+            ->autocomplete('new-password');
+    }
+
+    protected function getPasswordConfirmationFormComponent(): Component
+    {
+        return TextInput::make('passwordConfirmation')
+            ->label('Konfirmasi Kata Sandi')
+            ->password()
+            ->revealable(filament()->arePasswordsRevealable())
+            ->required()
+            ->autocomplete('new-password')
+            ->same('password');
     }
 
     /**
@@ -63,8 +103,23 @@ class Register extends BaseRegister
         $this->tokenRecord = $registrationToken;
 
         $data['is_active'] = true;
+        $data['username'] = $this->generateUsername($data['email']);
 
         return $data;
+    }
+
+    private function generateUsername(string $email): string
+    {
+        $base = strtolower(str_replace([' ', '.', '+'], '_', explode('@', $email)[0]));
+        $username = $base;
+        $suffix = 1;
+
+        while (User::where('username', $username)->exists()) {
+            $username = $base.'_'.$suffix;
+            $suffix++;
+        }
+
+        return $username;
     }
 
     protected function handleRegistration(array $data): Model

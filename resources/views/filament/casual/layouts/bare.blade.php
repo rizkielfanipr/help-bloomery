@@ -15,6 +15,16 @@
             [x-cloak=''], [x-cloak='x-cloak'], [x-cloak='1'] { display: none !important; }
         </style>
 
+        {{-- Initialise theme before any styles/scripts to avoid flash --}}
+        <script>
+            (function () {
+                var saved = localStorage.getItem('casual-theme') || 'light';
+                // Sync into the key Filament's JS reads so it respects our preference
+                localStorage.setItem('theme', saved);
+                if (saved === 'dark') document.documentElement.classList.add('dark');
+            })();
+        </script>
+
         @filamentStyles
 
         {{ filament()->getTheme()->getHtml() }}
@@ -38,6 +48,12 @@
         @livewire(Filament\Livewire\Notifications::class)
 
         @filamentScripts(withCore: true)
+
+        <script>
+            window.addEventListener('theme-changed', function (e) {
+                localStorage.setItem('casual-theme', e.detail);
+            });
+        </script>
 
         @stack('scripts')
     </body>

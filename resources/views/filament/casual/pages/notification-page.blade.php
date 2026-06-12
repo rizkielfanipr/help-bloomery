@@ -21,7 +21,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
                 </svg>
             </a>
-            <h1 class="text-xl font-bold text-white">Notifikasi</h1>
+            <h1 class="text-xl font-semibold text-white">Notifikasi</h1>
         </div>
     </div>
 
@@ -62,7 +62,7 @@
                             $color  = $data['status'] ?? $data['color'] ?? 'info';
                             $c      = $colorMap[$color] ?? $colorMap['info'];
                         @endphp
-                        <div class="flex items-start gap-3 rounded-2xl bg-white p-4 shadow-sm dark:bg-gray-900">
+                        <div class="flex items-start gap-3 rounded-2xl bg-white p-4 dark:bg-gray-900">
                             <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl {{ $c['icon_bg'] }}">
                                 @if($color === 'success')
                                     <svg class="h-5 w-5 {{ $c['icon_color'] }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">

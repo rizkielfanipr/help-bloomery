@@ -55,8 +55,28 @@ class ClockPage extends Page
 
     public function mount(): void
     {
-        if (auth()->user()->casual_position_id === null) {
-            $this->redirect(SelectPosition::getUrl());
+        $user = auth()->user();
+
+        if ($user->casual_position_id === null || $user->casual_shift_id === null) {
+            $this->redirect(route('filament.casual.pages.select-position'));
+
+            return;
+        }
+
+        $registration = $user->casualPositionRegistration()
+            ->with(['opening.casualShift'])
+            ->first();
+
+        if ($registration) {
+            $shiftStart = Carbon::parse(
+                $registration->opening->work_date->toDateString()
+                .' '
+                .$registration->opening->casualShift->start_time
+            );
+
+            if (now()->lt($shiftStart)) {
+                $this->redirect(route('filament.casual.pages.shift-detail-page'));
+            }
         }
     }
 

@@ -19,6 +19,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -88,20 +89,22 @@ class CasualShiftResource extends Resource
                             ->label('Wajib di Lokasi')
                             ->helperText('Jika aktif, staff harus berada dalam radius lokasi yang ditentukan')
                             ->live()
-                            ->default(false),
+                            ->default(false)
+                            ->columnSpanFull(),
 
+                        // Hidden fields — actual data binding; map component updates these via $wire.set()
                         TextInput::make('location_lat')
                             ->label('Latitude')
                             ->numeric()
                             ->nullable()
-                            ->placeholder('-7.7956')
+                            ->readOnly()
                             ->visible(fn ($get) => $get('location_required')),
 
                         TextInput::make('location_lng')
                             ->label('Longitude')
                             ->numeric()
                             ->nullable()
-                            ->placeholder('110.3695')
+                            ->readOnly()
                             ->visible(fn ($get) => $get('location_required')),
 
                         TextInput::make('location_radius_meters')
@@ -110,6 +113,10 @@ class CasualShiftResource extends Resource
                             ->minValue(10)
                             ->default(100)
                             ->suffix('m')
+                            ->readOnly()
+                            ->visible(fn ($get) => $get('location_required')),
+
+                        View::make('filament.helpdesk.components.location-picker')
                             ->visible(fn ($get) => $get('location_required')),
                     ])
                     ->columns(2),

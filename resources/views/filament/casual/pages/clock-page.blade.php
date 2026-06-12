@@ -726,21 +726,6 @@
              class="absolute inset-0 bg-black"
              style="display:none">
 
-            <style>
-                @keyframes faceScan {
-                    0%   { top: 2%; opacity: 0; }
-                    8%   { opacity: 1; }
-                    92%  { opacity: 1; }
-                    100% { top: 96%; opacity: 0; }
-                }
-                @keyframes ovalPulse {
-                    0%, 100% { opacity: 0.7; }
-                    50%       { opacity: 1; }
-                }
-                .face-scan-line  { animation: faceScan 2.4s ease-in-out infinite; }
-                .face-oval-ring  { animation: ovalPulse 2.4s ease-in-out infinite; }
-            </style>
-
             {{-- Camera feed --}}
             <video x-ref="video"
                    x-show="hasStream && !hasPhoto && !mockMode"

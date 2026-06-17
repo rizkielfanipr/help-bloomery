@@ -59,10 +59,10 @@
             'label' => 'Human Resources',
             'icon'  => 'users-round',
             'items' => [
-                ['label' => 'Posisi Casual',      'href' => $r('filament.helpdesk.resources.casual-positions.index'),             'active' => request()->is('helpdesk/casual-positions*')],
-                ['label' => 'Token Registrasi',   'href' => $r('filament.helpdesk.resources.casual-registration-tokens.index'),   'active' => request()->is('helpdesk/casual-registration-tokens*')],
-                ['label' => 'Jadwal Shift',        'href' => $r('filament.helpdesk.resources.casual-shifts.index'),                'active' => request()->is('helpdesk/casual-shifts*')],
-                ['label' => 'Absensi Casual',      'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),         'active' => request()->is('helpdesk/casual-clock-records*')],
+                ['label' => 'Posisi Casual',      'icon' => 'briefcase',      'href' => $r('filament.helpdesk.resources.casual-positions.index'),             'active' => request()->is('helpdesk/casual-positions*')],
+                ['label' => 'Token Registrasi',   'icon' => 'key-round',      'href' => $r('filament.helpdesk.resources.casual-registration-tokens.index'),   'active' => request()->is('helpdesk/casual-registration-tokens*')],
+                ['label' => 'Jadwal Shift',        'icon' => 'calendar-clock', 'href' => $r('filament.helpdesk.resources.casual-shifts.index'),                'active' => request()->is('helpdesk/casual-shifts*')],
+                ['label' => 'Absensi Casual',      'icon' => 'clock',          'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),         'active' => request()->is('helpdesk/casual-clock-records*')],
             ],
         ],
         [
@@ -70,10 +70,10 @@
             'label' => 'Driver',
             'icon'  => 'truck',
             'items' => [
-                ['label' => 'Perjalanan',          'href' => $r('filament.helpdesk.resources.trips.index'),           'active' => request()->is('helpdesk/trips*')],
-                ['label' => 'Rute Perjalanan',     'href' => $r('filament.helpdesk.resources.trip-routes.index'),     'active' => request()->is('helpdesk/trip-routes*')],
-                ['label' => 'Kendaraan',           'href' => $r('filament.helpdesk.resources.vehicles.index'),        'active' => request()->is('helpdesk/vehicles*')],
-                ['label' => 'Pengaturan Trip',     'href' => $r('filament.helpdesk.pages.driver-trip-settings'),      'active' => request()->is('helpdesk/driver-trip-settings*')],
+                ['label' => 'Perjalanan',          'icon' => 'map',            'href' => $r('filament.helpdesk.resources.trips.index'),           'active' => request()->is('helpdesk/trips*')],
+                ['label' => 'Rute Perjalanan',     'icon' => 'route',          'href' => $r('filament.helpdesk.resources.trip-routes.index'),     'active' => request()->is('helpdesk/trip-routes*')],
+                ['label' => 'Kendaraan',           'icon' => 'car',            'href' => $r('filament.helpdesk.resources.vehicles.index'),        'active' => request()->is('helpdesk/vehicles*')],
+                ['label' => 'Pengaturan Trip',     'icon' => 'settings',       'href' => $r('filament.helpdesk.pages.driver-trip-settings'),      'active' => request()->is('helpdesk/driver-trip-settings*')],
             ],
         ],
         [
@@ -81,8 +81,8 @@
             'label' => 'Technician',
             'icon'  => 'wrench',
             'items' => [
-                ['label' => 'Permintaan Servis',   'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => request()->is('helpdesk/service-requests*')],
-                ['label' => 'Pengaturan Teknisi',  'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => request()->is('helpdesk/technician-settings*')],
+                ['label' => 'Permintaan Servis',   'icon' => 'clipboard-list', 'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => request()->is('helpdesk/service-requests*')],
+                ['label' => 'Pengaturan Teknisi',  'icon' => 'settings',       'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => request()->is('helpdesk/technician-settings*')],
             ],
         ],
         [
@@ -90,10 +90,10 @@
             'label' => 'Purchasing',
             'icon'  => 'shopping-cart',
             'items' => [
-                ['label' => 'Permintaan Pembelian', 'href' => '#', 'active' => false],
-                ['label' => 'Approval Pembelian',   'href' => '#', 'active' => false],
-                ['label' => 'Vendor',               'href' => '#', 'active' => false],
-                ['label' => 'Monitoring Barang',    'href' => '#', 'active' => false],
+                ['label' => 'Permintaan Pembelian', 'icon' => 'shopping-bag',   'href' => '#', 'active' => false],
+                ['label' => 'Approval Pembelian',   'icon' => 'check-square',   'href' => '#', 'active' => false],
+                ['label' => 'Vendor',               'icon' => 'building-2',     'href' => '#', 'active' => false],
+                ['label' => 'Monitoring Barang',    'icon' => 'package',        'href' => '#', 'active' => false],
             ],
         ],
         [
@@ -101,10 +101,10 @@
             'label' => 'Information Technology',
             'icon'  => 'monitor',
             'items' => [
-                ['label' => 'Permintaan IT',        'href' => '#', 'active' => false],
-                ['label' => 'Pengaduan IT',          'href' => '#', 'active' => false],
-                ['label' => 'Asset IT',              'href' => '#', 'active' => false],
-                ['label' => 'Monitoring Jaringan',   'href' => '#', 'active' => false],
+                ['label' => 'Permintaan IT',        'icon' => 'laptop',         'href' => '#', 'active' => false],
+                ['label' => 'Pengaduan IT',          'icon' => 'alert-circle',   'href' => '#', 'active' => false],
+                ['label' => 'Asset IT',              'icon' => 'hard-drive',     'href' => '#', 'active' => false],
+                ['label' => 'Monitoring Jaringan',   'icon' => 'network',        'href' => '#', 'active' => false],
             ],
         ],
         [
@@ -112,10 +112,10 @@
             'label' => 'Finance',
             'icon'  => 'credit-card',
             'items' => [
-                ['label' => 'Permintaan Finance',   'href' => '#', 'active' => false],
-                ['label' => 'Approval Finance',      'href' => '#', 'active' => false],
-                ['label' => 'Pengeluaran',           'href' => '#', 'active' => false],
-                ['label' => 'Laporan Keuangan',      'href' => '#', 'active' => false],
+                ['label' => 'Permintaan Finance',   'icon' => 'receipt',        'href' => '#', 'active' => false],
+                ['label' => 'Approval Finance',      'icon' => 'check-square',   'href' => '#', 'active' => false],
+                ['label' => 'Pengeluaran',           'icon' => 'wallet',         'href' => '#', 'active' => false],
+                ['label' => 'Laporan Keuangan',      'icon' => 'bar-chart-2',    'href' => '#', 'active' => false],
             ],
         ],
         [
@@ -123,10 +123,10 @@
             'label' => 'Helpdesk',
             'icon'  => 'headphones',
             'items' => [
-                ['label' => 'Semua Permintaan',     'href' => $r('filament.helpdesk.resources.helpdesk-requests.index'),  'active' => request()->is('helpdesk/helpdesk-requests*')],
-                ['label' => 'Template Form',         'href' => $r('filament.helpdesk.resources.form-templates.index'),    'active' => request()->is('helpdesk/form-templates*')],
-                ['label' => 'Pengumuman',            'href' => '#', 'active' => false],
-                ['label' => 'FAQ',                   'href' => '#', 'active' => false],
+                ['label' => 'Semua Permintaan',     'icon' => 'inbox',          'href' => $r('filament.helpdesk.resources.helpdesk-requests.index'),  'active' => request()->is('helpdesk/helpdesk-requests*')],
+                ['label' => 'Template Form',         'icon' => 'file-text',      'href' => $r('filament.helpdesk.resources.form-templates.index'),    'active' => request()->is('helpdesk/form-templates*')],
+                ['label' => 'Pengumuman',            'icon' => 'megaphone',      'href' => '#', 'active' => false],
+                ['label' => 'FAQ',                   'icon' => 'help-circle',    'href' => '#', 'active' => false],
             ],
         ],
         [
@@ -134,10 +134,10 @@
             'label' => 'Management Access',
             'icon'  => 'shield',
             'items' => [
-                ['label' => 'Pengguna',             'href' => $r('filament.helpdesk.resources.users.index'),       'active' => request()->is('helpdesk/users*')],
-                ['label' => 'Role & Permission',    'href' => $r('filament.helpdesk.resources.roles.index'),       'active' => request()->is('helpdesk/roles*')],
-                ['label' => 'Department',           'href' => $r('filament.helpdesk.resources.departments.index'), 'active' => request()->is('helpdesk/departments*')],
-                ['label' => 'Pengaturan',           'href' => '#', 'active' => false],
+                ['label' => 'Pengguna',             'icon' => 'user',           'href' => $r('filament.helpdesk.resources.users.index'),       'active' => request()->is('helpdesk/users*')],
+                ['label' => 'Role & Permission',    'icon' => 'lock',           'href' => $r('filament.helpdesk.resources.roles.index'),       'active' => request()->is('helpdesk/roles*')],
+                ['label' => 'Department',           'icon' => 'building-2',     'href' => $r('filament.helpdesk.resources.departments.index'), 'active' => request()->is('helpdesk/departments*')],
+                ['label' => 'Pengaturan',           'icon' => 'settings',       'href' => '#', 'active' => false],
             ],
         ],
     ];
@@ -228,14 +228,17 @@
                     @foreach ($group['items'] as $item)
                         <a
                             href="{{ $item['href'] }}"
-                            class="block rounded-lg px-3 py-1.5 text-[13px] transition-all duration-150
+                            class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition-all duration-150
                                 {{ $item['active']
                                     ? 'bg-blue-50 font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
                                     : ($item['href'] === '#'
                                         ? 'cursor-not-allowed text-slate-400 dark:text-slate-600'
                                         : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-500 dark:hover:bg-white/5 dark:hover:text-slate-300') }}"
                             @if($item['href'] === '#') @click.prevent="" @endif
-                        >{{ $item['label'] }}</a>
+                        >
+                            <i data-lucide="{{ $item['icon'] }}" class="h-3.5 w-3.5 shrink-0"></i>
+                            {{ $item['label'] }}
+                        </a>
                     @endforeach
                 </div>
             </div>
@@ -392,15 +395,23 @@ document.addEventListener('alpine:init', () => {
         },
 
         toggleGroup(id) {
-            this.openGroups.includes(id)
-                ? (this.openGroups = this.openGroups.filter(g => g !== id))
-                : this.openGroups.push(id);
+            if (this.openGroups.includes(id)) {
+                this.openGroups = this.openGroups.filter(g => g !== id);
+            } else {
+                this.openGroups.push(id);
+                this.$nextTick(() => {
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                });
+            }
         },
 
         toggleSidebarGroup(id) {
             if (!this.sidebarOpen) {
                 this.sidebarOpen = true;
                 if (!this.openGroups.includes(id)) this.openGroups.push(id);
+                this.$nextTick(() => {
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                });
             } else {
                 this.toggleGroup(id);
             }

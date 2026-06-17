@@ -16,6 +16,8 @@ class TripDashboard extends Page
 
     protected static ?int $navigationSort = 0;
 
+    protected static string $layout = 'filament.driver.layouts.bare';
+
     protected string $view = 'filament.driver.pages.trip-dashboard';
 
     #[Computed]

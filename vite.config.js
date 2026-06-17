@@ -11,6 +11,7 @@ export default defineConfig({
                 'resources/css/filament/helpdesk/theme.css',
                 'resources/css/filament/casual/theme.css',
                 'resources/css/filament/driver/theme.css',
+                'resources/css/filament/technician/theme.css',
             ],
             refresh: true,
         }),

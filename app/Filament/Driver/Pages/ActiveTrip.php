@@ -29,6 +29,8 @@ class ActiveTrip extends Page
         return '/'.static::getSlug($panel).'/{trip}';
     }
 
+    protected static string $layout = 'filament.driver.layouts.bare';
+
     protected string $view = 'filament.driver.pages.active-trip';
 
     public int $trip;

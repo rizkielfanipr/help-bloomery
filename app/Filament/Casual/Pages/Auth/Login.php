@@ -2,8 +2,7 @@
 
 namespace App\Filament\Casual\Pages\Auth;
 
-use App\Filament\Casual\Pages\ClockPage;
-use App\Filament\Casual\Pages\PositionsPage;
+use App\Filament\Casual\Pages\LauncherPage;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Facades\Filament;
@@ -79,10 +78,6 @@ class Login extends BaseLogin
 
     private function resolveHomeUrl(mixed $user): string
     {
-        if ($user && $user->upcomingRegistrations()->exists()) {
-            return ClockPage::getUrl();
-        }
-
-        return PositionsPage::getUrl();
+        return LauncherPage::getUrl();
     }
 }

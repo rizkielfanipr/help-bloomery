@@ -24,6 +24,10 @@ class ViewServiceRequest extends ViewRecord
 {
     protected static string $resource = ServiceRequestResource::class;
 
+    protected static string $layout = 'filament.technician.layouts.bare';
+
+    protected string $view = 'filament.technician.resources.service-requests.pages.view-service-request';
+
     public function mount(int|string $record): void
     {
         parent::mount($record);

@@ -23,6 +23,8 @@ class StartTrip extends Page
 
     protected static ?int $navigationSort = 1;
 
+    protected static string $layout = 'filament.driver.layouts.bare';
+
     protected string $view = 'filament.driver.pages.start-trip';
 
     public ?array $data = [];

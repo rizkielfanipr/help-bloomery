@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -65,7 +66,22 @@ class User extends Authenticatable implements FilamentUser
 
     public function casualPositionRegistration(): HasOne
     {
-        return $this->hasOne(CasualPositionRegistration::class);
+        return $this->hasOne(CasualPositionRegistration::class)
+            ->whereHas('opening', fn ($q) => $q->where('work_date', '>=', today())->orderBy('work_date'))
+            ->ofMany(['id' => 'min'], fn ($q) => $q->whereHas(
+                'opening', fn ($q) => $q->where('work_date', '>=', today())
+            ));
+    }
+
+    public function casualPositionRegistrations(): HasMany
+    {
+        return $this->hasMany(CasualPositionRegistration::class);
+    }
+
+    public function upcomingRegistrations(): HasMany
+    {
+        return $this->hasMany(CasualPositionRegistration::class)
+            ->whereHas('opening', fn ($q) => $q->where('work_date', '>=', today()));
     }
 
     public function getActivitylogOptions(): LogOptions

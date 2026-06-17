@@ -45,8 +45,8 @@ class AttendancePage extends Page
     public function comingSoon(): void
     {
         Notification::make()
-            ->title('Segera Hadir')
-            ->body('Fitur ini sedang dalam pengembangan.')
+            ->title('Fitur Dalam Pengembangan')
+            ->body('Fitur ini belum tersedia saat ini.')
             ->info()
             ->send();
     }

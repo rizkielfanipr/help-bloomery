@@ -2,8 +2,10 @@
 
 namespace App\Filament\Casual\Pages\Auth;
 
+use App\Filament\Casual\Pages\PositionsPage;
 use App\Models\CasualRegistrationToken;
 use App\Models\User;
+use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
 use Filament\Auth\Pages\Register as BaseRegister;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
@@ -127,10 +129,22 @@ class Register extends BaseRegister
         /** @var Model $user */
         $user = parent::handleRegistration($data);
 
-        // Assign role and mark token inside same transaction
         $user->assignRole('casual_staff');
         $this->tokenRecord?->markAsUsed($user->id);
 
         return $user;
+    }
+
+    public function register(): ?RegistrationResponse
+    {
+        $response = parent::register();
+
+        if ($response !== null) {
+            redirect(PositionsPage::getUrl());
+
+            return null;
+        }
+
+        return null;
     }
 }

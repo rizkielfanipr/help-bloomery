@@ -1,11 +1,15 @@
 @php
     $user      = auth()->user();
-    $shift     = $user->casualShift;
+    $shift     = $this->effectiveShift;  // from registration, not user.casual_shift_id
     $record    = $this->todayRecord;
     $clockedIn = $record?->clock_in_at  !== null;
     $clockedOut= $record?->clock_out_at !== null;
     $stats     = $this->monthlyStats;
     $workHours = $this->workingHours;
+
+    $registration  = $this->activeRegistration;
+    $isPreShift    = $this->isPreShift;
+    $canCancelReg  = $this->canCancelRegistration;
 
     $firstName    = explode(' ', $user->name)[0];
     $monthName    = strtoupper(now()->locale('id')->isoFormat('MMM'));
@@ -181,7 +185,10 @@
 
                  // If location already detected when map opens
                  if (this.lat && this.lng) this.updateUserMarker();
-             }, 80);
+
+                 // Ensure tiles render after CSS transition completes
+                 setTimeout(() => this.locMap && this.locMap.invalidateSize(), 320);
+             }, 350);
          },
 
          updateUserMarker() {
@@ -249,11 +256,11 @@
              this.camError = null;
              this.mockMode = false;
              if (!window.isSecureContext) {
-                 this.camError = 'Kamera membutuhkan koneksi HTTPS. Hubungi admin untuk mengaktifkan HTTPS.';
+                 this.camError = 'Kamera memerlukan koneksi HTTPS. Silakan hubungi admin untuk mengaktifkan HTTPS.';
                  return;
              }
              if (!navigator.mediaDevices?.getUserMedia) {
-                 this.camError = 'Browser ini tidak mendukung akses kamera.';
+                 this.camError = 'Browser tidak mendukung akses kamera.';
                  return;
              }
              try {
@@ -266,7 +273,7 @@
                  if (v) { v.srcObject = this.stream; await v.play(); }
              } catch(e) {
                  if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-                     this.camError = 'Akses kamera ditolak. Izinkan akses kamera di pengaturan browser lalu coba lagi.';
+                     this.camError = 'Akses kamera ditolak. Silakan izinkan akses kamera melalui pengaturan browser dan coba kembali.';
                  } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
                      this.camError = 'Kamera tidak ditemukan di perangkat ini.';
                  } else {
@@ -310,11 +317,11 @@
                      this.detectingFace = false;
                      if (!detection) {
                          this.photo = null;
-                         this.showFaceToast('error', 'Wajah tidak terdeteksi. Posisikan wajah Anda di dalam bingkai oval dengan pencahayaan yang cukup.');
+                         this.showFaceToast('error', 'Wajah tidak terdeteksi. Pastikan wajah Anda berada di dalam bingkai oval dengan pencahayaan yang memadai.');
                          this.startCamera();
                          return;
                      }
-                     this.showFaceToast('success', 'Wajah berhasil terdeteksi!');
+                     this.showFaceToast('success', 'Wajah berhasil dideteksi.');
                  } catch(e) {
                      this.detectingFace = false;
                  }
@@ -325,7 +332,7 @@
              this.uploading = true;
              this.$wire.upload(this.uploadProp, file,
                  ()  => { this.uploading = false; },
-                 ()  => { this.uploading = false; this.camError = 'Upload gagal, coba lagi.'; }
+                 ()  => { this.uploading = false; this.camError = 'Gagal mengunggah foto. Silakan coba kembali.'; }
              );
          },
 
@@ -398,7 +405,7 @@
         {{-- Greeting --}}
         <div class="mt-5">
             <p class="text-sm font-medium text-blue-200">{{ now()->locale('id')->isoFormat('dddd, D MMMM YYYY') }}</p>
-            <h1 class="mt-0.5 text-xl font-semibold text-white">Halo, {{ $user->name }}!</h1>
+            <h1 class="mt-0.5 text-xl font-semibold text-white">Selamat Datang, {{ $user->name }}</h1>
         </div>
     </div>
 
@@ -407,20 +414,218 @@
     ════════════════════════════════════════════ --}}
     <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
 
-        {{-- ── Clock card ── --}}
+        {{-- ══════════════════════════
+             STATE: NO REGISTRATION
+        ══════════════════════════ --}}
+        @if(! $shift)
+            <div class="mx-5 mt-4 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+                <div class="flex flex-col items-center gap-4 px-5 py-10 text-center">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/20">
+                        <svg class="h-8 w-8 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900 dark:text-white">Shift Belum Terdaftar</p>
+                        <p class="mt-1 text-sm text-gray-400">Silakan pilih lowongan yang tersedia untuk mendaftar shift kerja.</p>
+                    </div>
+                    <a href="{{ \App\Filament\Casual\Pages\PositionsPage::getUrl() }}"
+                       class="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+                        </svg>
+                        Lihat Lowongan
+                    </a>
+                </div>
+            </div>
+
+        {{-- ══════════════════════════
+             STATE: PRE-SHIFT INFO
+        ══════════════════════════ --}}
+        @elseif($isPreShift)
+            @php
+                $regOpening   = $registration->opening;
+                $regPosition  = $regOpening->casualPosition;
+                $regShift     = $regOpening->casualShift;
+                $regLeader    = $regOpening->postedBy;
+                $hasPhone     = ! empty($regLeader?->phone);
+                $shiftLabel   = substr($regShift->start_time, 0, 5).'–'.substr($regShift->end_time, 0, 5);
+                $dateLabel    = $regOpening->work_date->locale('id')->isoFormat('dddd, D MMMM Y');
+                $shiftStartMs = $this->shiftStartedAt->timestamp * 1000;
+            @endphp
+
+            {{-- Registration info card --}}
+            <div class="mx-5 mt-4 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+                <div class="flex items-start justify-between px-5 pt-5">
+                    <div class="min-w-0 flex-1">
+                        <span class="inline-block rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">Terdaftar</span>
+                        <h2 class="mt-1.5 truncate text-xl font-bold text-gray-900 dark:text-white">{{ $regPosition->name }}</h2>
+                    </div>
+                    @if($regPosition->fee_per_day)
+                        <div class="ml-3 shrink-0 text-right">
+                            <p class="text-lg font-bold text-green-600 dark:text-green-400">Rp {{ number_format($regPosition->fee_per_day, 0, ',', '.') }}</p>
+                            <p class="text-xs text-gray-400">/hari</p>
+                        </div>
+                    @endif
+                </div>
+
+                <div class="mx-5 mt-4 border-t border-gray-100 dark:border-gray-800"></div>
+
+                <div class="space-y-3 px-5 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20">
+                            <svg class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-gray-400">Tanggal Kerja</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $dateLabel }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20">
+                            <svg class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-gray-400">Jam Kerja</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                                {{ $shiftLabel }}
+                                <span class="font-normal text-gray-400">({{ $regShift->name }})</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20">
+                            <svg class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-medium text-gray-400">Lokasi</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $regOpening->location }}</p>
+                        </div>
+                    </div>
+                    @if($regLeader)
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20">
+                                <svg class="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-xs font-medium text-gray-400">Penanggung Jawab</p>
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $regLeader->name }}</p>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+
+                @if($regOpening->description)
+                    <div class="mx-5 mb-4 rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                        <p class="text-xs italic text-gray-500 dark:text-gray-400">{{ $regOpening->description }}</p>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Countdown card --}}
+            <div class="mx-5 mt-4 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+                <div class="px-5 py-4 text-center"
+                     x-data="{
+                         target: {{ $shiftStartMs }},
+                         days: 0, hours: 0, minutes: 0, seconds: 0,
+                         init() { this.tick(); setInterval(() => this.tick(), 1000); },
+                         tick() {
+                             const diff = this.target - Date.now();
+                             if (diff <= 0) { this.days = this.hours = this.minutes = this.seconds = 0; return; }
+                             this.days    = Math.floor(diff / 86400000);
+                             this.hours   = Math.floor((diff % 86400000) / 3600000);
+                             this.minutes = Math.floor((diff % 3600000)  / 60000);
+                             this.seconds = Math.floor((diff % 60000)    / 1000);
+                         },
+                         pad(v) { return String(v).padStart(2, '0'); }
+                     }">
+                    <p class="text-xs font-semibold uppercase tracking-widest text-gray-400">Shift Akan Dimulai Dalam</p>
+                    <div class="mt-3 flex items-end justify-center gap-1.5">
+                        <template x-if="days > 0">
+                            <div class="flex flex-col items-center">
+                                <span class="font-mono text-3xl font-bold text-blue-600 dark:text-blue-400" x-text="days"></span>
+                                <span class="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">hari</span>
+                            </div>
+                        </template>
+                        <template x-if="days > 0">
+                            <span class="mb-4 text-xl font-light text-gray-300 dark:text-gray-600">:</span>
+                        </template>
+                        <div class="flex flex-col items-center">
+                            <span class="font-mono text-3xl font-bold text-blue-600 dark:text-blue-400" x-text="pad(hours)"></span>
+                            <span class="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">jam</span>
+                        </div>
+                        <span class="mb-4 text-xl font-light text-gray-300 dark:text-gray-600">:</span>
+                        <div class="flex flex-col items-center">
+                            <span class="font-mono text-3xl font-bold text-blue-600 dark:text-blue-400" x-text="pad(minutes)"></span>
+                            <span class="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">menit</span>
+                        </div>
+                        <span class="mb-4 text-xl font-light text-gray-300 dark:text-gray-600">:</span>
+                        <div class="flex flex-col items-center">
+                            <span class="font-mono text-3xl font-bold text-blue-600 dark:text-blue-400" x-text="pad(seconds)"></span>
+                            <span class="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">detik</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Cancel / contact admin --}}
+            <div class="mx-5 mt-4 space-y-3">
+                @if($canCancelReg)
+                    <button
+                        wire:click="cancelRegistration"
+                        wire:confirm="Batalkan pendaftaran ini? Anda dapat mendaftar ke lowongan lain setelah pembatalan diproses."
+                        wire:loading.attr="disabled"
+                        wire:target="cancelRegistration"
+                        class="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-red-200 bg-red-50 py-4 text-sm font-semibold text-red-600 transition active:bg-red-100 disabled:opacity-50 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400"
+                    >
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                        </svg>
+                        <span wire:loading.remove wire:target="cancelRegistration">Batalkan Pendaftaran</span>
+                        <span wire:loading wire:target="cancelRegistration">Memproses...</span>
+                    </button>
+                @else
+                    <div class="flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3.5 ring-1 ring-black/5 dark:bg-gray-800 dark:ring-white/10">
+                        <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/>
+                        </svg>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Pembatalan tidak dapat dilakukan kurang dari 24 jam sebelum shift. Hubungi HR Admin untuk bantuan.</p>
+                    </div>
+                @endif
+
+                @if($hasPhone)
+                    <a href="{{ $this->getWhatsappUrl() }}"
+                       target="_blank"
+                       class="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-500 py-4 text-sm font-bold text-white shadow-sm transition active:scale-95 active:bg-green-600">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                        </svg>
+                        Hubungi via WhatsApp
+                    </a>
+                @endif
+            </div>
+
+        @else
+
+        {{-- ══════════════════════════
+             STATE: CLOCK IN / OUT
+        ══════════════════════════ --}}
         <div class="mx-5 mt-4 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
 
             {{-- Shift badge + status --}}
             <div class="flex items-center justify-between px-5 pt-5">
-                @if($shift)
-                    <span class="rounded-full bg-teal-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">
-                        {{ strtoupper($shift->name) }}
-                    </span>
-                @else
-                    <span class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        Shift Belum Diatur
-                    </span>
-                @endif
+                <span class="rounded-full bg-teal-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-700 dark:bg-teal-900/30 dark:text-teal-400">
+                    {{ strtoupper($shift->name) }}
+                </span>
 
                 @if($clockedOut)
                     <span class="flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
@@ -518,6 +723,23 @@
             </div>
         </div>
 
+        @endif {{-- end @else (has shift) --}}
+
+        {{-- ── WhatsApp contact (shown during/after shift if leader has phone) ── --}}
+        @if(! $isPreShift && $registration?->opening?->postedBy?->phone)
+            @php $leader = $registration->opening->postedBy; @endphp
+            <div class="mx-5 mt-4">
+                <a href="{{ $this->getWhatsappUrl() }}"
+                   target="_blank"
+                   class="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-500 py-4 text-sm font-bold text-white shadow-sm transition active:scale-95 active:bg-green-600">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                    </svg>
+                    Hubungi via WhatsApp
+                </a>
+            </div>
+        @endif
+
         {{-- ── Monthly attendance section ── --}}
         <div class="mx-5 mt-5">
             <div class="flex items-center justify-between">
@@ -553,7 +775,7 @@
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
                 </svg>
-                Buat Pengajuan
+                Ajukan Permohonan
             </button>
         </div>
 
@@ -576,12 +798,26 @@
              STEP 1: LOCATION VERIFICATION
         ══════════════════════════════════════ --}}
         <div x-show="step === 'location'"
-             class="absolute inset-0 flex flex-col bg-gray-950"
+             class="absolute inset-0"
              style="display:none">
 
-            {{-- Top bar --}}
-            <div class="shrink-0 px-5 pb-4 pt-12"
-                 style="background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)">
+            {{-- Map fills entire screen --}}
+            <div x-ref="locationMap" wire:ignore
+                 class="absolute inset-0 z-0 bg-gray-950"></div>
+
+            {{-- Detecting GPS spinner --}}
+            <div x-show="locStatus === 'detecting'"
+                 class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gray-950/80 backdrop-blur-sm z-10">
+                <svg class="h-10 w-10 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                <p class="text-sm font-medium text-white/70">Mendeteksi posisi GPS...</p>
+            </div>
+
+            {{-- Top bar (floating) --}}
+            <div class="absolute inset-x-0 top-0 z-20 px-5 pb-6 pt-12"
+                 style="background: linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, transparent 100%)">
                 <div class="flex items-center justify-between">
                     <button @click="close()"
                             class="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition active:bg-white/25">
@@ -597,44 +833,28 @@
                            x-text="action === 'in' ? 'Clock In' : 'Clock Out'"></p>
                     </div>
 
-                    {{-- Spacer to balance the back button --}}
                     <div class="h-10 w-10"></div>
                 </div>
             </div>
 
-            {{-- Map container (fills remaining space) --}}
-            <div class="relative flex-1">
-                <div x-ref="locationMap" wire:ignore
-                     class="absolute inset-0"></div>
-
-                {{-- Detecting GPS spinner --}}
-                <div x-show="locStatus === 'detecting'"
-                     class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gray-950/80 backdrop-blur-sm z-10">
-                    <svg class="h-10 w-10 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                    </svg>
-                    <p class="text-sm font-medium text-white/70">Mendeteksi posisi GPS...</p>
+            {{-- Legend chips (floating, below top bar) --}}
+            <div x-show="locStatus !== 'detecting'"
+                 class="absolute left-3 top-28 z-10 flex flex-col gap-1.5">
+                <div class="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm text-xs text-white">
+                    <span class="h-3 w-3 rounded-full bg-blue-500 ring-2 ring-white/50"></span>
+                    Lokasi Kerja
                 </div>
-
-                {{-- Legend chips --}}
-                <div x-show="locStatus !== 'detecting'"
-                     class="absolute left-3 top-3 z-10 flex flex-col gap-1.5">
-                    <div class="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm text-xs text-white">
-                        <span class="h-3 w-3 rounded-full bg-blue-500 ring-2 ring-white/50"></span>
-                        Lokasi Kerja
-                    </div>
-                    <div class="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm text-xs text-white">
-                        <span class="h-3 w-3 rounded-full"
-                              :class="locInArea ? 'bg-emerald-500' : 'bg-red-500'"
-                              style="box-shadow:0 0 0 2px rgba(255,255,255,0.4)"></span>
-                        Posisi Anda
-                    </div>
+                <div class="flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 backdrop-blur-sm text-xs text-white">
+                    <span class="h-3 w-3 rounded-full"
+                          :class="locInArea ? 'bg-emerald-500' : 'bg-red-500'"
+                          style="box-shadow:0 0 0 2px rgba(255,255,255,0.4)"></span>
+                    Posisi Anda
                 </div>
             </div>
 
-            {{-- Status card + action button --}}
-            <div class="shrink-0 space-y-3 px-5 pb-12 pt-4 bg-gray-950">
+            {{-- Status card + action button (floating at bottom) --}}
+            <div class="absolute inset-x-0 bottom-0 z-20 space-y-3 px-5 pb-12 pt-6"
+                 style="background: linear-gradient(to top, rgba(3,7,18,0.96) 0%, rgba(3,7,18,0.85) 55%, transparent 100%)">
 
                 {{-- Status card --}}
                 <div x-show="locStatus !== 'idle' && locStatus !== 'detecting'"
@@ -948,45 +1168,7 @@
 
     </div>{{-- end overlay --}}
 
-    {{-- ════════════════════════════════════════════
-         FIXED BOTTOM NAVIGATION
-    ════════════════════════════════════════════ --}}
-    <div class="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-100 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
-
-        <a href="{{ \App\Filament\Casual\Pages\ClockPage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M11.47 3.841a.75.75 0 0 1 1.06 0l8.69 8.69a.75.75 0 1 0 1.06-1.061l-8.689-8.69a2.25 2.25 0 0 0-3.182 0l-8.69 8.69a.75.75 0 1 0 1.061 1.06l8.69-8.689Z"/>
-                <path d="m12 5.432 8.159 8.159c.03.03.06.058.091.086v6.198c0 1.035-.84 1.875-1.875 1.875H15a.75.75 0 0 1-.75-.75v-4.5a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75V21a.75.75 0 0 1-.75.75H5.625a1.875 1.875 0 0 1-1.875-1.875v-6.198a2.29 2.29 0 0 0 .091-.086L12 5.432Z"/>
-            </svg>
-            <span class="text-xs font-semibold text-blue-600">Beranda</span>
-        </a>
-
-        <a href="{{ \App\Filament\Casual\Pages\AttendancePage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-            </svg>
-            <span class="text-xs text-gray-400">Absensi</span>
-        </a>
-
-        <a href="{{ \App\Filament\Casual\Pages\ReportPage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-            </svg>
-            <span class="text-xs text-gray-400">Laporan</span>
-        </a>
-
-        <a href="{{ \App\Filament\Casual\Pages\ProfilePage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
-            </svg>
-            <span class="text-xs text-gray-400">Profil</span>
-        </a>
-
-    </div>
+    <x-casual.bottom-nav active="clock" />
 
 </div>
 

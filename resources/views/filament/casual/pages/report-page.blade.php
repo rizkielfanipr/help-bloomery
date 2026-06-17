@@ -323,45 +323,6 @@
     {{-- ════════════════════════════════════════════
          BOTTOM NAVIGATION
     ════════════════════════════════════════════ --}}
-    <div class="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-100 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-950/95">
-
-        {{-- Beranda --}}
-        <a href="{{ \App\Filament\Casual\Pages\ClockPage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
-            </svg>
-            <span class="text-xs text-gray-400">Beranda</span>
-        </a>
-
-        {{-- Absensi --}}
-        <a href="{{ \App\Filament\Casual\Pages\AttendancePage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-            </svg>
-            <span class="text-xs text-gray-400">Absensi</span>
-        </a>
-
-        {{-- Laporan (active) --}}
-        <a href="{{ \App\Filament\Casual\Pages\ReportPage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path fill-rule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 14.25a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Zm0-3a.75.75 0 0 0 0 1.5H15a.75.75 0 0 0 0-1.5H9.75Z" clip-rule="evenodd"/>
-                <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z"/>
-            </svg>
-            <span class="text-xs font-semibold text-blue-600">Laporan</span>
-        </a>
-
-        {{-- Profil --}}
-        <a href="{{ \App\Filament\Casual\Pages\ProfilePage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>
-            </svg>
-            <span class="text-xs text-gray-400">Profil</span>
-        </a>
-
-    </div>
+    <x-casual.bottom-nav active="report" />
 
 </div>

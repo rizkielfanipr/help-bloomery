@@ -16,6 +16,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -70,30 +71,62 @@ class CasualPositionOpeningResource extends Resource
                             ->searchable()
                             ->required(),
 
+                        TextInput::make('location')
+                            ->label('Lokasi')
+                            ->required()
+                            ->placeholder('Contoh: Gudang Utama Lt. 2, Jl. Sudirman'),
+
+                        // Create: pick multiple dates, each with its own shift + slots
+                        Repeater::make('schedules')
+                            ->label('Jadwal (Tanggal, Shift & Slot)')
+                            ->schema([
+                                DatePicker::make('work_date')
+                                    ->label('Tanggal')
+                                    ->required()
+                                    ->minDate(today()),
+                                Select::make('casual_shift_id')
+                                    ->label('Shift')
+                                    ->options(CasualShift::where('is_active', true)->get()->mapWithKeys(
+                                        fn (CasualShift $s): array => [$s->id => $s->name.' ('.substr($s->start_time, 0, 5).'-'.substr($s->end_time, 0, 5).')']
+                                    ))
+                                    ->searchable()
+                                    ->required(),
+                                TextInput::make('total_slots')
+                                    ->label('Jumlah Slot')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(1)
+                                    ->default(1),
+                            ])
+                            ->columns(3)
+                            ->minItems(1)
+                            ->defaultItems(1)
+                            ->addActionLabel('Tambah Jadwal')
+                            ->columnSpanFull()
+                            ->hidden(fn (string $operation): bool => $operation !== 'create'),
+
+                        // Edit: single date, shift + slot
+                        DatePicker::make('work_date')
+                            ->label('Tanggal Kerja')
+                            ->required()
+                            ->minDate(today())
+                            ->hidden(fn (string $operation): bool => $operation !== 'edit'),
+
                         Select::make('casual_shift_id')
                             ->label('Shift / Jam Kerja')
                             ->options(CasualShift::where('is_active', true)->get()->mapWithKeys(
                                 fn (CasualShift $s): array => [$s->id => $s->name.' ('.substr($s->start_time, 0, 5).'-'.substr($s->end_time, 0, 5).')']
                             ))
                             ->searchable()
-                            ->required(),
-
-                        TextInput::make('location')
-                            ->label('Lokasi')
                             ->required()
-                            ->placeholder('Contoh: Gudang Utama Lt. 2, Jl. Sudirman'),
-
-                        DatePicker::make('work_date')
-                            ->label('Tanggal Kerja')
-                            ->required()
-                            ->minDate(today()),
+                            ->hidden(fn (string $operation): bool => $operation !== 'edit'),
 
                         TextInput::make('total_slots')
                             ->label('Jumlah Slot')
                             ->numeric()
                             ->required()
                             ->minValue(1)
-                            ->default(1),
+                            ->hidden(fn (string $operation): bool => $operation !== 'edit'),
 
                         Toggle::make('is_active')
                             ->label('Buka Pendaftaran')

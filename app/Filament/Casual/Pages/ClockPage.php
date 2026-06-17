@@ -3,6 +3,8 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Models\CasualClockRecord;
+use App\Models\CasualPositionRegistration;
+use App\Models\CasualShift;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -55,29 +57,102 @@ class ClockPage extends Page
 
     public function mount(): void
     {
-        $user = auth()->user();
+        // State is handled entirely in the blade view
+    }
 
-        if ($user->casual_position_id === null || $user->casual_shift_id === null) {
-            $this->redirect(route('filament.casual.pages.select-position'));
+    #[Computed]
+    public function activeRegistration(): ?CasualPositionRegistration
+    {
+        return CasualPositionRegistration::where('user_id', auth()->id())
+            ->join('casual_position_openings', 'casual_position_openings.id', '=', 'casual_position_registrations.casual_position_opening_id')
+            ->where('casual_position_openings.work_date', '>=', today())
+            ->orderBy('casual_position_openings.work_date')
+            ->select('casual_position_registrations.*')
+            ->with(['opening.casualPosition', 'opening.casualShift', 'opening.postedBy'])
+            ->first();
+    }
+
+    #[Computed]
+    public function effectiveShift(): ?CasualShift
+    {
+        return $this->activeRegistration?->opening?->casualShift;
+    }
+
+    #[Computed]
+    public function shiftStartedAt(): ?Carbon
+    {
+        $reg = $this->activeRegistration;
+        if (! $reg) {
+            return null;
+        }
+
+        return Carbon::parse(
+            $reg->opening->work_date->toDateString()
+            .' '
+            .$reg->opening->casualShift->start_time
+        );
+    }
+
+    #[Computed]
+    public function isPreShift(): bool
+    {
+        $start = $this->shiftStartedAt;
+
+        return $start !== null && now()->lt($start);
+    }
+
+    #[Computed]
+    public function canCancelRegistration(): bool
+    {
+        $start = $this->shiftStartedAt;
+        if (! $start) {
+            return false;
+        }
+
+        return now()->diffInHours($start, false) >= 24;
+    }
+
+    public function cancelRegistration(): void
+    {
+        $registration = CasualPositionRegistration::where('user_id', auth()->id())
+            ->join('casual_position_openings', 'casual_position_openings.id', '=', 'casual_position_registrations.casual_position_opening_id')
+            ->where('casual_position_openings.work_date', '>=', today())
+            ->orderBy('casual_position_openings.work_date')
+            ->select('casual_position_registrations.*')
+            ->with(['opening.casualShift'])
+            ->first();
+
+        if (! $registration) {
+            unset($this->activeRegistration, $this->effectiveShift, $this->shiftStartedAt, $this->isPreShift, $this->canCancelRegistration);
 
             return;
         }
 
-        $registration = $user->casualPositionRegistration()
-            ->with(['opening.casualShift'])
-            ->first();
+        $shiftStart = Carbon::parse(
+            $registration->opening->work_date->toDateString()
+            .' '
+            .$registration->opening->casualShift->start_time
+        );
 
-        if ($registration) {
-            $shiftStart = Carbon::parse(
-                $registration->opening->work_date->toDateString()
-                .' '
-                .$registration->opening->casualShift->start_time
-            );
+        if (now()->diffInHours($shiftStart, false) < 24) {
+            Notification::make()
+                ->title('Pembatalan Tidak Dapat Diproses')
+                ->body('Pembatalan pendaftaran hanya dapat dilakukan lebih dari 24 jam sebelum shift dimulai.')
+                ->danger()
+                ->send();
 
-            if (now()->lt($shiftStart)) {
-                $this->redirect(route('filament.casual.pages.shift-detail-page'));
-            }
+            return;
         }
+
+        $registration->delete();
+
+        unset($this->activeRegistration, $this->effectiveShift, $this->shiftStartedAt, $this->isPreShift, $this->canCancelRegistration);
+
+        Notification::make()
+            ->title('Pendaftaran Berhasil Dibatalkan')
+            ->body('Silakan pilih lowongan lain untuk mendaftar kembali.')
+            ->success()
+            ->send();
     }
 
     #[Computed]
@@ -139,8 +214,8 @@ class ClockPage extends Page
     public function requestLeave(): void
     {
         Notification::make()
-            ->title('Segera Hadir')
-            ->body('Fitur pengajuan izin/cuti sedang dalam pengembangan.')
+            ->title('Fitur Dalam Pengembangan')
+            ->body('Fitur pengajuan izin/cuti belum tersedia saat ini.')
             ->info()
             ->send();
     }
@@ -148,8 +223,8 @@ class ClockPage extends Page
     public function comingSoon(): void
     {
         Notification::make()
-            ->title('Segera Hadir')
-            ->body('Fitur ini sedang dalam pengembangan.')
+            ->title('Fitur Dalam Pengembangan')
+            ->body('Fitur ini belum tersedia saat ini.')
             ->info()
             ->send();
     }
@@ -157,12 +232,12 @@ class ClockPage extends Page
     public function clockIn(): void
     {
         $user = auth()->user();
-        $shift = $user->casualShift;
+        $shift = $this->effectiveShift;
 
         if (! $shift) {
             Notification::make()
-                ->title('Shift belum diatur')
-                ->body('Hubungi HR Admin untuk mengatur shift Anda.')
+                ->title('Shift Belum Dikonfigurasi')
+                ->body('Silakan hubungi HR Admin untuk pengaturan shift Anda.')
                 ->danger()
                 ->send();
 
@@ -171,8 +246,8 @@ class ClockPage extends Page
 
         if (! $this->clockInPhoto) {
             Notification::make()
-                ->title('Foto selfie diperlukan')
-                ->body('Ambil foto selfie sebelum clock in.')
+                ->title('Foto Selfie Diperlukan')
+                ->body('Harap ambil foto selfie sebelum melakukan absensi masuk.')
                 ->danger()
                 ->send();
 
@@ -186,7 +261,8 @@ class ClockPage extends Page
 
         if ($existing) {
             Notification::make()
-                ->title('Sudah clock in hari ini')
+                ->title('Absensi Masuk Telah Tercatat')
+                ->body('Absensi masuk untuk hari ini telah tercatat sebelumnya.')
                 ->warning()
                 ->send();
 
@@ -201,8 +277,8 @@ class ClockPage extends Page
 
             if ($distance > $shift->location_radius_meters) {
                 Notification::make()
-                    ->title('Di luar area')
-                    ->body('Anda berada '.round($distance).'m dari lokasi shift. Radius: '.$shift->location_radius_meters.'m.')
+                    ->title('Lokasi Di Luar Area Kerja')
+                    ->body('Anda berada sejauh '.round($distance).' m dari lokasi kerja. Radius yang diizinkan: '.$shift->location_radius_meters.' m.')
                     ->danger()
                     ->send();
 
@@ -231,18 +307,17 @@ class ClockPage extends Page
         $this->latitude = null;
         $this->longitude = null;
 
-        unset($this->todayRecord);
-        unset($this->unreadCount);
+        unset($this->todayRecord, $this->unreadCount, $this->canCancelRegistration);
 
         if ($isLate) {
             $notif = Notification::make()
-                ->title('Clock In — Terlambat '.$lateMinutes.' menit')
-                ->body('Anda masuk pukul '.$now->format('H:i').'. Jadwal: '.Carbon::parse($shift->start_time)->format('H:i').'.')
+                ->title('Absensi Masuk — Terlambat '.$lateMinutes.' Menit')
+                ->body('Absensi masuk dicatat pukul '.$now->format('H:i').'. Jadwal masuk: '.Carbon::parse($shift->start_time)->format('H:i').'.')
                 ->warning();
         } else {
             $notif = Notification::make()
-                ->title('Clock In berhasil — Pukul '.$now->format('H:i'))
-                ->body('Selamat bekerja! Semoga hari Anda menyenangkan.')
+                ->title('Absensi Masuk Berhasil — Pukul '.$now->format('H:i'))
+                ->body('Absensi masuk Anda telah berhasil dicatat.')
                 ->success();
         }
 
@@ -254,8 +329,8 @@ class ClockPage extends Page
     {
         if (! $this->clockOutPhoto) {
             Notification::make()
-                ->title('Foto selfie diperlukan')
-                ->body('Ambil foto selfie sebelum clock out.')
+                ->title('Foto Selfie Diperlukan')
+                ->body('Harap ambil foto selfie sebelum melakukan absensi keluar.')
                 ->danger()
                 ->send();
 
@@ -279,8 +354,8 @@ class ClockPage extends Page
 
             if ($distance > $shift->location_radius_meters) {
                 Notification::make()
-                    ->title('Di luar area')
-                    ->body('Anda berada '.round($distance).'m dari lokasi shift.')
+                    ->title('Lokasi Di Luar Area Kerja')
+                    ->body('Anda berada sejauh '.round($distance).' m dari lokasi kerja.')
                     ->danger()
                     ->send();
 
@@ -305,24 +380,50 @@ class ClockPage extends Page
         $this->latitude = null;
         $this->longitude = null;
 
-        unset($this->todayRecord);
-        unset($this->unreadCount);
-        unset($this->userNotifications);
+        unset($this->todayRecord, $this->unreadCount, $this->userNotifications);
 
         if ($isEarlyOut) {
             $notif = Notification::make()
-                ->title('Clock Out — Pulang lebih awal '.$earlyOutMinutes.' menit')
-                ->body('Anda keluar pukul '.$now->format('H:i').'. Jadwal: '.Carbon::parse($shift->end_time)->format('H:i').'.')
+                ->title('Absensi Keluar — Lebih Awal '.$earlyOutMinutes.' Menit')
+                ->body('Absensi keluar dicatat pukul '.$now->format('H:i').'. Jadwal keluar: '.Carbon::parse($shift->end_time)->format('H:i').'.')
                 ->warning();
         } else {
             $notif = Notification::make()
-                ->title('Clock Out berhasil — Pukul '.$now->format('H:i'))
-                ->body('Selamat beristirahat! Terima kasih atas kerja keras Anda hari ini.')
+                ->title('Absensi Keluar Berhasil — Pukul '.$now->format('H:i'))
+                ->body('Absensi keluar Anda telah berhasil dicatat.')
                 ->success();
         }
 
         $notif->send();
         auth()->user()->notifyNow($notif->toDatabase());
+    }
+
+    public function getWhatsappUrl(): string
+    {
+        $registration = $this->activeRegistration;
+        $leader = $registration?->opening?->postedBy;
+        $phone = $this->normalizePhone($leader?->phone ?? '');
+        $user = auth()->user();
+        $opening = $registration?->opening;
+
+        $message = urlencode(
+            'Halo, saya '.$user->name
+            .'. Saya ingin menghubungi mengenai slot posisi '.$opening->casualPosition->name
+            .' pada '.$opening->work_date->translatedFormat('d M Y').'.'
+        );
+
+        return 'https://wa.me/'.$phone.'?text='.$message;
+    }
+
+    private function normalizePhone(string $phone): string
+    {
+        $digits = preg_replace('/\D/', '', $phone);
+
+        if (str_starts_with($digits, '0')) {
+            $digits = '62'.substr($digits, 1);
+        }
+
+        return $digits;
     }
 
     private function calculateDistance(float $lat1, float $lng1, float $lat2, float $lng2): float

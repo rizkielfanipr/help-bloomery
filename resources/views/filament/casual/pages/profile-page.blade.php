@@ -64,7 +64,7 @@
          async startCamera() {
              this.camError = null;
              if (!navigator.mediaDevices?.getUserMedia) {
-                 this.camError = 'Kamera tidak tersedia (butuh HTTPS atau localhost).';
+                 this.camError = 'Kamera tidak tersedia. Akses kamera memerlukan koneksi HTTPS.';
                  return;
              }
              try {
@@ -76,7 +76,7 @@
                  const v = this.$refs.video;
                  if (v) { v.srcObject = this.stream; await v.play(); }
              } catch (e) {
-                 this.camError = 'Tidak dapat membuka kamera: ' + e.message;
+                 this.camError = 'Kamera tidak dapat diakses: ' + e.message;
              }
          },
 
@@ -96,7 +96,7 @@
                  this.uploading = true;
                  this.$wire.upload('photo', file,
                      () => { this.uploading = false; },
-                     () => { this.uploading = false; this.camError = 'Upload gagal, coba lagi.'; }
+                     () => { this.uploading = false; this.camError = 'Gagal mengunggah foto. Silakan coba kembali.'; }
                  );
              }, 'image/jpeg', 0.9);
          },
@@ -361,7 +361,7 @@
             </div>
             <div class="text-center">
                 <p class="font-semibold text-gray-900 dark:text-white">Ganti Foto Profil</p>
-                <p class="mt-0.5 text-xs text-gray-400">Pilih cara mengambil foto</p>
+                <p class="mt-0.5 text-xs text-gray-400">Pilih sumber foto</p>
             </div>
         </div>
 
@@ -379,7 +379,7 @@
                 </div>
                 <div class="flex-1">
                     <p class="font-semibold text-gray-900 dark:text-white">Kamera</p>
-                    <p class="text-xs text-gray-400">Ambil selfie langsung</p>
+                    <p class="text-xs text-gray-400">Ambil foto melalui kamera</p>
                 </div>
                 <svg class="h-4 w-4 flex-shrink-0 text-blue-300 dark:text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
@@ -487,7 +487,7 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                 </svg>
-                <span class="text-sm">Mengupload foto...</span>
+                <span class="text-sm">Mengunggah foto...</span>
             </div>
         </div>
 
@@ -525,46 +525,6 @@
         </div>
     </div>
 
-    {{-- ════════════════════════════════════════════
-         FIXED BOTTOM NAVIGATION
-    ════════════════════════════════════════════ --}}
-    <div class="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-100 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
-
-        {{-- Home --}}
-        <a href="{{ \App\Filament\Casual\Pages\ClockPage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
-            </svg>
-            <span class="text-xs text-gray-400">Beranda</span>
-        </a>
-
-        {{-- Attendance --}}
-        <a href="{{ \App\Filament\Casual\Pages\AttendancePage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
-            </svg>
-            <span class="text-xs text-gray-400">Absensi</span>
-        </a>
-
-        {{-- Reports --}}
-        <a href="{{ \App\Filament\Casual\Pages\ReportPage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-            </svg>
-            <span class="text-xs text-gray-400">Laporan</span>
-        </a>
-
-        {{-- Profile (active) --}}
-        <a href="{{ \App\Filament\Casual\Pages\ProfilePage::getUrl() }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.437-.695Z" clip-rule="evenodd"/>
-            </svg>
-            <span class="text-xs font-semibold text-blue-600">Profil</span>
-        </a>
-    </div>
+    <x-casual.bottom-nav active="profile" />
 
 </div>

@@ -2,7 +2,11 @@
 
 namespace App\Filament\Casual\Pages\Auth;
 
+use App\Filament\Casual\Pages\ClockPage;
+use App\Filament\Casual\Pages\PositionsPage;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
@@ -45,5 +49,40 @@ class Login extends BaseLogin
         return Checkbox::make('remember')
             ->label('Ingat Saya')
             ->visible(false);
+    }
+
+    public function mount(): void
+    {
+        if (Filament::auth()->check()) {
+            $user = Filament::auth()->user();
+            redirect($this->resolveHomeUrl($user));
+
+            return;
+        }
+
+        $this->form->fill();
+    }
+
+    public function authenticate(): ?LoginResponse
+    {
+        $response = parent::authenticate();
+
+        if ($response !== null) {
+            $user = Filament::auth()->user();
+            redirect($this->resolveHomeUrl($user));
+
+            return null;
+        }
+
+        return null;
+    }
+
+    private function resolveHomeUrl(mixed $user): string
+    {
+        if ($user && $user->upcomingRegistrations()->exists()) {
+            return ClockPage::getUrl();
+        }
+
+        return PositionsPage::getUrl();
     }
 }

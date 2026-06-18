@@ -10,6 +10,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -45,6 +46,12 @@ class HelpdeskPanelProvider extends PanelProvider
                      <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>'
                 ),
             )
+            ->navigationGroups([
+                NavigationGroup::make('Human Resources')->icon('heroicon-o-user-group'),
+                NavigationGroup::make('Casual Staff')->icon('heroicon-o-identification'),
+                NavigationGroup::make('Manajemen Driver')->icon('heroicon-o-truck'),
+                NavigationGroup::make('Teknisi')->icon('heroicon-o-wrench-screwdriver'),
+            ])
             ->discoverResources(in: app_path('Filament/Helpdesk/Resources'), for: 'App\Filament\Helpdesk\Resources')
             ->resources([
                 UserResource::class,

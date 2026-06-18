@@ -22,7 +22,7 @@
     /* ── Auto-open the active group ──────────────────────────────── */
     $path = request()->path();
     $initialOpen = [];
-    if (str_contains($path, 'casual'))                              { $initialOpen[] = 'casual'; }
+    if (str_contains($path, 'casual') || str_contains($path, 'briefing-records')) { $initialOpen[] = 'casual'; }
     if (preg_match('/trip|vehicle|driver/', $path))                 { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path)) { $initialOpen[] = 'technician'; }
     if (preg_match('/helpdesk-request|form-template/', $path))      { $initialOpen[] = 'helpdesk-ops'; }
@@ -40,6 +40,7 @@
                 ['label' => 'Token Registrasi',  'icon' => 'key-round',      'href' => $r('filament.helpdesk.resources.casual-registration-tokens.index'), 'active' => request()->is('helpdesk/casual-registration-tokens*')],
                 ['label' => 'Jadwal Shift',       'icon' => 'calendar-clock', 'href' => $r('filament.helpdesk.resources.casual-shifts.index'),              'active' => request()->is('helpdesk/casual-shifts*')],
                 ['label' => 'Absensi Casual',     'icon' => 'clock',          'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),       'active' => request()->is('helpdesk/casual-clock-records*')],
+                ['label' => 'Daily Briefing',     'icon' => 'clipboard-list', 'href' => $r('filament.helpdesk.resources.briefing-records.index'),            'active' => request()->is('helpdesk/briefing-records*')],
             ],
         ],
         [

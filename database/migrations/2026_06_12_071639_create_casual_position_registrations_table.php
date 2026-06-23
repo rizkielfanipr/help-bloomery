@@ -14,7 +14,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
 
-            $table->unique('user_id');
             $table->unique(['casual_position_opening_id', 'user_id'], 'cpr_opening_user_unique');
         });
     }

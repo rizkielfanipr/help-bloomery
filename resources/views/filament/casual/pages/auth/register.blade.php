@@ -26,15 +26,6 @@
 
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Daftar</h2>
 
-        <div class="mt-4 flex items-start gap-2.5 rounded-xl bg-blue-50 px-4 py-3 dark:bg-blue-900/20">
-            <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/>
-            </svg>
-            <p class="text-sm text-blue-700 dark:text-blue-300">
-                Token registrasi diberikan oleh <strong>HR Admin</strong>. Hubungi admin jika belum memiliki token.
-            </p>
-        </div>
-
         <form wire:submit="register" class="mt-4 flex flex-col gap-4">
             {{ $this->form }}
 

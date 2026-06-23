@@ -8,17 +8,6 @@ return [
         'delete users',
     ],
 
-    'Helpdesk' => [
-        'view tickets',
-        'create tickets',
-        'edit tickets',
-        'delete tickets',
-        'assign tickets',
-        'close tickets',
-        'view internal comments',
-        'view helpdesk reports',
-    ],
-
     'Driver Logbook' => [
         'view driver logs',
         'create driver logs',

@@ -6,7 +6,6 @@ use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\CasualPosition;
-use App\Models\CasualShift;
 use App\Models\Department;
 use App\Models\User;
 use BackedEnum;
@@ -120,18 +119,6 @@ class UserResource extends Resource
                         Select::make('casual_position_id')
                             ->label('Posisi')
                             ->options(CasualPosition::pluck('name', 'id'))
-                            ->searchable()
-                            ->nullable(),
-
-                        Select::make('casual_shift_id')
-                            ->label('Shift')
-                            ->options(
-                                CasualShift::where('is_active', true)
-                                    ->get()
-                                    ->mapWithKeys(fn ($s) => [
-                                        $s->id => $s->name.' ('.substr($s->start_time, 0, 5).'–'.substr($s->end_time, 0, 5).')',
-                                    ])
-                            )
                             ->searchable()
                             ->nullable(),
                     ])

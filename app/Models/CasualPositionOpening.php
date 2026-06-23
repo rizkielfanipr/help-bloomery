@@ -14,8 +14,7 @@ class CasualPositionOpening extends Model
 
     protected $fillable = [
         'casual_position_id',
-        'casual_shift_id',
-        'location',
+        'branch_id',
         'work_date',
         'total_slots',
         'description',
@@ -37,9 +36,9 @@ class CasualPositionOpening extends Model
         return $this->belongsTo(CasualPosition::class);
     }
 
-    public function casualShift(): BelongsTo
+    public function branch(): BelongsTo
     {
-        return $this->belongsTo(CasualShift::class);
+        return $this->belongsTo(Branch::class);
     }
 
     public function postedBy(): BelongsTo

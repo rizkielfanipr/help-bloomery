@@ -4,15 +4,14 @@ namespace App\Filament\Helpdesk\Resources\CasualClockRecords;
 
 use App\Filament\Helpdesk\Resources\CasualClockRecords\Pages\ListCasualClockRecords;
 use App\Filament\Helpdesk\Resources\CasualClockRecords\Pages\ViewCasualClockRecord;
+use App\Models\Branch;
 use App\Models\CasualClockRecord;
-use App\Models\CasualShift;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
@@ -20,7 +19,6 @@ use Filament\Resources\resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -48,7 +46,7 @@ class CasualClockRecordResource extends Resource
                     Grid::make(3)->schema([
                         TextEntry::make('user.name')->label('Nama'),
                         TextEntry::make('user.casualPosition.name')->label('Posisi')->placeholder('-'),
-                        TextEntry::make('shift.name')->label('Shift'),
+                        TextEntry::make('branch.name')->label('Cabang')->placeholder('-'),
                         TextEntry::make('date')->label('Tanggal')->date('d M Y'),
                     ]),
                 ]),
@@ -57,8 +55,6 @@ class CasualClockRecordResource extends Resource
                 ->schema([
                     Grid::make(3)->schema([
                         TextEntry::make('clock_in_at')->label('Waktu')->dateTime('d M Y H:i:s')->placeholder('-'),
-                        IconEntry::make('is_late')->label('Terlambat')->boolean(),
-                        TextEntry::make('late_minutes')->label('Keterlambatan')->suffix(' menit')->placeholder('-'),
                         TextEntry::make('clock_in_lat')->label('Latitude')->placeholder('-'),
                         TextEntry::make('clock_in_lng')->label('Longitude')->placeholder('-'),
                     ]),
@@ -73,8 +69,6 @@ class CasualClockRecordResource extends Resource
                 ->schema([
                     Grid::make(3)->schema([
                         TextEntry::make('clock_out_at')->label('Waktu')->dateTime('d M Y H:i:s')->placeholder('-'),
-                        IconEntry::make('is_early_out')->label('Pulang Awal')->boolean(),
-                        TextEntry::make('early_out_minutes')->label('Lebih Awal')->suffix(' menit')->placeholder('-'),
                         TextEntry::make('clock_out_lat')->label('Latitude')->placeholder('-'),
                         TextEntry::make('clock_out_lng')->label('Longitude')->placeholder('-'),
                     ]),
@@ -100,8 +94,9 @@ class CasualClockRecordResource extends Resource
                     ->label('Posisi')
                     ->placeholder('-'),
 
-                TextColumn::make('shift.name')
-                    ->label('Shift'),
+                TextColumn::make('branch.name')
+                    ->label('Cabang')
+                    ->placeholder('-'),
 
                 TextColumn::make('date')
                     ->label('Tanggal')
@@ -113,23 +108,15 @@ class CasualClockRecordResource extends Resource
                     ->time('H:i')
                     ->placeholder('-'),
 
-                IconColumn::make('is_late')
-                    ->label('Terlambat')
-                    ->boolean(),
-
                 TextColumn::make('clock_out_at')
                     ->label('Clock Out')
                     ->time('H:i')
                     ->placeholder('-'),
-
-                IconColumn::make('is_early_out')
-                    ->label('Pulang Awal')
-                    ->boolean(),
             ])
             ->filters([
-                SelectFilter::make('shift_id')
-                    ->label('Shift')
-                    ->options(CasualShift::pluck('name', 'id'))
+                SelectFilter::make('branch_id')
+                    ->label('Cabang')
+                    ->options(Branch::where('is_active', true)->pluck('name', 'id'))
                     ->searchable(),
 
                 SelectFilter::make('user_id')
@@ -157,16 +144,18 @@ class CasualClockRecordResource extends Resource
 
                 Action::make('export_excel')
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
+                    ->color('success')
                     ->iconButton()
                     ->tooltip('Export Excel')
-                    ->action(function (): void {
-                        Notification::make()
-                            ->title('Segera hadir')
-                            ->body('Fitur Export Excel belum tersedia.')
-                            ->warning()
-                            ->send();
-                    }),
+                    ->url(function ($livewire): string {
+                        $filters = $livewire->tableFilters ?? [];
+
+                        return route('helpdesk.exports.casual-clock-records', array_filter([
+                            'branch_id' => $filters['branch_id']['value'] ?? null,
+                            'user_id' => $filters['user_id']['value'] ?? null,
+                        ]));
+                    })
+                    ->openUrlInNewTab(),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -185,6 +174,6 @@ class CasualClockRecordResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['user.casualPosition', 'shift']);
+            ->with(['user.casualPosition', 'branch']);
     }
 }

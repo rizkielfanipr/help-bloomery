@@ -7,9 +7,9 @@ use App\Filament\Helpdesk\Resources\CasualPositionOpenings\Pages\EditCasualPosit
 use App\Filament\Helpdesk\Resources\CasualPositionOpenings\Pages\ListCasualPositionOpenings;
 use App\Filament\Helpdesk\Resources\CasualPositionOpenings\Pages\ViewCasualPositionOpening;
 use App\Filament\Helpdesk\Resources\CasualPositionOpenings\RelationManagers\RegistrationsRelationManager;
+use App\Models\Branch;
 use App\Models\CasualPosition;
 use App\Models\CasualPositionOpening;
-use App\Models\CasualShift;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -71,26 +71,20 @@ class CasualPositionOpeningResource extends Resource
                             ->searchable()
                             ->required(),
 
-                        TextInput::make('location')
-                            ->label('Lokasi')
-                            ->required()
-                            ->placeholder('Contoh: Gudang Utama Lt. 2, Jl. Sudirman'),
+                        Select::make('branch_id')
+                            ->label('Cabang / Lokasi')
+                            ->options(Branch::where('is_active', true)->pluck('name', 'id'))
+                            ->searchable()
+                            ->nullable(),
 
-                        // Create: pick multiple dates, each with its own shift + slots
+                        // Create: pick multiple dates, each with its own slots
                         Repeater::make('schedules')
-                            ->label('Jadwal (Tanggal, Shift & Slot)')
+                            ->label('Jadwal (Tanggal & Slot)')
                             ->schema([
                                 DatePicker::make('work_date')
                                     ->label('Tanggal')
                                     ->required()
                                     ->minDate(today()),
-                                Select::make('casual_shift_id')
-                                    ->label('Shift')
-                                    ->options(CasualShift::where('is_active', true)->get()->mapWithKeys(
-                                        fn (CasualShift $s): array => [$s->id => $s->name.' ('.substr($s->start_time, 0, 5).'-'.substr($s->end_time, 0, 5).')']
-                                    ))
-                                    ->searchable()
-                                    ->required(),
                                 TextInput::make('total_slots')
                                     ->label('Jumlah Slot')
                                     ->numeric()
@@ -98,27 +92,18 @@ class CasualPositionOpeningResource extends Resource
                                     ->minValue(1)
                                     ->default(1),
                             ])
-                            ->columns(3)
+                            ->columns(2)
                             ->minItems(1)
                             ->defaultItems(1)
                             ->addActionLabel('Tambah Jadwal')
                             ->columnSpanFull()
                             ->hidden(fn (string $operation): bool => $operation !== 'create'),
 
-                        // Edit: single date, shift + slot
+                        // Edit: single date + slot
                         DatePicker::make('work_date')
                             ->label('Tanggal Kerja')
                             ->required()
                             ->minDate(today())
-                            ->hidden(fn (string $operation): bool => $operation !== 'edit'),
-
-                        Select::make('casual_shift_id')
-                            ->label('Shift / Jam Kerja')
-                            ->options(CasualShift::where('is_active', true)->get()->mapWithKeys(
-                                fn (CasualShift $s): array => [$s->id => $s->name.' ('.substr($s->start_time, 0, 5).'-'.substr($s->end_time, 0, 5).')']
-                            ))
-                            ->searchable()
-                            ->required()
                             ->hidden(fn (string $operation): bool => $operation !== 'edit'),
 
                         TextInput::make('total_slots')
@@ -148,7 +133,7 @@ class CasualPositionOpeningResource extends Resource
             ->defaultSort('work_date', 'asc')
             ->defaultPaginationPageOption(20)
             ->paginationPageOptions([20, 50, 100])
-            ->searchPlaceholder('Cari posisi / lokasi...')
+            ->searchPlaceholder('Cari posisi / cabang...')
             ->columns([
                 TextColumn::make('work_date')
                     ->label(static::colLabel('heroicon-m-calendar-days', 'Tanggal Kerja'))
@@ -160,20 +145,10 @@ class CasualPositionOpeningResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                TextColumn::make('location')
-                    ->label(static::colLabel('heroicon-m-map-pin', 'Lokasi'))
-                    ->searchable()
-                    ->limit(30),
-
-                TextColumn::make('casualShift.name')
-                    ->label(static::colLabel('heroicon-m-clock', 'Shift'))
-                    ->formatStateUsing(function (CasualPositionOpening $record): string {
-                        $shift = $record->casualShift;
-
-                        return $shift
-                            ? $shift->name.' ('.substr($shift->start_time, 0, 5).'-'.substr($shift->end_time, 0, 5).')'
-                            : '-';
-                    }),
+                TextColumn::make('branch.name')
+                    ->label(static::colLabel('heroicon-m-building-office-2', 'Cabang'))
+                    ->placeholder('-')
+                    ->searchable(),
 
                 TextColumn::make('registrations_count')
                     ->label(static::colLabel('heroicon-m-users', 'Slot'))

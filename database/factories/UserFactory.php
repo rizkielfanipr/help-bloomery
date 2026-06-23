@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\CasualPosition;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -12,16 +13,8 @@ use Illuminate\Support\Str;
  */
 class UserFactory extends Factory
 {
-    /**
-     * The current password being used by the factory.
-     */
     protected static ?string $password;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
         return [
@@ -33,13 +26,28 @@ class UserFactory extends Factory
         ];
     }
 
-    /**
-     * Indicate that the model's email address should be unverified.
-     */
     public function unverified(): static
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    public function casualStaff(): static
+    {
+        return $this->state(function (): array {
+            $phone = '08'.fake()->numerify('##########');
+
+            return [
+                'phone' => $phone,
+                'email' => $phone.'@casual.app',
+                'bank_name' => fake()->randomElement(['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB']),
+                'bank_account_number' => fake()->numerify('################'),
+                'is_active' => true,
+                'casual_position_id' => CasualPosition::inRandomOrder()->value('id'),
+            ];
+        })->afterCreating(function (User $user): void {
+            $user->assignRole('casual_staff');
+        });
     }
 }

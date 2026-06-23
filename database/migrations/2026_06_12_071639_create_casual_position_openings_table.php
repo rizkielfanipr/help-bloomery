@@ -11,8 +11,7 @@ return new class extends Migration
         Schema::create('casual_position_openings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('casual_position_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('casual_shift_id')->constrained()->cascadeOnDelete();
-            $table->string('location');
+            $table->foreignId('branch_id')->nullable()->nullOnDelete()->constrained('branches');
             $table->date('work_date');
             $table->unsignedSmallInteger('total_slots')->default(1);
             $table->text('description')->nullable();

@@ -9,7 +9,7 @@ class CasualClockRecord extends Model
 {
     protected $fillable = [
         'user_id',
-        'shift_id',
+        'branch_id',
         'date',
         'clock_in_at',
         'clock_in_photo',
@@ -19,10 +19,6 @@ class CasualClockRecord extends Model
         'clock_out_photo',
         'clock_out_lat',
         'clock_out_lng',
-        'is_late',
-        'late_minutes',
-        'is_early_out',
-        'early_out_minutes',
         'notes',
     ];
 
@@ -32,8 +28,6 @@ class CasualClockRecord extends Model
             'date' => 'date',
             'clock_in_at' => 'datetime',
             'clock_out_at' => 'datetime',
-            'is_late' => 'boolean',
-            'is_early_out' => 'boolean',
             'clock_in_lat' => 'float',
             'clock_in_lng' => 'float',
             'clock_out_lat' => 'float',
@@ -46,9 +40,9 @@ class CasualClockRecord extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function shift(): BelongsTo
+    public function branch(): BelongsTo
     {
-        return $this->belongsTo(CasualShift::class, 'shift_id');
+        return $this->belongsTo(Branch::class);
     }
 
     public function isClockedIn(): bool

@@ -3,8 +3,6 @@
 namespace App\Providers;
 
 use App\Http\Middleware\EnsureRole;
-use App\Models\HelpdeskFormTemplate;
-use App\Observers\HelpdeskFormTemplateObserver;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
@@ -20,8 +18,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::aliasMiddleware('role', EnsureRole::class);
-
-        HelpdeskFormTemplate::observe(HelpdeskFormTemplateObserver::class);
 
         $this->syncPermissions();
     }

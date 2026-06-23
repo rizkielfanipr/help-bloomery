@@ -1,7 +1,6 @@
 @php
     $user     = auth()->user();
     $position = $user->casualPosition;
-    $shift    = $user->casualShift;
     $initials = collect(explode(' ', $user->name))
         ->take(2)->map(fn ($w) => strtoupper($w[0]))->join('');
     $monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
@@ -239,18 +238,6 @@
             </div>
             <div class="mx-5 h-px bg-gray-100 dark:bg-gray-800"></div>
 
-            {{-- Shift --}}
-            <div class="flex items-center justify-between px-5 py-4">
-                <span class="text-sm text-gray-400">Shift</span>
-                <span class="text-sm font-semibold text-gray-900 dark:text-white">
-                    @if($shift)
-                        {{ $shift->name }}
-                        ({{ \Carbon\Carbon::parse($shift->start_time)->format('H:i') }}–{{ \Carbon\Carbon::parse($shift->end_time)->format('H:i') }})
-                    @else
-                        —
-                    @endif
-                </span>
-            </div>
         </div>
 
         {{-- ── Settings section ── --}}

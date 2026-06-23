@@ -4,7 +4,6 @@ namespace App\Filament\Casual\Pages;
 
 use App\Models\CasualPositionOpening;
 use App\Models\CasualPositionRegistration;
-use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -36,7 +35,7 @@ class PositionsPage extends Page
     public function availableOpenings(): Collection
     {
         return CasualPositionOpening::available()
-            ->with(['casualPosition', 'casualShift'])
+            ->with(['casualPosition', 'branch'])
             ->withCount('registrations')
             ->get();
     }
@@ -67,7 +66,7 @@ class PositionsPage extends Page
     {
         return CasualPositionRegistration::where('user_id', auth()->id())
             ->whereHas('opening', fn ($q) => $q->where('work_date', '>=', today()))
-            ->with(['opening.casualPosition', 'opening.casualShift', 'opening.postedBy'])
+            ->with(['opening.casualPosition', 'opening.branch', 'opening.postedBy'])
             ->get()
             ->sortBy(fn ($r) => $r->opening->work_date->timestamp)
             ->values();
@@ -75,23 +74,14 @@ class PositionsPage extends Page
 
     public function canCancelRegistration(CasualPositionRegistration $registration): bool
     {
-        $shift = $registration->opening->casualShift;
-        if (! $shift) {
-            return true;
-        }
-
-        $shiftStart = Carbon::parse(
-            $registration->opening->work_date->toDateString().' '.$shift->start_time
-        );
-
-        return now()->diffInHours($shiftStart, false) >= 24;
+        return now()->diffInHours($registration->opening->work_date->startOfDay(), false) >= 24;
     }
 
     public function cancelRegistration(int $registrationId): void
     {
         $registration = CasualPositionRegistration::where('id', $registrationId)
             ->where('user_id', auth()->id())
-            ->with(['opening.casualShift'])
+            ->with(['opening'])
             ->first();
 
         if (! $registration) {
@@ -103,7 +93,7 @@ class PositionsPage extends Page
         if (! $this->canCancelRegistration($registration)) {
             Notification::make()
                 ->title('Pembatalan Tidak Dapat Diproses')
-                ->body('Pembatalan pendaftaran hanya dapat dilakukan lebih dari 24 jam sebelum shift dimulai.')
+                ->body('Pembatalan pendaftaran hanya dapat dilakukan lebih dari 24 jam sebelum tanggal kerja.')
                 ->danger()
                 ->send();
 
@@ -135,7 +125,7 @@ class PositionsPage extends Page
             return;
         }
 
-        $opening = CasualPositionOpening::with(['casualPosition', 'casualShift'])
+        $opening = CasualPositionOpening::with(['casualPosition'])
             ->where('id', $openingId)
             ->where('is_active', true)
             ->where('work_date', '>=', today())

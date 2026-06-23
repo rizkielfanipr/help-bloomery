@@ -1,16 +1,18 @@
 <?php
 
-use App\Filament\Casual\Pages\SelectPosition;
+use App\Filament\Casual\Pages\PositionsPage;
 use App\Models\CasualPositionOpening;
 use App\Models\CasualPositionRegistration;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
 });
 
 function casualUser(): User
@@ -21,16 +23,13 @@ function casualUser(): User
     return $user;
 }
 
-it('redirects to shift-detail page if user already has a position', function () {
+it('shows registrations and available openings on the positions page', function () {
     $opening = CasualPositionOpening::factory()->create([
         'total_slots' => 5,
         'work_date' => today()->addDay(),
     ]);
     $user = casualUser();
-    $user->update([
-        'casual_position_id' => $opening->casual_position_id,
-        'casual_shift_id' => $opening->casual_shift_id,
-    ]);
+    $user->update(['casual_position_id' => $opening->casual_position_id]);
     CasualPositionRegistration::create([
         'casual_position_opening_id' => $opening->id,
         'user_id' => $user->id,
@@ -38,11 +37,11 @@ it('redirects to shift-detail page if user already has a position', function () 
 
     actingAs($user);
 
-    Livewire::test(SelectPosition::class)
-        ->assertRedirect(route('filament.casual.pages.shift-detail-page'));
+    Livewire::test(PositionsPage::class)
+        ->assertOk();
 });
 
-it('shows available openings on the war page', function () {
+it('shows available openings on the positions page', function () {
     $opening = CasualPositionOpening::factory()->create([
         'is_active' => true,
         'work_date' => today()->addDay(),
@@ -52,12 +51,11 @@ it('shows available openings on the war page', function () {
     $user = casualUser();
     actingAs($user);
 
-    Livewire::test(SelectPosition::class)
-        ->assertSee($opening->casualPosition->name)
-        ->assertSee($opening->location);
+    Livewire::test(PositionsPage::class)
+        ->assertSee($opening->casualPosition->name);
 });
 
-it('registers a user for an opening and sets position and shift', function () {
+it('registers a user for an opening', function () {
     $opening = CasualPositionOpening::factory()->create([
         'total_slots' => 5,
         'work_date' => today()->addDay(),
@@ -66,18 +64,12 @@ it('registers a user for an opening and sets position and shift', function () {
     $user = casualUser();
     actingAs($user);
 
-    Livewire::test(SelectPosition::class)
-        ->call('registerOpening', $opening->id)
-        ->assertRedirect(route('filament.casual.pages.shift-detail-page'));
-
-    $user->refresh();
+    Livewire::test(PositionsPage::class)
+        ->call('registerOpening', $opening->id);
 
     expect(CasualPositionRegistration::where('user_id', $user->id)
         ->where('casual_position_opening_id', $opening->id)
         ->exists())->toBeTrue();
-
-    expect($user->casual_position_id)->toBe($opening->casual_position_id);
-    expect($user->casual_shift_id)->toBe($opening->casual_shift_id);
 });
 
 it('denies registration when all slots are taken', function () {
@@ -96,11 +88,10 @@ it('denies registration when all slots are taken', function () {
     $user = casualUser();
     actingAs($user);
 
-    Livewire::test(SelectPosition::class)
+    Livewire::test(PositionsPage::class)
         ->call('registerOpening', $opening->id);
 
     expect(CasualPositionRegistration::where('user_id', $user->id)->exists())->toBeFalse();
-    expect($user->fresh()->casual_position_id)->toBeNull();
 });
 
 it('ignores past or closed openings', function () {
@@ -116,8 +107,8 @@ it('ignores past or closed openings', function () {
     $user = casualUser();
     actingAs($user);
 
-    $component = Livewire::test(SelectPosition::class);
-    $openings = $component->instance()->getOpenings();
+    $component = Livewire::test(PositionsPage::class);
+    $openings = $component->instance()->availableOpenings;
 
     expect($openings->pluck('id'))
         ->not->toContain($pastOpening->id)

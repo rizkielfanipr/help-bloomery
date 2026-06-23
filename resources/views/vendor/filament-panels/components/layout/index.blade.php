@@ -25,8 +25,8 @@
     if (str_contains($path, 'casual') || str_contains($path, 'briefing-records')) { $initialOpen[] = 'casual'; }
     if (preg_match('/trip|vehicle|driver/', $path))                 { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path)) { $initialOpen[] = 'technician'; }
-    if (preg_match('/helpdesk-request|form-template/', $path))      { $initialOpen[] = 'helpdesk-ops'; }
     if (preg_match('/\busers?\b|\broles?\b|department/', $path))    { $initialOpen[] = 'management'; }
+    if (str_contains($path, 'branches'))                             { $initialOpen[] = 'master'; }
 
     /* ── Navigation groups with real routes ───────────────────────*/
     $navGroups = [
@@ -35,10 +35,9 @@
             'label' => 'Human Resources',
             'icon'  => 'users-round',
             'items' => [
+                ['label' => 'Casual Staff',      'icon' => 'user-group',     'href' => $r('filament.helpdesk.resources.casual-staff.index'),              'active' => request()->is('helpdesk/casual-staff*')],
                 ['label' => 'Posisi Casual',     'icon' => 'briefcase',      'href' => $r('filament.helpdesk.resources.casual-positions.index'),           'active' => request()->is('helpdesk/casual-positions*')],
                 ['label' => 'Lowongan Posisi',   'icon' => 'megaphone',      'href' => $r('filament.helpdesk.resources.casual-position-openings.index'),  'active' => request()->is('helpdesk/casual-position-openings*')],
-                ['label' => 'Token Registrasi',  'icon' => 'key-round',      'href' => $r('filament.helpdesk.resources.casual-registration-tokens.index'), 'active' => request()->is('helpdesk/casual-registration-tokens*')],
-                ['label' => 'Jadwal Shift',       'icon' => 'calendar-clock', 'href' => $r('filament.helpdesk.resources.casual-shifts.index'),              'active' => request()->is('helpdesk/casual-shifts*')],
                 ['label' => 'Absensi Casual',     'icon' => 'clock',          'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),       'active' => request()->is('helpdesk/casual-clock-records*')],
                 ['label' => 'Daily Briefing',     'icon' => 'clipboard-list', 'href' => $r('filament.helpdesk.resources.briefing-records.index'),            'active' => request()->is('helpdesk/briefing-records*')],
             ],
@@ -101,8 +100,6 @@
             'label' => 'Helpdesk',
             'icon'  => 'headphones',
             'items' => [
-                ['label' => 'Semua Permintaan',     'icon' => 'inbox',         'href' => $r('filament.helpdesk.resources.helpdesk-requests.index'), 'active' => request()->is('helpdesk/helpdesk-requests*')],
-                ['label' => 'Template Form',         'icon' => 'file-text',     'href' => $r('filament.helpdesk.resources.form-templates.index'),   'active' => request()->is('helpdesk/form-templates*')],
                 ['label' => 'Pengumuman',            'icon' => 'megaphone',     'href' => '#', 'active' => false],
                 ['label' => 'FAQ',                   'icon' => 'help-circle',   'href' => '#', 'active' => false],
             ],
@@ -116,6 +113,14 @@
                 ['label' => 'Role & Permission',    'icon' => 'lock',          'href' => $r('filament.helpdesk.resources.roles.index'),       'active' => request()->is('helpdesk/roles*')],
                 ['label' => 'Department',           'icon' => 'building-2',    'href' => $r('filament.helpdesk.resources.departments.index'), 'active' => request()->is('helpdesk/departments*')],
                 ['label' => 'Pengaturan',           'icon' => 'settings',      'href' => '#', 'active' => false],
+            ],
+        ],
+        [
+            'id'    => 'master',
+            'label' => 'Master',
+            'icon'  => 'database',
+            'items' => [
+                ['label' => 'Branch', 'icon' => 'building-office-2', 'href' => $r('filament.helpdesk.resources.branches.index'), 'active' => request()->is('helpdesk/branches*')],
             ],
         ],
     ];

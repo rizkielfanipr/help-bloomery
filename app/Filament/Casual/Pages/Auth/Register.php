@@ -3,7 +3,6 @@
 namespace App\Filament\Casual\Pages\Auth;
 
 use App\Filament\Casual\Pages\PositionsPage;
-use App\Models\CasualRegistrationToken;
 use App\Models\User;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
 use Filament\Auth\Pages\Register as BaseRegister;
@@ -13,7 +12,6 @@ use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\HtmlString;
-use Illuminate\Validation\ValidationException;
 
 class Register extends BaseRegister
 {
@@ -26,20 +24,14 @@ class Register extends BaseRegister
         return new HtmlString('');
     }
 
-    /** @var CasualRegistrationToken|null Stored between mutate and afterRegister hooks */
-    protected ?CasualRegistrationToken $tokenRecord = null;
-
     public function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                TextInput::make('token')
-                    ->label('Token Registrasi')
-                    ->required()
-                    ->extraAttributes(['autocomplete' => 'off']),
-
                 $this->getNameFormComponent(),
-                $this->getEmailFormComponent(),
+                $this->getPhoneFormComponent(),
+                $this->getBankNameFormComponent(),
+                $this->getBankAccountNumberFormComponent(),
                 $this->getPasswordFormComponent(),
                 $this->getPasswordConfirmationFormComponent(),
             ]);
@@ -54,14 +46,33 @@ class Register extends BaseRegister
             ->autofocus();
     }
 
-    protected function getEmailFormComponent(): Component
+    protected function getPhoneFormComponent(): Component
     {
-        return TextInput::make('email')
-            ->label('Email')
-            ->email()
+        return TextInput::make('phone')
+            ->label('Nomor HP')
+            ->tel()
             ->required()
-            ->maxLength(255)
-            ->autocomplete('email');
+            ->maxLength(20)
+            ->unique(User::class, 'phone')
+            ->placeholder('08xxxxxxxxxx');
+    }
+
+    protected function getBankNameFormComponent(): Component
+    {
+        return TextInput::make('bank_name')
+            ->label('Nama Bank')
+            ->required()
+            ->maxLength(100)
+            ->placeholder('BCA, BRI, Mandiri, ...');
+    }
+
+    protected function getBankAccountNumberFormComponent(): Component
+    {
+        return TextInput::make('bank_account_number')
+            ->label('Nomor Rekening')
+            ->required()
+            ->maxLength(50)
+            ->placeholder('Nomor rekening Anda');
     }
 
     protected function getPasswordFormComponent(): Component
@@ -91,28 +102,16 @@ class Register extends BaseRegister
      */
     protected function mutateFormDataBeforeRegister(array $data): array
     {
-        $token = trim(strtoupper($data['token'] ?? ''));
-        unset($data['token']);
-
-        $registrationToken = CasualRegistrationToken::where('token', $token)->first();
-
-        if (! $registrationToken || ! $registrationToken->isValid()) {
-            throw ValidationException::withMessages([
-                'data.token' => 'Token tidak valid, sudah digunakan, atau sudah kadaluarsa.',
-            ]);
-        }
-
-        $this->tokenRecord = $registrationToken;
-
         $data['is_active'] = true;
-        $data['username'] = $this->generateUsername($data['email']);
+        $data['email'] = $data['phone'].'@casual.app';
+        $data['username'] = $this->generateUsername($data['phone']);
 
         return $data;
     }
 
-    private function generateUsername(string $email): string
+    private function generateUsername(string $phone): string
     {
-        $base = strtolower(str_replace([' ', '.', '+'], '_', explode('@', $email)[0]));
+        $base = 'casual_'.preg_replace('/\D/', '', $phone);
         $username = $base;
         $suffix = 1;
 
@@ -130,7 +129,6 @@ class Register extends BaseRegister
         $user = parent::handleRegistration($data);
 
         $user->assignRole('casual_staff');
-        $this->tokenRecord?->markAsUsed($user->id);
 
         return $user;
     }

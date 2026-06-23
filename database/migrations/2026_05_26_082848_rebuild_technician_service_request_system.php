@@ -8,22 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Remove technician workflow columns added to helpdesk tables
-        Schema::table('helpdesk_form_templates', function (Blueprint $table) {
-            $table->dropColumn('is_technician_workflow');
-        });
+        Schema::dropIfExists('service_requests');
+        Schema::dropIfExists('service_templates');
 
-        Schema::table('helpdesk_requests', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('technician_id');
-            $table->dropColumn([
-                'scheduled_at', 'technician_status',
-                'before_photo', 'before_notes',
-                'after_photo', 'after_notes',
-                'started_at', 'completed_at', 'warranty_expires_at',
-            ]);
-        });
-
-        // Dedicated technician service tables
         Schema::create('service_templates', function (Blueprint $table) {
             $table->id();
             $table->string('name');

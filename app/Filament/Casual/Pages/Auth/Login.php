@@ -3,6 +3,7 @@
 namespace App\Filament\Casual\Pages\Auth;
 
 use App\Filament\Casual\Pages\LauncherPage;
+use App\Models\User;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Facades\Filament;
@@ -26,11 +27,26 @@ class Login extends BaseLogin
     protected function getEmailFormComponent(): Component
     {
         return TextInput::make('email')
-            ->label('Email')
-            ->email()
+            ->label('Nomor HP')
+            ->tel()
             ->required()
-            ->autocomplete()
-            ->autofocus();
+            ->autocomplete('tel')
+            ->autofocus()
+            ->placeholder('08xxxxxxxxxx');
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function getCredentialsFromFormData(array $data): array
+    {
+        $email = User::where('phone', $data['email'])->value('email') ?? $data['email'];
+
+        return [
+            'email' => $email,
+            'password' => $data['password'],
+        ];
     }
 
     protected function getPasswordFormComponent(): Component

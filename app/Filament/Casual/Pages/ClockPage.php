@@ -2,10 +2,9 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Models\Branch;
 use App\Models\CasualClockRecord;
 use App\Models\CasualPositionRegistration;
-use App\Models\CasualShift;
-use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -55,10 +54,7 @@ class ClockPage extends Page
         return [];
     }
 
-    public function mount(): void
-    {
-        // State is handled entirely in the blade view
-    }
+    public function mount(): void {}
 
     #[Computed]
     public function activeRegistration(): ?CasualPositionRegistration
@@ -68,48 +64,25 @@ class ClockPage extends Page
             ->where('casual_position_openings.work_date', '>=', today())
             ->orderBy('casual_position_openings.work_date')
             ->select('casual_position_registrations.*')
-            ->with(['opening.casualPosition', 'opening.casualShift', 'opening.postedBy'])
+            ->with(['opening.casualPosition', 'opening.branch', 'opening.postedBy'])
             ->first();
     }
 
     #[Computed]
-    public function effectiveShift(): ?CasualShift
+    public function effectiveBranch(): ?Branch
     {
-        return $this->activeRegistration?->opening?->casualShift;
-    }
-
-    #[Computed]
-    public function shiftStartedAt(): ?Carbon
-    {
-        $reg = $this->activeRegistration;
-        if (! $reg) {
-            return null;
-        }
-
-        return Carbon::parse(
-            $reg->opening->work_date->toDateString()
-            .' '
-            .$reg->opening->casualShift->start_time
-        );
-    }
-
-    #[Computed]
-    public function isPreShift(): bool
-    {
-        $start = $this->shiftStartedAt;
-
-        return $start !== null && now()->lt($start);
+        return $this->activeRegistration?->opening?->branch;
     }
 
     #[Computed]
     public function canCancelRegistration(): bool
     {
-        $start = $this->shiftStartedAt;
-        if (! $start) {
+        $reg = $this->activeRegistration;
+        if (! $reg) {
             return false;
         }
 
-        return now()->diffInHours($start, false) >= 24;
+        return now()->diffInHours($reg->opening->work_date->startOfDay(), false) >= 24;
     }
 
     public function cancelRegistration(): void
@@ -119,25 +92,18 @@ class ClockPage extends Page
             ->where('casual_position_openings.work_date', '>=', today())
             ->orderBy('casual_position_openings.work_date')
             ->select('casual_position_registrations.*')
-            ->with(['opening.casualShift'])
             ->first();
 
         if (! $registration) {
-            unset($this->activeRegistration, $this->effectiveShift, $this->shiftStartedAt, $this->isPreShift, $this->canCancelRegistration);
+            unset($this->activeRegistration, $this->effectiveBranch, $this->canCancelRegistration);
 
             return;
         }
 
-        $shiftStart = Carbon::parse(
-            $registration->opening->work_date->toDateString()
-            .' '
-            .$registration->opening->casualShift->start_time
-        );
-
-        if (now()->diffInHours($shiftStart, false) < 24) {
+        if (now()->diffInHours($registration->opening->work_date->startOfDay(), false) < 24) {
             Notification::make()
                 ->title('Pembatalan Tidak Dapat Diproses')
-                ->body('Pembatalan pendaftaran hanya dapat dilakukan lebih dari 24 jam sebelum shift dimulai.')
+                ->body('Pembatalan pendaftaran hanya dapat dilakukan lebih dari 24 jam sebelum tanggal kerja.')
                 ->danger()
                 ->send();
 
@@ -146,7 +112,7 @@ class ClockPage extends Page
 
         $registration->delete();
 
-        unset($this->activeRegistration, $this->effectiveShift, $this->shiftStartedAt, $this->isPreShift, $this->canCancelRegistration);
+        unset($this->activeRegistration, $this->effectiveBranch, $this->canCancelRegistration);
 
         Notification::make()
             ->title('Pendaftaran Berhasil Dibatalkan')
@@ -175,7 +141,6 @@ class ClockPage extends Page
             ->get();
 
         $presentCount = $records->count();
-        $lateCount = $records->where('is_late', true)->count();
 
         $workingDays = 0;
         $day = $startOfMonth->copy();
@@ -189,7 +154,6 @@ class ClockPage extends Page
         return [
             'present' => $presentCount,
             'absent' => max(0, $workingDays - $presentCount),
-            'late' => $lateCount,
         ];
     }
 
@@ -232,17 +196,7 @@ class ClockPage extends Page
     public function clockIn(): void
     {
         $user = auth()->user();
-        $shift = $this->effectiveShift;
-
-        if (! $shift) {
-            Notification::make()
-                ->title('Shift Belum Dikonfigurasi')
-                ->body('Silakan hubungi HR Admin untuk pengaturan shift Anda.')
-                ->danger()
-                ->send();
-
-            return;
-        }
+        $branch = $this->effectiveBranch;
 
         if (! $this->clockInPhoto) {
             Notification::make()
@@ -255,7 +209,6 @@ class ClockPage extends Page
         }
 
         $existing = CasualClockRecord::where('user_id', $user->id)
-            ->where('shift_id', $shift->id)
             ->where('date', today())
             ->first();
 
@@ -269,16 +222,16 @@ class ClockPage extends Page
             return;
         }
 
-        if ($shift->location_required && $this->latitude && $this->longitude) {
+        if ($branch?->hasLocation() && $this->latitude && $this->longitude) {
             $distance = $this->calculateDistance(
                 $this->latitude, $this->longitude,
-                $shift->location_lat, $shift->location_lng,
+                $branch->lat, $branch->lng,
             );
 
-            if ($distance > $shift->location_radius_meters) {
+            if ($distance > $branch->radius_meters) {
                 Notification::make()
                     ->title('Lokasi Di Luar Area Kerja')
-                    ->body('Anda berada sejauh '.round($distance).' m dari lokasi kerja. Radius yang diizinkan: '.$shift->location_radius_meters.' m.')
+                    ->body('Anda berada sejauh '.round($distance).' m dari lokasi kerja. Radius yang diizinkan: '.$branch->radius_meters.' m.')
                     ->danger()
                     ->send();
 
@@ -288,38 +241,27 @@ class ClockPage extends Page
 
         $photoPath = $this->clockInPhoto->store('casual-clocks', 'public');
         $now = now();
-        $lateMinutes = $shift->calculateLateMinutes($now);
-        $isLate = $lateMinutes > 0;
 
         CasualClockRecord::create([
             'user_id' => $user->id,
-            'shift_id' => $shift->id,
+            'branch_id' => $branch?->id,
             'date' => today(),
             'clock_in_at' => $now,
             'clock_in_photo' => $photoPath,
             'clock_in_lat' => $this->latitude,
             'clock_in_lng' => $this->longitude,
-            'is_late' => $isLate,
-            'late_minutes' => $isLate ? $lateMinutes : null,
         ]);
 
         $this->clockInPhoto = null;
         $this->latitude = null;
         $this->longitude = null;
 
-        unset($this->todayRecord, $this->unreadCount, $this->canCancelRegistration);
+        unset($this->todayRecord, $this->unreadCount);
 
-        if ($isLate) {
-            $notif = Notification::make()
-                ->title('Absensi Masuk — Terlambat '.$lateMinutes.' Menit')
-                ->body('Absensi masuk dicatat pukul '.$now->format('H:i').'. Jadwal masuk: '.Carbon::parse($shift->start_time)->format('H:i').'.')
-                ->warning();
-        } else {
-            $notif = Notification::make()
-                ->title('Absensi Masuk Berhasil — Pukul '.$now->format('H:i'))
-                ->body('Absensi masuk Anda telah berhasil dicatat.')
-                ->success();
-        }
+        $notif = Notification::make()
+            ->title('Absensi Masuk Berhasil — Pukul '.$now->format('H:i'))
+            ->body('Absensi masuk Anda telah berhasil dicatat.')
+            ->success();
 
         $notif->send();
         $user->notifyNow($notif->toDatabase());
@@ -343,16 +285,16 @@ class ClockPage extends Page
             ->latest()
             ->firstOrFail();
 
-        $shift = $record->shift;
+        $branch = $record->branch;
         $now = now();
 
-        if ($shift->location_required && $this->latitude && $this->longitude) {
+        if ($branch?->hasLocation() && $this->latitude && $this->longitude) {
             $distance = $this->calculateDistance(
                 $this->latitude, $this->longitude,
-                $shift->location_lat, $shift->location_lng,
+                $branch->lat, $branch->lng,
             );
 
-            if ($distance > $shift->location_radius_meters) {
+            if ($distance > $branch->radius_meters) {
                 Notification::make()
                     ->title('Lokasi Di Luar Area Kerja')
                     ->body('Anda berada sejauh '.round($distance).' m dari lokasi kerja.')
@@ -364,35 +306,24 @@ class ClockPage extends Page
         }
 
         $photoPath = $this->clockOutPhoto->store('casual-clocks', 'public');
-        $earlyOutMinutes = $shift->calculateEarlyOutMinutes($now);
-        $isEarlyOut = $earlyOutMinutes > 0;
 
         $record->update([
             'clock_out_at' => $now,
             'clock_out_photo' => $photoPath,
             'clock_out_lat' => $this->latitude,
             'clock_out_lng' => $this->longitude,
-            'is_early_out' => $isEarlyOut,
-            'early_out_minutes' => $isEarlyOut ? $earlyOutMinutes : null,
         ]);
 
         $this->clockOutPhoto = null;
         $this->latitude = null;
         $this->longitude = null;
 
-        unset($this->todayRecord, $this->unreadCount, $this->userNotifications);
+        unset($this->todayRecord, $this->unreadCount);
 
-        if ($isEarlyOut) {
-            $notif = Notification::make()
-                ->title('Absensi Keluar — Lebih Awal '.$earlyOutMinutes.' Menit')
-                ->body('Absensi keluar dicatat pukul '.$now->format('H:i').'. Jadwal keluar: '.Carbon::parse($shift->end_time)->format('H:i').'.')
-                ->warning();
-        } else {
-            $notif = Notification::make()
-                ->title('Absensi Keluar Berhasil — Pukul '.$now->format('H:i'))
-                ->body('Absensi keluar Anda telah berhasil dicatat.')
-                ->success();
-        }
+        $notif = Notification::make()
+            ->title('Absensi Keluar Berhasil — Pukul '.$now->format('H:i'))
+            ->body('Absensi keluar Anda telah berhasil dicatat.')
+            ->success();
 
         $notif->send();
         auth()->user()->notifyNow($notif->toDatabase());

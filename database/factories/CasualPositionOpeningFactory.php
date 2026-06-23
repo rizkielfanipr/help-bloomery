@@ -2,9 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Branch;
 use App\Models\CasualPosition;
 use App\Models\CasualPositionOpening;
-use App\Models\CasualShift;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -17,8 +17,7 @@ class CasualPositionOpeningFactory extends Factory
     {
         return [
             'casual_position_id' => CasualPosition::factory(),
-            'casual_shift_id' => CasualShift::factory(),
-            'location' => fake()->address(),
+            'branch_id' => Branch::factory(),
             'work_date' => fake()->dateTimeBetween('now', '+30 days')->format('Y-m-d'),
             'total_slots' => fake()->numberBetween(1, 10),
             'description' => fake()->optional()->sentence(),

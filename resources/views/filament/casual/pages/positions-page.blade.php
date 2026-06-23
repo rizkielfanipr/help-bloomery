@@ -42,13 +42,10 @@
                     @php
                         $regOpening  = $reg->opening;
                         $regPosition = $regOpening->casualPosition;
-                        $regShift    = $regOpening->casualShift;
+                        $regBranch   = $regOpening->branch;
                         $regLeader   = $regOpening->postedBy;
                         $hasPhone    = ! empty($regLeader?->phone);
                         $regDate     = $regOpening->work_date->locale('id')->isoFormat('dddd, D MMM Y');
-                        $regTime     = $regShift
-                            ? substr($regShift->start_time, 0, 5).'–'.substr($regShift->end_time, 0, 5)
-                            : '--';
                         $canCancel   = $this->canCancelRegistration($reg);
                     @endphp
                     <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
@@ -79,17 +76,10 @@
                             </div>
                             <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                 <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                                </svg>
-                                <span>{{ $regTime }}</span>
-                                @if($regShift)<span class="text-gray-400">({{ $regShift->name }})</span>@endif
-                            </div>
-                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
                                 </svg>
-                                <span>{{ $regOpening->location }}</span>
+                                <span>{{ $regBranch?->name ?? '-' }}</span>
                             </div>
                         </div>
 
@@ -163,10 +153,9 @@
                         $isRegistered    = isset($myRegistrationMap[$opening->id]);
                         $dateConflict    = ! $isRegistered && in_array($opening->work_date->toDateString(), $myRegisteredDates);
                         $canRegister     = ! $isRegistered && ! $isFull && ! $dateConflict;
-                        $position     = $opening->casualPosition;
-                        $shift        = $opening->casualShift;
-                        $dateLabel    = $opening->work_date->locale('id')->isoFormat('ddd, D MMM Y');
-                        $shiftLabel   = $shift ? substr($shift->start_time, 0, 5).'–'.substr($shift->end_time, 0, 5) : '--';
+                        $position        = $opening->casualPosition;
+                        $openingBranch   = $opening->branch;
+                        $dateLabel       = $opening->work_date->locale('id')->isoFormat('ddd, D MMM Y');
                     @endphp
 
                     <div class="mb-3 overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-gray-900
@@ -197,14 +186,7 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
                                 </svg>
-                                <span>{{ $opening->location }}</span>
-                            </div>
-                            <div class="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                                <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                                </svg>
-                                <span>{{ $shiftLabel }}</span>
-                                @if($shift)<span class="text-gray-400">({{ $shift->name }})</span>@endif
+                                <span>{{ $openingBranch?->name ?? '-' }}</span>
                             </div>
                         </div>
 

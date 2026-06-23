@@ -20,7 +20,7 @@ Sistem internal Bloomery Patisserie untuk manajemen SDM, operasional, dan helpde
 
 **Help Bloomery** adalah platform intranet multi-panel yang mengelola:
 
-- **Casual Staff** — Registrasi, jadwal shift, clock-in/out dengan GPS & selfie
+- **Casual Staff** — Registrasi, clock-in/out dengan GPS & selfie, export absensi ke Excel
 - **Driver** — Manajemen perjalanan, check-in waypoint, laporan BBM
 - **Helpdesk** — Tiket request berbasis form template dinamis
 - **Technician** — Service request perangkat dengan alur multi-siklus

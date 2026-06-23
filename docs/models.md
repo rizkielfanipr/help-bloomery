@@ -6,10 +6,9 @@
 User ──────────── Department
  │
  ├── CasualPosition (current position)
- ├── CasualShift (current shift)
  ├── CasualPositionRegistration ── CasualPositionOpening ── CasualPosition
- │                                                        └── CasualShift
- ├── CasualClockRecord ── CasualShift
+ │                                                        └── Branch
+ ├── CasualClockRecord ── Branch
  │
  ├── Trip (sebagai driver) ── Vehicle
  │                         └── TripRoute ── TripRouteWaypoint
@@ -40,14 +39,15 @@ User ──────────── Department
 | `password` | string | Bcrypt |
 | `employee_id` | string, nullable | ID karyawan |
 | `department_id` | bigint, nullable | FK → departments |
-| `phone` | string, nullable | Nomor telepon |
+| `phone` | string, nullable | Nomor HP *(digunakan sebagai login identifier casual staff)* |
+| `bank_name` | string, nullable | Nama bank |
+| `bank_account_number` | string, nullable | Nomor rekening |
 | `avatar` | string, nullable | Path foto profil |
 | `is_active` | boolean | Default `true` |
 | `casual_position_id` | bigint, nullable | FK → casual_positions (posisi aktif) |
-| `casual_shift_id` | bigint, nullable | FK → casual_shifts (shift aktif) |
 
 **Relasi:**
-- `BelongsTo`: Department, CasualPosition, CasualShift
+- `BelongsTo`: Department, CasualPosition
 - `HasOne`: CasualPositionRegistration
 - `HasMany`: CasualClockRecord
 
@@ -85,24 +85,22 @@ User ──────────── Department
 
 ---
 
-### CasualShift
+### Branch
 
-**Tabel:** `casual_shifts`
+**Tabel:** `branches`
 
 | Field | Tipe | Keterangan |
 |-------|------|-----------|
 | `id` | bigint | |
-| `name` | string | Nama shift |
-| `start_time` | time | Jam mulai |
-| `end_time` | time | Jam selesai |
-| `tolerance_late_minutes` | integer | Toleransi telat (menit) |
-| `tolerance_early_out_minutes` | integer | Toleransi pulang cepat (menit) |
-| `location_required` | boolean | Apakah GPS wajib |
-| `location_lat` | decimal, nullable | Latitude lokasi kantor |
-| `location_lng` | decimal, nullable | Longitude lokasi kantor |
-| `location_radius_meters` | integer, nullable | Radius valid (meter) |
+| `name` | string | Nama branch/lokasi |
+| `address` | string, nullable | Alamat lengkap |
+| `lat` | decimal(10,7), nullable | Latitude koordinat |
+| `lng` | decimal(10,7), nullable | Longitude koordinat |
+| `radius_meters` | integer | Radius toleransi GPS (default: 100) |
+| `location_required` | boolean | Wajib verifikasi GPS saat clock-in/out |
+| `is_active` | boolean | |
 
-**Relasi:** `HasMany` CasualClockRecord, `HasMany` User
+**Relasi:** `HasMany` CasualClockRecord, `HasMany` CasualPositionOpening
 
 ---
 
@@ -114,8 +112,7 @@ User ──────────── Department
 |-------|------|-----------|
 | `id` | bigint | |
 | `casual_position_id` | bigint | FK → casual_positions |
-| `casual_shift_id` | bigint | FK → casual_shifts |
-| `location` | string, nullable | Lokasi kerja |
+| `branch_id` | bigint, nullable | FK → branches (nullOnDelete) |
 | `work_date` | date | Tanggal kerja |
 | `total_slots` | integer | Jumlah slot tersedia |
 | `description` | text, nullable | |
@@ -123,7 +120,7 @@ User ──────────── Department
 | `posted_by` | bigint | FK → users |
 
 **Relasi:**
-- `BelongsTo`: CasualPosition, CasualShift, User (posted_by)
+- `BelongsTo`: CasualPosition, Branch, User (posted_by)
 - `HasMany`: CasualPositionRegistration
 
 **Scopes:** `available()` — hanya opening aktif dengan work_date ≥ hari ini
@@ -154,7 +151,7 @@ User ──────────── Department
 |-------|------|-----------|
 | `id` | bigint | |
 | `user_id` | bigint | FK → users |
-| `shift_id` | bigint | FK → casual_shifts |
+| `branch_id` | bigint, nullable | FK → branches (nullOnDelete) |
 | `date` | date | Tanggal absensi |
 | `clock_in_at` | datetime, nullable | Waktu masuk |
 | `clock_in_photo` | string, nullable | Path foto selfie masuk |
@@ -164,29 +161,13 @@ User ──────────── Department
 | `clock_out_photo` | string, nullable | Path foto selfie keluar |
 | `clock_out_lat` | decimal, nullable | GPS keluar |
 | `clock_out_lng` | decimal, nullable | GPS keluar |
-| `is_late` | boolean | |
-| `late_minutes` | integer | |
-| `is_early_out` | boolean | |
-| `early_out_minutes` | integer | |
 | `notes` | text, nullable | |
 
-**Relasi:** `BelongsTo` User, CasualShift
+**Constraint:** Unique per `(user_id, date)` — satu record absensi per staff per hari.
+
+**Relasi:** `BelongsTo` User, Branch
 
 ---
-
-### CasualRegistrationToken
-
-**Tabel:** `casual_registration_tokens`
-
-| Field | Tipe | Keterangan |
-|-------|------|-----------|
-| `id` | bigint | |
-| `token` | string | Token unik |
-| `label` | string | Deskripsi/label token |
-| `expires_at` | datetime, nullable | Waktu kadaluarsa |
-| `used_by` | bigint, nullable | FK → users |
-| `used_at` | datetime, nullable | |
-| `created_by` | bigint | FK → users |
 
 ---
 

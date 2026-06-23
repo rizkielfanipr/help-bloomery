@@ -40,7 +40,8 @@ Panel utama yang digunakan staff helpdesk untuk mengelola semua operasional. Men
 
 | Grup | Menu Item |
 |------|-----------|
-| Human Resources | Posisi Casual, Lowongan Posisi, Token Registrasi, Jadwal Shift, Absensi Casual |
+| Human Resources | Casual Staff, Posisi Casual, Lowongan Posisi, Absensi Casual, Daily Briefing |
+| Master | Branch |
 | Driver | Perjalanan, Rute Perjalanan, Kendaraan, Pengaturan Trip |
 | Technician | Permintaan Servis, Pengaturan Teknisi |
 | Purchasing | *(placeholder — belum aktif)* |
@@ -49,18 +50,24 @@ Panel utama yang digunakan staff helpdesk untuk mengelola semua operasional. Men
 | Helpdesk | Semua Permintaan, Template Form |
 | Management Access | Pengguna, Role & Permission, Department |
 
+> Sidebar menggunakan Lucide icons via `data-lucide="..."`. Nama icon harus menggunakan konvensi Lucide (mis. `users`, `building-2`), bukan Heroicon.
+
 **Resources (auto-discover dari `app/Filament/Helpdesk/Resources/`):**
+- `CasualStaffResource`
 - `CasualPositionResource`
 - `CasualPositionOpeningResource`
 - `CasualClockRecordResource`
-- `CasualShiftResource`
-- `CasualRegistrationTokenResource`
+- `BranchResource`
+- `BriefingRecordResource`
 - `FormTemplateResource`
 - `HelpdeskRequestResource`
 - `ServiceRequestResource`
 - `TripResource`
 - `TripRouteResource`
 - `VehicleResource`
+
+**Route Tambahan:**
+- `GET /helpdesk/exports/casual-clock-records` — Export absensi casual ke XLSX (`CasualClockRecordExportController`)
 
 **Pages:**
 - `Dashboard`
@@ -78,16 +85,15 @@ Portal **mobile-first** untuk pegawai casual. Tidak ada sidebar atau topbar Fila
 **Custom Domain:** Dapat dikonfigurasi via `CASUAL_DOMAIN` environment variable.
 
 **Auth Custom:**
-- `app/Filament/Casual/Pages/Auth/Login.php`
-- `app/Filament/Casual/Pages/Auth/Register.php`
+- `app/Filament/Casual/Pages/Auth/Login.php` — Login menggunakan **Nomor HP** sebagai identifier
+- `app/Filament/Casual/Pages/Auth/Register.php` — Register dengan nama, HP, nama bank, nomor rekening, password
 
-Register membutuhkan **token registrasi** yang dibuat oleh HR di panel Helpdesk.
+Tidak ada token registrasi. Pendaftaran terbuka langsung. Email internal di-generate otomatis (`{phone}@casual.app`).
 
 **Pages:**
 | Halaman | Route Name | Fungsi |
 |---------|-----------|--------|
 | `SelectPosition` | `filament.casual.pages.select-position` | Pilih posisi & lowongan tersedia |
-| `ShiftDetailPage` | `filament.casual.pages.shift-detail-page` | Detail shift yang sudah dipilih |
 | `ClockPage` | `filament.casual.pages.clock-page` | Clock-in / Clock-out dengan selfie & GPS |
 | `AttendancePage` | `filament.casual.pages.attendance-page` | Riwayat absensi |
 | `ReportPage` | `filament.casual.pages.report-page` | Laporan pendapatan/absensi |
@@ -96,7 +102,7 @@ Register membutuhkan **token registrasi** yang dibuat oleh HR di panel Helpdesk.
 
 **Alur Pengguna Baru:**
 ```
-Register (dengan token) → SelectPosition → ShiftDetailPage → (hari kerja) → ClockPage
+Register → SelectPosition → (hari kerja) → ClockPage
 ```
 
 ---

@@ -37,8 +37,9 @@ app/
 │   └── Technician/            # Halaman & resource panel Technician
 ├── Http/Controllers/
 │   ├── Auth/                  # Controller auth Laravel Breeze
+│   ├── Helpdesk/              # Controller helpdesk (export, dll)
 │   └── TripReportController   # PDF generation
-├── Models/                    # 25 Eloquent models
+├── Models/                    # Eloquent models
 ├── Observers/                 # Model observers (activity tracking)
 ├── Providers/Filament/        # 5 Filament PanelProvider
 └── View/Components/           # Blade view components
@@ -57,7 +58,7 @@ database/
 └── seeders/                   # Data seed awal
 
 routes/
-├── web.php                    # Root redirect & UI mockup routes
+├── web.php                    # Root redirect, UI mockup routes, export routes helpdesk
 ├── auth.php                   # Redirect login/register ke panel helpdesk
 ├── driver.php                 # Route PDF trip report
 ```

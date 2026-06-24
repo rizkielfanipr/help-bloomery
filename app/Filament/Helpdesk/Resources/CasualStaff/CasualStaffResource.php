@@ -4,12 +4,16 @@ namespace App\Filament\Helpdesk\Resources\CasualStaff;
 
 use App\Filament\Helpdesk\Resources\CasualStaff\Pages\EditCasualStaff;
 use App\Filament\Helpdesk\Resources\CasualStaff\Pages\ListCasualStaff;
+use App\Filament\Helpdesk\Resources\CasualStaff\Pages\ViewCasualStaff;
+use App\Filament\Helpdesk\Resources\CasualStaff\RelationManagers\RegistrationsRelationManager;
 use App\Models\CasualPosition;
 use App\Models\User;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -18,7 +22,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -103,12 +106,6 @@ class CasualStaffResource extends Resource
                     ->searchable()
                     ->placeholder('—'),
 
-                TextColumn::make('casualPosition.name')
-                    ->label('Posisi')
-                    ->placeholder('—')
-                    ->badge()
-                    ->sortable(),
-
                 TextColumn::make('bank_name')
                     ->label('Bank')
                     ->placeholder('—')
@@ -130,27 +127,38 @@ class CasualStaffResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('casual_position_id')
-                    ->label('Posisi')
-                    ->options(CasualPosition::pluck('name', 'id')),
-
                 TernaryFilter::make('is_active')
                     ->label('Status Aktif'),
             ])
             ->recordActions([
+                ViewAction::make()->iconButton()->tooltip('Lihat'),
                 EditAction::make()->iconButton()->tooltip('Edit'),
             ])
             ->toolbarActions([
+                Action::make('export')
+                    ->label('Export Excel')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->url(route('helpdesk.exports.casual-staff'))
+                    ->openUrlInNewTab(),
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),
             ]);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            RegistrationsRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => ListCasualStaff::route('/'),
+            'view' => ViewCasualStaff::route('/{record}'),
             'edit' => EditCasualStaff::route('/{record}/edit'),
         ];
     }

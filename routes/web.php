@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
+use App\Http\Controllers\Helpdesk\CasualStaffExportController;
 use Illuminate\Support\Facades\Route;
 
 // Root redirect ke panel helpdesk
@@ -9,6 +10,9 @@ Route::get('/', fn () => redirect('/helpdesk'));
 Route::middleware(['auth'])->group(function (): void {
     Route::get('/helpdesk/exports/casual-clock-records', CasualClockRecordExportController::class)
         ->name('helpdesk.exports.casual-clock-records');
+
+    Route::get('/helpdesk/exports/casual-staff', CasualStaffExportController::class)
+        ->name('helpdesk.exports.casual-staff');
 });
 
 // Standalone UI mockups

@@ -466,7 +466,6 @@ function app() {
             { id:'management', label:'Management Access', icon:'shield', items:[
                 {id:'pengguna',label:'Pengguna'},
                 {id:'role-permission',label:'Role & Permission'},
-                {id:'department',label:'Department'},
                 {id:'setting',label:'Setting'},
             ]},
         ],

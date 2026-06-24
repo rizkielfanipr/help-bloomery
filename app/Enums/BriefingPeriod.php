@@ -23,8 +23,8 @@ enum BriefingPeriod: string implements HasColor, HasLabel
     public function getColor(): string|array|null
     {
         return match ($this) {
-            self::Daily => 'violet',
-            self::Weekly => 'blue',
+            self::Daily => 'success',
+            self::Weekly => 'info',
             self::Monthly => 'warning',
         };
     }

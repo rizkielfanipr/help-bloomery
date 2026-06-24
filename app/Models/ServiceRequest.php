@@ -16,7 +16,6 @@ class ServiceRequest extends Model
     use HasFactory;
 
     protected $fillable = [
-        'department_id',
         'technician_id',
         'scheduled_by',
         'scheduled_date',
@@ -34,11 +33,6 @@ class ServiceRequest extends Model
             'attachments' => 'array',
             'warranty_expires_at' => 'datetime',
         ];
-    }
-
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
     }
 
     public function technician(): BelongsTo

@@ -39,10 +39,7 @@ class ViewServiceRequest extends ViewRecord
     {
         return $schema->components([
             Section::make('Detail Permintaan')->schema([
-                Grid::make(2)->schema([
-                    TextEntry::make('status')->label('Status')->badge(),
-                    TextEntry::make('department.name')->label('Divisi Pemohon')->placeholder('-'),
-                ]),
+                TextEntry::make('status')->label('Status')->badge(),
                 Grid::make(2)->schema([
                     TextEntry::make('scheduledBy.name')->label('Dijadwalkan Oleh'),
                     TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),

@@ -19,45 +19,40 @@ enum BriefingTaskKey: string implements HasLabel
     // Monthly
     case MonthlyGmKpi = 'monthly_gm_kpi';
     case MonthlyGeneralCleaning = 'monthly_general_cleaning';
-    case MonthlyMilestone = 'monthly_milestone';
-    case MonthlyKpi = 'monthly_kpi';
 
     public function getLabel(): string
     {
         return match ($this) {
-            self::DailySelfiePagi => 'Absen briefing & kesiapan opening pagi (Maks jam 09.00)',
-            self::DailySelfieSore => 'Absen briefing & kesiapan opening sore (Maks jam 15.30)',
-            self::DailyDetailBriefing => 'Detail briefing (Maks jam 10.00)',
+            self::DailySelfiePagi => 'Absen Briefing Pagi (09.00)',
+            self::DailySelfieSore => 'Absen Briefing Sore (15.30)',
+            self::DailyDetailBriefing => 'Detail Briefing',
             self::WeeklyCleaning => 'Weekly Cleaning',
-            self::WeeklyWmPic => 'WM PIC — Evaluasi staffing, administrasi, target sales',
-            self::WeeklySchedule => 'Schedule',
-            self::MonthlyGmKpi => 'GM Store: KPI',
+            self::WeeklyWmPic => 'Weekly Meeting PIC (Evaluasi Staff, Administrasi dan Sales)',
+            self::WeeklySchedule => 'Weekly Schedule',
+            self::MonthlyGmKpi => 'General Meeting: Key Performance Indicator (KPI)',
             self::MonthlyGeneralCleaning => 'General Cleaning',
-            self::MonthlyMilestone => 'Pengisian Milestone',
-            self::MonthlyKpi => 'Pengisian KPI',
         };
     }
 
     public function noteType(): string
     {
         return match ($this) {
-            self::DailySelfiePagi, self::DailySelfieSore => 'Selfie briefing',
-            self::DailyDetailBriefing => 'Foto Screenshot',
-            self::WeeklyCleaning, self::MonthlyGeneralCleaning => 'Foto area yang dibersihkan',
-            self::WeeklyWmPic, self::MonthlyGmKpi => 'Foto',
-            self::WeeklySchedule => 'Foto/Dokumen',
-            self::MonthlyMilestone, self::MonthlyKpi => 'Cek by HR',
+            self::DailySelfiePagi, self::DailySelfieSore => 'Foto Selfie Briefing',
+            self::DailyDetailBriefing => 'Foto Screenshot Detail Briefing',
+            self::WeeklyCleaning, self::MonthlyGeneralCleaning => 'Foto Area yang Dibersihkan',
+            self::WeeklyWmPic, self::MonthlyGmKpi => 'Foto Weekly Meeting PIC / General Meeting',
+            self::WeeklySchedule => 'Foto Jadwal Mingguan',
         };
     }
 
     public function requiresPhoto(): bool
     {
-        return ! in_array($this, [self::MonthlyMilestone, self::MonthlyKpi]);
+        return true;
     }
 
     public function isHrChecked(): bool
     {
-        return in_array($this, [self::MonthlyMilestone, self::MonthlyKpi]);
+        return false;
     }
 
     public function period(): BriefingPeriod
@@ -65,7 +60,7 @@ enum BriefingTaskKey: string implements HasLabel
         return match ($this) {
             self::DailySelfiePagi, self::DailySelfieSore, self::DailyDetailBriefing => BriefingPeriod::Daily,
             self::WeeklyCleaning, self::WeeklyWmPic, self::WeeklySchedule => BriefingPeriod::Weekly,
-            self::MonthlyGmKpi, self::MonthlyGeneralCleaning, self::MonthlyMilestone, self::MonthlyKpi => BriefingPeriod::Monthly,
+            self::MonthlyGmKpi, self::MonthlyGeneralCleaning => BriefingPeriod::Monthly,
         };
     }
 

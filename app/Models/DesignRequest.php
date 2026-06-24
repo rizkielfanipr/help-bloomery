@@ -18,7 +18,6 @@ class DesignRequest extends Model
     use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
-        'department_id',
         'requester_id',
         'assignee_id',
         'judul_permintaan',
@@ -37,11 +36,6 @@ class DesignRequest extends Model
             'kategori_desain' => DesignCategory::class,
             'resolved_at' => 'datetime',
         ];
-    }
-
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
     }
 
     public function requester(): BelongsTo

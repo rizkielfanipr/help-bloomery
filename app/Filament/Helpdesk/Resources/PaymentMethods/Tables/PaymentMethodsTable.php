@@ -1,41 +1,35 @@
 <?php
 
-namespace App\Filament\Resources\Departments\Tables;
+namespace App\Filament\Helpdesk\Resources\PaymentMethods\Tables;
 
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
-class DepartmentsTable
+class PaymentMethodsTable
 {
     public static function configure(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('code')
-                    ->label('Kode')
-                    ->searchable()
-                    ->sortable()
-                    ->badge()
-                    ->color('gray'),
-
                 TextColumn::make('name')
-                    ->label('Nama Departemen')
-                    ->searchable()
+                    ->searchable(),
+                TextColumn::make('sort_order')
+                    ->numeric()
                     ->sortable(),
-
-                TextColumn::make('users_count')
-                    ->label('Pengguna')
-                    ->counts('users')
-                    ->badge()
-                    ->color('primary'),
-
+                IconColumn::make('is_active')
+                    ->boolean(),
                 TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime('d M Y')
-                    ->sortable(),
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('updated_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 //

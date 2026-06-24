@@ -126,14 +126,13 @@ class Dashboard extends BaseDashboard
 
     private function computeRecentData(): void
     {
-        $this->recentTickets = ServiceRequest::with(['department', 'technician', 'scheduledBy'])
+        $this->recentTickets = ServiceRequest::with(['technician', 'scheduledBy'])
             ->latest()
             ->limit(8)
             ->get()
             ->map(fn ($r) => [
                 'id' => $r->id,
                 'ref' => 'SR-'.str_pad($r->id, 4, '0', STR_PAD_LEFT),
-                'department' => $r->department?->name ?? '-',
                 'scheduled_date' => $r->scheduled_date?->format('d M Y') ?? '-',
                 'status' => $r->status->value,
                 'status_label' => $r->status->getLabel(),
@@ -143,7 +142,7 @@ class Dashboard extends BaseDashboard
             ])
             ->toArray();
 
-        $this->recentActivity = ServiceRequestRepair::with(['serviceRequest.department', 'technician'])
+        $this->recentActivity = ServiceRequestRepair::with(['serviceRequest', 'technician'])
             ->latest()
             ->limit(8)
             ->get()
@@ -153,7 +152,6 @@ class Dashboard extends BaseDashboard
                     ? 'Perbaikan selesai oleh '.($repair->technician?->name ?? 'Teknisi')
                     : 'Perbaikan dimulai oleh '.($repair->technician?->name ?? 'Teknisi'),
                 'ref' => 'SR-'.str_pad($repair->service_request_id, 4, '0', STR_PAD_LEFT),
-                'dept' => $repair->serviceRequest?->department?->name ?? '-',
                 'time' => $repair->updated_at->diffForHumans(),
                 'cycle' => $repair->cycle === 1 ? 'Perbaikan Awal' : "Perbaikan ke-{$repair->cycle}",
             ])

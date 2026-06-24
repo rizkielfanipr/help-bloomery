@@ -30,7 +30,11 @@ it('permissions config is loaded and permissions exist in the database', functio
     $config = config('permissions', []);
     expect($config)->not->toBeEmpty();
 
-    $allPermissions = array_merge(...array_values($config));
+    $allPermissions = array_merge(...array_values(array_map(
+        fn (array $resources) => array_merge(...array_values($resources)),
+        $config
+    )));
+
     foreach ($allPermissions as $permission) {
         expect(Permission::where('name', $permission)->exists())->toBeTrue(
             "Permission '{$permission}' missing from database"
@@ -40,9 +44,12 @@ it('permissions config is loaded and permissions exist in the database', functio
 
 it('super_admin role has all permissions', function () {
     $superAdminRole = Role::findByName('super_admin', 'web');
-    $configPermissions = array_merge(...array_values(config('permissions', [])));
+    $allPermissions = array_merge(...array_values(array_map(
+        fn (array $resources) => array_merge(...array_values($resources)),
+        config('permissions', [])
+    )));
 
-    foreach ($configPermissions as $permission) {
+    foreach ($allPermissions as $permission) {
         expect($superAdminRole->hasPermissionTo($permission))->toBeTrue(
             "super_admin missing permission: {$permission}"
         );

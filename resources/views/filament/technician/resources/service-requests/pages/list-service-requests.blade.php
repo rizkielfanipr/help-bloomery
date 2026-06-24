@@ -63,7 +63,7 @@
                         </svg>
                     </div>
                     <div class="min-w-0 flex-1">
-                        <p class="truncate font-semibold text-gray-900 dark:text-white">{{ $job->department?->name ?? 'Tanpa Divisi' }}</p>
+                        <p class="truncate font-semibold text-gray-900 dark:text-white">SR-{{ str_pad($job->id, 4, '0', STR_PAD_LEFT) }}</p>
                         <p class="mt-0.5 text-xs text-gray-500">
                             {{ $job->scheduled_date?->format('d M Y') ?? '-' }}
                             @if($job->technician) · {{ $job->technician->name }}@endif

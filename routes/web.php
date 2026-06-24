@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Helpdesk\BriefingExportController;
 use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
 use App\Http\Controllers\Helpdesk\CasualStaffExportController;
 use Illuminate\Support\Facades\Route;
@@ -13,6 +14,9 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/helpdesk/exports/casual-staff', CasualStaffExportController::class)
         ->name('helpdesk.exports.casual-staff');
+
+    Route::get('/helpdesk/exports/briefing', BriefingExportController::class)
+        ->name('helpdesk.exports.briefing');
 });
 
 // Standalone UI mockups

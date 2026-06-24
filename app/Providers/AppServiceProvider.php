@@ -28,7 +28,10 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        $allPermissions = array_merge(...array_values(config('permissions', [])));
+        $allPermissions = array_merge(...array_values(array_map(
+            fn (array $resources) => array_merge(...array_values($resources)),
+            config('permissions', [])
+        )));
         $cacheKey = 'permissions_synced_'.md5(serialize($allPermissions));
 
         if (Cache::has($cacheKey)) {
@@ -36,6 +39,8 @@ class AppServiceProvider extends ServiceProvider
         }
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        Permission::whereNotIn('name', $allPermissions)->delete();
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);

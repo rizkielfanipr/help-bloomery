@@ -109,7 +109,6 @@
                             <tr class="border-b border-slate-50 dark:border-white/5">
                                 <th class="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600">Ref</th>
                                 <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600">Pemohon</th>
-                                <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600">Divisi</th>
                                 <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600">Status</th>
                                 <th class="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600">Jadwal</th>
                             </tr>
@@ -134,9 +133,6 @@
                                     </td>
                                     <td class="px-4 py-3.5">
                                         <span class="text-[13px] font-medium text-slate-700 dark:text-slate-200">{{ $ticket['requestor'] }}</span>
-                                    </td>
-                                    <td class="px-4 py-3.5">
-                                        <span class="text-[13px] text-slate-500 dark:text-slate-400">{{ $ticket['department'] }}</span>
                                     </td>
                                     <td class="px-4 py-3.5">
                                         <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset {{ $badgeClass }}">
@@ -232,8 +228,6 @@
                                     <p class="text-[13px] font-medium leading-snug text-slate-700 dark:text-slate-200">{{ $activity['title'] }}</p>
                                     <div class="mt-1 flex items-center gap-1.5">
                                         <span class="font-mono text-[11px] font-bold text-blue-600 dark:text-blue-400">{{ $activity['ref'] }}</span>
-                                        <span class="text-slate-200 dark:text-slate-700">·</span>
-                                        <span class="text-[11px] text-slate-400">{{ $activity['dept'] }}</span>
                                     </div>
                                     <p class="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">{{ $activity['time'] }}</p>
                                 </div>

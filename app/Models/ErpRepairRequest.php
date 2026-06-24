@@ -18,7 +18,6 @@ class ErpRepairRequest extends Model
     use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
-        'department_id',
         'requester_id',
         'assignee_id',
         'jenis_modul_erp',
@@ -37,11 +36,6 @@ class ErpRepairRequest extends Model
             'jenis_modul_erp' => ErpModule::class,
             'resolved_at' => 'datetime',
         ];
-    }
-
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
     }
 
     public function requester(): BelongsTo

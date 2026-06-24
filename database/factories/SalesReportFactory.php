@@ -2,13 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Models\Department;
+use App\Models\SalesReport;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<Department>
+ * @extends Factory<SalesReport>
  */
-class DepartmentFactory extends Factory
+class SalesReportFactory extends Factory
 {
     /**
      * Define the model's default state.
@@ -18,8 +18,7 @@ class DepartmentFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->company(),
-            'code' => strtoupper(fake()->unique()->lexify('???')),
+            //
         ];
     }
 }

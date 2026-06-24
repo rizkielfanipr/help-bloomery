@@ -17,7 +17,7 @@ return new class extends Migration
 
         Schema::table('users', function (Blueprint $table) {
             $table->string('employee_id')->nullable()->after('id');
-            $table->foreignId('department_id')->nullable()->after('employee_id')->constrained()->nullOnDelete();
+            $table->unsignedBigInteger('department_id')->nullable()->after('employee_id');
             $table->string('phone')->nullable()->after('email');
             $table->string('avatar')->nullable()->after('phone');
             $table->boolean('is_active')->default(true)->after('avatar');
@@ -27,7 +27,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropForeign(['department_id']);
             $table->dropColumn(['employee_id', 'department_id', 'phone', 'avatar', 'is_active']);
         });
 

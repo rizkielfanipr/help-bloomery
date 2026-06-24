@@ -3,23 +3,19 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Enums\BriefingPeriod;
+use App\Enums\BriefingReviewStatus;
 use App\Enums\BriefingTaskKey;
 use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
-use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
-use Livewire\WithFileUploads;
 
 class DailyBriefingPage extends Page
 {
-    use WithFileUploads;
-
     protected static bool $shouldRegisterNavigation = false;
 
     protected static string $layout = 'filament.casual.layouts.bare';
@@ -29,6 +25,11 @@ class DailyBriefingPage extends Page
     public ?array $taskData = [];
 
     public ?string $activeTaskKey = null;
+
+    public bool $activeTaskIsSelfie = false;
+
+    /** @var string[] */
+    public array $cameraPhotoPaths = [];
 
     public int $taskModalKey = 0;
 
@@ -47,37 +48,74 @@ class DailyBriefingPage extends Page
         return [];
     }
 
-    public function taskForm(Schema $schema): Schema
-    {
-        $requiresPhoto = $this->activeTaskKey
-            ? BriefingTaskKey::from($this->activeTaskKey)->requiresPhoto()
-            : false;
-
-        return $schema
-            ->components([
-                FileUpload::make('photo_path')
-                    ->label('Upload Foto / Bukti')
-                    ->image()
-                    ->disk('public')
-                    ->directory('briefing-photos')
-                    ->imageEditor()
-                    ->required($requiresPhoto)
-                    ->helperText($requiresPhoto ? 'Wajib upload foto sebagai bukti' : 'Opsional'),
-
-                Textarea::make('notes')
-                    ->label('Catatan')
-                    ->rows(2)
-                    ->nullable(),
-            ])
-            ->statePath('taskData');
-    }
-
     public function openTaskModal(string $taskKey): void
     {
+        $taskEnum = BriefingTaskKey::from($taskKey);
+        $period = $taskEnum->period();
+        $record = BriefingRecord::where('user_id', auth()->id())
+            ->where('period', $period->value)
+            ->whereDate('record_date', $period->recordDate())
+            ->first();
+
+        if ($record) {
+            $item = BriefingItem::where('briefing_record_id', $record->id)
+                ->where('task_key', $taskKey)
+                ->first();
+
+            if ($item?->review_status === BriefingReviewStatus::Approved) {
+                Notification::make()
+                    ->title('Sudah Disetujui')
+                    ->body('Item ini sudah disetujui HR dan tidak dapat diubah.')
+                    ->warning()
+                    ->send();
+
+                return;
+            }
+        }
+
         $this->activeTaskKey = $taskKey;
-        $this->taskData = ['photo_path' => null, 'notes' => null];
+        $this->taskData = ['notes' => null];
+        $this->cameraPhotoPaths = [];
+        $this->activeTaskIsSelfie = in_array($taskKey, [
+            BriefingTaskKey::DailySelfiePagi->value,
+            BriefingTaskKey::DailySelfieSore->value,
+        ]);
         $this->taskModalKey++;
         $this->dispatch('open-task-modal');
+    }
+
+    public function storeCameraPhoto(string $base64Data): void
+    {
+        if (count($this->cameraPhotoPaths) >= 5) {
+            return;
+        }
+
+        if (! preg_match('/^data:image\/(jpeg|jpg|png|webp);base64,/', $base64Data)) {
+            return;
+        }
+
+        $imageData = preg_replace('/^data:image\/\w+;base64,/', '', $base64Data);
+        $decoded = base64_decode($imageData, strict: true);
+
+        if (! $decoded) {
+            return;
+        }
+
+        $path = 'briefing-photos/'.now()->format('YmdHis').'_'.auth()->id().'_'.uniqid().'.jpg';
+        Storage::disk('public')->put($path, $decoded);
+
+        $this->cameraPhotoPaths[] = $path;
+    }
+
+    public function removePhoto(int $index): void
+    {
+        if (! isset($this->cameraPhotoPaths[$index])) {
+            return;
+        }
+
+        Storage::disk('public')->delete($this->cameraPhotoPaths[$index]);
+
+        array_splice($this->cameraPhotoPaths, $index, 1);
     }
 
     public function saveTask(): void
@@ -89,12 +127,10 @@ class DailyBriefingPage extends Page
         $taskEnum = BriefingTaskKey::from($this->activeTaskKey);
         $period = $taskEnum->period();
 
-        $data = $this->taskForm->getState();
-
-        if ($taskEnum->requiresPhoto() && empty($data['photo_path'])) {
+        if ($taskEnum->requiresPhoto() && empty($this->cameraPhotoPaths)) {
             Notification::make()
                 ->title('Foto Diperlukan')
-                ->body('Harap upload foto sebagai bukti penyelesaian tugas.')
+                ->body('Harap ambil foto terlebih dahulu sebagai bukti.')
                 ->danger()
                 ->send();
 
@@ -116,11 +152,25 @@ class DailyBriefingPage extends Page
             'task_key' => $this->activeTaskKey,
         ]);
 
+        if ($item->exists && $item->review_status === BriefingReviewStatus::Approved) {
+            Notification::make()
+                ->title('Sudah Disetujui')
+                ->body('Item ini sudah disetujui HR dan tidak dapat diubah.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
         $item->fill([
-            'photo_path' => $data['photo_path'] ?? $item->photo_path,
-            'notes' => $data['notes'] ?? null,
+            'photo_paths' => ! empty($this->cameraPhotoPaths) ? $this->cameraPhotoPaths : ($item->photo_paths ?? []),
+            'notes' => $this->taskData['notes'] ?? null,
             'is_completed' => ! $taskEnum->isHrChecked(),
             'completed_at' => ! $taskEnum->isHrChecked() ? now() : null,
+            'review_status' => BriefingReviewStatus::Pending->value,
+            'rejection_reason' => null,
+            'reviewed_by' => null,
+            'reviewed_at' => null,
         ])->save();
 
         if (! $record->submitted_at) {
@@ -129,6 +179,7 @@ class DailyBriefingPage extends Page
 
         $this->activeTaskKey = null;
         $this->taskData = [];
+        $this->cameraPhotoPaths = [];
         $this->dispatch('close-task-modal');
 
         unset($this->briefingData);
@@ -171,8 +222,10 @@ class DailyBriefingPage extends Page
                     'isHrChecked' => $task->isHrChecked(),
                     'isCompleted' => $item?->is_completed ?? false,
                     'completedAt' => $item?->completed_at,
-                    'photoPath' => $item?->photo_path,
+                    'photoPaths' => $item?->photo_paths ?? [],
                     'notes' => $item?->notes,
+                    'reviewStatus' => $item?->review_status,
+                    'rejectionReason' => $item?->rejection_reason,
                 ];
             }, $tasks);
 

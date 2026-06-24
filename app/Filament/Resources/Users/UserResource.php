@@ -5,8 +5,8 @@ namespace App\Filament\Resources\Users;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Models\Branch;
 use App\Models\CasualPosition;
-use App\Models\Department;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -94,9 +94,9 @@ class UserResource extends Resource
                             ->nullable()
                             ->maxLength(255),
 
-                        Select::make('department_id')
-                            ->label('Departemen')
-                            ->options(Department::pluck('name', 'id'))
+                        Select::make('branch_id')
+                            ->label('Cabang')
+                            ->options(Branch::pluck('name', 'id'))
                             ->searchable()
                             ->nullable(),
 

@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('erp_repair_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('department_id')->nullable()->nullOnDelete()->constrained('departments');
+            $table->unsignedBigInteger('department_id')->nullable();
             $table->foreignId('requester_id')->constrained('users');
             $table->foreignId('assignee_id')->nullable()->nullOnDelete()->constrained('users');
             $table->string('jenis_modul_erp');

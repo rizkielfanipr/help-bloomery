@@ -42,8 +42,6 @@ class ServiceRequestResource extends Resource
             ->columns([
                 TextColumn::make('status')->label('Status')->badge()->sortable(),
 
-                TextColumn::make('department.name')->label('Divisi')->placeholder('-'),
-
                 TextColumn::make('scheduled_date')
                     ->label('Tanggal')
                     ->date('d M Y')
@@ -79,7 +77,7 @@ class ServiceRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['department', 'technician', 'repairs.technician']);
+        $query = parent::getEloquentQuery()->with(['technician', 'repairs.technician']);
 
         if (auth()->user()->hasRole('super_admin')) {
             return $query;

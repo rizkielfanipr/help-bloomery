@@ -47,7 +47,7 @@ it('shows all task labels for each period', function () {
     }
 });
 
-it('creates a briefing record and item when an HR-checked task is saved', function () {
+it('creates a briefing record and item when a task is saved with a photo', function () {
     $user = User::factory()->create(['is_active' => true]);
     $user->assignRole('casual_staff');
 
@@ -56,8 +56,9 @@ it('creates a briefing record and item when an HR-checked task is saved', functi
     expect(BriefingRecord::count())->toBe(0);
 
     Livewire::test(DailyBriefingPage::class)
-        ->call('openTaskModal', BriefingTaskKey::MonthlyMilestone->value)
-        ->set('taskData.notes', 'Test catatan milestone')
+        ->call('openTaskModal', BriefingTaskKey::MonthlyGeneralCleaning->value)
+        ->set('cameraPhotoPaths', ['briefing-photos/test.jpg'])
+        ->set('taskData.notes', 'Test catatan cleaning')
         ->call('saveTask');
 
     expect(BriefingRecord::count())->toBe(1);
@@ -66,28 +67,29 @@ it('creates a briefing record and item when an HR-checked task is saved', functi
     expect($record->period)->toBe(BriefingPeriod::Monthly);
     expect($record->user_id)->toBe($user->id);
 
-    $item = $record->items()->where('task_key', BriefingTaskKey::MonthlyMilestone->value)->first();
+    $item = $record->items()->where('task_key', BriefingTaskKey::MonthlyGeneralCleaning->value)->first();
     expect($item)->not->toBeNull();
-    expect($item->notes)->toBe('Test catatan milestone');
+    expect($item->notes)->toBe('Test catatan cleaning');
+    expect($item->photo_paths)->toBe(['briefing-photos/test.jpg']);
 });
 
-it('marks HR-checked tasks as pending review (not completed)', function () {
+it('marks tasks as completed after saving with photo', function () {
     $user = User::factory()->create(['is_active' => true]);
     $user->assignRole('casual_staff');
 
     actingAs($user);
 
     Livewire::test(DailyBriefingPage::class)
-        ->call('openTaskModal', BriefingTaskKey::MonthlyMilestone->value)
-        ->set('taskData.notes', 'Milestone note')
+        ->call('openTaskModal', BriefingTaskKey::MonthlyGeneralCleaning->value)
+        ->set('cameraPhotoPaths', ['briefing-photos/test.jpg'])
         ->call('saveTask');
 
     $record = BriefingRecord::where('period', BriefingPeriod::Monthly->value)->first();
     expect($record)->not->toBeNull();
 
-    $item = $record->items()->where('task_key', BriefingTaskKey::MonthlyMilestone->value)->first();
-    expect($item->is_completed)->toBeFalse();
-    expect($item->completed_at)->toBeNull();
+    $item = $record->items()->where('task_key', BriefingTaskKey::MonthlyGeneralCleaning->value)->first();
+    expect($item->is_completed)->toBeTrue();
+    expect($item->completed_at)->not->toBeNull();
 });
 
 it('does not duplicate records when saving multiple tasks in the same period', function () {
@@ -98,37 +100,47 @@ it('does not duplicate records when saving multiple tasks in the same period', f
 
     $page = Livewire::test(DailyBriefingPage::class);
 
-    $page->call('openTaskModal', BriefingTaskKey::MonthlyMilestone->value)
-        ->set('taskData.notes', 'Milestone note')
+    $page->call('openTaskModal', BriefingTaskKey::MonthlyGeneralCleaning->value)
+        ->set('cameraPhotoPaths', ['briefing-photos/test1.jpg'])
         ->call('saveTask');
 
-    $page->call('openTaskModal', BriefingTaskKey::MonthlyKpi->value)
-        ->set('taskData.notes', 'KPI note')
+    $page->call('openTaskModal', BriefingTaskKey::MonthlyGmKpi->value)
+        ->set('cameraPhotoPaths', ['briefing-photos/test2.jpg'])
         ->call('saveTask');
 
     expect(BriefingRecord::where('period', BriefingPeriod::Monthly->value)->count())->toBe(1);
     expect(BriefingItem::count())->toBe(2);
 });
 
-it('updates completed count after saving a task', function () {
+it('updates completed count after saving tasks with photos', function () {
     $user = User::factory()->create(['is_active' => true]);
     $user->assignRole('casual_staff');
 
     actingAs($user);
 
-    // Save two HR-checked tasks (no photo required)
     $page = Livewire::test(DailyBriefingPage::class)
-        ->call('openTaskModal', BriefingTaskKey::MonthlyMilestone->value)
-        ->set('taskData.notes', 'Milestone')
+        ->call('openTaskModal', BriefingTaskKey::MonthlyGeneralCleaning->value)
+        ->set('cameraPhotoPaths', ['briefing-photos/test1.jpg'])
         ->call('saveTask');
 
-    $page->call('openTaskModal', BriefingTaskKey::MonthlyKpi->value)
-        ->set('taskData.notes', 'KPI')
+    $page->call('openTaskModal', BriefingTaskKey::MonthlyGmKpi->value)
+        ->set('cameraPhotoPaths', ['briefing-photos/test2.jpg'])
         ->call('saveTask');
 
-    // Both items should be in the DB
     expect(BriefingItem::count())->toBe(2);
 
-    // Monthly period shows 0/4 completed (HR tasks are pending, not marked complete)
-    $page->assertSee('0/4 tugas selesai');
+    $page->assertSee('2/2 tugas selesai');
+});
+
+it('requires a photo before saving a task', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('casual_staff');
+
+    actingAs($user);
+
+    Livewire::test(DailyBriefingPage::class)
+        ->call('openTaskModal', BriefingTaskKey::DailySelfiePagi->value)
+        ->call('saveTask');
+
+    expect(BriefingRecord::count())->toBe(0);
 });

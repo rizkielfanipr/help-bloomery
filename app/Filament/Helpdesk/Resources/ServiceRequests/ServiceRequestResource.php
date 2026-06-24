@@ -7,7 +7,6 @@ use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\CreateServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\EditServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ViewServiceRequest;
-use App\Models\Department;
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestRepair;
 use App\Models\TechnicianSettings;
@@ -21,7 +20,6 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -56,12 +54,6 @@ class ServiceRequestResource extends Resource
     {
         return $schema->components([
             Section::make('Detail Permintaan')->schema([
-                Select::make('department_id')
-                    ->label('Divisi Pemohon')
-                    ->options(Department::pluck('name', 'id'))
-                    ->searchable()
-                    ->nullable(),
-
                 DatePicker::make('scheduled_date')
                     ->label('Tanggal Penjadwalan')
                     ->required()
@@ -104,10 +96,7 @@ class ServiceRequestResource extends Resource
     {
         return $schema->components([
             Section::make('Detail Permintaan')->schema([
-                Grid::make(2)->schema([
-                    TextEntry::make('department.name')->label('Divisi Pemohon')->placeholder('-'),
-                    TextEntry::make('status')->label('Status')->badge(),
-                ]),
+                TextEntry::make('status')->label('Status')->badge(),
                 Grid::make(2)->schema([
                     TextEntry::make('scheduledBy.name')->label('Dijadwalkan Oleh'),
                     TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),
@@ -193,7 +182,6 @@ class ServiceRequestResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('department.name')->label('Divisi')->placeholder('-')->sortable(),
                 TextColumn::make('scheduled_date')->label('Tanggal')->date('d M Y')->sortable(),
                 TextColumn::make('scheduledBy.name')->label('Pemohon')->searchable(),
                 TextColumn::make('technician.name')->label('Teknisi')->placeholder('Belum ditugaskan')->searchable()->sortable(),
@@ -204,8 +192,6 @@ class ServiceRequestResource extends Resource
                 SelectFilter::make('status')->label('Status')->options(ServiceRequestStatus::class),
                 SelectFilter::make('technician_id')->label('Teknisi')
                     ->options(User::role('technician')->pluck('name', 'id'))->searchable(),
-                SelectFilter::make('department_id')->label('Divisi')
-                    ->options(Department::pluck('name', 'id'))->searchable(),
             ])
             ->defaultSort('scheduled_date', 'desc')
             ->recordActions([
@@ -265,6 +251,6 @@ class ServiceRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['department', 'technician', 'scheduledBy', 'repairs.technician']);
+        return parent::getEloquentQuery()->with(['technician', 'scheduledBy', 'repairs.technician']);
     }
 }

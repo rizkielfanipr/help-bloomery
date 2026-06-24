@@ -13,59 +13,23 @@ class RolesAndPermissionsSeeder extends Seeder
     {
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        $permissions = [
-            // User management
-            'view users', 'create users', 'edit users', 'delete users',
-            // Helpdesk
-            'view tickets', 'create tickets', 'edit tickets', 'delete tickets',
-            'assign tickets', 'close tickets', 'view internal comments',
-            'view helpdesk reports',
-            // Driver logbook
-            'view driver logs', 'create driver logs', 'edit driver logs',
-            'approve driver logs', 'view driver reports',
-            // Technician logbook
-            'view technician logs', 'create technician logs', 'edit technician logs',
-            'approve technician logs', 'view technician reports',
-            // Attendance
-            'view attendances', 'create attendances', 'edit attendances',
-            'manage attendance periods', 'view attendance reports',
-        ];
+        $allPermissions = array_merge(...array_values(array_map(
+            fn (array $resources) => array_merge(...array_values($resources)),
+            config('permissions', [])
+        )));
 
-        foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission]);
+        foreach ($allPermissions as $permission) {
+            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
-        Role::firstOrCreate(['name' => 'super_admin'])
-            ->givePermissionTo(Permission::all());
+        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web'])
+            ->syncPermissions(Permission::all());
 
-        Role::firstOrCreate(['name' => 'helpdesk_manager'])
-            ->givePermissionTo([
-                'view users',
-                'view tickets', 'create tickets', 'edit tickets', 'assign tickets', 'close tickets', 'view internal comments',
-                'view helpdesk reports',
-                'view driver logs', 'approve driver logs', 'view driver reports',
-                'view technician logs', 'approve technician logs', 'view technician reports',
-                'view attendances', 'view attendance reports',
-            ]);
-
-        Role::firstOrCreate(['name' => 'helpdesk_staff'])
-            ->givePermissionTo([
-                'view tickets', 'create tickets', 'edit tickets', 'assign tickets', 'close tickets', 'view internal comments',
-            ]);
-
-        Role::firstOrCreate(['name' => 'driver'])
-            ->givePermissionTo(['view driver logs', 'create driver logs', 'edit driver logs']);
-
-        Role::firstOrCreate(['name' => 'technician'])
-            ->givePermissionTo(['view technician logs', 'create technician logs', 'edit technician logs']);
-
-        Role::firstOrCreate(['name' => 'hr_staff'])
-            ->givePermissionTo([
-                'view attendances', 'create attendances', 'edit attendances',
-                'manage attendance periods', 'view attendance reports',
-            ]);
-
-        Role::firstOrCreate(['name' => 'casual_staff'])
-            ->givePermissionTo(['view attendances']);
+        Role::firstOrCreate(['name' => 'casual_staff', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'driver', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'technician', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'hr_staff', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'helpdesk_manager', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'helpdesk_staff', 'guard_name' => 'web']);
     }
 }

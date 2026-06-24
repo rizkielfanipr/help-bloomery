@@ -49,7 +49,7 @@
     if (str_contains($path, 'casual'))                                   { $initialOpen[] = 'casual'; }
     if (preg_match('/trip|vehicle|driver/', $path))                      { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician/', $path))               { $initialOpen[] = 'technician'; }
-    if (preg_match('/\busers?\b|\broles?\b|department/', $path))         { $initialOpen[] = 'management'; }
+    if (preg_match('/\busers?\b|\broles?\b/', $path))                    { $initialOpen[] = 'management'; }
 
     // Nav groups definition — each item gets an 'active' flag resolved via PHP
     $navGroups = [
@@ -133,7 +133,6 @@
             'items' => [
                 ['label' => 'Pengguna',             'icon' => 'user',           'href' => $r('filament.helpdesk.resources.users.index'),       'active' => request()->is('helpdesk/users*')],
                 ['label' => 'Role & Permission',    'icon' => 'lock',           'href' => $r('filament.helpdesk.resources.roles.index'),       'active' => request()->is('helpdesk/roles*')],
-                ['label' => 'Department',           'icon' => 'building-2',     'href' => $r('filament.helpdesk.resources.departments.index'), 'active' => request()->is('helpdesk/departments*')],
                 ['label' => 'Pengaturan',           'icon' => 'settings',       'href' => '#', 'active' => false],
             ],
         ],

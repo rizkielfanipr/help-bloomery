@@ -15,7 +15,7 @@ return new class extends Migration
         // Recreate service_requests with new simplified structure
         Schema::create('service_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('department_id')->nullable()->nullOnDelete()->constrained('departments');
+            $table->unsignedBigInteger('department_id')->nullable();
             $table->foreignId('technician_id')->nullable()->nullOnDelete()->constrained('users');
             $table->foreignId('scheduled_by')->constrained('users')->cascadeOnDelete();
             $table->date('scheduled_date');

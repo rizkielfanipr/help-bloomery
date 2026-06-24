@@ -9,7 +9,6 @@ use App\Filament\Helpdesk\Resources\BriefingRecords\Pages\ViewBriefingRecord;
 use App\Models\BriefingRecord;
 use App\Models\User;
 use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
@@ -17,7 +16,6 @@ use Filament\Infolists\Components\Component;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -89,16 +87,16 @@ class BriefingRecordResource extends Resource
                             ->placeholder('-'),
                     ]),
 
-                    ImageEntry::make('items_photo_'.$task->value)
+                    ImageEntry::make('items_photos_'.$task->value)
                         ->label('Foto Bukti')
                         ->disk('public')
                         ->size(200)
-                        ->state(fn (BriefingRecord $record): ?string => $record->items
+                        ->state(fn (BriefingRecord $record): array => $record->items
                             ->where('task_key', $task)
-                            ->first()?->photo_path)
-                        ->hidden(fn (BriefingRecord $record): bool => ! $record->items
+                            ->first()?->photo_paths ?? [])
+                        ->hidden(fn (BriefingRecord $record): bool => empty($record->items
                             ->where('task_key', $task)
-                            ->first()?->photo_path),
+                            ->first()?->photo_paths)),
                 ]);
         }, BriefingTaskKey::forPeriod($period));
     }
@@ -151,40 +149,6 @@ class BriefingRecordResource extends Resource
             ->defaultSort('record_date', 'desc')
             ->recordActions([
                 ViewAction::make()->iconButton()->tooltip('Lihat')->color('info'),
-
-                Action::make('approve_hr')
-                    ->icon('heroicon-o-check-badge')
-                    ->color('success')
-                    ->iconButton()
-                    ->tooltip('Approve tugas HR')
-                    ->visible(fn (BriefingRecord $record): bool => $record->items
-                        ->where('task_key', BriefingTaskKey::MonthlyMilestone)
-                        ->first() !== null || $record->items
-                        ->where('task_key', BriefingTaskKey::MonthlyKpi)
-                        ->first() !== null)
-                    ->action(function (BriefingRecord $record): void {
-                        $record->load('items');
-                        $updated = 0;
-
-                        foreach ([BriefingTaskKey::MonthlyMilestone, BriefingTaskKey::MonthlyKpi] as $task) {
-                            $item = $record->items->where('task_key', $task)->first();
-
-                            if ($item && ! $item->is_completed) {
-                                $item->update([
-                                    'is_completed' => true,
-                                    'completed_at' => now(),
-                                    'reviewed_by' => auth()->id(),
-                                    'reviewed_at' => now(),
-                                ]);
-                                $updated++;
-                            }
-                        }
-
-                        Notification::make()
-                            ->title($updated > 0 ? "Disetujui ({$updated} tugas)" : 'Sudah disetujui')
-                            ->success()
-                            ->send();
-                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

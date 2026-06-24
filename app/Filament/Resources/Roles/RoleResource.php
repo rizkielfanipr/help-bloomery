@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Roles;
 
-use App\Filament\Forms\Components\TemplatePermissionsMatrix;
+use App\Filament\Forms\Components\PermissionsMatrix;
 use App\Filament\Resources\Roles\Pages\CreateRole;
 use App\Filament\Resources\Roles\Pages\EditRole;
 use App\Filament\Resources\Roles\Pages\ListRoles;
@@ -10,14 +10,12 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use UnitEnum;
 
@@ -43,28 +41,6 @@ class RoleResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        $groupConfig = config('permissions', []);
-
-        $descriptions = collect($groupConfig)
-            ->flatMap(fn (array $permissions, string $group): array => array_fill_keys($permissions, $group))
-            ->toArray();
-
-        $generalPermissions = Permission::where('name', 'not like', 'helpdesk.%.%')
-            ->orderBy('name')
-            ->get();
-
-        $permissionOptions = $generalPermissions
-            ->mapWithKeys(fn (Permission $permission): array => [
-                $permission->id => $permission->name,
-            ])
-            ->toArray();
-
-        $optionDescriptions = $generalPermissions
-            ->mapWithKeys(fn (Permission $permission): array => [
-                $permission->id => $descriptions[$permission->name] ?? '',
-            ])
-            ->toArray();
-
         return $schema
             ->columns(1)
             ->components([
@@ -83,23 +59,10 @@ class RoleResource extends Resource
                             ->maxLength(255),
                     ]),
 
-                Section::make('Permissions Umum')
+                Section::make('Hak Akses')
+                    ->description('Centang aksi yang diizinkan per resource.')
                     ->schema([
-                        CheckboxList::make('permissions')
-                            ->label('')
-                            ->relationship(titleAttribute: 'name')
-                            ->options($permissionOptions)
-                            ->descriptions($optionDescriptions)
-                            ->columns(3)
-                            ->bulkToggleable()
-                            ->searchable(),
-                    ]),
-
-                Section::make('Akses Template Form')
-                    ->description('Atur akses CRUD per template form untuk role ini.')
-                    ->schema([
-                        TemplatePermissionsMatrix::make('template_permissions')
-                            ->label(''),
+                        PermissionsMatrix::make('permissions')->label(''),
                     ]),
             ]);
     }

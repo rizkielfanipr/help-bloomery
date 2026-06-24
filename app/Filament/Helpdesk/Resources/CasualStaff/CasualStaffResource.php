@@ -136,9 +136,10 @@ class CasualStaffResource extends Resource
             ])
             ->toolbarActions([
                 Action::make('export')
-                    ->label('Export Excel')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
+                    ->iconButton()
+                    ->tooltip('Export Excel')
                     ->url(route('helpdesk.exports.casual-staff'))
                     ->openUrlInNewTab(),
                 BulkActionGroup::make([

@@ -2,7 +2,7 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\Resources\Departments\DepartmentResource;
+use App\Filament\Helpdesk\Pages\BriefingCalendarPage;
 use App\Filament\Resources\Roles\RoleResource;
 use App\Filament\Resources\Users\UserResource;
 use Filament\Enums\ThemeMode;
@@ -11,6 +11,7 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
+use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -47,6 +48,7 @@ class HelpdeskPanelProvider extends PanelProvider
                 ),
             )
             ->navigationGroups([
+                NavigationGroup::make('Finance')->icon('heroicon-o-banknotes'),
                 NavigationGroup::make('Human Resources')->icon('heroicon-o-user-group'),
                 NavigationGroup::make('Casual Staff')->icon('heroicon-o-identification'),
                 NavigationGroup::make('Manajemen Driver')->icon('heroicon-o-truck'),
@@ -56,10 +58,16 @@ class HelpdeskPanelProvider extends PanelProvider
             ->resources([
                 UserResource::class,
                 RoleResource::class,
-                DepartmentResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Helpdesk/Pages'), for: 'App\Filament\Helpdesk\Pages')
             ->pages([])
+            ->navigationItems([
+                NavigationItem::make('Kalender Briefing')
+                    ->icon('heroicon-o-calendar-days')
+                    ->group('Human Resources')
+                    ->sort(7)
+                    ->url(fn () => BriefingCalendarPage::getUrl()),
+            ])
             ->discoverWidgets(in: app_path('Filament/Helpdesk/Widgets'), for: 'App\Filament\Helpdesk\Widgets')
             ->widgets([])
             ->middleware([

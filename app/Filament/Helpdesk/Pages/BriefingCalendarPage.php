@@ -16,8 +16,6 @@ use UnitEnum;
 
 class BriefingCalendarPage extends Page
 {
-    protected static bool $shouldRegisterNavigation = false;
-
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
     protected static string|UnitEnum|null $navigationGroup = 'Human Resources';
@@ -90,13 +88,11 @@ class BriefingCalendarPage extends Page
         $end = $start->copy()->endOfMonth();
         $today = Carbon::today();
 
-        $allStaff = User::role('casual_staff')
-            ->whereNotNull('branch_id')
-            ->select(['id', 'branch_id'])
-            ->get();
-
+        $allStaff = User::select(['id', 'branch_id'])->whereNotNull('branch_id')->get();
         $allStaffIds = $allStaff->pluck('id');
-        $totalStaff = $allStaff->count();
+
+        $branchGroups = $allStaff->groupBy('branch_id');
+        $totalBranches = $branchGroups->count();
 
         $recordQuery = BriefingRecord::whereIn('user_id', $allStaffIds)
             ->where('period', $period->value)
@@ -131,34 +127,38 @@ class BriefingCalendarPage extends Page
             };
 
             $stats = null;
-            if ($isPast && $isScheduled && $totalStaff > 0) {
+            if ($isPast && $isScheduled && $totalBranches > 0) {
                 $dayRecords = $recordIndex[$dateKey] ?? [];
-                $submitted = count($dayRecords);
-                $approved = 0;
-                $pending = 0;
-                $rejected = 0;
+                $submittedBranches = 0;
+                $approvedBranches = 0;
 
-                foreach ($dayRecords as $record) {
-                    $items = $record->items;
-                    if ($items->isEmpty()) {
-                        continue;
-                    }
-                    if ($items->contains(fn (BriefingItem $i) => $i->review_status === BriefingReviewStatus::Rejected)) {
-                        $rejected++;
-                    } elseif ($items->every(fn (BriefingItem $i) => $i->review_status === BriefingReviewStatus::Approved)) {
-                        $approved++;
-                    } elseif ($items->contains(fn (BriefingItem $i) => $i->review_status === BriefingReviewStatus::Pending)) {
-                        $pending++;
+                foreach ($branchGroups as $branchStaff) {
+                    $branchStaffIds = $branchStaff->pluck('id')->toArray();
+                    $branchSubmitted = array_intersect_key($dayRecords, array_flip($branchStaffIds));
+
+                    if (count($branchSubmitted) >= count($branchStaffIds)) {
+                        $submittedBranches++;
+
+                        $allApproved = true;
+                        foreach ($branchSubmitted as $record) {
+                            if ($record->items->isEmpty() || ! $record->items->every(fn (BriefingItem $i) => $i->review_status === BriefingReviewStatus::Approved)) {
+                                $allApproved = false;
+                                break;
+                            }
+                        }
+                        if ($allApproved) {
+                            $approvedBranches++;
+                        }
                     }
                 }
 
                 $stats = [
-                    'total' => $totalStaff,
-                    'submitted' => $submitted,
-                    'missing' => max(0, $totalStaff - $submitted),
-                    'approved' => $approved,
-                    'pending' => $pending,
-                    'rejected' => $rejected,
+                    'total' => $totalBranches,
+                    'submitted' => $submittedBranches,
+                    'missing' => max(0, $totalBranches - $submittedBranches),
+                    'approved' => $approvedBranches,
+                    'pending' => 0,
+                    'rejected' => 0,
                 ];
             }
 
@@ -179,7 +179,7 @@ class BriefingCalendarPage extends Page
             'monthLabel' => Carbon::create($this->year, $this->month)->locale('id')->isoFormat('MMMM Y'),
             'startWeekday' => (int) $start->dayOfWeek,
             'days' => $days,
-            'totalStaff' => $totalStaff,
+            'totalBranches' => $totalBranches,
         ];
     }
 
@@ -203,54 +203,55 @@ class BriefingCalendarPage extends Page
             return [];
         }
 
-        $allStaff = User::role('casual_staff')
-            ->whereNotNull('branch_id')
-            ->select(['id', 'branch_id', 'name'])
+        $branches = Branch::with(['users' => fn ($q) => $q->orderBy('name')])
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (Branch $b) => $b->users->isNotEmpty());
 
-        $staffByBranch = $allStaff->groupBy('branch_id');
+        $allStaffIds = $branches->flatMap(fn (Branch $b) => $b->users->pluck('id'));
 
-        $records = BriefingRecord::whereIn('user_id', $allStaff->pluck('id'))
+        $records = BriefingRecord::whereIn('user_id', $allStaffIds)
             ->where('period', $period->value)
             ->whereDate('record_date', $this->selectedDate)
             ->with('items')
             ->get()
             ->keyBy('user_id');
 
-        $branches = Branch::whereIn('id', $staffByBranch->keys())
-            ->orderBy('name')
-            ->get();
-
         $details = [];
+
         foreach ($branches as $branch) {
-            $branchStaff = $staffByBranch[$branch->id] ?? collect();
-            $users = [];
             $submitted = 0;
             $approved = 0;
+            $submittedTimes = [];
+            $submittedUsers = [];
 
-            foreach ($branchStaff as $staff) {
+            foreach ($branch->users as $staff) {
                 $record = $records->get($staff->id);
                 $status = $this->getUserStatus($record);
                 if ($status !== 'missing') {
                     $submitted++;
+                    if ($record?->submitted_at) {
+                        $submittedTimes[] = $record->submitted_at;
+                    }
+                    $submittedUsers[] = [
+                        'name' => $staff->name,
+                        'status' => $status,
+                        'submittedAt' => $record?->submitted_at?->format('H:i'),
+                    ];
                 }
                 if ($status === 'approved') {
                     $approved++;
                 }
-                $users[] = [
-                    'name' => $staff->name,
-                    'status' => $status,
-                    'submittedAt' => $record?->submitted_at?->format('H:i'),
-                ];
             }
 
             $details[] = [
                 'branch' => $branch->name,
-                'total' => $branchStaff->count(),
+                'total' => $branch->users->count(),
                 'submitted' => $submitted,
                 'approved' => $approved,
-                'users' => $users,
+                'firstSubmit' => $submittedTimes ? min($submittedTimes)->format('H:i') : null,
+                'lastSubmit' => $submittedTimes ? max($submittedTimes)->format('H:i') : null,
+                'users' => $submittedUsers,
             ];
         }
 

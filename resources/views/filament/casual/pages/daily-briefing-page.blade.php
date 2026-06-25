@@ -14,7 +14,7 @@
      style="min-height:100dvh"
      x-data="{
          showModal: false,
-         openModal() { this.showModal = true; },
+         openModal() { this.showModal = true; this.updateStampTime(); this.initLocation(); },
          closeModal() { this.showModal = false; },
 
          cameraOpen: false,
@@ -36,43 +36,7 @@
              this.updateStampTime();
              this.timeInterval = setInterval(() => this.updateStampTime(), 1000);
 
-             if ('geolocation' in navigator) {
-                 navigator.geolocation.getCurrentPosition(
-                     async (pos) => {
-                         const lat = pos.coords.latitude.toFixed(6);
-                         const lng = pos.coords.longitude.toFixed(6);
-                         this.locationCoords = { lat, lng };
-                         this.stampLocation = lat + ', ' + lng;
-
-                         try {
-                             const res = await fetch(
-                                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-                                 { headers: { 'Accept-Language': 'id' } }
-                             );
-                             if (res.ok) {
-                                 const data = await res.json();
-                                 const addr = data.address || {};
-                                 const road = addr.road || addr.pedestrian || addr.footway || addr.path || '';
-                                 const suburb = addr.suburb || addr.neighbourhood || addr.village || '';
-                                 const city = addr.city || addr.town || addr.county || '';
-                                 let formatted = [road, suburb, city].filter(Boolean).join(', ');
-                                 if (! formatted) {
-                                     formatted = (data.display_name || '').split(',').slice(0, 2).join(',').trim();
-                                 }
-                                 if (formatted) {
-                                     this.stampLocation = formatted.length > 55 ? formatted.substring(0, 52) + '...' : formatted;
-                                 }
-                             }
-                         } catch (_) {
-                             // Koordinat sudah terset sebagai fallback
-                         }
-                     },
-                     () => { this.stampLocation = 'Lokasi tidak tersedia'; },
-                     { timeout: 10000, enableHighAccuracy: true }
-                 );
-             } else {
-                 this.stampLocation = 'Lokasi tidak didukung';
-             }
+             this.initLocation();
 
              try {
                  this.stream = await navigator.mediaDevices.getUserMedia({
@@ -102,6 +66,60 @@
              }
              clearInterval(this.timeInterval);
              this.cameraOpen = false;
+         },
+
+         initLocation() {
+             if ('geolocation' in navigator) {
+                 navigator.geolocation.getCurrentPosition(
+                     async (pos) => {
+                         const lat = pos.coords.latitude.toFixed(6);
+                         const lng = pos.coords.longitude.toFixed(6);
+                         this.locationCoords = { lat, lng };
+                         this.stampLocation = lat + ', ' + lng;
+                         try {
+                             const res = await fetch(
+                                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+                                 { headers: { 'Accept-Language': 'id' } }
+                             );
+                             if (res.ok) {
+                                 const data = await res.json();
+                                 const addr = data.address || {};
+                                 const road = addr.road || addr.pedestrian || addr.footway || addr.path || '';
+                                 const suburb = addr.suburb || addr.neighbourhood || addr.village || '';
+                                 const city = addr.city || addr.town || addr.county || '';
+                                 let formatted = [road, suburb, city].filter(Boolean).join(', ');
+                                 if (! formatted) {
+                                     formatted = (data.display_name || '').split(',').slice(0, 2).join(',').trim();
+                                 }
+                                 if (formatted) {
+                                     this.stampLocation = formatted.length > 55 ? formatted.substring(0, 52) + '...' : formatted;
+                                 }
+                             }
+                         } catch (_) {}
+                     },
+                     () => { this.stampLocation = 'Lokasi tidak tersedia'; },
+                     { timeout: 10000, enableHighAccuracy: true }
+                 );
+             } else {
+                 this.stampLocation = 'Lokasi tidak didukung';
+             }
+         },
+
+         burnTimestamp(canvas) {
+             const ctx = canvas.getContext('2d');
+             const fW = canvas.width;
+             const fH = canvas.height;
+             const bandH = Math.max(56, Math.round(fH * 0.095));
+             ctx.fillStyle = 'rgba(0,0,0,0.62)';
+             ctx.fillRect(0, fH - bandH, fW, bandH);
+             const fs = Math.max(13, Math.round(fW * 0.024));
+             const pad = 10;
+             ctx.font = 'bold ' + fs + 'px monospace';
+             ctx.fillStyle = '#FFFFFF';
+             ctx.fillText(this.stampTime, pad, fH - bandH + fs + 5);
+             ctx.font = Math.round(fs * 0.84) + 'px monospace';
+             ctx.fillStyle = '#7CFC7C';
+             ctx.fillText(this.stampLocation, pad, fH - bandH + fs * 2 + 9);
          },
 
          updateStampTime() {
@@ -147,33 +165,60 @@
              const ctx = canvas.getContext('2d');
              ctx.drawImage(tmp, 0, 0, fW, fH);
 
-             // Burn timestamp + location overlay at bottom
-             const bandH = Math.max(56, Math.round(fH * 0.095));
-             ctx.fillStyle = 'rgba(0,0,0,0.62)';
-             ctx.fillRect(0, fH - bandH, fW, bandH);
-
-             const fs = Math.max(13, Math.round(fW * 0.024));
-             const pad = 10;
-
-             ctx.font = 'bold ' + fs + 'px monospace';
-             ctx.fillStyle = '#FFFFFF';
-             ctx.fillText(this.stampTime, pad, fH - bandH + fs + 5);
-
-             ctx.font = Math.round(fs * 0.84) + 'px monospace';
-             ctx.fillStyle = '#7CFC7C';
-             ctx.fillText(this.stampLocation, pad, fH - bandH + fs * 2 + 9);
+             this.burnTimestamp(canvas);
 
              this.previewSrc = canvas.toDataURL('image/jpeg', 0.85);
              this.closeCamera();
              this.uploading = true;
 
              $wire.storeCameraPhoto(this.previewSrc)
-                 .then(() => { this.uploading = false; })
+                 .then(() => { this.uploading = false; this.previewSrc = null; })
                  .catch(() => {
                      this.uploading = false;
                      this.previewSrc = null;
                      alert('Gagal menyimpan foto. Silakan coba lagi.');
                  });
+         },
+
+         handleFileUpload(event) {
+             const file = event.target.files[0];
+             if (!file) return;
+             event.target.value = '';
+
+             this.updateStampTime();
+             this.uploading = true;
+
+             const reader = new FileReader();
+             reader.onload = (e) => {
+                 const img = new Image();
+                 img.onload = () => {
+                     const maxW = 1024;
+                     const scale = img.width > maxW ? maxW / img.width : 1;
+                     const fW = Math.round(img.width * scale);
+                     const fH = Math.round(img.height * scale);
+
+                     const canvas = document.createElement('canvas');
+                     canvas.width = fW;
+                     canvas.height = fH;
+                     const ctx = canvas.getContext('2d');
+                     ctx.drawImage(img, 0, 0, fW, fH);
+
+                     this.burnTimestamp(canvas);
+
+                     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                     this.previewSrc = dataUrl;
+
+                     $wire.storeCameraPhoto(dataUrl)
+                         .then(() => { this.uploading = false; this.previewSrc = null; })
+                         .catch(() => {
+                             this.uploading = false;
+                             this.previewSrc = null;
+                             alert('Gagal menyimpan foto. Silakan coba lagi.');
+                         });
+                 };
+                 img.src = e.target.result;
+             };
+             reader.readAsDataURL(file);
          },
      }"
      @open-task-modal.window="openModal()"
@@ -460,6 +505,11 @@
 
                             {{-- Thumbnail grid (confirmed photos) + uploading preview --}}
                             @if(count($this->cameraPhotoPaths) > 0 || true)
+                                <input type="file"
+                                       accept="image/*"
+                                       x-ref="photoInput"
+                                       @change="handleFileUpload($event)"
+                                       class="hidden">
                                 <div class="grid grid-cols-3 gap-2">
 
                                     {{-- Confirmed photos --}}
@@ -490,7 +540,7 @@
                                         </div>
                                     </div>
 
-                                    {{-- Add photo button (max 5) --}}
+                                    {{-- Add buttons: Kamera + Galeri (max 5 total) --}}
                                     @if(count($this->cameraPhotoPaths) < 5)
                                         <button @click="openCamera()"
                                                 x-show="!uploading"
@@ -499,17 +549,23 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/>
                                             </svg>
-                                            <span class="text-xs font-medium text-violet-600 dark:text-violet-400">
-                                                {{ count($this->cameraPhotoPaths) === 0 ? 'Buka Kamera' : '+ Tambah' }}
-                                            </span>
+                                            <span class="text-xs font-medium text-violet-600 dark:text-violet-400">Kamera</span>
+                                        </button>
+                                        <button @click="$refs.photoInput.click()"
+                                                x-show="!uploading"
+                                                class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30">
+                                            <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+                                            </svg>
+                                            <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Galeri</span>
                                         </button>
                                     @endif
 
                                 </div>
 
                                 @if(count($this->cameraPhotoPaths) === 0)
-                                    <p x-show="!uploading" class="mt-1.5 text-center text-xs text-violet-400">
-                                        Foto dengan timestamp &amp; lokasi otomatis
+                                    <p x-show="!uploading" class="mt-1.5 text-center text-xs text-gray-400">
+                                        Timestamp &amp; lokasi otomatis di semua foto
                                     </p>
                                 @endif
                             @endif

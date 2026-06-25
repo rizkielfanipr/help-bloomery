@@ -8,17 +8,33 @@
 
 <div class="flex flex-col bg-emerald-600" style="min-height:100dvh">
 
-    {{-- Header --}}
-    <div class="relative overflow-hidden px-5 pb-8 pt-14">
-        <div class="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/10"></div>
+    {{-- ════════════════════════════════════════════
+         HEADER
+    ════════════════════════════════════════════ --}}
+    <div class="flex-shrink-0 px-5 pb-8 pt-14">
+        <div class="mb-4 flex items-center gap-3">
+            <a href="{{ \App\Filament\Driver\Pages\TripDashboard::getUrl() }}"
+               class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition active:bg-white/30">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
+                </svg>
+            </a>
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                </svg>
+            </div>
+            <span class="text-base font-semibold text-white">Riwayat Perjalanan</span>
+        </div>
 
-        <p class="text-xs font-medium text-emerald-200">{{ now()->locale('id')->isoFormat('dddd, D MMMM YYYY') }}</p>
-        <h1 class="mt-0.5 text-xl font-bold text-white">Riwayat Perjalanan</h1>
-        <p class="mt-0.5 text-sm text-emerald-200/80">{{ $monthNames[$this->reportMonth] }} {{ $this->reportYear }}</p>
+        <p class="text-emerald-200">{{ $monthNames[$this->reportMonth] }} {{ $this->reportYear }}</p>
+        <p class="text-xl font-semibold text-white">{{ $this->periodStart->format('d M') }} — {{ $this->periodEnd->format('d M Y') }}</p>
     </div>
 
-    {{-- Content card --}}
-    <div class="-mt-5 flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
+    {{-- ════════════════════════════════════════════
+         WHITE CONTENT CARD
+    ════════════════════════════════════════════ --}}
+    <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
 
         {{-- Period navigator --}}
         <div class="mx-5 flex items-center justify-between gap-3">
@@ -28,11 +44,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
                 </svg>
             </button>
-            <div class="text-center">
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">
-                    {{ $this->periodStart->format('d M') }} — {{ $this->periodEnd->format('d M Y') }}
-                </p>
-            </div>
+            <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                {{ $this->periodStart->format('d M') }} — {{ $this->periodEnd->format('d M Y') }}
+            </p>
             <button wire:click="nextPeriod"
                     class="flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-black/5 transition active:bg-gray-100 dark:bg-gray-900 dark:ring-white/10">
                 <svg class="h-5 w-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">

@@ -11,6 +11,7 @@ enum ServiceRequestStatus: string implements HasColor, HasIcon, HasLabel
     case Submitted = 'submitted';
     case InProgress = 'in_progress';
     case Warranty = 'warranty';
+    case ReSubmitted = 're_submitted';
     case Completed = 'completed';
 
     public function getLabel(): string
@@ -19,6 +20,7 @@ enum ServiceRequestStatus: string implements HasColor, HasIcon, HasLabel
             self::Submitted => 'Diajukan',
             self::InProgress => 'Dikerjakan',
             self::Warranty => 'Garansi',
+            self::ReSubmitted => 'Pengaduan Ulang',
             self::Completed => 'Selesai',
         };
     }
@@ -29,6 +31,7 @@ enum ServiceRequestStatus: string implements HasColor, HasIcon, HasLabel
             self::Submitted => 'info',
             self::InProgress => 'warning',
             self::Warranty => 'purple',
+            self::ReSubmitted => 'danger',
             self::Completed => 'success',
         };
     }
@@ -39,6 +42,7 @@ enum ServiceRequestStatus: string implements HasColor, HasIcon, HasLabel
             self::Submitted => 'heroicon-o-paper-airplane',
             self::InProgress => 'heroicon-o-wrench-screwdriver',
             self::Warranty => 'heroicon-o-shield-check',
+            self::ReSubmitted => 'heroicon-o-arrow-path',
             self::Completed => 'heroicon-o-check-badge',
         };
     }

@@ -30,6 +30,11 @@ class Branch extends Model
         ];
     }
 
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class, 'branch_id');
+    }
+
     public function openings(): HasMany
     {
         return $this->hasMany(CasualPositionOpening::class);

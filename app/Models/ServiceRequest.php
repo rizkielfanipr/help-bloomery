@@ -23,6 +23,8 @@ class ServiceRequest extends Model
         'attachments',
         'status',
         'warranty_expires_at',
+        'warranty_claim_notes',
+        'warranty_claim_attachments',
     ];
 
     protected function casts(): array
@@ -31,6 +33,7 @@ class ServiceRequest extends Model
             'status' => ServiceRequestStatus::class,
             'scheduled_date' => 'date',
             'attachments' => 'array',
+            'warranty_claim_attachments' => 'array',
             'warranty_expires_at' => 'datetime',
         ];
     }

@@ -18,6 +18,8 @@ class ServiceRequestRepair extends Model
         'started_at',
         'completed_at',
         'warranty_expires_at',
+        'warranty_claim_notes',
+        'warranty_claim_attachments',
     ];
 
     protected function casts(): array
@@ -26,6 +28,7 @@ class ServiceRequestRepair extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'warranty_expires_at' => 'datetime',
+            'warranty_claim_attachments' => 'array',
         ];
     }
 

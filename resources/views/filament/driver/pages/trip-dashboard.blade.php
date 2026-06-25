@@ -2,29 +2,33 @@
 
 <div class="flex flex-col bg-emerald-600" style="min-height:100dvh">
 
-    {{-- Header --}}
-    <div class="relative overflow-hidden px-5 pb-8 pt-14">
-        <div class="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/10"></div>
-        <div class="pointer-events-none absolute -bottom-4 right-20 h-20 w-20 rounded-full bg-emerald-500/40"></div>
-
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-xs font-medium text-emerald-200">{{ now()->locale('id')->isoFormat('dddd, D MMMM YYYY') }}</p>
-                <h1 class="mt-0.5 text-xl font-bold text-white">Logbook Driver</h1>
-            </div>
+    {{-- ════════════════════════════════════════════
+         HEADER
+    ════════════════════════════════════════════ --}}
+    <div class="flex-shrink-0 px-5 pb-8 pt-14">
+        <div class="mb-4 flex items-center gap-3">
             <a href="{{ route('filament.casual.pages.launcher-page') }}"
-               class="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white transition active:bg-white/25">
+               class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition active:bg-white/30">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
                 </svg>
             </a>
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
+                </svg>
+            </div>
+            <span class="text-base font-semibold text-white">Logbook Driver</span>
         </div>
 
-        <p class="mt-2 text-sm text-emerald-100">Selamat datang, {{ \Illuminate\Support\Str::before($user->name, ' ') }}</p>
+        <p class="text-emerald-200">{{ $user->name }}</p>
+        <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
     </div>
 
-    {{-- Content card --}}
-    <div class="-mt-5 flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
+    {{-- ════════════════════════════════════════════
+         WHITE CONTENT CARD
+    ════════════════════════════════════════════ --}}
+    <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
 
         {{-- Active trip --}}
         @if($this->activeTrip)

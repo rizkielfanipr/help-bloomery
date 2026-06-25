@@ -12,21 +12,20 @@
 
 <div class="flex flex-col bg-emerald-600" style="min-height:100dvh">
 
-    {{-- Header --}}
-    <div class="relative overflow-hidden px-5 pb-8 pt-14">
-        <div class="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full bg-white/10"></div>
-
-        <div class="flex items-start gap-4">
+    {{-- ════════════════════════════════════════════
+         HEADER
+    ════════════════════════════════════════════ --}}
+    <div class="flex-shrink-0 px-5 pb-6 pt-14">
+        <div class="mb-3 flex items-center gap-3">
             <a href="{{ \App\Filament\Driver\Pages\TripDashboard::getUrl() }}"
-               class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition active:bg-white/25">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+               class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition active:bg-white/30">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
                 </svg>
             </a>
             <div class="min-w-0 flex-1">
                 <p class="text-xs font-medium text-emerald-200">Perjalanan Aktif</p>
-                <h1 class="mt-0.5 truncate text-xl font-bold text-white">{{ $route->name }}</h1>
-                <p class="mt-0.5 text-xs text-emerald-200">{{ $trip->vehicle->license_plate }} · Mulai {{ $trip->started_at->format('H:i') }}</p>
+                <p class="truncate text-base font-semibold text-white">{{ $route->name }}</p>
             </div>
             <div class="shrink-0 text-right">
                 <span class="text-2xl font-bold text-white">{{ $completedCount }}/{{ $totalCount }}</span>
@@ -34,14 +33,18 @@
             </div>
         </div>
 
+        <p class="mb-2 text-xs text-emerald-200">{{ $trip->vehicle->license_plate }} · Mulai {{ $trip->started_at->format('H:i') }}</p>
+
         {{-- Progress bar --}}
-        <div class="mt-4 h-1.5 overflow-hidden rounded-full bg-white/20">
+        <div class="h-1.5 overflow-hidden rounded-full bg-white/20">
             <div class="h-1.5 rounded-full bg-white transition-all duration-500" style="width:{{ $progress }}%"></div>
         </div>
     </div>
 
-    {{-- Content card --}}
-    <div class="-mt-5 flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-10 pt-6 dark:bg-gray-950">
+    {{-- ════════════════════════════════════════════
+         WHITE CONTENT CARD
+    ════════════════════════════════════════════ --}}
+    <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-10 pt-6 dark:bg-gray-950">
 
         {{-- Waypoints timeline --}}
         <div class="mx-5">
@@ -49,7 +52,7 @@
 
             <div class="relative">
                 {{-- Vertical line --}}
-                <div class="absolute left-4 top-4 bottom-4 w-px bg-gray-200 dark:bg-gray-700"></div>
+                <div class="absolute bottom-4 left-4 top-4 w-px bg-gray-200 dark:bg-gray-700"></div>
 
                 <div class="space-y-3">
                     @foreach($waypoints as $waypoint)

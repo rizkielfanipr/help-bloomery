@@ -131,63 +131,183 @@
 
                         {{-- Expanded items --}}
                         @if($isExpanded)
-                            <div class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800">
-                                @foreach($items as $item)
-                                    @php
-                                        $reviewClass = $this->reviewBadgeClass($item->review_status);
-                                        $reviewLabel = $this->reviewBadgeLabel($item->review_status);
-                                        $photoCount  = count($item->photo_paths ?? []);
-                                    @endphp
+                            @php
+                                $cleaningItems = $items->filter(fn ($i) => $i->task_key->isGeneralCleaningItem());
+                                $regularItems  = $items->reject(fn ($i) => $i->task_key->isGeneralCleaningItem());
+                            @endphp
 
-                                    <div class="px-4 py-3">
-                                        <div class="flex items-start justify-between gap-2">
-                                            <div class="min-w-0 flex-1">
-                                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
-                                                    {{ $item->task_key->getLabel() }}
-                                                </p>
-                                                @if($item->notes)
-                                                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item->notes }}</p>
-                                                @endif
-                                                @if($item->rejection_reason)
-                                                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">
-                                                        Alasan tolak: {{ $item->rejection_reason }}
+                            <div class="border-t border-gray-100 dark:border-gray-800">
+
+                                {{-- Regular items --}}
+                                <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    @foreach($regularItems as $item)
+                                        @php
+                                            $reviewClass = $this->reviewBadgeClass($item->review_status);
+                                            $reviewLabel = $this->reviewBadgeLabel($item->review_status);
+                                            $photoCount  = count($item->photo_paths ?? []);
+                                        @endphp
+
+                                        <div class="px-4 py-3">
+                                            <div class="flex items-start justify-between gap-2">
+                                                <div class="min-w-0 flex-1">
+                                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                                                        {{ $item->task_key->getLabel() }}
                                                     </p>
-                                                @endif
-                                                <div class="mt-1.5 flex items-center gap-2">
-                                                    <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $reviewClass }}">
-                                                        {{ $reviewLabel }}
-                                                    </span>
-                                                    @if($photoCount > 0)
-                                                        <span class="flex items-center gap-0.5 text-xs text-gray-400">
-                                                            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
-                                                            </svg>
-                                                            {{ $photoCount }} foto
+                                                    @if($item->notes)
+                                                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item->notes }}</p>
+                                                    @endif
+                                                    @if($item->rejection_reason)
+                                                        <p class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                                            Alasan tolak: {{ $item->rejection_reason }}
+                                                        </p>
+                                                    @endif
+                                                    <div class="mt-1.5 flex items-center gap-2">
+                                                        <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $reviewClass }}">
+                                                            {{ $reviewLabel }}
                                                         </span>
-                                                    @endif
-                                                    @if($item->completed_at)
-                                                        <span class="text-xs text-gray-400">{{ $item->completed_at->format('H:i') }}</span>
-                                                    @endif
+                                                        @if($photoCount > 0)
+                                                            <span class="flex items-center gap-0.5 text-xs text-gray-400">
+                                                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+                                                                </svg>
+                                                                {{ $photoCount }} foto
+                                                            </span>
+                                                        @endif
+                                                        @if($item->completed_at)
+                                                            <span class="text-xs text-gray-400">{{ $item->completed_at->format('H:i') }}</span>
+                                                        @endif
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        {{-- Photos --}}
-                                        @if($photoCount > 0)
-                                            <div class="mt-2 flex gap-1.5 overflow-x-auto pb-1">
-                                                @foreach($item->photo_paths as $path)
-                                                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
-                                                       target="_blank"
-                                                       class="flex-shrink-0">
-                                                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
-                                                             alt="Foto"
-                                                             class="h-16 w-16 rounded-lg object-cover">
-                                                    </a>
-                                                @endforeach
+                                            @if($photoCount > 0)
+                                                <div class="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+                                                    @foreach($item->photo_paths as $path)
+                                                        <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
+                                                           target="_blank"
+                                                           class="flex-shrink-0">
+                                                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
+                                                                 alt="Foto"
+                                                                 class="h-16 w-16 rounded-lg object-cover">
+                                                        </a>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                {{-- General Cleaning collapsible group --}}
+                                @if($cleaningItems->isNotEmpty())
+                                    @php
+                                        $cDone  = $cleaningItems->where('is_completed', true)->count();
+                                        $cTotal = $cleaningItems->count();
+                                    @endphp
+
+                                    <div x-data="{ openCleaning: false }"
+                                         class="border-t border-gray-100 dark:border-gray-800">
+
+                                        {{-- Parent row --}}
+                                        <button type="button"
+                                                @click="openCleaning = !openCleaning"
+                                                class="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-gray-50 dark:active:bg-gray-800">
+                                            <div class="flex-shrink-0">
+                                                @if($cDone === $cTotal)
+                                                    <div class="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
+                                                        <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                                        </svg>
+                                                    </div>
+                                                @elseif($cDone > 0)
+                                                    <div class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400">
+                                                        <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                                        </svg>
+                                                    </div>
+                                                @else
+                                                    <div class="h-6 w-6 rounded-full border-2 border-gray-200 dark:border-gray-600"></div>
+                                                @endif
                                             </div>
-                                        @endif
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200">General Cleaning</p>
+                                                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">{{ $cDone }}/{{ $cTotal }} poin selesai</span>
+                                            </div>
+                                            <svg class="h-4 w-4 flex-shrink-0 text-gray-300 transition-transform duration-200"
+                                                 :class="openCleaning ? 'rotate-90' : ''"
+                                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
+                                            </svg>
+                                        </button>
+
+                                        {{-- Sub-items --}}
+                                        <div x-show="openCleaning"
+                                             x-transition:enter="transition ease-out duration-200"
+                                             x-transition:enter-start="opacity-0"
+                                             x-transition:enter-end="opacity-100"
+                                             x-transition:leave="transition ease-in duration-150"
+                                             x-transition:leave-start="opacity-100"
+                                             x-transition:leave-end="opacity-0"
+                                             style="display:none"
+                                             class="divide-y divide-gray-50 border-t border-gray-100 bg-gray-50/50 dark:divide-gray-800/50 dark:border-gray-800 dark:bg-gray-900/50">
+                                            @foreach($cleaningItems as $item)
+                                                @php
+                                                    $reviewClass = $this->reviewBadgeClass($item->review_status);
+                                                    $reviewLabel = $this->reviewBadgeLabel($item->review_status);
+                                                    $photoCount  = count($item->photo_paths ?? []);
+                                                @endphp
+
+                                                <div class="py-3 pl-10 pr-4">
+                                                    <div class="flex items-start gap-2">
+                                                        <div class="min-w-0 flex-1">
+                                                            <p class="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                                {{ $item->task_key->getLabel() }}
+                                                            </p>
+                                                            @if($item->notes)
+                                                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item->notes }}</p>
+                                                            @endif
+                                                            @if($item->rejection_reason)
+                                                                <p class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                                                    Alasan tolak: {{ $item->rejection_reason }}
+                                                                </p>
+                                                            @endif
+                                                            <div class="mt-1 flex items-center gap-2">
+                                                                <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $reviewClass }}">
+                                                                    {{ $reviewLabel }}
+                                                                </span>
+                                                                @if($photoCount > 0)
+                                                                    <span class="flex items-center gap-0.5 text-xs text-gray-400">
+                                                                        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+                                                                        </svg>
+                                                                        {{ $photoCount }} foto
+                                                                    </span>
+                                                                @endif
+                                                                @if($item->completed_at)
+                                                                    <span class="text-xs text-gray-400">{{ $item->completed_at->format('H:i') }}</span>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    @if($photoCount > 0)
+                                                        <div class="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+                                                            @foreach($item->photo_paths as $path)
+                                                                <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
+                                                                   target="_blank"
+                                                                   class="flex-shrink-0">
+                                                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
+                                                                         alt="Foto"
+                                                                         class="h-14 w-14 rounded-lg object-cover">
+                                                                </a>
+                                                            @endforeach
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
                                     </div>
-                                @endforeach
+                                @endif
+
                             </div>
                         @endif
 

@@ -22,27 +22,37 @@
     /* ── Auto-open the active group ──────────────────────────────── */
     $path = request()->path();
     $initialOpen = [];
-    if (str_contains($path, 'casual') || str_contains($path, 'briefing-records') || str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar')) { $initialOpen[] = 'casual'; }
+    if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
+    if (str_contains($path, 'briefing-records') || str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver/', $path))                 { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path)) { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path))               { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches'))                             { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'payment-method')) { $initialOpen[] = 'finance'; }
+    if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
+    if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module')) { $initialOpen[] = 'it'; }
 
     /* ── Navigation groups with real routes ───────────────────────*/
     $navGroups = [
         [
-            'id'    => 'casual',
-            'label' => 'Human Resources',
-            'icon'  => 'users-round',
+            'id'    => 'casual_staff',
+            'label' => 'Casual Staff',
+            'icon'  => 'users',
             'items' => [
-                ['label' => 'Casual Staff',      'icon' => 'users',     'href' => $r('filament.helpdesk.resources.casual-staff.index'),              'active' => request()->is('helpdesk/casual-staff*')],
-                ['label' => 'Posisi Casual',     'icon' => 'briefcase',      'href' => $r('filament.helpdesk.resources.casual-positions.index'),           'active' => request()->is('helpdesk/casual-positions*')],
-                ['label' => 'Lowongan Posisi',   'icon' => 'megaphone',      'href' => $r('filament.helpdesk.resources.casual-position-openings.index'),  'active' => request()->is('helpdesk/casual-position-openings*')],
-                ['label' => 'Absensi Casual',     'icon' => 'clock',          'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),       'active' => request()->is('helpdesk/casual-clock-records*')],
-                ['label' => 'Daily Briefing',           'icon' => 'clipboard-list',   'href' => $r('filament.helpdesk.resources.briefing-records.index'),        'active' => request()->is('helpdesk/briefing-records*')],
-                ['label' => 'Monitoring Poin Briefing', 'icon' => 'clipboard-check',  'href' => $r('filament.helpdesk.resources.briefing-items.index'),           'active' => request()->is('helpdesk/briefing-items*')],
-                ['label' => 'Kalender Briefing',        'icon' => 'calendar-days',    'href' => $r('filament.helpdesk.pages.briefing-calendar-page'),             'active' => request()->is('helpdesk/briefing-calendar-page*')],
+                ['label' => 'Casual Staff',    'icon' => 'users',     'href' => $r('filament.helpdesk.resources.casual-staff.index'),             'active' => request()->is('helpdesk/casual-staff*')],
+                ['label' => 'Posisi Casual',   'icon' => 'briefcase', 'href' => $r('filament.helpdesk.resources.casual-positions.index'),          'active' => request()->is('helpdesk/casual-positions*')],
+                ['label' => 'Lowongan Posisi', 'icon' => 'megaphone', 'href' => $r('filament.helpdesk.resources.casual-position-openings.index'), 'active' => request()->is('helpdesk/casual-position-openings*')],
+                ['label' => 'Absensi Casual',  'icon' => 'clock',     'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),      'active' => request()->is('helpdesk/casual-clock-records*')],
+            ],
+        ],
+        [
+            'id'    => 'daily_briefing',
+            'label' => 'Daily Briefing',
+            'icon'  => 'clipboard-list',
+            'items' => [
+                ['label' => 'Daily Briefing',      'icon' => 'clipboard-list',  'href' => $r('filament.helpdesk.resources.briefing-records.index'),    'active' => request()->is('helpdesk/briefing-records*')],
+                ['label' => 'Monitoring Poin',     'icon' => 'clipboard-check', 'href' => $r('filament.helpdesk.resources.briefing-items.index'),      'active' => request()->is('helpdesk/briefing-items*')],
+                ['label' => 'Kalender Briefing',   'icon' => 'calendar-days',   'href' => $r('filament.helpdesk.pages.briefing-calendar-page'),        'active' => request()->is('helpdesk/briefing-calendar-page*')],
             ],
         ],
         [
@@ -66,25 +76,20 @@
             ],
         ],
         [
-            'id'    => 'purchasing',
-            'label' => 'Purchasing',
-            'icon'  => 'shopping-cart',
-            'items' => [
-                ['label' => 'Permintaan Pembelian', 'icon' => 'shopping-bag',  'href' => $r('filament.helpdesk.resources.purchase-requests.index'), 'active' => request()->is('helpdesk/purchase-requests*')],
-                ['label' => 'Approval Pembelian',   'icon' => 'check-square',  'href' => '#', 'active' => false],
-                ['label' => 'Vendor',               'icon' => 'building-2',    'href' => '#', 'active' => false],
-                ['label' => 'Monitoring Barang',    'icon' => 'package',       'href' => '#', 'active' => false],
-            ],
-        ],
-        [
             'id'    => 'it',
             'label' => 'Information Technology',
             'icon'  => 'monitor',
             'items' => [
-                ['label' => 'Permintaan IT',        'icon' => 'laptop',        'href' => '#', 'active' => false],
-                ['label' => 'Pengaduan IT',          'icon' => 'alert-circle',  'href' => '#', 'active' => false],
-                ['label' => 'Asset IT',              'icon' => 'hard-drive',    'href' => '#', 'active' => false],
-                ['label' => 'Monitoring Jaringan',   'icon' => 'network',       'href' => '#', 'active' => false],
+                ['label' => 'Permintaan ERP',  'icon' => 'server',      'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => request()->is('helpdesk/erp-repair-requests*')],
+                ['label' => 'Modul ERP',       'icon' => 'layout-grid', 'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => request()->is('helpdesk/erp-modules*')],
+            ],
+        ],
+        [
+            'id'    => 'purchasing',
+            'label' => 'Purchasing',
+            'icon'  => 'shopping-cart',
+            'items' => [
+                ['label' => 'Permintaan Pembelian', 'icon' => 'shopping-bag', 'href' => $r('filament.helpdesk.resources.purchase-requests.index'), 'active' => request()->is('helpdesk/purchase-requests*')],
             ],
         ],
         [
@@ -101,19 +106,8 @@
             'label' => 'Brand Marketing',
             'icon'  => 'megaphone',
             'items' => [
-                ['label' => 'Konten',        'icon' => 'image',        'href' => '#', 'active' => false],
-                ['label' => 'Promosi',       'icon' => 'tag',          'href' => '#', 'active' => false],
-                ['label' => 'Media Sosial',  'icon' => 'share-2',      'href' => '#', 'active' => false],
-                ['label' => 'Kampanye',      'icon' => 'trending-up',  'href' => '#', 'active' => false],
-            ],
-        ],
-        [
-            'id'    => 'helpdesk-ops',
-            'label' => 'Helpdesk',
-            'icon'  => 'headphones',
-            'items' => [
-                ['label' => 'Pengumuman',            'icon' => 'megaphone',     'href' => '#', 'active' => false],
-                ['label' => 'FAQ',                   'icon' => 'help-circle',   'href' => '#', 'active' => false],
+                ['label' => 'Permintaan Design', 'icon' => 'palette', 'href' => $r('filament.helpdesk.resources.design-requests.index'),   'active' => request()->is('helpdesk/design-requests*')],
+                ['label' => 'Kategori Design',   'icon' => 'tag',     'href' => $r('filament.helpdesk.resources.design-categories.index'), 'active' => request()->is('helpdesk/design-categories*')],
             ],
         ],
         [
@@ -121,9 +115,8 @@
             'label' => 'Management Access',
             'icon'  => 'shield',
             'items' => [
-                ['label' => 'Pengguna',             'icon' => 'user',          'href' => $r('filament.helpdesk.resources.users.index'),       'active' => request()->is('helpdesk/users*')],
-                ['label' => 'Role & Permission',    'icon' => 'lock',          'href' => $r('filament.helpdesk.resources.roles.index'),       'active' => request()->is('helpdesk/roles*')],
-                ['label' => 'Pengaturan',           'icon' => 'settings',      'href' => '#', 'active' => false],
+                ['label' => 'Pengguna',          'icon' => 'user', 'href' => $r('filament.helpdesk.resources.users.index'), 'active' => request()->is('helpdesk/users*')],
+                ['label' => 'Role & Permission', 'icon' => 'lock', 'href' => $r('filament.helpdesk.resources.roles.index'), 'active' => request()->is('helpdesk/roles*')],
             ],
         ],
         [

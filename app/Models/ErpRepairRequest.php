@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\ErpModule;
 use App\Enums\RequestStatus;
 use Database\Factories\ErpRepairRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,12 +18,12 @@ class ErpRepairRequest extends Model
 
     protected $fillable = [
         'requester_id',
+        'branch_id',
         'assignee_id',
-        'jenis_modul_erp',
-        'catatan_perbaikan',
+        'erp_module_id',
+        'keterangan',
         'attachments',
         'status',
-        'priority',
         'resolved_at',
     ];
 
@@ -33,7 +32,6 @@ class ErpRepairRequest extends Model
         return [
             'attachments' => 'array',
             'status' => RequestStatus::class,
-            'jenis_modul_erp' => ErpModule::class,
             'resolved_at' => 'datetime',
         ];
     }
@@ -46,6 +44,16 @@ class ErpRepairRequest extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assignee_id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function module(): BelongsTo
+    {
+        return $this->belongsTo(ErpModule::class, 'erp_module_id');
     }
 
     public function getActivitylogOptions(): LogOptions

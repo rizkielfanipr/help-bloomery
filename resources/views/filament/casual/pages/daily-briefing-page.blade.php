@@ -341,7 +341,12 @@
 
                     {{-- Task list --}}
                     <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @foreach($data['tasks'] as $task)
+                        @php
+                            $cleaningTasks = collect($data['tasks'])->filter(fn ($t) => str_starts_with($t['key'], 'monthly_cleaning_'))->values();
+                            $regularTasks  = collect($data['tasks'])->reject(fn ($t) => str_starts_with($t['key'], 'monthly_cleaning_'))->values();
+                        @endphp
+
+                        @foreach($regularTasks as $task)
                             @php
                                 $reviewStatus = $task['reviewStatus']?->value ?? null;
                                 $isApproved = $reviewStatus === 'approved';
@@ -437,6 +442,156 @@
                                 </div>
                             @endif
                         @endforeach
+
+                        {{-- General Cleaning collapsible group --}}
+                        @if($cleaningTasks->isNotEmpty())
+                            @php
+                                $cleaningDone  = $cleaningTasks->where('isCompleted', true)->count();
+                                $cleaningTotal = $cleaningTasks->count();
+                            @endphp
+
+                            <div x-data="{ openCleaning: false }">
+
+                                {{-- Parent row (toggle) --}}
+                                <button type="button"
+                                        @click="openCleaning = !openCleaning"
+                                        class="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-gray-50 dark:active:bg-gray-800">
+
+                                    {{-- Status icon --}}
+                                    <div class="flex-shrink-0">
+                                        @if($cleaningDone === $cleaningTotal)
+                                            <div class="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
+                                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                                </svg>
+                                            </div>
+                                        @elseif($cleaningDone > 0)
+                                            <div class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400">
+                                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                                </svg>
+                                            </div>
+                                        @else
+                                            <div class="h-6 w-6 rounded-full border-2 border-gray-200 dark:border-gray-600"></div>
+                                        @endif
+                                    </div>
+
+                                    {{-- Label + progress badge --}}
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">General Cleaning</p>
+                                        <div class="mt-0.5 flex items-center gap-1.5">
+                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">{{ $cleaningDone }}/{{ $cleaningTotal }} poin selesai</span>
+                                        </div>
+                                    </div>
+
+                                    {{-- Chevron (rotates when open) --}}
+                                    <svg class="h-4 w-4 flex-shrink-0 text-gray-300 transition-transform duration-200"
+                                         :class="openCleaning ? 'rotate-90' : ''"
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
+                                    </svg>
+                                </button>
+
+                                {{-- Sub-items --}}
+                                <div x-show="openCleaning"
+                                     x-transition:enter="transition ease-out duration-200"
+                                     x-transition:enter-start="opacity-0"
+                                     x-transition:enter-end="opacity-100"
+                                     x-transition:leave="transition ease-in duration-150"
+                                     x-transition:leave-start="opacity-100"
+                                     x-transition:leave-end="opacity-0"
+                                     style="display:none"
+                                     class="divide-y divide-gray-50 border-t border-gray-100 bg-gray-50/50 dark:divide-gray-800/50 dark:border-gray-800 dark:bg-gray-900/50">
+
+                                    @foreach($cleaningTasks as $cleanTask)
+                                        @php
+                                            $cReviewStatus = $cleanTask['reviewStatus']?->value ?? null;
+                                            $cIsApproved   = $cReviewStatus === 'approved';
+                                            $cIsRejected   = $cReviewStatus === 'rejected';
+                                            $cIsPending    = $cReviewStatus === 'pending';
+                                            $cIsClickable  = $cIsRejected || (! $cleanTask['reviewStatus'] && ! $cleanTask['isCompleted']);
+                                        @endphp
+
+                                        @if($cIsClickable)
+                                            <button type="button"
+                                                    wire:click="openTaskModal('{{ $cleanTask['key'] }}')"
+                                                    class="flex w-full items-start gap-3 py-3 pl-10 pr-4 text-left transition active:bg-gray-100 dark:active:bg-gray-800">
+                                        @else
+                                            <div class="flex w-full items-start gap-3 py-3 pl-10 pr-4">
+                                        @endif
+
+                                            {{-- Status icon (smaller) --}}
+                                            <div class="mt-0.5 flex-shrink-0">
+                                                @if($cIsApproved)
+                                                    <div class="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                                        </svg>
+                                                    </div>
+                                                @elseif($cIsRejected)
+                                                    <div class="flex h-5 w-5 items-center justify-center rounded-full bg-red-500">
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                                                        </svg>
+                                                    </div>
+                                                @elseif($cIsPending)
+                                                    <div class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400">
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                                        </svg>
+                                                    </div>
+                                                @elseif($cleanTask['isCompleted'])
+                                                    <div class="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                                        </svg>
+                                                    </div>
+                                                @else
+                                                    <div class="h-5 w-5 rounded-full border-2 border-gray-200 dark:border-gray-600"></div>
+                                                @endif
+                                            </div>
+
+                                            {{-- Sub-item info --}}
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-xs font-medium {{ ($cIsApproved || $cleanTask['isCompleted']) && ! $cIsRejected ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-700 dark:text-gray-300' }}">
+                                                    {{ $cleanTask['label'] }}
+                                                </p>
+                                                <div class="mt-0.5 flex flex-wrap items-center gap-1">
+                                                    @if($cIsApproved)
+                                                        <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Disetujui</span>
+                                                    @elseif($cIsRejected)
+                                                        <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Ditolak</span>
+                                                    @elseif($cIsPending)
+                                                        <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Menunggu Review</span>
+                                                    @elseif($cleanTask['completedAt'])
+                                                        <span class="text-xs text-gray-400">{{ $cleanTask['completedAt']->format('H:i') }}</span>
+                                                    @else
+                                                        <span class="text-xs text-gray-400">Foto Bukti Cleaning</span>
+                                                    @endif
+                                                </div>
+                                                @if($cIsRejected && $cleanTask['rejectionReason'])
+                                                    <p class="mt-0.5 text-xs text-red-600 dark:text-red-400">{{ $cleanTask['rejectionReason'] }}</p>
+                                                    <p class="mt-0.5 text-xs font-medium text-red-500">Tap untuk submit ulang</p>
+                                                @endif
+                                            </div>
+
+                                            @if($cIsClickable)
+                                                <svg class="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
+                                                </svg>
+                                            @endif
+
+                                        @if($cIsClickable)
+                                            </button>
+                                        @else
+                                            </div>
+                                        @endif
+                                    @endforeach
+
+                                </div>
+                            </div>
+                        @endif
+
                     </div>
 
                 </div>

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\DesignCategory;
 use App\Enums\RequestStatus;
 use Database\Factories\DesignRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,9 +18,10 @@ class DesignRequest extends Model
 
     protected $fillable = [
         'requester_id',
+        'branch_id',
         'assignee_id',
+        'design_category_id',
         'judul_permintaan',
-        'kategori_desain',
         'ringkasan_brief',
         'attachments',
         'status',
@@ -33,7 +33,6 @@ class DesignRequest extends Model
         return [
             'attachments' => 'array',
             'status' => RequestStatus::class,
-            'kategori_desain' => DesignCategory::class,
             'resolved_at' => 'datetime',
         ];
     }
@@ -46,6 +45,16 @@ class DesignRequest extends Model
     public function assignee(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assignee_id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(DesignCategory::class, 'design_category_id');
     }
 
     public function getActivitylogOptions(): LogOptions

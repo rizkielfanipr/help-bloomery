@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Helpdesk\Pages\Auth\Login;
 use App\Filament\Resources\Roles\RoleResource;
 use App\Filament\Resources\Users\UserResource;
 use Filament\Enums\ThemeMode;
@@ -30,7 +31,7 @@ class HelpdeskPanelProvider extends PanelProvider
             ->id('helpdesk')
             ->path('helpdesk')
             ->viteTheme('resources/css/filament/helpdesk/theme.css')
-            ->login()
+            ->login(Login::class)
             ->darkMode(true)
             ->defaultThemeMode(ThemeMode::Light)
             ->font('Inter')

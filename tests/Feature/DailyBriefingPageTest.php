@@ -119,17 +119,17 @@ it('updates completed count after saving tasks with photos', function () {
     actingAs($user);
 
     $page = Livewire::test(DailyBriefingPage::class)
-        ->call('openTaskModal', BriefingTaskKey::MonthlyGeneralCleaning->value)
+        ->call('openTaskModal', BriefingTaskKey::WeeklyCleaning->value)
         ->set('cameraPhotoPaths', ['briefing-photos/test1.jpg'])
         ->call('saveTask');
 
-    $page->call('openTaskModal', BriefingTaskKey::MonthlyGmKpi->value)
+    $page->call('openTaskModal', BriefingTaskKey::WeeklyWmPic->value)
         ->set('cameraPhotoPaths', ['briefing-photos/test2.jpg'])
         ->call('saveTask');
 
     expect(BriefingItem::count())->toBe(2);
 
-    $page->assertSee('2/2 tugas selesai');
+    $page->assertSee('2/3 tugas selesai');
 });
 
 it('requires a photo before saving a task', function () {

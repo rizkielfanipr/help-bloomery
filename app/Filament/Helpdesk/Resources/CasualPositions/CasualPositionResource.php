@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualPositions;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\CasualPositions\Pages\CreateCasualPosition;
 use App\Filament\Helpdesk\Resources\CasualPositions\Pages\EditCasualPosition;
 use App\Filament\Helpdesk\Resources\CasualPositions\Pages\ListCasualPositions;
@@ -30,6 +31,10 @@ use Illuminate\Support\HtmlString;
 
 class CasualPositionResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'casual positions';
+
     protected static ?string $model = CasualPosition::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-briefcase';

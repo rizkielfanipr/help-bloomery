@@ -16,6 +16,11 @@ use UnitEnum;
 
 class BriefingCalendarPage extends Page
 {
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('view briefing records') ?? false;
+    }
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
     protected static string|UnitEnum|null $navigationGroup = 'Human Resources';

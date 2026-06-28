@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\ErpModules;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\ErpModules\Pages\CreateErpModule;
 use App\Filament\Helpdesk\Resources\ErpModules\Pages\EditErpModule;
 use App\Filament\Helpdesk\Resources\ErpModules\Pages\ListErpModules;
@@ -23,6 +24,10 @@ use UnitEnum;
 
 class ErpModuleResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'erp modules';
+
     protected static ?string $model = ErpModule::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';

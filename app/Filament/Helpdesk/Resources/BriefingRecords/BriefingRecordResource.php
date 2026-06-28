@@ -4,6 +4,7 @@ namespace App\Filament\Helpdesk\Resources\BriefingRecords;
 
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingTaskKey;
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\BriefingRecords\Pages\ListBriefingRecords;
 use App\Filament\Helpdesk\Resources\BriefingRecords\Pages\ViewBriefingRecord;
 use App\Models\BriefingRecord;
@@ -27,6 +28,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class BriefingRecordResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'briefing records';
+
     protected static ?string $model = BriefingRecord::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';

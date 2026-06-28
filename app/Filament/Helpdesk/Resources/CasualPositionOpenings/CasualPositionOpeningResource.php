@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualPositionOpenings;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\CasualPositionOpenings\Pages\CreateCasualPositionOpening;
 use App\Filament\Helpdesk\Resources\CasualPositionOpenings\Pages\EditCasualPositionOpening;
 use App\Filament\Helpdesk\Resources\CasualPositionOpenings\Pages\ListCasualPositionOpenings;
@@ -33,6 +34,10 @@ use Illuminate\Support\HtmlString;
 
 class CasualPositionOpeningResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'casual openings';
+
     protected static ?string $model = CasualPositionOpening::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-megaphone';

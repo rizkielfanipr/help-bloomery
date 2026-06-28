@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\PaymentMethods;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\PaymentMethods\Pages\CreatePaymentMethod;
 use App\Filament\Helpdesk\Resources\PaymentMethods\Pages\EditPaymentMethod;
 use App\Filament\Helpdesk\Resources\PaymentMethods\Pages\ListPaymentMethods;
@@ -21,6 +22,10 @@ use UnitEnum;
 
 class PaymentMethodResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'payment methods';
+
     protected static ?string $model = PaymentMethod::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-credit-card';

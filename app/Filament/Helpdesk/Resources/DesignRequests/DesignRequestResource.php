@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\DesignRequests;
 
 use App\Enums\RequestStatus;
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\EditDesignRequest;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ListDesignRequests;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ViewDesignRequest;
@@ -29,6 +30,10 @@ use UnitEnum;
 
 class DesignRequestResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'design requests';
+
     protected static ?string $model = DesignRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-paint-brush';

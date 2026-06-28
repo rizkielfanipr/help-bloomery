@@ -5,6 +5,7 @@ namespace App\Filament\Helpdesk\Resources\BriefingItems;
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingReviewStatus;
 use App\Enums\BriefingTaskKey;
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\BriefingItems\Pages\ListBriefingItems;
 use App\Models\Branch;
 use App\Models\BriefingItem;
@@ -32,6 +33,10 @@ use UnitEnum;
 
 class BriefingItemResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'briefing items';
+
     protected static ?string $model = BriefingItem::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-check';

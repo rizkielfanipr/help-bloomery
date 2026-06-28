@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\PurchaseRequests;
 
 use App\Enums\PurchaseRequestStatus;
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\EditPurchaseRequest;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Schemas\PurchaseRequestForm;
@@ -16,6 +17,10 @@ use UnitEnum;
 
 class PurchaseRequestResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'purchase requests';
+
     protected static ?string $model = PurchaseRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shopping-bag';

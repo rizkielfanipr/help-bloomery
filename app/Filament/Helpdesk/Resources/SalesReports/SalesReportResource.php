@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\SalesReports;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
 use App\Models\Branch;
@@ -21,6 +22,10 @@ use UnitEnum;
 
 class SalesReportResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'sales reports';
+
     protected static ?string $model = SalesReport::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-chart-bar';

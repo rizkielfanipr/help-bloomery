@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\Trips;
 
 use App\Enums\TripStatus;
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ListTrips;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ViewTrip;
 use App\Models\Trip;
@@ -26,6 +27,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TripResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'trips';
+
     protected static ?string $model = Trip::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-truck';

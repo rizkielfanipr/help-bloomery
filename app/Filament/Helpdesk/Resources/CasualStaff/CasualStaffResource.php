@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualStaff;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\CasualStaff\Pages\EditCasualStaff;
 use App\Filament\Helpdesk\Resources\CasualStaff\Pages\ListCasualStaff;
 use App\Filament\Helpdesk\Resources\CasualStaff\Pages\ViewCasualStaff;
@@ -28,6 +29,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class CasualStaffResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'casual staff';
+
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-user-group';

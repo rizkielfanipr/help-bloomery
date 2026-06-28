@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualClockRecords;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\CasualClockRecords\Pages\ListCasualClockRecords;
 use App\Filament\Helpdesk\Resources\CasualClockRecords\Pages\ViewCasualClockRecord;
 use App\Models\Branch;
@@ -26,6 +27,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class CasualClockRecordResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'clock records';
+
     protected static ?string $model = CasualClockRecord::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-finger-print';

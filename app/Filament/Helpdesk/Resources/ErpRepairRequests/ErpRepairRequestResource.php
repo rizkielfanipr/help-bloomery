@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\ErpRepairRequests;
 
 use App\Enums\RequestStatus;
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\EditErpRepairRequest;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest;
@@ -29,6 +30,10 @@ use UnitEnum;
 
 class ErpRepairRequestResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'erp requests';
+
     protected static ?string $model = ErpRepairRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-server-stack';

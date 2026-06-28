@@ -12,6 +12,11 @@ use Filament\Schemas\Schema;
 
 class DriverTripSettingsPage extends Page
 {
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('edit trips') ?? false;
+    }
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Manajemen Driver';

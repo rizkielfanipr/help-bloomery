@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\DesignCategories;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\DesignCategories\Pages\CreateDesignCategory;
 use App\Filament\Helpdesk\Resources\DesignCategories\Pages\EditDesignCategory;
 use App\Filament\Helpdesk\Resources\DesignCategories\Pages\ListDesignCategories;
@@ -23,6 +24,10 @@ use UnitEnum;
 
 class DesignCategoryResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'design categories';
+
     protected static ?string $model = DesignCategory::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-tag';

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\TripRoutes;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\TripRoutes\Pages\CreateTripRoute;
 use App\Filament\Helpdesk\Resources\TripRoutes\Pages\EditTripRoute;
 use App\Filament\Helpdesk\Resources\TripRoutes\Pages\ListTripRoutes;
@@ -31,6 +32,10 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class TripRouteResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'trip routes';
+
     protected static ?string $model = TripRoute::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map';

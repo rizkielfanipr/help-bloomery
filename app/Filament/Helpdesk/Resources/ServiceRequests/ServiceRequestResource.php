@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\ServiceRequests;
 
 use App\Enums\ServiceRequestStatus;
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\CreateServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\EditServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests;
@@ -38,6 +39,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ServiceRequestResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'service requests';
+
     protected static ?string $model = ServiceRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-wrench-screwdriver';

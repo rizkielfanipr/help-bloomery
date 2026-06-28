@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\Branches;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Branches\Pages\CreateBranch;
 use App\Filament\Helpdesk\Resources\Branches\Pages\EditBranch;
 use App\Filament\Helpdesk\Resources\Branches\Pages\ListBranches;
@@ -24,6 +25,10 @@ use Filament\Tables\Table;
 
 class BranchResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'branches';
+
     protected static ?string $model = Branch::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-building-office-2';

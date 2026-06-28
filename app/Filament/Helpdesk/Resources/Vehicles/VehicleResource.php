@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\Vehicles;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Vehicles\Pages\CreateVehicle;
 use App\Filament\Helpdesk\Resources\Vehicles\Pages\EditVehicle;
 use App\Filament\Helpdesk\Resources\Vehicles\Pages\ListVehicles;
@@ -29,6 +30,10 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class VehicleResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'vehicles';
+
     protected static ?string $model = Vehicle::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-key';

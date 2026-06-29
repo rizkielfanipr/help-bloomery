@@ -12,6 +12,11 @@ class TripDashboard extends Page
 {
     protected static bool $shouldRegisterNavigation = false;
 
+    public function getTitle(): string
+    {
+        return 'Dashboard Driver';
+    }
+
     protected static string $layout = 'filament.casual.layouts.bare';
 
     protected string $view = 'filament.casual.pages.trip-dashboard';

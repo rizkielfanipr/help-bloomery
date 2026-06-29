@@ -10,7 +10,7 @@
     $monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
 @endphp
 
-<div class="flex flex-col bg-violet-600 dark:bg-violet-900" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
 
     {{-- Header --}}
     <div class="flex-shrink-0 px-5 pb-5 pt-14">
@@ -39,8 +39,8 @@
                 <button wire:click="setPeriod('{{ $key }}')"
                         class="flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition
                             {{ $period === $key
-                                ? 'bg-violet-600 text-white shadow-sm'
-                                : 'bg-white text-gray-500 ring-1 ring-violet-200 dark:bg-gray-800 dark:text-gray-400 dark:ring-violet-800' }}">
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'bg-white text-gray-500 ring-1 ring-blue-200 dark:bg-gray-800 dark:text-gray-400 dark:ring-blue-800' }}">
                     {{ $label }}
                 </button>
             @endforeach
@@ -88,11 +88,11 @@
                                 class="flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:bg-gray-50 dark:active:bg-gray-800">
 
                             {{-- Date badge --}}
-                            <div class="flex w-11 flex-shrink-0 flex-col items-center rounded-xl bg-violet-50 py-2 dark:bg-violet-900/30">
-                                <span class="text-[11px] font-semibold uppercase text-violet-400">
+                            <div class="flex w-11 flex-shrink-0 flex-col items-center rounded-xl bg-blue-50 py-2 dark:bg-blue-900/30">
+                                <span class="text-[11px] font-semibold uppercase text-blue-400">
                                     {{ $dayNames[$record->record_date->dayOfWeek] }}
                                 </span>
-                                <span class="text-base font-bold leading-none text-violet-700 dark:text-violet-300">
+                                <span class="text-base font-bold leading-none text-blue-700 dark:text-blue-300">
                                     {{ $record->record_date->format('d') }}
                                 </span>
                             </div>

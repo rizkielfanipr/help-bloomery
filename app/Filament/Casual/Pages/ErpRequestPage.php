@@ -9,7 +9,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Validate;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -34,7 +33,7 @@ class ErpRequestPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Request ERP';
     }
 
     public function getBreadcrumbs(): array

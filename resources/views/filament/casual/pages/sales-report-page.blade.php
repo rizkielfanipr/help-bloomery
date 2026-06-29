@@ -1,4 +1,4 @@
-<div class="flex flex-col bg-violet-600 dark:bg-violet-900"
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
@@ -20,7 +20,7 @@
             <span class="text-base font-semibold text-white">Sales Report</span>
         </div>
 
-        <p class="text-violet-200">{{ auth()->user()->branch?->name ?? 'Tanpa Cabang' }}</p>
+        <p class="text-blue-200">{{ auth()->user()->branch?->name ?? 'Tanpa Cabang' }}</p>
         <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
     </div>
 
@@ -29,91 +29,98 @@
     ════════════════════════════════════════════ --}}
     <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
 
-        <div class="flex flex-col gap-4 px-5">
+        @php $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-400'; @endphp
 
-            {{-- Date picker --}}
-            <div class="flex items-center gap-2">
-                <label class="text-xs font-semibold uppercase tracking-widest text-slate-400">Tanggal</label>
+        <div class="flex flex-col gap-4 px-5">
+            <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+
+            {{-- Tanggal --}}
+            <div>
+                <label class="{{ $labelClass }}">Tanggal</label>
                 <input type="date" wire:model.live="reportDate"
-                       class="ml-auto rounded-lg border-0 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-violet-500 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-700">
+                       class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
             </div>
 
             {{-- Modal Shift --}}
-            <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
-                    <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Modal Shift 1</label>
-                    <div class="mt-1 flex items-center gap-1">
-                        <span class="text-xs text-slate-400">Rp</span>
-                        <input type="number" wire:model="modalShift1" min="0" step="1000"
-                               placeholder="0"
-                               class="w-full border-0 bg-transparent p-0 text-sm font-semibold text-slate-700 placeholder-slate-300 focus:ring-0 dark:text-slate-200">
+            <div>
+                <label class="{{ $labelClass }}">Modal Shift</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+                        <p class="text-[10px] font-semibold text-slate-400">Shift 1</p>
+                        <div class="mt-1 flex items-center gap-1">
+                            <span class="text-xs text-slate-400">Rp</span>
+                            <input type="number" wire:model="modalShift1" min="0" step="1000"
+                                   placeholder="0"
+                                   class="w-full border-0 bg-transparent p-0 text-sm font-semibold text-slate-700 placeholder-slate-300 focus:ring-0 dark:text-slate-200">
+                        </div>
                     </div>
-                </div>
-                <div class="rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
-                    <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Modal Shift 2</label>
-                    <div class="mt-1 flex items-center gap-1">
-                        <span class="text-xs text-slate-400">Rp</span>
-                        <input type="number" wire:model="modalShift2" min="0" step="1000"
-                               placeholder="0"
-                               class="w-full border-0 bg-transparent p-0 text-sm font-semibold text-slate-700 placeholder-slate-300 focus:ring-0 dark:text-slate-200">
+                    <div class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+                        <p class="text-[10px] font-semibold text-slate-400">Shift 2</p>
+                        <div class="mt-1 flex items-center gap-1">
+                            <span class="text-xs text-slate-400">Rp</span>
+                            <input type="number" wire:model="modalShift2" min="0" step="1000"
+                                   placeholder="0"
+                                   class="w-full border-0 bg-transparent p-0 text-sm font-semibold text-slate-700 placeholder-slate-300 focus:ring-0 dark:text-slate-200">
+                        </div>
                     </div>
                 </div>
             </div>
 
             {{-- Payment table --}}
-            <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
+            <div>
+                <label class="{{ $labelClass }}">Sales Payment Method Take Away</label>
+                <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
 
-                <div class="border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
-                    <p class="text-[11px] font-bold uppercase tracking-widest text-slate-500">Sales Payment Method Take Away</p>
-                </div>
-
-                {{-- Header row --}}
-                <div class="grid grid-cols-[1fr_90px_90px] gap-0 border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
-                    <div class="px-3 py-2 text-[11px] font-semibold text-slate-500">Method Payment</div>
-                    <div class="px-2 py-2 text-center text-[11px] font-semibold text-slate-500">Shift 1</div>
-                    <div class="px-2 py-2 text-center text-[11px] font-semibold text-slate-500">Shift 2</div>
-                </div>
-
-                {{-- Data rows --}}
-                @foreach($this->paymentMethods as $method)
-                    <div class="grid grid-cols-[1fr_90px_90px] gap-0 border-b border-gray-100 last:border-0 dark:border-gray-800">
-                        <div class="flex items-center px-3 py-2.5">
-                            <span class="text-xs font-medium text-slate-700 dark:text-slate-300">{{ $method->name }}</span>
-                        </div>
-                        <div class="border-l border-gray-100 px-1.5 py-1.5 dark:border-gray-800">
-                            <input type="number" wire:model="entries.{{ $method->id }}.shift_1"
-                                   min="0" step="1000" placeholder="0"
-                                   class="w-full rounded-lg border-0 bg-gray-50 px-2 py-1.5 text-right text-xs text-slate-700 placeholder-slate-300 ring-1 ring-gray-200 focus:ring-2 focus:ring-violet-400 dark:bg-gray-800 dark:text-slate-200 dark:ring-gray-700">
-                        </div>
-                        <div class="border-l border-gray-100 px-1.5 py-1.5 dark:border-gray-800">
-                            <input type="number" wire:model="entries.{{ $method->id }}.shift_2"
-                                   min="0" step="1000" placeholder="0"
-                                   class="w-full rounded-lg border-0 bg-gray-50 px-2 py-1.5 text-right text-xs text-slate-700 placeholder-slate-300 ring-1 ring-gray-200 focus:ring-2 focus:ring-violet-400 dark:bg-gray-800 dark:text-slate-200 dark:ring-gray-700">
-                        </div>
+                    {{-- Header row --}}
+                    <div class="grid grid-cols-[1fr_90px_90px] border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
+                        <div class="px-3 py-2 text-[11px] font-semibold text-slate-500">Metode</div>
+                        <div class="px-2 py-2 text-center text-[11px] font-semibold text-slate-500">Shift 1</div>
+                        <div class="px-2 py-2 text-center text-[11px] font-semibold text-slate-500">Shift 2</div>
                     </div>
-                @endforeach
 
-                {{-- Total row --}}
-                <div class="grid grid-cols-[1fr_90px_90px] border-t-2 border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50">
-                    <div class="px-3 py-2.5">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Total</span>
-                    </div>
-                    <div class="border-l border-gray-200 px-2 py-2.5 text-right dark:border-gray-700">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                            Rp {{ number_format($this->totalShift1(), 0, ',', '.') }}
-                        </span>
-                    </div>
-                    <div class="border-l border-gray-200 px-2 py-2.5 text-right dark:border-gray-700">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                            Rp {{ number_format($this->totalShift2(), 0, ',', '.') }}
-                        </span>
+                    {{-- Data rows --}}
+                    @foreach($this->paymentMethods as $method)
+                        <div class="grid grid-cols-[1fr_90px_90px] border-b border-gray-100 last:border-0 dark:border-gray-800">
+                            <div class="flex items-center px-3 py-2.5">
+                                <span class="text-xs font-medium text-slate-700 dark:text-slate-300">{{ $method->name }}</span>
+                            </div>
+                            <div class="border-l border-gray-100 px-1.5 py-1.5 dark:border-gray-800">
+                                <input type="number" wire:model="entries.{{ $method->id }}.shift_1"
+                                       min="0" step="1000" placeholder="0"
+                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-right text-xs text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                            </div>
+                            <div class="border-l border-gray-100 px-1.5 py-1.5 dark:border-gray-800">
+                                <input type="number" wire:model="entries.{{ $method->id }}.shift_2"
+                                       min="0" step="1000" placeholder="0"
+                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-right text-xs text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                            </div>
+                        </div>
+                    @endforeach
+
+                    {{-- Total row --}}
+                    <div class="grid grid-cols-[1fr_90px_90px] border-t-2 border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50">
+                        <div class="px-3 py-2.5">
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Total</span>
+                        </div>
+                        <div class="border-l border-gray-200 px-2 py-2.5 text-right dark:border-gray-700">
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                Rp {{ number_format($this->totalShift1(), 0, ',', '.') }}
+                            </span>
+                        </div>
+                        <div class="border-l border-gray-200 px-2 py-2.5 text-right dark:border-gray-700">
+                            <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                Rp {{ number_format($this->totalShift2(), 0, ',', '.') }}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            </div>{{-- /white card --}}
+
             {{-- Save button --}}
             <button wire:click="save" wire:loading.attr="disabled"
-                    class="w-full rounded-2xl bg-violet-600 py-3.5 text-sm font-semibold text-white shadow-sm transition active:scale-95 disabled:opacity-60">
+                    class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60">
                 <span wire:loading.remove wire:target="save">Simpan Sales Report</span>
                 <span wire:loading wire:target="save">Menyimpan...</span>
             </button>

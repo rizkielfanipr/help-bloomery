@@ -5,7 +5,6 @@ namespace App\Filament\Casual\Pages;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
 
 class NotificationPage extends Page
@@ -18,7 +17,7 @@ class NotificationPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Notifikasi';
     }
 
     public function getBreadcrumbs(): array

@@ -6,12 +6,12 @@
         'submitted'  => 'bg-gray-100 text-gray-600',
         'in_process' => 'bg-amber-100 text-amber-700',
         'purchased'  => 'bg-blue-100 text-blue-700',
-        'delivered'  => 'bg-violet-100 text-violet-700',
+        'delivered'  => 'bg-blue-100 text-blue-700',
         'completed'  => 'bg-green-100 text-green-700',
     ];
 @endphp
 
-<div class="flex flex-col bg-violet-600 dark:bg-violet-900"
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
@@ -33,7 +33,7 @@
             <span class="text-base font-semibold text-white">Riwayat Pengajuan</span>
         </div>
 
-        <p class="text-violet-200">{{ auth()->user()->branch?->name ?? 'Tanpa Cabang' }}</p>
+        <p class="text-blue-200">{{ auth()->user()->branch?->name ?? 'Tanpa Cabang' }}</p>
         <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
     </div>
 
@@ -54,7 +54,7 @@
                 <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Belum ada pengajuan</p>
                 <p class="mt-1 text-xs text-slate-400">Pengajuan pembelian barang Anda akan muncul di sini</p>
                 <a href="{{ route('filament.casual.pages.purchase-request-page') }}"
-                   class="mt-4 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white">
+                   class="mt-4 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white">
                     Buat Pengajuan
                 </a>
             </div>
@@ -91,8 +91,8 @@
                                         </svg>
                                     </div>
                                 @elseif($statusValue === 'delivered')
-                                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100">
-                                        <svg class="h-4 w-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                                        <svg class="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
                                         </svg>
                                     </div>
@@ -184,7 +184,7 @@
                                     <div class="border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
                                         <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Link e-Commerce</p>
                                         <a href="{{ $request->ecommerce_link }}" target="_blank"
-                                           class="mt-0.5 block truncate text-xs font-medium text-violet-600 underline">
+                                           class="mt-0.5 block truncate text-xs font-medium text-blue-600 underline">
                                             {{ $request->ecommerce_link }}
                                         </a>
                                     </div>
@@ -235,11 +235,11 @@
                                                 $isCurrent = $i === $currentIndex;
                                             @endphp
                                             <div class="flex flex-1 flex-col items-center">
-                                                <div class="h-2 w-2 rounded-full {{ $isDone ? 'bg-violet-600' : 'bg-gray-200' }} {{ $isCurrent ? 'ring-2 ring-violet-200 ring-offset-1' : '' }}"></div>
-                                                <p class="mt-1 text-center text-[9px] leading-tight {{ $isDone ? 'font-semibold text-violet-700' : 'text-slate-400' }}">{{ $step['label'] }}</p>
+                                                <div class="h-2 w-2 rounded-full {{ $isDone ? 'bg-blue-600' : 'bg-gray-200' }} {{ $isCurrent ? 'ring-2 ring-blue-200 ring-offset-1' : '' }}"></div>
+                                                <p class="mt-1 text-center text-[9px] leading-tight {{ $isDone ? 'font-semibold text-blue-700' : 'text-slate-400' }}">{{ $step['label'] }}</p>
                                             </div>
                                             @if(!$loop->last)
-                                                <div class="mb-3 h-0.5 flex-1 {{ $i < $currentIndex ? 'bg-violet-600' : 'bg-gray-200' }}"></div>
+                                                <div class="mb-3 h-0.5 flex-1 {{ $i < $currentIndex ? 'bg-blue-600' : 'bg-gray-200' }}"></div>
                                             @endif
                                         @endforeach
                                     </div>

@@ -6,7 +6,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\HtmlString;
 use Livewire\WithFileUploads;
 
 class TechnicianProfilePage extends Page
@@ -23,7 +22,7 @@ class TechnicianProfilePage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Profil Teknisi';
     }
 
     public function getBreadcrumbs(): array

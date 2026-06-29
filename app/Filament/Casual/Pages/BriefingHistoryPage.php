@@ -8,7 +8,6 @@ use App\Models\BriefingRecord;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Url;
 use Livewire\WithPagination;
 
@@ -29,7 +28,7 @@ class BriefingHistoryPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Riwayat Briefing';
     }
 
     public function getBreadcrumbs(): array

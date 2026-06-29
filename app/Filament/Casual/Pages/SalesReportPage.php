@@ -9,7 +9,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
 
 class SalesReportPage extends Page
@@ -37,7 +36,7 @@ class SalesReportPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Sales Report';
     }
 
     public function getBreadcrumbs(): array

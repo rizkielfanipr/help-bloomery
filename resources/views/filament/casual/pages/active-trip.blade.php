@@ -10,7 +10,7 @@
     $progress       = $totalCount > 0 ? round($completedCount / $totalCount * 100) : 0;
 @endphp
 
-<div class="flex flex-col bg-emerald-600" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600" style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
          HEADER
@@ -24,16 +24,16 @@
                 </svg>
             </a>
             <div class="min-w-0 flex-1">
-                <p class="text-xs font-medium text-emerald-200">Perjalanan Aktif</p>
+                <p class="text-xs font-medium text-blue-200">Perjalanan Aktif</p>
                 <p class="truncate text-base font-semibold text-white">{{ $route->name }}</p>
             </div>
             <div class="shrink-0 text-right">
                 <span class="text-2xl font-bold text-white">{{ $completedCount }}/{{ $totalCount }}</span>
-                <p class="text-[10px] text-emerald-200">titik</p>
+                <p class="text-[10px] text-blue-200">titik</p>
             </div>
         </div>
 
-        <p class="mb-2 text-xs text-emerald-200">{{ $trip->vehicle->license_plate }} · Mulai {{ $trip->started_at->format('H:i') }}</p>
+        <p class="mb-2 text-xs text-blue-200">{{ $trip->vehicle->license_plate }} · Mulai {{ $trip->started_at->format('H:i') }}</p>
 
         {{-- Progress bar --}}
         <div class="h-1.5 overflow-hidden rounded-full bg-white/20">
@@ -66,7 +66,7 @@
                         <div class="flex gap-4">
                             {{-- Dot --}}
                             <div class="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-4 ring-gray-50 dark:ring-gray-950
-                                {{ $isReady ? 'bg-emerald-500' : ($isDone ? 'bg-amber-400' : 'bg-gray-200 dark:bg-gray-700') }}">
+                                {{ $isReady ? 'bg-blue-500' : ($isDone ? 'bg-amber-400' : 'bg-gray-200 dark:bg-gray-700') }}">
                                 @if($isReady)
                                     <svg class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
                                 @elseif($isDone)
@@ -87,7 +87,7 @@
                                             <p class="mt-0.5 text-xs text-gray-400">{{ $waypoint->description }}</p>
                                         @endif
                                         @if($isDone)
-                                            <p class="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                            <p class="mt-1 text-xs font-medium text-blue-600 dark:text-blue-400">
                                                 ✓ Check-in: {{ $checkin->checked_in_at->format('H:i') }}
                                             </p>
                                             @if($hasAttach)
@@ -106,7 +106,7 @@
                                     @if($checkin)
                                         <button wire:click="openCheckinModal({{ $checkin->id }})"
                                                 class="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition
-                                                    {{ $isReady ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' : 'bg-emerald-600 text-white active:scale-95' }}">
+                                                    {{ $isReady ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' : 'bg-blue-600 text-white active:scale-95' }}">
                                             {{ $isReady ? 'Edit' : 'Check-in' }}
                                         </button>
                                     @endif
@@ -128,7 +128,7 @@
             <button wire:click="openFuelModal"
                     @disabled(!$trip->allWaypointsCompleted())
                     class="flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white transition
-                        {{ $trip->allWaypointsCompleted() ? 'bg-emerald-600 active:scale-95 active:bg-emerald-700' : 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-600' }}">
+                        {{ $trip->allWaypointsCompleted() ? 'bg-blue-600 active:scale-95 active:bg-blue-700' : 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-600' }}">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 3v1.5M3 21v-6m0 0 2.77-.693a9 9 0 0 1 6.208.682l.108.054a9 9 0 0 0 6.086.71l3.114-.732a48.524 48.524 0 0 1-.005-10.499l-3.11.732a9 9 0 0 1-6.085-.711l-.108-.054a9 9 0 0 0-6.208-.682L3 4.5M3 15V4.5"/>
                 </svg>

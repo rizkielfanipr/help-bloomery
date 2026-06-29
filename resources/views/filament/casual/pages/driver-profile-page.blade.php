@@ -6,7 +6,7 @@
     $joinedDate = $monthNames[$user->created_at->month - 1] . ' ' . $user->created_at->year;
 @endphp
 
-<div class="flex flex-col bg-emerald-600 dark:bg-emerald-900"
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh"
      x-data="{
          mode: 'idle',
@@ -133,7 +133,7 @@
 
         {{-- Avatar --}}
         <div class="relative mx-auto w-fit">
-            <div class="h-24 w-24 overflow-hidden rounded-full ring-4 ring-emerald-400/60">
+            <div class="h-24 w-24 overflow-hidden rounded-full ring-4 ring-blue-400/60">
                 <template x-if="hasPhoto">
                     <img :src="photo" class="h-full w-full object-cover" alt="">
                 </template>
@@ -144,7 +144,7 @@
                                  class="h-full w-full object-cover"
                                  alt="{{ $user->name }}">
                         @else
-                            <div class="flex h-full w-full items-center justify-center bg-emerald-500 text-2xl font-semibold text-white">
+                            <div class="flex h-full w-full items-center justify-center bg-blue-500 text-2xl font-semibold text-white">
                                 {{ $initials }}
                             </div>
                         @endif
@@ -155,7 +155,7 @@
             {{-- Camera edit button --}}
             <button @click="openPicker()"
                     x-show="!hasPhoto && !uploading"
-                    class="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-emerald-600 ring-2 ring-emerald-100 transition active:scale-90">
+                    class="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-white text-blue-600 ring-2 ring-blue-100 transition active:scale-90">
                 <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/>
@@ -181,7 +181,7 @@
         </div>
 
         {{-- Joined date --}}
-        <div class="mt-3 flex items-center justify-center gap-1.5 text-emerald-200">
+        <div class="mt-3 flex items-center justify-center gap-1.5 text-blue-200">
             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
             </svg>
@@ -195,7 +195,7 @@
                 Batalkan
             </button>
             <button wire:click="savePhoto"
-                    class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-white py-3 text-sm font-semibold text-emerald-600 transition active:scale-95">
+                    class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-white py-3 text-sm font-semibold text-blue-600 transition active:scale-95">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                 </svg>
@@ -237,8 +237,8 @@
             {{-- Riwayat Perjalanan shortcut --}}
             <a href="{{ \App\Filament\Casual\Pages\TripHistory::getUrl() }}"
                class="flex w-full items-center gap-3 px-5 py-4 transition active:bg-gray-50 dark:active:bg-gray-800">
-                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
-                    <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/30">
+                    <svg class="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
                     </svg>
                 </div>
@@ -253,8 +253,8 @@
             {{-- Mulai Perjalanan shortcut --}}
             <a href="{{ \App\Filament\Casual\Pages\StartTrip::getUrl() }}"
                class="flex w-full items-center gap-3 px-5 py-4 transition active:bg-gray-50 dark:active:bg-gray-800">
-                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
-                    <svg class="h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/30">
+                    <svg class="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/>
                     </svg>
                 </div>
@@ -306,7 +306,7 @@
          x-transition:leave="transition duration-200 ease-in"
          x-transition:leave-start="translate-y-0"
          x-transition:leave-end="translate-y-full"
-         class="fixed inset-x-0 bottom-0 z-50 overflow-hidden rounded-t-3xl bg-white dark:bg-gray-900"
+         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 overflow-hidden rounded-t-3xl bg-white dark:bg-gray-900"
          style="display:none">
 
         <div class="flex justify-center pb-2 pt-3">
@@ -315,17 +315,17 @@
 
         <div class="flex flex-col items-center gap-3 px-5 pb-5 pt-3">
             <div class="relative">
-                <div class="h-16 w-16 overflow-hidden rounded-full ring-4 ring-emerald-100 dark:ring-emerald-900/40">
+                <div class="h-16 w-16 overflow-hidden rounded-full ring-4 ring-blue-100 dark:ring-blue-900/40">
                     @if($user->avatar)
                         <img src="{{ \Illuminate\Support\Facades\Storage::url($user->avatar) }}"
                              class="h-full w-full object-cover" alt="{{ $user->name }}">
                     @else
-                        <div class="flex h-full w-full items-center justify-center bg-emerald-500 text-xl font-semibold text-white">
+                        <div class="flex h-full w-full items-center justify-center bg-blue-500 text-xl font-semibold text-white">
                             {{ $initials }}
                         </div>
                     @endif
                 </div>
-                <div class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 ring-2 ring-white dark:ring-gray-900">
+                <div class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 ring-2 ring-white dark:ring-gray-900">
                     <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
                     </svg>
@@ -340,8 +340,8 @@
         <div class="flex flex-col gap-3 px-5 pb-4">
 
             <button @click="chooseCamera()"
-                    class="flex w-full items-center gap-4 rounded-2xl bg-emerald-50 px-4 py-3.5 text-left transition active:bg-emerald-100 dark:bg-emerald-900/20">
-                <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-600">
+                    class="flex w-full items-center gap-4 rounded-2xl bg-blue-50 px-4 py-3.5 text-left transition active:bg-blue-100 dark:bg-blue-900/20">
+                <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600">
                     <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/>
@@ -351,7 +351,7 @@
                     <p class="font-semibold text-gray-900 dark:text-white">Kamera</p>
                     <p class="text-xs text-gray-400">Ambil foto melalui kamera</p>
                 </div>
-                <svg class="h-4 w-4 flex-shrink-0 text-emerald-300 dark:text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <svg class="h-4 w-4 flex-shrink-0 text-blue-300 dark:text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
                 </svg>
             </button>
@@ -392,7 +392,7 @@
          x-transition:leave="transition duration-200 ease-in"
          x-transition:leave-start="translate-y-0"
          x-transition:leave-end="translate-y-full"
-         class="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-3xl bg-gray-950"
+         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 flex flex-col overflow-hidden rounded-t-3xl bg-gray-950"
          style="height:88vh; display:none">
 
         <div class="flex justify-center pb-1 pt-3">
@@ -401,7 +401,7 @@
 
         <div class="flex items-center justify-between px-5 pb-4 pt-3">
             <div>
-                <div class="text-xs font-semibold uppercase tracking-widest text-emerald-400">Foto Profil</div>
+                <div class="text-xs font-semibold uppercase tracking-widest text-blue-400">Foto Profil</div>
                 <div class="mt-0.5 text-sm text-white/60">Posisikan wajah dalam lingkaran</div>
             </div>
             <button @click="close()"
@@ -477,7 +477,7 @@
                     Ulang
                 </button>
                 <button @click="usePhoto()"
-                        class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-sm font-semibold text-white transition active:scale-95">
+                        class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-500 py-4 text-sm font-semibold text-white transition active:scale-95">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                     </svg>

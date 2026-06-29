@@ -29,6 +29,11 @@ class ActiveTrip extends Page
         return '/'.static::getSlug($panel).'/{trip}';
     }
 
+    public function getTitle(): string
+    {
+        return 'Perjalanan Aktif';
+    }
+
     protected static string $layout = 'filament.casual.layouts.bare';
 
     protected string $view = 'filament.casual.pages.active-trip';

@@ -13,7 +13,7 @@
     };
 @endphp
 
-<div class="flex flex-col bg-violet-600 dark:bg-violet-900" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
 
     {{-- Header --}}
     <div class="flex-shrink-0 px-5 pb-6 pt-14">
@@ -102,14 +102,14 @@
             {{-- Schedule info --}}
             <div class="mb-4 flex gap-2">
                 <div class="flex flex-1 items-center gap-1.5 rounded-xl bg-white px-3 py-2 ring-1 ring-black/5 dark:bg-gray-900">
-                    <div class="h-2 w-2 flex-shrink-0 rounded-full bg-violet-400 ring-1 ring-white/60"></div>
+                    <div class="h-2 w-2 flex-shrink-0 rounded-full bg-blue-400 ring-1 ring-white/60"></div>
                     <div>
                         <p class="text-xs font-medium text-gray-700 dark:text-gray-300">Mingguan</p>
                         <p class="text-xs text-gray-400">Setiap Senin</p>
                     </div>
                 </div>
                 <div class="flex flex-1 items-center gap-1.5 rounded-xl bg-white px-3 py-2 ring-1 ring-black/5 dark:bg-gray-900">
-                    <div class="h-2 w-2 flex-shrink-0 rounded-full bg-violet-400 ring-1 ring-white/60"></div>
+                    <div class="h-2 w-2 flex-shrink-0 rounded-full bg-blue-400 ring-1 ring-white/60"></div>
                     <div>
                         <p class="text-xs font-medium text-gray-700 dark:text-gray-300">Bulanan</p>
                         <p class="text-xs text-gray-400">Setiap tgl 1</p>
@@ -133,7 +133,7 @@
                 @foreach($calendar['days'] as $day)
                     @php
                         $cellBg = $day['isToday']
-                            ? 'bg-violet-600 dark:bg-violet-700'
+                            ? 'bg-blue-600 dark:bg-blue-700'
                             : ($day['isFuture'] ? 'bg-white/60 dark:bg-gray-900/60' : 'bg-white dark:bg-gray-900');
                         $dayTextColor = $day['isToday']
                             ? 'text-white font-bold'
@@ -141,7 +141,7 @@
                         $hasExtra = $day['weeklyStatus'] !== null || $day['monthlyStatus'] !== null;
                     @endphp
 
-                    <div class="flex aspect-square flex-col items-center justify-center rounded-xl ring-1 ring-black/5 {{ $cellBg }} {{ $hasExtra ? 'ring-violet-200 dark:ring-violet-800 ring-2' : '' }}">
+                    <div class="flex aspect-square flex-col items-center justify-center rounded-xl ring-1 ring-black/5 {{ $cellBg }} {{ $hasExtra ? 'ring-blue-200 dark:ring-blue-800 ring-2' : '' }}">
                         <span class="text-xs leading-none {{ $dayTextColor }}">{{ $day['day'] }}</span>
 
                         {{-- Status dots --}}

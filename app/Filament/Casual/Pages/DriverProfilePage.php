@@ -6,7 +6,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\HtmlString;
 use Livewire\WithFileUploads;
 
 class DriverProfilePage extends Page
@@ -23,7 +22,7 @@ class DriverProfilePage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Profil Driver';
     }
 
     public function getBreadcrumbs(): array

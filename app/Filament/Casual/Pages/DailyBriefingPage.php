@@ -11,7 +11,6 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
 
 class DailyBriefingPage extends Page
@@ -35,7 +34,7 @@ class DailyBriefingPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Daily Briefing';
     }
 
     public function getBreadcrumbs(): array

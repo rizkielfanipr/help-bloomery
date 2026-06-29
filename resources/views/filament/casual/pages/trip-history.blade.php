@@ -6,7 +6,7 @@
     ];
 @endphp
 
-<div class="flex flex-col bg-emerald-600" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600" style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
          HEADER
@@ -27,7 +27,7 @@
             <span class="text-base font-semibold text-white">Riwayat Perjalanan</span>
         </div>
 
-        <p class="text-emerald-200">{{ $monthNames[$this->reportMonth] }} {{ $this->reportYear }}</p>
+        <p class="text-blue-200">{{ $monthNames[$this->reportMonth] }} {{ $this->reportYear }}</p>
         <p class="text-xl font-semibold text-white">{{ $this->periodStart->format('d M') }} — {{ $this->periodEnd->format('d M Y') }}</p>
     </div>
 
@@ -61,8 +61,8 @@
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $this->trips->count() }}</p>
                 <p class="text-xs text-gray-400">Perjalanan</p>
             </div>
-            <div class="flex flex-col items-center gap-1.5 rounded-2xl bg-emerald-50 py-4 dark:bg-emerald-900/20">
-                <p class="text-lg font-bold leading-tight text-emerald-600 dark:text-emerald-400">
+            <div class="flex flex-col items-center gap-1.5 rounded-2xl bg-blue-50 py-4 dark:bg-blue-900/20">
+                <p class="text-lg font-bold leading-tight text-blue-600 dark:text-blue-400">
                     {{ $this->totalMealAllowance > 0 ? number_format($this->totalMealAllowance / 1000, 0).'k' : '0' }}
                 </p>
                 <p class="px-1 text-center text-xs leading-tight text-gray-400">Uang Makan</p>
@@ -104,7 +104,7 @@
                                 </p>
                             </div>
                             @if($trip->meal_allowance_amount)
-                                <span class="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                <span class="shrink-0 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                                     Rp {{ number_format($trip->meal_allowance_amount, 0, ',', '.') }}
                                 </span>
                             @endif
@@ -115,7 +115,7 @@
                             <div class="mt-3 flex flex-wrap gap-1.5">
                                 @foreach($trip->waypointCheckins->sortBy('waypoint.urutan') as $checkin)
                                     <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs
-                                        {{ $checkin->checked_in_at ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }}">
+                                        {{ $checkin->checked_in_at ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }}">
                                         @if($checkin->checked_in_at)
                                             <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
                                         @else

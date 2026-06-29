@@ -1,6 +1,6 @@
 @props(['active' => 'clock'])
 
-<div class="fixed inset-x-0 bottom-0 z-30 flex border-t border-gray-100 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
+<div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 flex border-t border-gray-100 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
 
     {{-- Beranda --}}
     <a href="{{ \App\Filament\Casual\Pages\ClockPage::getUrl() }}"

@@ -176,7 +176,7 @@
          x-transition:leave="transition duration-200 ease-in"
          x-transition:leave-start="translate-y-0"
          x-transition:leave-end="translate-y-full"
-         class="fixed inset-x-0 bottom-0 z-50 overflow-hidden rounded-t-3xl bg-white dark:bg-gray-900"
+         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 overflow-hidden rounded-t-3xl bg-white dark:bg-gray-900"
          style="max-height:88vh; display:none"
          @click.stop>
 

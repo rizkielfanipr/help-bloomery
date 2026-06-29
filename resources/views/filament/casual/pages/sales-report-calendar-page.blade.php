@@ -3,7 +3,7 @@
     $dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 @endphp
 
-<div class="flex flex-col bg-violet-600 dark:bg-violet-900" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
          VIOLET HEADER
@@ -53,7 +53,7 @@
                 <div class="mb-4 grid grid-cols-2 gap-3">
                     <div class="rounded-xl bg-white px-3 py-3 ring-1 ring-black/5 dark:bg-gray-900">
                         <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Submit</p>
-                        <p class="mt-1 text-xl font-bold text-emerald-600">{{ $calendar['submittedCount'] }}</p>
+                        <p class="mt-1 text-xl font-bold text-blue-600">{{ $calendar['submittedCount'] }}</p>
                         <p class="text-[11px] text-gray-400">dari {{ $calendar['pastDaysCount'] }} hari</p>
                     </div>
                     <div class="rounded-xl bg-white px-3 py-3 ring-1 ring-black/5 dark:bg-gray-900">
@@ -82,10 +82,10 @@
                 @foreach($calendar['days'] as $day)
                     @php
                         $cellBg = $day['isToday']
-                            ? 'bg-violet-600 dark:bg-violet-700'
+                            ? 'bg-blue-600 dark:bg-blue-700'
                             : ($day['isFuture']
                                 ? 'bg-white/60 dark:bg-gray-900/60'
-                                : ($day['isSubmitted'] ? 'bg-emerald-50 ring-emerald-200 dark:bg-emerald-900/20 dark:ring-emerald-800' : 'bg-white dark:bg-gray-900'));
+                                : ($day['isSubmitted'] ? 'bg-blue-50 ring-blue-200 dark:bg-blue-900/20 dark:ring-blue-800' : 'bg-white dark:bg-gray-900'));
                         $dayTextColor = $day['isToday']
                             ? 'text-white font-bold'
                             : ($day['isFuture'] ? 'text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300');
@@ -96,7 +96,7 @@
 
                         @if(! $day['isFuture'])
                             <div class="mt-1 h-1.5 w-1.5 rounded-full
-                                {{ $day['isToday'] ? 'bg-white/70' : ($day['isSubmitted'] ? 'bg-emerald-500' : 'bg-red-300') }}">
+                                {{ $day['isToday'] ? 'bg-white/70' : ($day['isSubmitted'] ? 'bg-blue-500' : 'bg-red-300') }}">
                             </div>
                         @endif
                     </div>
@@ -108,7 +108,7 @@
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Keterangan</p>
                 <div class="flex flex-col gap-1.5">
                     <div class="flex items-center gap-2">
-                        <div class="h-2 w-2 flex-shrink-0 rounded-full bg-emerald-500"></div>
+                        <div class="h-2 w-2 flex-shrink-0 rounded-full bg-blue-500"></div>
                         <span class="text-xs text-gray-500">Sales report sudah disubmit</span>
                     </div>
                     <div class="flex items-center gap-2">

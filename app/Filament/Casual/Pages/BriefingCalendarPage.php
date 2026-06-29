@@ -9,7 +9,6 @@ use App\Models\BriefingRecord;
 use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
 
 class BriefingCalendarPage extends Page
@@ -32,7 +31,7 @@ class BriefingCalendarPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Kalender Briefing';
     }
 
     public function getBreadcrumbs(): array

@@ -9,13 +9,13 @@
         'in_progress'  => ['label' => 'Dikerjakan',      'bg' => 'bg-blue-100',    'text' => 'text-blue-700'],
         'warranty'     => ['label' => 'Garansi',         'bg' => 'bg-purple-100',  'text' => 'text-purple-700'],
         're_submitted' => ['label' => 'Pengaduan Ulang', 'bg' => 'bg-red-100',     'text' => 'text-red-700'],
-        'completed'    => ['label' => 'Selesai',         'bg' => 'bg-emerald-100', 'text' => 'text-emerald-700'],
+        'completed'    => ['label' => 'Selesai',         'bg' => 'bg-blue-100', 'text' => 'text-blue-700'],
         default        => ['label' => $record->status->getLabel(), 'bg' => 'bg-gray-100', 'text' => 'text-gray-600'],
     };
 @endphp
 
 <div>
-<div class="flex flex-col bg-orange-500" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600" style="min-height:100dvh">
 
     {{-- HEADER --}}
     <div class="flex-shrink-0 px-5 pb-8 pt-14">
@@ -33,7 +33,7 @@
             </div>
             <span class="text-base font-semibold text-white">Detail Pekerjaan</span>
         </div>
-        <p class="text-sm text-orange-200">SR-{{ str_pad($record->id, 4, '0', STR_PAD_LEFT) }}</p>
+        <p class="text-sm text-blue-200">SR-{{ str_pad($record->id, 4, '0', STR_PAD_LEFT) }}</p>
         <div class="mt-1 flex items-center gap-2">
             <p class="text-xl font-semibold text-white">{{ $record->scheduled_date?->format('d M Y') ?? '-' }}</p>
             <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $statusConfig['bg'] }} {{ $statusConfig['text'] }}">
@@ -52,7 +52,7 @@
                     @if($canStart)
                         <button wire:click="mountAction('mulai_kerjakan')"
                                 class="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white transition active:scale-95
-                                    {{ $isResubmitted ? 'bg-red-600 active:bg-red-700' : 'bg-amber-500 active:bg-amber-600' }}">
+                                    {{ $isResubmitted ? 'bg-red-600 active:bg-red-700' : 'bg-blue-600 active:bg-blue-700' }}">
                             @if($isResubmitted)
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
@@ -68,7 +68,7 @@
                     @endif
                     @if($canComplete)
                         <button wire:click="mountAction('selesai_kerjakan')"
-                                class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 active:bg-emerald-700">
+                                class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                             </svg>
@@ -154,7 +154,7 @@
                             @endif
                             <div class="flex items-center gap-3 bg-gray-50 px-4 py-3 dark:bg-gray-800/50">
                                 @if($isFirst)
-                                    <div class="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">1</div>
+                                    <div class="flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">1</div>
                                     <p class="text-xs font-bold uppercase tracking-wider text-gray-500">Perbaikan Pertama</p>
                                 @else
                                     <div class="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">{{ $cycleNum }}</div>
@@ -212,8 +212,8 @@
                             @if($repair->completed_at)
                                 <div class="border-t border-gray-100 px-4 py-4 dark:border-gray-800">
                                     <div class="mb-3 flex items-center gap-2">
-                                        <div class="h-2 w-2 rounded-full bg-emerald-500"></div>
-                                        <p class="text-xs font-bold uppercase tracking-wider text-emerald-600">Hasil Perbaikan</p>
+                                        <div class="h-2 w-2 rounded-full bg-blue-600"></div>
+                                        <p class="text-xs font-bold uppercase tracking-wider text-blue-600">Hasil Perbaikan</p>
                                         <p class="ml-auto text-xs text-gray-400">{{ $repair->completed_at->format('d M, H:i') }}</p>
                                     </div>
                                     @if($repair->warranty_expires_at)

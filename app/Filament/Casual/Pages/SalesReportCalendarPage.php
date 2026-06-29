@@ -6,7 +6,6 @@ use App\Models\SalesReport;
 use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
 
 class SalesReportCalendarPage extends Page
@@ -29,7 +28,7 @@ class SalesReportCalendarPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Kalender Sales';
     }
 
     public function getBreadcrumbs(): array

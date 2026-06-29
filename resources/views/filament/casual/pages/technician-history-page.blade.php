@@ -1,6 +1,6 @@
 @php $user = auth()->user(); @endphp
 
-<div class="flex flex-col bg-orange-500" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600" style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
          HEADER
@@ -21,7 +21,7 @@
             <span class="text-base font-semibold text-white">Riwayat Pekerjaan</span>
         </div>
 
-        <p class="text-orange-200">{{ $user->name }}</p>
+        <p class="text-blue-200">{{ $user->name }}</p>
         <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
     </div>
 
@@ -88,8 +88,8 @@
         @empty
             <div class="mx-5 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                 <div class="flex flex-col items-center gap-4 px-5 py-12 text-center">
-                    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 dark:bg-orange-900/20">
-                        <svg class="h-8 w-8 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 dark:bg-orange-900/20">
+                        <svg class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
                         </svg>
                     </div>

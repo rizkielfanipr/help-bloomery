@@ -4,13 +4,13 @@
     $briefingData = $this->briefingData;
 
     $periodColors = [
-        'daily'   => ['bg' => 'bg-violet-600', 'light' => 'bg-violet-50', 'icon' => 'text-violet-600', 'pill' => 'bg-violet-100 text-violet-700', 'bar' => 'bg-violet-500'],
+        'daily'   => ['bg' => 'bg-blue-600', 'light' => 'bg-blue-50', 'icon' => 'text-blue-600', 'pill' => 'bg-blue-100 text-blue-700', 'bar' => 'bg-blue-500'],
         'weekly'  => ['bg' => 'bg-blue-600',   'light' => 'bg-blue-50',   'icon' => 'text-blue-600',   'pill' => 'bg-blue-100 text-blue-700',   'bar' => 'bg-blue-500'],
         'monthly' => ['bg' => 'bg-amber-500',  'light' => 'bg-amber-50',  'icon' => 'text-amber-500',  'pill' => 'bg-amber-100 text-amber-700', 'bar' => 'bg-amber-400'],
     ];
 @endphp
 
-<div class="flex flex-col bg-violet-600 dark:bg-violet-900"
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh"
      x-data="{
          showModal: false,
@@ -274,7 +274,7 @@
     <div class="flex-shrink-0 px-5 pb-8 pt-14">
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <a href="{{ route('filament.casual.pages.clock-page') }}"
+                <a href="{{ route('filament.casual.pages.launcher-page') }}"
                    class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition active:bg-white/30">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
@@ -289,7 +289,7 @@
             </div>
         </div>
 
-        <p class="text-violet-200">
+        <p class="text-blue-200">
             {{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}
         </p>
         <p class="text-xl font-semibold text-white">Halo, {{ $firstName }}!</p>
@@ -699,12 +699,12 @@
                                     @if(count($this->cameraPhotoPaths) < 5)
                                         <button @click="openCamera()"
                                                 x-show="!uploading"
-                                                class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-violet-300 bg-violet-50 transition active:bg-violet-100 dark:border-violet-700 dark:bg-violet-950/30">
-                                            <svg class="h-6 w-6 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30">
+                                            <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/>
                                             </svg>
-                                            <span class="text-xs font-medium text-violet-600 dark:text-violet-400">Kamera</span>
+                                            <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Kamera</span>
                                         </button>
                                         <button @click="$refs.photoInput.click()"
                                                 x-show="!uploading"
@@ -737,7 +737,7 @@
                         <textarea wire:model="taskData.notes"
                                   rows="2"
                                   placeholder="Tambahkan catatan..."
-                                  class="mt-1.5 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"></textarea>
+                                  class="mt-1.5 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"></textarea>
                     </div>
 
                 @endif
@@ -754,7 +754,7 @@
                         wire:click="saveTask"
                         wire:loading.attr="disabled"
                         x-bind:disabled="uploading"
-                        class="flex-1 rounded-2xl bg-violet-600 py-3.5 text-sm font-semibold text-white shadow-sm transition active:bg-violet-700 disabled:opacity-60">
+                        class="flex-1 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-sm transition active:bg-blue-700 disabled:opacity-60">
                     <span wire:loading.remove wire:target="saveTask" x-show="!uploading">Simpan</span>
                     <span x-show="uploading">Memproses foto...</span>
                     <span wire:loading wire:target="saveTask">Menyimpan...</span>

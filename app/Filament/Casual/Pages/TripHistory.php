@@ -15,6 +15,11 @@ class TripHistory extends Page
 {
     protected static bool $shouldRegisterNavigation = false;
 
+    public function getTitle(): string
+    {
+        return 'Riwayat Perjalanan';
+    }
+
     protected static string $layout = 'filament.casual.layouts.bare';
 
     protected string $view = 'filament.casual.pages.trip-history';

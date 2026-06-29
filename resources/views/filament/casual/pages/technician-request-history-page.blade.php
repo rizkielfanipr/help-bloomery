@@ -7,11 +7,11 @@
         'in_progress'  => ['label' => 'Dikerjakan',      'bg' => 'bg-amber-100',   'text' => 'text-amber-700'],
         'warranty'     => ['label' => 'Garansi',         'bg' => 'bg-purple-100',  'text' => 'text-purple-700'],
         're_submitted' => ['label' => 'Pengaduan Ulang', 'bg' => 'bg-red-100',     'text' => 'text-red-700'],
-        'completed'    => ['label' => 'Selesai',         'bg' => 'bg-emerald-100', 'text' => 'text-emerald-700'],
+        'completed'    => ['label' => 'Selesai',         'bg' => 'bg-blue-100', 'text' => 'text-blue-700'],
     ];
 @endphp
 
-<div class="flex flex-col bg-sky-600 dark:bg-sky-900"
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
@@ -33,7 +33,7 @@
             <span class="text-base font-semibold text-white">Riwayat Request</span>
         </div>
 
-        <p class="text-sky-200">{{ auth()->user()->branch?->name ?? auth()->user()->name }}</p>
+        <p class="text-blue-200">{{ auth()->user()->branch?->name ?? auth()->user()->name }}</p>
         <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
     </div>
 
@@ -46,15 +46,15 @@
 
         @if($requests->isEmpty())
             <div class="flex flex-col items-center justify-center px-5 py-16 text-center">
-                <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-sky-50 dark:bg-sky-900/20">
-                    <svg class="h-8 w-8 text-sky-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 dark:bg-blue-900/20">
+                    <svg class="h-8 w-8 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z"/>
                     </svg>
                 </div>
                 <p class="font-semibold text-gray-900 dark:text-white">Belum Ada Request</p>
                 <p class="mt-1 text-sm text-gray-400">Permintaan teknisi yang Anda ajukan akan muncul di sini.</p>
                 <a href="{{ \App\Filament\Casual\Pages\TechnicianRequestPage::getUrl() }}"
-                   class="mt-5 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white">
+                   class="mt-5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white">
                     Buat Request Baru
                 </a>
             </div>
@@ -79,8 +79,8 @@
                             {{-- Status icon --}}
                             <div class="mt-0.5 flex-shrink-0">
                                 @if($statusValue === 'completed')
-                                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
-                                        <svg class="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20">
+                                        <svg class="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                                         </svg>
                                     </div>
@@ -227,7 +227,7 @@
                                                 <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{{ $repair->before_notes }}</p>
                                             @endif
                                             @if($repair->after_notes)
-                                                <p class="mt-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Hasil Perbaikan</p>
+                                                <p class="mt-2 text-[10px] font-semibold uppercase tracking-wider text-blue-600">Hasil Perbaikan</p>
                                                 <p class="mt-0.5 text-xs text-slate-700 dark:text-slate-300">{{ $repair->after_notes }}</p>
                                             @endif
                                             @if($repair->completed_at)

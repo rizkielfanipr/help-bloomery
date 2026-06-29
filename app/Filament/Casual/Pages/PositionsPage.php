@@ -10,7 +10,6 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
 
 class PositionsPage extends Page
@@ -23,7 +22,7 @@ class PositionsPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Posisi Kerja';
     }
 
     public function getBreadcrumbs(): array

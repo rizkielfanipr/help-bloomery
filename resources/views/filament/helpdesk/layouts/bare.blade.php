@@ -9,7 +9,18 @@
         <meta name="csrf-token" content="{{ csrf_token() }}" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-        <title>{{ filament()->getBrandName() }} — Helpdesk</title>
+        @php
+            $pageTitle = isset($livewire) ? (string) $livewire->getTitle() : '';
+            $docTitle  = $pageTitle ? $pageTitle . ' · Helpdesk' : 'Bloomery Helpdesk';
+        @endphp
+        <title>{{ $docTitle }}</title>
+
+        {{-- Favicon dinamis dark/light mode --}}
+        <link rel="icon" type="image/svg+xml" href="{{ asset('icons/icon.svg') }}">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icon-192.png') }}" media="(prefers-color-scheme: light)">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icon-192-dark.png') }}" media="(prefers-color-scheme: dark)">
+        <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
+        <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
 
         <style>
             [x-cloak=''], [x-cloak='x-cloak'], [x-cloak='1'] { display: none !important; }

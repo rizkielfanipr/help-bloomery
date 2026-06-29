@@ -35,13 +35,21 @@ class HelpdeskPanelProvider extends PanelProvider
             ->darkMode(true)
             ->defaultThemeMode(ThemeMode::Light)
             ->font('Inter')
+            ->brandName('Bloomery')
+            ->brandLogo(asset('images/bloomery-icon.png'))
+            ->darkModeBrandLogo(asset('icons/icon-192-dark.png'))
+            ->brandLogoHeight('2rem')
+            ->favicon(asset('icons/icon-192.png'))
             ->colors([
                 'primary' => Color::Blue,
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => Blade::render(
-                    '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+                    '<link rel="icon" type="image/svg+xml" href="{{ asset(\'icons/icon.svg\') }}">
+                     <link rel="icon" type="image/png" sizes="192x192" href="{{ asset(\'icons/icon-192.png\') }}" media="(prefers-color-scheme: light)">
+                     <link rel="icon" type="image/png" sizes="192x192" href="{{ asset(\'icons/icon-192-dark.png\') }}" media="(prefers-color-scheme: dark)">
+                     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
                      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                      <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>'
                 ),

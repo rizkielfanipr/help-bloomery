@@ -8,7 +8,6 @@ use App\Models\CasualPositionRegistration;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\HtmlString;
 use Livewire\Attributes\Computed;
 use Livewire\WithFileUploads;
 
@@ -36,7 +35,7 @@ class ClockPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return new HtmlString('');
+        return 'Presensi';
     }
 
     public function getBreadcrumbs(): array

@@ -1,4 +1,4 @@
-<div class="flex flex-col bg-emerald-600" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600" style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
          HEADER
@@ -19,7 +19,7 @@
             <span class="text-base font-semibold text-white">Mulai Perjalanan</span>
         </div>
 
-        <p class="text-emerald-200">Isi detail perjalanan baru</p>
+        <p class="text-blue-200">Isi detail perjalanan baru</p>
         <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
     </div>
 
@@ -37,7 +37,7 @@
                 </a>
                 <button type="submit"
                         wire:loading.attr="disabled"
-                        class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-emerald-700 disabled:opacity-50">
+                        class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700 disabled:opacity-50">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/>
                     </svg>

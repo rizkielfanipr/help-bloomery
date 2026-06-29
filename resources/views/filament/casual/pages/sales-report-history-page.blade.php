@@ -4,7 +4,7 @@
     $monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
 @endphp
 
-<div class="flex flex-col bg-violet-600 dark:bg-violet-900" style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
          VIOLET HEADER
@@ -74,11 +74,11 @@
                                     class="flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:bg-gray-50 dark:active:bg-gray-800">
 
                                 {{-- Date badge --}}
-                                <div class="flex w-11 flex-shrink-0 flex-col items-center rounded-xl bg-violet-50 py-2 dark:bg-violet-900/30">
-                                    <span class="text-[11px] font-semibold uppercase text-violet-400">
+                                <div class="flex w-11 flex-shrink-0 flex-col items-center rounded-xl bg-blue-50 py-2 dark:bg-blue-900/30">
+                                    <span class="text-[11px] font-semibold uppercase text-blue-400">
                                         {{ $dayNames[$report->report_date->dayOfWeek] }}
                                     </span>
-                                    <span class="text-base font-bold leading-none text-violet-700 dark:text-violet-300">
+                                    <span class="text-base font-bold leading-none text-blue-700 dark:text-blue-300">
                                         {{ $report->report_date->format('d') }}
                                     </span>
                                 </div>
@@ -145,10 +145,10 @@
                                     {{-- Column header (inside expanded) --}}
                                     <div class="grid grid-cols-[1fr_80px_80px] border-t-2 border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
                                         <span class="text-[10px] font-bold uppercase text-gray-500">Total</span>
-                                        <span class="text-right text-xs font-bold text-violet-700 dark:text-violet-300">
+                                        <span class="text-right text-xs font-bold text-blue-700 dark:text-blue-300">
                                             Rp {{ number_format($totalShift1, 0, ',', '.') }}
                                         </span>
-                                        <span class="text-right text-xs font-bold text-violet-700 dark:text-violet-300">
+                                        <span class="text-right text-xs font-bold text-blue-700 dark:text-blue-300">
                                             Rp {{ number_format($totalShift2, 0, ',', '.') }}
                                         </span>
                                     </div>

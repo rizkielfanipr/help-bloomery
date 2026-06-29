@@ -19,6 +19,11 @@ class StartTrip extends Page
 {
     protected static bool $shouldRegisterNavigation = false;
 
+    public function getTitle(): string
+    {
+        return 'Mulai Perjalanan';
+    }
+
     protected static string $layout = 'filament.casual.layouts.bare';
 
     protected string $view = 'filament.casual.pages.start-trip';

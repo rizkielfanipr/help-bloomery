@@ -21,9 +21,14 @@ return new class extends Migration
         foreach ($tables as $table) {
             Schema::table($table, function (Blueprint $t) use ($table, $isSqlite) {
                 if (! $isSqlite) {
-                    $t->dropForeign("{$table}_department_id_foreign");
+                    $foreignKeys = array_column(DB::select("SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY'", [$table]), 'CONSTRAINT_NAME');
+                    if (in_array("{$table}_department_id_foreign", $foreignKeys)) {
+                        $t->dropForeign("{$table}_department_id_foreign");
+                    }
                 }
-                $t->dropColumn('department_id');
+                if (Schema::hasColumn($table, 'department_id')) {
+                    $t->dropColumn('department_id');
+                }
             });
         }
 

@@ -14,13 +14,21 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             if (DB::getDriverName() !== 'sqlite') {
-                $table->dropForeign('users_department_id_foreign');
+                $foreignKeys = array_column(DB::select("SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND CONSTRAINT_TYPE = 'FOREIGN KEY'"), 'CONSTRAINT_NAME');
+                if (in_array('users_department_id_foreign', $foreignKeys)) {
+                    $table->dropForeign('users_department_id_foreign');
+                }
             }
             $table->renameColumn('department_id', 'branch_id');
-            if (DB::getDriverName() !== 'sqlite') {
-                $table->foreign('branch_id')->references('id')->on('branches')->nullOnDelete();
-            }
         });
+
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('UPDATE users SET branch_id = NULL WHERE branch_id NOT IN (SELECT id FROM branches)');
+
+            Schema::table('users', function (Blueprint $table) {
+                $table->foreign('branch_id')->references('id')->on('branches')->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void

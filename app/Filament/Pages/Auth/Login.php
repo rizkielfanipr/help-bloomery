@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Helpdesk\Pages\Auth;
+namespace App\Filament\Pages\Auth;
 
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Forms\Components\TextInput;
@@ -10,9 +10,9 @@ use Illuminate\Support\HtmlString;
 
 class Login extends BaseLogin
 {
-    protected static string $layout = 'filament.helpdesk.layouts.bare';
+    protected static string $layout = 'filament.admin.layouts.bare';
 
-    protected string $view = 'filament.helpdesk.pages.auth.login';
+    protected string $view = 'filament.admin.pages.auth.login';
 
     public function getTitle(): string|Htmlable
     {

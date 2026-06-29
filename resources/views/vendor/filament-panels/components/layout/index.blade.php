@@ -193,6 +193,23 @@
             <div class="mx-3 border-t border-slate-100 dark:border-white/[0.06]"></div>
         </div>
 
+        {{-- App User --}}
+        <a
+            href="{{ env('CASUAL_DOMAIN') ? 'https://' . env('CASUAL_DOMAIN') . '/launcher-page' : url('casual/launcher-page') }}"
+            target="_blank"
+            class="group flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150 text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
+        >
+            <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-white/[0.07] transition-colors">
+                <i data-lucide="external-link" class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400"></i>
+            </div>
+            App User
+        </a>
+
+        {{-- Divider --}}
+        <div class="py-1.5">
+            <div class="mx-3 border-t border-slate-100 dark:border-white/[0.06]"></div>
+        </div>
+
         {{-- Nav Groups --}}
         @foreach ($navGroups as $group)
             <div>

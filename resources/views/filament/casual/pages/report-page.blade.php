@@ -1,9 +1,10 @@
 @php
     $data            = $this->reportData;
     $user            = $data['user'];
-    $month           = $data['month'];
+    $weekStart       = $data['weekStart'];
+    $weekEnd         = $data['weekEnd'];
     $records         = $data['records'];
-    $workingDays     = $data['workingDays'];
+    $totalDays       = $data['totalDays'];
     $presentCount    = $data['presentCount'];
     $absentCount     = $data['absentCount'];
     $lateCount       = $data['lateCount'];
@@ -11,14 +12,21 @@
     $onTimeCount     = $data['onTimeCount'];
     $totalSeconds    = $data['totalSeconds'];
     $avgSeconds      = $data['avgSeconds'];
-    $attendanceRate  = $data['attendanceRate'];
-    $punctualityRate = $data['punctualityRate'];
+    $attendanceRate      = $data['attendanceRate'];
+    $punctualityRate     = $data['punctualityRate'];
+    $overtimeCount       = $data['overtimeCount'];
+    $overtimeTotalHours  = $data['overtimeTotalHours'];
+    $overtimeTotalFee    = $data['overtimeTotalFee'];
 
-    $isCurrentMonth  = $month->format('Y-m') === now()->format('Y-m');
-    $canGoNext       = $month->copy()->addMonth()->lte(now()->startOfMonth());
+    $isCurrentWeek = $weekStart->format('Y-m-d') === now()->startOfWeek(\Carbon\Carbon::MONDAY)->format('Y-m-d');
+    $canGoNext     = $weekStart->copy()->addWeek()->lte(now()->startOfWeek(\Carbon\Carbon::MONDAY));
 
     $monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
     $dayNames   = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+
+    $weekLabel = $weekStart->month === $weekEnd->month
+        ? $weekStart->day.' – '.$weekEnd->day.' '.$monthNames[$weekEnd->month - 1].' '.$weekEnd->year
+        : $weekStart->day.' '.$monthNames[$weekStart->month - 1].' – '.$weekEnd->day.' '.$monthNames[$weekEnd->month - 1].' '.$weekEnd->year;
 
     $fmtHours = function(int $s): string {
         $h = intdiv($s, 3600);
@@ -26,8 +34,17 @@
         return $h > 0 ? "{$h}j {$m}m" : "{$m}m";
     };
 
+    $fmtOTHours = function(float $h): string {
+        $totalMins = (int) round($h * 60);
+        $hours = intdiv($totalMins, 60);
+        $mins  = $totalMins % 60;
+        if ($hours > 0 && $mins > 0) { return "{$hours}j {$mins}m"; }
+        if ($hours > 0) { return "{$hours}j"; }
+        return "{$mins}m";
+    };
+
     // SVG ring: r=40 → circumference ≈ 251.3
-    $r   = 40;
+    $r    = 40;
     $circ = round(2 * M_PI * $r, 1);
     $dash = round($circ * $attendanceRate / 100, 1);
 @endphp
@@ -71,21 +88,19 @@
             </button>
         </div>
 
-        {{-- Month navigator --}}
+        {{-- Week navigator --}}
         <div class="flex items-center justify-center gap-5">
-            <button wire:click="previousMonth"
+            <button wire:click="previousWeek"
                     class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition active:bg-white/30">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
                 </svg>
             </button>
             <div class="text-center">
-                <p class="text-xl font-semibold text-white">
-                    {{ $monthNames[$month->month - 1] }} {{ $month->year }}
-                </p>
-                <p class="text-xs text-blue-200">{{ $workingDays }} hari kerja</p>
+                <p class="text-base font-semibold text-white">{{ $weekLabel }}</p>
+                <p class="text-xs text-blue-200">{{ $totalDays }} hari{{ $isCurrentWeek ? ' · s.d. hari ini' : '' }}</p>
             </div>
-            <button wire:click="nextMonth"
+            <button wire:click="nextWeek"
                     @class(['flex h-9 w-9 items-center justify-center rounded-full text-white transition',
                             'bg-white/20 active:bg-white/30' => $canGoNext,
                             'opacity-30 cursor-not-allowed' => !$canGoNext])
@@ -126,9 +141,7 @@
                 </div>
             </div>
             <p class="mt-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Tingkat Kehadiran</p>
-            @if($isCurrentMonth)
-                <p class="mt-0.5 text-xs text-gray-400">s.d. hari ini</p>
-            @endif
+            <p class="mt-0.5 text-xs text-gray-400">{{ $presentCount }} dari {{ $totalDays }} hari</p>
         </div>
 
         {{-- ── Summary Stats ── --}}
@@ -238,6 +251,34 @@
             </div>
         </div>
 
+        {{-- ── Overtime Stats ── --}}
+        @if($overtimeCount > 0)
+            <div class="mt-4 px-5">
+                <div class="overflow-hidden rounded-2xl bg-indigo-50 dark:bg-indigo-900/20">
+                    <div class="flex items-center gap-2 px-4 py-3">
+                        <svg class="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                        </svg>
+                        <span class="text-sm font-semibold text-indigo-700 dark:text-indigo-300">Ringkasan Lembur</span>
+                    </div>
+                    <div class="grid grid-cols-3 divide-x divide-indigo-100 dark:divide-indigo-800">
+                        <div class="px-4 py-3 text-center">
+                            <p class="text-lg font-semibold text-indigo-700 dark:text-indigo-300">{{ $overtimeCount }}</p>
+                            <p class="text-[11px] text-indigo-400">Sesi</p>
+                        </div>
+                        <div class="px-4 py-3 text-center">
+                            <p class="text-lg font-semibold text-indigo-700 dark:text-indigo-300">{{ $fmtOTHours($overtimeTotalHours) }}</p>
+                            <p class="text-[11px] text-indigo-400">Total Jam</p>
+                        </div>
+                        <div class="px-4 py-3 text-center">
+                            <p class="text-lg font-semibold text-indigo-700 dark:text-indigo-300">Rp {{ number_format($overtimeTotalFee, 0, ',', '.') }}</p>
+                            <p class="text-[11px] text-indigo-400">Total Fee</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- ── Records List ── --}}
         <div class="mt-5 px-5">
             <div class="mb-3 flex items-center justify-between">
@@ -250,7 +291,7 @@
                     <svg class="h-14 w-14 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
                     </svg>
-                    <p class="text-sm font-medium text-gray-400">Tidak ada data untuk bulan ini</p>
+                    <p class="text-sm font-medium text-gray-400">Tidak ada data untuk minggu ini</p>
                 </div>
             @else
                 <div class="space-y-2.5">
@@ -301,6 +342,11 @@
                                     @if($rec->is_early_out)
                                         <span class="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:bg-amber-900/40">
                                             Awal {{ $rec->early_out_minutes }}m
+                                        </span>
+                                    @endif
+                                    @if($rec->overtimeRequest?->isApproved())
+                                        <span class="inline-flex items-center gap-0.5 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:bg-indigo-900/40">
+                                            Lembur {{ $fmtOTHours($rec->overtimeRequest->approved_hours) }}
                                         </span>
                                     @endif
                                 </div>

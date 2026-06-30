@@ -38,7 +38,6 @@ class CreateCasualPositionOpening extends CreateRecord
         foreach ($schedules as $schedule) {
             $record = CasualPositionOpening::create(array_merge($data, [
                 'work_date' => $schedule['work_date'],
-                'casual_shift_id' => $schedule['casual_shift_id'],
                 'total_slots' => (int) $schedule['total_slots'],
             ]));
             $first ??= $record;

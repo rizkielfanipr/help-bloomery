@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\CasualClockRecord;
 use App\Models\CasualPosition;
 use App\Models\CasualPositionOpening;
+use App\Models\CasualPositionRegistration;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -45,8 +46,13 @@ class CasualTestDataSeeder extends Seeder
             ['address' => 'Jl. TB Simatupang No. 5, Jakarta Selatan', 'lat' => -6.3013, 'lng' => 106.7886, 'radius_meters' => 100, 'is_active' => true],
         );
 
-        // Openings for the next 3 days
+        // Openings: today (for attendance testing) + next 3 days
         $openings = [
+            // Today - untuk test absensi
+            ['casual_position_id' => $kasir->id, 'branch_id' => $branchUtama->id, 'work_date' => today(), 'total_slots' => 5, 'description' => 'Opening hari ini untuk test absensi.'],
+            ['casual_position_id' => $loader->id, 'branch_id' => $branchGudang->id, 'work_date' => today(), 'total_slots' => 5, 'description' => null],
+            ['casual_position_id' => $picker->id, 'branch_id' => $branchGudang->id, 'work_date' => today(), 'total_slots' => 5, 'description' => null],
+            // Next 3 days
             ['casual_position_id' => $kasir->id, 'branch_id' => $branchUtama->id, 'work_date' => today()->addDay(), 'total_slots' => 3, 'description' => 'Bawa seragam hitam-putih.'],
             ['casual_position_id' => $loader->id, 'branch_id' => $branchGudang->id, 'work_date' => today()->addDay(), 'total_slots' => 5, 'description' => null],
             ['casual_position_id' => $picker->id, 'branch_id' => $branchGudang->id, 'work_date' => today()->addDays(2), 'total_slots' => 4, 'description' => 'Wajib pakai safety shoes.'],
@@ -61,12 +67,7 @@ class CasualTestDataSeeder extends Seeder
             );
         }
 
-        // Skip if clock records already seeded
-        if (CasualClockRecord::exists()) {
-            return;
-        }
-
-        // Create casual staff users
+        // Create casual staff users (idempotent via firstOrCreate on phone/email)
         $staffData = [
             ['name' => 'Budi Santoso', 'phone' => '081234567890', 'bank_name' => 'BCA', 'bank_account_number' => '1234567890', 'position' => $kasir],
             ['name' => 'Siti Rahayu', 'phone' => '082345678901', 'bank_name' => 'BRI', 'bank_account_number' => '2345678901', 'position' => $kasir],
@@ -78,20 +79,45 @@ class CasualTestDataSeeder extends Seeder
             ['name' => 'Hana Susanti', 'phone' => '088901234567', 'bank_name' => 'BRI', 'bank_account_number' => '8901234567', 'position' => $picker],
         ];
 
+        $todayOpenings = CasualPositionOpening::where('work_date', today())->get()->keyBy('casual_position_id');
+
         $users = [];
         foreach ($staffData as $data) {
-            $user = User::create([
-                'name' => $data['name'],
-                'phone' => $data['phone'],
-                'email' => $data['phone'].'@casual.app',
-                'password' => bcrypt('password'),
-                'bank_name' => $data['bank_name'],
-                'bank_account_number' => $data['bank_account_number'],
-                'casual_position_id' => $data['position']->id,
-                'is_active' => true,
-            ]);
-            $user->assignRole('casual_staff');
+            [$user, $isNew] = [
+                User::firstOrCreate(
+                    ['email' => $data['phone'].'@casual.app'],
+                    [
+                        'name' => $data['name'],
+                        'phone' => $data['phone'],
+                        'password' => bcrypt('password'),
+                        'bank_name' => $data['bank_name'],
+                        'bank_account_number' => $data['bank_account_number'],
+                        'casual_position_id' => $data['position']->id,
+                        'is_active' => true,
+                    ]
+                ),
+                false,
+            ];
+
+            if (! $user->hasRole('casual_staff')) {
+                $user->assignRole('casual_staff');
+            }
+
             $users[] = ['user' => $user, 'position' => $data['position']];
+
+            // Register ke opening hari ini sesuai posisi
+            $todayOpening = $todayOpenings->get($data['position']->id);
+            if ($todayOpening) {
+                CasualPositionRegistration::firstOrCreate([
+                    'casual_position_opening_id' => $todayOpening->id,
+                    'user_id' => $user->id,
+                ]);
+            }
+        }
+
+        // Skip clock records if already seeded
+        if (CasualClockRecord::exists()) {
+            return;
         }
 
         // Create clock records for the past 20 days

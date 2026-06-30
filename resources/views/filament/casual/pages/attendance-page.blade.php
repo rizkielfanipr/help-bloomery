@@ -78,23 +78,38 @@
                             $outColor = ! $hasClockedOut ? 'text-gray-300 dark:text-gray-600'
                                 : ($record->is_early_out ? 'text-amber-500' : 'text-green-600 dark:text-green-400');
 
+                            $otReq = $record->overtimeRequest;
                             $detail = [
-                                'date'              => $dayNames[$record->date->dayOfWeek].', '.$record->date->day.' '.$monthNames[$record->date->month - 1].' '.$record->date->year,
-                                'shift'             => $record->shift?->name,
-                                'clock_in'          => $hasClockedIn  ? $record->clock_in_at->format('H:i')  : null,
-                                'clock_out'         => $hasClockedOut ? $record->clock_out_at->format('H:i') : null,
-                                'clock_in_photo'    => $record->clock_in_photo  ? \Illuminate\Support\Facades\Storage::url($record->clock_in_photo)  : null,
-                                'clock_out_photo'   => $record->clock_out_photo ? \Illuminate\Support\Facades\Storage::url($record->clock_out_photo) : null,
-                                'clock_in_lat'      => $record->clock_in_lat,
-                                'clock_in_lng'      => $record->clock_in_lng,
-                                'clock_out_lat'     => $record->clock_out_lat,
-                                'clock_out_lng'     => $record->clock_out_lng,
-                                'is_late'           => $record->is_late,
-                                'late_minutes'      => $record->late_minutes,
-                                'is_early_out'      => $record->is_early_out,
-                                'early_out_minutes' => $record->early_out_minutes,
-                                'duration'          => $duration,
-                                'notes'             => $record->notes,
+                                'record_id'                => $record->id,
+                                'date'                     => $dayNames[$record->date->dayOfWeek].', '.$record->date->day.' '.$monthNames[$record->date->month - 1].' '.$record->date->year,
+                                'shift'                    => $record->shift?->name,
+                                'clock_in'                 => $hasClockedIn  ? $record->clock_in_at->format('H:i')  : null,
+                                'clock_out'                => $hasClockedOut ? $record->clock_out_at->format('H:i') : null,
+                                'clock_in_photo'           => $record->clock_in_photo  ? \Illuminate\Support\Facades\Storage::url($record->clock_in_photo)  : null,
+                                'clock_out_photo'          => $record->clock_out_photo ? \Illuminate\Support\Facades\Storage::url($record->clock_out_photo) : null,
+                                'clock_in_lat'             => $record->clock_in_lat,
+                                'clock_in_lng'             => $record->clock_in_lng,
+                                'clock_out_lat'            => $record->clock_out_lat,
+                                'clock_out_lng'            => $record->clock_out_lng,
+                                'is_late'                  => $record->is_late,
+                                'late_minutes'             => $record->late_minutes,
+                                'is_early_out'             => $record->is_early_out,
+                                'early_out_minutes'        => $record->early_out_minutes,
+                                'duration'                 => $duration,
+                                'notes'                    => $record->notes,
+                                'has_clocked_out'          => $hasClockedOut,
+                                'overtime_request_id' => $otReq?->id,
+                                'overtime_duration'   => $otReq?->approved_hours
+                                    ? (function ($h) {
+                                        $m = (int) round($h * 60);
+                                        $hours = intdiv($m, 60); $mins = $m % 60;
+                                        return $hours > 0 ? "{$hours}j {$mins}m" : "{$mins}m";
+                                    })($otReq->approved_hours)
+                                    : null,
+                                'overtime_reason' => $otReq?->reason,
+                                'overtime_fee'    => $otReq?->overtime_fee
+                                    ? 'Rp '.number_format((float) $otReq->overtime_fee, 0, ',', '.')
+                                    : null,
                             ];
                         @endphp
 
@@ -340,6 +355,44 @@
                     </template>
                 </div>
             </div>
+
+            {{-- Lembur info — shown when a record exists --}}
+            <template x-if="selected?.overtime_request_id">
+                <div class="mx-5 mt-4 overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800">
+
+                    <div class="flex items-center gap-2.5 px-4 py-3">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                            <svg class="h-4 w-4 text-indigo-500 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                            </svg>
+                        </div>
+                        <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">Lembur</span>
+                    </div>
+
+                    <div class="space-y-1 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+                        <template x-if="selected?.overtime_duration">
+                            <p class="text-[11px] text-gray-400">Durasi: <span class="font-semibold text-gray-700 dark:text-gray-200" x-text="selected.overtime_duration"></span></p>
+                        </template>
+                        <template x-if="selected?.overtime_fee">
+                            <p class="text-[11px] text-gray-400">Fee: <span class="font-semibold text-indigo-600 dark:text-indigo-400" x-text="selected.overtime_fee"></span></p>
+                        </template>
+                        <template x-if="selected?.overtime_reason">
+                            <p class="text-[11px] text-gray-400">Alasan: <span class="text-gray-600 dark:text-gray-300" x-text="selected.overtime_reason"></span></p>
+                        </template>
+                    </div>
+
+                    <div class="border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+                        <button type="button"
+                                @click="if (confirm('Batalkan catatan lembur ini?')) $wire.cancelOvertimeRequest(selected.overtime_request_id).then(() => { selected = null })"
+                                class="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 py-2.5 text-sm font-semibold text-red-500 transition active:bg-red-50 dark:border-red-800 dark:text-red-400 dark:active:bg-red-900/20">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                            </svg>
+                            Batalkan Lembur
+                        </button>
+                    </div>
+                </div>
+            </template>
 
             {{-- Duration + notes --}}
             <div class="mx-5 mt-3 flex gap-3">

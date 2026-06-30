@@ -3,6 +3,7 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Models\CasualClockRecord;
+use App\Models\CasualOvertimeRequest;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Filament\Pages\Page;
@@ -20,12 +21,12 @@ class ReportPage extends Page
     protected string $view = 'filament.casual.pages.report-page';
 
     #[Url]
-    public string $selectedMonth = '';
+    public string $selectedWeek = '';
 
     public function mount(): void
     {
-        if (! $this->selectedMonth) {
-            $this->selectedMonth = now()->format('Y-m');
+        if (! $this->selectedWeek) {
+            $this->selectedWeek = now()->startOfWeek(Carbon::MONDAY)->format('Y-m-d');
         }
     }
 
@@ -44,19 +45,19 @@ class ReportPage extends Page
         return [];
     }
 
-    public function previousMonth(): void
+    public function previousWeek(): void
     {
-        $this->selectedMonth = Carbon::createFromFormat('Y-m', $this->selectedMonth)
-            ->subMonth()
-            ->format('Y-m');
+        $this->selectedWeek = Carbon::parse($this->selectedWeek)
+            ->subWeek()
+            ->format('Y-m-d');
     }
 
-    public function nextMonth(): void
+    public function nextWeek(): void
     {
-        $next = Carbon::createFromFormat('Y-m', $this->selectedMonth)->addMonth();
+        $next = Carbon::parse($this->selectedWeek)->addWeek();
 
-        if ($next->lte(now()->startOfMonth())) {
-            $this->selectedMonth = $next->format('Y-m');
+        if ($next->lte(now()->startOfWeek(Carbon::MONDAY))) {
+            $this->selectedWeek = $next->format('Y-m-d');
         }
     }
 
@@ -64,30 +65,22 @@ class ReportPage extends Page
     public function reportData(): array
     {
         $user = auth()->user();
-        $month = Carbon::createFromFormat('Y-m', $this->selectedMonth);
-        $start = $month->copy()->startOfMonth();
-        $end = $month->copy()->endOfMonth()->min(now());
+        $weekStart = Carbon::parse($this->selectedWeek)->startOfWeek(Carbon::MONDAY);
+        $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY)->min(now());
 
         $records = CasualClockRecord::where('user_id', $user->id)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
-            ->with('shift')
+            ->whereBetween('date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->with('overtimeRequest')
             ->orderBy('date')
             ->get();
 
-        $workingDays = 0;
-        $day = $start->copy();
-        while ($day->lte($end)) {
-            if ($day->isWeekday()) {
-                $workingDays++;
-            }
-            $day->addDay();
-        }
+        $totalDays = $weekStart->copy()->startOfDay()->diffInDays($weekEnd->copy()->startOfDay()) + 1;
 
         $presentCount = $records->count();
         $lateCount = $records->where('is_late', true)->count();
         $earlyOutCount = $records->where('is_early_out', true)->count();
         $onTimeCount = max(0, $presentCount - $lateCount);
-        $absentCount = max(0, $workingDays - $presentCount);
+        $absentCount = max(0, $totalDays - $presentCount);
 
         $totalSeconds = $records->sum(function (CasualClockRecord $r): int {
             if (! $r->clock_in_at || ! $r->clock_out_at) {
@@ -98,18 +91,24 @@ class ReportPage extends Page
         });
 
         $avgSeconds = $presentCount > 0 ? intdiv($totalSeconds, $presentCount) : 0;
-        $attendanceRate = $workingDays > 0 ? round($presentCount / $workingDays * 100) : 0;
+        $attendanceRate = $totalDays > 0 ? round($presentCount / $totalDays * 100) : 0;
         $punctualityRate = $presentCount > 0 ? round($onTimeCount / $presentCount * 100) : 0;
+
+        $recordIds = $records->pluck('id');
+        $overtimes = CasualOvertimeRequest::whereIn('casual_clock_record_id', $recordIds)->get();
+
+        $overtimeCount = $overtimes->count();
+        $overtimeTotalHours = $overtimes->sum('approved_hours');
+        $overtimeTotalFee = $overtimes->sum('overtime_fee');
 
         return [
             'user' => $user,
             'shift' => $user->casualShift,
             'position' => $user->casualPosition,
-            'month' => $month,
-            'start' => $start,
-            'end' => $end,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
             'records' => $records,
-            'workingDays' => $workingDays,
+            'totalDays' => $totalDays,
             'presentCount' => $presentCount,
             'absentCount' => $absentCount,
             'lateCount' => $lateCount,
@@ -119,6 +118,9 @@ class ReportPage extends Page
             'avgSeconds' => $avgSeconds,
             'attendanceRate' => $attendanceRate,
             'punctualityRate' => $punctualityRate,
+            'overtimeCount' => $overtimeCount,
+            'overtimeTotalHours' => $overtimeTotalHours,
+            'overtimeTotalFee' => $overtimeTotalFee,
         ];
     }
 
@@ -130,7 +132,7 @@ class ReportPage extends Page
             ->setPaper('a4', 'portrait');
 
         $name = str_replace(' ', '-', strtolower($data['user']->name));
-        $filename = "laporan-kinerja-{$name}-{$this->selectedMonth}.pdf";
+        $filename = "laporan-kinerja-{$name}-{$this->selectedWeek}.pdf";
 
         return response()->streamDownload(
             fn () => print ($pdf->output()),

@@ -20,7 +20,7 @@
     </a>
 
     {{-- Profil --}}
-    <a href="{{ \App\Filament\Casual\Pages\ProfilePage::getUrl() }}"
+    <a href="{{ \App\Filament\Casual\Pages\LauncherProfilePage::getUrl() }}"
        class="flex flex-1 flex-col items-center gap-1 py-3">
         @if($active === 'profile')
             <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">

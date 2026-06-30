@@ -4,6 +4,7 @@ namespace App\Filament\Casual\Pages;
 
 use App\Models\Branch;
 use App\Models\CasualClockRecord;
+use App\Models\CasualOvertimeRequest;
 use App\Models\CasualPositionRegistration;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -180,6 +181,68 @@ class ClockPage extends Page
             ->title('Fitur Dalam Pengembangan')
             ->body('Fitur pengajuan izin/cuti belum tersedia saat ini.')
             ->info()
+            ->send();
+    }
+
+    public function submitOvertimeRequest(string $date, string $startTime, string $endTime, string $reason): void
+    {
+        $record = CasualClockRecord::where('user_id', auth()->id())
+            ->where('date', $date)
+            ->with('overtimeRequest')
+            ->first();
+
+        if (! $record) {
+            Notification::make()
+                ->title('Data absensi tidak ditemukan')
+                ->body('Tidak ada catatan absensi pada tanggal tersebut.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if ($record->overtimeRequest) {
+            Notification::make()
+                ->title('Request lembur sudah ada')
+                ->body('Sudah ada request lembur untuk absensi tanggal ini.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        [$sh, $sm] = array_map('intval', explode(':', $startTime));
+        [$eh, $em] = array_map('intval', explode(':', $endTime));
+        $totalMins = ($eh * 60 + $em) - ($sh * 60 + $sm);
+
+        if ($totalMins <= 0) {
+            Notification::make()
+                ->title('Waktu tidak valid')
+                ->body('Jam selesai harus setelah jam mulai lembur.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $approvedHours = round($totalMins / 60, 2);
+        $position = $record->effectivePosition();
+        $overtimeFee = $approvedHours * (float) ($position?->overtime_rate_per_hour ?? 0);
+
+        CasualOvertimeRequest::create([
+            'casual_clock_record_id' => $record->id,
+            'user_id' => auth()->id(),
+            'requested_hours' => $approvedHours,
+            'reason' => $reason,
+            'status' => 'approved',
+            'approved_hours' => $approvedHours,
+            'overtime_fee' => $overtimeFee > 0 ? $overtimeFee : null,
+            'reviewed_at' => now(),
+        ]);
+
+        Notification::make()
+            ->title('Lembur berhasil dicatat')
+            ->success()
             ->send();
     }
 

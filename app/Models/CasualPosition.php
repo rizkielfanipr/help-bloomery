@@ -13,6 +13,7 @@ class CasualPosition extends Model
     protected $fillable = [
         'name',
         'fee_per_day',
+        'overtime_rate_per_hour',
         'description',
         'is_active',
     ];
@@ -21,6 +22,7 @@ class CasualPosition extends Model
     {
         return [
             'fee_per_day' => 'decimal:2',
+            'overtime_rate_per_hour' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }

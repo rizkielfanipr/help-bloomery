@@ -30,6 +30,28 @@
          action: null,   // 'in' | 'out' | null
          step: null,     // 'location' | 'camera'
 
+         /* ── OT sheet state ─────────────── */
+         showOtSheet: false,
+         otDate: '{{ today()->format('Y-m-d') }}',
+         otStart: '',
+         otEnd: '',
+         otReason: '',
+         get otHoursCalc() {
+             if (!this.otStart || !this.otEnd) return null;
+             const [sh, sm] = this.otStart.split(':').map(Number);
+             const [eh, em] = this.otEnd.split(':').map(Number);
+             const totalMins = (eh * 60 + em) - (sh * 60 + sm);
+             if (totalMins <= 0) return null;
+             return totalMins / 60;
+         },
+         get otHoursDisplay() {
+             const h = this.otHoursCalc;
+             if (h === null) return null;
+             const hours = Math.floor(h);
+             const mins = Math.round((h - hours) * 60);
+             return hours > 0 ? hours + 'j ' + mins + 'm' : mins + 'm';
+         },
+
          /* ── Livewire bindings ──────────── */
          lat: @entangle('latitude'),
          lng: @entangle('longitude'),
@@ -590,12 +612,12 @@
 
         {{-- ── Request button ── --}}
         <div class="mx-5 mt-4">
-            <button wire:click="requestLeave"
+            <button @click="showOtSheet = true; otDate = '{{ today()->format('Y-m-d') }}'"
                     class="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-4 text-sm font-semibold text-gray-500 transition active:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:active:bg-gray-800">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
                 </svg>
-                Ajukan Permohonan
+                Ajukan Lembur
             </button>
         </div>
 
@@ -966,6 +988,127 @@
     </div>{{-- end overlay --}}
 
     <x-casual.bottom-nav active="clock" />
+
+    {{-- ════════════════════════════════════════════
+         OT REQUEST BOTTOM SHEET
+    ════════════════════════════════════════════ --}}
+
+    {{-- Backdrop --}}
+    <div x-show="showOtSheet"
+         x-transition:enter="transition duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-40 bg-black/60"
+         style="display:none"
+         @click="showOtSheet = false">
+    </div>
+
+    {{-- Sheet --}}
+    <div x-show="showOtSheet"
+         x-transition:enter="transition duration-300 ease-out"
+         x-transition:enter-start="translate-y-full"
+         x-transition:enter-end="translate-y-0"
+         x-transition:leave="transition duration-200 ease-in"
+         x-transition:leave-start="translate-y-0"
+         x-transition:leave-end="translate-y-full"
+         class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 overflow-hidden rounded-t-3xl bg-white dark:bg-gray-900"
+         style="max-height:88vh; display:none"
+         @click.stop>
+
+        {{-- Drag handle --}}
+        <div class="flex justify-center pb-2 pt-3">
+            <div class="h-1 w-10 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+        </div>
+
+        <div class="overflow-y-auto pb-10 px-5" style="max-height:calc(88vh - 28px)">
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between pb-4 pt-2">
+                <div>
+                    <p class="font-semibold text-gray-900 dark:text-white">Request Lembur</p>
+                    <p class="mt-0.5 text-xs text-gray-400">Ajukan permohonan lembur</p>
+                </div>
+                <button @click="showOtSheet = false"
+                        class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition active:bg-gray-200 dark:bg-gray-800 dark:text-gray-400">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            {{-- Form --}}
+            <div class="space-y-4">
+
+                {{-- Tanggal --}}
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Tanggal Lembur</label>
+                    <input type="date"
+                           x-model="otDate"
+                           :max="'{{ today()->format('Y-m-d') }}'"
+                           class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                </div>
+
+                {{-- Jam Mulai & Selesai --}}
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Jam Mulai</label>
+                        <input type="time"
+                               x-model="otStart"
+                               class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Jam Selesai</label>
+                        <input type="time"
+                               x-model="otEnd"
+                               class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                    </div>
+                </div>
+
+                {{-- Akumulasi jam --}}
+                <template x-if="otHoursDisplay !== null">
+                    <div class="flex items-center gap-2.5 rounded-xl bg-indigo-50 px-4 py-3 dark:bg-indigo-900/20">
+                        <svg class="h-4 w-4 text-indigo-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                        </svg>
+                        <div>
+                            <p class="text-[11px] text-indigo-400">Akumulasi Lembur</p>
+                            <p class="text-sm font-semibold text-indigo-700 dark:text-indigo-300" x-text="otHoursDisplay"></p>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="otStart && otEnd && otHoursDisplay === null">
+                    <div class="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 dark:bg-red-900/20">
+                        <svg class="h-4 w-4 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+                        </svg>
+                        <p class="text-xs font-medium text-red-500">Jam selesai harus setelah jam mulai</p>
+                    </div>
+                </template>
+
+                {{-- Alasan --}}
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Alasan Lembur</label>
+                    <textarea x-model="otReason"
+                              rows="3"
+                              placeholder="Jelaskan alasan pengajuan lembur..."
+                              class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"></textarea>
+                </div>
+
+                {{-- Submit --}}
+                <button type="button"
+                        :disabled="!otDate || !otStart || !otEnd || !otReason.trim() || otHoursDisplay === null"
+                        @click="$wire.submitOvertimeRequest(otDate, otStart, otEnd, otReason).then(() => { showOtSheet = false; otStart = ''; otEnd = ''; otReason = '' })"
+                        class="w-full rounded-xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    Kirim Request Lembur
+                </button>
+
+            </div>
+
+        </div>
+    </div>
 
 </div>
 

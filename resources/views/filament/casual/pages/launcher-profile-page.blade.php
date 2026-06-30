@@ -169,14 +169,11 @@
 
         {{-- Pills --}}
         <div class="mt-2 flex items-center justify-center gap-2">
-            <span class="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
-                Casual Staff
-            </span>
-            @if($position)
+            @foreach(auth()->user()->roles as $role)
                 <span class="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">
-                    {{ $position->name }}
+                    {{ $role->name }}
                 </span>
-            @endif
+            @endforeach
         </div>
 
         {{-- Joined date --}}
@@ -321,12 +318,10 @@
          class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-50 overflow-hidden rounded-t-3xl bg-white dark:bg-gray-900"
          style="display:none">
 
-        {{-- Drag handle --}}
         <div class="flex justify-center pb-2 pt-3">
             <div class="h-1 w-10 rounded-full bg-gray-200 dark:bg-gray-700"></div>
         </div>
 
-        {{-- Avatar preview + title --}}
         <div class="flex flex-col items-center gap-3 px-5 pb-5 pt-3">
             <div class="relative">
                 <div class="h-16 w-16 overflow-hidden rounded-full ring-4 ring-blue-100 dark:ring-blue-900/40">
@@ -339,7 +334,6 @@
                         </div>
                     @endif
                 </div>
-                {{-- Replace indicator --}}
                 <div class="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 ring-2 ring-white dark:ring-gray-900">
                     <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
@@ -352,10 +346,7 @@
             </div>
         </div>
 
-        {{-- Option buttons --}}
         <div class="flex flex-col gap-3 px-5 pb-4">
-
-            {{-- Camera --}}
             <button @click="chooseCamera()"
                     class="flex w-full items-center gap-4 rounded-2xl bg-blue-50 px-4 py-3.5 text-left transition active:bg-blue-100 dark:bg-blue-900/20 dark:active:bg-blue-900/40">
                 <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-blue-600">
@@ -373,7 +364,6 @@
                 </svg>
             </button>
 
-            {{-- Gallery --}}
             <button @click="chooseGallery()"
                     class="flex w-full items-center gap-4 rounded-2xl bg-gray-50 px-4 py-3.5 text-left transition active:bg-gray-100 dark:bg-gray-800 dark:active:bg-gray-700">
                 <div class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gray-800 dark:bg-gray-700">
@@ -389,10 +379,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
                 </svg>
             </button>
-
         </div>
 
-        {{-- Cancel --}}
         <div class="px-5 pb-10">
             <button @click="close()"
                     class="flex w-full items-center justify-center rounded-2xl bg-gray-100 py-3.5 text-sm font-semibold text-gray-500 transition active:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:active:bg-gray-700">
@@ -404,6 +392,18 @@
     {{-- ════════════════════════════════════════════
          CAMERA SHEET
     ════════════════════════════════════════════ --}}
+
+    <div x-show="mode === 'picker' || mode === 'camera'"
+         x-transition:enter="transition duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 z-40 bg-black/60"
+         style="display:none"
+         @click="close()">
+    </div>
 
     <div x-show="mode === 'camera'"
          x-transition:enter="transition duration-300 ease-out"
@@ -512,6 +512,6 @@
         </div>
     </div>
 
-    <x-casual.bottom-nav active="profile" />
+    <x-launcher.bottom-nav active="profile" />
 
 </div>

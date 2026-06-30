@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class CasualClockRecord extends Model
 {
@@ -43,6 +44,47 @@ class CasualClockRecord extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function overtimeRequest(): HasOne
+    {
+        return $this->hasOne(CasualOvertimeRequest::class);
+    }
+
+    public function effectivePosition(): ?CasualPosition
+    {
+        if ($this->user?->casual_position_id) {
+            return $this->user->casualPosition;
+        }
+
+        $registration = CasualPositionRegistration::where('user_id', $this->user_id)
+            ->whereHas('opening', fn ($q) => $q->where('work_date', $this->date->toDateString()))
+            ->with('opening.casualPosition')
+            ->first();
+
+        return $registration?->opening?->casualPosition;
+    }
+
+    public function workDurationMinutes(): ?int
+    {
+        if (! $this->clock_in_at || ! $this->clock_out_at) {
+            return null;
+        }
+
+        return (int) $this->clock_in_at->diffInMinutes($this->clock_out_at);
+    }
+
+    public function formattedWorkDuration(): ?string
+    {
+        $mins = $this->workDurationMinutes();
+        if ($mins === null) {
+            return null;
+        }
+
+        $h = intdiv($mins, 60);
+        $m = $mins % 60;
+
+        return $h > 0 ? "{$h}j {$m}m" : "{$m}m";
     }
 
     public function isClockedIn(): bool

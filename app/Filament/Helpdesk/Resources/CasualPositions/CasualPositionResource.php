@@ -74,6 +74,14 @@ class CasualPositionResource extends Resource
                             ->minValue(0)
                             ->prefix('Rp'),
 
+                        TextInput::make('overtime_rate_per_hour')
+                            ->label('Rate Lembur per Jam (Rp)')
+                            ->numeric()
+                            ->nullable()
+                            ->minValue(0)
+                            ->prefix('Rp')
+                            ->placeholder('Kosongkan jika tidak ada lembur'),
+
                         Textarea::make('description')
                             ->label('Deskripsi')
                             ->nullable()
@@ -104,6 +112,11 @@ class CasualPositionResource extends Resource
                     ->label(static::colLabel('heroicon-m-banknotes', 'Fee/Hari'))
                     ->money('IDR')
                     ->sortable(),
+
+                TextColumn::make('overtime_rate_per_hour')
+                    ->label(static::colLabel('heroicon-m-clock', 'Rate Lembur/Jam'))
+                    ->money('IDR')
+                    ->placeholder('-'),
 
                 TextColumn::make('users_count')
                     ->label(static::colLabel('heroicon-m-users', 'Staff Aktif'))

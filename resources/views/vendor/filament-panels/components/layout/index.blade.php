@@ -44,6 +44,7 @@
                 ['label' => 'Posisi Casual',   'icon' => 'briefcase', 'perm' => 'view casual positions', 'href' => $r('filament.helpdesk.resources.casual-positions.index'),          'active' => request()->is('helpdesk/casual-positions*')],
                 ['label' => 'Lowongan Posisi', 'icon' => 'megaphone', 'perm' => 'view casual openings',  'href' => $r('filament.helpdesk.resources.casual-position-openings.index'), 'active' => request()->is('helpdesk/casual-position-openings*')],
                 ['label' => 'Absensi Casual',  'icon' => 'clock',     'perm' => 'view clock records',    'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),      'active' => request()->is('helpdesk/casual-clock-records*')],
+                ['label' => 'Lembur Casual',   'icon' => 'timer',     'perm' => 'view overtime requests', 'href' => $r('filament.helpdesk.resources.casual-overtime-requests.index'),  'active' => request()->is('helpdesk/casual-overtime-requests*')],
             ],
         ],
         [

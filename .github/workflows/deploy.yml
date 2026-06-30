@@ -26,24 +26,31 @@ jobs:
           php-version: "8.4"
           tools: composer
 
-      # 3. Install Laravel dependencies (production mode)
+      # 3. Prepare build environment (.env sementara agar package:discover tidak error)
+      - name: Prepare build environment
+        run: |
+          cp .env.example .env
+          touch database/database.sqlite
+          php artisan key:generate --no-interaction
+
+      # 4. Install Laravel dependencies (production mode)
       - name: Install PHP dependencies
         run: composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction
 
-      # 4. Setup Node.js
+      # 5. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
 
-      # 5. Install frontend deps & build assets
+      # 6. Install frontend deps & build assets
       - name: Install frontend dependencies & build
         run: |
           npm ci
           npm run build
 
-      # 6. Safety check (pastikan .env tidak ikut)
+      # 7. Safety check (pastikan .env tidak ikut)
       - name: Safety check (.env)
         run: |
           if [ -f ".env" ]; then
@@ -51,7 +58,7 @@ jobs:
             exit 1
           fi
 
-      # 7. Deploy via FTP (branch-based)
+      # 8. Deploy via FTP (branch-based)
       - name: Deploy to cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -83,3 +90,4 @@ jobs:
             **/bootstrap/cache/*.php
             **/*.log
             **/.DS_Store
+            **/database/database.sqlite

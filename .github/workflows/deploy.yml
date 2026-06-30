@@ -55,13 +55,9 @@ jobs:
           npm ci
           npm run build
 
-      # 8. Safety check (pastikan .env tidak ikut)
-      - name: Safety check (.env)
-        run: |
-          if [ -f ".env" ]; then
-            echo "ERROR: .env file detected. Do NOT commit .env to git."
-            exit 1
-          fi
+      # 8. Hapus .env build sementara sebelum deploy
+      - name: Remove build .env
+        run: rm -f .env database/database.sqlite
 
       # 9. Deploy via FTP (branch-based)
       - name: Deploy to cPanel via FTP

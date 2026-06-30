@@ -144,3 +144,36 @@ it('requires a photo before saving a task', function () {
 
     expect(BriefingRecord::count())->toBe(0);
 });
+
+it('saves DailyDetailBriefing without photo when notes are filled', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('casual_staff');
+
+    actingAs($user);
+
+    Livewire::test(DailyBriefingPage::class)
+        ->call('openTaskModal', BriefingTaskKey::DailyDetailBriefing->value)
+        ->set('taskData.notes', 'Isi detail briefing hari ini.')
+        ->call('saveTask');
+
+    $record = BriefingRecord::where('period', 'daily')->first();
+    expect($record)->not->toBeNull();
+
+    $item = $record->items()->where('task_key', BriefingTaskKey::DailyDetailBriefing->value)->first();
+    expect($item)->not->toBeNull();
+    expect($item->notes)->toBe('Isi detail briefing hari ini.');
+    expect($item->photo_paths)->toBeEmpty();
+});
+
+it('requires notes before saving DailyDetailBriefing', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('casual_staff');
+
+    actingAs($user);
+
+    Livewire::test(DailyBriefingPage::class)
+        ->call('openTaskModal', BriefingTaskKey::DailyDetailBriefing->value)
+        ->call('saveTask');
+
+    expect(BriefingRecord::count())->toBe(0);
+});

@@ -136,6 +136,16 @@ class DailyBriefingPage extends Page
             return;
         }
 
+        if ($taskEnum === BriefingTaskKey::DailyDetailBriefing && empty(trim($this->taskData['notes'] ?? ''))) {
+            Notification::make()
+                ->title('Catatan Diperlukan')
+                ->body('Harap isi detail briefing terlebih dahulu.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $record = BriefingRecord::where('user_id', auth()->id())
             ->where('period', $period->value)
             ->whereDate('record_date', $period->recordDate())

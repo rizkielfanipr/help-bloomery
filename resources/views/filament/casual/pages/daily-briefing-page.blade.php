@@ -695,7 +695,7 @@
                                         </div>
                                     </div>
 
-                                    {{-- Add buttons: Kamera + Galeri (max 5 total) --}}
+                                    {{-- Add buttons: Kamera (+ Galeri jika bukan kamera only, max 5 total) --}}
                                     @if(count($this->cameraPhotoPaths) < 5)
                                         <button @click="openCamera()"
                                                 x-show="!uploading"
@@ -706,14 +706,16 @@
                                             </svg>
                                             <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Kamera</span>
                                         </button>
-                                        <button @click="$refs.photoInput.click()"
-                                                x-show="!uploading"
-                                                class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30">
-                                            <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
-                                            </svg>
-                                            <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Galeri</span>
-                                        </button>
+                                        @if(! $activeTask->isCameraOnly())
+                                            <button @click="$refs.photoInput.click()"
+                                                    x-show="!uploading"
+                                                    class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30">
+                                                <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+                                                </svg>
+                                                <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Galeri</span>
+                                            </button>
+                                        @endif
                                     @endif
 
                                 </div>
@@ -730,14 +732,25 @@
 
                     {{-- ── Notes textarea ── --}}
                     <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Catatan
-                            <span class="ml-1 text-xs font-normal text-gray-400">(opsional)</span>
-                        </label>
-                        <textarea wire:model="taskData.notes"
-                                  rows="2"
-                                  placeholder="Tambahkan catatan..."
-                                  class="mt-1.5 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"></textarea>
+                        @if($activeTask === \App\Enums\BriefingTaskKey::DailyDetailBriefing)
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Detail Briefing
+                                <span class="ml-1 text-xs font-normal text-red-500">* Wajib</span>
+                            </label>
+                            <textarea wire:model="taskData.notes"
+                                      rows="6"
+                                      placeholder="Paste atau ketik isi detail briefing di sini..."
+                                      class="mt-1.5 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"></textarea>
+                        @else
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Catatan
+                                <span class="ml-1 text-xs font-normal text-gray-400">(opsional)</span>
+                            </label>
+                            <textarea wire:model="taskData.notes"
+                                      rows="2"
+                                      placeholder="Tambahkan catatan..."
+                                      class="mt-1.5 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"></textarea>
+                        @endif
                     </div>
 
                 @endif

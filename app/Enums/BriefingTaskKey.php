@@ -60,7 +60,7 @@ enum BriefingTaskKey: string implements HasLabel
     {
         return match ($this) {
             self::DailySelfiePagi, self::DailySelfieSore => 'Foto Selfie Briefing',
-            self::DailyDetailBriefing => 'Foto Screenshot Detail Briefing',
+            self::DailyDetailBriefing => 'Catatan Teks Briefing',
             self::WeeklyCleaning, self::MonthlyGeneralCleaning => 'Foto Area yang Dibersihkan',
             self::WeeklyWmPic, self::MonthlyGmKpi => 'Foto Weekly Meeting PIC / General Meeting',
             self::WeeklySchedule => 'Foto Jadwal Mingguan',
@@ -79,7 +79,15 @@ enum BriefingTaskKey: string implements HasLabel
 
     public function requiresPhoto(): bool
     {
-        return true;
+        return $this !== self::DailyDetailBriefing;
+    }
+
+    public function isCameraOnly(): bool
+    {
+        return match ($this) {
+            self::DailySelfiePagi, self::DailySelfieSore => true,
+            default => false,
+        };
     }
 
     public function isHrChecked(): bool

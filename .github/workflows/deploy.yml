@@ -31,26 +31,29 @@ jobs:
         run: |
           cp .env.example .env
           touch database/database.sqlite
-          php artisan key:generate --no-interaction
 
       # 4. Install Laravel dependencies (production mode)
       - name: Install PHP dependencies
         run: composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction
 
-      # 5. Setup Node.js
+      # 5. Generate app key (vendor sudah tersedia)
+      - name: Generate app key
+        run: php artisan key:generate --no-interaction
+
+      # 6. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
 
-      # 6. Install frontend deps & build assets
+      # 7. Install frontend deps & build assets
       - name: Install frontend dependencies & build
         run: |
           npm ci
           npm run build
 
-      # 7. Safety check (pastikan .env tidak ikut)
+      # 8. Safety check (pastikan .env tidak ikut)
       - name: Safety check (.env)
         run: |
           if [ -f ".env" ]; then
@@ -58,7 +61,7 @@ jobs:
             exit 1
           fi
 
-      # 8. Deploy via FTP (branch-based)
+      # 9. Deploy via FTP (branch-based)
       - name: Deploy to cPanel via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:

@@ -10,7 +10,6 @@ use App\Models\ErpRepairRequest;
 use App\Models\PurchaseRequest;
 use App\Models\ServiceRequest;
 use Filament\Pages\Dashboard as BaseDashboard;
-use Illuminate\View\View;
 
 class Dashboard extends BaseDashboard
 {
@@ -199,12 +198,6 @@ class Dashboard extends BaseDashboard
         });
 
         $this->recentRequests = $items->sortByDesc('date')->take(10)->values()->toArray();
-    }
-
-    public function render(): View
-    {
-        return view($this->getView(), $this->getViewData())
-            ->layout('components.layouts.helpdesk-app');
     }
 
     public function getWidgets(): array

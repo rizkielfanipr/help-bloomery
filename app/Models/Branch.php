@@ -45,6 +45,11 @@ class Branch extends Model
         return $this->hasMany(CasualClockRecord::class);
     }
 
+    public function briefingTasks(): HasMany
+    {
+        return $this->hasMany(BriefingTask::class);
+    }
+
     public function hasLocation(): bool
     {
         return $this->lat !== null && $this->lng !== null;

@@ -42,7 +42,7 @@
 
     $initialOpen = [];
     if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
-    if (str_contains($path, 'briefing-records') || str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar')) { $initialOpen[] = 'daily_briefing'; }
+    if (str_contains($path, 'briefing-records') || str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver/', $path))                  { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path))                { $initialOpen[] = 'management'; }
@@ -72,6 +72,7 @@
                 ['label' => 'Daily Briefing',    'icon' => 'clipboard-list',  'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.resources.briefing-records.index'), 'active' => request()->is('helpdesk/briefing-records*')],
                 ['label' => 'Monitoring Poin',   'icon' => 'clipboard-check', 'perm' => 'view briefing items',   'href' => $r('filament.helpdesk.resources.briefing-items.index'),   'active' => request()->is('helpdesk/briefing-items*')],
                 ['label' => 'Kalender Briefing', 'icon' => 'calendar-days',   'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.pages.briefing-calendar-page'),      'active' => request()->is('helpdesk/briefing-calendar-page*')],
+                ['label' => 'Kelola Poin',       'icon' => 'list-checks',     'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.resources.briefing-tasks.index'),   'active' => request()->is('helpdesk/briefing-tasks*')],
             ],
         ],
         [

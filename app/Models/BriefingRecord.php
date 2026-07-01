@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\BriefingPeriod;
-use App\Enums\BriefingTaskKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -45,8 +44,8 @@ class BriefingRecord extends Model
 
     public function createDefaultItems(): void
     {
-        foreach (BriefingTaskKey::forPeriod($this->period) as $task) {
-            $this->items()->firstOrCreate(['task_key' => $task->value]);
+        foreach (BriefingTask::forPeriod($this->period) as $task) {
+            $this->items()->firstOrCreate(['task_key' => $task->key]);
         }
     }
 }

@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Enums\BriefingReviewStatus;
-use App\Enums\BriefingTaskKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -17,7 +16,7 @@ class BriefingItem extends Model
     ];
 
     protected $casts = [
-        'task_key' => BriefingTaskKey::class,
+        'task_key' => 'string',
         'photo_paths' => 'array',
         'is_completed' => 'boolean',
         'completed_at' => 'datetime',
@@ -33,5 +32,10 @@ class BriefingItem extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function briefingTask(): BelongsTo
+    {
+        return $this->belongsTo(BriefingTask::class, 'task_key', 'key');
     }
 }

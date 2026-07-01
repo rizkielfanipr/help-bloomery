@@ -4,11 +4,11 @@ namespace App\Filament\Helpdesk\Resources\BriefingItems;
 
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingReviewStatus;
-use App\Enums\BriefingTaskKey;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\BriefingItems\Pages\ListBriefingItems;
 use App\Models\Branch;
 use App\Models\BriefingItem;
+use App\Models\BriefingTask;
 use App\Models\User;
 use BackedEnum;
 use Carbon\Carbon;
@@ -67,7 +67,7 @@ class BriefingItemResource extends Resource
 
                 TextColumn::make('task_key')
                     ->label('Tugas')
-                    ->formatStateUsing(fn (BriefingTaskKey $state): string => $state->getLabel())
+                    ->formatStateUsing(fn (string $state): string => BriefingTask::cached()->firstWhere('key', $state)?->label ?? $state)
                     ->wrap(),
 
                 TextColumn::make('period')

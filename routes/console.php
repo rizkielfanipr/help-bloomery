@@ -9,3 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('service-requests:complete-warranty')->daily();
+Schedule::command('briefing:auto-reject')->hourly();
+Schedule::command('briefing:compute-scores')->monthlyOn(1, '02:00');

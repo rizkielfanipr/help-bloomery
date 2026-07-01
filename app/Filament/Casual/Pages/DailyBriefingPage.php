@@ -4,9 +4,10 @@ namespace App\Filament\Casual\Pages;
 
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingReviewStatus;
-use App\Enums\BriefingTaskKey;
+use App\Enums\BriefingSubmissionType;
 use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
+use App\Models\BriefingTask;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -25,7 +26,11 @@ class DailyBriefingPage extends Page
 
     public ?string $activeTaskKey = null;
 
-    public bool $activeTaskIsSelfie = false;
+    public ?string $activeSubmissionType = null;
+
+    public ?string $activeTaskLabel = null;
+
+    public ?string $activeTaskNoteType = null;
 
     /** @var string[] */
     public array $cameraPhotoPaths = [];
@@ -49,8 +54,13 @@ class DailyBriefingPage extends Page
 
     public function openTaskModal(string $taskKey): void
     {
-        $taskEnum = BriefingTaskKey::from($taskKey);
-        $period = $taskEnum->period();
+        $task = BriefingTask::cached()->firstWhere('key', $taskKey);
+
+        if (! $task) {
+            return;
+        }
+
+        $period = $task->period;
         $record = BriefingRecord::where('user_id', auth()->id())
             ->where('period', $period->value)
             ->whereDate('record_date', $period->recordDate())
@@ -73,12 +83,11 @@ class DailyBriefingPage extends Page
         }
 
         $this->activeTaskKey = $taskKey;
+        $this->activeSubmissionType = $task->submission_type->value;
+        $this->activeTaskLabel = $task->label;
+        $this->activeTaskNoteType = $task->note_type;
         $this->taskData = ['notes' => null];
         $this->cameraPhotoPaths = [];
-        $this->activeTaskIsSelfie = in_array($taskKey, [
-            BriefingTaskKey::DailySelfiePagi->value,
-            BriefingTaskKey::DailySelfieSore->value,
-        ]);
         $this->taskModalKey++;
         $this->dispatch('open-task-modal');
     }
@@ -123,10 +132,16 @@ class DailyBriefingPage extends Page
             return;
         }
 
-        $taskEnum = BriefingTaskKey::from($this->activeTaskKey);
-        $period = $taskEnum->period();
+        $task = BriefingTask::cached()->firstWhere('key', $this->activeTaskKey);
 
-        if ($taskEnum->requiresPhoto() && empty($this->cameraPhotoPaths)) {
+        if (! $task) {
+            return;
+        }
+
+        $submissionType = $task->submission_type;
+        $period = $task->period;
+
+        if ($submissionType->requiresPhoto() && empty($this->cameraPhotoPaths)) {
             Notification::make()
                 ->title('Foto Diperlukan')
                 ->body('Harap ambil foto terlebih dahulu sebagai bukti.')
@@ -136,10 +151,10 @@ class DailyBriefingPage extends Page
             return;
         }
 
-        if ($taskEnum === BriefingTaskKey::DailyDetailBriefing && empty(trim($this->taskData['notes'] ?? ''))) {
+        if ($submissionType->requiresText() && empty(trim($this->taskData['notes'] ?? ''))) {
             Notification::make()
                 ->title('Catatan Diperlukan')
-                ->body('Harap isi detail briefing terlebih dahulu.')
+                ->body('Harap isi catatan terlebih dahulu.')
                 ->danger()
                 ->send();
 
@@ -171,11 +186,13 @@ class DailyBriefingPage extends Page
             return;
         }
 
+        $isAutoComplete = $submissionType !== BriefingSubmissionType::Checkbox;
+
         $item->fill([
             'photo_paths' => ! empty($this->cameraPhotoPaths) ? $this->cameraPhotoPaths : ($item->photo_paths ?? []),
             'notes' => $this->taskData['notes'] ?? null,
-            'is_completed' => ! $taskEnum->isHrChecked(),
-            'completed_at' => ! $taskEnum->isHrChecked() ? now() : null,
+            'is_completed' => $isAutoComplete,
+            'completed_at' => $isAutoComplete ? now() : null,
             'review_status' => BriefingReviewStatus::Pending->value,
             'rejection_reason' => null,
             'reviewed_by' => null,
@@ -187,6 +204,9 @@ class DailyBriefingPage extends Page
         }
 
         $this->activeTaskKey = null;
+        $this->activeSubmissionType = null;
+        $this->activeTaskLabel = null;
+        $this->activeTaskNoteType = null;
         $this->taskData = [];
         $this->cameraPhotoPaths = [];
         $this->dispatch('close-task-modal');
@@ -194,10 +214,8 @@ class DailyBriefingPage extends Page
         unset($this->briefingData);
 
         Notification::make()
-            ->title($taskEnum->isHrChecked() ? 'Data Tersimpan' : 'Tugas Selesai!')
-            ->body($taskEnum->isHrChecked()
-                ? 'Data akan diverifikasi oleh HR.'
-                : 'Tugas berhasil ditandai selesai.')
+            ->title('Tugas Selesai!')
+            ->body('Data akan diverifikasi oleh HR.')
             ->success()
             ->send();
     }
@@ -206,6 +224,7 @@ class DailyBriefingPage extends Page
     public function briefingData(): array
     {
         $userId = auth()->id();
+        $branchId = auth()->user()?->branch_id;
         $result = [];
 
         foreach (BriefingPeriod::cases() as $period) {
@@ -215,28 +234,31 @@ class DailyBriefingPage extends Page
                 ->with('items')
                 ->first();
 
-            $tasks = BriefingTaskKey::forPeriod($period);
+            $tasks = BriefingTask::forPeriod($period, $branchId);
             $itemMap = $record
-                ? $record->items->keyBy(fn (BriefingItem $i) => $i->task_key->value)
+                ? $record->items->keyBy(fn (BriefingItem $i) => $i->task_key)
                 : collect();
 
-            $taskList = array_map(function (BriefingTaskKey $task) use ($itemMap): array {
-                $item = $itemMap->get($task->value);
+            $taskList = $tasks->map(function (BriefingTask $task) use ($itemMap): array {
+                $item = $itemMap->get($task->key);
 
                 return [
-                    'key' => $task->value,
-                    'label' => $task->getLabel(),
-                    'noteType' => $task->noteType(),
-                    'requiresPhoto' => $task->requiresPhoto(),
-                    'isHrChecked' => $task->isHrChecked(),
+                    'key' => $task->key,
+                    'label' => $task->label,
+                    'noteType' => $task->note_type,
+                    'submissionType' => $task->submission_type->value,
+                    'requiresPhoto' => $task->submission_type->requiresPhoto(),
+                    'group' => $task->group,
+                    'groupLabel' => $task->group_label,
                     'isCompleted' => $item?->is_completed ?? false,
                     'completedAt' => $item?->completed_at,
                     'photoPaths' => $item?->photo_paths ?? [],
                     'notes' => $item?->notes,
                     'reviewStatus' => $item?->review_status,
                     'rejectionReason' => $item?->rejection_reason,
+                    'isPastDeadline' => $task->isPastDeadline() && ! ($item?->is_completed),
                 ];
-            }, $tasks);
+            })->all();
 
             $completedCount = collect($taskList)->where('isCompleted', true)->count();
 

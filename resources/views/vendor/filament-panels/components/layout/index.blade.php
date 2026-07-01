@@ -1,3 +1,7 @@
+@push('scripts')
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+@endpush
+
 @php
     use Filament\Support\Enums\Width;
 
@@ -23,7 +27,7 @@
     $path = request()->path();
     $initialOpen = [];
     if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
-    if (str_contains($path, 'briefing-records') || str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar')) { $initialOpen[] = 'daily_briefing'; }
+    if (str_contains($path, 'briefing-records') || str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-scores')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver/', $path))                  { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path))                { $initialOpen[] = 'management'; }
@@ -55,6 +59,8 @@
                 ['label' => 'Daily Briefing',    'icon' => 'clipboard-list',  'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.resources.briefing-records.index'), 'active' => request()->is('helpdesk/briefing-records*')],
                 ['label' => 'Monitoring Poin',   'icon' => 'clipboard-check', 'perm' => 'view briefing items',   'href' => $r('filament.helpdesk.resources.briefing-items.index'),   'active' => request()->is('helpdesk/briefing-items*')],
                 ['label' => 'Kalender Briefing', 'icon' => 'calendar-days',   'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.pages.briefing-calendar-page'),      'active' => request()->is('helpdesk/briefing-calendar-page*')],
+                ['label' => 'Kelola Poin',       'icon' => 'list-checks',     'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.resources.briefing-tasks.index'),   'active' => request()->is('helpdesk/briefing-tasks*')],
+                ['label' => 'Nilai Briefing',    'icon' => 'star',            'perm' => 'view briefing scores',  'href' => $r('filament.helpdesk.resources.briefing-scores.index'),   'active' => request()->is('helpdesk/briefing-scores*')],
             ],
         ],
         [
@@ -155,9 +161,9 @@
 {{-- ═══════════════════════ SIDEBAR ═══════════════════════ --}}
 <aside
     class="overflow-hidden transition-all duration-300 ease-in-out shrink-0 fixed inset-y-0 left-0 z-50 w-[280px] lg:relative lg:inset-auto lg:z-auto"
-    :class="sidebarOpen ? 'translate-x-0 lg:w-[280px]' : '-translate-x-full lg:w-0 lg:translate-x-0'"
+    :class="sidebarOpen ? 'translate-x-0 lg:w-[280px]' : '-translate-x-full lg:w-16 lg:translate-x-0'"
 >
-<div class="flex h-full w-[280px] shrink-0 flex-col border-r border-slate-200/80 bg-white dark:border-white/[0.06] dark:bg-[#0F172A]"
+<div class="flex h-full w-full flex-col border-r border-slate-200/80 bg-white dark:border-white/[0.06] dark:bg-[#0F172A]"
      style="box-shadow: 4px 0 24px -4px rgba(0,0,0,0.06)">
 
     {{-- Logo --}}
@@ -175,22 +181,33 @@
         {{-- Dashboard --}}
         <a
             href="{{ url('helpdesk') }}"
-            class="group flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150
+            class="group flex items-center rounded-xl py-2 text-[13px] font-medium transition-all duration-150
                 {{ request()->is('helpdesk')
                     ? 'bg-blue-50 font-semibold text-blue-600 shadow-sm dark:bg-blue-500/10 dark:text-blue-400'
                     : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5' }}"
+            :class="sidebarOpen ? 'gap-3 px-3' : 'justify-center px-2'"
+            :title="!sidebarOpen ? 'Dashboard' : ''"
         >
             <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg {{ request()->is('helpdesk') ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-slate-100 dark:bg-white/[0.07]' }} transition-colors">
                 <i data-lucide="layout-dashboard" class="h-3.5 w-3.5 {{ request()->is('helpdesk') ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400' }}"></i>
             </div>
-            Dashboard
+            <span
+                x-show="sidebarOpen"
+                x-transition:enter="transition-opacity ease-out duration-150 delay-100"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="transition-opacity ease-in duration-75"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="flex-1"
+            >Dashboard</span>
             @if(request()->is('helpdesk'))
-                <span class="ml-auto h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+                <span x-show="sidebarOpen" class="ml-auto h-1.5 w-1.5 rounded-full bg-blue-500"></span>
             @endif
         </a>
 
         {{-- Divider --}}
-        <div class="py-1.5">
+        <div x-show="sidebarOpen" class="py-1.5">
             <div class="mx-3 border-t border-slate-100 dark:border-white/[0.06]"></div>
         </div>
 
@@ -198,16 +215,26 @@
         <a
             href="{{ env('CASUAL_DOMAIN') ? 'https://' . env('CASUAL_DOMAIN') . '/launcher-page' : url('casual/launcher-page') }}"
             target="_blank"
-            class="group flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium transition-all duration-150 text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
+            class="group flex items-center rounded-xl py-2 text-[13px] font-medium transition-all duration-150 text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
+            :class="sidebarOpen ? 'gap-3 px-3' : 'justify-center px-2'"
+            :title="!sidebarOpen ? 'App User' : ''"
         >
             <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-white/[0.07] transition-colors">
                 <i data-lucide="external-link" class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400"></i>
             </div>
-            App User
+            <span
+                x-show="sidebarOpen"
+                x-transition:enter="transition-opacity ease-out duration-150 delay-100"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="transition-opacity ease-in duration-75"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+            >App User</span>
         </a>
 
         {{-- Divider --}}
-        <div class="py-1.5">
+        <div x-show="sidebarOpen" class="py-1.5">
             <div class="mx-3 border-t border-slate-100 dark:border-white/[0.06]"></div>
         </div>
 
@@ -215,22 +242,34 @@
         @foreach ($navGroups as $group)
             <div>
                 <button
-                    @click="toggleGroup('{{ $group['id'] }}')"
-                    class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium text-slate-600 transition-all duration-150 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
+                    @click="toggleSidebarGroup('{{ $group['id'] }}')"
+                    class="flex w-full items-center rounded-xl py-2 text-[13px] font-medium text-slate-600 transition-all duration-150 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
+                    :class="sidebarOpen ? 'gap-3 px-3' : 'justify-center px-2'"
+                    :title="!sidebarOpen ? '{{ $group['label'] }}' : ''"
                 >
                     <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-white/[0.07] transition-colors group-hover:bg-slate-200">
                         <i data-lucide="{{ $group['icon'] }}" class="h-3.5 w-3.5 text-slate-500 dark:text-slate-400"></i>
                     </div>
-                    <span class="flex-1 text-left">{{ $group['label'] }}</span>
+                    <span
+                        x-show="sidebarOpen"
+                        x-transition:enter="transition-opacity ease-out duration-150 delay-100"
+                        x-transition:enter-start="opacity-0"
+                        x-transition:enter-end="opacity-100"
+                        x-transition:leave="transition-opacity ease-in duration-75"
+                        x-transition:leave-start="opacity-100"
+                        x-transition:leave-end="opacity-0"
+                        class="flex-1 text-left"
+                    >{{ $group['label'] }}</span>
                     <i
                         data-lucide="chevron-right"
+                        x-show="sidebarOpen"
                         class="h-3.5 w-3.5 text-slate-300 transition-transform duration-200 dark:text-slate-600"
                         :class="isOpen('{{ $group['id'] }}') ? 'rotate-90' : ''"
                     ></i>
                 </button>
 
                 <div
-                    x-show="isOpen('{{ $group['id'] }}')"
+                    x-show="sidebarOpen && isOpen('{{ $group['id'] }}')"
                     x-transition:enter="transition ease-out duration-150"
                     x-transition:enter-start="opacity-0 -translate-y-1"
                     x-transition:enter-end="opacity-100 translate-y-0"
@@ -262,16 +301,31 @@
 
     {{-- User footer --}}
     <div class="shrink-0 border-t border-slate-100 p-3 dark:border-white/[0.06]">
-        <div class="flex items-center gap-3 rounded-xl p-2.5 transition-all duration-150 hover:bg-slate-50 dark:hover:bg-white/[0.05] cursor-default">
-            <div class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-xs font-bold text-white">
+        <div
+            class="flex items-center rounded-xl p-2.5 transition-all duration-300 hover:bg-slate-50 dark:hover:bg-white/[0.05] cursor-default"
+            :class="sidebarOpen ? 'gap-3' : 'justify-center'"
+        >
+            <div
+                class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-xs font-bold text-white"
+                :title="!sidebarOpen ? '{{ $user?->name ?? 'Guest' }}' : ''"
+            >
                 {{ $initials }}
                 <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#0F172A]"></span>
             </div>
-            <div class="min-w-0 flex-1">
+            <div
+                x-show="sidebarOpen"
+                x-transition:enter="transition-opacity ease-out duration-150 delay-100"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="transition-opacity ease-in duration-75"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="min-w-0 flex-1"
+            >
                 <p class="truncate text-[13px] font-semibold leading-none text-slate-800 dark:text-white">{{ $user?->name ?? 'Guest' }}</p>
                 <p class="mt-0.5 truncate text-[11px] text-slate-400 dark:text-slate-600">{{ $user?->email ?? '' }}</p>
             </div>
-            <form method="POST" action="{{ $r('filament.helpdesk.auth.logout') }}" class="flex">
+            <form x-show="sidebarOpen" method="POST" action="{{ $r('filament.helpdesk.auth.logout') }}" class="flex">
                 @csrf
                 <button type="submit" class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 transition-all hover:bg-red-50 hover:text-red-400 dark:text-slate-700 dark:hover:bg-red-500/10 dark:hover:text-red-400" title="Keluar">
                     <i data-lucide="log-out" class="h-4 w-4"></i>
@@ -401,6 +455,18 @@ document.addEventListener('alpine:init', () => {
                 this.$nextTick(() => {
                     if (typeof lucide !== 'undefined') lucide.createIcons();
                 });
+            }
+        },
+
+        toggleSidebarGroup(id) {
+            if (!this.sidebarOpen) {
+                this.sidebarOpen = true;
+                if (!this.openGroups.includes(id)) this.openGroups.push(id);
+                this.$nextTick(() => {
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                });
+            } else {
+                this.toggleGroup(id);
             }
         },
 

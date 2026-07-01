@@ -8,6 +8,7 @@
     ];
     $dayNames   = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
     $monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+    $taskCache  = \App\Models\BriefingTask::cached()->keyBy('key');
 @endphp
 
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
@@ -132,8 +133,9 @@
                         {{-- Expanded items --}}
                         @if($isExpanded)
                             @php
-                                $cleaningItems = $items->filter(fn ($i) => $i->task_key->isGeneralCleaningItem());
-                                $regularItems  = $items->reject(fn ($i) => $i->task_key->isGeneralCleaningItem());
+                                $regularItems  = $items->filter(fn ($i) => ($taskCache[$i->task_key]?->group ?? null) === null);
+                                $groupedItems  = $items->filter(fn ($i) => ($taskCache[$i->task_key]?->group ?? null) !== null)
+                                    ->groupBy(fn ($i) => $taskCache[$i->task_key]->group);
                             @endphp
 
                             <div class="border-t border-gray-100 dark:border-gray-800">
@@ -151,7 +153,7 @@
                                             <div class="flex items-start justify-between gap-2">
                                                 <div class="min-w-0 flex-1">
                                                     <p class="text-sm font-medium text-gray-800 dark:text-gray-200">
-                                                        {{ $item->task_key->getLabel() }}
+                                                        {{ $taskCache[$item->task_key]?->label ?? $item->task_key }}
                                                     </p>
                                                     @if($item->notes)
                                                         <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item->notes }}</p>
@@ -197,19 +199,21 @@
                                     @endforeach
                                 </div>
 
-                                {{-- General Cleaning collapsible group --}}
-                                @if($cleaningItems->isNotEmpty())
+                                {{-- Grouped task sections --}}
+                                @foreach($groupedItems as $group => $groupItems)
                                     @php
-                                        $cDone  = $cleaningItems->where('is_completed', true)->count();
-                                        $cTotal = $cleaningItems->count();
+                                        $groupLabel = $taskCache[$groupItems->first()->task_key]?->group_label ?? $group;
+                                        $cDone  = $groupItems->where('is_completed', true)->count();
+                                        $cTotal = $groupItems->count();
+                                        $openVar = 'openGroup_'.$loop->index;
                                     @endphp
 
-                                    <div x-data="{ openCleaning: false }"
+                                    <div x-data="{ {{ $openVar }}: false }"
                                          class="border-t border-gray-100 dark:border-gray-800">
 
                                         {{-- Parent row --}}
                                         <button type="button"
-                                                @click="openCleaning = !openCleaning"
+                                                @click="{{ $openVar }} = !{{ $openVar }}"
                                                 class="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-gray-50 dark:active:bg-gray-800">
                                             <div class="flex-shrink-0">
                                                 @if($cDone === $cTotal)
@@ -229,18 +233,18 @@
                                                 @endif
                                             </div>
                                             <div class="min-w-0 flex-1">
-                                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200">General Cleaning</p>
+                                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ $groupLabel }}</p>
                                                 <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">{{ $cDone }}/{{ $cTotal }} poin selesai</span>
                                             </div>
                                             <svg class="h-4 w-4 flex-shrink-0 text-gray-300 transition-transform duration-200"
-                                                 :class="openCleaning ? 'rotate-90' : ''"
+                                                 :class="{{ $openVar }} ? 'rotate-90' : ''"
                                                  fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
                                             </svg>
                                         </button>
 
                                         {{-- Sub-items --}}
-                                        <div x-show="openCleaning"
+                                        <div x-show="{{ $openVar }}"
                                              x-transition:enter="transition ease-out duration-200"
                                              x-transition:enter-start="opacity-0"
                                              x-transition:enter-end="opacity-100"
@@ -249,7 +253,7 @@
                                              x-transition:leave-end="opacity-0"
                                              style="display:none"
                                              class="divide-y divide-gray-50 border-t border-gray-100 bg-gray-50/50 dark:divide-gray-800/50 dark:border-gray-800 dark:bg-gray-900/50">
-                                            @foreach($cleaningItems as $item)
+                                            @foreach($groupItems as $item)
                                                 @php
                                                     $reviewClass = $this->reviewBadgeClass($item->review_status);
                                                     $reviewLabel = $this->reviewBadgeLabel($item->review_status);
@@ -260,7 +264,7 @@
                                                     <div class="flex items-start gap-2">
                                                         <div class="min-w-0 flex-1">
                                                             <p class="text-xs font-medium text-gray-700 dark:text-gray-300">
-                                                                {{ $item->task_key->getLabel() }}
+                                                                {{ $taskCache[$item->task_key]?->label ?? $item->task_key }}
                                                             </p>
                                                             @if($item->notes)
                                                                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $item->notes }}</p>
@@ -306,7 +310,7 @@
                                             @endforeach
                                         </div>
                                     </div>
-                                @endif
+                                @endforeach
 
                             </div>
                         @endif

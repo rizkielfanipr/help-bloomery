@@ -8,6 +8,7 @@ return [
         'Absensi Casual' => ['view clock records', 'create clock records', 'edit clock records', 'delete clock records'],
         'Daily Briefing' => ['view briefing records', 'create briefing records', 'edit briefing records', 'delete briefing records'],
         'Monitoring Poin' => ['view briefing items', 'create briefing items', 'edit briefing items', 'delete briefing items'],
+        'Nilai Briefing' => ['view briefing scores', 'create briefing scores', 'edit briefing scores', 'delete briefing scores'],
     ],
 
     'Driver' => [

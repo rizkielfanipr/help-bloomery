@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Helpdesk;
 
 use App\Enums\BriefingPeriod;
-use App\Enums\BriefingTaskKey;
 use App\Models\Branch;
 use App\Models\BriefingRecord;
+use App\Models\BriefingTask;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -28,7 +28,7 @@ class BriefingExportController
         $month = $request->integer('month', now()->month);
 
         $branch = Branch::findOrFail($branchId);
-        $taskKeys = BriefingTaskKey::forPeriod($period);
+        $taskKeys = BriefingTask::forPeriod($period);
         [$columns, $dateMap] = $this->buildColumns($period, $year, $month);
 
         $title = match ($period) {
@@ -131,7 +131,7 @@ class BriefingExportController
 
             // Data rows
             foreach ($taskKeys as $index => $taskKey) {
-                $values = [(string) ($index + 1), $taskKey->getLabel()];
+                $values = [(string) ($index + 1), $taskKey->label];
 
                 foreach ($dateMap as $dateKey => $colIndex) {
                     $record = $records->get($dateKey);
@@ -140,7 +140,7 @@ class BriefingExportController
 
                         continue;
                     }
-                    $item = $record->items->firstWhere('task_key', $taskKey->value);
+                    $item = $record->items->firstWhere('task_key', $taskKey->key);
                     $values[] = ($item && $item->review_status?->value === 'approved') ? 1 : 0;
                 }
 

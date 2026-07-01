@@ -3,11 +3,11 @@
 namespace App\Filament\Helpdesk\Resources\BriefingRecords;
 
 use App\Enums\BriefingPeriod;
-use App\Enums\BriefingTaskKey;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\BriefingRecords\Pages\ListBriefingRecords;
 use App\Filament\Helpdesk\Resources\BriefingRecords\Pages\ViewBriefingRecord;
 use App\Models\BriefingRecord;
+use App\Models\BriefingTask;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -65,61 +65,61 @@ class BriefingRecordResource extends Resource
     /** @return array<Component> */
     private static function buildTaskInfolist(BriefingPeriod $period): array
     {
-        $tasks = BriefingTaskKey::forPeriod($period);
+        $tasks = BriefingTask::forPeriod($period);
 
-        $regularTasks = array_values(array_filter($tasks, fn (BriefingTaskKey $t) => ! $t->isGeneralCleaningItem()));
-        $cleaningTasks = array_values(array_filter($tasks, fn (BriefingTaskKey $t) => $t->isGeneralCleaningItem()));
+        $regularTasks = $tasks->whereNull('group');
+        $groupedTasks = $tasks->whereNotNull('group')->groupBy('group');
 
-        $components = array_map(fn (BriefingTaskKey $task) => self::taskSection($task), $regularTasks);
+        $components = $regularTasks->map(fn (BriefingTask $task) => self::taskSection($task))->values()->all();
 
-        if (! empty($cleaningTasks)) {
-            $components[] = Section::make('General Cleaning')
-                ->description('10 poin kebersihan bulanan')
+        foreach ($groupedTasks as $groupTasks) {
+            $groupLabel = $groupTasks->first()->group_label ?? $groupTasks->first()->group;
+            $components[] = Section::make($groupLabel)
                 ->collapsible()
                 ->collapsed()
-                ->schema(array_map(fn (BriefingTaskKey $task) => self::taskSection($task)->secondary(), $cleaningTasks));
+                ->schema($groupTasks->map(fn (BriefingTask $task) => self::taskSection($task)->secondary())->values()->all());
         }
 
         return $components;
     }
 
-    private static function taskSection(BriefingTaskKey $task): Section
+    private static function taskSection(BriefingTask $task): Section
     {
-        return Section::make($task->getLabel())
+        return Section::make($task->label)
             ->compact()
             ->schema([
                 Grid::make(3)->schema([
-                    IconEntry::make('items_completed_'.$task->value)
+                    IconEntry::make('items_completed_'.$task->key)
                         ->label('Selesai')
                         ->boolean()
                         ->state(fn (BriefingRecord $record): bool => $record->items
-                            ->where('task_key', $task)
+                            ->where('task_key', $task->key)
                             ->first()?->is_completed ?? false),
 
-                    TextEntry::make('items_completed_at_'.$task->value)
+                    TextEntry::make('items_completed_at_'.$task->key)
                         ->label('Waktu')
                         ->state(fn (BriefingRecord $record): ?string => $record->items
-                            ->where('task_key', $task)
+                            ->where('task_key', $task->key)
                             ->first()?->completed_at?->format('d M Y H:i'))
                         ->placeholder('-'),
 
-                    TextEntry::make('items_notes_'.$task->value)
+                    TextEntry::make('items_notes_'.$task->key)
                         ->label('Catatan')
                         ->state(fn (BriefingRecord $record): ?string => $record->items
-                            ->where('task_key', $task)
+                            ->where('task_key', $task->key)
                             ->first()?->notes)
                         ->placeholder('-'),
                 ]),
 
-                ImageEntry::make('items_photos_'.$task->value)
+                ImageEntry::make('items_photos_'.$task->key)
                     ->label('Foto Bukti')
                     ->disk('public')
                     ->size(200)
                     ->state(fn (BriefingRecord $record): array => $record->items
-                        ->where('task_key', $task)
+                        ->where('task_key', $task->key)
                         ->first()?->photo_paths ?? [])
                     ->hidden(fn (BriefingRecord $record): bool => empty($record->items
-                        ->where('task_key', $task)
+                        ->where('task_key', $task->key)
                         ->first()?->photo_paths)),
             ]);
     }

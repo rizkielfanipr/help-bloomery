@@ -339,20 +339,23 @@
                              style="width: {{ $pct }}%"></div>
                     </div>
 
-                    {{-- Task list --}}
-                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @php
-                            $cleaningTasks = collect($data['tasks'])->filter(fn ($t) => str_starts_with($t['key'], 'monthly_cleaning_'))->values();
-                            $regularTasks  = collect($data['tasks'])->reject(fn ($t) => str_starts_with($t['key'], 'monthly_cleaning_'))->values();
-                        @endphp
+                    {{-- Task list —— grouped dynamically --}}
+                    @php
+                        $allTasks = collect($data['tasks']);
+                        $ungroupedTasks = $allTasks->whereNull('group')->values();
+                        $groups = $allTasks->whereNotNull('group')->groupBy('group');
+                    @endphp
 
-                        @foreach($regularTasks as $task)
+                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+
+                        @foreach($ungroupedTasks as $task)
                             @php
                                 $reviewStatus = $task['reviewStatus']?->value ?? null;
-                                $isApproved = $reviewStatus === 'approved';
-                                $isRejected = $reviewStatus === 'rejected';
-                                $isPending  = $reviewStatus === 'pending';
-                                $isClickable = $isRejected || (! $task['reviewStatus'] && ! $task['isCompleted']);
+                                $isApproved   = $reviewStatus === 'approved';
+                                $isRejected   = $reviewStatus === 'rejected';
+                                $isPending    = $reviewStatus === 'pending';
+                                $isPastDL     = $task['isPastDeadline'];
+                                $isClickable  = ! $isPastDL && ($isRejected || (! $task['reviewStatus'] && ! $task['isCompleted']));
                             @endphp
 
                             @if($isClickable)
@@ -367,27 +370,23 @@
                                 <div class="mt-0.5 flex-shrink-0">
                                     @if($isApproved)
                                         <div class="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
-                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                                            </svg>
+                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
                                         </div>
                                     @elseif($isRejected)
                                         <div class="flex h-6 w-6 items-center justify-center rounded-full bg-red-500">
-                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-                                            </svg>
+                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                                         </div>
-                                    @elseif($isPending || ($task['isHrChecked'] && !empty($task['photoPaths'])))
+                                    @elseif($isPastDL)
+                                        <div class="flex h-6 w-6 items-center justify-center rounded-full bg-gray-300 dark:bg-gray-600">
+                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                                        </div>
+                                    @elseif($isPending)
                                         <div class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400">
-                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                                            </svg>
+                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                                         </div>
                                     @elseif($task['isCompleted'])
                                         <div class="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
-                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                                            </svg>
+                                            <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
                                         </div>
                                     @else
                                         <div class="h-6 w-6 rounded-full border-2 border-gray-200 dark:border-gray-600"></div>
@@ -396,7 +395,7 @@
 
                                 {{-- Task info --}}
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-sm font-medium {{ ($isApproved || $task['isCompleted']) && ! $isRejected ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-800 dark:text-gray-200' }}">
+                                    <p class="text-sm font-medium {{ ($isApproved || $task['isCompleted']) && ! $isRejected ? 'text-gray-400 line-through dark:text-gray-500' : ($isPastDL ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200') }}">
                                         {{ $task['label'] }}
                                     </p>
                                     <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
@@ -404,10 +403,10 @@
                                             <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Disetujui</span>
                                         @elseif($isRejected)
                                             <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Ditolak</span>
+                                        @elseif($isPastDL)
+                                            <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Deadline Terlewat</span>
                                         @elseif($isPending)
                                             <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Menunggu Review</span>
-                                        @elseif($task['isHrChecked'])
-                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Cek HR</span>
                                         @elseif($task['requiresPhoto'])
                                             <span class="text-xs text-gray-400">
                                                 <svg class="inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -429,7 +428,6 @@
                                     @endif
                                 </div>
 
-                                {{-- Arrow (only for clickable rows) --}}
                                 @if($isClickable)
                                     <svg class="mt-1 h-4 w-4 flex-shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
@@ -443,57 +441,50 @@
                             @endif
                         @endforeach
 
-                        {{-- General Cleaning collapsible group --}}
-                        @if($cleaningTasks->isNotEmpty())
+                        {{-- Dynamic collapsible groups --}}
+                        @foreach($groups as $groupKey => $groupTasks)
                             @php
-                                $cleaningDone  = $cleaningTasks->where('isCompleted', true)->count();
-                                $cleaningTotal = $cleaningTasks->count();
+                                $groupLabel  = $groupTasks->first()['groupLabel'] ?? $groupKey;
+                                $groupDone   = $groupTasks->where('isCompleted', true)->count();
+                                $groupTotal  = $groupTasks->count();
+                                $groupAllDL  = $groupTasks->every(fn ($t) => $t['isPastDeadline']);
                             @endphp
 
-                            <div x-data="{ openCleaning: false }">
-
-                                {{-- Parent row (toggle) --}}
+                            <div x-data="{ openGroup: false }">
                                 <button type="button"
-                                        @click="openCleaning = !openCleaning"
+                                        @click="openGroup = !openGroup"
                                         class="flex w-full items-center gap-3 px-4 py-3 text-left transition active:bg-gray-50 dark:active:bg-gray-800">
-
-                                    {{-- Status icon --}}
                                     <div class="flex-shrink-0">
-                                        @if($cleaningDone === $cleaningTotal)
+                                        @if($groupDone === $groupTotal)
                                             <div class="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
-                                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                                                </svg>
+                                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
                                             </div>
-                                        @elseif($cleaningDone > 0)
+                                        @elseif($groupDone > 0)
                                             <div class="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400">
-                                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                                                </svg>
+                                                <svg class="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                                             </div>
                                         @else
                                             <div class="h-6 w-6 rounded-full border-2 border-gray-200 dark:border-gray-600"></div>
                                         @endif
                                     </div>
-
-                                    {{-- Label + progress badge --}}
                                     <div class="min-w-0 flex-1">
-                                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">General Cleaning</p>
+                                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ $groupLabel }}</p>
                                         <div class="mt-0.5 flex items-center gap-1.5">
-                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">{{ $cleaningDone }}/{{ $cleaningTotal }} poin selesai</span>
+                                            @if($groupAllDL && $groupDone < $groupTotal)
+                                                <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Deadline Terlewat</span>
+                                            @else
+                                                <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">{{ $groupDone }}/{{ $groupTotal }} poin selesai</span>
+                                            @endif
                                         </div>
                                     </div>
-
-                                    {{-- Chevron (rotates when open) --}}
                                     <svg class="h-4 w-4 flex-shrink-0 text-gray-300 transition-transform duration-200"
-                                         :class="openCleaning ? 'rotate-90' : ''"
+                                         :class="openGroup ? 'rotate-90' : ''"
                                          fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
                                     </svg>
                                 </button>
 
-                                {{-- Sub-items --}}
-                                <div x-show="openCleaning"
+                                <div x-show="openGroup"
                                      x-transition:enter="transition ease-out duration-200"
                                      x-transition:enter-start="opacity-0"
                                      x-transition:enter-end="opacity-100"
@@ -503,94 +494,86 @@
                                      style="display:none"
                                      class="divide-y divide-gray-50 border-t border-gray-100 bg-gray-50/50 dark:divide-gray-800/50 dark:border-gray-800 dark:bg-gray-900/50">
 
-                                    @foreach($cleaningTasks as $cleanTask)
+                                    @foreach($groupTasks as $cleanTask)
                                         @php
-                                            $cReviewStatus = $cleanTask['reviewStatus']?->value ?? null;
-                                            $cIsApproved   = $cReviewStatus === 'approved';
-                                            $cIsRejected   = $cReviewStatus === 'rejected';
-                                            $cIsPending    = $cReviewStatus === 'pending';
-                                            $cIsClickable  = $cIsRejected || (! $cleanTask['reviewStatus'] && ! $cleanTask['isCompleted']);
+                                            $cReview    = $cleanTask['reviewStatus']?->value ?? null;
+                                            $cApproved  = $cReview === 'approved';
+                                            $cRejected  = $cReview === 'rejected';
+                                            $cPending   = $cReview === 'pending';
+                                            $cPastDL    = $cleanTask['isPastDeadline'];
+                                            $cClickable = ! $cPastDL && ($cRejected || (! $cleanTask['reviewStatus'] && ! $cleanTask['isCompleted']));
                                         @endphp
 
-                                        @if($cIsClickable)
+                                        @if($cClickable)
                                             <button type="button"
                                                     wire:click="openTaskModal('{{ $cleanTask['key'] }}')"
                                                     class="flex w-full items-start gap-3 py-3 pl-10 pr-4 text-left transition active:bg-gray-100 dark:active:bg-gray-800">
                                         @else
                                             <div class="flex w-full items-start gap-3 py-3 pl-10 pr-4">
                                         @endif
-
-                                            {{-- Status icon (smaller) --}}
                                             <div class="mt-0.5 flex-shrink-0">
-                                                @if($cIsApproved)
+                                                @if($cApproved)
                                                     <div class="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
-                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                                                        </svg>
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
                                                     </div>
-                                                @elseif($cIsRejected)
+                                                @elseif($cRejected)
                                                     <div class="flex h-5 w-5 items-center justify-center rounded-full bg-red-500">
-                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-                                                        </svg>
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
                                                     </div>
-                                                @elseif($cIsPending)
+                                                @elseif($cPastDL)
+                                                    <div class="flex h-5 w-5 items-center justify-center rounded-full bg-gray-300 dark:bg-gray-600">
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                                                    </div>
+                                                @elseif($cPending)
                                                     <div class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-400">
-                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                                                        </svg>
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
                                                     </div>
                                                 @elseif($cleanTask['isCompleted'])
                                                     <div class="flex h-5 w-5 items-center justify-center rounded-full bg-green-500">
-                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                                                        </svg>
+                                                        <svg class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
                                                     </div>
                                                 @else
                                                     <div class="h-5 w-5 rounded-full border-2 border-gray-200 dark:border-gray-600"></div>
                                                 @endif
                                             </div>
-
-                                            {{-- Sub-item info --}}
                                             <div class="min-w-0 flex-1">
-                                                <p class="text-xs font-medium {{ ($cIsApproved || $cleanTask['isCompleted']) && ! $cIsRejected ? 'text-gray-400 line-through dark:text-gray-500' : 'text-gray-700 dark:text-gray-300' }}">
+                                                <p class="text-xs font-medium {{ ($cApproved || $cleanTask['isCompleted']) && ! $cRejected ? 'text-gray-400 line-through dark:text-gray-500' : ($cPastDL ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300') }}">
                                                     {{ $cleanTask['label'] }}
                                                 </p>
                                                 <div class="mt-0.5 flex flex-wrap items-center gap-1">
-                                                    @if($cIsApproved)
+                                                    @if($cApproved)
                                                         <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Disetujui</span>
-                                                    @elseif($cIsRejected)
+                                                    @elseif($cRejected)
                                                         <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Ditolak</span>
-                                                    @elseif($cIsPending)
+                                                    @elseif($cPastDL)
+                                                        <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Deadline Terlewat</span>
+                                                    @elseif($cPending)
                                                         <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Menunggu Review</span>
                                                     @elseif($cleanTask['completedAt'])
                                                         <span class="text-xs text-gray-400">{{ $cleanTask['completedAt']->format('H:i') }}</span>
                                                     @else
-                                                        <span class="text-xs text-gray-400">Foto Bukti Cleaning</span>
+                                                        <span class="text-xs text-gray-400">{{ $cleanTask['noteType'] }}</span>
                                                     @endif
                                                 </div>
-                                                @if($cIsRejected && $cleanTask['rejectionReason'])
+                                                @if($cRejected && $cleanTask['rejectionReason'])
                                                     <p class="mt-0.5 text-xs text-red-600 dark:text-red-400">{{ $cleanTask['rejectionReason'] }}</p>
                                                     <p class="mt-0.5 text-xs font-medium text-red-500">Tap untuk submit ulang</p>
                                                 @endif
                                             </div>
-
-                                            @if($cIsClickable)
+                                            @if($cClickable)
                                                 <svg class="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
                                                 </svg>
                                             @endif
-
-                                        @if($cIsClickable)
+                                        @if($cClickable)
                                             </button>
                                         @else
                                             </div>
                                         @endif
                                     @endforeach
-
                                 </div>
                             </div>
-                        @endif
+                        @endforeach
 
                     </div>
 
@@ -630,22 +613,21 @@
             <div class="px-5 pb-2 pt-2">
                 @if($this->activeTaskKey)
                     <p class="text-base font-semibold text-gray-900 dark:text-white">
-                        {{ \App\Enums\BriefingTaskKey::from($this->activeTaskKey)->getLabel() }}
+                        {{ $this->activeTaskLabel }}
                     </p>
                     <p class="mt-0.5 text-sm text-gray-500">
-                        {{ \App\Enums\BriefingTaskKey::from($this->activeTaskKey)->noteType() }}
+                        {{ $this->activeTaskNoteType }}
                     </p>
                 @endif
             </div>
 
             {{-- Form body --}}
+            @php $submissionType = $this->activeSubmissionType; @endphp
             <div class="px-5 pb-4 pt-2" wire:key="task-form-{{ $taskModalKey }}">
 
                 @if($this->activeTaskKey)
-                    @php $activeTask = \App\Enums\BriefingTaskKey::from($this->activeTaskKey); @endphp
 
-                    @if($activeTask->requiresPhoto())
-
+                    @if(in_array($submissionType, ['camera_only', 'photo', 'photo_and_text']))
                         {{-- ── Photo section ── --}}
                         <div class="mb-4">
                             <div class="mb-1.5 flex items-center justify-between">
@@ -658,90 +640,81 @@
                                 @endif
                             </div>
 
-                            {{-- Thumbnail grid (confirmed photos) + uploading preview --}}
-                            @if(count($this->cameraPhotoPaths) > 0 || true)
-                                <input type="file"
-                                       accept="image/*"
-                                       x-ref="photoInput"
-                                       @change="handleFileUpload($event)"
-                                       class="hidden">
-                                <div class="grid grid-cols-3 gap-2">
+                            <input type="file"
+                                   accept="image/*"
+                                   x-ref="photoInput"
+                                   @change="handleFileUpload($event)"
+                                   class="hidden">
+                            <div class="grid grid-cols-3 gap-2">
 
-                                    {{-- Confirmed photos --}}
-                                    @foreach($this->cameraPhotoPaths as $index => $path)
-                                        <div class="relative aspect-square overflow-hidden rounded-xl">
-                                            <img src="{{ asset('storage/' . $path) }}"
-                                                 class="h-full w-full object-cover"
-                                                 alt="Foto {{ $index + 1 }}">
-                                            <button wire:click="removePhoto({{ $index }})"
-                                                    wire:loading.attr="disabled"
-                                                    class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white shadow transition active:bg-black/80">
-                                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    @endforeach
-
-                                    {{-- Uploading preview (transitional) --}}
-                                    <div x-show="previewSrc" x-cloak
-                                         class="relative aspect-square overflow-hidden rounded-xl bg-gray-100">
-                                        <img :src="previewSrc" class="h-full w-full object-cover">
-                                        <div class="absolute inset-0 flex items-center justify-center bg-black/40">
-                                            <svg class="h-5 w-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                                            </svg>
-                                        </div>
+                                @foreach($this->cameraPhotoPaths as $index => $path)
+                                    <div class="relative aspect-square overflow-hidden rounded-xl">
+                                        <img src="{{ asset('storage/' . $path) }}"
+                                             class="h-full w-full object-cover"
+                                             alt="Foto {{ $index + 1 }}">
+                                        <button wire:click="removePhoto({{ $index }})"
+                                                wire:loading.attr="disabled"
+                                                class="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white shadow transition active:bg-black/80">
+                                            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                        </button>
                                     </div>
+                                @endforeach
 
-                                    {{-- Add buttons: Kamera (+ Galeri jika bukan kamera only, max 5 total) --}}
-                                    @if(count($this->cameraPhotoPaths) < 5)
-                                        <button @click="openCamera()"
+                                <div x-show="previewSrc" x-cloak
+                                     class="relative aspect-square overflow-hidden rounded-xl bg-gray-100">
+                                    <img :src="previewSrc" class="h-full w-full object-cover">
+                                    <div class="absolute inset-0 flex items-center justify-center bg-black/40">
+                                        <svg class="h-5 w-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                @if(count($this->cameraPhotoPaths) < 5)
+                                    <button @click="openCamera()"
+                                            x-show="!uploading"
+                                            class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30">
+                                        <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/>
+                                        </svg>
+                                        <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Kamera</span>
+                                    </button>
+                                    @if($submissionType !== 'camera_only')
+                                        <button @click="$refs.photoInput.click()"
                                                 x-show="!uploading"
                                                 class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30">
                                             <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
                                             </svg>
-                                            <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Kamera</span>
+                                            <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Galeri</span>
                                         </button>
-                                        @if(! $activeTask->isCameraOnly())
-                                            <button @click="$refs.photoInput.click()"
-                                                    x-show="!uploading"
-                                                    class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30">
-                                                <svg class="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
-                                                </svg>
-                                                <span class="text-xs font-medium text-blue-600 dark:text-blue-400">Galeri</span>
-                                            </button>
-                                        @endif
                                     @endif
-
-                                </div>
-
-                                @if(count($this->cameraPhotoPaths) === 0)
-                                    <p x-show="!uploading" class="mt-1.5 text-center text-xs text-gray-400">
-                                        Timestamp &amp; lokasi otomatis di semua foto
-                                    </p>
                                 @endif
+                            </div>
+                            @if(count($this->cameraPhotoPaths) === 0)
+                                <p x-show="!uploading" class="mt-1.5 text-center text-xs text-gray-400">
+                                    Timestamp &amp; lokasi otomatis di semua foto
+                                </p>
                             @endif
                         </div>
-
                     @endif
 
-                    {{-- ── Notes textarea ── --}}
-                    <div>
-                        @if($activeTask === \App\Enums\BriefingTaskKey::DailyDetailBriefing)
+                    {{-- ── Notes / Text section ── --}}
+                    @if(in_array($submissionType, ['text_only', 'photo_and_text']))
+                        <div>
                             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Detail Briefing
+                                {{ $submissionType === 'text_only' ? $this->activeTaskLabel : 'Catatan' }}
                                 <span class="ml-1 text-xs font-normal text-red-500">* Wajib</span>
                             </label>
                             <textarea wire:model="taskData.notes"
-                                      rows="6"
-                                      placeholder="Paste atau ketik isi detail briefing di sini..."
+                                      rows="{{ $submissionType === 'text_only' ? 6 : 3 }}"
+                                      placeholder="{{ $submissionType === 'text_only' ? 'Paste atau ketik isi di sini...' : 'Tambahkan catatan...' }}"
                                       class="mt-1.5 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"></textarea>
-                        @else
+                        </div>
+                    @elseif($submissionType === 'photo')
+                        <div>
                             <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Catatan
                                 <span class="ml-1 text-xs font-normal text-gray-400">(opsional)</span>
@@ -750,8 +723,8 @@
                                       rows="2"
                                       placeholder="Tambahkan catatan..."
                                       class="mt-1.5 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"></textarea>
-                        @endif
-                    </div>
+                        </div>
+                    @endif
 
                 @endif
             </div>

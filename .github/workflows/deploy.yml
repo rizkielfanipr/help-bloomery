@@ -59,36 +59,31 @@ jobs:
       - name: Remove build .env
         run: rm -f .env database/database.sqlite
 
-      # 9. Deploy via FTP (branch-based)
-      - name: Deploy to cPanel via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      # 9. Deploy via rsync over SSH (branch-based)
+      - name: Deploy to cPanel via SSH
+        uses: burnett01/rsync-deployments@7.0.1
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-
-          local-dir: ./
-
-          # staging -> public_html/stg.helpbloomery
-          # main    -> public_html/helpbloomery
-          server-dir: ${{ github.ref_name == 'staging'
+          switches: >-
+            -avzr --delete
+            --exclude='.git'
+            --exclude='.github'
+            --exclude='.env'
+            --exclude='.env.*'
+            --exclude='node_modules'
+            --exclude='tests'
+            --exclude='storage/logs'
+            --exclude='storage/framework/cache'
+            --exclude='storage/framework/sessions'
+            --exclude='storage/framework/views'
+            --exclude='bootstrap/cache/*.php'
+            --exclude='*.log'
+            --exclude='.DS_Store'
+            --exclude='database/database.sqlite'
+          path: ./
+          remote_path: ${{ github.ref_name == 'staging'
             && '/public_html/stg.helpbloomery/'
             || '/public_html/helpbloomery/' }}
-
-          dangerous-clean-slate: false
-
-          exclude: |
-            **/.git*
-            **/.github/**
-            **/.env
-            **/.env.*
-            **/node_modules/**
-            **/tests/**
-            **/storage/logs/**
-            **/storage/framework/cache/**
-            **/storage/framework/sessions/**
-            **/storage/framework/views/**
-            **/bootstrap/cache/*.php
-            **/*.log
-            **/.DS_Store
-            **/database/database.sqlite
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_user: ${{ secrets.SSH_USERNAME }}
+          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          remote_key_pass: ${{ secrets.SSH_KEY_PASSWORD }}

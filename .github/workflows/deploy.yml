@@ -46,21 +46,16 @@ jobs:
           sed -i "s|^DB_DATABASE=.*|DB_DATABASE=$(pwd)/database/database.sqlite|" .env
           touch database/database.sqlite
 
-      # ── Composer — vendor cached per composer.lock ──────────────────────────
-      - name: Cache Composer vendor
-        id: vendor-cache
+      # ── Composer — only needed in CI for package:discover hook ─────────────
+      # vendor/ is NOT included in the zip; composer runs on the server instead.
+      - name: Cache Composer packages
         uses: actions/cache@v4
         with:
-          path: vendor
-          key: vendor-nodev-${{ hashFiles('composer.lock') }}
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
 
       - name: Install PHP dependencies
-        if: steps.vendor-cache.outputs.cache-hit != 'true'
         run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-
-      - name: Regenerate optimized autoloader
-        if: steps.vendor-cache.outputs.cache-hit == 'true'
-        run: composer dump-autoload --optimize --no-dev
 
       # ── Node.js 20 + npm ────────────────────────────────────────────────────
       - name: Setup Node.js 20
@@ -80,7 +75,8 @@ jobs:
         run: rm -f .env database/database.sqlite
 
       # ── Create release archive ───────────────────────────────────────────────
-      # vendor/ is included — Composer is not installed on the server.
+      # vendor/ is excluded — Composer runs on the server during deployment.
+      # This keeps the zip small (~10-15 MB instead of ~250 MB).
       - name: Create release.zip
         run: |
           zip -r release.zip \
@@ -92,7 +88,6 @@ jobs:
             resources/ \
             routes/ \
             storage/ \
-            vendor/ \
             artisan \
             composer.json \
             composer.lock \
@@ -174,7 +169,7 @@ jobs:
 
           # ── Replace application directories ───────────────────────────────
           echo "▶ Replacing application files..."
-          for dir in app bootstrap config database public resources routes vendor; do
+          for dir in app bootstrap config database public resources routes; do
             if [ -d "$TEMP_DIR/$dir" ]; then
               rm -rf   "${DEPLOY_DIR:?}/$dir"
               cp -r    "$TEMP_DIR/$dir" "$DEPLOY_DIR/$dir"
@@ -184,9 +179,20 @@ jobs:
           # ── Replace root-level files ───────────────────────────────────────
           find "$TEMP_DIR" -maxdepth 1 -type f -exec cp {} "$DEPLOY_DIR/" \;
 
+          # ── Install PHP dependencies on server ────────────────────────────
+          # composer.phar lives at ~/bin/composer — installed once manually.
+          # Runs here so vendor/ is never part of the zip (~240 MB saved).
+          echo "▶ Running composer install..."
+          cd "$DEPLOY_DIR"
+          ~/bin/composer install \
+            --no-dev \
+            --prefer-dist \
+            --optimize-autoloader \
+            --no-interaction \
+            --no-progress
+
           # ── Optimise Laravel ───────────────────────────────────────────────
           echo "▶ Running php artisan optimize..."
-          cd "$DEPLOY_DIR"
           php artisan optimize
 
           echo "✓ Deployed: ${{ github.ref_name }} → $DEPLOY_DIR"

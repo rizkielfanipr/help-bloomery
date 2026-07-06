@@ -10,6 +10,27 @@ class WeeklyCleaningBeforeAfterSeeder extends Seeder
 {
     public function run(): void
     {
+        // ── Delete old/superseded records ────────────────────────────────────
+        BriefingTask::where(function ($q) {
+            // old weekly_cleaning_* keys (all branches)
+            $q->where('key', 'like', 'weekly_cleaning_kondensor%')
+                ->orWhere('key', 'like', 'weekly_cleaning_mesin_kopi%')
+                ->orWhere('key', 'like', 'weekly_cleaning_genset%')
+                ->orWhere('key', 'like', 'weekly_cleaning_tempat_sampah%')
+                ->orWhere('key', 'like', 'weekly_cleaning_showcase_chiller%')
+                // generic "Weekly Cleaning" task at branch 3
+                ->orWhere('key', 'weekly_cleaning_2')
+                // first-run wkly_* keys without scope suffix (_global / _brN)
+                ->orWhere('key', 'like', 'wkly_%_before')
+                ->orWhere('key', 'like', 'wkly_%_after');
+        })
+            ->whereNotIn('key', BriefingTask::where('key', 'like', 'wkly_%_before_%')
+                ->orWhere('key', 'like', 'wkly_%_after_%')
+                ->pluck('key')
+                ->all())
+            ->delete();
+
+        // ── Upsert new before/after poin ─────────────────────────────────────
         $items = [
             ['key_suffix' => 'kondensor',       'label' => 'Filter Kondensor Showcase Display'],
             ['key_suffix' => 'mesin_kopi',       'label' => 'Mesin Kopi (Puro)'],
@@ -72,6 +93,6 @@ class WeeklyCleaningBeforeAfterSeeder extends Seeder
             update: ['label', 'period', 'submission_type', 'note_type', 'group', 'group_label', 'sort_order', 'is_active', 'deadline_enabled', 'deadline_day', 'deadline_time'],
         );
 
-        $this->command->info('Weekly cleaning before/after: '.count($tasks).' poin di-upsert ('.$scopes->count().' scope).');
+        $this->command->info('Cleanup selesai. Weekly cleaning before/after: '.count($tasks).' poin di-upsert ('.$scopes->count().' scope).');
     }
 }

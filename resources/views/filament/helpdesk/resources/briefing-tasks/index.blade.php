@@ -259,7 +259,6 @@
                             class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600 dark:hover:bg-white/[0.04] dark:hover:text-gray-300">
                             <x-heroicon-o-plus class="h-3.5 w-3.5" /> Tambah Poin
                         </button>
-                        <span class="text-gray-100 dark:text-gray-800">|</span>
                         <button wire:click="startNewGroup('{{ $period['value'] }}')"
                             class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600 dark:hover:bg-white/[0.04] dark:hover:text-gray-300">
                             <x-heroicon-o-folder-plus class="h-3.5 w-3.5" /> Buat Grup

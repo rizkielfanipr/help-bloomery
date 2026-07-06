@@ -11,6 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
+        try {
+            Schema::table('briefing_scores', function (Blueprint $table) {
+                $table->dropForeign(['branch_id']);
+            });
+        } catch (Exception $e) {
+            // Foreign key did not exist — safe to continue.
+        }
+
+        try {
+            Schema::table('briefing_scores', function (Blueprint $table) {
+                $table->dropUnique(['branch_id', 'year', 'month']);
+            });
+        } catch (Exception $e) {
+            // Unique constraint did not exist — safe to continue.
+        }
+
         Schema::table('briefing_scores', function (Blueprint $table) {
             $table->foreign('branch_id')->references('id')->on('branches')->cascadeOnDelete();
             $table->unique(['branch_id', 'year', 'month']);

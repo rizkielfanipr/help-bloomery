@@ -30,7 +30,18 @@ jobs:
           tools: composer
           coverage: none
 
-      # ── 3. Composer — vendor cached per composer.lock hash ────────────────
+      # ── 3. Temporary .env — required by composer's post-install artisan hook ─
+      # package:discover runs php artisan during composer install and needs a
+      # database connection. We point it at a throwaway SQLite file.
+      # This .env is removed before the release archive is created.
+      - name: Prepare build environment
+        run: |
+          cp .env.example .env
+          sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
+          sed -i "s|^DB_DATABASE=.*|DB_DATABASE=$(pwd)/database/database.sqlite|" .env
+          touch database/database.sqlite
+
+      # ── 4. Composer — vendor cached per composer.lock hash ────────────────
       # vendor/ is deployed to the server because Composer is not available there.
       - name: Cache Composer vendor
         id: vendor-cache
@@ -61,6 +72,10 @@ jobs:
       # ── 5. Frontend build ─────────────────────────────────────────────────
       - name: Build frontend assets
         run: npm run build
+
+      # ── Remove temporary build artifacts before archiving ─────────────────
+      - name: Remove build .env and SQLite database
+        run: rm -f .env database/database.sqlite
 
       # ── 6. Create release archive ─────────────────────────────────────────
       # Only explicitly required paths are included — no .git, .github, tests,

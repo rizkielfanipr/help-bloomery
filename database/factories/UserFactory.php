@@ -19,6 +19,7 @@ class UserFactory extends Factory
     {
         return [
             'name' => fake()->name(),
+            'username' => fake()->unique()->userName(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
@@ -37,9 +38,11 @@ class UserFactory extends Factory
     {
         return $this->state(function (): array {
             $phone = '08'.fake()->numerify('##########');
+            $phoneDigits = preg_replace('/\D/', '', $phone);
 
             return [
                 'phone' => $phone,
+                'username' => 'casual_'.$phoneDigits,
                 'email' => $phone.'@casual.app',
                 'bank_name' => fake()->randomElement(['BCA', 'BRI', 'BNI', 'Mandiri', 'BSI', 'CIMB']),
                 'bank_account_number' => fake()->numerify('################'),

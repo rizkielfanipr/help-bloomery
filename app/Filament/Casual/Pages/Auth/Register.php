@@ -29,6 +29,7 @@ class Register extends BaseRegister
         return $schema
             ->components([
                 $this->getNameFormComponent(),
+                $this->getUsernameFormComponent(),
                 $this->getPhoneFormComponent(),
                 $this->getBankNameFormComponent(),
                 $this->getBankAccountNumberFormComponent(),
@@ -44,6 +45,17 @@ class Register extends BaseRegister
             ->required()
             ->maxLength(255)
             ->autofocus();
+    }
+
+    protected function getUsernameFormComponent(): Component
+    {
+        return TextInput::make('username')
+            ->label('Username')
+            ->required()
+            ->maxLength(50)
+            ->unique(User::class, 'username')
+            ->placeholder('Buat username unik Anda')
+            ->helperText('Digunakan untuk login. Huruf kecil, angka, dan underscore.');
     }
 
     protected function getPhoneFormComponent(): Component
@@ -104,23 +116,8 @@ class Register extends BaseRegister
     {
         $data['is_active'] = true;
         $data['email'] = $data['phone'].'@casual.app';
-        $data['username'] = $this->generateUsername($data['phone']);
 
         return $data;
-    }
-
-    private function generateUsername(string $phone): string
-    {
-        $base = 'casual_'.preg_replace('/\D/', '', $phone);
-        $username = $base;
-        $suffix = 1;
-
-        while (User::where('username', $username)->exists()) {
-            $username = $base.'_'.$suffix;
-            $suffix++;
-        }
-
-        return $username;
     }
 
     protected function handleRegistration(array $data): Model

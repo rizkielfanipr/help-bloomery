@@ -63,6 +63,12 @@ class CasualStaffResource extends Resource
                             ->required()
                             ->maxLength(255),
 
+                        TextInput::make('username')
+                            ->label('Username')
+                            ->nullable()
+                            ->unique(User::class, 'username', ignoreRecord: true)
+                            ->maxLength(50),
+
                         TextInput::make('phone')
                             ->label('Nomor HP')
                             ->tel()
@@ -105,6 +111,11 @@ class CasualStaffResource extends Resource
                     ->label('Nama')
                     ->searchable()
                     ->sortable(),
+
+                TextColumn::make('username')
+                    ->label('Username')
+                    ->searchable()
+                    ->placeholder('—'),
 
                 TextColumn::make('phone')
                     ->label('Nomor HP')

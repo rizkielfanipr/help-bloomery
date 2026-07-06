@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\Auth;
 
+use App\Models\User;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
@@ -40,5 +41,19 @@ class Login extends BaseLogin
             ->revealable(filament()->arePasswordsRevealable())
             ->autocomplete('current-password')
             ->required();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function getCredentialsFromFormData(array $data): array
+    {
+        $email = User::where('username', $data['email'])->value('email') ?? $data['email'];
+
+        return [
+            'email' => $email,
+            'password' => $data['password'],
+        ];
     }
 }

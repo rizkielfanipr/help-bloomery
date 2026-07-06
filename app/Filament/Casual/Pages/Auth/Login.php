@@ -27,12 +27,11 @@ class Login extends BaseLogin
     protected function getEmailFormComponent(): Component
     {
         return TextInput::make('email')
-            ->label('Nomor HP')
-            ->tel()
+            ->label('Username')
             ->required()
-            ->autocomplete('tel')
+            ->autocomplete('username')
             ->autofocus()
-            ->placeholder('08xxxxxxxxxx');
+            ->placeholder('Masukkan username Anda');
     }
 
     /**
@@ -41,7 +40,7 @@ class Login extends BaseLogin
      */
     protected function getCredentialsFromFormData(array $data): array
     {
-        $email = User::where('phone', $data['email'])->value('email') ?? $data['email'];
+        $email = User::where('username', $data['email'])->value('email') ?? $data['email'];
 
         return [
             'email' => $email,

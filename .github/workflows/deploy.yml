@@ -12,17 +12,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    name: Build & Deploy (${{ github.ref_name }})
+
+  # ============================================================================
+  # JOB 1 — Build on GitHub-hosted runner
+  # Compiles assets and packages a release.zip.
+  # No SSH or server access required here.
+  # ============================================================================
+  build:
+    name: Build (${{ github.ref_name }})
     runs-on: ubuntu-latest
 
     steps:
 
-      # ── 1. Source ──────────────────────────────────────────────────────────
+      # ── Source ──────────────────────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # ── 2. PHP 8.4 ────────────────────────────────────────────────────────
+      # ── PHP 8.4 ─────────────────────────────────────────────────────────────
       - name: Setup PHP 8.4
         uses: shivammathur/setup-php@v2
         with:
@@ -30,10 +36,9 @@ jobs:
           tools: composer
           coverage: none
 
-      # ── 3. Temporary .env — required by composer's post-install artisan hook ─
-      # package:discover runs php artisan during composer install and needs a
-      # database connection. We point it at a throwaway SQLite file.
-      # This .env is removed before the release archive is created.
+      # ── Temporary .env — required by composer's post-install artisan hook ───
+      # package:discover runs php artisan and needs a DB connection.
+      # Removed before the archive is created.
       - name: Prepare build environment
         run: |
           cp .env.example .env
@@ -41,8 +46,7 @@ jobs:
           sed -i "s|^DB_DATABASE=.*|DB_DATABASE=$(pwd)/database/database.sqlite|" .env
           touch database/database.sqlite
 
-      # ── 4. Composer — vendor cached per composer.lock hash ────────────────
-      # vendor/ is deployed to the server because Composer is not available there.
+      # ── Composer — vendor cached per composer.lock ──────────────────────────
       - name: Cache Composer vendor
         id: vendor-cache
         uses: actions/cache@v4
@@ -54,12 +58,11 @@ jobs:
         if: steps.vendor-cache.outputs.cache-hit != 'true'
         run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
-      # Rebuild classmap so new application classes are indexed even on a cache hit.
       - name: Regenerate optimized autoloader
         if: steps.vendor-cache.outputs.cache-hit == 'true'
         run: composer dump-autoload --optimize --no-dev
 
-      # ── 4. Node.js 20 — npm cache via setup-node ─────────────────────────
+      # ── Node.js 20 + npm ────────────────────────────────────────────────────
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
@@ -69,18 +72,15 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      # ── 5. Frontend build ─────────────────────────────────────────────────
       - name: Build frontend assets
         run: npm run build
 
-      # ── Remove temporary build artifacts before archiving ─────────────────
+      # ── Remove temporary build artifacts ────────────────────────────────────
       - name: Remove build .env and SQLite database
         run: rm -f .env database/database.sqlite
 
-      # ── 6. Create release archive ─────────────────────────────────────────
-      # Only explicitly required paths are included — no .git, .github, tests,
-      # node_modules, .env, or generated runtime files.
-      # vendor/ is included because Composer is not installed on the server.
+      # ── Create release archive ───────────────────────────────────────────────
+      # vendor/ is included — Composer is not installed on the server.
       - name: Create release.zip
         run: |
           zip -r release.zip \
@@ -106,92 +106,87 @@ jobs:
             -x "storage/framework/views/*" \
             -x "storage/framework/sessions/*"
 
-      # ── 7. Upload archive ─────────────────────────────────────────────────
-      - name: Upload release.zip via SCP
-        uses: appleboy/scp-action@v0.1.7
+      # ── Upload release.zip as workflow artifact ──────────────────────────────
+      # The deploy job (running on the server) will download this artifact.
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          port: ${{ secrets.SSH_PORT }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          source: release.zip
-          target: ~/
+          name: release-${{ github.ref_name }}-${{ github.sha }}
+          path: release.zip
+          retention-days: 3
 
-      # ── 8. Deploy on server ───────────────────────────────────────────────
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
+  # ============================================================================
+  # JOB 2 — Deploy on self-hosted runner (installed on the server)
+  # The runner connects outbound to GitHub — no inbound SSH needed.
+  # Runs only after the build job succeeds.
+  # ============================================================================
+  deploy:
+    name: Deploy (${{ github.ref_name }})
+    runs-on: self-hosted
+    needs: build
+
+    steps:
+
+      # ── Download the artifact built in job 1 ────────────────────────────────
+      - name: Download release artifact
+        uses: actions/download-artifact@v4
         with:
-          host: ${{ secrets.SSH_HOST }}
-          port: ${{ secrets.SSH_PORT }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          passphrase: ${{ secrets.SSH_PASSPHRASE }}
-          script_stop: true
-          script: |
-            set -e
+          name: release-${{ github.ref_name }}-${{ github.sha }}
 
-            # ── Resolve deployment target ──────────────────────────────────
-            if [ "${{ github.ref_name }}" = "main" ]; then
-              DEPLOY_DIR="$HOME/public_html/helpbloomery"
-            else
-              DEPLOY_DIR="$HOME/public_html/stg.helpbloomery"
+      # ── Deploy on server ─────────────────────────────────────────────────────
+      - name: Deploy release
+        run: |
+          set -e
+
+          # ── Resolve deployment target ──────────────────────────────────────
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            DEPLOY_DIR="$HOME/public_html/helpbloomery"
+          else
+            DEPLOY_DIR="$HOME/public_html/stg.helpbloomery"
+          fi
+
+          echo "▶ Branch : ${{ github.ref_name }}"
+          echo "▶ Target : $DEPLOY_DIR"
+
+          mkdir -p "$DEPLOY_DIR"
+
+          # ── Extract to a temp directory ────────────────────────────────────
+          TEMP_DIR=$(mktemp -d -t release.XXXXXX)
+          trap 'rm -rf "$TEMP_DIR"' EXIT
+
+          echo "▶ Extracting release.zip..."
+          unzip -q release.zip -d "$TEMP_DIR" || {
+            echo "FATAL: unzip failed — aborting"
+            exit 1
+          }
+          rm -f release.zip
+
+          # ── Preserve .env — never overwrite ───────────────────────────────
+          rm -f "$TEMP_DIR/.env"
+
+          # ── Preserve storage ───────────────────────────────────────────────
+          if [ -d "$DEPLOY_DIR/storage" ]; then
+            echo "▶ Preserving existing storage/"
+            rm -rf "$TEMP_DIR/storage"
+          else
+            echo "▶ Initialising storage/ (first deploy)"
+          fi
+
+          # ── Replace application directories ───────────────────────────────
+          echo "▶ Replacing application files..."
+          for dir in app bootstrap config database public resources routes vendor; do
+            if [ -d "$TEMP_DIR/$dir" ]; then
+              rm -rf   "${DEPLOY_DIR:?}/$dir"
+              cp -r    "$TEMP_DIR/$dir" "$DEPLOY_DIR/$dir"
             fi
+          done
 
-            echo "▶ Branch : ${{ github.ref_name }}"
-            echo "▶ Target : $DEPLOY_DIR"
+          # ── Replace root-level files ───────────────────────────────────────
+          find "$TEMP_DIR" -maxdepth 1 -type f -exec cp {} "$DEPLOY_DIR/" \;
 
-            # ── Ensure target directory exists ────────────────────────────
-            mkdir -p "$DEPLOY_DIR"
+          # ── Optimise Laravel ───────────────────────────────────────────────
+          echo "▶ Running php artisan optimize..."
+          cd "$DEPLOY_DIR"
+          php artisan optimize
 
-            # ── Extract to a temp directory ───────────────────────────────
-            TEMP_DIR=$(mktemp -d -t release.XXXXXX)
-            # Always remove the temp dir on exit, success or failure.
-            trap 'rm -rf "$TEMP_DIR"' EXIT
-
-            echo "▶ Extracting release.zip..."
-            unzip -q "$HOME/release.zip" -d "$TEMP_DIR" || {
-              echo "FATAL: unzip failed — aborting"
-              exit 1
-            }
-            rm -f "$HOME/release.zip"
-
-            # ── Preserve .env — never overwrite ───────────────────────────
-            # The server's .env contains production credentials.
-            # If this is a first deploy and no .env exists yet, the release
-            # does not supply one either — create it manually on the server.
-            rm -f "$TEMP_DIR/.env"
-
-            # ── Preserve storage ───────────────────────────────────────────
-            # On first deploy: initialise storage from the release archive.
-            # On subsequent deploys: keep the live storage untouched so that
-            # user uploads, logs, and sessions are never lost.
-            if [ -d "$DEPLOY_DIR/storage" ]; then
-              echo "▶ Preserving existing storage/"
-              rm -rf "$TEMP_DIR/storage"
-            else
-              echo "▶ Initialising storage/ (first deploy)"
-            fi
-
-            # ── Replace application directories ────────────────────────────
-            # Each directory is deleted then replaced so stale files
-            # (e.g. removed classes in vendor/) do not survive across deploys.
-            echo "▶ Replacing application files..."
-            for dir in app bootstrap config database public resources routes vendor; do
-              if [ -d "$TEMP_DIR/$dir" ]; then
-                rm -rf   "${DEPLOY_DIR:?}/$dir"
-                cp -r    "$TEMP_DIR/$dir" "$DEPLOY_DIR/$dir"
-              fi
-            done
-
-            # ── Replace root-level files ───────────────────────────────────
-            # Copies artisan, composer.json, package.json, vite.config.js, etc.
-            # .env is absent from TEMP_DIR so it is never touched here.
-            find "$TEMP_DIR" -maxdepth 1 -type f -exec cp {} "$DEPLOY_DIR/" \;
-
-            # ── Optimise Laravel ───────────────────────────────────────────
-            echo "▶ Running php artisan optimize..."
-            cd "$DEPLOY_DIR"
-            php artisan optimize
-
-            echo "✓ Deployed successfully: ${{ github.ref_name }} → $DEPLOY_DIR"
+          echo "✓ Deployed: ${{ github.ref_name }} → $DEPLOY_DIR"

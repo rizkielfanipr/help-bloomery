@@ -6,194 +6,110 @@ on:
       - main
       - staging
 
-# Cancel any in-flight deployment for the same branch when a new push arrives.
 concurrency:
-  group: deploy-${{ github.ref_name }}
+  group: deploy-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-
-  # ============================================================================
-  # JOB 1 — Build on GitHub-hosted runner
-  # Compiles assets and packages a release.zip.
-  # No SSH or server access required here.
-  # ============================================================================
   build:
-    name: Build (${{ github.ref_name }})
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
 
-      # ── Source ──────────────────────────────────────────────────────────────
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # ── PHP 8.4 ─────────────────────────────────────────────────────────────
-      - name: Setup PHP 8.4
-        uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
-          tools: composer
           coverage: none
 
-      # ── Temporary .env — required by composer's post-install artisan hook ───
-      # package:discover runs php artisan and needs a DB connection.
-      # Removed before the archive is created.
-      - name: Prepare build environment
+      - name: Prepare Laravel
         run: |
           cp .env.example .env
           sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
           sed -i "s|^DB_DATABASE=.*|DB_DATABASE=$(pwd)/database/database.sqlite|" .env
           touch database/database.sqlite
 
-      # ── Composer — vendor cached per composer.lock ──────────────────────────
-      # vendor/ is included in the zip (Composer is not on the server).
-      - name: Cache Composer vendor
-        id: vendor-cache
-        uses: actions/cache@v4
+      - name: Install Composer
+        run: |
+          composer install \
+            --no-dev \
+            --prefer-dist \
+            --optimize-autoloader \
+            --no-interaction
+
+      - uses: actions/setup-node@v4
         with:
-          path: vendor
-          key: vendor-nodev-${{ hashFiles('composer.lock') }}
-
-      - name: Install PHP dependencies
-        if: steps.vendor-cache.outputs.cache-hit != 'true'
-        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
-
-      - name: Regenerate optimized autoloader
-        if: steps.vendor-cache.outputs.cache-hit == 'true'
-        run: composer dump-autoload --optimize --no-dev
-
-      # ── Node.js 20 + npm ────────────────────────────────────────────────────
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
+          node-version: 22
           cache: npm
 
-      - name: Install npm dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Build frontend assets
-        run: npm run build
+      - run: npm run build
 
-      # ── Remove temporary build artifacts ────────────────────────────────────
-      - name: Remove build .env and SQLite database
-        run: rm -f .env database/database.sqlite
+      - run: rm -f .env database/database.sqlite
 
-      # ── Create release archive ───────────────────────────────────────────────
-      # vendor/ is included — Composer is not available on the server.
-      - name: Create release.zip
+      - name: Archive
         run: |
-          zip -r release.zip \
-            app/ \
-            bootstrap/ \
-            config/ \
-            database/ \
-            public/ \
-            resources/ \
-            routes/ \
-            storage/ \
-            vendor/ \
-            artisan \
-            composer.json \
-            composer.lock \
-            package.json \
-            package-lock.json \
-            vite.config.js \
+          zip -qr release.zip . \
+            -x ".git/*" \
+            -x ".github/*" \
             -x "database/database.sqlite" \
-            -x "bootstrap/cache/*" \
             -x "storage/logs/*" \
             -x "storage/framework/cache/*" \
             -x "storage/framework/views/*" \
             -x "storage/framework/sessions/*"
 
-      # ── Upload release.zip as workflow artifact ──────────────────────────────
-      # The deploy job (running on the server) will download this artifact.
-      - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: release-${{ github.ref_name }}-${{ github.sha }}
+          name: release
           path: release.zip
-          retention-days: 3
 
-  # ============================================================================
-  # JOB 2 — Deploy on self-hosted runner (installed on the server)
-  # The runner connects outbound to GitHub — no inbound SSH needed.
-  # Runs only after the build job succeeds.
-  # ============================================================================
   deploy:
-    name: Deploy (${{ github.ref_name }})
-    runs-on: self-hosted
     needs: build
+    runs-on: self-hosted
 
     steps:
-
-      # ── Download the artifact built in job 1 ────────────────────────────────
-      - name: Download release artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: release-${{ github.ref_name }}-${{ github.sha }}
+          name: release
 
-      # ── Deploy on server ─────────────────────────────────────────────────────
-      - name: Deploy release
+      - name: Deploy
+        shell: bash
         run: |
+
           set -e
 
-          # ── Resolve deployment target ──────────────────────────────────────
           if [ "${{ github.ref_name }}" = "main" ]; then
             DEPLOY_DIR="$HOME/public_html/helpbloomery"
           else
             DEPLOY_DIR="$HOME/public_html/stg.helpbloomery"
           fi
 
-          echo "▶ Branch : ${{ github.ref_name }}"
-          echo "▶ Target : $DEPLOY_DIR"
-
           mkdir -p "$DEPLOY_DIR"
 
-          # ── Extract to a temp directory ────────────────────────────────────
-          TEMP_DIR=$(mktemp -d -t release.XXXXXX)
-          trap 'rm -rf "$TEMP_DIR"' EXIT
+          TMP=$(mktemp -d)
 
-          echo "▶ Extracting release.zip..."
-          unzip -q release.zip -d "$TEMP_DIR" || {
-            echo "FATAL: unzip failed — aborting"
-            exit 1
-          }
-          rm -f release.zip
+          unzip -q release.zip -d "$TMP"
 
-          # ── Preserve .env — never overwrite ───────────────────────────────
-          rm -f "$TEMP_DIR/.env"
+          rm -f "$TMP/.env"
 
-          # ── Preserve storage ───────────────────────────────────────────────
           if [ -d "$DEPLOY_DIR/storage" ]; then
-            echo "▶ Preserving existing storage/"
-            rm -rf "$TEMP_DIR/storage"
-          else
-            echo "▶ Initialising storage/ (first deploy)"
+            rm -rf "$TMP/storage"
           fi
 
-          # ── Replace application directories ───────────────────────────────
-          echo "▶ Replacing application files..."
-          for dir in app bootstrap config database public resources routes vendor; do
-            if [ -d "$TEMP_DIR/$dir" ]; then
-              rm -rf   "${DEPLOY_DIR:?}/$dir"
-              cp -r    "$TEMP_DIR/$dir" "$DEPLOY_DIR/$dir"
-            fi
-          done
+          rsync -a --delete \
+            --exclude=.env \
+            "$TMP"/ "$DEPLOY_DIR"/
 
-          # ── Replace root-level files ───────────────────────────────────────
-          find "$TEMP_DIR" -maxdepth 1 -type f -exec cp {} "$DEPLOY_DIR/" \;
-
-          # ── Optimise Laravel ───────────────────────────────────────────────
-          echo "▶ Running php artisan optimize..."
           cd "$DEPLOY_DIR"
+
+          php artisan optimize:clear
+
           php artisan optimize
 
-          echo "✓ Deployed: ${{ github.ref_name }} → $DEPLOY_DIR"
+          rm -rf "$TMP"
 
-      # ── Clean workspace — prevent _work/ accumulating 250 MB per run ──────
-      # Runs even on failure so disk is always reclaimed.
-      - name: Clean runner workspace
+      - name: Cleanup workspace
         if: always()
-        run: find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} \;
+        run: |
+          rm -rf "$GITHUB_WORKSPACE"/*

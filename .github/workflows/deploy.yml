@@ -1,4 +1,4 @@
-name: Deploy Help Bloomery to cPanel
+name: Deploy Help Bloomery
 
 on:
   push:
@@ -6,84 +6,175 @@ on:
       - main
       - staging
 
+# Cancel any in-flight deployment for the same branch when a new push arrives.
 concurrency:
   group: deploy-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   deploy:
+    name: Build & Deploy (${{ github.ref_name }})
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
+
+      # ── 1. Source ──────────────────────────────────────────────────────────
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Setup PHP & Composer
-      - name: Setup PHP
+      # ── 2. PHP 8.4 ────────────────────────────────────────────────────────
+      - name: Setup PHP 8.4
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.4"
           tools: composer
+          coverage: none
 
-      # 3. Prepare build environment
-      - name: Prepare build environment
-        run: |
-          cp .env.example .env
-          sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
-          sed -i "s|^DB_DATABASE=.*|DB_DATABASE=$(pwd)/database/database.sqlite|" .env
-          touch database/database.sqlite
+      # ── 3. Composer — vendor cached per composer.lock hash ────────────────
+      # vendor/ is deployed to the server because Composer is not available there.
+      - name: Cache Composer vendor
+        id: vendor-cache
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: vendor-nodev-${{ hashFiles('composer.lock') }}
 
-      # 4. Install Laravel dependencies (production mode)
       - name: Install PHP dependencies
-        run: composer install --no-dev --optimize-autoloader --prefer-dist --no-interaction
+        if: steps.vendor-cache.outputs.cache-hit != 'true'
+        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 
-      # 5. Generate app key
-      - name: Generate app key
-        run: php artisan key:generate --no-interaction
+      # Rebuild classmap so new application classes are indexed even on a cache hit.
+      - name: Regenerate optimized autoloader
+        if: steps.vendor-cache.outputs.cache-hit == 'true'
+        run: composer dump-autoload --optimize --no-dev
 
-      # 6. Setup Node.js
-      - name: Setup Node.js
+      # ── 4. Node.js 20 — npm cache via setup-node ─────────────────────────
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
 
-      # 7. Install frontend deps & build assets
-      - name: Install frontend dependencies & build
+      - name: Install npm dependencies
+        run: npm ci
+
+      # ── 5. Frontend build ─────────────────────────────────────────────────
+      - name: Build frontend assets
+        run: npm run build
+
+      # ── 6. Create release archive ─────────────────────────────────────────
+      # Only explicitly required paths are included — no .git, .github, tests,
+      # node_modules, .env, or generated runtime files.
+      # vendor/ is included because Composer is not installed on the server.
+      - name: Create release.zip
         run: |
-          npm ci
-          npm run build
+          zip -r release.zip \
+            app/ \
+            bootstrap/ \
+            config/ \
+            database/ \
+            public/ \
+            resources/ \
+            routes/ \
+            storage/ \
+            vendor/ \
+            artisan \
+            composer.json \
+            composer.lock \
+            package.json \
+            package-lock.json \
+            vite.config.js \
+            -x "database/database.sqlite" \
+            -x "bootstrap/cache/*" \
+            -x "storage/logs/*" \
+            -x "storage/framework/cache/*" \
+            -x "storage/framework/views/*" \
+            -x "storage/framework/sessions/*"
 
-      # 8. Hapus .env build sementara
-      - name: Remove build .env
-        run: rm -f .env database/database.sqlite
-
-      # 9. Deploy via FTPS
-      - name: Deploy to cPanel via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      # ── 7. Upload archive ─────────────────────────────────────────────────
+      - name: Upload release.zip via SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./
-          server-dir: ${{ github.ref_name == 'staging'
-            && '/public_html/stg.helpbloomery/'
-            || '/public_html/helpbloomery/' }}
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/.github/**
-            **/.env
-            **/node_modules/**
-            **/vendor/**
-            **/tests/**
-            **/storage/logs/**
-            **/storage/framework/cache/**
-            **/storage/framework/sessions/**
-            **/storage/framework/views/**
-            **/bootstrap/cache/*.php
-            **/*.log
-            **/.DS_Store
-            **/database/database.sqlite
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: release.zip
+          target: ~/
+
+      # ── 8. Deploy on server ───────────────────────────────────────────────
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            # ── Resolve deployment target ──────────────────────────────────
+            if [ "${{ github.ref_name }}" = "main" ]; then
+              DEPLOY_DIR="$HOME/public_html/helpbloomery"
+            else
+              DEPLOY_DIR="$HOME/public_html/stg.helpbloomery"
+            fi
+
+            echo "▶ Branch : ${{ github.ref_name }}"
+            echo "▶ Target : $DEPLOY_DIR"
+
+            # ── Ensure target directory exists ────────────────────────────
+            mkdir -p "$DEPLOY_DIR"
+
+            # ── Extract to a temp directory ───────────────────────────────
+            TEMP_DIR=$(mktemp -d -t release.XXXXXX)
+            # Always remove the temp dir on exit, success or failure.
+            trap 'rm -rf "$TEMP_DIR"' EXIT
+
+            echo "▶ Extracting release.zip..."
+            unzip -q "$HOME/release.zip" -d "$TEMP_DIR" || {
+              echo "FATAL: unzip failed — aborting"
+              exit 1
+            }
+            rm -f "$HOME/release.zip"
+
+            # ── Preserve .env — never overwrite ───────────────────────────
+            # The server's .env contains production credentials.
+            # If this is a first deploy and no .env exists yet, the release
+            # does not supply one either — create it manually on the server.
+            rm -f "$TEMP_DIR/.env"
+
+            # ── Preserve storage ───────────────────────────────────────────
+            # On first deploy: initialise storage from the release archive.
+            # On subsequent deploys: keep the live storage untouched so that
+            # user uploads, logs, and sessions are never lost.
+            if [ -d "$DEPLOY_DIR/storage" ]; then
+              echo "▶ Preserving existing storage/"
+              rm -rf "$TEMP_DIR/storage"
+            else
+              echo "▶ Initialising storage/ (first deploy)"
+            fi
+
+            # ── Replace application directories ────────────────────────────
+            # Each directory is deleted then replaced so stale files
+            # (e.g. removed classes in vendor/) do not survive across deploys.
+            echo "▶ Replacing application files..."
+            for dir in app bootstrap config database public resources routes vendor; do
+              if [ -d "$TEMP_DIR/$dir" ]; then
+                rm -rf   "${DEPLOY_DIR:?}/$dir"
+                cp -r    "$TEMP_DIR/$dir" "$DEPLOY_DIR/$dir"
+              fi
+            done
+
+            # ── Replace root-level files ───────────────────────────────────
+            # Copies artisan, composer.json, package.json, vite.config.js, etc.
+            # .env is absent from TEMP_DIR so it is never touched here.
+            find "$TEMP_DIR" -maxdepth 1 -type f -exec cp {} "$DEPLOY_DIR/" \;
+
+            # ── Optimise Laravel ───────────────────────────────────────────
+            echo "▶ Running php artisan optimize..."
+            cd "$DEPLOY_DIR"
+            php artisan optimize
+
+            echo "✓ Deployed successfully: ${{ github.ref_name }} → $DEPLOY_DIR"

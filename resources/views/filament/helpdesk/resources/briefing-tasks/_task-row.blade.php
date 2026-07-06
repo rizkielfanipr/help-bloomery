@@ -1,4 +1,4 @@
-<tr class="border-b border-gray-50 transition-colors last:border-0 hover:bg-primary-50/30 dark:border-white/[0.03] dark:hover:bg-primary-500/5">
+<tr class="transition-colors hover:bg-primary-50/30 dark:hover:bg-primary-500/5">
     <td class="w-8 px-4 py-2.5 text-xs text-gray-400 dark:text-gray-600">{{ $task->sort_order }}</td>
 
     <td class="px-4 py-2.5">

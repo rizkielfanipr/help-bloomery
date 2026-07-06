@@ -176,7 +176,7 @@
                     {{-- Named groups --}}
                     @foreach($grouped as $groupKey => $groupTasks)
                         @php $gLabel = $groupTasks->first()->group_label ?: $groupKey; @endphp
-                        <div x-data="{ gopen: true }" class="mx-3 mb-2 overflow-hidden rounded-lg bg-gray-50/50 ring-1 ring-inset ring-gray-100 dark:bg-white/[0.02] dark:ring-white/[0.06]">
+                        <div x-data="{ gopen: true }" class="mx-3 mb-2 overflow-hidden rounded-lg bg-gray-50/70 dark:bg-white/[0.03]">
                             <div @click="gopen = !gopen"
                                 class="flex cursor-pointer select-none items-center gap-2 px-3 py-2">
                                 <x-heroicon-o-folder-open class="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" x-show="gopen" />
@@ -208,7 +208,7 @@
 
                     {{-- Pending (new, empty) groups --}}
                     @foreach($pendingForPeriod as $pg)
-                        <div class="mx-3 mb-2 overflow-hidden rounded-lg bg-gray-50/50 ring-1 ring-inset ring-gray-100 dark:bg-white/[0.02] dark:ring-white/[0.06]">
+                        <div class="mx-3 mb-2 overflow-hidden rounded-lg bg-gray-50/70 dark:bg-white/[0.03]">
                             <div class="flex items-center gap-2 px-3 py-2">
                                 <x-heroicon-o-folder-open class="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" />
                                 <span class="flex-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ $pg['label'] }}</span>

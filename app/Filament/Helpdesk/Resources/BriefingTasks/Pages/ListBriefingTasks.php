@@ -24,16 +24,37 @@ class ListBriefingTasks extends Page
 
     public ?int $pendingDeleteId = null;
 
+    // ── Quick-add state ──────────────────────────────────────────────────────
+    /** group key being added to, or null for ungrouped */
     public ?string $addingToGroup = null;
 
     public ?string $addingGroupLabel = null;
 
+    /** period section being added to (for ungrouped quick-add) */
+    public ?string $addingToPeriod = null;
+
     /** @var array{label: string, period: string, submission_type: string} */
     public array $quickAdd = ['label' => '', 'period' => 'daily', 'submission_type' => 'checkbox'];
 
+    // ── New-group creation state ─────────────────────────────────────────────
+    public ?string $creatingGroupForPeriod = null;
+
+    public string $newGroupLabel = '';
+
+    /**
+     * Groups created in this session but with no DB tasks yet.
+     * Shape: ['daily' => [['key' => 'xxx', 'label' => 'Xxx'], ...], ...]
+     *
+     * @var array<string, array<int, array{key: string, label: string}>>
+     */
+    public array $pendingGroups = [];
+
+    // ── Copy panel state ─────────────────────────────────────────────────────
     public bool $copyPanelOpen = false;
 
     public ?int $copySourceBranchId = null;
+
+    // ── Page helpers ─────────────────────────────────────────────────────────
 
     public function getTitle(): string|Htmlable
     {
@@ -45,45 +66,78 @@ class ListBriefingTasks extends Page
         return [];
     }
 
+    // ── Branch selection ─────────────────────────────────────────────────────
+
     public function selectBranch(int $branchId, string $branchName): void
     {
         $this->selectedBranchId = $branchId;
         $this->selectedBranchName = $branchName;
-        $this->pendingDeleteId = null;
-        $this->copyPanelOpen = false;
-        $this->copySourceBranchId = null;
+        $this->resetInteractionState();
     }
 
     public function selectGlobal(): void
     {
         $this->selectedBranchId = 0;
         $this->selectedBranchName = 'Global (Semua Branch)';
-        $this->pendingDeleteId = null;
-        $this->copyPanelOpen = false;
-        $this->copySourceBranchId = null;
+        $this->resetInteractionState();
     }
 
     public function clearSelection(): void
     {
         $this->selectedBranchId = null;
         $this->selectedBranchName = null;
+        $this->resetInteractionState();
+    }
+
+    private function resetInteractionState(): void
+    {
         $this->pendingDeleteId = null;
         $this->copyPanelOpen = false;
         $this->copySourceBranchId = null;
+        $this->cancelQuickAdd();
+        $this->cancelNewGroup();
+        $this->pendingGroups = [];
     }
 
-    public function startQuickAdd(string $group, string $groupLabel): void
+    // ── Quick-add ────────────────────────────────────────────────────────────
+
+    public function startGroupQuickAdd(string $group, string $groupLabel, string $period): void
     {
         $this->addingToGroup = $group;
         $this->addingGroupLabel = $groupLabel;
-        $this->quickAdd = ['label' => '', 'period' => 'daily', 'submission_type' => 'checkbox'];
+        $this->addingToPeriod = null;
+        $this->quickAdd = ['label' => '', 'period' => $period, 'submission_type' => 'checkbox'];
         $this->pendingDeleteId = null;
+        $this->creatingGroupForPeriod = null;
+    }
+
+    public function startPeriodQuickAdd(string $period): void
+    {
+        $this->addingToPeriod = $period;
+        $this->addingToGroup = null;
+        $this->addingGroupLabel = null;
+        $this->quickAdd = ['label' => '', 'period' => $period, 'submission_type' => 'checkbox'];
+        $this->pendingDeleteId = null;
+        $this->creatingGroupForPeriod = null;
     }
 
     public function cancelQuickAdd(): void
     {
+        // If the group is a pending (empty) group, remove it so it disappears
+        if ($this->addingToGroup !== null) {
+            $period = $this->quickAdd['period'] ?? null;
+
+            if ($period && isset($this->pendingGroups[$period])) {
+                $this->pendingGroups[$period] = array_values(array_filter(
+                    $this->pendingGroups[$period],
+                    fn ($g) => $g['key'] !== $this->addingToGroup
+                ));
+            }
+        }
+
         $this->addingToGroup = null;
         $this->addingGroupLabel = null;
+        $this->addingToPeriod = null;
     }
 
     public function saveQuickTask(): void
@@ -126,10 +180,66 @@ class ListBriefingTasks extends Page
             'is_active' => true,
         ]);
 
-        $this->cancelQuickAdd();
+        // Remove from pendingGroups now that a task exists
+        $period = $this->quickAdd['period'];
+
+        if ($group && isset($this->pendingGroups[$period])) {
+            $this->pendingGroups[$period] = array_values(array_filter(
+                $this->pendingGroups[$period],
+                fn ($g) => $g['key'] !== $group
+            ));
+        }
+
+        // Keep the quick-add open so user can add more tasks to same context
+        $this->quickAdd['label'] = '';
 
         Notification::make()->title('Poin berhasil ditambahkan.')->success()->send();
     }
+
+    // ── New group ────────────────────────────────────────────────────────────
+
+    public function startNewGroup(string $period): void
+    {
+        $this->creatingGroupForPeriod = $period;
+        $this->newGroupLabel = '';
+        $this->addingToGroup = null;
+        $this->addingGroupLabel = null;
+        $this->addingToPeriod = null;
+    }
+
+    public function saveNewGroup(): void
+    {
+        $this->validate(['newGroupLabel' => 'required|string|max:100']);
+
+        $key = preg_replace('/[^a-z0-9]+/', '_', strtolower($this->newGroupLabel));
+        $key = trim($key, '_') ?: 'group';
+
+        // Ensure key is unique within this period's pending groups
+        $existing = collect($this->pendingGroups[$this->creatingGroupForPeriod] ?? [])->pluck('key')->all();
+        $finalKey = $key;
+        $suffix = 2;
+        while (in_array($finalKey, $existing)) {
+            $finalKey = $key.'_'.$suffix++;
+        }
+
+        $this->pendingGroups[$this->creatingGroupForPeriod][] = [
+            'key' => $finalKey,
+            'label' => $this->newGroupLabel,
+        ];
+
+        // Immediately open quick-add for the new group
+        $this->startGroupQuickAdd($finalKey, $this->newGroupLabel, $this->creatingGroupForPeriod);
+        $this->creatingGroupForPeriod = null;
+        $this->newGroupLabel = '';
+    }
+
+    public function cancelNewGroup(): void
+    {
+        $this->creatingGroupForPeriod = null;
+        $this->newGroupLabel = '';
+    }
+
+    // ── Delete ───────────────────────────────────────────────────────────────
 
     public function confirmDelete(int $taskId): void
     {
@@ -146,6 +256,8 @@ class ListBriefingTasks extends Page
         BriefingTask::find($taskId)?->delete();
         $this->pendingDeleteId = null;
     }
+
+    // ── Copy panel ───────────────────────────────────────────────────────────
 
     public function toggleCopyPanel(): void
     {
@@ -169,7 +281,6 @@ class ListBriefingTasks extends Page
 
         $targetBranchId = $this->selectedBranchId === 0 ? null : $this->selectedBranchId;
 
-        // Delete existing tasks for target before replacing
         BriefingTask::when(
             $targetBranchId === null,
             fn ($q) => $q->whereNull('branch_id'),
@@ -202,11 +313,9 @@ class ListBriefingTasks extends Page
 
         $this->copyPanelOpen = false;
         $this->copySourceBranchId = null;
+        $this->pendingGroups = [];
 
-        Notification::make()
-            ->title("{$copied} poin berhasil disalin.")
-            ->success()
-            ->send();
+        Notification::make()->title("{$copied} poin berhasil disalin.")->success()->send();
     }
 
     private function resolveUniqueKey(string $baseKey): string
@@ -219,6 +328,8 @@ class ListBriefingTasks extends Page
 
         return $key;
     }
+
+    // ── Computed ─────────────────────────────────────────────────────────────
 
     #[Computed]
     public function branches(): Collection
@@ -242,22 +353,17 @@ class ListBriefingTasks extends Page
             return new Collection;
         }
 
-        if ($this->selectedBranchId === 0) {
-            return BriefingTask::whereNull('branch_id')
-                ->orderByRaw('ISNULL(`group`), `group`')
-                ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
-                ->orderBy('sort_order')
-                ->get();
-        }
+        $query = $this->selectedBranchId === 0
+            ? BriefingTask::whereNull('branch_id')
+            : BriefingTask::where('branch_id', $this->selectedBranchId);
 
-        return BriefingTask::where('branch_id', $this->selectedBranchId)
-            ->orderByRaw('ISNULL(`group`), `group`')
+        return $query
             ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
+            ->orderByRaw('ISNULL(`group`), `group`')
             ->orderBy('sort_order')
             ->get();
     }
 
-    /** Options for the copy-source select: Global + all branches */
     #[Computed]
     public function copySourceOptions(): array
     {
@@ -268,7 +374,6 @@ class ListBriefingTasks extends Page
                 ->toArray();
     }
 
-    /** Preview of tasks that will be copied from the selected source */
     #[Computed]
     public function sourceTasks(): Collection
     {
@@ -278,16 +383,18 @@ class ListBriefingTasks extends Page
 
         if ($this->copySourceBranchId === 0) {
             return BriefingTask::whereNull('branch_id')
-                ->orderBy('period')
+                ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
                 ->orderBy('sort_order')
                 ->get();
         }
 
         return BriefingTask::where('branch_id', $this->copySourceBranchId)
-            ->orderBy('period')
+            ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
             ->orderBy('sort_order')
             ->get();
     }
+
+    // ── URL helpers ──────────────────────────────────────────────────────────
 
     public function getCreateUrl(): string
     {
@@ -298,24 +405,6 @@ class ListBriefingTasks extends Page
         }
 
         return $url;
-    }
-
-    public function getCreateUrlForGroup(?string $group, ?string $groupLabel): string
-    {
-        $params = [];
-
-        if ($this->selectedBranchId !== null && $this->selectedBranchId !== 0) {
-            $params['branch_id'] = $this->selectedBranchId;
-        }
-
-        if ($group !== null) {
-            $params['group'] = $group;
-            $params['group_label'] = $groupLabel;
-        }
-
-        $url = BriefingTaskResource::getUrl('create');
-
-        return empty($params) ? $url : $url.'?'.http_build_query($params);
     }
 
     public function getEditUrl(int $taskId): string

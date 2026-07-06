@@ -239,6 +239,26 @@ class ListBriefingTasks extends Page
         $this->newGroupLabel = '';
     }
 
+    // ── Reorder ──────────────────────────────────────────────────────────────
+
+    public function reorderTask(int $draggedId, int $targetId): void
+    {
+        if ($draggedId === $targetId) {
+            return;
+        }
+
+        $dragged = BriefingTask::find($draggedId);
+        $target = BriefingTask::find($targetId);
+
+        if (! $dragged || ! $target) {
+            return;
+        }
+
+        [$dragged->sort_order, $target->sort_order] = [$target->sort_order, $dragged->sort_order];
+        $dragged->save();
+        $target->save();
+    }
+
     // ── Delete ───────────────────────────────────────────────────────────────
 
     public function confirmDelete(int $taskId): void

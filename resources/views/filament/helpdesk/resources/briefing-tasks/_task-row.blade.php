@@ -1,5 +1,18 @@
-<tr class="transition-colors hover:bg-primary-50/30 dark:hover:bg-primary-500/5">
-    <td class="w-8 px-4 py-2.5 text-xs text-gray-400 dark:text-gray-600">{{ $task->sort_order }}</td>
+<tr draggable="true"
+    x-on:dragstart="draggingId = {{ $task->id }}"
+    x-on:dragend="draggingId = null; dragoverTarget = null"
+    x-on:dragover.prevent="dragoverTarget = {{ $task->id }}"
+    x-on:dragleave="dragoverTarget = null"
+    x-on:drop.prevent="$wire.reorderTask(draggingId, {{ $task->id }}); draggingId = null; dragoverTarget = null"
+    :class="{
+        'opacity-40': draggingId === {{ $task->id }},
+        'bg-primary-50/40 dark:bg-primary-500/10': dragoverTarget === {{ $task->id }} && draggingId !== {{ $task->id }}
+    }"
+    class="transition-colors hover:bg-primary-50/30 dark:hover:bg-primary-500/5">
+
+    <td class="w-6 px-2 py-2.5 cursor-grab text-gray-300 dark:text-gray-600 active:cursor-grabbing">
+        <x-heroicon-o-bars-3 class="h-4 w-4" />
+    </td>
 
     <td class="px-4 py-2.5">
         <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $task->label }}</p>

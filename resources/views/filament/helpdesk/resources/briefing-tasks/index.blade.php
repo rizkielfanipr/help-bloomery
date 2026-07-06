@@ -162,7 +162,7 @@
                     {{-- Ungrouped tasks --}}
                     @if($ungrouped->isNotEmpty() || ($addingToPeriod === $period['value'] && ! $addingToGroup))
                         <table class="w-full text-sm">
-                            <tbody>
+                            <tbody x-data="{ draggingId: null, dragoverTarget: null }" x-on:dragover.prevent>
                                 @foreach($ungrouped as $task)
                                     @include('filament.helpdesk.resources.briefing-tasks._task-row', ['task' => $task])
                                 @endforeach
@@ -193,7 +193,7 @@
                             </div>
                             <div x-show="gopen" x-collapse>
                                 <table class="w-full text-sm">
-                                    <tbody>
+                                    <tbody x-data="{ draggingId: null, dragoverTarget: null }" x-on:dragover.prevent>
                                         @foreach($groupTasks as $task)
                                             @include('filament.helpdesk.resources.briefing-tasks._task-row', ['task' => $task])
                                         @endforeach
@@ -215,7 +215,7 @@
                                 <span class="text-xs italic text-gray-300 dark:text-gray-600">baru</span>
                             </div>
                             <table class="w-full text-sm">
-                                <tbody>
+                                <tbody x-data="{ draggingId: null, dragoverTarget: null }" x-on:dragover.prevent>
                                     @if($addingToGroup === $pg['key'] && $quickAdd['period'] === $period['value'])
                                         @include('filament.helpdesk.resources.briefing-tasks._quick-add-row', ['period' => $period, 'badge' => $badge])
                                     @endif

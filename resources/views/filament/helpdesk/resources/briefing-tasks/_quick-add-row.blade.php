@@ -8,7 +8,7 @@
                 type="text"
                 placeholder="Nama poin baru…"
                 autofocus
-                class="flex-1 min-w-40 rounded-lg border border-primary-300 bg-white px-3 py-1.5 text-sm text-gray-800 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-primary-700 dark:bg-gray-900 dark:text-gray-200 dark:placeholder-gray-500"
+                class="flex-1 min-w-40 rounded-lg border border-primary-300 bg-white px-3 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-primary-700 dark:bg-gray-900 dark:text-gray-200 dark:placeholder-gray-500"
             />
 
             {{-- Period shown as a fixed badge (context from section) --}}
@@ -18,7 +18,7 @@
 
             <select
                 wire:model="quickAdd.submission_type"
-                class="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300"
+                class="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300"
             >
                 <option value="checkbox">Centang Selesai</option>
                 <option value="photo">Foto Bebas</option>
@@ -30,7 +30,7 @@
             <button
                 wire:click="saveQuickTask"
                 wire:loading.attr="disabled"
-                class="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700 disabled:opacity-60"
+                class="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
             >
                 <span wire:loading.remove wire:target="saveQuickTask">Simpan</span>
                 <span wire:loading wire:target="saveQuickTask">…</span>

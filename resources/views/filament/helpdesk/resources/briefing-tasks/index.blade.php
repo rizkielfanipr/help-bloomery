@@ -3,44 +3,34 @@
 {{-- ═══ BRANCH CARDS ═══ --}}
 @if($this->selectedBranchId === null)
 
-    <div class="space-y-5">
-        <p class="text-sm text-gray-500 dark:text-gray-400">
+    <div class="space-y-4">
+        <p class="text-sm text-gray-400 dark:text-gray-500">
             Pilih branch untuk melihat dan mengelola poin briefingnya.
         </p>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <button wire:click="selectGlobal"
-                class="group flex flex-col gap-3 rounded-xl border border-gray-100 bg-white p-4 text-left transition-colors hover:border-gray-300 dark:border-white/[0.06] dark:bg-gray-900 dark:hover:border-white/20">
-                <div class="flex items-center gap-3">
-                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/[0.06]">
-                        <x-heroicon-o-globe-alt class="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                    </div>
-                    <div>
-                        <p class="text-sm font-semibold text-gray-800 dark:text-white">Global</p>
-                        <p class="text-xs text-gray-400 dark:text-gray-500">Semua Branch</p>
-                    </div>
+                class="group flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3.5 text-left transition-colors hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-white/[0.06]">
+                    <x-heroicon-o-globe-alt class="h-4 w-4 text-gray-400 dark:text-gray-500" />
                 </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ $this->globalTaskCount }} poin</span>
-                    <x-heroicon-o-chevron-right class="h-3.5 w-3.5 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600" />
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-gray-800 dark:text-white">Global</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500">{{ $this->globalTaskCount }} poin · Semua Branch</p>
                 </div>
+                <x-heroicon-o-chevron-right class="h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600" />
             </button>
 
             @foreach($this->branches as $branch)
                 <button wire:click="selectBranch({{ $branch->id }}, '{{ addslashes($branch->name) }}')"
-                    class="group flex flex-col gap-3 rounded-xl border border-gray-100 bg-white p-4 text-left transition-colors hover:border-gray-300 dark:border-white/[0.06] dark:bg-gray-900 dark:hover:border-white/20">
-                    <div class="flex items-center gap-3">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/[0.06]">
-                            <x-heroicon-o-building-storefront class="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                        </div>
-                        <div class="min-w-0">
-                            <p class="truncate text-sm font-semibold text-gray-800 dark:text-white">{{ $branch->name }}</p>
-                            <p class="text-xs text-gray-400 dark:text-gray-500">Branch</p>
-                        </div>
+                    class="group flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3.5 text-left transition-colors hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-white/[0.06]">
+                        <x-heroicon-o-building-storefront class="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs text-gray-400 dark:text-gray-500">{{ $branch->briefing_tasks_count }} poin</span>
-                        <x-heroicon-o-chevron-right class="h-3.5 w-3.5 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600" />
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-sm font-semibold text-gray-800 dark:text-white">{{ $branch->name }}</p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">{{ $branch->briefing_tasks_count }} poin · Branch</p>
                     </div>
+                    <x-heroicon-o-chevron-right class="h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600" />
                 </button>
             @endforeach
         </div>

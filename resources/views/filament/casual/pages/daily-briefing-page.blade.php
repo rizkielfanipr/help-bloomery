@@ -423,7 +423,9 @@
                                             <span class="text-xs text-gray-400">{{ $task['noteType'] }}</span>
                                         @endif
                                         @if($task['completedAt'] && ! $isRejected && ! $isPending)
-                                            <span class="text-xs text-gray-400">{{ $task['completedAt']->format('H:i') }}</span>
+                                            <span class="text-xs text-gray-400">{{ $task['completedAt']->format('H.i') }}</span>
+                                        @elseif(! $task['isCompleted'] && ! $isPastDL && $task['deadlineLabel'])
+                                            <span class="text-xs text-gray-400">{{ $task['deadlineLabel'] }}</span>
                                         @endif
                                     </div>
                                     @if($isRejected && $task['rejectionReason'])

@@ -66,6 +66,29 @@ class BriefingTask extends Model
         return $deadline !== null && now()->isAfter($deadline);
     }
 
+    public function deadlineLabel(): ?string
+    {
+        if (! $this->deadline_enabled || ! $this->deadline_time) {
+            return null;
+        }
+
+        [$hour, $minute] = array_map('intval', explode(':', $this->deadline_time));
+        $time = sprintf('%02d.%02d', $hour, $minute);
+
+        return match ($this->period) {
+            BriefingPeriod::Daily => "Batas: {$time}",
+            BriefingPeriod::Weekly => 'Batas: '.($this->indonesianDay($this->deadline_day ?? 5))." {$time}",
+            BriefingPeriod::Monthly => ($this->deadline_day === 0 || $this->deadline_day === null)
+                ? "Batas: Akhir bulan {$time}"
+                : "Batas: Tgl. {$this->deadline_day} pukul {$time}",
+        };
+    }
+
+    private function indonesianDay(int $day): string
+    {
+        return ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'][max(0, $day - 1)];
+    }
+
     /** @return Collection<int, self> */
     public static function forPeriod(BriefingPeriod $period, ?int $branchId = null): Collection
     {

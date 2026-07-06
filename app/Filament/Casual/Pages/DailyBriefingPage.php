@@ -141,6 +141,16 @@ class DailyBriefingPage extends Page
         $submissionType = $task->submission_type;
         $period = $task->period;
 
+        if ($task->isPastDeadline()) {
+            Notification::make()
+                ->title('Deadline Terlewat')
+                ->body('Waktu pengisian sudah berakhir. Tugas ini tidak dapat disubmit.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         if ($submissionType->requiresPhoto() && empty($this->cameraPhotoPaths)) {
             Notification::make()
                 ->title('Foto Diperlukan')
@@ -257,6 +267,7 @@ class DailyBriefingPage extends Page
                     'reviewStatus' => $item?->review_status,
                     'rejectionReason' => $item?->rejection_reason,
                     'isPastDeadline' => $task->isPastDeadline() && ! ($item?->is_completed),
+                    'deadlineLabel' => $task->deadlineLabel(),
                 ];
             })->all();
 

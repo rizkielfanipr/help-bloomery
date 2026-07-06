@@ -181,6 +181,7 @@ class CasualPositionResource extends Resource
                     ->color('success')
                     ->iconButton()
                     ->tooltip('Tambah Posisi')
+                    ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
 
                 Action::make('import_excel')

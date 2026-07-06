@@ -210,6 +210,7 @@ class ServiceRequestResource extends Resource
                     ->color('success')
                     ->iconButton()
                     ->tooltip('Tambah Permintaan')
+                    ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
 
                 Action::make('import_excel')

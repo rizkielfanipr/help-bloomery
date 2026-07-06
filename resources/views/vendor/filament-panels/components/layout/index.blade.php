@@ -30,7 +30,7 @@
     if (str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-scores')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver|fuel-type/', $path))        { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
-    if (preg_match('/\busers?\b|\broles?\b/', $path))                { $initialOpen[] = 'management'; }
+    if (preg_match('/\busers?\b|\broles?\b/', $path) || str_contains($path, 'permissions-page')) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches'))                              { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'payment-method')) { $initialOpen[] = 'finance'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
@@ -123,8 +123,9 @@
             'label' => 'Management Access',
             'icon'  => 'shield',
             'items' => [
-                ['label' => 'Pengguna',          'icon' => 'user', 'perm' => 'view users', 'href' => $r('filament.helpdesk.resources.users.index'), 'active' => request()->is('helpdesk/users*')],
-                ['label' => 'Role & Permission', 'icon' => 'lock', 'perm' => 'view roles', 'href' => $r('filament.helpdesk.resources.roles.index'), 'active' => request()->is('helpdesk/roles*')],
+                ['label' => 'Pengguna',          'icon' => 'user',        'perm' => 'view users', 'href' => $r('filament.helpdesk.resources.users.index'), 'active' => request()->is('helpdesk/users*')],
+                ['label' => 'Role & Permission', 'icon' => 'lock',        'perm' => 'view roles', 'href' => $r('filament.helpdesk.resources.roles.index'), 'active' => request()->is('helpdesk/roles*')],
+                ['label' => 'Permissions',       'icon' => 'key',         'perm' => 'view roles', 'href' => $r('filament.helpdesk.pages.permissions-page'), 'active' => request()->is('helpdesk/permissions-page*')],
             ],
         ],
         [

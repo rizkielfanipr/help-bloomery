@@ -131,6 +131,7 @@ class BranchResource extends Resource
                     ->color('success')
                     ->iconButton()
                     ->tooltip('Tambah Branch')
+                    ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
 
                 BulkActionGroup::make([

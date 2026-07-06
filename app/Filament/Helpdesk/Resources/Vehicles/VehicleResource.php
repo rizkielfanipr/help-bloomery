@@ -118,6 +118,7 @@ class VehicleResource extends Resource
                     ->color('success')
                     ->iconButton()
                     ->tooltip('Tambah Kendaraan')
+                    ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
 
                 Action::make('import_excel')

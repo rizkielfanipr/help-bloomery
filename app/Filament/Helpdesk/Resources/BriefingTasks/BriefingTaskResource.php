@@ -104,12 +104,14 @@ class BriefingTaskResource extends Resource
                         ->label('Grup (key)')
                         ->maxLength(100)
                         ->nullable()
-                        ->helperText('Isi jika poin ini bagian dari grup yang bisa di-collapse, misal: general_cleaning.'),
+                        ->default(fn () => request()->get('group'))
+                        ->helperText('Hanya huruf kecil, angka, underscore. Misal: general_cleaning.'),
 
                     TextInput::make('group_label')
                         ->label('Nama Grup')
                         ->maxLength(100)
                         ->nullable()
+                        ->default(fn () => request()->get('group_label'))
                         ->helperText('Label yang tampil di header grup, misal: General Cleaning.'),
                 ]),
 

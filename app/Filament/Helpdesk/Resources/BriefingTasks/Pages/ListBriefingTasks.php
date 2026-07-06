@@ -24,6 +24,13 @@ class ListBriefingTasks extends Page
 
     public ?int $pendingDeleteId = null;
 
+    public ?string $addingToGroup = null;
+
+    public ?string $addingGroupLabel = null;
+
+    /** @var array{label: string, period: string, submission_type: string} */
+    public array $quickAdd = ['label' => '', 'period' => 'daily', 'submission_type' => 'checkbox'];
+
     public bool $copyPanelOpen = false;
 
     public ?int $copySourceBranchId = null;
@@ -65,6 +72,65 @@ class ListBriefingTasks extends Page
         $this->copySourceBranchId = null;
     }
 
+    public function startQuickAdd(string $group, string $groupLabel): void
+    {
+        $this->addingToGroup = $group;
+        $this->addingGroupLabel = $groupLabel;
+        $this->quickAdd = ['label' => '', 'period' => 'daily', 'submission_type' => 'checkbox'];
+        $this->pendingDeleteId = null;
+    }
+
+    public function cancelQuickAdd(): void
+    {
+        $this->addingToGroup = null;
+        $this->addingGroupLabel = null;
+    }
+
+    public function saveQuickTask(): void
+    {
+        $this->validate([
+            'quickAdd.label' => 'required|string|max:255',
+            'quickAdd.period' => 'required|in:daily,weekly,monthly',
+            'quickAdd.submission_type' => 'required',
+        ]);
+
+        $branchId = $this->selectedBranchId === 0 ? null : $this->selectedBranchId;
+        $group = $this->addingToGroup ?: null;
+
+        $baseKey = preg_replace('/[^a-z0-9]+/', '_', strtolower($this->quickAdd['label']));
+        $baseKey = trim($baseKey, '_') ?: 'task';
+        $key = $baseKey;
+        $i = 2;
+        while (BriefingTask::where('key', $key)->exists()) {
+            $key = $baseKey.'_'.$i++;
+        }
+
+        $maxSort = BriefingTask::when(
+            $branchId === null,
+            fn ($q) => $q->whereNull('branch_id'),
+            fn ($q) => $q->where('branch_id', $branchId)
+        )
+            ->where(fn ($q) => $group ? $q->where('group', $group) : $q->whereNull('group'))
+            ->where('period', $this->quickAdd['period'])
+            ->max('sort_order') ?? 0;
+
+        BriefingTask::create([
+            'branch_id' => $branchId,
+            'key' => $key,
+            'label' => $this->quickAdd['label'],
+            'period' => $this->quickAdd['period'],
+            'submission_type' => $this->quickAdd['submission_type'],
+            'group' => $group,
+            'group_label' => $this->addingGroupLabel ?: null,
+            'sort_order' => $maxSort + 10,
+            'is_active' => true,
+        ]);
+
+        $this->cancelQuickAdd();
+
+        Notification::make()->title('Poin berhasil ditambahkan.')->success()->send();
+    }
+
     public function confirmDelete(int $taskId): void
     {
         $this->pendingDeleteId = $taskId;
@@ -102,6 +168,14 @@ class ListBriefingTasks extends Page
         }
 
         $targetBranchId = $this->selectedBranchId === 0 ? null : $this->selectedBranchId;
+
+        // Delete existing tasks for target before replacing
+        BriefingTask::when(
+            $targetBranchId === null,
+            fn ($q) => $q->whereNull('branch_id'),
+            fn ($q) => $q->where('branch_id', $targetBranchId)
+        )->delete();
+
         $copied = 0;
 
         foreach ($sourceTasks as $task) {
@@ -170,13 +244,15 @@ class ListBriefingTasks extends Page
 
         if ($this->selectedBranchId === 0) {
             return BriefingTask::whereNull('branch_id')
-                ->orderBy('period')
+                ->orderByRaw('ISNULL(`group`), `group`')
+                ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
                 ->orderBy('sort_order')
                 ->get();
         }
 
         return BriefingTask::where('branch_id', $this->selectedBranchId)
-            ->orderBy('period')
+            ->orderByRaw('ISNULL(`group`), `group`')
+            ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
             ->orderBy('sort_order')
             ->get();
     }
@@ -222,6 +298,24 @@ class ListBriefingTasks extends Page
         }
 
         return $url;
+    }
+
+    public function getCreateUrlForGroup(?string $group, ?string $groupLabel): string
+    {
+        $params = [];
+
+        if ($this->selectedBranchId !== null && $this->selectedBranchId !== 0) {
+            $params['branch_id'] = $this->selectedBranchId;
+        }
+
+        if ($group !== null) {
+            $params['group'] = $group;
+            $params['group_label'] = $groupLabel;
+        }
+
+        $url = BriefingTaskResource::getUrl('create');
+
+        return empty($params) ? $url : $url.'?'.http_build_query($params);
     }
 
     public function getEditUrl(int $taskId): string

@@ -16,6 +16,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Spatie\Permission\Models\Role;
 use UnitEnum;
 
@@ -36,7 +37,27 @@ class RoleResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('super_admin');
+        return auth()->user()?->can('view roles') ?? false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->can('create roles') ?? false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()?->can('edit roles') ?? false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()?->can('delete roles') ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->can('delete roles') ?? false;
     }
 
     public static function form(Schema $schema): Schema

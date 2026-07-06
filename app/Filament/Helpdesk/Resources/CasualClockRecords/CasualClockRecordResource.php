@@ -325,6 +325,7 @@ class CasualClockRecordResource extends Resource
                     ->color('success')
                     ->iconButton()
                     ->tooltip('Tambah Absensi')
+                    ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
 
                 Action::make('import_excel')

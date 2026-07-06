@@ -154,6 +154,7 @@ class TripRouteResource extends Resource
                     ->color('success')
                     ->iconButton()
                     ->tooltip('Tambah Rute')
+                    ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
 
                 Action::make('import_excel')

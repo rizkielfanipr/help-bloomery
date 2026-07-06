@@ -201,6 +201,7 @@ class CasualPositionOpeningResource extends Resource
                     ->color('success')
                     ->iconButton()
                     ->tooltip('Buat Lowongan Baru')
+                    ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
 
                 BulkActionGroup::make([

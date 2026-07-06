@@ -7,30 +7,30 @@
         <p class="text-sm text-gray-400 dark:text-gray-500">
             Pilih branch untuk melihat dan mengelola poin briefingnya.
         </p>
-        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             <button wire:click="selectGlobal"
-                class="group flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3.5 text-left transition-colors hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]">
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-white/[0.06]">
-                    <x-heroicon-o-globe-alt class="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                class="group flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3.5 text-left transition-all hover:border-primary-200 hover:bg-primary-50/30 dark:border-white/[0.07] dark:bg-gray-900 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/5">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 dark:bg-primary-500/10">
+                    <x-heroicon-o-globe-alt class="h-4 w-4 text-primary-500 dark:text-primary-400" />
                 </div>
                 <div class="min-w-0 flex-1">
                     <p class="text-sm font-semibold text-gray-800 dark:text-white">Global</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500">{{ $this->globalTaskCount }} poin · Semua Branch</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600" />
+                <x-heroicon-o-chevron-right class="h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-400 dark:text-gray-600" />
             </button>
 
             @foreach($this->branches as $branch)
                 <button wire:click="selectBranch({{ $branch->id }}, '{{ addslashes($branch->name) }}')"
-                    class="group flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3.5 text-left transition-colors hover:bg-gray-100 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]">
-                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white dark:bg-white/[0.06]">
-                        <x-heroicon-o-building-storefront class="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                    class="group flex items-center gap-3 rounded-xl border border-gray-100 bg-white px-4 py-3.5 text-left transition-all hover:border-primary-200 hover:bg-primary-50/30 dark:border-white/[0.07] dark:bg-gray-900 dark:hover:border-primary-500/30 dark:hover:bg-primary-500/5">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 dark:bg-primary-500/10">
+                        <x-heroicon-o-building-storefront class="h-4 w-4 text-primary-500 dark:text-primary-400" />
                     </div>
                     <div class="min-w-0 flex-1">
                         <p class="truncate text-sm font-semibold text-gray-800 dark:text-white">{{ $branch->name }}</p>
                         <p class="text-xs text-gray-400 dark:text-gray-500">{{ $branch->briefing_tasks_count }} poin · Branch</p>
                     </div>
-                    <x-heroicon-o-chevron-right class="h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 dark:text-gray-600" />
+                    <x-heroicon-o-chevron-right class="h-3.5 w-3.5 shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary-400 dark:text-gray-600" />
                 </button>
             @endforeach
         </div>
@@ -176,7 +176,7 @@
                     {{-- Named groups --}}
                     @foreach($grouped as $groupKey => $groupTasks)
                         @php $gLabel = $groupTasks->first()->group_label ?: $groupKey; @endphp
-                        <div x-data="{ gopen: true }" class="mx-3 mb-2 overflow-hidden rounded-lg bg-gray-50/60 dark:bg-white/[0.02]">
+                        <div x-data="{ gopen: true }" class="mx-3 mb-2 overflow-hidden rounded-lg border border-gray-100 bg-white dark:border-white/[0.06] dark:bg-gray-900/40">
                             <div @click="gopen = !gopen"
                                 class="flex cursor-pointer select-none items-center gap-2 px-3 py-2">
                                 <x-heroicon-o-folder-open class="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" x-show="gopen" />
@@ -208,7 +208,7 @@
 
                     {{-- Pending (new, empty) groups --}}
                     @foreach($pendingForPeriod as $pg)
-                        <div class="mx-3 mb-2 overflow-hidden rounded-lg bg-gray-50/60 dark:bg-white/[0.02]">
+                        <div class="mx-3 mb-2 overflow-hidden rounded-lg border border-gray-100 bg-white dark:border-white/[0.06] dark:bg-gray-900/40">
                             <div class="flex items-center gap-2 px-3 py-2">
                                 <x-heroicon-o-folder-open class="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" />
                                 <span class="flex-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ $pg['label'] }}</span>

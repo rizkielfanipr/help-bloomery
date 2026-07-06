@@ -162,7 +162,7 @@
                     {{-- Ungrouped tasks --}}
                     @if($ungrouped->isNotEmpty() || ($addingToPeriod === $period['value'] && ! $addingToGroup))
                         <table class="w-full text-sm">
-                            <tbody class="divide-y divide-gray-50 dark:divide-white/[0.03]">
+                            <tbody>
                                 @foreach($ungrouped as $task)
                                     @include('filament.helpdesk.resources.briefing-tasks._task-row', ['task' => $task])
                                 @endforeach
@@ -176,17 +176,16 @@
                     {{-- Named groups --}}
                     @foreach($grouped as $groupKey => $groupTasks)
                         @php $gLabel = $groupTasks->first()->group_label ?: $groupKey; @endphp
-                        <div x-data="{ gopen: true }" class="border-t border-gray-50 dark:border-white/[0.03]">
+                        <div x-data="{ gopen: true }" class="mx-3 mb-2 overflow-hidden rounded-lg bg-gray-50/60 dark:bg-white/[0.02]">
                             <div @click="gopen = !gopen"
-                                class="flex cursor-pointer select-none items-center gap-2 border-b border-gray-50 bg-gray-50/50 px-4 py-2 dark:border-white/[0.03] dark:bg-white/[0.02]"
-                                :class="gopen ? '' : 'border-transparent'">
+                                class="flex cursor-pointer select-none items-center gap-2 px-3 py-2">
                                 <x-heroicon-o-folder-open class="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" x-show="gopen" />
                                 <x-heroicon-o-folder class="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" x-show="!gopen" />
-                                <span class="flex-1 text-xs font-medium text-gray-600 dark:text-gray-400">{{ $gLabel }}</span>
+                                <span class="flex-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ $gLabel }}</span>
                                 <span class="text-xs text-gray-300 dark:text-gray-600">{{ $groupTasks->count() }}</span>
                                 <button
                                     wire:click.stop="startGroupQuickAdd('{{ $groupKey }}', '{{ addslashes($gLabel) }}', '{{ $period['value'] }}')"
-                                    class="rounded px-1.5 py-0.5 text-xs text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-white/[0.06] dark:hover:text-primary-400">
+                                    class="rounded px-1.5 py-0.5 text-xs text-gray-400 transition-colors hover:bg-white hover:text-primary-600 dark:hover:bg-white/[0.06] dark:hover:text-primary-400">
                                     + Tambah
                                 </button>
                                 <x-heroicon-o-chevron-down class="h-3 w-3 shrink-0 text-gray-300 transition-transform duration-200 dark:text-gray-600"
@@ -194,7 +193,7 @@
                             </div>
                             <div x-show="gopen" x-collapse>
                                 <table class="w-full text-sm">
-                                    <tbody class="divide-y divide-gray-50 dark:divide-white/[0.03]">
+                                    <tbody>
                                         @foreach($groupTasks as $task)
                                             @include('filament.helpdesk.resources.briefing-tasks._task-row', ['task' => $task])
                                         @endforeach
@@ -209,10 +208,10 @@
 
                     {{-- Pending (new, empty) groups --}}
                     @foreach($pendingForPeriod as $pg)
-                        <div class="border-t border-gray-50 dark:border-white/[0.03]">
-                            <div class="flex items-center gap-2 border-b border-gray-50 bg-gray-50/50 px-4 py-2 dark:border-white/[0.03] dark:bg-white/[0.02]">
+                        <div class="mx-3 mb-2 overflow-hidden rounded-lg bg-gray-50/60 dark:bg-white/[0.02]">
+                            <div class="flex items-center gap-2 px-3 py-2">
                                 <x-heroicon-o-folder-open class="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600" />
-                                <span class="flex-1 text-xs font-medium text-gray-600 dark:text-gray-400">{{ $pg['label'] }}</span>
+                                <span class="flex-1 text-xs font-medium text-gray-500 dark:text-gray-400">{{ $pg['label'] }}</span>
                                 <span class="text-xs italic text-gray-300 dark:text-gray-600">baru</span>
                             </div>
                             <table class="w-full text-sm">
@@ -227,7 +226,7 @@
 
                     {{-- New-group input --}}
                     @if($creatingGroupForPeriod === $period['value'])
-                        <div class="border-t border-gray-50 px-4 py-3 dark:border-white/[0.03]">
+                        <div class="px-4 pb-2 pt-1">
                             <div class="flex items-center gap-2">
                                 <x-heroicon-o-folder-plus class="h-4 w-4 shrink-0 text-gray-300 dark:text-gray-600" />
                                 <input
@@ -255,7 +254,7 @@
                     @endif
 
                     {{-- Period footer --}}
-                    <div class="flex items-center gap-1 border-t border-gray-50 px-3 py-2 dark:border-white/[0.03]">
+                    <div class="flex items-center gap-1 px-3 py-2">
                         <button wire:click="startPeriodQuickAdd('{{ $period['value'] }}')"
                             class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600 dark:hover:bg-white/[0.04] dark:hover:text-gray-300">
                             <x-heroicon-o-plus class="h-3.5 w-3.5" /> Tambah Poin

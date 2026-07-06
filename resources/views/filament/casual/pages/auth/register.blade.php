@@ -16,8 +16,8 @@
             <img src="/images/bloomery-icon.png" alt="Bloomery" class="h-12 w-12 rounded-xl object-cover">
         </div>
         <div class="mt-1 text-center">
-            <p class="text-base font-semibold text-white">Casual Staff</p>
-            <p class="text-xs font-medium text-white/50">Attendance System</p>
+            <p class="text-base font-semibold text-white">Bloomery</p>
+            <p class="text-xs font-medium text-white/50">Super App</p>
         </div>
     </div>
 

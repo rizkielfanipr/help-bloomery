@@ -273,7 +273,7 @@
                             <table class="w-full text-sm">
                                 <tbody class="divide-y divide-gray-50 dark:divide-white/[0.04]">
                                     @foreach($tasks as $task)
-                                        <tr class="group/row transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02]">
+                                        <tr class="transition-colors hover:bg-gray-50/60 dark:hover:bg-white/[0.02]">
                                             <td class="w-8 px-4 py-3 text-xs text-gray-400 dark:text-gray-600">{{ $task->sort_order }}</td>
 
                                             <td class="px-4 py-3">
@@ -336,7 +336,7 @@
                                                         >Batal</button>
                                                     </div>
                                                 @else
-                                                    <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100">
+                                                    <div class="flex items-center gap-1">
                                                         <a
                                                             href="{{ $this->getEditUrl($task->id) }}"
                                                             class="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"

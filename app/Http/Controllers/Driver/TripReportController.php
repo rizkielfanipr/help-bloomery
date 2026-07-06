@@ -32,7 +32,6 @@ class TripReportController extends Controller
             ->orderBy('trip_date')
             ->get();
 
-        $totalMealAllowance = $trips->sum('meal_allowance_amount');
         $totalFuelCost = $trips->sum(fn ($t) => $t->fuelFillup?->total_price ?? 0);
 
         $monthNames = [
@@ -49,7 +48,6 @@ class TripReportController extends Controller
             'month' => $month,
             'year' => $year,
             'monthName' => $monthNames[$month],
-            'totalMealAllowance' => $totalMealAllowance,
             'totalFuelCost' => $totalFuelCost,
         ])->setPaper('a4', 'portrait');
 

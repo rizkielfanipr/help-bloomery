@@ -88,10 +88,6 @@
                 <div class="summary-value">{{ $trips->count() }}</div>
             </td>
             <td>
-                <div class="summary-title">Total Uang Makan</div>
-                <div class="summary-value green">Rp {{ number_format($totalMealAllowance, 0, ',', '.') }}</div>
-            </td>
-            <td>
                 <div class="summary-title">Total Biaya BBM</div>
                 <div class="summary-value blue">Rp {{ number_format($totalFuelCost, 0, ',', '.') }}</div>
             </td>
@@ -109,9 +105,6 @@
                     {{ $trip->trip_date->format('d M Y') }} &bull;
                     {{ $trip->vehicle->license_plate ?? '-' }} &bull;
                     Selesai: {{ $trip->completed_at?->format('H:i') ?? '-' }}
-                    @if($trip->meal_allowance_amount)
-                        &bull; <span class="allowance">Uang Makan: Rp {{ number_format($trip->meal_allowance_amount, 0, ',', '.') }}</span>
-                    @endif
                 </div>
             </div>
 
@@ -125,7 +118,6 @@
                                 <th>Titik</th>
                                 <th>Waktu Check-in</th>
                                 <th>Status</th>
-                                <th>Catatan</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -141,7 +133,6 @@
                                             <span class="badge badge-warning">-</span>
                                         @endif
                                     </td>
-                                    <td>{{ $checkin->notes ?? '-' }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

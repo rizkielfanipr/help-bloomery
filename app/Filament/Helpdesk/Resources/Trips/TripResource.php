@@ -54,6 +54,15 @@ class TripResource extends Resource
             ->components([
                 InfolistSection::make('Detail Perjalanan')
                     ->schema([
+                        TextEntry::make('code')
+                            ->label('Kode Perjalanan')
+                            ->fontFamily('mono')
+                            ->weight('bold')
+                            ->copyable()
+                            ->copyMessage('Kode disalin')
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+
                         Grid::make(3)
                             ->schema([
                                 TextEntry::make('driver.name')
@@ -72,10 +81,6 @@ class TripResource extends Resource
                                 TextEntry::make('status')
                                     ->label('Status')
                                     ->badge(),
-
-                                TextEntry::make('meal_allowance_amount')
-                                    ->label('Uang Makan')
-                                    ->money('IDR'),
                             ]),
 
                         TextEntry::make('started_at')
@@ -85,6 +90,39 @@ class TripResource extends Resource
                         TextEntry::make('completed_at')
                             ->label('Selesai')
                             ->dateTime('d M Y H:i'),
+                    ]),
+
+                InfolistSection::make('Odometer')
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                TextEntry::make('odo_start')
+                                    ->label('Odometer Awal')
+                                    ->suffix(' km')
+                                    ->fontFamily('mono')
+                                    ->placeholder('—'),
+
+                                TextEntry::make('odo_end')
+                                    ->label('Odometer Akhir')
+                                    ->suffix(' km')
+                                    ->fontFamily('mono')
+                                    ->placeholder('—'),
+                            ]),
+
+                        Grid::make(2)
+                            ->schema([
+                                ImageEntry::make('odo_start_photo')
+                                    ->label('Foto Odometer Awal')
+                                    ->visibility('public')
+                                    ->size(120)
+                                    ->default(null),
+
+                                ImageEntry::make('odo_end_photo')
+                                    ->label('Foto Odometer Akhir')
+                                    ->visibility('public')
+                                    ->size(120)
+                                    ->default(null),
+                            ]),
                     ]),
 
                 InfolistSection::make('Titik Perjalanan')
@@ -106,19 +144,30 @@ class TripResource extends Resource
                                     ->visibility('private')
                                     ->size(80)
                                     ->default(null),
-
-                                TextEntry::make('notes')
-                                    ->label('Catatan')
-                                    ->default('-'),
                             ])
-                            ->columns(4),
+                            ->columns(3),
                     ]),
+
+                InfolistSection::make('Informasi Tambahan')
+                    ->schema([
+                        TextEntry::make('meal_allowance_amount')
+                            ->label('Uang Makan')
+                            ->money('IDR')
+                            ->placeholder('—'),
+
+                        TextEntry::make('notes')
+                            ->label('Catatan')
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
 
                 InfolistSection::make('Pengisian BBM')
                     ->hidden(fn (Trip $record): bool => ! $record->has_fuel_fillup || ! $record->fuelFillup)
                     ->schema([
                         TextEntry::make('fuelFillup.spbu_address')
-                            ->label('Alamat SPBU'),
+                            ->label('Alamat SPBU')
+                            ->columnSpanFull(),
 
                         TextEntry::make('fuelFillup.fuel_type')
                             ->label('Jenis BBM'),
@@ -135,11 +184,21 @@ class TripResource extends Resource
                             ->label('Total Harga')
                             ->money('IDR'),
 
-                        ImageEntry::make('fuelFillup.attachment_path')
-                            ->label('Nota BBM')
-                            ->visibility('private')
-                            ->size(120)
-                            ->default(null),
+                        Grid::make(2)
+                            ->schema([
+                                ImageEntry::make('fuelFillup.attachment_path')
+                                    ->label('Foto Nota')
+                                    ->visibility('public')
+                                    ->size(160)
+                                    ->default(null),
+
+                                ImageEntry::make('fuelFillup.fuel_indicator_photo')
+                                    ->label('Foto Indikator BBM')
+                                    ->visibility('public')
+                                    ->size(160)
+                                    ->default(null),
+                            ])
+                            ->columnSpanFull(),
                     ])
                     ->columns(3),
             ]);
@@ -149,6 +208,14 @@ class TripResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('code')
+                    ->label('Kode')
+                    ->searchable()
+                    ->fontFamily('mono')
+                    ->copyable()
+                    ->copyMessage('Kode disalin')
+                    ->placeholder('—'),
+
                 TextColumn::make('driver.name')
                     ->label('Driver')
                     ->searchable()
@@ -171,19 +238,40 @@ class TripResource extends Resource
                     ->badge()
                     ->sortable(),
 
-                TextColumn::make('meal_allowance_amount')
-                    ->label('Uang Makan')
-                    ->money('IDR'),
-
                 TextColumn::make('completed_at')
                     ->label('Selesai')
                     ->dateTime('d M Y H:i')
                     ->sortable(),
+
+                TextColumn::make('has_fuel_fillup')
+                    ->label('BBM')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Ada' : 'Tidak')
+                    ->color(fn (bool $state): string => $state ? 'warning' : 'gray'),
+
+                TextColumn::make('meal_allowance_amount')
+                    ->label('Uang Makan')
+                    ->money('IDR')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('driver')
+                    ->label('Driver')
+                    ->relationship('driver', 'name')
+                    ->searchable()
+                    ->preload(),
+
                 SelectFilter::make('status')
                     ->label('Status')
                     ->options(TripStatus::class),
+
+                SelectFilter::make('has_fuel_fillup')
+                    ->label('BBM')
+                    ->options([
+                        '1' => 'Ada Pengisian BBM',
+                        '0' => 'Tidak Ada BBM',
+                    ]),
             ])
             ->defaultSort('trip_date', 'desc')
             ->recordActions([

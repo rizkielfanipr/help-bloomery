@@ -56,16 +56,10 @@
         </div>
 
         {{-- Summary stats --}}
-        <div class="mx-5 mt-4 grid grid-cols-3 gap-3">
+        <div class="mx-5 mt-4 grid grid-cols-2 gap-3">
             <div class="flex flex-col items-center gap-1.5 rounded-2xl bg-white py-4 ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                 <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $this->trips->count() }}</p>
                 <p class="text-xs text-gray-400">Perjalanan</p>
-            </div>
-            <div class="flex flex-col items-center gap-1.5 rounded-2xl bg-emerald-50 py-4 dark:bg-emerald-900/20">
-                <p class="text-lg font-bold leading-tight text-emerald-600 dark:text-emerald-400">
-                    {{ $this->totalMealAllowance > 0 ? number_format($this->totalMealAllowance / 1000, 0).'k' : '0' }}
-                </p>
-                <p class="px-1 text-center text-xs leading-tight text-gray-400">Uang Makan</p>
             </div>
             <div class="flex flex-col items-center gap-1.5 rounded-2xl bg-amber-50 py-4 dark:bg-amber-900/20">
                 <p class="text-lg font-bold leading-tight text-amber-600 dark:text-amber-400">
@@ -91,7 +85,8 @@
         {{-- Trip list --}}
         <div class="mx-5 mt-4 space-y-3">
             @forelse($this->trips as $trip)
-                <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+                <a href="{{ \App\Filament\Driver\Pages\TripDetail::getUrl(['trip' => $trip->id]) }}"
+                   class="block overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 transition active:scale-[0.99] dark:bg-gray-900 dark:ring-white/10">
                     <div class="px-5 pt-4">
                         <div class="flex items-start justify-between gap-2">
                             <div class="min-w-0 flex-1">
@@ -103,11 +98,9 @@
                                     @endif
                                 </p>
                             </div>
-                            @if($trip->meal_allowance_amount)
-                                <span class="shrink-0 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                                    Rp {{ number_format($trip->meal_allowance_amount, 0, ',', '.') }}
-                                </span>
-                            @endif
+                            <svg class="h-4 w-4 shrink-0 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
+                            </svg>
                         </div>
 
                         {{-- Waypoints --}}
@@ -135,7 +128,7 @@
                         @endif
                     </div>
                     <div class="h-4"></div>
-                </div>
+                </a>
             @empty
                 <div class="flex flex-col items-center gap-3 rounded-2xl bg-white px-5 py-12 text-center ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                     <svg class="h-12 w-12 text-gray-200 dark:text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">

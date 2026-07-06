@@ -110,11 +110,6 @@
                                 <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $trip->tripRoute->name }}</p>
                                 <p class="text-xs text-gray-400">{{ $trip->trip_date->format('d M Y') }} · {{ $trip->vehicle->license_plate ?? '-' }}</p>
                             </div>
-                            @if($trip->meal_allowance_amount)
-                                <span class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                                    Rp {{ number_format($trip->meal_allowance_amount, 0, ',', '.') }}
-                                </span>
-                            @endif
                         </div>
                     @endforeach
                 </div>

@@ -15,6 +15,7 @@ class TripFuelFillup extends Model
         'price_per_liter',
         'total_price',
         'attachment_path',
+        'fuel_indicator_photo',
     ];
 
     protected function casts(): array

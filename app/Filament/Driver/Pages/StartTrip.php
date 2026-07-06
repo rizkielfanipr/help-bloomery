@@ -8,7 +8,6 @@ use App\Models\TripRoute;
 use App\Models\Vehicle;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
@@ -64,21 +63,7 @@ class StartTrip extends Page
                                     ])
                             )
                             ->required()
-                            ->searchable()
-                            ->live()
-                            ->helperText(function ($state): ?string {
-                                if (! $state) {
-                                    return null;
-                                }
-
-                                $route = TripRoute::find($state);
-
-                                if ($route?->meal_allowance_amount) {
-                                    return 'Uang makan: Rp '.number_format($route->meal_allowance_amount, 0, ',', '.');
-                                }
-
-                                return null;
-                            }),
+                            ->searchable(),
 
                         DatePicker::make('trip_date')
                             ->label('Tanggal Perjalanan')
@@ -98,10 +83,6 @@ class StartTrip extends Page
                             ->required()
                             ->searchable(),
 
-                        Textarea::make('notes')
-                            ->label('Catatan (opsional)')
-                            ->nullable()
-                            ->rows(2),
                     ])
                     ->columns(2),
             ])
@@ -122,8 +103,6 @@ class StartTrip extends Page
                 'trip_date' => $data['trip_date'],
                 'status' => TripStatus::InProgress,
                 'started_at' => now(),
-                'meal_allowance_amount' => $route->meal_allowance_amount,
-                'notes' => $data['notes'] ?? null,
             ]);
 
             // Buat checkin kosong untuk setiap waypoint

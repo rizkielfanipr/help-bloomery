@@ -17,6 +17,7 @@ class Trip extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'code',
         'driver_id',
         'vehicle_id',
         'trip_route_id',
@@ -27,7 +28,24 @@ class Trip extends Model
         'has_fuel_fillup',
         'meal_allowance_amount',
         'notes',
+        'odo_start',
+        'odo_start_photo',
+        'odo_end',
+        'odo_end_photo',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Trip $trip) {
+            if (empty($trip->code)) {
+                do {
+                    $code = 'DV-'.str_pad(random_int(1000000, 9999999), 7, '0', STR_PAD_LEFT);
+                } while (static::where('code', $code)->exists());
+
+                $trip->code = $code;
+            }
+        });
+    }
 
     protected function casts(): array
     {

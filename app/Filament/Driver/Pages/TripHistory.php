@@ -80,12 +80,6 @@ class TripHistory extends Page
     }
 
     #[Computed]
-    public function totalMealAllowance(): float
-    {
-        return (float) $this->trips->sum('meal_allowance_amount');
-    }
-
-    #[Computed]
     public function totalFuelCost(): float
     {
         return (float) $this->trips->sum(fn ($t) => $t->fuelFillup?->total_price ?? 0);

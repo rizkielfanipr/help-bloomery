@@ -5,23 +5,20 @@ namespace App\Filament\Driver\Pages;
 use App\Enums\TripStatus;
 use App\Models\DriverTripSettings;
 use App\Models\Trip;
-use App\Models\TripFuelFillup;
 use App\Models\TripWaypointCheckin;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Livewire\Attributes\Computed;
+use Livewire\WithFileUploads;
 
 class ActiveTrip extends Page
 {
+    use WithFileUploads;
+
     protected static bool $shouldRegisterNavigation = false;
 
     public static function getRoutePath(Panel $panel): string
@@ -47,14 +44,10 @@ class ActiveTrip extends Page
     /** Show checkin modal */
     public bool $showCheckinModal = false;
 
-    /** Show fuel modal */
-    public bool $showFuelModal = false;
+    /** Odometer */
+    public $odoStartPhoto = null;
 
-    /** Fuel form data */
-    public ?array $fuelData = [];
-
-    /** Has fuel toggle */
-    public bool $hasFuel = false;
+    public $odoEndPhoto = null;
 
     public function mount(int $trip): void
     {
@@ -105,81 +98,63 @@ class ActiveTrip extends Page
                     ->imageEditor()
                     ->required($requiresAttachment)
                     ->helperText($requiresAttachment ? 'Wajib upload bukti di titik ini' : 'Opsional'),
-
-                Textarea::make('notes')
-                    ->label('Catatan')
-                    ->nullable()
-                    ->rows(2),
             ])
             ->statePath('checkinData');
     }
 
-    public function fuelForm(Schema $schema): Schema
+    public function saveOdoStart(int $km): void
     {
-        $settings = $this->settings;
+        $path = null;
+        if ($this->odoStartPhoto) {
+            $path = $this->odoStartPhoto->store('trip-odo', 'public');
+            $this->odoStartPhoto = null;
+        }
 
-        return $schema
-            ->components([
-                Toggle::make('hasFuel')
-                    ->label('Ada pengisian BBM dalam perjalanan ini?')
-                    ->live()
-                    ->reactive(),
+        Trip::where('id', $this->trip)
+            ->where('driver_id', auth()->id())
+            ->update([
+                'odo_start' => $km,
+                'odo_start_photo' => $path,
+            ]);
 
-                Section::make('Detail Pengisian BBM')
-                    ->hidden(fn () => ! $this->hasFuel)
-                    ->schema([
-                        TextInput::make('spbu_address')
-                            ->label('Alamat SPBU')
-                            ->required()
-                            ->placeholder('Contoh: SPBU 34.401.12 Jl. Magelang Km.5'),
+        unset($this->tripModel);
+        $this->dispatch('close-modal', id: 'odo-start-modal');
+    }
 
-                        Select::make('fuel_type')
-                            ->label('Jenis BBM')
-                            ->options([
-                                'Pertalite' => 'Pertalite',
-                                'Pertamax' => 'Pertamax',
-                                'Pertamax Turbo' => 'Pertamax Turbo',
-                                'Dexlite' => 'Dexlite',
-                                'Pertamina Dex' => 'Pertamina Dex',
-                                'Solar' => 'Solar',
-                            ])
-                            ->required(),
+    public function saveOdoEnd(int $km): void
+    {
+        $trip = $this->tripModel;
 
-                        TextInput::make('liters')
-                            ->label('Jumlah (Liter)')
-                            ->numeric()
-                            ->required()
-                            ->minValue(0.1)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn () => $this->recalculateFuelTotal()),
+        if ($trip->odo_start && $km <= $trip->odo_start) {
+            Notification::make()
+                ->title('Odometer tidak valid')
+                ->body('Odometer akhir harus lebih besar dari odometer awal ('.$trip->odo_start.' km).')
+                ->danger()
+                ->send();
 
-                        TextInput::make('price_per_liter')
-                            ->label('Harga per Liter (Rp)')
-                            ->numeric()
-                            ->required()
-                            ->prefix('Rp')
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn () => $this->recalculateFuelTotal()),
+            return;
+        }
 
-                        TextInput::make('total_price')
-                            ->label('Total Harga (Rp)')
-                            ->numeric()
-                            ->required()
-                            ->prefix('Rp')
-                            ->helperText('Otomatis dihitung, dapat diubah manual'),
+        $path = null;
+        if ($this->odoEndPhoto) {
+            $path = $this->odoEndPhoto->store('trip-odo', 'public');
+            $this->odoEndPhoto = null;
+        }
 
-                        FileUpload::make('attachment_path')
-                            ->label('Nota / Struk BBM')
-                            ->image()
-                            ->disk('public')
-                            ->directory('trip-fuel')
-                            ->imageEditor()
-                            ->required($settings->require_fuel_attachment)
-                            ->helperText($settings->require_fuel_attachment ? 'Wajib upload struk BBM' : 'Opsional'),
-                    ])
-                    ->columns(2),
-            ])
-            ->statePath('fuelData');
+        Trip::where('id', $this->trip)
+            ->where('driver_id', auth()->id())
+            ->update([
+                'odo_end' => $km,
+                'odo_end_photo' => $path,
+            ]);
+
+        unset($this->tripModel);
+        $this->dispatch('close-modal', id: 'odo-end-modal');
+
+        Notification::make()
+            ->title('Odometer akhir tersimpan!')
+            ->success()
+            ->send();
     }
 
     public function openCheckinModal(int $checkinId): void
@@ -193,7 +168,6 @@ class ActiveTrip extends Page
         $this->checkinData = [
             'checkin_id' => $checkinId,
             'attachment_path' => null,
-            'notes' => $checkin?->notes,
         ];
 
         $this->editingCheckinId = $checkinId;
@@ -221,7 +195,6 @@ class ActiveTrip extends Page
         $checkin->update([
             'checked_in_at' => $checkin->checked_in_at ?? now(),
             'attachment_path' => $data['attachment_path'] ?? $checkin->attachment_path,
-            'notes' => $data['notes'] ?? null,
         ]);
 
         $this->dispatch('close-modal', id: 'checkin-modal');
@@ -254,52 +227,22 @@ class ActiveTrip extends Page
         $settings = $this->settings;
 
         if (! $settings->show_fuel_modal) {
-            // Langsung selesaikan tanpa modal BBM
             $this->completeTrip(hasFuel: false);
 
             return;
         }
 
-        $this->hasFuel = false;
-        $this->fuelData = ['hasFuel' => false];
-        $this->dispatch('open-modal', id: 'fuel-modal');
+        $this->dispatch('open-modal', id: 'fuel-confirm');
     }
 
-    public function cancelFuelModal(): void
+    public function confirmNoFuel(): void
     {
-        $this->fuelData = [];
-        $this->hasFuel = false;
-        $this->dispatch('close-modal', id: 'fuel-modal');
+        $this->completeTrip(hasFuel: false);
     }
 
-    public function recalculateFuelTotal(): void
+    public function confirmHasFuel(): void
     {
-        $liters = (float) ($this->fuelData['liters'] ?? 0);
-        $pricePerLiter = (float) ($this->fuelData['price_per_liter'] ?? 0);
-
-        if ($liters > 0 && $pricePerLiter > 0) {
-            $this->fuelData['total_price'] = round($liters * $pricePerLiter);
-        }
-    }
-
-    public function submitFuel(): void
-    {
-        $data = $this->fuelForm->getState();
-        $hasFuel = (bool) ($data['hasFuel'] ?? false);
-
-        if ($hasFuel) {
-            TripFuelFillup::create([
-                'trip_id' => $this->trip,
-                'spbu_address' => $data['spbu_address'],
-                'fuel_type' => $data['fuel_type'],
-                'liters' => $data['liters'],
-                'price_per_liter' => $data['price_per_liter'],
-                'total_price' => $data['total_price'],
-                'attachment_path' => $data['attachment_path'] ?? null,
-            ]);
-        }
-
-        $this->completeTrip(hasFuel: $hasFuel);
+        $this->redirect(FuelFillup::getUrl(['trip' => $this->trip]));
     }
 
     public function completeTrip(bool $hasFuel): void
@@ -311,9 +254,6 @@ class ActiveTrip extends Page
                 'completed_at' => now(),
                 'has_fuel_fillup' => $hasFuel,
             ]);
-
-        $this->fuelData = [];
-        $this->dispatch('close-modal', id: 'fuel-modal');
 
         Notification::make()
             ->title('Perjalanan selesai!')

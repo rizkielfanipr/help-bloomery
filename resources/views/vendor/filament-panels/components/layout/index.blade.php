@@ -28,7 +28,7 @@
     $initialOpen = [];
     if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
     if (str_contains($path, 'briefing-records') || str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-scores')) { $initialOpen[] = 'daily_briefing'; }
-    if (preg_match('/trip|vehicle|driver/', $path))                  { $initialOpen[] = 'driver'; }
+    if (preg_match('/trip|vehicle|driver|fuel-type/', $path))        { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path))                { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches'))                              { $initialOpen[] = 'master'; }
@@ -71,6 +71,7 @@
                 ['label' => 'Perjalanan',      'icon' => 'map',      'perm' => 'view trips',       'href' => $r('filament.helpdesk.resources.trips.index'),       'active' => request()->is('helpdesk/trips*')],
                 ['label' => 'Rute Perjalanan', 'icon' => 'route',    'perm' => 'view trip routes', 'href' => $r('filament.helpdesk.resources.trip-routes.index'), 'active' => request()->is('helpdesk/trip-routes*')],
                 ['label' => 'Kendaraan',       'icon' => 'car',      'perm' => 'view vehicles',    'href' => $r('filament.helpdesk.resources.vehicles.index'),    'active' => request()->is('helpdesk/vehicles*')],
+                ['label' => 'Jenis BBM',        'icon' => 'fuel',     'perm' => 'edit trips',       'href' => $r('filament.helpdesk.resources.fuel-types.index'),  'active' => request()->is('helpdesk/fuel-types*')],
                 ['label' => 'Pengaturan Trip', 'icon' => 'settings', 'perm' => 'edit trips',       'href' => $r('filament.helpdesk.pages.driver-trip-settings'),  'active' => request()->is('helpdesk/driver-trip-settings*')],
             ],
         ],

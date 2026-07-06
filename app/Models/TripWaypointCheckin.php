@@ -12,7 +12,8 @@ class TripWaypointCheckin extends Model
         'trip_route_waypoint_id',
         'checked_in_at',
         'attachment_path',
-        'notes',
+        'latitude',
+        'longitude',
     ];
 
     protected function casts(): array

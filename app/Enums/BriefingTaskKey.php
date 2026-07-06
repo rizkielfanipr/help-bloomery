@@ -12,9 +12,16 @@ enum BriefingTaskKey: string implements HasLabel
     case DailyDetailBriefing = 'daily_detail_briefing';
 
     // Weekly
-    case WeeklyCleaning = 'weekly_cleaning';
+    case WeeklyCleaning = 'weekly_cleaning'; // deprecated — kept for old records
     case WeeklyWmPic = 'weekly_wm_pic';
     case WeeklySchedule = 'weekly_schedule';
+
+    // Weekly — Cleaning (per item)
+    case WeeklyCleaningKondensor = 'weekly_cleaning_kondensor';
+    case WeeklyCleaningMesinKopi = 'weekly_cleaning_mesin_kopi';
+    case WeeklyCleaningGenset = 'weekly_cleaning_genset';
+    case WeeklyCleaningTempatSampah = 'weekly_cleaning_tempat_sampah';
+    case WeeklyCleaningShowcaseChiller = 'weekly_cleaning_showcase_chiller';
 
     // Monthly
     case MonthlyGmKpi = 'monthly_gm_kpi';
@@ -41,17 +48,22 @@ enum BriefingTaskKey: string implements HasLabel
             self::WeeklyCleaning => 'Weekly Cleaning',
             self::WeeklyWmPic => 'Weekly Meeting PIC (Evaluasi Staff, Administrasi dan Sales)',
             self::WeeklySchedule => 'Weekly Schedule',
+            self::WeeklyCleaningKondensor => 'Bersihkan Filter Kondensor Showcase Display',
+            self::WeeklyCleaningMesinKopi => 'Bersihkan Mesin Kopi (Puro)',
+            self::WeeklyCleaningGenset => 'Panaskan Genset 15 Menit',
+            self::WeeklyCleaningTempatSampah => 'Cuci Tempat Sampah & Keset',
+            self::WeeklyCleaningShowcaseChiller => 'Bersihkan Showcase Chiller Inventory',
             self::MonthlyGmKpi => 'General Meeting: Key Performance Indicator (KPI)',
             self::MonthlyGeneralCleaning => 'General Cleaning',
-            self::MonthlyCleaningChiller => 'Cuci Komponen Showcase Chiller & Display',
+            self::MonthlyCleaningChiller => 'Cuci Komponen Showcase Chiller',
             self::MonthlyCleaningFloor => 'Bersihkan Lantai & Dinding dari Spot Hitam',
             self::MonthlyCleaningFreezer => 'Kuras Bunga Es Freezer',
             self::MonthlyCleaningSink => 'Poles Sink & Wastafel',
             self::MonthlyCleaningEquipment => 'Deep Cleaning Dispenser, Kompor & Blender',
             self::MonthlyCleaningCoffee => 'Deep Cleaning Mesin Kopi',
             self::MonthlyCleaningSofa => 'Vacuum Sofa',
-            self::MonthlyCleaningDiscard => 'Sortir & Singkirkan Barang Tidak Terpakai',
-            self::MonthlyCleaningDocs => 'Rapikan File Sales & Surat Jalan',
+            self::MonthlyCleaningDiscard => 'Sortir Barang Tidak Terpakai / Diloak',
+            self::MonthlyCleaningDocs => 'Bersihkan Filter Showcase Display',
             self::MonthlyCleaningSpecific => 'Deep Cleaning Item Spesifik Store',
         };
     }
@@ -62,6 +74,9 @@ enum BriefingTaskKey: string implements HasLabel
             self::DailySelfiePagi, self::DailySelfieSore => 'Foto Selfie Briefing',
             self::DailyDetailBriefing => 'Catatan Teks Briefing',
             self::WeeklyCleaning, self::MonthlyGeneralCleaning => 'Foto Area yang Dibersihkan',
+            self::WeeklyCleaningKondensor, self::WeeklyCleaningMesinKopi,
+            self::WeeklyCleaningGenset, self::WeeklyCleaningTempatSampah,
+            self::WeeklyCleaningShowcaseChiller => 'Foto Bukti Cleaning',
             self::WeeklyWmPic, self::MonthlyGmKpi => 'Foto Weekly Meeting PIC / General Meeting',
             self::WeeklySchedule => 'Foto Jadwal Mingguan',
             self::MonthlyCleaningChiller, self::MonthlyCleaningFloor,
@@ -99,7 +114,10 @@ enum BriefingTaskKey: string implements HasLabel
     {
         return match ($this) {
             self::DailySelfiePagi, self::DailySelfieSore, self::DailyDetailBriefing => BriefingPeriod::Daily,
-            self::WeeklyCleaning, self::WeeklyWmPic, self::WeeklySchedule => BriefingPeriod::Weekly,
+            self::WeeklyCleaning, self::WeeklyWmPic, self::WeeklySchedule,
+            self::WeeklyCleaningKondensor, self::WeeklyCleaningMesinKopi,
+            self::WeeklyCleaningGenset, self::WeeklyCleaningTempatSampah,
+            self::WeeklyCleaningShowcaseChiller => BriefingPeriod::Weekly,
             default => BriefingPeriod::Monthly,
         };
     }

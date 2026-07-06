@@ -109,17 +109,21 @@
              const ctx = canvas.getContext('2d');
              const fW = canvas.width;
              const fH = canvas.height;
-             const bandH = Math.max(56, Math.round(fH * 0.095));
-             ctx.fillStyle = 'rgba(0,0,0,0.62)';
+             const bandH = Math.max(68, Math.round(fH * 0.13));
+             const grad = ctx.createLinearGradient(0, fH - bandH, 0, fH);
+             grad.addColorStop(0, 'rgba(0,0,0,0)');
+             grad.addColorStop(1, 'rgba(0,0,0,0.80)');
+             ctx.fillStyle = grad;
              ctx.fillRect(0, fH - bandH, fW, bandH);
-             const fs = Math.max(13, Math.round(fW * 0.024));
-             const pad = 10;
-             ctx.font = 'bold ' + fs + 'px monospace';
+             const fs = Math.max(14, Math.round(fW * 0.028));
+             const font = 'system-ui, -apple-system, sans-serif';
+             const base = fH - Math.round(bandH * 0.38);
+             ctx.font = 'bold ' + fs + 'px ' + font;
              ctx.fillStyle = '#FFFFFF';
-             ctx.fillText(this.stampTime, pad, fH - bandH + fs + 5);
-             ctx.font = Math.round(fs * 0.84) + 'px monospace';
-             ctx.fillStyle = '#7CFC7C';
-             ctx.fillText(this.stampLocation, pad, fH - bandH + fs * 2 + 9);
+             ctx.fillText(this.stampTime, 14, base);
+             ctx.font = Math.round(fs * 0.80) + 'px ' + font;
+             ctx.fillStyle = 'rgba(255,255,255,0.72)';
+             ctx.fillText(this.stampLocation, 14, base + fs + 4);
          },
 
          updateStampTime() {

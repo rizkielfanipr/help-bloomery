@@ -281,7 +281,7 @@ class DailyBriefingPage extends Page
                 $range = $start->month === $end->month
                     ? $start->format('j').'–'.$end->format('j M Y')
                     : $start->format('j M').'–'.$end->format('j M Y');
-                $weekLabel = "Pekan {$weekNum} • {$range}";
+                $weekLabel = "Periode {$weekNum} • {$range}";
             }
 
             $result[$period->value] = [

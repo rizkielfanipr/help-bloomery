@@ -273,10 +273,22 @@ class DailyBriefingPage extends Page
 
             $completedCount = collect($taskList)->where('isCompleted', true)->count();
 
+            $weekLabel = null;
+            if ($period === BriefingPeriod::Weekly) {
+                $start = now()->startOfWeek();
+                $end = now()->endOfWeek();
+                $weekNum = (int) ceil($start->day / 7);
+                $range = $start->month === $end->month
+                    ? $start->format('j').'–'.$end->format('j M Y')
+                    : $start->format('j M').'–'.$end->format('j M Y');
+                $weekLabel = "Pekan {$weekNum} • {$range}";
+            }
+
             $result[$period->value] = [
                 'period' => $period,
                 'label' => $period->getLabel(),
                 'periodLabel' => $period->periodLabel(),
+                'weekLabel' => $weekLabel,
                 'total' => count($taskList),
                 'completed' => $completedCount,
                 'tasks' => $taskList,

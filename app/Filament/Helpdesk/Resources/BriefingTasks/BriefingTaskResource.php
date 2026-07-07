@@ -146,31 +146,18 @@ class BriefingTaskResource extends Resource
                         ->nullable()
                         ->visible(fn ($get) => $get('deadline_enabled')),
 
-                    TextInput::make('deadline_day')
-                        ->label(function ($get) {
-                            $period = $get('period');
-                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
-
-                            return match ($value) {
-                                'weekly' => 'Hari (1=Sen, 7=Min)',
-                                'monthly' => 'Tanggal (0=Akhir Bulan)',
-                                default => 'Hari/Tanggal',
-                            };
-                        })
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(31)
+                    Select::make('deadline_day')
+                        ->label('Hari Batas')
+                        ->options([
+                            1 => 'Senin',
+                            2 => 'Selasa',
+                            3 => 'Rabu',
+                            4 => 'Kamis',
+                            5 => 'Jumat',
+                            6 => 'Sabtu',
+                            7 => 'Minggu',
+                        ])
                         ->nullable()
-                        ->helperText(function ($get) {
-                            $period = $get('period');
-                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
-
-                            return match ($value) {
-                                'weekly' => 'Isi 1–7. Contoh: 5 = Jumat.',
-                                'monthly' => 'Isi 1–31, atau 0 untuk hari terakhir bulan.',
-                                default => 'Kosongkan untuk task harian.',
-                            };
-                        })
                         ->visible(function ($get) {
                             if (! $get('deadline_enabled')) {
                                 return false;
@@ -178,7 +165,24 @@ class BriefingTaskResource extends Resource
                             $period = $get('period');
                             $value = $period instanceof BriefingPeriod ? $period->value : $period;
 
-                            return in_array($value, ['weekly', 'monthly']);
+                            return $value === 'weekly';
+                        }),
+
+                    TextInput::make('deadline_day')
+                        ->label('Tanggal Batas')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(31)
+                        ->nullable()
+                        ->helperText('Isi 1–31, atau 0 untuk hari terakhir bulan.')
+                        ->visible(function ($get) {
+                            if (! $get('deadline_enabled')) {
+                                return false;
+                            }
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return $value === 'monthly';
                         }),
                 ]),
             ]),

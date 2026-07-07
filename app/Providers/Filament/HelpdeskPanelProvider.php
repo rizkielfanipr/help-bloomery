@@ -47,11 +47,23 @@ class HelpdeskPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => Blade::render(
                     '<link rel="icon" type="image/svg+xml" href="{{ asset(\'icons/icon.svg\') }}">
-                     <link rel="icon" type="image/png" sizes="192x192" href="{{ asset(\'icons/icon-192.png\') }}" media="(prefers-color-scheme: light)">
-                     <link rel="icon" type="image/png" sizes="192x192" href="{{ asset(\'icons/icon-192-dark.png\') }}" media="(prefers-color-scheme: dark)">
+                     <link rel="icon" type="image/png" sizes="192x192" href="{{ asset(\'icons/pwa-192.png\') }}">
+                     <link rel="manifest" href="{{ asset(\'manifest-helpdesk.json\') }}">
+                     <meta name="theme-color" content="#2563eb">
+                     <meta name="mobile-web-app-capable" content="yes">
+                     <meta name="apple-mobile-web-app-capable" content="yes">
+                     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+                     <meta name="apple-mobile-web-app-title" content="Bloomery Helpdesk">
+                     <link rel="apple-touch-icon" href="{{ asset(\'icons/pwa-192.png\') }}">
                      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
                      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
                      <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>'
+                ),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => Blade::render(
+                    '<script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js", { scope: "/helpdesk" }); }</script>'
                 ),
             )
             ->navigationGroups([

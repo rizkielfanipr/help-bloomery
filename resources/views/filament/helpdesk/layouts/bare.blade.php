@@ -15,12 +15,19 @@
         @endphp
         <title>{{ $docTitle }}</title>
 
-        {{-- Favicon dinamis dark/light mode --}}
+        {{-- Favicon --}}
         <link rel="icon" type="image/svg+xml" href="{{ asset('icons/icon.svg') }}">
-        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icon-192.png') }}" media="(prefers-color-scheme: light)">
-        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icon-192-dark.png') }}" media="(prefers-color-scheme: dark)">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/pwa-192.png') }}">
         <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
-        <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
+
+        {{-- PWA manifest & iOS --}}
+        <link rel="manifest" href="{{ asset('manifest-helpdesk.json') }}">
+        <meta name="theme-color" content="#2563eb">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
+        <meta name="apple-mobile-web-app-title" content="Bloomery Helpdesk">
+        <link rel="apple-touch-icon" href="{{ asset('icons/pwa-192.png') }}">
 
         <style>
             [x-cloak=''], [x-cloak='x-cloak'], [x-cloak='1'] { display: none !important; }
@@ -59,5 +66,11 @@
         @filamentScripts(withCore: true)
 
         @stack('scripts')
+
+        <script>
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js', { scope: '/helpdesk' });
+            }
+        </script>
     </body>
 </html>

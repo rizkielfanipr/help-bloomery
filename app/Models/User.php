@@ -40,11 +40,11 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return match ($panel->getId()) {
-            'admin' => $this->hasRole('super_admin'),
-            'helpdesk' => $this->hasAnyRole(['super_admin', 'helpdesk_manager', 'helpdesk_staff', 'hr_staff']),
-            'driver' => $this->hasAnyRole(['super_admin', 'driver']),
-            'technician' => $this->hasAnyRole(['super_admin', 'technician']),
-            'casual' => $this->hasAnyRole(['super_admin', 'hr_staff', 'casual_staff']),
+            'admin' => $this->hasRole('SUPERADMIN'),
+            'helpdesk' => $this->hasAnyRole(['SUPERADMIN', 'HRD_STAFF']),
+            'driver' => $this->hasRole('SUPERADMIN'),
+            'technician' => $this->hasRole('SUPERADMIN'),
+            'casual' => $this->hasAnyRole(['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN']),
             default => false,
         };
     }

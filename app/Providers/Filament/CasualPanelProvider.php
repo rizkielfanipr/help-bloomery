@@ -4,7 +4,9 @@ namespace App\Providers\Filament;
 
 use App\Filament\Casual\Pages\Auth\Login;
 use App\Filament\Casual\Pages\Auth\Register;
+use App\Filament\Casual\Pages\ClockPage;
 use App\Filament\Casual\Pages\LauncherPage;
+use App\Filament\Casual\Pages\TripDashboard;
 use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -34,7 +36,17 @@ class CasualPanelProvider extends PanelProvider
             ->when(! $domain, fn (Panel $p) => $p->path('casual'))
             ->login(Login::class)
             ->registration(Register::class)
-            ->homeUrl(fn () => LauncherPage::getUrl())
+            ->homeUrl(function () {
+                $user = auth()->user();
+                if ($user?->hasRole('CASUAL_STAFF')) {
+                    return ClockPage::getUrl();
+                }
+                if ($user?->hasRole('DRIVER')) {
+                    return TripDashboard::getUrl();
+                }
+
+                return LauncherPage::getUrl();
+            })
             ->viteTheme('resources/css/filament/casual/theme.css')
             ->defaultThemeMode(ThemeMode::Light)
             ->navigation(false)

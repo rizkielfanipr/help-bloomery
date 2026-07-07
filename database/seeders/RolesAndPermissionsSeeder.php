@@ -22,23 +22,13 @@ class RolesAndPermissionsSeeder extends Seeder
             Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
         }
 
-        Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web'])
+        Role::firstOrCreate(['name' => 'SUPERADMIN', 'guard_name' => 'web'])
             ->syncPermissions(Permission::all());
 
-        Role::firstOrCreate(['name' => 'casual_staff', 'guard_name' => 'web'])
+        Role::firstOrCreate(['name' => 'CASUAL_STAFF', 'guard_name' => 'web'])
             ->syncPermissions([]);
 
-        Role::firstOrCreate(['name' => 'driver', 'guard_name' => 'web'])
-            ->syncPermissions([
-                'view trips', 'view trip routes', 'view vehicles',
-            ]);
-
-        Role::firstOrCreate(['name' => 'technician', 'guard_name' => 'web'])
-            ->syncPermissions([
-                'view service requests', 'create service requests', 'edit service requests', 'delete service requests',
-            ]);
-
-        Role::firstOrCreate(['name' => 'hr_staff', 'guard_name' => 'web'])
+        Role::firstOrCreate(['name' => 'HRD_STAFF', 'guard_name' => 'web'])
             ->syncPermissions([
                 'view casual staff', 'create casual staff', 'edit casual staff', 'delete casual staff',
                 'view casual positions', 'create casual positions', 'edit casual positions', 'delete casual positions',
@@ -46,23 +36,36 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view clock records', 'create clock records', 'edit clock records', 'delete clock records',
                 'view briefing records', 'create briefing records', 'edit briefing records', 'delete briefing records',
                 'view briefing items', 'create briefing items', 'edit briefing items', 'delete briefing items',
+                'view briefing scores', 'create briefing scores', 'edit briefing scores', 'delete briefing scores',
                 'view sales reports',
                 'view purchase requests', 'create purchase requests', 'edit purchase requests',
                 'view design requests', 'edit design requests',
                 'view users',
             ]);
 
-        Role::firstOrCreate(['name' => 'helpdesk_staff', 'guard_name' => 'web'])
+        Role::firstOrCreate(['name' => 'STORE_STAFF', 'guard_name' => 'web'])
             ->syncPermissions([
-                'view service requests', 'create service requests', 'edit service requests',
-                'view trips', 'view trip routes', 'view vehicles',
-                'view briefing records', 'view briefing items',
+                'view service requests', 'create service requests',
                 'view sales reports',
-                'view purchase requests',
-                'view erp requests', 'edit erp requests',
+                'view purchase requests', 'create purchase requests',
+                'view design requests', 'create design requests',
+                'view erp requests', 'create erp requests',
             ]);
 
-        Role::firstOrCreate(['name' => 'helpdesk_manager', 'guard_name' => 'web'])
-            ->syncPermissions(Permission::all());
+        Role::firstOrCreate(['name' => 'DRIVER', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'view trips', 'view trip routes', 'view vehicles',
+            ]);
+
+        Role::firstOrCreate(['name' => 'TECHNICIAN', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'view service requests', 'create service requests', 'edit service requests', 'delete service requests',
+            ]);
+
+        // Remove any role not in the new set
+        $newRoles = ['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN'];
+        Role::whereNotIn('name', $newRoles)->delete();
+
+        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN');
     }
 }

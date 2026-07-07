@@ -53,7 +53,7 @@ class BriefingAutoRejectCommand extends Command
                     ->where('task_key', $task->key)
                     ->first();
 
-                if ($item && ($item->is_completed || $item->review_status === BriefingReviewStatus::Approved)) {
+                if ($item && ($item->is_completed || in_array($item->review_status, [BriefingReviewStatus::Approved, BriefingReviewStatus::Pending]))) {
                     continue;
                 }
 

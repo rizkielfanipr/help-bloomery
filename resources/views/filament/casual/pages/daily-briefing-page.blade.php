@@ -556,7 +556,7 @@
                                                     @elseif($cPending)
                                                         <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Menunggu Review</span>
                                                     @elseif($cleanTask['completedAt'])
-                                                        <span class="text-xs text-gray-400">{{ $cleanTask['completedAt']->format('H:i') }}</span>
+                                                        <span class="text-xs text-gray-400">{{ $cleanTask['completedAt']->format('H.i') }}</span>
                                                     @else
                                                         <span class="text-xs text-gray-400">{{ $cleanTask['noteType'] }}</span>
                                                     @endif

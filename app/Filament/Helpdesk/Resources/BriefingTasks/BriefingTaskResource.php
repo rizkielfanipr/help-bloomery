@@ -147,21 +147,39 @@ class BriefingTaskResource extends Resource
                         ->visible(fn ($get) => $get('deadline_enabled')),
 
                     TextInput::make('deadline_day')
-                        ->label(fn ($get) => match ($get('period')) {
-                            'weekly' => 'Hari (1=Sen, 7=Min)',
-                            'monthly' => 'Tanggal (0=Akhir Bulan)',
-                            default => 'Hari/Tanggal',
+                        ->label(function ($get) {
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return match ($value) {
+                                'weekly' => 'Hari (1=Sen, 7=Min)',
+                                'monthly' => 'Tanggal (0=Akhir Bulan)',
+                                default => 'Hari/Tanggal',
+                            };
                         })
                         ->numeric()
                         ->minValue(0)
                         ->maxValue(31)
                         ->nullable()
-                        ->helperText(fn ($get) => match ($get('period')) {
-                            'weekly' => 'Isi 1–7. Contoh: 5 = Jumat.',
-                            'monthly' => 'Isi 1–31, atau 0 untuk hari terakhir bulan.',
-                            default => 'Kosongkan untuk task harian.',
+                        ->helperText(function ($get) {
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return match ($value) {
+                                'weekly' => 'Isi 1–7. Contoh: 5 = Jumat.',
+                                'monthly' => 'Isi 1–31, atau 0 untuk hari terakhir bulan.',
+                                default => 'Kosongkan untuk task harian.',
+                            };
                         })
-                        ->visible(fn ($get) => $get('deadline_enabled') && in_array($get('period'), ['weekly', 'monthly'])),
+                        ->visible(function ($get) {
+                            if (! $get('deadline_enabled')) {
+                                return false;
+                            }
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return in_array($value, ['weekly', 'monthly']);
+                        }),
                 ]),
             ]),
         ]);

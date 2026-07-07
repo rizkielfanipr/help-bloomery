@@ -158,6 +158,12 @@ class BriefingTaskResource extends Resource
                             7 => 'Minggu',
                         ])
                         ->nullable()
+                        ->dehydrated(function ($get) {
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return $value === 'weekly';
+                        })
                         ->visible(function ($get) {
                             if (! $get('deadline_enabled')) {
                                 return false;
@@ -191,6 +197,12 @@ class BriefingTaskResource extends Resource
                                 if (!isNaN(v) && v < 0) $el.value = 0;
                             ',
                         ])
+                        ->dehydrated(function ($get) {
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return $value === 'monthly';
+                        })
                         ->visible(function ($get) {
                             if (! $get('deadline_enabled')) {
                                 return false;

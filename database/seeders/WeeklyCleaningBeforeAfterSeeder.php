@@ -61,9 +61,9 @@ class WeeklyCleaningBeforeAfterSeeder extends Seeder
                     'sort_order' => $sort,
                     'is_active' => true,
                     'weight' => null,
-                    'deadline_enabled' => false,
-                    'deadline_day' => null,
-                    'deadline_time' => null,
+                    'deadline_enabled' => true,
+                    'deadline_day' => 7,
+                    'deadline_time' => '23:59',
                 ];
 
                 $tasks[] = [
@@ -78,9 +78,9 @@ class WeeklyCleaningBeforeAfterSeeder extends Seeder
                     'sort_order' => $sort + 1,
                     'is_active' => true,
                     'weight' => null,
-                    'deadline_enabled' => false,
-                    'deadline_day' => null,
-                    'deadline_time' => null,
+                    'deadline_enabled' => true,
+                    'deadline_day' => 7,
+                    'deadline_time' => '23:59',
                 ];
 
                 $sort += 10;

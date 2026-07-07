@@ -176,7 +176,20 @@ class BriefingTaskResource extends Resource
                         ->nullable()
                         ->helperText('Isi 1–31, atau 0 untuk hari terakhir bulan.')
                         ->extraAttributes([
-                            'x-on:input' => 'let v = parseInt($el.value); if (!isNaN(v) && v > 31) $el.value = 31; if (!isNaN(v) && v < 0) $el.value = 0;',
+                            'x-on:keydown' => "
+                                if (/^[0-9]$/.test(\$event.key)) {
+                                    const digits = \$el.value.replace(/[^0-9]/g, '');
+                                    if (digits.length >= 2) {
+                                        \$event.preventDefault();
+                                        alert('Tanggal hanya boleh 2 digit (0–31).');
+                                    }
+                                }
+                            ",
+                            'x-on:input' => '
+                                let v = parseInt($el.value);
+                                if (!isNaN(v) && v > 31) $el.value = 31;
+                                if (!isNaN(v) && v < 0) $el.value = 0;
+                            ',
                         ])
                         ->visible(function ($get) {
                             if (! $get('deadline_enabled')) {

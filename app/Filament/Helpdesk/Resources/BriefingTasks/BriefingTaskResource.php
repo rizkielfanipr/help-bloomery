@@ -175,6 +175,9 @@ class BriefingTaskResource extends Resource
                         ->maxValue(31)
                         ->nullable()
                         ->helperText('Isi 1–31, atau 0 untuk hari terakhir bulan.')
+                        ->extraAttributes([
+                            'x-on:input' => 'let v = parseInt($el.value); if (!isNaN(v) && v > 31) $el.value = 31; if (!isNaN(v) && v < 0) $el.value = 0;',
+                        ])
                         ->visible(function ($get) {
                             if (! $get('deadline_enabled')) {
                                 return false;

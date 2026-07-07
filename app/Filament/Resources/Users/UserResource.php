@@ -6,7 +6,6 @@ use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Models\Branch;
-use App\Models\CasualPosition;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -91,8 +90,26 @@ class UserResource extends Resource
                         TextInput::make('username')
                             ->label('Username')
                             ->nullable()
-                            ->unique(User::class, 'username', ignoreRecord: true)
-                            ->maxLength(50),
+                            ->prefix('BLO')
+                            ->extraInputAttributes(['x-on:input' => '$el.value = $el.value.toUpperCase()'])
+                            ->formatStateUsing(fn (?string $state): ?string => $state && str_starts_with($state, 'BLO') ? substr($state, 3) : $state)
+                            ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? 'BLO'.strtoupper($state) : null)
+                            ->rules(['nullable', 'regex:/^[A-Z0-9]+$/'])
+                            ->rule(fn (?Model $record) => function ($attribute, $value, $fail) use ($record) {
+                                if (! filled($value)) {
+                                    return;
+                                }
+                                $full = 'BLO'.strtoupper($value);
+                                $exists = User::where('username', $full)
+                                    ->when($record, fn ($q) => $q->whereNot('id', $record->id))
+                                    ->exists();
+                                if ($exists) {
+                                    $fail("Username {$full} sudah digunakan.");
+                                }
+                            })
+                            ->validationMessages(['regex' => 'Username hanya boleh huruf kapital dan angka.'])
+                            ->maxLength(47)
+                            ->helperText('Ketik username tanpa prefix. Contoh: RIZKI → tersimpan sebagai BLORIZKI'),
 
                         TextInput::make('email')
                             ->label('Email')
@@ -108,11 +125,6 @@ class UserResource extends Resource
                             ->dehydrated(fn (?string $state): bool => filled($state))
                             ->dehydrateStateUsing(fn (string $state): string => Hash::make($state))
                             ->minLength(8)
-                            ->maxLength(255),
-
-                        TextInput::make('employee_id')
-                            ->label('ID Karyawan')
-                            ->nullable()
                             ->maxLength(255),
 
                         TextInput::make('phone')
@@ -141,15 +153,6 @@ class UserResource extends Resource
                             ->preload(),
                     ]),
 
-                Section::make('Casual Staff')
-                    ->schema([
-                        Select::make('casual_position_id')
-                            ->label('Posisi')
-                            ->options(CasualPosition::pluck('name', 'id'))
-                            ->searchable()
-                            ->nullable(),
-                    ])
-                    ->columns(2),
             ]);
     }
 
@@ -157,6 +160,11 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('username')
+                    ->label('Username')
+                    ->searchable()
+                    ->placeholder('-'),
+
                 ImageColumn::make('avatar')
                     ->label('')
                     ->circular()
@@ -170,10 +178,6 @@ class UserResource extends Resource
                 TextColumn::make('email')
                     ->label('Email')
                     ->searchable(),
-
-                TextColumn::make('employee_id')
-                    ->label('ID Karyawan')
-                    ->placeholder('-'),
 
                 TextColumn::make('roles.name')
                     ->label('Role')

@@ -19,12 +19,16 @@ class SalesReport extends Model
         'report_date',
         'modal_shift_1',
         'modal_shift_2',
+        'shift_1_submitted_at',
+        'shift_2_submitted_at',
     ];
 
     protected $casts = [
         'report_date' => 'date',
         'modal_shift_1' => 'decimal:2',
         'modal_shift_2' => 'decimal:2',
+        'shift_1_submitted_at' => 'datetime',
+        'shift_2_submitted_at' => 'datetime',
     ];
 
     public function branch(): BelongsTo

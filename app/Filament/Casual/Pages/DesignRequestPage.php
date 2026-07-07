@@ -64,6 +64,12 @@ class DesignRequestPage extends Page
     {
         $user = auth()->user();
 
+        if (! $user->branch_id) {
+            Notification::make()->title('Cabang belum diatur')->body('Hubungi admin untuk mengatur cabang Anda.')->warning()->send();
+
+            return;
+        }
+
         $this->validate([
             'judulPermintaan' => ['required', 'string', 'max:255'],
             'designCategoryId' => ['required', 'exists:design_categories,id'],

@@ -1,3 +1,8 @@
+@php
+    $user      = auth()->user();
+    $hasBranch = (bool) $user->branch_id;
+    $branch    = $user->branch?->name ?? null;
+@endphp
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh">
 
@@ -20,7 +25,7 @@
             <span class="text-base font-semibold text-white">Pengajuan Pembelian</span>
         </div>
 
-        <p class="text-blue-200">{{ auth()->user()->branch?->name ?? 'Tanpa Cabang' }}</p>
+        <p class="text-blue-200">{{ $branch ?? 'Tanpa Cabang' }}</p>
         <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
     </div>
 
@@ -35,13 +40,24 @@
         <div class="flex flex-col gap-4 px-5">
             <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
 
-            {{-- Division --}}
+            {{-- Branch / Divisi (read-only) --}}
             <div>
-                <label class="{{ $labelClass }}">Divisi</label>
-                <input type="text" wire:model="division"
-                       placeholder="Contoh: Marketing, Operasional, HRD..."
-                       class="{{ $fieldClass }}">
-                @error('division') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+                <label class="{{ $labelClass }}">Branch / Divisi</label>
+                @if($hasBranch)
+                    <div class="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+                        <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z"/>
+                        </svg>
+                        <span class="text-sm text-slate-600 dark:text-slate-300">{{ $branch }}</span>
+                    </div>
+                @else
+                    <div class="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
+                        <svg class="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+                        </svg>
+                        <span class="text-sm text-amber-700 dark:text-amber-400">Cabang belum diatur. Hubungi admin.</span>
+                    </div>
+                @endif
             </div>
 
             {{-- Item Name --}}
@@ -162,6 +178,7 @@
 
             {{-- Submit button --}}
             <button wire:click="submit" wire:loading.attr="disabled"
+                    @disabled(!$hasBranch)
                     class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60">
                 <span wire:loading.remove wire:target="submit">Kirim Pengajuan</span>
                 <span wire:loading wire:target="submit">Mengirim...</span>

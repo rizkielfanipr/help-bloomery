@@ -125,7 +125,7 @@ class Register extends BaseRegister
         /** @var Model $user */
         $user = parent::handleRegistration($data);
 
-        $user->assignRole('casual_staff');
+        $user->assignRole('CASUAL_STAFF');
 
         return $user;
     }

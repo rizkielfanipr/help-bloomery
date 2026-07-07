@@ -229,15 +229,6 @@
             </div>
             <div class="mx-5 h-px bg-gray-100 dark:bg-gray-800"></div>
 
-            {{-- Employee ID --}}
-            <div class="flex items-center justify-between px-5 py-4">
-                <span class="text-sm text-gray-400">ID Karyawan</span>
-                <span class="text-sm font-semibold text-gray-900 dark:text-white">
-                    {{ $user->employee_id ?? '—' }}
-                </span>
-            </div>
-            <div class="mx-5 h-px bg-gray-100 dark:bg-gray-800"></div>
-
         </div>
 
         {{-- ── Settings section ── --}}

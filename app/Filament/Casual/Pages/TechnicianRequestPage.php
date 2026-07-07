@@ -52,6 +52,14 @@ class TechnicianRequestPage extends Page
 
     public function submit(): void
     {
+        $user = auth()->user();
+
+        if (! $user->branch_id) {
+            Notification::make()->title('Cabang belum diatur')->body('Hubungi admin untuk mengatur cabang Anda.')->warning()->send();
+
+            return;
+        }
+
         $this->validate([
             'scheduledDate' => ['required', 'date', 'after_or_equal:today'],
             'requestorNotes' => ['required', 'string', 'max:2000'],
@@ -65,7 +73,8 @@ class TechnicianRequestPage extends Page
         }
 
         ServiceRequest::create([
-            'scheduled_by' => auth()->id(),
+            'scheduled_by' => $user->id,
+            'branch_id' => $user->branch_id,
             'technician_id' => null,
             'scheduled_date' => $this->scheduledDate,
             'requestor_notes' => $this->requestorNotes,

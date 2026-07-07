@@ -62,6 +62,12 @@ class ErpRequestPage extends Page
     {
         $user = auth()->user();
 
+        if (! $user->branch_id) {
+            Notification::make()->title('Cabang belum diatur')->body('Hubungi admin untuk mengatur cabang Anda.')->warning()->send();
+
+            return;
+        }
+
         $this->validate([
             'erpModuleId' => ['required', 'exists:erp_modules,id'],
             'keterangan' => ['required', 'string'],

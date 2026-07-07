@@ -22,8 +22,6 @@ class PurchaseRequestPage extends Page
 
     protected string $view = 'filament.casual.pages.purchase-request-page';
 
-    public string $division = '';
-
     public string $itemName = '';
 
     public int|string $quantity = '';
@@ -72,8 +70,15 @@ class PurchaseRequestPage extends Page
 
     public function submit(): void
     {
+        $user = auth()->user();
+
+        if (! $user->branch_id) {
+            Notification::make()->title('Cabang belum diatur')->body('Hubungi admin untuk mengatur cabang Anda.')->warning()->send();
+
+            return;
+        }
+
         $this->validate([
-            'division' => ['required', 'string', 'max:255'],
             'itemName' => ['required', 'string', 'max:255'],
             'quantity' => ['required', 'integer', 'min:1'],
             'purchaseReason' => ['required', 'string'],
@@ -91,9 +96,9 @@ class PurchaseRequestPage extends Page
         }
 
         PurchaseRequest::create([
-            'user_id' => auth()->id(),
-            'branch_id' => auth()->user()->branch_id,
-            'division' => $this->division,
+            'user_id' => $user->id,
+            'branch_id' => $user->branch_id,
+            'division' => $user->branch->name,
             'item_name' => $this->itemName,
             'quantity' => (int) $this->quantity,
             'purchase_reason' => $this->purchaseReason,
@@ -105,7 +110,7 @@ class PurchaseRequestPage extends Page
             'status' => PurchaseRequestStatus::Submitted->value,
         ]);
 
-        $this->reset(['division', 'itemName', 'quantity', 'purchaseReason', 'purchaseType',
+        $this->reset(['itemName', 'quantity', 'purchaseReason', 'purchaseType',
             'journalItemNumber', 'purchaseRequestNumber', 'ecommerceLink', 'attachments']);
 
         Notification::make()

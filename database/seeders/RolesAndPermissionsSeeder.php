@@ -41,6 +41,13 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view purchase requests', 'create purchase requests', 'edit purchase requests',
                 'view design requests', 'edit design requests',
                 'view users',
+                // tiles
+                'view tile req teknisi',
+                'view tile briefing',
+                'view tile sales report',
+                'view tile purchasing',
+                'view tile desain',
+                'view tile erp',
             ]);
 
         Role::firstOrCreate(['name' => 'STORE_STAFF', 'guard_name' => 'web'])
@@ -50,6 +57,13 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view purchase requests', 'create purchase requests',
                 'view design requests', 'create design requests',
                 'view erp requests', 'create erp requests',
+                // tiles
+                'view tile req teknisi',
+                'view tile briefing',
+                'view tile sales report',
+                'view tile purchasing',
+                'view tile desain',
+                'view tile erp',
             ]);
 
         Role::firstOrCreate(['name' => 'DRIVER', 'guard_name' => 'web'])
@@ -60,6 +74,9 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::firstOrCreate(['name' => 'TECHNICIAN', 'guard_name' => 'web'])
             ->syncPermissions([
                 'view service requests', 'create service requests', 'edit service requests', 'delete service requests',
+                // tiles
+                'view tile teknisi',
+                'view tile req teknisi',
             ]);
 
         // Remove any role not in the new set

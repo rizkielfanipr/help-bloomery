@@ -48,4 +48,16 @@ return [
     'Master' => [
         'Cabang' => ['view branches', 'create branches', 'edit branches', 'delete branches'],
     ],
+
+    'App Tiles' => [
+        'Tile Absensi' => ['view tile absensi'],
+        'Tile Driver' => ['view tile driver'],
+        'Tile Teknisi' => ['view tile teknisi'],
+        'Tile Req Teknisi' => ['view tile req teknisi'],
+        'Tile Briefing' => ['view tile briefing'],
+        'Tile Sales Report' => ['view tile sales report'],
+        'Tile Purchasing' => ['view tile purchasing'],
+        'Tile Desain' => ['view tile desain'],
+        'Tile ERP' => ['view tile erp'],
+    ],
 ];

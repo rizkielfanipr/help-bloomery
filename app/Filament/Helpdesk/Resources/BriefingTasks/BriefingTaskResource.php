@@ -78,7 +78,8 @@ class BriefingTaskResource extends Resource
                     Select::make('period')
                         ->label('Periode')
                         ->options(BriefingPeriod::class)
-                        ->required(),
+                        ->required()
+                        ->live(),
 
                     Select::make('submission_type')
                         ->label('Jenis Input')

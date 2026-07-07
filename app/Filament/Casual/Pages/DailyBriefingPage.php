@@ -273,21 +273,28 @@ class DailyBriefingPage extends Page
 
             $completedCount = collect($taskList)->where('isCompleted', true)->count();
 
-            $weekLabel = null;
-            if ($period === BriefingPeriod::Weekly) {
-                $start = now()->startOfWeek();
-                $end = now()->endOfWeek();
-                $range = $start->month === $end->month
-                    ? $start->format('j').'–'.$end->format('j M Y')
-                    : $start->format('j M').'–'.$end->format('j M Y');
-                $weekLabel = "Periode {$range}";
-            }
+            $idDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            $idMonths = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+            $rangeLabel = match ($period) {
+                BriefingPeriod::Daily => $idDays[now()->dayOfWeek].', '.now()->format('j').' '.$idMonths[now()->month].' '.now()->format('Y'),
+                BriefingPeriod::Weekly => (function () use ($idMonths): string {
+                    $start = now()->startOfWeek();
+                    $end = now()->endOfWeek();
+                    $range = $start->month === $end->month
+                        ? $start->format('j').'–'.$end->format('j').' '.$idMonths[$end->month].' '.$end->format('Y')
+                        : $start->format('j').' '.$idMonths[$start->month].'–'.$end->format('j').' '.$idMonths[$end->month].' '.$end->format('Y');
+
+                    return "Periode {$range}";
+                })(),
+                BriefingPeriod::Monthly => $idMonths[now()->month].' '.now()->format('Y'),
+            };
 
             $result[$period->value] = [
                 'period' => $period,
                 'label' => $period->getLabel(),
                 'periodLabel' => $period->periodLabel(),
-                'weekLabel' => $weekLabel,
+                'rangeLabel' => $rangeLabel,
                 'total' => count($taskList),
                 'completed' => $completedCount,
                 'tasks' => $taskList,

@@ -4,9 +4,9 @@
     $briefingData = $this->briefingData;
 
     $periodColors = [
-        'daily'   => ['bg' => 'bg-blue-600', 'light' => 'bg-blue-50', 'icon' => 'text-blue-600', 'pill' => 'bg-blue-100 text-blue-700', 'bar' => 'bg-blue-500'],
-        'weekly'  => ['bg' => 'bg-blue-600',   'light' => 'bg-blue-50',   'icon' => 'text-blue-600',   'pill' => 'bg-blue-100 text-blue-700',   'bar' => 'bg-blue-500'],
-        'monthly' => ['bg' => 'bg-amber-500',  'light' => 'bg-amber-50',  'icon' => 'text-amber-500',  'pill' => 'bg-amber-100 text-amber-700', 'bar' => 'bg-amber-400'],
+        'daily'   => ['bg' => 'bg-blue-600',   'light' => 'bg-blue-50',   'icon' => 'text-blue-600',   'pill' => 'bg-blue-100 text-blue-700',   'bar' => 'bg-blue-500',   'chip' => 'bg-blue-50 text-blue-500 ring-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:ring-blue-800',   'divider' => 'bg-blue-100 dark:bg-blue-900/30'],
+        'weekly'  => ['bg' => 'bg-blue-600',   'light' => 'bg-blue-50',   'icon' => 'text-blue-600',   'pill' => 'bg-blue-100 text-blue-700',   'bar' => 'bg-blue-500',   'chip' => 'bg-blue-50 text-blue-500 ring-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:ring-blue-800',   'divider' => 'bg-blue-100 dark:bg-blue-900/30'],
+        'monthly' => ['bg' => 'bg-amber-500',  'light' => 'bg-amber-50',  'icon' => 'text-amber-500',  'pill' => 'bg-amber-100 text-amber-700', 'bar' => 'bg-amber-400',  'chip' => 'bg-amber-50 text-amber-500 ring-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:ring-amber-800', 'divider' => 'bg-amber-100 dark:bg-amber-900/30'],
     ];
 @endphp
 
@@ -309,19 +309,27 @@
             @foreach($briefingData as $periodKey => $data)
                 @php $colors = $periodColors[$periodKey]; @endphp
 
-                {{-- Week period label (weekly only) --}}
-                @if($data['weekLabel'] ?? null)
-                    <div class="flex items-center gap-2 px-1">
-                        <div class="h-px flex-1 bg-blue-100 dark:bg-blue-900/30"></div>
-                        <div class="flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 ring-1 ring-blue-100 dark:bg-blue-900/20 dark:ring-blue-800">
-                            <svg class="h-3 w-3 shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                {{-- Period range label --}}
+                <div class="flex items-center gap-2 px-1">
+                    <div class="h-px flex-1 {{ $colors['divider'] }}"></div>
+                    <div class="flex items-center gap-1.5 rounded-full px-3 py-1 ring-1 {{ $colors['chip'] }}">
+                        @if($periodKey === 'daily')
+                            <svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                            </svg>
+                        @elseif($periodKey === 'weekly')
+                            <svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
                             </svg>
-                            <span class="text-xs font-semibold text-blue-500 dark:text-blue-400">{{ $data['weekLabel'] }}</span>
-                        </div>
-                        <div class="h-px flex-1 bg-blue-100 dark:bg-blue-900/30"></div>
+                        @else
+                            <svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5"/>
+                            </svg>
+                        @endif
+                        <span class="text-xs font-semibold">{{ $data['rangeLabel'] }}</span>
                     </div>
-                @endif
+                    <div class="h-px flex-1 {{ $colors['divider'] }}"></div>
+                </div>
 
                 <div class="rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900">
 

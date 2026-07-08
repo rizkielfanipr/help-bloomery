@@ -1,0 +1,53 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-BJsPJcAY.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/css/filament/casual/theme.css": {
+    "file": "assets/theme-Brb5R1my.css",
+    "name": "theme",
+    "names": [
+      "theme.css"
+    ],
+    "src": "resources/css/filament/casual/theme.css",
+    "isEntry": true
+  },
+  "resources/css/filament/driver/theme.css": {
+    "file": "assets/theme-Bsouj8E9.css",
+    "name": "theme",
+    "names": [
+      "theme.css"
+    ],
+    "src": "resources/css/filament/driver/theme.css",
+    "isEntry": true
+  },
+  "resources/css/filament/helpdesk/theme.css": {
+    "file": "assets/theme-Xh090Ufl.css",
+    "name": "theme",
+    "names": [
+      "theme.css"
+    ],
+    "src": "resources/css/filament/helpdesk/theme.css",
+    "isEntry": true
+  },
+  "resources/css/filament/technician/theme.css": {
+    "file": "assets/theme-CJIWJK2a.css",
+    "name": "theme",
+    "names": [
+      "theme.css"
+    ],
+    "src": "resources/css/filament/technician/theme.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-hXBokQ4a.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  }
+}

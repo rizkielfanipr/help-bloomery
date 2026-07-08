@@ -6,6 +6,7 @@ use App\Models\PaymentMethod;
 use App\Models\SalesReport;
 use App\Models\SalesReportEntry;
 use Illuminate\Database\Seeder;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 class SalesReportSeeder extends Seeder
 {
@@ -13,7 +14,19 @@ class SalesReportSeeder extends Seeder
     {
         $paymentMethodIds = PaymentMethod::pluck('id');
 
-        SalesReport::factory(30)->create()->each(function (SalesReport $report) use ($paymentMethodIds) {
+        $created = collect();
+        $attempts = 0;
+
+        while ($created->count() < 30 && $attempts < 100) {
+            try {
+                $created->push(SalesReport::factory()->create());
+            } catch (UniqueConstraintViolationException) {
+                // skip duplicate branch_id + report_date combination
+            }
+            $attempts++;
+        }
+
+        $created->each(function (SalesReport $report) use ($paymentMethodIds) {
             foreach ($paymentMethodIds as $methodId) {
                 SalesReportEntry::factory()->create([
                     'sales_report_id' => $report->id,

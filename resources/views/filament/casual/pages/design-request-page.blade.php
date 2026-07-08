@@ -143,22 +143,19 @@
             </div>
 
             </div>{{-- /white card --}}
+
+            {{-- Submit button --}}
+            <button type="button" wire:click="submit" wire:loading.attr="disabled"
+                    @disabled(!$hasBranch)
+                    class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60">
+                <span wire:loading.remove wire:target="submit">Kirim Permintaan Design</span>
+                <span wire:loading wire:target="submit">Mengirim...</span>
+            </button>
+
         </div>
     </div>
 
-    {{-- ════════════════════════════════════════════
-         FIXED BOTTOM SUBMIT BUTTON
-    ════════════════════════════════════════════ --}}
-    <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] border-t border-gray-200 bg-white px-5 pb-safe-bottom pt-4 pb-8 dark:border-gray-800 dark:bg-gray-900">
-        <button type="button"
-                wire:click="submit"
-                wire:loading.attr="disabled"
-                @disabled(!$hasBranch)
-                class="w-full rounded-2xl bg-blue-600 py-4 text-sm font-bold text-white transition active:bg-blue-700 disabled:opacity-60">
-            <span wire:loading.remove wire:target="submit">Kirim Permintaan Design</span>
-            <span wire:loading wire:target="submit">Mengirim...</span>
-        </button>
-    </div>
+    <x-design-request.bottom-nav active="form" />
 
     <x-filament-actions::modals />
 </div>

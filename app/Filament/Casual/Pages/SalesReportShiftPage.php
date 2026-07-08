@@ -28,7 +28,7 @@ class SalesReportShiftPage extends Page
 
     public string $modalShift = '';
 
-    /** @var array<int, array{amount: string}> */
+    /** @var array<int, array{amount: string, notes: string}> */
     public array $entries = [];
 
     public bool $isSubmitted = false;
@@ -70,7 +70,7 @@ class SalesReportShiftPage extends Page
 
         $this->entries = [];
         foreach ($methods as $method) {
-            $this->entries[$method->id] = ['amount' => ''];
+            $this->entries[$method->id] = ['amount' => '', 'notes' => ''];
         }
 
         if (! $branchId) {
@@ -100,6 +100,7 @@ class SalesReportShiftPage extends Page
                 if (isset($this->entries[$entry->payment_method_id])) {
                     $this->entries[$entry->payment_method_id] = [
                         'amount' => $entry->shift_1_amount > 0 ? (string) $entry->shift_1_amount : '',
+                        'notes' => $entry->notes ?? '',
                     ];
                 }
             }
@@ -111,6 +112,7 @@ class SalesReportShiftPage extends Page
                 if (isset($this->entries[$entry->payment_method_id])) {
                     $this->entries[$entry->payment_method_id] = [
                         'amount' => $entry->shift_2_amount > 0 ? (string) $entry->shift_2_amount : '',
+                        'notes' => $entry->notes ?? '',
                     ];
                 }
             }
@@ -185,7 +187,7 @@ class SalesReportShiftPage extends Page
             foreach ($this->entries as $methodId => $data) {
                 SalesReportEntry::updateOrCreate(
                     ['sales_report_id' => $report->id, 'payment_method_id' => $methodId],
-                    ['shift_1_amount' => (float) ($data['amount'] ?? 0)]
+                    ['shift_1_amount' => (float) ($data['amount'] ?? 0), 'notes' => $data['notes'] ?: null]
                 );
             }
         } else {
@@ -201,7 +203,7 @@ class SalesReportShiftPage extends Page
             foreach ($this->entries as $methodId => $data) {
                 SalesReportEntry::updateOrCreate(
                     ['sales_report_id' => $report->id, 'payment_method_id' => $methodId],
-                    ['shift_2_amount' => (float) ($data['amount'] ?? 0)]
+                    ['shift_2_amount' => (float) ($data['amount'] ?? 0), 'notes' => $data['notes'] ?: null]
                 );
             }
         }

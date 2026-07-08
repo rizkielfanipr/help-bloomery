@@ -98,23 +98,35 @@
                     <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
 
                         @foreach($this->paymentMethods as $method)
-                            <div class="flex items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
-                                <span class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">{{ $method->name }}</span>
+                            <div class="flex flex-col gap-1.5 border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">{{ $method->name }}</span>
+                                    @if($isSubmitted)
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-xs text-slate-400">Rp</span>
+                                            <span class="min-w-[80px] text-right text-sm text-slate-600 dark:text-slate-300">
+                                                {{ number_format((float) ($entries[$method->id]['amount'] ?? 0), 0, ',', '.') ?: '0' }}
+                                            </span>
+                                        </div>
+                                    @else
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="text-xs text-slate-400">Rp</span>
+                                            <input type="number" wire:model="entries.{{ $method->id }}.amount"
+                                                   min="0" step="1000" placeholder="0"
+                                                   class="w-28 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-right text-sm text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200
+                                                          {{ $isShift1 ? 'focus:border-blue-400' : 'focus:border-indigo-400' }}">
+                                        </div>
+                                    @endif
+                                </div>
                                 @if($isSubmitted)
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="text-xs text-slate-400">Rp</span>
-                                        <span class="min-w-[80px] text-right text-sm text-slate-600 dark:text-slate-300">
-                                            {{ number_format((float) ($entries[$method->id]['amount'] ?? 0), 0, ',', '.') ?: '0' }}
-                                        </span>
-                                    </div>
+                                    @if(!empty($entries[$method->id]['notes']))
+                                        <p class="text-xs text-slate-400 dark:text-slate-500">{{ $entries[$method->id]['notes'] }}</p>
+                                    @endif
                                 @else
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="text-xs text-slate-400">Rp</span>
-                                        <input type="number" wire:model="entries.{{ $method->id }}.amount"
-                                               min="0" step="1000" placeholder="0"
-                                               class="w-28 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-right text-sm text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200
-                                                      {{ $isShift1 ? 'focus:border-blue-400' : 'focus:border-indigo-400' }}">
-                                    </div>
+                                    <input type="text" wire:model="entries.{{ $method->id }}.notes"
+                                           placeholder="Catatan (opsional)"
+                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-slate-600 placeholder-slate-300 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300
+                                                  {{ $isShift1 ? 'focus:border-blue-400' : 'focus:border-indigo-400' }}">
                                 @endif
                             </div>
                         @endforeach

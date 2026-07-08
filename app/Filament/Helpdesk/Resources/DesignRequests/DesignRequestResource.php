@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\DesignRequests;
 
 use App\Enums\RequestStatus;
+use App\Filament\Exports\DesignRequestExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\EditDesignRequest;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ListDesignRequests;
@@ -15,6 +16,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Infolists\Components\TextEntry;
@@ -168,6 +170,8 @@ class DesignRequestResource extends Resource
                 DeleteAction::make()->iconButton(),
             ])
             ->toolbarActions([
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(DesignRequestExporter::class),
+
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

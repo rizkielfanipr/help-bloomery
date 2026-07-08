@@ -196,9 +196,9 @@
                                         <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Lampiran</p>
                                         <div class="grid grid-cols-3 gap-2">
                                             @foreach($request->attachment_paths as $path)
-                                                <a href="{{ \Illuminate\Support\Facades\Storage::url($path) }}" target="_blank"
+                                                <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" target="_blank"
                                                    class="aspect-square overflow-hidden rounded-lg ring-1 ring-gray-200">
-                                                    <img src="{{ \Illuminate\Support\Facades\Storage::url($path) }}"
+                                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
                                                          class="h-full w-full object-cover">
                                                 </a>
                                             @endforeach

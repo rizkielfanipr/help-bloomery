@@ -122,9 +122,9 @@
                             <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Foto Lampiran</p>
                             <div class="grid grid-cols-3 gap-2">
                                 @foreach($record->attachments as $attachment)
-                                    <a href="{{ \Storage::url($attachment) }}" target="_blank"
+                                    <a href="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" target="_blank"
                                        class="aspect-square overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                        <img src="{{ \Storage::url($attachment) }}" class="h-full w-full object-cover" alt="">
+                                        <img src="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" class="h-full w-full object-cover" alt="">
                                     </a>
                                 @endforeach
                             </div>
@@ -178,9 +178,9 @@
                                     @if(!empty($repair->warranty_claim_attachments))
                                         <div class="mt-2 grid grid-cols-3 gap-2">
                                             @foreach($repair->warranty_claim_attachments as $attachment)
-                                                <a href="{{ \Storage::url($attachment) }}" target="_blank"
+                                                <a href="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" target="_blank"
                                                    class="aspect-square overflow-hidden rounded-xl bg-red-100 dark:bg-red-900/20">
-                                                    <img src="{{ \Storage::url($attachment) }}" class="h-full w-full object-cover" alt="">
+                                                    <img src="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" class="h-full w-full object-cover" alt="">
                                                 </a>
                                             @endforeach
                                         </div>
@@ -201,9 +201,9 @@
                                     <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{{ $repair->before_notes }}</p>
                                 @endif
                                 @if($repair->before_photo)
-                                    <a href="{{ \Storage::url($repair->before_photo) }}" target="_blank"
+                                    <a href="{{ \Storage::disk('b2')->temporaryUrl($repair->before_photo, now()->addHour()) }}" target="_blank"
                                        class="mt-3 block overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                        <img src="{{ \Storage::url($repair->before_photo) }}" class="h-44 w-full object-cover" alt="Foto Sebelum">
+                                        <img src="{{ \Storage::disk('b2')->temporaryUrl($repair->before_photo, now()->addHour()) }}" class="h-44 w-full object-cover" alt="Foto Sebelum">
                                     </a>
                                 @endif
                             </div>
@@ -228,9 +228,9 @@
                                         <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{{ $repair->after_notes }}</p>
                                     @endif
                                     @if($repair->after_photo)
-                                        <a href="{{ \Storage::url($repair->after_photo) }}" target="_blank"
+                                        <a href="{{ \Storage::disk('b2')->temporaryUrl($repair->after_photo, now()->addHour()) }}" target="_blank"
                                            class="mt-3 block overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                            <img src="{{ \Storage::url($repair->after_photo) }}" class="h-44 w-full object-cover" alt="Foto Setelah">
+                                            <img src="{{ \Storage::disk('b2')->temporaryUrl($repair->after_photo, now()->addHour()) }}" class="h-44 w-full object-cover" alt="Foto Setelah">
                                         </a>
                                     @endif
                                 </div>
@@ -264,9 +264,9 @@
                                 @if(!empty($record->warranty_claim_attachments))
                                     <div class="mt-2 grid grid-cols-3 gap-2">
                                         @foreach($record->warranty_claim_attachments as $attachment)
-                                            <a href="{{ \Storage::url($attachment) }}" target="_blank"
+                                            <a href="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" target="_blank"
                                                class="aspect-square overflow-hidden rounded-xl bg-red-100 dark:bg-red-900/20">
-                                                <img src="{{ \Storage::url($attachment) }}" class="h-full w-full object-cover" alt="">
+                                                <img src="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" class="h-full w-full object-cover" alt="">
                                             </a>
                                         @endforeach
                                     </div>

@@ -79,7 +79,7 @@ class DesignRequestPage extends Page
 
         $paths = [];
         foreach ($this->attachments as $file) {
-            $paths[] = $file->store('design-requests', 'public');
+            $paths[] = $file->store('design-requests', 'b2');
         }
 
         DesignRequest::create([

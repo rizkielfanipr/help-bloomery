@@ -78,7 +78,7 @@ class ActiveTrip extends Page
     {
         $path = null;
         if ($this->odoStartPhoto) {
-            $path = $this->odoStartPhoto->store('trip-odo', 'public');
+            $path = $this->odoStartPhoto->store('trip-odo', 'b2');
             $this->odoStartPhoto = null;
         }
 
@@ -108,7 +108,7 @@ class ActiveTrip extends Page
 
         $path = null;
         if ($this->odoEndPhoto) {
-            $path = $this->odoEndPhoto->store('trip-odo', 'public');
+            $path = $this->odoEndPhoto->store('trip-odo', 'b2');
             $this->odoEndPhoto = null;
         }
 
@@ -136,7 +136,7 @@ class ActiveTrip extends Page
         $attachmentPath = $checkin->attachment_path;
 
         if ($this->checkinPhoto) {
-            $attachmentPath = $this->checkinPhoto->store('trip-checkins', 'public');
+            $attachmentPath = $this->checkinPhoto->store('trip-checkins', 'b2');
         }
 
         $checkin->update([

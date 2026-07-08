@@ -3,6 +3,8 @@
 namespace App\Filament\Helpdesk\Resources\PurchaseRequests\Schemas;
 
 use App\Enums\PurchaseRequestStatus;
+use App\Enums\PurchaseType;
+use Carbon\Carbon;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -41,7 +43,7 @@ class PurchaseRequestForm
                     TextInput::make('purchase_type')
                         ->label('Jenis Pembelian')
                         ->disabled()
-                        ->formatStateUsing(fn ($state) => $state?->getLabel()),
+                        ->formatStateUsing(fn ($state) => $state instanceof PurchaseType ? $state->getLabel() : PurchaseType::tryFrom((string) $state)?->getLabel()),
 
                     TextInput::make('journal_item_number')
                         ->label('No. Item Journal')
@@ -92,7 +94,7 @@ class PurchaseRequestForm
                             TextInput::make('updated_at')
                                 ->label('Terakhir diperbarui')
                                 ->disabled()
-                                ->formatStateUsing(fn ($state) => $state?->locale('id')->isoFormat('D MMM Y, HH:mm')),
+                                ->formatStateUsing(fn ($state) => $state ? Carbon::parse($state)->locale('id')->isoFormat('D MMM Y, HH:mm') : null),
                         ]),
                 ]),
         ]);

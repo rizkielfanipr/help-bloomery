@@ -677,7 +677,7 @@
 
                                 @foreach($this->cameraPhotoPaths as $index => $path)
                                     <div class="relative aspect-square overflow-hidden rounded-xl">
-                                        <img src="{{ asset('storage/' . $path) }}"
+                                        <img src="{{ Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
                                              class="h-full w-full object-cover"
                                              alt="Foto {{ $index + 1 }}">
                                         <button wire:click="removePhoto({{ $index }})"

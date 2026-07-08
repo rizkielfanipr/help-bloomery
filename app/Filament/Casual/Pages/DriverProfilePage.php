@@ -37,10 +37,10 @@ class DriverProfilePage extends Page
         $user = auth()->user();
 
         if ($user->avatar) {
-            Storage::disk('public')->delete($user->avatar);
+            Storage::disk('b2')->delete($user->avatar);
         }
 
-        $path = $this->photo->store('avatars', 'public');
+        $path = $this->photo->store('avatars', 'b2');
 
         $user->update(['avatar' => $path]);
 

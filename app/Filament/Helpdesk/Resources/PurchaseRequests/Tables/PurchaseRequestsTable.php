@@ -4,20 +4,26 @@ namespace App\Filament\Helpdesk\Resources\PurchaseRequests\Tables;
 
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\PurchaseType;
+use App\Filament\Exports\PurchaseRequestExporter;
 use App\Models\Branch;
 use App\Models\PurchaseRequest;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class PurchaseRequestsTable
 {
@@ -142,12 +148,37 @@ class PurchaseRequestsTable
                         $record->update(['admin_notes' => $data['admin_notes'] ?: null]);
                     }),
 
-                EditAction::make()
+                ViewAction::make()
                     ->iconButton()
                     ->tooltip('Lihat Detail'),
+
+                EditAction::make()
+                    ->iconButton()
+                    ->tooltip('Edit'),
             ])
             ->toolbarActions([
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(PurchaseRequestExporter::class),
+
                 BulkActionGroup::make([
+                    BulkAction::make('update_status')
+                        ->label('Update Status')
+                        ->icon('heroicon-o-arrow-path')
+                        ->form([
+                            Select::make('status')
+                                ->label('Status Baru')
+                                ->options(collect(PurchaseRequestStatus::cases())->mapWithKeys(
+                                    fn (PurchaseRequestStatus $s) => [$s->value => $s->getLabel()]
+                                ))
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $records->each(fn (PurchaseRequest $record) => $record->update([
+                                'status' => $data['status'],
+                                'processed_by' => auth()->id(),
+                            ]));
+                        })
+                        ->deselectRecordsAfterCompletion(),
+
                     DeleteBulkAction::make(),
                 ]),
             ])

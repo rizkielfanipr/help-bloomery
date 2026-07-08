@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\Branches;
 
+use App\Filament\Exports\BranchExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Branches\Pages\CreateBranch;
 use App\Filament\Helpdesk\Resources\Branches\Pages\EditBranch;
@@ -12,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -133,6 +135,8 @@ class BranchResource extends Resource
                     ->tooltip('Tambah Branch')
                     ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
+
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(BranchExporter::class),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

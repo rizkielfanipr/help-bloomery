@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\Vehicles;
 
+use App\Filament\Exports\VehicleExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Vehicles\Pages\CreateVehicle;
 use App\Filament\Helpdesk\Resources\Vehicles\Pages\EditVehicle;
@@ -13,6 +14,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Forms\Components\TextInput;
@@ -134,18 +136,7 @@ class VehicleResource extends Resource
                             ->send();
                     }),
 
-                Action::make('export_excel')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->iconButton()
-                    ->tooltip('Export Excel')
-                    ->action(function (): void {
-                        Notification::make()
-                            ->title('Segera hadir')
-                            ->body('Fitur Export Excel belum tersedia.')
-                            ->warning()
-                            ->send();
-                    }),
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(VehicleExporter::class),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

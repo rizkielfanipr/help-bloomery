@@ -156,7 +156,7 @@ class BriefingItemResource extends Resource
                     ->form([
                         Select::make('user_id')
                             ->label('Staff')
-                            ->options(User::role(['casual_staff', 'hr_staff'])->pluck('name', 'id'))
+                            ->options(User::role(['CASUAL_STAFF', 'HRD_STAFF'])->pluck('name', 'id'))
                             ->searchable()
                             ->nullable(),
                     ])

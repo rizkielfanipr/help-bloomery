@@ -2,9 +2,11 @@
 
 namespace App\Filament\Helpdesk\Resources\FuelTypes\Tables;
 
+use App\Filament\Exports\FuelTypeExporter;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -45,6 +47,8 @@ class FuelTypesTable
                 EditAction::make(),
             ])
             ->toolbarActions([
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(FuelTypeExporter::class),
+
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

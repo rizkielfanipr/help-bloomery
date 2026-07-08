@@ -44,30 +44,43 @@
     </div>
 
     {{-- ─── Module Summary Cards ─────────────────────────────────────────── --}}
+    @php
+        $cardThemes = [
+            'service'  => ['border' => 'border-blue-100',    'icon_bg' => 'bg-blue-100',    'icon_color' => 'text-blue-600',    'badge_bg' => 'bg-blue-100 text-blue-700'],
+            'erp'      => ['border' => 'border-indigo-100',  'icon_bg' => 'bg-indigo-100',  'icon_color' => 'text-indigo-600',  'badge_bg' => 'bg-indigo-100 text-indigo-700'],
+            'design'   => ['border' => 'border-pink-100',    'icon_bg' => 'bg-pink-100',    'icon_color' => 'text-pink-600',    'badge_bg' => 'bg-pink-100 text-pink-700'],
+            'purchase' => ['border' => 'border-amber-100',   'icon_bg' => 'bg-amber-100',   'icon_color' => 'text-amber-600',   'badge_bg' => 'bg-amber-100 text-amber-700'],
+            'casual'   => ['border' => 'border-teal-100',    'icon_bg' => 'bg-teal-100',    'icon_color' => 'text-teal-600',    'badge_bg' => 'bg-teal-100 text-teal-700'],
+            'briefing' => ['border' => 'border-emerald-100', 'icon_bg' => 'bg-emerald-100', 'icon_color' => 'text-emerald-600', 'badge_bg' => 'bg-emerald-100 text-emerald-700'],
+            'trip'     => ['border' => 'border-sky-100',     'icon_bg' => 'bg-sky-100',     'icon_color' => 'text-sky-600',     'badge_bg' => 'bg-sky-100 text-sky-700'],
+            'sales'    => ['border' => 'border-violet-100',  'icon_bg' => 'bg-violet-100',  'icon_color' => 'text-violet-600',  'badge_bg' => 'bg-violet-100 text-violet-700'],
+        ];
+    @endphp
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ($moduleStats as $mod)
+            @php $theme = $cardThemes[$mod['key']]; @endphp
             <a href="{{ $mod['href'] }}"
-               class="group relative overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-[#0F172A] dark:shadow-none {{ $mod['border'] }}">
+               class="group relative overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-[#0F172A] dark:shadow-none {{ $theme['border'] }}">
 
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <p class="truncate text-xs font-medium text-slate-500 dark:text-slate-400">{{ $mod['label'] }}</p>
                         <p class="mt-1.5 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{{ number_format($mod['total']) }}</p>
                     </div>
-                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl {{ $mod['icon_bg'] }}">
-                        <svg class="h-5 w-5 {{ $mod['icon_color'] }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl {{ $theme['icon_bg'] }}">
+                        <svg class="h-5 w-5 {{ $theme['icon_color'] }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="{{ $mod['path'] }}"/>
                         </svg>
                     </div>
                 </div>
 
                 <div class="mt-4 flex items-center gap-2">
-                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $mod['badge_bg'] }}">
+                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $theme['badge_bg'] }}">
                         <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>
-                        {{ $mod['pending'] }} aktif
+                        {{ $mod['pending'] }} {{ $mod['pending_label'] ?? 'aktif' }}
                     </span>
                     <span class="text-[11px] text-slate-400 dark:text-slate-600">·</span>
-                    <span class="text-[11px] text-slate-400 dark:text-slate-500">{{ $mod['completed'] }} selesai</span>
+                    <span class="text-[11px] text-slate-400 dark:text-slate-500">{{ $mod['completed'] }} {{ $mod['completed_label'] ?? 'selesai' }}</span>
                 </div>
             </a>
         @endforeach
@@ -85,7 +98,7 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
                     @php
-                        $legendColors = ['bg-blue-500', 'bg-indigo-500', 'bg-pink-500', 'bg-amber-400'];
+                        $legendColors = ['bg-blue-500', 'bg-indigo-500', 'bg-pink-500', 'bg-amber-400', 'bg-teal-500', 'bg-emerald-500', 'bg-sky-500', 'bg-violet-500'];
                     @endphp
                     @foreach ($trendDatasets as $i => $ds)
                         <div class="flex items-center gap-1.5">
@@ -102,7 +115,7 @@
 
         {{-- Distribution donut (1/3 width) --}}
         @php
-            $distColors = ['bg-blue-500', 'bg-indigo-500', 'bg-pink-500', 'bg-amber-400'];
+            $distColors = ['bg-blue-500', 'bg-indigo-500', 'bg-pink-500', 'bg-amber-400', 'bg-teal-500', 'bg-emerald-500', 'bg-sky-500', 'bg-violet-500'];
             $distTotal = array_sum($distributionDataset);
         @endphp
         <div class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#0F172A]">
@@ -293,7 +306,7 @@
                         datasets: [{
                             data: hasData ? data : [1],
                             backgroundColor: hasData
-                                ? ['#3b82f6', '#6366f1', '#ec4899', '#f59e0b']
+                                ? ['#3b82f6', '#6366f1', '#ec4899', '#f59e0b', '#14b8a6', '#10b981', '#0ea5e9', '#8b5cf6']
                                 : [dark() ? '#1e293b' : '#e5e7eb'],
                             borderWidth: 0,
                             hoverOffset: hasData ? 6 : 0,

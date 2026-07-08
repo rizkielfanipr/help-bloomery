@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualPositions;
 
+use App\Filament\Exports\CasualPositionExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\CasualPositions\Pages\CreateCasualPosition;
 use App\Filament\Helpdesk\Resources\CasualPositions\Pages\EditCasualPosition;
@@ -14,6 +15,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -197,18 +199,7 @@ class CasualPositionResource extends Resource
                             ->send();
                     }),
 
-                Action::make('export_excel')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->iconButton()
-                    ->tooltip('Export Excel')
-                    ->action(function (): void {
-                        Notification::make()
-                            ->title('Segera hadir')
-                            ->body('Fitur Export Excel belum tersedia.')
-                            ->warning()
-                            ->send();
-                    }),
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(CasualPositionExporter::class),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

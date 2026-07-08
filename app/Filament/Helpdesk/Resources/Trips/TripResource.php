@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\Trips;
 
 use App\Enums\TripStatus;
+use App\Filament\Exports\TripExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ListTrips;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ViewTrip;
@@ -11,6 +12,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -291,18 +293,7 @@ class TripResource extends Resource
                             ->send();
                     }),
 
-                Action::make('export_excel')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->iconButton()
-                    ->tooltip('Export Excel')
-                    ->action(function (): void {
-                        Notification::make()
-                            ->title('Segera hadir')
-                            ->body('Fitur Export Excel belum tersedia.')
-                            ->warning()
-                            ->send();
-                    }),
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(TripExporter::class),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

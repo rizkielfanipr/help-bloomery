@@ -301,7 +301,7 @@ class ClockPage extends Page
             }
         }
 
-        $photoPath = $this->clockInPhoto->store('casual-clocks', 'public');
+        $photoPath = $this->clockInPhoto->store('casual-clocks', 'b2');
         $now = now();
 
         CasualClockRecord::create([
@@ -367,7 +367,7 @@ class ClockPage extends Page
             }
         }
 
-        $photoPath = $this->clockOutPhoto->store('casual-clocks', 'public');
+        $photoPath = $this->clockOutPhoto->store('casual-clocks', 'b2');
 
         $record->update([
             'clock_out_at' => $now,

@@ -92,7 +92,7 @@ class TechnicianRequestHistoryPage extends Page
 
         $paths = [];
         foreach ($this->claimAttachments as $file) {
-            $paths[] = $file->store('service-request-warranty-claims', 'public');
+            $paths[] = $file->store('service-request-warranty-claims', 'b2');
         }
 
         $request->update([

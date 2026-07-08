@@ -69,7 +69,7 @@ class TechnicianRequestPage extends Page
 
         $paths = [];
         foreach ($this->attachments as $file) {
-            $paths[] = $file->store('service-request-attachments', 'public');
+            $paths[] = $file->store('service-request-attachments', 'b2');
         }
 
         ServiceRequest::create([

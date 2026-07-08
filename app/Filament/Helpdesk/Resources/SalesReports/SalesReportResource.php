@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\SalesReports;
 
+use App\Filament\Exports\SalesReportExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
@@ -9,6 +10,7 @@ use App\Models\Branch;
 use App\Models\SalesReport;
 use BackedEnum;
 use Carbon\Carbon;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
@@ -106,6 +108,9 @@ class SalesReportResource extends Resource
             ])
             ->recordActions([
                 ViewAction::make(),
+            ])
+            ->toolbarActions([
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(SalesReportExporter::class),
             ])
             ->defaultSort('report_date', 'desc');
     }

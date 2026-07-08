@@ -138,9 +138,9 @@
                 </div>
                 <div class="flex flex-wrap gap-3 px-5 py-4">
                     @foreach((array) $record->attachments as $attachment)
-                        <a href="{{ \Storage::url($attachment) }}" target="_blank"
+                        <a href="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" target="_blank"
                            class="block h-24 w-24 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                            <img src="{{ \Storage::url($attachment) }}" class="h-full w-full object-cover" alt="">
+                            <img src="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" class="h-full w-full object-cover" alt="">
                         </a>
                     @endforeach
                 </div>
@@ -192,9 +192,9 @@
                                     </div>
                                 @endif
                                 @if($repair->before_photo)
-                                    <a href="{{ \Storage::url($repair->before_photo) }}" target="_blank"
+                                    <a href="{{ \Storage::disk('b2')->temporaryUrl($repair->before_photo, now()->addHour()) }}" target="_blank"
                                        class="block h-40 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                        <img src="{{ \Storage::url($repair->before_photo) }}" class="h-full w-full object-cover" alt="Foto Sebelum">
+                                        <img src="{{ \Storage::disk('b2')->temporaryUrl($repair->before_photo, now()->addHour()) }}" class="h-full w-full object-cover" alt="Foto Sebelum">
                                     </a>
                                 @endif
                                 @if($repair->completed_at)
@@ -229,9 +229,9 @@
                                         </div>
                                     @endif
                                     @if($repair->after_photo)
-                                        <a href="{{ \Storage::url($repair->after_photo) }}" target="_blank"
+                                        <a href="{{ \Storage::disk('b2')->temporaryUrl($repair->after_photo, now()->addHour()) }}" target="_blank"
                                            class="block h-40 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                            <img src="{{ \Storage::url($repair->after_photo) }}" class="h-full w-full object-cover" alt="Foto Setelah">
+                                            <img src="{{ \Storage::disk('b2')->temporaryUrl($repair->after_photo, now()->addHour()) }}" class="h-full w-full object-cover" alt="Foto Setelah">
                                         </a>
                                     @endif
                                 @endif

@@ -132,7 +132,7 @@
                 <template x-if="!hasPhoto">
                     <div class="h-full w-full">
                         @if($user->avatar)
-                            <img src="{{ \Illuminate\Support\Facades\Storage::url($user->avatar) }}"
+                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($user->avatar, now()->addHour()) }}"
                                  class="h-full w-full object-cover"
                                  alt="{{ $user->name }}">
                         @else
@@ -317,7 +317,7 @@
             <div class="relative">
                 <div class="h-16 w-16 overflow-hidden rounded-full ring-4 ring-blue-100 dark:ring-blue-900/40">
                     @if($user->avatar)
-                        <img src="{{ \Illuminate\Support\Facades\Storage::url($user->avatar) }}"
+                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($user->avatar, now()->addHour()) }}"
                              class="h-full w-full object-cover" alt="{{ $user->name }}">
                     @else
                         <div class="flex h-full w-full items-center justify-center bg-blue-500 text-xl font-semibold text-white">

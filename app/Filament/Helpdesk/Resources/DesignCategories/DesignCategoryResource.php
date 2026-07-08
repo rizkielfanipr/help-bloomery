@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\DesignCategories;
 
+use App\Filament\Exports\DesignCategoryExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\DesignCategories\Pages\CreateDesignCategory;
 use App\Filament\Helpdesk\Resources\DesignCategories\Pages\EditDesignCategory;
@@ -12,6 +13,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -99,6 +101,8 @@ class DesignCategoryResource extends Resource
                 DeleteAction::make()->iconButton(),
             ])
             ->toolbarActions([
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(DesignCategoryExporter::class),
+
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

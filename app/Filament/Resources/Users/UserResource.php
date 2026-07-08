@@ -78,7 +78,7 @@ class UserResource extends Resource
                         FileUpload::make('avatar')
                             ->label('Foto')
                             ->image()
-                            ->disk('public')
+                            ->disk('b2')
                             ->directory('avatars')
                             ->nullable(),
 

@@ -93,8 +93,8 @@
                         @if($trip->odo_start_photo)
                             <div>
                                 <p class="{{ $labelClass }} mb-1.5">Foto Odo Awal</p>
-                                <a href="{{ Storage::url($trip->odo_start_photo) }}" target="_blank">
-                                    <img src="{{ Storage::url($trip->odo_start_photo) }}"
+                                <a href="{{ Storage::disk('b2')->temporaryUrl($trip->odo_start_photo, now()->addHour()) }}" target="_blank">
+                                    <img src="{{ Storage::disk('b2')->temporaryUrl($trip->odo_start_photo, now()->addHour()) }}"
                                          class="h-28 w-full rounded-xl object-cover ring-1 ring-black/10">
                                 </a>
                             </div>
@@ -102,8 +102,8 @@
                         @if($trip->odo_end_photo)
                             <div>
                                 <p class="{{ $labelClass }} mb-1.5">Foto Odo Akhir</p>
-                                <a href="{{ Storage::url($trip->odo_end_photo) }}" target="_blank">
-                                    <img src="{{ Storage::url($trip->odo_end_photo) }}"
+                                <a href="{{ Storage::disk('b2')->temporaryUrl($trip->odo_end_photo, now()->addHour()) }}" target="_blank">
+                                    <img src="{{ Storage::disk('b2')->temporaryUrl($trip->odo_end_photo, now()->addHour()) }}"
                                          class="h-28 w-full rounded-xl object-cover ring-1 ring-black/10">
                                 </a>
                             </div>
@@ -141,8 +141,8 @@
                                     @endif
                                 </div>
                                 @if($checkin->attachment_path)
-                                    <a href="{{ Storage::url($checkin->attachment_path) }}" target="_blank" class="mt-2 block">
-                                        <img src="{{ Storage::url($checkin->attachment_path) }}"
+                                    <a href="{{ Storage::disk('b2')->temporaryUrl($checkin->attachment_path, now()->addHour()) }}" target="_blank" class="mt-2 block">
+                                        <img src="{{ Storage::disk('b2')->temporaryUrl($checkin->attachment_path, now()->addHour()) }}"
                                              class="h-32 w-full rounded-xl object-cover ring-1 ring-black/10">
                                     </a>
                                 @endif
@@ -188,8 +188,8 @@
                             @if($fuel->attachment_path)
                                 <div>
                                     <p class="{{ $labelClass }} mb-1.5">Foto Nota</p>
-                                    <a href="{{ Storage::url($fuel->attachment_path) }}" target="_blank">
-                                        <img src="{{ Storage::url($fuel->attachment_path) }}"
+                                    <a href="{{ Storage::disk('b2')->temporaryUrl($fuel->attachment_path, now()->addHour()) }}" target="_blank">
+                                        <img src="{{ Storage::disk('b2')->temporaryUrl($fuel->attachment_path, now()->addHour()) }}"
                                              class="h-28 w-full rounded-xl object-cover ring-1 ring-black/10">
                                     </a>
                                 </div>
@@ -197,8 +197,8 @@
                             @if($fuel->fuel_indicator_photo)
                                 <div>
                                     <p class="{{ $labelClass }} mb-1.5">Foto Indikator</p>
-                                    <a href="{{ Storage::url($fuel->fuel_indicator_photo) }}" target="_blank">
-                                        <img src="{{ Storage::url($fuel->fuel_indicator_photo) }}"
+                                    <a href="{{ Storage::disk('b2')->temporaryUrl($fuel->fuel_indicator_photo, now()->addHour()) }}" target="_blank">
+                                        <img src="{{ Storage::disk('b2')->temporaryUrl($fuel->fuel_indicator_photo, now()->addHour()) }}"
                                              class="h-28 w-full rounded-xl object-cover ring-1 ring-black/10">
                                     </a>
                                 </div>

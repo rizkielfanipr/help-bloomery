@@ -13,6 +13,14 @@ class DatabaseSeeder extends Seeder
             AllUsersSeeder::class,
             CasualTestDataSeeder::class,
             FuelTypeSeeder::class,
+            PurchaseRequestSeeder::class,
+            VehicleSeeder::class,
+            DesignRequestSeeder::class,
+            ErpRepairRequestSeeder::class,
+            PurchasingRequestSeeder::class,
+            SalesReportSeeder::class,
+            ServiceRequestSeeder::class,
+            TripSeeder::class,
         ]);
     }
 }

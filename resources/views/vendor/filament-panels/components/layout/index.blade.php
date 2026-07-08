@@ -23,6 +23,10 @@
     /* ── Route helper ──────────────────────────────────────────────*/
     $r = fn (string $name) => app('router')->has($name) ? route($name) : '#';
 
+    /* ── Active check: true if current URL starts with the item's path ─*/
+    $active = fn (string $href): bool => $href !== '#' &&
+        str_starts_with('/'.request()->path(), parse_url($href, PHP_URL_PATH) ?? '~');
+
     /* ── Auto-open the active group ──────────────────────────────── */
     $path = request()->path();
     $initialOpen = [];
@@ -44,11 +48,11 @@
             'label' => 'Casual Staff',
             'icon'  => 'users',
             'items' => [
-                ['label' => 'Casual Staff',    'icon' => 'users',     'perm' => 'view casual staff',     'href' => $r('filament.helpdesk.resources.casual-staff.index'),             'active' => request()->is('helpdesk/casual-staff*')],
-                ['label' => 'Posisi Casual',   'icon' => 'briefcase', 'perm' => 'view casual positions', 'href' => $r('filament.helpdesk.resources.casual-positions.index'),          'active' => request()->is('helpdesk/casual-positions*')],
-                ['label' => 'Lowongan Posisi', 'icon' => 'megaphone', 'perm' => 'view casual openings',  'href' => $r('filament.helpdesk.resources.casual-position-openings.index'), 'active' => request()->is('helpdesk/casual-position-openings*')],
-                ['label' => 'Absensi Casual',  'icon' => 'clock',     'perm' => 'view clock records',    'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),      'active' => request()->is('helpdesk/casual-clock-records*')],
-                ['label' => 'Lembur Casual',   'icon' => 'timer',     'perm' => 'view overtime requests', 'href' => $r('filament.helpdesk.resources.casual-overtime-requests.index'),  'active' => request()->is('helpdesk/casual-overtime-requests*')],
+                ['label' => 'Casual Staff',    'icon' => 'users',     'perm' => 'view casual staff',      'href' => $r('filament.helpdesk.resources.casual-staff.index'),             'active' => $active($r('filament.helpdesk.resources.casual-staff.index'))],
+                ['label' => 'Posisi Casual',   'icon' => 'briefcase', 'perm' => 'view casual positions',  'href' => $r('filament.helpdesk.resources.casual-positions.index'),          'active' => $active($r('filament.helpdesk.resources.casual-positions.index'))],
+                ['label' => 'Lowongan Posisi', 'icon' => 'megaphone', 'perm' => 'view casual openings',   'href' => $r('filament.helpdesk.resources.casual-position-openings.index'), 'active' => $active($r('filament.helpdesk.resources.casual-position-openings.index'))],
+                ['label' => 'Absensi Casual',  'icon' => 'clock',     'perm' => 'view clock records',     'href' => $r('filament.helpdesk.resources.casual-clock-records.index'),      'active' => $active($r('filament.helpdesk.resources.casual-clock-records.index'))],
+                ['label' => 'Lembur Casual',   'icon' => 'timer',     'perm' => 'view overtime requests',  'href' => $r('filament.helpdesk.resources.casual-overtime-requests.index'),  'active' => $active($r('filament.helpdesk.resources.casual-overtime-requests.index'))],
             ],
         ],
         [
@@ -56,10 +60,10 @@
             'label' => 'Daily Briefing',
             'icon'  => 'clipboard-list',
             'items' => [
-                ['label' => 'Monitoring Poin',   'icon' => 'clipboard-check', 'perm' => 'view briefing items',   'href' => $r('filament.helpdesk.resources.briefing-items.index'),   'active' => request()->is('helpdesk/briefing-items*')],
-                ['label' => 'Kalender Briefing', 'icon' => 'calendar-days',   'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.pages.briefing-calendar-page'),      'active' => request()->is('helpdesk/briefing-calendar-page*')],
-                ['label' => 'Kelola Poin',       'icon' => 'list-checks',     'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.resources.briefing-tasks.index'),   'active' => request()->is('helpdesk/briefing-tasks*')],
-                ['label' => 'Nilai Briefing',    'icon' => 'star',            'perm' => 'view briefing scores',  'href' => $r('filament.helpdesk.resources.briefing-scores.index'),   'active' => request()->is('helpdesk/briefing-scores*')],
+                ['label' => 'Monitoring Poin',   'icon' => 'clipboard-check', 'perm' => 'view briefing items',   'href' => $r('filament.helpdesk.resources.briefing-items.index'),   'active' => $active($r('filament.helpdesk.resources.briefing-items.index'))],
+                ['label' => 'Kalender Briefing', 'icon' => 'calendar-days',   'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.pages.briefing-calendar-page'),      'active' => $active($r('filament.helpdesk.pages.briefing-calendar-page'))],
+                ['label' => 'Kelola Poin',       'icon' => 'list-checks',     'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.resources.briefing-tasks.index'),   'active' => $active($r('filament.helpdesk.resources.briefing-tasks.index'))],
+                ['label' => 'Nilai Briefing',    'icon' => 'star',            'perm' => 'view briefing scores',  'href' => $r('filament.helpdesk.resources.briefing-scores.index'),  'active' => $active($r('filament.helpdesk.resources.briefing-scores.index'))],
             ],
         ],
         [
@@ -67,11 +71,11 @@
             'label' => 'Driver',
             'icon'  => 'truck',
             'items' => [
-                ['label' => 'Perjalanan',      'icon' => 'map',      'perm' => 'view trips',       'href' => $r('filament.helpdesk.resources.trips.index'),       'active' => request()->is('helpdesk/trips*')],
-                ['label' => 'Rute Perjalanan', 'icon' => 'route',    'perm' => 'view trip routes', 'href' => $r('filament.helpdesk.resources.trip-routes.index'), 'active' => request()->is('helpdesk/trip-routes*')],
-                ['label' => 'Kendaraan',       'icon' => 'car',      'perm' => 'view vehicles',    'href' => $r('filament.helpdesk.resources.vehicles.index'),    'active' => request()->is('helpdesk/vehicles*')],
-                ['label' => 'Jenis BBM',        'icon' => 'fuel',     'perm' => 'edit trips',       'href' => $r('filament.helpdesk.resources.fuel-types.index'),  'active' => request()->is('helpdesk/fuel-types*')],
-                ['label' => 'Pengaturan Trip', 'icon' => 'settings', 'perm' => 'edit trips',       'href' => $r('filament.helpdesk.pages.driver-trip-settings'),  'active' => request()->is('helpdesk/driver-trip-settings*')],
+                ['label' => 'Perjalanan',      'icon' => 'map',      'perm' => 'view trips',       'href' => $r('filament.helpdesk.resources.trips.index'),       'active' => $active($r('filament.helpdesk.resources.trips.index'))],
+                ['label' => 'Rute Perjalanan', 'icon' => 'route',    'perm' => 'view trip routes', 'href' => $r('filament.helpdesk.resources.trip-routes.index'), 'active' => $active($r('filament.helpdesk.resources.trip-routes.index'))],
+                ['label' => 'Kendaraan',       'icon' => 'car',      'perm' => 'view vehicles',    'href' => $r('filament.helpdesk.resources.vehicles.index'),    'active' => $active($r('filament.helpdesk.resources.vehicles.index'))],
+                ['label' => 'Jenis BBM',        'icon' => 'fuel',     'perm' => 'edit trips',       'href' => $r('filament.helpdesk.resources.fuel-types.index'),  'active' => $active($r('filament.helpdesk.resources.fuel-types.index'))],
+                ['label' => 'Pengaturan Trip', 'icon' => 'settings', 'perm' => 'edit trips',       'href' => $r('filament.helpdesk.pages.driver-trip-settings'),  'active' => $active($r('filament.helpdesk.pages.driver-trip-settings'))],
             ],
         ],
         [
@@ -79,8 +83,8 @@
             'label' => 'Technician',
             'icon'  => 'wrench',
             'items' => [
-                ['label' => 'Permintaan Servis',  'icon' => 'clipboard-list', 'perm' => 'view service requests', 'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => request()->is('helpdesk/service-requests*')],
-                ['label' => 'Pengaturan Teknisi', 'icon' => 'settings',       'perm' => 'edit service requests', 'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => request()->is('helpdesk/technician-settings*')],
+                ['label' => 'Permintaan Servis',  'icon' => 'clipboard-list', 'perm' => 'view service requests', 'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => $active($r('filament.helpdesk.resources.service-requests.index'))],
+                ['label' => 'Pengaturan Teknisi', 'icon' => 'settings',       'perm' => 'edit service requests', 'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => $active($r('filament.helpdesk.pages.technician-settings'))],
             ],
         ],
         [
@@ -88,8 +92,8 @@
             'label' => 'Information Technology',
             'icon'  => 'monitor',
             'items' => [
-                ['label' => 'Permintaan ERP', 'icon' => 'server',      'perm' => 'view erp requests', 'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => request()->is('helpdesk/erp-repair-requests*')],
-                ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => request()->is('helpdesk/erp-modules*')],
+                ['label' => 'Permintaan ERP', 'icon' => 'server',      'perm' => 'view erp requests', 'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => $active($r('filament.helpdesk.resources.erp-repair-requests.index'))],
+                ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => $active($r('filament.helpdesk.resources.erp-modules.index'))],
             ],
         ],
         [
@@ -97,7 +101,7 @@
             'label' => 'Purchasing',
             'icon'  => 'shopping-cart',
             'items' => [
-                ['label' => 'Permintaan Pembelian', 'icon' => 'shopping-bag', 'perm' => 'view purchase requests', 'href' => $r('filament.helpdesk.resources.purchase-requests.index'), 'active' => request()->is('helpdesk/purchase-requests*')],
+                ['label' => 'Permintaan Pembelian', 'icon' => 'shopping-bag', 'perm' => 'view purchase requests', 'href' => $r('filament.helpdesk.resources.purchase-requests.index'), 'active' => $active($r('filament.helpdesk.resources.purchase-requests.index'))],
             ],
         ],
         [
@@ -105,8 +109,8 @@
             'label' => 'Finance',
             'icon'  => 'banknote',
             'items' => [
-                ['label' => 'Sales Report',      'icon' => 'bar-chart-2', 'perm' => 'view sales reports',   'href' => $r('filament.helpdesk.resources.sales-reports.index'),   'active' => request()->is('helpdesk/sales-reports*')],
-                ['label' => 'Metode Pembayaran', 'icon' => 'credit-card', 'perm' => 'view payment methods', 'href' => $r('filament.helpdesk.resources.payment-methods.index'), 'active' => request()->is('helpdesk/payment-methods*')],
+                ['label' => 'Sales Report',      'icon' => 'bar-chart-2', 'perm' => 'view sales reports',   'href' => $r('filament.helpdesk.resources.sales-reports.index'),   'active' => $active($r('filament.helpdesk.resources.sales-reports.index'))],
+                ['label' => 'Metode Pembayaran', 'icon' => 'credit-card', 'perm' => 'view payment methods', 'href' => $r('filament.helpdesk.resources.payment-methods.index'), 'active' => $active($r('filament.helpdesk.resources.payment-methods.index'))],
             ],
         ],
         [
@@ -114,8 +118,8 @@
             'label' => 'Brand Marketing',
             'icon'  => 'megaphone',
             'items' => [
-                ['label' => 'Permintaan Design', 'icon' => 'palette', 'perm' => 'view design requests',    'href' => $r('filament.helpdesk.resources.design-requests.index'),   'active' => request()->is('helpdesk/design-requests*')],
-                ['label' => 'Kategori Design',   'icon' => 'tag',     'perm' => 'view design categories',  'href' => $r('filament.helpdesk.resources.design-categories.index'), 'active' => request()->is('helpdesk/design-categories*')],
+                ['label' => 'Permintaan Design', 'icon' => 'palette', 'perm' => 'view design requests',   'href' => $r('filament.helpdesk.resources.design-requests.index'),   'active' => $active($r('filament.helpdesk.resources.design-requests.index'))],
+                ['label' => 'Kategori Design',   'icon' => 'tag',     'perm' => 'view design categories', 'href' => $r('filament.helpdesk.resources.design-categories.index'), 'active' => $active($r('filament.helpdesk.resources.design-categories.index'))],
             ],
         ],
         [
@@ -123,9 +127,9 @@
             'label' => 'Management Access',
             'icon'  => 'shield',
             'items' => [
-                ['label' => 'Pengguna',          'icon' => 'user',        'perm' => 'view users', 'href' => $r('filament.helpdesk.resources.users.index'), 'active' => request()->is('helpdesk/users*')],
-                ['label' => 'Role & Permission', 'icon' => 'lock',        'perm' => 'view roles', 'href' => $r('filament.helpdesk.resources.roles.index'), 'active' => request()->is('helpdesk/roles*')],
-                ['label' => 'Permissions',       'icon' => 'key',         'perm' => 'view roles', 'href' => $r('filament.helpdesk.pages.permissions-page'), 'active' => request()->is('helpdesk/permissions-page*')],
+                ['label' => 'Pengguna',          'icon' => 'user', 'perm' => 'view users', 'href' => $r('filament.helpdesk.resources.users.index'),  'active' => $active($r('filament.helpdesk.resources.users.index'))],
+                ['label' => 'Role & Permission', 'icon' => 'lock', 'perm' => 'view roles', 'href' => $r('filament.helpdesk.resources.roles.index'),  'active' => $active($r('filament.helpdesk.resources.roles.index'))],
+                ['label' => 'Permissions',       'icon' => 'key',  'perm' => 'view roles', 'href' => $r('filament.helpdesk.pages.permissions-page'), 'active' => $active($r('filament.helpdesk.pages.permissions-page'))],
             ],
         ],
         [
@@ -133,7 +137,7 @@
             'label' => 'Master',
             'icon'  => 'database',
             'items' => [
-                ['label' => 'Branch', 'icon' => 'building-2', 'perm' => 'view branches', 'href' => $r('filament.helpdesk.resources.branches.index'), 'active' => request()->is('helpdesk/branches*')],
+                ['label' => 'Branch', 'icon' => 'building-2', 'perm' => 'view branches', 'href' => $r('filament.helpdesk.resources.branches.index'), 'active' => $active($r('filament.helpdesk.resources.branches.index'))],
             ],
         ],
     ];
@@ -181,16 +185,16 @@
 
         {{-- Dashboard --}}
         <a
-            href="{{ url('helpdesk') }}"
+            href="{{ url('/') }}"
             class="group flex items-center rounded-xl py-2 text-[13px] font-medium transition-all duration-150
-                {{ request()->is('helpdesk')
+                {{ request()->is('/')
                     ? 'bg-blue-50 font-semibold text-blue-600 shadow-sm dark:bg-blue-500/10 dark:text-blue-400'
                     : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5' }}"
             :class="sidebarOpen ? 'gap-3 px-3' : 'justify-center px-2'"
             :title="!sidebarOpen ? 'Dashboard' : ''"
         >
-            <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg {{ request()->is('helpdesk') ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-slate-100 dark:bg-white/[0.07]' }} transition-colors">
-                <i data-lucide="layout-dashboard" class="h-3.5 w-3.5 {{ request()->is('helpdesk') ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400' }}"></i>
+            <div class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg {{ request()->is('/') ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-slate-100 dark:bg-white/[0.07]' }} transition-colors">
+                <i data-lucide="layout-dashboard" class="h-3.5 w-3.5 {{ request()->is('/') ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400' }}"></i>
             </div>
             <span
                 x-show="sidebarOpen"
@@ -202,7 +206,7 @@
                 x-transition:leave-end="opacity-0"
                 class="flex-1"
             >Dashboard</span>
-            @if(request()->is('helpdesk'))
+            @if(request()->is('/'))
                 <span x-show="sidebarOpen" class="ml-auto h-1.5 w-1.5 rounded-full bg-blue-500"></span>
             @endif
         </a>

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\ServiceRequestStatus;
+use App\Models\Branch;
 use App\Models\ServiceRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -12,19 +13,18 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class ServiceRequestFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
+        $status = fake()->randomElement(ServiceRequestStatus::cases());
+
         return [
-            'scheduled_date' => fake()->dateTimeBetween('+1 day', '+30 days')->format('Y-m-d'),
-            'requestor_notes' => fake()->optional()->sentence(),
+            'technician_id' => User::role('TECHNICIAN')->inRandomOrder()->value('id'),
+            'scheduled_by' => User::inRandomOrder()->value('id'),
+            'branch_id' => Branch::inRandomOrder()->value('id'),
+            'scheduled_date' => fake()->dateTimeBetween('-60 days', '+14 days')->format('Y-m-d'),
+            'requestor_notes' => fake()->optional(0.6)->sentence(10),
             'attachments' => null,
-            'status' => ServiceRequestStatus::Submitted,
-            'scheduled_by' => User::factory(),
+            'status' => $status,
         ];
     }
 }

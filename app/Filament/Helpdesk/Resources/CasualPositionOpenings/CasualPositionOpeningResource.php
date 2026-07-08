@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualPositionOpenings;
 
+use App\Filament\Exports\CasualPositionOpeningExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\CasualPositionOpenings\Pages\CreateCasualPositionOpening;
 use App\Filament\Helpdesk\Resources\CasualPositionOpenings\Pages\EditCasualPositionOpening;
@@ -15,6 +16,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -49,11 +51,6 @@ class CasualPositionOpeningResource extends Resource
     protected static ?string $modelLabel = 'Lowongan';
 
     protected static ?string $pluralModelLabel = 'Lowongan Posisi';
-
-    public static function canAccess(): bool
-    {
-        return auth()->user()?->hasAnyRole(['super_admin', 'helpdesk_manager', 'hr_staff']) ?? false;
-    }
 
     private static function colLabel(string $icon, string $label): HtmlString
     {
@@ -203,6 +200,8 @@ class CasualPositionOpeningResource extends Resource
                     ->tooltip('Buat Lowongan Baru')
                     ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
+
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(CasualPositionOpeningExporter::class),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualClockRecords;
 
+use App\Filament\Exports\CasualClockRecordExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\CasualClockRecords\Pages\CreateCasualClockRecord;
 use App\Filament\Helpdesk\Resources\CasualClockRecords\Pages\EditCasualClockRecord;
@@ -16,6 +17,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
@@ -102,7 +104,7 @@ class CasualClockRecordResource extends Resource
                     FileUpload::make('clock_in_photo')
                         ->label('Foto Clock In')
                         ->image()
-                        ->disk('public')
+                        ->disk('b2')
                         ->directory('casual-clocks')
                         ->nullable()
                         ->maxSize(5120),
@@ -130,7 +132,7 @@ class CasualClockRecordResource extends Resource
                     FileUpload::make('clock_out_photo')
                         ->label('Foto Clock Out')
                         ->image()
-                        ->disk('public')
+                        ->disk('b2')
                         ->directory('casual-clocks')
                         ->nullable()
                         ->maxSize(5120),
@@ -192,7 +194,7 @@ class CasualClockRecordResource extends Resource
                                 ]),
                                 ImageEntry::make('clock_in_photo')
                                     ->label('Foto')
-                                    ->disk('public')
+                                    ->disk('b2')
                                     ->size(240)
                                     ->default(null),
                             ]),
@@ -217,7 +219,7 @@ class CasualClockRecordResource extends Resource
                                 ]),
                                 ImageEntry::make('clock_out_photo')
                                     ->label('Foto')
-                                    ->disk('public')
+                                    ->disk('b2')
                                     ->size(240)
                                     ->default(null),
                             ]),
@@ -341,37 +343,7 @@ class CasualClockRecordResource extends Resource
                             ->send();
                     }),
 
-                Action::make('export_excel')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('success')
-                    ->iconButton()
-                    ->tooltip('Export Excel')
-                    ->modalHeading('Export Data Absensi')
-                    ->modalDescription('Pilih rentang tanggal untuk data yang akan diekspor. Kosongkan untuk mengekspor semua data.')
-                    ->modalSubmitActionLabel('Export')
-                    ->modalWidth('md')
-                    ->form([
-                        DatePicker::make('date_from')
-                            ->label('Dari Tanggal')
-                            ->maxDate(today())
-                            ->default(today()->startOfMonth()),
-                        DatePicker::make('date_until')
-                            ->label('Sampai Tanggal')
-                            ->maxDate(today())
-                            ->default(today()),
-                    ])
-                    ->action(function (array $data, $livewire): void {
-                        $filters = $livewire->tableFilters ?? [];
-
-                        $url = route('helpdesk.exports.casual-clock-records', array_filter([
-                            'branch_id' => $filters['branch_id']['value'] ?? null,
-                            'user_id' => $filters['user_id']['value'] ?? null,
-                            'date_from' => $data['date_from'] ?? null,
-                            'date_until' => $data['date_until'] ?? null,
-                        ]));
-
-                        $livewire->js("window.open('$url', '_blank')");
-                    }),
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(CasualClockRecordExporter::class),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

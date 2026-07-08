@@ -87,8 +87,8 @@ class FuelFillup extends Page
             'indicatorPhoto' => 'required',
         ]);
 
-        $notaPath = $this->notaPhoto->store('trip-fuel', 'public');
-        $indicatorPath = $this->indicatorPhoto->store('trip-fuel', 'public');
+        $notaPath = $this->notaPhoto->store('trip-fuel', 'b2');
+        $indicatorPath = $this->indicatorPhoto->store('trip-fuel', 'b2');
 
         TripFuelFillup::create([
             'trip_id' => $this->trip,

@@ -530,7 +530,7 @@
                     </div>
                     @if($trip->odo_start_photo)
                         <div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl ring-2 ring-green-100 dark:ring-green-900/40">
-                            <img src="{{ \Illuminate\Support\Facades\Storage::url($trip->odo_start_photo) }}"
+                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($trip->odo_start_photo, now()->addHour()) }}"
                                  class="h-full w-full object-cover" alt="Odo awal">
                         </div>
                     @endif
@@ -626,7 +626,7 @@
 
                                         @if($hasAttach)
                                             <div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl ring-2 ring-blue-100 dark:ring-blue-900/40">
-                                                <img src="{{ \Illuminate\Support\Facades\Storage::url($checkin->attachment_path) }}"
+                                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($checkin->attachment_path, now()->addHour()) }}"
                                                      class="h-full w-full object-cover"
                                                      alt="Bukti">
                                             </div>
@@ -688,7 +688,7 @@
                         </div>
                         @if($trip->odo_end_photo)
                             <div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl ring-2 ring-green-100 dark:ring-green-900/40">
-                                <img src="{{ \Illuminate\Support\Facades\Storage::url($trip->odo_end_photo) }}"
+                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($trip->odo_end_photo, now()->addHour()) }}"
                                      class="h-full w-full object-cover" alt="Odo akhir">
                             </div>
                         @endif

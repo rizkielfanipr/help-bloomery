@@ -92,7 +92,7 @@ class PurchaseRequestPage extends Page
 
         $paths = [];
         foreach ($this->attachments as $file) {
-            $paths[] = $file->store('purchase-requests', 'public');
+            $paths[] = $file->store('purchase-requests', 'b2');
         }
 
         PurchaseRequest::create([

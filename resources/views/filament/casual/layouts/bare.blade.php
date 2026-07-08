@@ -15,13 +15,6 @@
         @endphp
         <title>{{ $docTitle }}</title>
 
-        {{-- Favicon dinamis dark/light mode --}}
-        <link rel="icon" type="image/svg+xml" href="{{ asset('icons/icon.svg') }}">
-        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icon-192.png') }}" media="(prefers-color-scheme: light)">
-        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('icons/icon-192-dark.png') }}" media="(prefers-color-scheme: dark)">
-        <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
-        <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
-
         {{-- PWA manifest & iOS --}}
         <link rel="manifest" href="{{ asset('manifest.json') }}">
         <meta name="theme-color" content="#2563eb">

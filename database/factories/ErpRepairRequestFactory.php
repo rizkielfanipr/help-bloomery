@@ -2,7 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Enums\RequestStatus;
+use App\Models\Branch;
+use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -10,15 +14,27 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class ErpRepairRequestFactory extends Factory
 {
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
+    private static array $issues = [
+        'Tidak bisa login ke modul', 'Data tidak tersimpan dengan benar', 'Laporan error saat generate',
+        'Tombol tidak berfungsi', 'Tampilan tabel berantakan', 'Kalkulasi salah di halaman ini',
+        'Import data gagal', 'Export PDF gagal dicetak', 'Koneksi database terputus',
+        'Fitur pencarian tidak akurat', 'Notifikasi tidak muncul', 'Permission error saat akses menu',
+    ];
+
     public function definition(): array
     {
+        $status = fake()->randomElement(RequestStatus::cases());
+        $isAssigned = ! in_array($status, [RequestStatus::Draft, RequestStatus::Submitted]);
+
         return [
-            //
+            'requester_id' => User::inRandomOrder()->value('id'),
+            'branch_id' => Branch::inRandomOrder()->value('id'),
+            'assignee_id' => $isAssigned ? User::inRandomOrder()->value('id') : null,
+            'erp_module_id' => ErpModule::inRandomOrder()->value('id'),
+            'keterangan' => fake()->randomElement(self::$issues).'. '.fake()->sentence(8),
+            'attachments' => null,
+            'status' => $status,
+            'resolved_at' => $status === RequestStatus::Completed ? fake()->dateTimeBetween('-30 days', 'now') : null,
         ];
     }
 }

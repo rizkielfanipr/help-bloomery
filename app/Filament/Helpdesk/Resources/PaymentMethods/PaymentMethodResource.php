@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\PaymentMethods;
 
+use App\Filament\Exports\PaymentMethodExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\PaymentMethods\Pages\CreatePaymentMethod;
 use App\Filament\Helpdesk\Resources\PaymentMethods\Pages\EditPaymentMethod;
@@ -11,6 +12,7 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -86,6 +88,7 @@ class PaymentMethodResource extends Resource
                 EditAction::make(),
             ])
             ->toolbarActions([
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(PaymentMethodExporter::class),
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

@@ -29,7 +29,7 @@ class HelpdeskPanelProvider extends PanelProvider
     {
         return $panel
             ->id('helpdesk')
-            ->path('helpdesk')
+            ->path('')
             ->viteTheme('resources/css/filament/helpdesk/theme.css')
             ->login(Login::class)
             ->darkMode(true)
@@ -39,16 +39,13 @@ class HelpdeskPanelProvider extends PanelProvider
             ->brandLogo(asset('images/bloomery-icon.png'))
             ->darkModeBrandLogo(asset('icons/icon-192-dark.png'))
             ->brandLogoHeight('2rem')
-            ->favicon(asset('icons/icon-192.png'))
             ->colors([
                 'primary' => Color::Blue,
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => Blade::render(
-                    '<link rel="icon" type="image/svg+xml" href="{{ asset(\'icons/icon.svg\') }}">
-                     <link rel="icon" type="image/png" sizes="192x192" href="{{ asset(\'icons/pwa-192.png\') }}">
-                     <link rel="manifest" href="{{ asset(\'manifest-helpdesk.json\') }}">
+                    '<link rel="manifest" href="{{ asset(\'manifest-helpdesk.json\') }}">
                      <meta name="theme-color" content="#2563eb">
                      <meta name="mobile-web-app-capable" content="yes">
                      <meta name="apple-mobile-web-app-capable" content="yes">
@@ -63,7 +60,7 @@ class HelpdeskPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn (): string => Blade::render(
-                    '<script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js", { scope: "/helpdesk" }); }</script>'
+                    '<script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js", { scope: "/" }); }</script>'
                 ),
             )
             ->navigationGroups([

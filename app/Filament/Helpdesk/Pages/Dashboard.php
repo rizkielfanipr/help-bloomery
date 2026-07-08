@@ -2,13 +2,22 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
+use App\Enums\BriefingReviewStatus;
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\RequestStatus;
 use App\Enums\ServiceRequestStatus;
+use App\Enums\TripStatus;
+use App\Models\BriefingItem;
+use App\Models\BriefingTask;
+use App\Models\CasualClockRecord;
+use App\Models\CasualOvertimeRequest;
 use App\Models\DesignRequest;
 use App\Models\ErpRepairRequest;
 use App\Models\PurchaseRequest;
+use App\Models\SalesReport;
 use App\Models\ServiceRequest;
+use App\Models\Trip;
+use App\Models\User;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class Dashboard extends BaseDashboard
@@ -43,13 +52,19 @@ class Dashboard extends BaseDashboard
         $pendingRequest = [RequestStatus::Submitted->value, RequestStatus::InReview->value, RequestStatus::InProgress->value];
         $pendingPurchase = [PurchaseRequestStatus::Submitted->value, PurchaseRequestStatus::InProcess->value];
 
+        $serviceCounts = ServiceRequest::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
+        $erpCounts = ErpRepairRequest::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
+        $designCounts = DesignRequest::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
+        $purchaseCounts = PurchaseRequest::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
+        $tripCounts = Trip::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
+
         $this->moduleStats = [
             [
                 'key' => 'service',
                 'label' => 'Permintaan Servis',
-                'total' => ServiceRequest::count(),
-                'pending' => ServiceRequest::whereIn('status', $pendingService)->count(),
-                'completed' => ServiceRequest::where('status', ServiceRequestStatus::Completed->value)->count(),
+                'total' => $serviceCounts->sum(),
+                'pending' => $serviceCounts->only($pendingService)->sum(),
+                'completed' => (int) ($serviceCounts[ServiceRequestStatus::Completed->value] ?? 0),
                 'bg' => 'bg-blue-50',
                 'icon_bg' => 'bg-blue-100',
                 'icon_color' => 'text-blue-600',
@@ -61,9 +76,9 @@ class Dashboard extends BaseDashboard
             [
                 'key' => 'erp',
                 'label' => 'Permintaan ERP',
-                'total' => ErpRepairRequest::count(),
-                'pending' => ErpRepairRequest::whereIn('status', $pendingRequest)->count(),
-                'completed' => ErpRepairRequest::where('status', RequestStatus::Completed->value)->count(),
+                'total' => $erpCounts->sum(),
+                'pending' => $erpCounts->only($pendingRequest)->sum(),
+                'completed' => (int) ($erpCounts[RequestStatus::Completed->value] ?? 0),
                 'bg' => 'bg-indigo-50',
                 'icon_bg' => 'bg-indigo-100',
                 'icon_color' => 'text-indigo-600',
@@ -75,9 +90,9 @@ class Dashboard extends BaseDashboard
             [
                 'key' => 'design',
                 'label' => 'Permintaan Design',
-                'total' => DesignRequest::count(),
-                'pending' => DesignRequest::whereIn('status', $pendingRequest)->count(),
-                'completed' => DesignRequest::where('status', RequestStatus::Completed->value)->count(),
+                'total' => $designCounts->sum(),
+                'pending' => $designCounts->only($pendingRequest)->sum(),
+                'completed' => (int) ($designCounts[RequestStatus::Completed->value] ?? 0),
                 'bg' => 'bg-pink-50',
                 'icon_bg' => 'bg-pink-100',
                 'icon_color' => 'text-pink-600',
@@ -89,9 +104,9 @@ class Dashboard extends BaseDashboard
             [
                 'key' => 'purchase',
                 'label' => 'Permintaan Pembelian',
-                'total' => PurchaseRequest::count(),
-                'pending' => PurchaseRequest::whereIn('status', $pendingPurchase)->count(),
-                'completed' => PurchaseRequest::where('status', PurchaseRequestStatus::Completed->value)->count(),
+                'total' => $purchaseCounts->sum(),
+                'pending' => $purchaseCounts->only($pendingPurchase)->sum(),
+                'completed' => (int) ($purchaseCounts[PurchaseRequestStatus::Completed->value] ?? 0),
                 'bg' => 'bg-amber-50',
                 'icon_bg' => 'bg-amber-100',
                 'icon_color' => 'text-amber-600',
@@ -99,6 +114,68 @@ class Dashboard extends BaseDashboard
                 'border' => 'border-amber-100',
                 'href' => route('filament.helpdesk.resources.purchase-requests.index'),
                 'path' => 'M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z',
+            ],
+            [
+                'key' => 'casual',
+                'label' => 'Casual Staff',
+                'total' => User::role('CASUAL_STAFF')->count(),
+                'pending' => CasualClockRecord::whereDate('date', today())->count(),
+                'completed' => CasualOvertimeRequest::count(),
+                'pending_label' => 'absensi hari ini',
+                'completed_label' => 'pengajuan lembur',
+                'bg' => 'bg-teal-50',
+                'icon_bg' => 'bg-teal-100',
+                'icon_color' => 'text-teal-600',
+                'badge_bg' => 'bg-teal-100 text-teal-700',
+                'border' => 'border-teal-100',
+                'href' => route('filament.helpdesk.resources.casual-staff.index'),
+                'path' => 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z',
+            ],
+            [
+                'key' => 'briefing',
+                'label' => 'Poin Briefing',
+                'total' => BriefingItem::count(),
+                'pending' => BriefingItem::whereNotNull('completed_at')->whereNull('review_status')->count(),
+                'completed' => BriefingItem::where('review_status', BriefingReviewStatus::Approved->value)->count(),
+                'pending_label' => 'perlu ditinjau',
+                'completed_label' => 'disetujui',
+                'bg' => 'bg-emerald-50',
+                'icon_bg' => 'bg-emerald-100',
+                'icon_color' => 'text-emerald-600',
+                'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                'border' => 'border-emerald-100',
+                'href' => route('filament.helpdesk.resources.briefing-items.index'),
+                'path' => 'M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75',
+            ],
+            [
+                'key' => 'trip',
+                'label' => 'Manajemen Trip',
+                'total' => $tripCounts->sum(),
+                'pending' => (int) ($tripCounts[TripStatus::InProgress->value] ?? 0),
+                'completed' => (int) ($tripCounts[TripStatus::Completed->value] ?? 0),
+                'bg' => 'bg-sky-50',
+                'icon_bg' => 'bg-sky-100',
+                'icon_color' => 'text-sky-600',
+                'badge_bg' => 'bg-sky-100 text-sky-700',
+                'border' => 'border-sky-100',
+                'href' => route('filament.helpdesk.resources.trips.index'),
+                'path' => 'M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12',
+            ],
+            [
+                'key' => 'sales',
+                'label' => 'Sales Report',
+                'total' => SalesReport::count(),
+                'pending' => SalesReport::whereMonth('report_date', now()->month)->whereYear('report_date', now()->year)->count(),
+                'completed' => SalesReport::whereDate('report_date', today())->count(),
+                'pending_label' => 'bulan ini',
+                'completed_label' => 'hari ini',
+                'bg' => 'bg-violet-50',
+                'icon_bg' => 'bg-violet-100',
+                'icon_color' => 'text-violet-600',
+                'badge_bg' => 'bg-violet-100 text-violet-700',
+                'border' => 'border-violet-100',
+                'href' => route('filament.helpdesk.resources.sales-reports.index'),
+                'path' => 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z',
             ],
         ];
     }
@@ -108,36 +185,52 @@ class Dashboard extends BaseDashboard
         $days = collect(range(29, 0))->map(fn ($i) => now()->subDays($i));
         $since = now()->subDays(30)->startOfDay();
 
-        $serviceCounts = ServiceRequest::selectRaw('DATE(created_at) as date, COUNT(*) as count')
-            ->where('created_at', '>=', $since)->groupBy('date')->pluck('count', 'date');
+        $byDate = fn ($model, string $col = 'created_at') => $model::selectRaw("DATE({$col}) as date, COUNT(*) as count")
+            ->where($col, '>=', $since)->groupByRaw("DATE({$col})")->pluck('count', 'date');
 
-        $erpCounts = ErpRepairRequest::selectRaw('DATE(created_at) as date, COUNT(*) as count')
-            ->where('created_at', '>=', $since)->groupBy('date')->pluck('count', 'date');
-
-        $designCounts = DesignRequest::selectRaw('DATE(created_at) as date, COUNT(*) as count')
-            ->where('created_at', '>=', $since)->groupBy('date')->pluck('count', 'date');
-
-        $purchaseCounts = PurchaseRequest::selectRaw('DATE(created_at) as date, COUNT(*) as count')
-            ->where('created_at', '>=', $since)->groupBy('date')->pluck('count', 'date');
+        $counts = [
+            'service' => $byDate(ServiceRequest::class),
+            'erp' => $byDate(ErpRepairRequest::class),
+            'design' => $byDate(DesignRequest::class),
+            'purchase' => $byDate(PurchaseRequest::class),
+            'casual' => $byDate(CasualClockRecord::class),
+            'briefing' => $byDate(BriefingItem::class),
+            'trip' => $byDate(Trip::class),
+            'sales' => $byDate(SalesReport::class, 'report_date'),
+        ];
 
         $this->trendLabels = $days->map(fn ($d) => $d->format('d M'))->values()->toArray();
 
-        $this->trendDatasets = [
-            ['label' => 'Servis',    'color' => '#3b82f6', 'data' => $days->map(fn ($d) => (int) ($serviceCounts[$d->format('Y-m-d')] ?? 0))->values()->toArray()],
-            ['label' => 'ERP',       'color' => '#6366f1', 'data' => $days->map(fn ($d) => (int) ($erpCounts[$d->format('Y-m-d')] ?? 0))->values()->toArray()],
-            ['label' => 'Design',    'color' => '#ec4899', 'data' => $days->map(fn ($d) => (int) ($designCounts[$d->format('Y-m-d')] ?? 0))->values()->toArray()],
-            ['label' => 'Pembelian', 'color' => '#f59e0b', 'data' => $days->map(fn ($d) => (int) ($purchaseCounts[$d->format('Y-m-d')] ?? 0))->values()->toArray()],
+        $series = [
+            ['label' => 'Servis',    'key' => 'service',  'color' => '#3b82f6'],
+            ['label' => 'ERP',       'key' => 'erp',      'color' => '#6366f1'],
+            ['label' => 'Design',    'key' => 'design',   'color' => '#ec4899'],
+            ['label' => 'Pembelian', 'key' => 'purchase', 'color' => '#f59e0b'],
+            ['label' => 'Casual',    'key' => 'casual',   'color' => '#14b8a6'],
+            ['label' => 'Briefing',  'key' => 'briefing', 'color' => '#10b981'],
+            ['label' => 'Trip',      'key' => 'trip',     'color' => '#0ea5e9'],
+            ['label' => 'Sales',     'key' => 'sales',    'color' => '#8b5cf6'],
         ];
+
+        $this->trendDatasets = collect($series)->map(fn ($s) => [
+            'label' => $s['label'],
+            'color' => $s['color'],
+            'data' => $days->map(fn ($d) => (int) ($counts[$s['key']][$d->format('Y-m-d')] ?? 0))->values()->toArray(),
+        ])->toArray();
     }
 
     private function computeDistribution(): void
     {
-        $this->distributionLabels = ['Servis', 'ERP', 'Design', 'Pembelian'];
+        $this->distributionLabels = ['Servis', 'ERP', 'Design', 'Pembelian', 'Casual', 'Briefing', 'Trip', 'Sales'];
         $this->distributionDataset = [
             (int) ServiceRequest::count(),
             (int) ErpRepairRequest::count(),
             (int) DesignRequest::count(),
             (int) PurchaseRequest::count(),
+            (int) CasualClockRecord::count(),
+            (int) BriefingItem::count(),
+            (int) Trip::count(),
+            (int) SalesReport::count(),
         ];
     }
 
@@ -194,6 +287,58 @@ class Dashboard extends BaseDashboard
                 'href' => route('filament.helpdesk.resources.purchase-requests.index'),
                 'date' => $r->created_at,
                 'dot' => 'bg-amber-500',
+            ]);
+        });
+
+        CasualClockRecord::with('user')->latest()->limit(4)->get()->each(function ($r) use ($items) {
+            $items->push([
+                'type' => 'Casual',
+                'label' => 'Absensi '.($r->date?->format('d M Y') ?? '-'),
+                'sub' => $r->user?->name ?? '-',
+                'status_label' => $r->clock_out_at ? 'Selesai' : 'Hadir',
+                'status_color' => $r->clock_out_at ? 'success' : 'warning',
+                'href' => route('filament.helpdesk.resources.casual-clock-records.index'),
+                'date' => $r->created_at,
+                'dot' => 'bg-teal-500',
+            ]);
+        });
+
+        BriefingItem::with('record.user')->latest()->limit(4)->get()->each(function ($r) use ($items) {
+            $items->push([
+                'type' => 'Briefing',
+                'label' => BriefingTask::cached()->firstWhere('key', $r->task_key)?->label ?? $r->task_key,
+                'sub' => $r->record?->user?->name ?? '-',
+                'status_label' => $r->review_status?->getLabel() ?? 'Belum Ditinjau',
+                'status_color' => $r->review_status?->getColor() ?? 'gray',
+                'href' => route('filament.helpdesk.resources.briefing-items.index'),
+                'date' => $r->created_at,
+                'dot' => 'bg-emerald-500',
+            ]);
+        });
+
+        Trip::with('driver', 'tripRoute')->latest()->limit(4)->get()->each(function ($r) use ($items) {
+            $items->push([
+                'type' => 'Trip',
+                'label' => $r->code ?? ('Trip #'.$r->id),
+                'sub' => $r->driver?->name ?? '-',
+                'status_label' => $r->status->getLabel(),
+                'status_color' => $r->status->getColor(),
+                'href' => route('filament.helpdesk.resources.trips.view', $r->id),
+                'date' => $r->created_at,
+                'dot' => 'bg-sky-500',
+            ]);
+        });
+
+        SalesReport::with('branch', 'submittedBy')->latest()->limit(4)->get()->each(function ($r) use ($items) {
+            $items->push([
+                'type' => 'Sales',
+                'label' => 'Sales '.($r->branch?->name ?? '-'),
+                'sub' => $r->submittedBy?->name ?? '-',
+                'status_label' => 'Submitted',
+                'status_color' => 'success',
+                'href' => route('filament.helpdesk.resources.sales-reports.view', $r->id),
+                'date' => $r->created_at,
+                'dot' => 'bg-violet-500',
             ]);
         });
 

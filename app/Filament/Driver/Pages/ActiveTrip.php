@@ -93,7 +93,7 @@ class ActiveTrip extends Page
                 FileUpload::make('attachment_path')
                     ->label('Upload Bukti / Foto')
                     ->image()
-                    ->disk('public')
+                    ->disk('b2')
                     ->directory('trip-checkins')
                     ->imageEditor()
                     ->required($requiresAttachment)
@@ -106,7 +106,7 @@ class ActiveTrip extends Page
     {
         $path = null;
         if ($this->odoStartPhoto) {
-            $path = $this->odoStartPhoto->store('trip-odo', 'public');
+            $path = $this->odoStartPhoto->store('trip-odo', 'b2');
             $this->odoStartPhoto = null;
         }
 
@@ -137,7 +137,7 @@ class ActiveTrip extends Page
 
         $path = null;
         if ($this->odoEndPhoto) {
-            $path = $this->odoEndPhoto->store('trip-odo', 'public');
+            $path = $this->odoEndPhoto->store('trip-odo', 'b2');
             $this->odoEndPhoto = null;
         }
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\ServiceRequests;
 
 use App\Enums\ServiceRequestStatus;
+use App\Filament\Exports\ServiceRequestExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\CreateServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\EditServiceRequest;
@@ -18,6 +19,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -89,7 +91,7 @@ class ServiceRequestResource extends Resource
                 FileUpload::make('attachments')
                     ->label('Lampiran')
                     ->multiple()
-                    ->disk('public')
+                    ->disk('b2')
                     ->directory('service-requests/attachments')
                     ->nullable()
                     ->helperText('Upload foto, dokumen, atau file pendukung lainnya.'),
@@ -117,7 +119,7 @@ class ServiceRequestResource extends Resource
                 ->schema([
                     ImageEntry::make('attachments')
                         ->label('Lampiran')
-                        ->disk('public')
+                        ->disk('b2')
                         ->size(200)
                         ->default(null),
                 ])
@@ -149,7 +151,7 @@ class ServiceRequestResource extends Resource
 
                             ImageEntry::make('before_photo')
                                 ->label('Foto Kondisi Sebelum')
-                                ->disk('public')
+                                ->disk('b2')
                                 ->size(280)
                                 ->default(null)
                                 ->visible(fn (ServiceRequestRepair $record): bool => $record->before_photo !== null),
@@ -172,7 +174,7 @@ class ServiceRequestResource extends Resource
 
                             ImageEntry::make('after_photo')
                                 ->label('Foto Kondisi Setelah')
-                                ->disk('public')
+                                ->disk('b2')
                                 ->size(280)
                                 ->default(null)
                                 ->visible(fn (ServiceRequestRepair $record): bool => $record->after_photo !== null),
@@ -226,18 +228,7 @@ class ServiceRequestResource extends Resource
                             ->send();
                     }),
 
-                Action::make('export_excel')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->iconButton()
-                    ->tooltip('Export Excel')
-                    ->action(function (): void {
-                        Notification::make()
-                            ->title('Segera hadir')
-                            ->body('Fitur Export Excel belum tersedia.')
-                            ->warning()
-                            ->send();
-                    }),
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(ServiceRequestExporter::class),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

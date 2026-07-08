@@ -110,7 +110,7 @@ class DailyBriefingPage extends Page
         }
 
         $path = 'briefing-photos/'.now()->format('YmdHis').'_'.auth()->id().'_'.uniqid().'.jpg';
-        Storage::disk('public')->put($path, $decoded);
+        Storage::disk('b2')->put($path, $decoded);
 
         $this->cameraPhotoPaths[] = $path;
     }
@@ -121,7 +121,7 @@ class DailyBriefingPage extends Page
             return;
         }
 
-        Storage::disk('public')->delete($this->cameraPhotoPaths[$index]);
+        Storage::disk('b2')->delete($this->cameraPhotoPaths[$index]);
 
         array_splice($this->cameraPhotoPaths, $index, 1);
     }

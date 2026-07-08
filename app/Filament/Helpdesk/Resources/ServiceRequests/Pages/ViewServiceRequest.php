@@ -50,7 +50,7 @@ class ViewServiceRequest extends ViewRecord
                 ->schema([
                     ImageEntry::make('attachments')
                         ->label('Lampiran')
-                        ->disk('public')
+                        ->disk('b2')
                         ->size(200)
                         ->default(null),
                 ])
@@ -82,7 +82,7 @@ class ViewServiceRequest extends ViewRecord
 
                             ImageEntry::make('before_photo')
                                 ->label('Foto Kondisi Sebelum')
-                                ->disk('public')
+                                ->disk('b2')
                                 ->size(280)
                                 ->default(null)
                                 ->visible(fn (ServiceRequestRepair $record): bool => $record->before_photo !== null),
@@ -105,7 +105,7 @@ class ViewServiceRequest extends ViewRecord
 
                             ImageEntry::make('after_photo')
                                 ->label('Foto Kondisi Setelah')
-                                ->disk('public')
+                                ->disk('b2')
                                 ->size(280)
                                 ->default(null)
                                 ->visible(fn (ServiceRequestRepair $record): bool => $record->after_photo !== null),

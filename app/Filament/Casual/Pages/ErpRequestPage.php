@@ -76,7 +76,7 @@ class ErpRequestPage extends Page
 
         $paths = [];
         foreach ($this->attachments as $file) {
-            $paths[] = $file->store('erp-requests', 'public');
+            $paths[] = $file->store('erp-requests', 'b2');
         }
 
         ErpRepairRequest::create([

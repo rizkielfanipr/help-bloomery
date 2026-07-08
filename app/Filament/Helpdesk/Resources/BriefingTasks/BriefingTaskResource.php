@@ -4,6 +4,7 @@ namespace App\Filament\Helpdesk\Resources\BriefingTasks;
 
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingSubmissionType;
+use App\Filament\Exports\BriefingTaskExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\BriefingTasks\Pages\CreateBriefingTask;
 use App\Filament\Helpdesk\Resources\BriefingTasks\Pages\EditBriefingTask;
@@ -14,6 +15,7 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
@@ -288,6 +290,8 @@ class BriefingTaskResource extends Resource
                 EditAction::make()->iconButton()->tooltip('Edit'),
             ])
             ->toolbarActions([
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(BriefingTaskExporter::class),
+
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

@@ -156,9 +156,9 @@
                                     @if($request->attachments && count($request->attachments) > 0)
                                         <div class="mt-2 grid grid-cols-3 gap-2">
                                             @foreach($request->attachments as $path)
-                                                <a href="{{ Storage::url($path) }}" target="_blank"
+                                                <a href="{{ Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" target="_blank"
                                                    class="aspect-square overflow-hidden rounded-lg ring-1 ring-gray-200">
-                                                    <img src="{{ Storage::url($path) }}" class="h-full w-full object-cover">
+                                                    <img src="{{ Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" class="h-full w-full object-cover">
                                                 </a>
                                             @endforeach
                                         </div>
@@ -204,9 +204,9 @@
                                             @if(!empty($repair->warranty_claim_attachments))
                                                 <div class="mt-2 grid grid-cols-3 gap-2">
                                                     @foreach($repair->warranty_claim_attachments as $path)
-                                                        <a href="{{ Storage::url($path) }}" target="_blank"
+                                                        <a href="{{ Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" target="_blank"
                                                            class="aspect-square overflow-hidden rounded-lg ring-1 ring-red-200">
-                                                            <img src="{{ Storage::url($path) }}" class="h-full w-full object-cover">
+                                                            <img src="{{ Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" class="h-full w-full object-cover">
                                                         </a>
                                                     @endforeach
                                                 </div>
@@ -264,9 +264,9 @@
                                         @if(!empty($request->warranty_claim_attachments))
                                             <div class="mt-2 grid grid-cols-3 gap-2">
                                                 @foreach($request->warranty_claim_attachments as $path)
-                                                    <a href="{{ Storage::url($path) }}" target="_blank"
+                                                    <a href="{{ Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" target="_blank"
                                                        class="aspect-square overflow-hidden rounded-lg ring-1 ring-red-200">
-                                                        <img src="{{ Storage::url($path) }}" class="h-full w-full object-cover">
+                                                        <img src="{{ Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" class="h-full w-full object-cover">
                                                     </a>
                                                 @endforeach
                                             </div>

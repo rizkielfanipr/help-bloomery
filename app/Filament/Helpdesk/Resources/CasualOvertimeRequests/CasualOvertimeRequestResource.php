@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\CasualOvertimeRequests;
 
+use App\Filament\Exports\CasualOvertimeRequestExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\CasualOvertimeRequests\Pages\ListCasualOvertimeRequests;
 use App\Filament\Helpdesk\Resources\CasualOvertimeRequests\Pages\ViewCasualOvertimeRequest;
@@ -10,6 +11,7 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -151,6 +153,8 @@ class CasualOvertimeRequestResource extends Resource
                 DeleteAction::make()->iconButton()->tooltip('Hapus')->color('danger'),
             ])
             ->toolbarActions([
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(CasualOvertimeRequestExporter::class),
+
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
                 ]),

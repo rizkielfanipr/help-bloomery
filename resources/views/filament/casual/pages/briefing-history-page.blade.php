@@ -185,10 +185,10 @@
                                             @if($photoCount > 0)
                                                 <div class="mt-2 flex gap-1.5 overflow-x-auto pb-1">
                                                     @foreach($item->photo_paths as $path)
-                                                        <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
+                                                        <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->url($path) }}"
                                                            target="_blank"
                                                            class="flex-shrink-0">
-                                                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
+                                                            <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->url($path) }}"
                                                                  alt="Foto"
                                                                  class="h-16 w-16 rounded-lg object-cover">
                                                         </a>
@@ -296,10 +296,10 @@
                                                     @if($photoCount > 0)
                                                         <div class="mt-2 flex gap-1.5 overflow-x-auto pb-1">
                                                             @foreach($item->photo_paths as $path)
-                                                                <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
+                                                                <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->url($path) }}"
                                                                    target="_blank"
                                                                    class="flex-shrink-0">
-                                                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($path) }}"
+                                                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->url($path) }}"
                                                                          alt="Foto"
                                                                          class="h-14 w-14 rounded-lg object-cover">
                                                                 </a>

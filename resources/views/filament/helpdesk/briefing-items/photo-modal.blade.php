@@ -38,9 +38,9 @@
             <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Foto</p>
             <div class="grid grid-cols-2 gap-3">
                 @foreach ($record->photo_paths as $path)
-                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->url($path) }}" target="_blank">
+                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" target="_blank">
                         <img
-                            src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->url($path) }}"
+                            src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
                             alt="Foto bukti"
                             class="w-full rounded-lg object-cover aspect-square"
                         >

@@ -1,14 +1,10 @@
 @php
-    $isShift1    = $shift === 1;
-    $labelClass  = 'mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-400';
+    $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-400';
 @endphp
 
-<div class="{{ $isShift1 ? 'bg-blue-600 dark:bg-blue-900' : 'bg-indigo-600 dark:bg-indigo-900' }} flex flex-col"
-     style="min-height:100dvh">
+<div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
 
-    {{-- ════════════════════════════════════════════
-         HEADER
-    ════════════════════════════════════════════ --}}
+    {{-- HEADER --}}
     <div class="flex-shrink-0 px-5 pb-8 pt-14">
         <div class="mb-4 flex items-center gap-3">
             <a href="{{ route('filament.casual.pages.sales-report-page') }}?reportDate={{ $reportDate }}"
@@ -23,23 +19,17 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/>
                 </svg>
             </div>
-            <span class="text-base font-semibold text-white">Sales Report – Shift {{ $shift }}</span>
+            <span class="text-base font-semibold text-white">Sales Report Harian</span>
         </div>
-
-        <p class="{{ $isShift1 ? 'text-blue-200' : 'text-indigo-200' }}">
-            {{ auth()->user()->branch?->name ?? 'Tanpa Cabang' }}
-        </p>
+        <p class="text-blue-200">{{ auth()->user()->branch?->name ?? 'Tanpa Cabang' }}</p>
         <p class="text-xl font-semibold text-white">
             {{ \Carbon\Carbon::parse($reportDate)->locale('id')->isoFormat('dddd, D MMMM Y') }}
         </p>
     </div>
 
-    {{-- ════════════════════════════════════════════
-         WHITE CONTENT CARD
-    ════════════════════════════════════════════ --}}
+    {{-- WHITE CONTENT CARD --}}
     <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-10 pt-6 dark:bg-gray-950">
-
-        <div class="flex flex-col gap-4 px-5">
+        <div class="flex flex-col gap-4 px-4">
 
             {{-- Submitted banner --}}
             @if($isSubmitted)
@@ -51,15 +41,15 @@
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-green-700 dark:text-green-400">Data sudah terkunci</p>
-                        <p class="text-xs text-green-600 dark:text-green-500">Shift {{ $shift }} tidak dapat diubah kembali.</p>
+                        <p class="text-xs text-green-600 dark:text-green-500">Laporan harian tidak dapat diubah kembali.</p>
                     </div>
                 </div>
             @endif
 
-            {{-- Tanggal (read-only) --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+            {{-- Tanggal --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
                 <label class="{{ $labelClass }}">Tanggal</label>
-                <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+                <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800">
                     <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"/>
                     </svg>
@@ -69,84 +59,157 @@
                 </div>
             </div>
 
-            {{-- Form card --}}
-            <div class="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-
-                {{-- Modal --}}
-                <div>
-                    <label class="{{ $labelClass }}">Modal Shift {{ $shift }}</label>
-                    @if($isSubmitted)
-                        <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
-                            <span class="text-xs text-slate-400">Rp</span>
-                            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                {{ number_format((float) $modalShift, 0, ',', '.') ?: '0' }}
-                            </span>
+            {{-- ESB Fetch card --}}
+            @if(! $isSubmitted)
+                <div class="rounded-2xl border p-4
+                    {{ $esbFetched ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : 'border-blue-100 bg-blue-50 dark:border-blue-900 dark:bg-blue-900/20' }}">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold {{ $esbFetched ? 'text-green-800 dark:text-green-300' : 'text-blue-800 dark:text-blue-300' }}">
+                                {{ $esbFetched ? 'Data ESB sudah dimuat' : 'Fetch Data dari ESB' }}
+                            </p>
+                            <p class="mt-0.5 text-xs {{ $esbFetched ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400' }}">
+                                {{ $esbFetched ? 'Isi kolom Sales Store untuk setiap metode.' : 'Wajib fetch ESB sebelum bisa menyimpan.' }}
+                            </p>
                         </div>
-                    @else
-                        <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
-                            <span class="text-xs text-slate-400">Rp</span>
-                            <input type="number" wire:model="modalShift" min="0" step="1000" placeholder="0"
-                                   class="w-full border-0 bg-transparent p-0 text-sm font-semibold text-slate-700 placeholder-slate-300 focus:ring-0 dark:text-slate-200">
-                        </div>
-                        @error('modalShift') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
-                    @endif
+                        <button wire:click="fetchFromEsb" wire:loading.attr="disabled"
+                                class="flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60
+                                       {{ $esbFetched ? 'bg-green-600 active:bg-green-700' : 'bg-blue-600 active:bg-blue-700' }}">
+                            <svg wire:loading wire:target="fetchFromEsb" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                            </svg>
+                            <svg wire:loading.remove wire:target="fetchFromEsb" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                            </svg>
+                            <span wire:loading.remove wire:target="fetchFromEsb">{{ $esbFetched ? 'Refresh' : 'Fetch ESB' }}</span>
+                            <span wire:loading wire:target="fetchFromEsb">Mengambil...</span>
+                        </button>
+                    </div>
                 </div>
+            @endif
 
-                {{-- Payment rows --}}
-                <div>
-                    <label class="{{ $labelClass }}">Sales Payment Method</label>
-                    <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+            {{-- Payment rows --}}
+            @if(! empty($rows))
+                <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
-                        @foreach($this->paymentMethods as $method)
-                            <div class="flex flex-col gap-1.5 border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
-                                <div class="flex items-center gap-3">
-                                    <span class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300">{{ $method->name }}</span>
+                    {{-- Column header --}}
+                    <div class="grid grid-cols-3 border-b border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
+                        <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Sales System</span>
+                        <span class="text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Sales Store</span>
+                        <span class="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400">Selisih</span>
+                    </div>
+
+                    {{-- Rows --}}
+                    @foreach($rows as $idx => $row)
+                        @php
+                            $selisih  = $this->getSelisih($idx);
+                            $isNeg    = $selisih < 0;
+                            $hasError = $errors->has("rows.{$idx}.notes");
+
+                            $selisihColor = $isNeg
+                                ? 'text-red-600 dark:text-red-400'
+                                : ($selisih == 0 ? 'text-slate-400 dark:text-slate-500' : 'text-emerald-600 dark:text-emerald-400');
+                        @endphp
+
+                        <div class="border-b border-gray-100 dark:border-gray-800 last:border-0">
+
+                            {{-- Method name --}}
+                            <div class="px-4 pb-1 pt-3">
+                                <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['name'] }}</p>
+                            </div>
+
+                            {{-- 3 columns: Sistem | Toko | Selisih --}}
+                            <div class="grid grid-cols-3 items-center gap-2 px-4 pb-3">
+
+                                {{-- Sales System --}}
+                                <div class="text-xs font-mono text-slate-500 dark:text-slate-400">
+                                    {{ number_format($row['sales_system'], 0, ',', '.') }}
+                                </div>
+
+                                {{-- Sales Store --}}
+                                @if($isSubmitted)
+                                    <div class="text-center text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
+                                        {{ number_format((float) ($row['sales_store'] ?? 0), 0, ',', '.') }}
+                                    </div>
+                                @else
+                                    <input type="number"
+                                           wire:model.live="rows.{{ $idx }}.sales_store"
+                                           min="0" step="1000" placeholder="0"
+                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-center text-xs font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                @endif
+
+                                {{-- Selisih --}}
+                                <div class="text-right text-xs font-mono font-semibold {{ $selisihColor }}">
+                                    {{ $isNeg ? '-' : '' }}{{ number_format(abs($selisih), 0, ',', '.') }}
+                                </div>
+                            </div>
+
+                            {{-- Notes (only when selisih < 0) --}}
+                            @if($isNeg || ! empty($row['notes']))
+                                <div class="px-4 pb-3">
                                     @if($isSubmitted)
-                                        <div class="flex items-center gap-1.5">
-                                            <span class="text-xs text-slate-400">Rp</span>
-                                            <span class="min-w-[80px] text-right text-sm text-slate-600 dark:text-slate-300">
-                                                {{ number_format((float) ($entries[$method->id]['amount'] ?? 0), 0, ',', '.') ?: '0' }}
-                                            </span>
-                                        </div>
+                                        @if(! empty($row['notes']))
+                                            <div class="flex items-start gap-1.5 rounded-lg bg-red-50 px-3 py-2 dark:bg-red-900/20">
+                                                <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+                                                </svg>
+                                                <p class="text-xs text-red-600 dark:text-red-400">{{ $row['notes'] }}</p>
+                                            </div>
+                                        @endif
                                     @else
-                                        <div class="flex items-center gap-1.5">
-                                            <span class="text-xs text-slate-400">Rp</span>
-                                            <input type="number" wire:model="entries.{{ $method->id }}.amount"
-                                                   min="0" step="1000" placeholder="0"
-                                                   class="w-28 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-right text-sm text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200
-                                                          {{ $isShift1 ? 'focus:border-blue-400' : 'focus:border-indigo-400' }}">
+                                        <div class="flex items-center gap-1.5 mb-1">
+                                            <svg class="h-3 w-3 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
+                                            </svg>
+                                            <span class="text-[10px] font-semibold text-red-500">Catatan selisih wajib diisi</span>
                                         </div>
+                                        <input type="text"
+                                               wire:model.live="rows.{{ $idx }}.notes"
+                                               placeholder="Tulis keterangan selisih..."
+                                               class="w-full rounded-lg border bg-gray-50 px-3 py-2 text-xs text-slate-600 placeholder-slate-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-slate-300
+                                                      {{ $hasError ? 'border-red-400 focus:border-red-400 dark:border-red-500' : 'border-gray-200 focus:border-blue-400 dark:border-gray-700' }}">
+                                        @error("rows.{$idx}.notes")
+                                            <p class="mt-1 text-[10px] text-red-500">{{ $message }}</p>
+                                        @enderror
                                     @endif
                                 </div>
-                                @if($isSubmitted)
-                                    @if(!empty($entries[$method->id]['notes']))
-                                        <p class="text-xs text-slate-400 dark:text-slate-500">{{ $entries[$method->id]['notes'] }}</p>
-                                    @endif
-                                @else
-                                    <input type="text" wire:model="entries.{{ $method->id }}.notes"
-                                           placeholder="Catatan (opsional)"
-                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-slate-600 placeholder-slate-300 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300
-                                                  {{ $isShift1 ? 'focus:border-blue-400' : 'focus:border-indigo-400' }}">
-                                @endif
-                            </div>
-                        @endforeach
+                            @endif
 
-                        {{-- Total row --}}
-                        <div class="flex items-center gap-3 border-t-2 border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
-                            <span class="flex-1 text-sm font-bold text-slate-700 dark:text-slate-200">Total</span>
-                            <span class="{{ $isShift1 ? 'text-blue-600 dark:text-blue-400' : 'text-indigo-600 dark:text-indigo-400' }} text-sm font-bold">
-                                Rp {{ number_format($this->total(), 0, ',', '.') }}
+                        </div>
+                    @endforeach
+
+                    {{-- Total row --}}
+                    @php
+                        $totalSystem  = $this->totalSystem();
+                        $totalStore   = $this->totalStore();
+                        $totalSelisih = $totalSystem - $totalStore;
+                        $totalColor   = $totalSelisih < 0
+                            ? 'text-red-600 dark:text-red-400'
+                            : ($totalSelisih == 0 ? 'text-slate-400 dark:text-slate-500' : 'text-emerald-600 dark:text-emerald-400');
+                    @endphp
+                    <div class="border-t-2 border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
+                        <div class="mb-1">
+                            <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</span>
+                        </div>
+                        <div class="grid grid-cols-3 items-center gap-2">
+                            <span class="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
+                                {{ number_format($totalSystem, 0, ',', '.') }}
+                            </span>
+                            <span class="text-center text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
+                                {{ number_format($totalStore, 0, ',', '.') }}
+                            </span>
+                            <span class="text-right text-xs font-mono font-bold {{ $totalColor }}">
+                                {{ $totalSelisih < 0 ? '-' : '' }}{{ number_format(abs($totalSelisih), 0, ',', '.') }}
                             </span>
                         </div>
                     </div>
                 </div>
-
-            </div>{{-- /form card --}}
+            @endif
 
             {{-- Submit / Confirm area --}}
             @if(! $isSubmitted)
                 @if($showConfirm)
-                    {{-- Inline confirmation — same spirit as profile photo action bar --}}
                     <p class="text-center text-xs text-slate-400 dark:text-slate-500">
                         Data tidak dapat diubah setelah disimpan
                     </p>
@@ -156,20 +219,21 @@
                             Batal
                         </button>
                         <button wire:click="save" wire:loading.attr="disabled"
-                                class="{{ $isShift1 ? 'bg-blue-600 active:bg-blue-700' : 'bg-indigo-600 active:bg-indigo-700' }} flex flex-[2] items-center justify-center gap-1.5 rounded-2xl py-4 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60">
-                            <span wire:loading.remove wire:target="save">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                                </svg>
-                            </span>
+                                class="flex flex-[2] items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700 disabled:opacity-60">
+                            <svg wire:loading.remove wire:target="save" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                            </svg>
                             <span wire:loading.remove wire:target="save">Ya, Simpan</span>
                             <span wire:loading wire:target="save">Menyimpan...</span>
                         </button>
                     </div>
                 @else
                     <button wire:click="requestConfirm" wire:loading.attr="disabled"
-                            class="{{ $isShift1 ? 'bg-blue-600 active:bg-blue-700' : 'bg-indigo-600 active:bg-indigo-700' }} w-full rounded-2xl py-4 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="requestConfirm">Simpan Shift {{ $shift }}</span>
+                            class="w-full rounded-2xl py-4 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60
+                                   {{ $esbFetched ? 'bg-blue-600 active:bg-blue-700' : 'cursor-not-allowed bg-slate-400' }}">
+                        <span wire:loading.remove wire:target="requestConfirm">
+                            {{ $esbFetched ? 'Simpan Laporan' : 'Fetch ESB Dulu Sebelum Simpan' }}
+                        </span>
                         <span wire:loading wire:target="requestConfirm">Memvalidasi...</span>
                     </button>
                 @endif

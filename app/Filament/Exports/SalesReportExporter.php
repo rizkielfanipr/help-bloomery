@@ -17,8 +17,7 @@ class SalesReportExporter extends Exporter
             ExportColumn::make('id')->label('ID'),
             ExportColumn::make('branch.name')->label('Cabang'),
             ExportColumn::make('report_date')->label('Tanggal'),
-            ExportColumn::make('modal_shift_1')->label('Modal Shift 1'),
-            ExportColumn::make('modal_shift_2')->label('Modal Shift 2'),
+            ExportColumn::make('submitted_at')->label('Waktu Submit'),
             ExportColumn::make('submittedBy.name')->label('Disubmit Oleh'),
             ExportColumn::make('created_at')->label('Dibuat'),
         ];

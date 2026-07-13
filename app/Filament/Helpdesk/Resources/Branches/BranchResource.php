@@ -58,6 +58,18 @@ class BranchResource extends Resource
                             ->required()
                             ->maxLength(255),
 
+                        TextInput::make('esb_branch_code')
+                            ->label('ESB Branch Code')
+                            ->nullable()
+                            ->maxLength(50)
+                            ->helperText('Kode cabang di ESB OMS, contoh: BMS, BPL'),
+
+                        TextInput::make('esb_comcode')
+                            ->label('ESB Comcode')
+                            ->nullable()
+                            ->maxLength(50)
+                            ->helperText('Kode perusahaan ESB, contoh: BLO16, BLMN'),
+
                         TextInput::make('address')
                             ->label('Alamat')
                             ->nullable()

@@ -14,15 +14,15 @@ class SalesReportEntry extends Model
 
     protected $fillable = [
         'sales_report_id',
-        'payment_method_id',
-        'shift_1_amount',
-        'shift_2_amount',
+        'payment_method_name',
+        'sales_system_amount',
+        'sales_store_amount',
         'notes',
     ];
 
     protected $casts = [
-        'shift_1_amount' => 'decimal:2',
-        'shift_2_amount' => 'decimal:2',
+        'sales_system_amount' => 'decimal:2',
+        'sales_store_amount' => 'decimal:2',
     ];
 
     public function salesReport(): BelongsTo
@@ -30,8 +30,8 @@ class SalesReportEntry extends Model
         return $this->belongsTo(SalesReport::class);
     }
 
-    public function paymentMethod(): BelongsTo
+    public function getSelisihAttribute(): float
     {
-        return $this->belongsTo(PaymentMethod::class);
+        return (float) $this->sales_system_amount - (float) $this->sales_store_amount;
     }
 }

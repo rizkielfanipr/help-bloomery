@@ -59,20 +59,15 @@ class SalesReportResource extends Resource
                     ->sortable()
                     ->searchable(),
 
-                TextColumn::make('modal_shift_1')
-                    ->label('Modal Shift 1')
-                    ->money('IDR')
-                    ->sortable(),
-
-                TextColumn::make('modal_shift_2')
-                    ->label('Modal Shift 2')
-                    ->money('IDR')
-                    ->sortable(),
-
                 TextColumn::make('submittedBy.name')
                     ->label('Disubmit oleh')
                     ->sortable()
                     ->searchable(),
+
+                TextColumn::make('submitted_at')
+                    ->label('Disubmit')
+                    ->dateTime('d M Y HH:mm')
+                    ->sortable(),
 
                 TextColumn::make('updated_at')
                     ->label('Terakhir Diperbarui')

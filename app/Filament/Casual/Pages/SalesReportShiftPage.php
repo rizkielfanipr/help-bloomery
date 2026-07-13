@@ -2,14 +2,12 @@
 
 namespace App\Filament\Casual\Pages;
 
-use App\Models\PaymentMethod;
 use App\Models\SalesReport;
 use App\Models\SalesReportEntry;
+use App\Services\EsbService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Database\Eloquent\Collection;
-use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 
 class SalesReportShiftPage extends Page
@@ -20,20 +18,17 @@ class SalesReportShiftPage extends Page
 
     protected string $view = 'filament.casual.pages.sales-report-shift-page';
 
-    #[Url(as: 'shift')]
-    public int $shift = 1;
-
     #[Url(as: 'date')]
     public string $reportDate = '';
-
-    public string $modalShift = '';
-
-    /** @var array<int, array{amount: string, notes: string}> */
-    public array $entries = [];
 
     public bool $isSubmitted = false;
 
     public bool $showConfirm = false;
+
+    public bool $esbFetched = false;
+
+    /** @var array<int, array{name: string, sales_system: float, sales_store: string, notes: string}> */
+    public array $rows = [];
 
     public function mount(): void
     {
@@ -41,14 +36,12 @@ class SalesReportShiftPage extends Page
             $this->reportDate = now()->toDateString();
         }
 
-        $this->shift = in_array($this->shift, [1, 2]) ? $this->shift : 1;
-
         $this->loadData();
     }
 
     public function getTitle(): string|Htmlable
     {
-        return 'Sales Report – Shift '.$this->shift;
+        return 'Sales Report Harian';
     }
 
     public function getBreadcrumbs(): array
@@ -66,17 +59,7 @@ class SalesReportShiftPage extends Page
         $user = auth()->user();
         $branchId = $user->branch_id;
 
-        $methods = PaymentMethod::active()->get();
-
-        $this->entries = [];
-        foreach ($methods as $method) {
-            $this->entries[$method->id] = ['amount' => '', 'notes' => ''];
-        }
-
         if (! $branchId) {
-            $this->modalShift = '';
-            $this->isSubmitted = false;
-
             return;
         }
 
@@ -86,53 +69,99 @@ class SalesReportShiftPage extends Page
             ->first();
 
         if (! $report) {
-            $this->modalShift = '';
-            $this->isSubmitted = false;
+            return;
+        }
+
+        $this->isSubmitted = (bool) $report->submitted_at;
+
+        $this->rows = $report->entries->map(fn ($entry) => [
+            'name' => $entry->payment_method_name,
+            'sales_system' => (float) $entry->sales_system_amount,
+            'sales_store' => $entry->sales_store_amount > 0 ? (string) $entry->sales_store_amount : '',
+            'notes' => $entry->notes ?? '',
+        ])->values()->all();
+
+        if (! empty($this->rows)) {
+            $this->esbFetched = true;
+        }
+    }
+
+    public function fetchFromEsb(): void
+    {
+        $user = auth()->user();
+        $branch = $user->branch;
+
+        if (! $branch?->esb_branch_code) {
+            Notification::make()->title('Branch belum memiliki ESB Branch Code')->warning()->send();
 
             return;
         }
 
-        if ($this->shift === 1) {
-            $this->isSubmitted = (bool) $report->shift_1_submitted_at;
-            $this->modalShift = $report->modal_shift_1 > 0 ? (string) $report->modal_shift_1 : '';
+        $esbToken = $branch->esb_token;
 
-            foreach ($report->entries as $entry) {
-                if (isset($this->entries[$entry->payment_method_id])) {
-                    $this->entries[$entry->payment_method_id] = [
-                        'amount' => $entry->shift_1_amount > 0 ? (string) $entry->shift_1_amount : '',
-                        'notes' => $entry->notes ?? '',
-                    ];
-                }
-            }
-        } else {
-            $this->isSubmitted = (bool) $report->shift_2_submitted_at;
-            $this->modalShift = $report->modal_shift_2 > 0 ? (string) $report->modal_shift_2 : '';
+        if (! $esbToken) {
+            Notification::make()->title('Token ESB untuk branch ini belum dikonfigurasi')->warning()->send();
 
-            foreach ($report->entries as $entry) {
-                if (isset($this->entries[$entry->payment_method_id])) {
-                    $this->entries[$entry->payment_method_id] = [
-                        'amount' => $entry->shift_2_amount > 0 ? (string) $entry->shift_2_amount : '',
-                        'notes' => $entry->notes ?? '',
-                    ];
-                }
+            return;
+        }
+
+        try {
+            $esbRows = (new EsbService)->getPaymentSummary($branch->esb_branch_code, $this->reportDate, $esbToken);
+
+            if (empty($esbRows)) {
+                Notification::make()->title('Tidak ada data penjualan ESB untuk tanggal ini')->info()->send();
+
+                return;
             }
+
+            $this->rows = array_map(fn ($row) => [
+                'name' => $row['name'],
+                'sales_system' => $row['total'],
+                'sales_store' => '',
+                'notes' => '',
+            ], $esbRows);
+
+            $this->esbFetched = true;
+
+            Notification::make()->title('Data ESB berhasil dimuat')->success()->send();
+        } catch (\RuntimeException $e) {
+            Notification::make()
+                ->title('Gagal mengambil data ESB')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
         }
     }
 
-    #[Computed]
-    public function paymentMethods(): Collection
+    public function totalSystem(): float
     {
-        return PaymentMethod::active()->get();
+        return collect($this->rows)->sum(fn ($r) => (float) $r['sales_system']);
     }
 
-    public function total(): float
+    public function totalStore(): float
     {
-        return collect($this->entries)->sum(fn ($e) => (float) ($e['amount'] ?? 0));
+        return collect($this->rows)->sum(fn ($r) => (float) ($r['sales_store'] ?? 0));
+    }
+
+    public function getSelisih(int $idx): float
+    {
+        $row = $this->rows[$idx] ?? null;
+        if (! $row) {
+            return 0.0;
+        }
+
+        return (float) $row['sales_system'] - (float) ($row['sales_store'] ?? 0);
     }
 
     public function requestConfirm(): void
     {
         if ($this->isSubmitted) {
+            return;
+        }
+
+        if (! $this->esbFetched || empty($this->rows)) {
+            Notification::make()->title('Fetch data ESB terlebih dahulu sebelum menyimpan')->warning()->send();
+
             return;
         }
 
@@ -146,9 +175,19 @@ class SalesReportShiftPage extends Page
 
         $this->validate([
             'reportDate' => ['required', 'date'],
-            'modalShift' => ['nullable', 'numeric', 'min:0'],
-            'entries.*.amount' => ['nullable', 'numeric', 'min:0'],
+            'rows.*.sales_store' => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        foreach ($this->rows as $idx => $row) {
+            $selisih = (float) $row['sales_system'] - (float) ($row['sales_store'] ?? 0);
+            if ($selisih < 0 && empty(trim($row['notes'] ?? ''))) {
+                $this->addError("rows.{$idx}.notes", 'Catatan wajib diisi karena selisih negatif.');
+            }
+        }
+
+        if ($this->getErrorBag()->isNotEmpty()) {
+            return;
+        }
 
         $this->showConfirm = true;
     }
@@ -174,44 +213,26 @@ class SalesReportShiftPage extends Page
             return;
         }
 
-        if ($this->shift === 1) {
-            $report = SalesReport::updateOrCreate(
-                ['branch_id' => $user->branch_id, 'report_date' => $this->reportDate],
+        $report = SalesReport::updateOrCreate(
+            ['branch_id' => $user->branch_id, 'report_date' => $this->reportDate],
+            ['submitted_by' => $user->id, 'submitted_at' => now()]
+        );
+
+        foreach ($this->rows as $row) {
+            SalesReportEntry::updateOrCreate(
+                ['sales_report_id' => $report->id, 'payment_method_name' => $row['name']],
                 [
-                    'submitted_by' => $user->id,
-                    'modal_shift_1' => (float) ($this->modalShift ?: 0),
-                    'shift_1_submitted_at' => now(),
+                    'sales_system_amount' => (float) $row['sales_system'],
+                    'sales_store_amount' => (float) ($row['sales_store'] ?? 0),
+                    'notes' => trim($row['notes'] ?? '') ?: null,
                 ]
             );
-
-            foreach ($this->entries as $methodId => $data) {
-                SalesReportEntry::updateOrCreate(
-                    ['sales_report_id' => $report->id, 'payment_method_id' => $methodId],
-                    ['shift_1_amount' => (float) ($data['amount'] ?? 0), 'notes' => $data['notes'] ?: null]
-                );
-            }
-        } else {
-            $report = SalesReport::updateOrCreate(
-                ['branch_id' => $user->branch_id, 'report_date' => $this->reportDate],
-                [
-                    'submitted_by' => $user->id,
-                    'modal_shift_2' => (float) ($this->modalShift ?: 0),
-                    'shift_2_submitted_at' => now(),
-                ]
-            );
-
-            foreach ($this->entries as $methodId => $data) {
-                SalesReportEntry::updateOrCreate(
-                    ['sales_report_id' => $report->id, 'payment_method_id' => $methodId],
-                    ['shift_2_amount' => (float) ($data['amount'] ?? 0), 'notes' => $data['notes'] ?: null]
-                );
-            }
         }
 
         $this->isSubmitted = true;
 
         Notification::make()
-            ->title('Shift '.$this->shift.' berhasil disimpan')
+            ->title('Laporan harian berhasil disimpan')
             ->body('Data sudah terkunci dan tidak dapat diubah kembali.')
             ->success()
             ->send();

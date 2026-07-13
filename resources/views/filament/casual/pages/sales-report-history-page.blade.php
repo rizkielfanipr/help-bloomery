@@ -61,9 +61,7 @@
                 <div class="flex flex-col gap-2 px-4">
                     @foreach($monthReports as $report)
                         @php
-                            $totalShift1 = (float) $report->entries->sum('shift_1_amount');
-                            $totalShift2 = (float) $report->entries->sum('shift_2_amount');
-                            $grandTotal  = $totalShift1 + $totalShift2;
+                            $totalStore  = (float) $report->entries->sum('sales_store_amount');
                             $isExpanded  = $expandedReportId === $report->id;
                         @endphp
 
@@ -86,12 +84,10 @@
                                 {{-- Info --}}
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                        Rp {{ number_format($grandTotal, 0, ',', '.') }}
+                                        Rp {{ number_format($totalStore, 0, ',', '.') }}
                                     </p>
                                     <p class="mt-0.5 text-xs text-gray-400">
-                                        S1: Rp {{ number_format($totalShift1, 0, ',', '.') }}
-                                        &nbsp;·&nbsp;
-                                        S2: Rp {{ number_format($totalShift2, 0, ',', '.') }}
+                                        {{ $report->entries->count() }} metode pembayaran
                                     </p>
                                     @if($report->submittedBy)
                                         <p class="mt-0.5 text-[11px] text-gray-400">{{ $report->submittedBy->name }}</p>
@@ -109,47 +105,31 @@
                             @if($isExpanded)
                                 <div class="border-t border-gray-100 dark:border-gray-800">
 
-                                    {{-- Modal shift --}}
-                                    @if($report->modal_shift_1 > 0 || $report->modal_shift_2 > 0)
-                                        <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800">
-                                            <div class="bg-gray-50 px-4 py-2 dark:bg-gray-800/50">
-                                                <p class="text-[10px] font-semibold uppercase text-gray-400">Modal Shift 1</p>
-                                                <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                                                    Rp {{ number_format($report->modal_shift_1, 0, ',', '.') }}
-                                                </p>
-                                            </div>
-                                            <div class="bg-gray-50 px-4 py-2 dark:bg-gray-800/50">
-                                                <p class="text-[10px] font-semibold uppercase text-gray-400">Modal Shift 2</p>
-                                                <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">
-                                                    Rp {{ number_format($report->modal_shift_2, 0, ',', '.') }}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    @endif
-
                                     {{-- Entries --}}
-                                    @foreach($report->entries->sortBy('paymentMethod.name') as $entry)
-                                        @if($entry->shift_1_amount > 0 || $entry->shift_2_amount > 0)
-                                            <div class="grid grid-cols-[1fr_80px_80px] border-b border-gray-100 px-4 py-2 last:border-0 dark:border-gray-800">
-                                                <span class="text-xs text-gray-600 dark:text-gray-400">{{ $entry->paymentMethod?->name }}</span>
-                                                <span class="text-right text-xs text-gray-700 dark:text-gray-300">
-                                                    {{ $entry->shift_1_amount > 0 ? number_format($entry->shift_1_amount, 0, ',', '.') : '—' }}
-                                                </span>
-                                                <span class="text-right text-xs text-gray-700 dark:text-gray-300">
-                                                    {{ $entry->shift_2_amount > 0 ? number_format($entry->shift_2_amount, 0, ',', '.') : '—' }}
-                                                </span>
-                                            </div>
-                                        @endif
+                                    @foreach($report->entries->sortBy('payment_method_name') as $entry)
+                                        @php $selisih = (float)$entry->sales_system_amount - (float)$entry->sales_store_amount; @endphp
+                                        <div class="grid grid-cols-[1fr_80px_80px] border-b border-gray-100 px-4 py-2 last:border-0 dark:border-gray-800">
+                                            <span class="text-xs text-gray-600 dark:text-gray-400">{{ $entry->payment_method_name }}</span>
+                                            <span class="text-right text-xs font-mono text-gray-700 dark:text-gray-300">
+                                                {{ number_format($entry->sales_store_amount, 0, ',', '.') }}
+                                            </span>
+                                            <span class="text-right text-xs font-mono font-semibold
+                                                {{ $selisih < 0 ? 'text-red-500' : ($selisih == 0 ? 'text-gray-400' : 'text-emerald-600') }}">
+                                                {{ $selisih < 0 ? '-' : '' }}{{ number_format(abs($selisih), 0, ',', '.') }}
+                                            </span>
+                                        </div>
                                     @endforeach
 
-                                    {{-- Column header (inside expanded) --}}
+                                    {{-- Total row --}}
+                                    @php $totalSystem = (float) $report->entries->sum('sales_system_amount'); $totalSelisih = $totalSystem - $totalStore; @endphp
                                     <div class="grid grid-cols-[1fr_80px_80px] border-t-2 border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
-                                        <span class="text-[10px] font-bold uppercase text-gray-500">Total</span>
+                                        <span class="text-[10px] font-bold uppercase text-gray-500">Total Toko</span>
                                         <span class="text-right text-xs font-bold text-blue-700 dark:text-blue-300">
-                                            Rp {{ number_format($totalShift1, 0, ',', '.') }}
+                                            Rp {{ number_format($totalStore, 0, ',', '.') }}
                                         </span>
-                                        <span class="text-right text-xs font-bold text-blue-700 dark:text-blue-300">
-                                            Rp {{ number_format($totalShift2, 0, ',', '.') }}
+                                        <span class="text-right text-xs font-bold
+                                            {{ $totalSelisih < 0 ? 'text-red-500' : ($totalSelisih == 0 ? 'text-gray-400' : 'text-emerald-600') }}">
+                                            {{ $totalSelisih < 0 ? '-' : '' }}Rp {{ number_format(abs($totalSelisih), 0, ',', '.') }}
                                         </span>
                                     </div>
                                 </div>

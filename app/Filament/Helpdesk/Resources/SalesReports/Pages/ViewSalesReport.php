@@ -16,7 +16,7 @@ class ViewSalesReport extends Page
 
     public function mount(SalesReport $record): void
     {
-        $this->record = $record->load(['branch', 'submittedBy', 'entries.paymentMethod']);
+        $this->record = $record->load(['branch', 'submittedBy', 'entries']);
     }
 
     public function getTitle(): string

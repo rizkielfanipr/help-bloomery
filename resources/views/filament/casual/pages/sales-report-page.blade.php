@@ -1,16 +1,13 @@
 @php
-    $status = $this->getShiftStatus();
-    $shift1Done = (bool) $status['shift1'];
-    $shift2Done = (bool) $status['shift2'];
+    $submittedAt = $this->getDailyStatus();
+    $isDone = (bool) $submittedAt;
     $date = $reportDate ?: now()->toDateString();
 @endphp
 
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh">
 
-    {{-- ════════════════════════════════════════════
-         HEADER
-    ════════════════════════════════════════════ --}}
+    {{-- HEADER --}}
     <div class="flex-shrink-0 px-5 pb-8 pt-14">
         <div class="mb-4 flex items-center gap-3">
             <a href="{{ route('filament.casual.pages.launcher-page') }}"
@@ -31,11 +28,8 @@
         <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
     </div>
 
-    {{-- ════════════════════════════════════════════
-         WHITE CONTENT CARD
-    ════════════════════════════════════════════ --}}
+    {{-- WHITE CONTENT CARD --}}
     <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
-
         <div class="flex flex-col gap-4 px-5">
 
             {{-- Tanggal --}}
@@ -45,69 +39,39 @@
                        class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
             </div>
 
-            {{-- Info --}}
-            <p class="px-1 text-xs text-slate-400 dark:text-slate-500">Pilih shift untuk mengisi atau melihat laporan penjualan.</p>
-
-            {{-- Shift 1 Button --}}
-            <a href="{{ route('filament.casual.pages.sales-report-shift-page') }}?shift=1&date={{ $date }}"
+            {{-- Laporan Harian button --}}
+            <a href="{{ route('filament.casual.pages.sales-report-shift-page') }}?date={{ $date }}"
                wire:navigate
                class="relative flex items-center gap-4 rounded-2xl border bg-white p-5 transition active:scale-95 dark:bg-gray-900
-                      {{ $shift1Done ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700' }}">
+                      {{ $isDone ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700' }}">
 
-                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {{ $shift1Done ? 'bg-green-100 dark:bg-green-900/40' : 'bg-blue-100 dark:bg-blue-900/40' }}">
-                    @if($shift1Done)
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl
+                            {{ $isDone ? 'bg-green-100 dark:bg-green-900/40' : 'bg-blue-100 dark:bg-blue-900/40' }}">
+                    @if($isDone)
                         <svg class="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                         </svg>
                     @else
-                        <span class="text-lg font-bold text-blue-600 dark:text-blue-400">1</span>
+                        <svg class="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/>
+                        </svg>
                     @endif
                 </div>
 
                 <div class="flex-1">
-                    <p class="font-semibold {{ $shift1Done ? 'text-green-700 dark:text-green-400' : 'text-slate-700 dark:text-slate-200' }}">Shift 1</p>
-                    <p class="text-xs {{ $shift1Done ? 'text-green-600 dark:text-green-500' : 'text-slate-400' }}">
-                        @if($shift1Done)
-                            Sudah disubmit · {{ \Carbon\Carbon::parse($status['shift1'])->locale('id')->isoFormat('HH:mm') }}
+                    <p class="font-semibold {{ $isDone ? 'text-green-700 dark:text-green-400' : 'text-slate-700 dark:text-slate-200' }}">
+                        Laporan Harian
+                    </p>
+                    <p class="text-xs {{ $isDone ? 'text-green-600 dark:text-green-500' : 'text-slate-400' }}">
+                        @if($isDone)
+                            Sudah disubmit · {{ \Carbon\Carbon::parse($submittedAt)->locale('id')->isoFormat('HH:mm') }}
                         @else
                             Belum diisi
                         @endif
                     </p>
                 </div>
 
-                <svg class="h-5 w-5 {{ $shift1Done ? 'text-green-400' : 'text-gray-300' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
-                </svg>
-            </a>
-
-            {{-- Shift 2 Button --}}
-            <a href="{{ route('filament.casual.pages.sales-report-shift-page') }}?shift=2&date={{ $date }}"
-               wire:navigate
-               class="relative flex items-center gap-4 rounded-2xl border bg-white p-5 transition active:scale-95 dark:bg-gray-900
-                      {{ $shift2Done ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700' }}">
-
-                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl {{ $shift2Done ? 'bg-green-100 dark:bg-green-900/40' : 'bg-indigo-100 dark:bg-indigo-900/40' }}">
-                    @if($shift2Done)
-                        <svg class="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                        </svg>
-                    @else
-                        <span class="text-lg font-bold text-indigo-600 dark:text-indigo-400">2</span>
-                    @endif
-                </div>
-
-                <div class="flex-1">
-                    <p class="font-semibold {{ $shift2Done ? 'text-green-700 dark:text-green-400' : 'text-slate-700 dark:text-slate-200' }}">Shift 2</p>
-                    <p class="text-xs {{ $shift2Done ? 'text-green-600 dark:text-green-500' : 'text-slate-400' }}">
-                        @if($shift2Done)
-                            Sudah disubmit · {{ \Carbon\Carbon::parse($status['shift2'])->locale('id')->isoFormat('HH:mm') }}
-                        @else
-                            Belum diisi
-                        @endif
-                    </p>
-                </div>
-
-                <svg class="h-5 w-5 {{ $shift2Done ? 'text-green-400' : 'text-gray-300' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg class="h-5 w-5 {{ $isDone ? 'text-green-400' : 'text-gray-300' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
                 </svg>
             </a>
@@ -115,9 +79,6 @@
         </div>
     </div>
 
-    {{-- ════════════════════════════════════════════
-         BOTTOM NAV
-    ════════════════════════════════════════════ --}}
     <x-sales-report.bottom-nav active="report" />
 
 </div>

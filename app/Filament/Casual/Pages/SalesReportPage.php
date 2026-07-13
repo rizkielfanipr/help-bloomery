@@ -3,6 +3,7 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Models\SalesReport;
+use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\Url;
@@ -45,21 +46,18 @@ class SalesReportPage extends Page
         // triggers reactive re-render for checkmarks
     }
 
-    public function getShiftStatus(): array
+    public function getDailyStatus(): ?Carbon
     {
         $user = auth()->user();
 
         if (! $user->branch_id) {
-            return ['shift1' => null, 'shift2' => null];
+            return null;
         }
 
         $report = SalesReport::where('branch_id', $user->branch_id)
             ->whereDate('report_date', $this->reportDate ?: now()->toDateString())
             ->first();
 
-        return [
-            'shift1' => $report?->shift_1_submitted_at,
-            'shift2' => $report?->shift_2_submitted_at,
-        ];
+        return $report?->submitted_at;
     }
 }

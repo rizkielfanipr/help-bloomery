@@ -12,6 +12,8 @@ class Branch extends Model
 
     protected $fillable = [
         'name',
+        'esb_branch_code',
+        'esb_comcode',
         'address',
         'lat',
         'lng',
@@ -28,6 +30,11 @@ class Branch extends Model
             'is_active' => 'boolean',
             'location_required' => 'boolean',
         ];
+    }
+
+    public function getEsbTokenAttribute(): string
+    {
+        return config('esb.tokens.'.$this->esb_comcode, '');
     }
 
     public function users(): HasMany

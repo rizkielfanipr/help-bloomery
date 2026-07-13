@@ -26,9 +26,11 @@
          timeInterval: null,
          isSelfie: false,
          uploading: false,
+         currentFacing: 'user',
 
          async openCamera() {
              this.isSelfie = $wire.activeTaskIsSelfie;
+             this.currentFacing = this.isSelfie ? 'user' : 'environment';
              this.previewSrc = null;
              this.uploading = false;
              this.cameraOpen = true;
@@ -38,10 +40,18 @@
 
              this.initLocation();
 
+             await this.startStream();
+         },
+
+         async startStream() {
+             if (this.stream) {
+                 this.stream.getTracks().forEach(t => t.stop());
+                 this.stream = null;
+             }
              try {
                  this.stream = await navigator.mediaDevices.getUserMedia({
                      video: {
-                         facingMode: this.isSelfie ? 'user' : 'environment',
+                         facingMode: this.currentFacing,
                          width: { ideal: 1280 },
                          height: { ideal: 960 },
                      },
@@ -57,6 +67,11 @@
                  this.cameraOpen = false;
                  alert('Tidak dapat mengakses kamera. Pastikan izin kamera sudah diberikan.');
              }
+         },
+
+         async flipCamera() {
+             this.currentFacing = this.currentFacing === 'user' ? 'environment' : 'user';
+             await this.startStream();
          },
 
          closeCamera() {
@@ -150,7 +165,7 @@
              tmp.width = W;
              tmp.height = H;
              const tmpCtx = tmp.getContext('2d');
-             if (this.isSelfie) {
+             if (this.currentFacing === 'user') {
                  tmpCtx.translate(W, 0);
                  tmpCtx.scale(-1, 1);
              }
@@ -250,7 +265,7 @@
                    autoplay
                    playsinline
                    muted
-                   :class="isSelfie ? '-scale-x-100' : ''"
+                   :class="currentFacing === 'user' ? '-scale-x-100' : ''"
                    class="h-full w-full object-cover"></video>
 
             {{-- Live timestamp overlay (HTML — mirrors the burned-in version) --}}
@@ -263,11 +278,19 @@
         </div>
 
         {{-- Capture button --}}
-        <div class="flex flex-shrink-0 items-center justify-center bg-black py-8">
+        <div class="flex flex-shrink-0 items-center justify-between bg-black px-8 py-8">
+            <div style="width:48px"></div>
             <button @click="capturePhoto()"
-                    class="flex h-18 w-18 items-center justify-center rounded-full border-4 border-white/70 bg-white shadow-xl transition active:scale-90"
+                    class="flex items-center justify-center rounded-full border-4 border-white/70 bg-white shadow-xl transition active:scale-90"
                     style="height:72px;width:72px">
-                <div class="h-14 w-14 rounded-full bg-white ring-2 ring-gray-300" style="height:56px;width:56px"></div>
+                <div class="rounded-full bg-white ring-2 ring-gray-300" style="height:56px;width:56px"></div>
+            </button>
+            <button @click="flipCamera()"
+                    class="flex items-center justify-center rounded-full bg-white/15 text-white transition active:bg-white/25"
+                    style="height:48px;width:48px">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                </svg>
             </button>
         </div>
     </div>

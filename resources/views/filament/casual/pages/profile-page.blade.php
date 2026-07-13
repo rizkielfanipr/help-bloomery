@@ -16,6 +16,7 @@
          uploading: false,
          camError: null,
          notifOn: true,
+         currentFacing: 'user',
 
          get hasPhoto()  { return !!this.photo; },
          get hasStream() { return !!this.stream; },
@@ -68,7 +69,7 @@
              }
              try {
                  this.stream = await navigator.mediaDevices.getUserMedia({
-                     video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } },
+                     video: { facingMode: this.currentFacing, width: { ideal: 720 }, height: { ideal: 720 } },
                      audio: false
                  });
                  await this.$nextTick();
@@ -79,15 +80,25 @@
              }
          },
 
+         async flipCamera() {
+             this.stopStream();
+             this.currentFacing = this.currentFacing === 'user' ? 'environment' : 'user';
+             await this.startCamera();
+         },
+
          shoot() {
              const v = this.$refs.video, c = this.$refs.canvas;
              if (!v || !c) return;
              const s = Math.min(v.videoWidth, v.videoHeight) || 480;
              c.width = c.height = s;
              const ctx = c.getContext('2d');
-             ctx.save(); ctx.scale(-1, 1);
-             ctx.drawImage(v, -(v.videoWidth - s) / 2 - s, -(v.videoHeight - s) / 2, v.videoWidth, v.videoHeight);
-             ctx.restore();
+             if (this.currentFacing === 'user') {
+                 ctx.save(); ctx.scale(-1, 1);
+                 ctx.drawImage(v, -(v.videoWidth - s) / 2 - s, -(v.videoHeight - s) / 2, v.videoWidth, v.videoHeight);
+                 ctx.restore();
+             } else {
+                 ctx.drawImage(v, -(v.videoWidth - s) / 2, -(v.videoHeight - s) / 2, v.videoWidth, v.videoHeight);
+             }
              this.photo = c.toDataURL('image/jpeg', 0.9);
              this.stopStream();
              c.toBlob((blob) => {
@@ -427,7 +438,7 @@
             <video x-ref="video" x-show="hasStream && !hasPhoto"
                    autoplay muted playsinline
                    class="absolute inset-0 h-full w-full object-cover"
-                   style="transform:scaleX(-1)"></video>
+                   :style="currentFacing === 'user' ? 'transform:scaleX(-1)' : ''"></video>
 
             <div x-show="hasStream && !hasPhoto"
                  class="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -472,10 +483,17 @@
         <canvas x-ref="canvas" class="hidden"></canvas>
 
         <div class="px-6 pb-12 pt-5">
-            <div x-show="hasStream && !hasPhoto" class="flex justify-center">
+            <div x-show="hasStream && !hasPhoto" class="flex items-center justify-between">
+                <div class="h-12 w-12"></div>
                 <button @click="shoot()"
                         class="flex h-20 w-20 items-center justify-center rounded-full ring-4 ring-white/30 transition active:scale-90">
                     <div class="h-14 w-14 rounded-full bg-white"></div>
+                </button>
+                <button @click="flipCamera()"
+                        class="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white transition active:bg-white/25">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                    </svg>
                 </button>
             </div>
 

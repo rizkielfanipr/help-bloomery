@@ -2,15 +2,32 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        // Clear old incompatible data so unique constraint can be added
         DB::table('sales_report_entries')->truncate();
 
+        // Drop both FKs first — sales_report_id FK uses the composite unique as its backing
+        // index, so it must be dropped before the composite unique can be dropped
+        Schema::table('sales_report_entries', function (Blueprint $table): void {
+            $table->dropForeign(['sales_report_id']);
+            $table->dropForeign(['payment_method_id']);
+        });
+
+        // Drop old unique + old columns, add new columns
+        Schema::table('sales_report_entries', function (Blueprint $table): void {
+            $table->dropUnique(['sales_report_id', 'payment_method_id']);
+            $table->dropColumn(['payment_method_id', 'shift_1_amount', 'shift_2_amount']);
+            $table->string('payment_method_name', 100)->after('sales_report_id');
+            $table->decimal('sales_system_amount', 15, 2)->default(0)->after('payment_method_name');
+            $table->decimal('sales_store_amount', 15, 2)->default(0)->after('sales_system_amount');
+        });
+
+        // Add new unique constraint and FK
         Schema::table('sales_report_entries', function (Blueprint $table): void {
             $table->unique(['sales_report_id', 'payment_method_name']);
             $table->foreign('sales_report_id')->references('id')->on('sales_reports')->cascadeOnDelete();

@@ -16,6 +16,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 
@@ -126,6 +127,7 @@ class ViewServiceRequest extends ViewRecord
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->requiresConfirmation()
+                ->modalFooterActionsAlignment(Alignment::End)
                 ->modalHeading('Klaim Garansi')
                 ->modalDescription('Pekerjaan dikembalikan ke antrian teknisi untuk perbaikan ulang. Riwayat perbaikan sebelumnya tetap tersimpan.')
                 ->visible(fn (ServiceRequest $record): bool => $record->status === ServiceRequestStatus::Warranty)

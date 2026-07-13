@@ -22,6 +22,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Enums\Alignment;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -110,6 +111,7 @@ class BriefingItemResource extends Resource
                             ->color('success')
                             ->icon('heroicon-o-check-circle')
                             ->requiresConfirmation()
+                            ->modalFooterActionsAlignment(Alignment::End)
                             ->modalHeading('Setujui Item Ini?')
                             ->modalDescription('Setelah disetujui, staff tidak dapat mengubah item ini.')
                             ->action(function (BriefingItem $record): void {
@@ -255,6 +257,7 @@ class BriefingItemResource extends Resource
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->requiresConfirmation()
+                        ->modalFooterActionsAlignment(Alignment::End)
                         ->modalHeading('Setujui Item yang Dipilih?')
                         ->modalDescription('Item yang sudah disetujui sebelumnya akan dilewati.')
                         ->action(function (Collection $records): void {

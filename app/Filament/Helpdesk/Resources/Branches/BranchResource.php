@@ -17,10 +17,12 @@ use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -126,6 +128,24 @@ class BranchResource extends Resource
             ])
             ->recordActions([
                 EditAction::make()->iconButton()->tooltip('Edit'),
+                Action::make('toggle_active')
+                    ->iconButton()
+                    ->icon(fn (Branch $record): string => $record->is_active ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
+                    ->color(fn (Branch $record): string => $record->is_active ? 'warning' : 'success')
+                    ->tooltip(fn (Branch $record): string => $record->is_active ? 'Nonaktifkan' : 'Aktifkan')
+                    ->requiresConfirmation()
+                    ->modalFooterActionsAlignment(Alignment::End)
+                    ->modalHeading(fn (Branch $record): string => $record->is_active ? 'Nonaktifkan Branch?' : 'Aktifkan Branch?')
+                    ->modalDescription(fn (Branch $record): string => $record->is_active
+                        ? 'Branch ini akan dinonaktifkan. Data tetap tersimpan dan bisa diaktifkan kembali.'
+                        : 'Branch ini akan diaktifkan kembali.')
+                    ->action(function (Branch $record): void {
+                        $record->update(['is_active' => ! $record->is_active]);
+                        Notification::make()
+                            ->title($record->is_active ? 'Branch diaktifkan' : 'Branch dinonaktifkan')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
                 Action::make('create')

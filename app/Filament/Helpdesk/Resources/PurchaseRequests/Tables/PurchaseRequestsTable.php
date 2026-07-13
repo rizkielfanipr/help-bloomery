@@ -18,6 +18,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Support\Enums\Alignment;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -119,6 +120,7 @@ class PurchaseRequestsTable
                     ->tooltip('Proses ke status berikutnya')
                     ->color('success')
                     ->requiresConfirmation()
+                    ->modalFooterActionsAlignment(Alignment::End)
                     ->modalHeading(fn (PurchaseRequest $record): string => 'Proses ke "'.$record->status->nextStatus()?->getLabel().'"?')
                     ->modalDescription(fn (PurchaseRequest $record): string => 'Status saat ini: '.$record->status->getLabel())
                     ->action(function (PurchaseRequest $record): void {

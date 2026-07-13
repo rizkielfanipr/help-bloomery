@@ -93,7 +93,7 @@ class BriefingCalendarPage extends Page
         $end = $start->copy()->endOfMonth();
         $today = Carbon::today();
 
-        $allStaff = User::select(['id', 'branch_id'])->whereNotNull('branch_id')->get();
+        $allStaff = User::select(['id', 'branch_id'])->whereNotNull('branch_id')->role('STORE_STAFF')->get();
         $allStaffIds = $allStaff->pluck('id');
 
         $branchGroups = $allStaff->groupBy('branch_id');
@@ -208,7 +208,7 @@ class BriefingCalendarPage extends Page
             return [];
         }
 
-        $branches = Branch::with(['users' => fn ($q) => $q->orderBy('name')])
+        $branches = Branch::with(['users' => fn ($q) => $q->role('STORE_STAFF')->orderBy('name')])
             ->orderBy('name')
             ->get()
             ->filter(fn (Branch $b) => $b->users->isNotEmpty());

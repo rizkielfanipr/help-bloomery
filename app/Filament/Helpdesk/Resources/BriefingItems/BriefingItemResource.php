@@ -55,7 +55,7 @@ class BriefingItemResource extends Resource
             ->columns([
                 TextColumn::make('staff_name')
                     ->label('Staff')
-                    ->searchable(['users.name'])
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->where('users.name', 'like', "%{$search}%"))
                     ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy('users.name', $direction)
                     ),
 
@@ -98,12 +98,12 @@ class BriefingItemResource extends Resource
             ])
             ->recordActions([
                 Action::make('view_photos')
-                    ->label('Lihat Foto')
-                    ->icon('heroicon-o-photo')
+                    ->label('Lihat Detail')
+                    ->icon(fn (BriefingItem $record): string => ! empty($record->photo_paths) ? 'heroicon-o-photo' : 'heroicon-o-document-text')
                     ->iconButton()
-                    ->tooltip('Lihat Foto & Catatan')
+                    ->tooltip('Lihat Detail')
                     ->color('info')
-                    ->modalHeading('Foto & Catatan')
+                    ->modalHeading('Detail Briefing')
                     ->registerModalActions([
                         Action::make('approve')
                             ->label('Setujui')
@@ -148,7 +148,7 @@ class BriefingItemResource extends Resource
                     ))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Tutup')
-                    ->visible(fn (BriefingItem $record): bool => ! empty($record->photo_paths)),
+                    ->visible(fn (BriefingItem $record): bool => ! empty($record->photo_paths) || ! empty($record->notes)),
             ])
             ->filters([
                 Filter::make('user_id')
@@ -313,7 +313,6 @@ class BriefingItemResource extends Resource
                 'briefing_records.record_date',
                 'users.name as staff_name',
                 'branches.name as branch_name',
-            )
-            ->selectRaw('COALESCE(JSON_LENGTH(briefing_items.photo_paths), 0) as photo_count');
+            );
     }
 }

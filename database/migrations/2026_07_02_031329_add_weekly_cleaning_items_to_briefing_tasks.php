@@ -45,9 +45,15 @@ return new class extends Migration
 
         $rows = [];
 
+        $existingBranchIds = DB::table('branches')->pluck('id')->all();
+
         foreach ($this->newItems as $item) {
             // Insert branch-specific copies for each branch that has weekly tasks
             foreach ($this->branchSuffixes as ['id' => $branchId, 'suffix' => $suffix]) {
+                if (! in_array($branchId, $existingBranchIds)) {
+                    continue;
+                }
+
                 $exists = DB::table('briefing_tasks')
                     ->where('key', $item['key'].$suffix)
                     ->exists();

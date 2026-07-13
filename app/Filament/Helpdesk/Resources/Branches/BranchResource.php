@@ -11,6 +11,7 @@ use App\Models\Branch;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
@@ -26,6 +27,7 @@ use Filament\Support\Enums\Alignment;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\DB;
 
 class BranchResource extends Resource
 {
@@ -130,7 +132,7 @@ class BranchResource extends Resource
                 EditAction::make()->iconButton()->tooltip('Edit'),
                 Action::make('toggle_active')
                     ->iconButton()
-                    ->icon(fn (Branch $record): string => $record->is_active ? 'heroicon-o-eye-slash' : 'heroicon-o-eye')
+                    ->icon(fn (Branch $record): string => $record->is_active ? 'heroicon-o-no-symbol' : 'heroicon-o-check-circle')
                     ->color(fn (Branch $record): string => $record->is_active ? 'warning' : 'success')
                     ->tooltip(fn (Branch $record): string => $record->is_active ? 'Nonaktifkan' : 'Aktifkan')
                     ->requiresConfirmation()
@@ -143,6 +145,36 @@ class BranchResource extends Resource
                         $record->update(['is_active' => ! $record->is_active]);
                         Notification::make()
                             ->title($record->is_active ? 'Branch diaktifkan' : 'Branch dinonaktifkan')
+                            ->success()
+                            ->send();
+                    }),
+
+                DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Hapus Permanen')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalFooterActionsAlignment(Alignment::End)
+                    ->modalHeading('Hapus Branch Permanen?')
+                    ->modalDescription('Semua data terkait (karyawan, absensi, laporan, dll) akan tetap ada namun field branch-nya dikosongkan. Tindakan ini tidak dapat dibatalkan.')
+                    ->visible(fn (Branch $record): bool => ! $record->is_active)
+                    ->using(function (Branch $record): void {
+                        $tables = [
+                            'users', 'briefing_tasks', 'briefing_scores',
+                            'casual_clock_records', 'casual_position_openings',
+                            'design_requests', 'erp_repair_requests',
+                            'purchase_requests', 'sales_reports', 'service_requests',
+                        ];
+
+                        DB::transaction(function () use ($record, $tables): void {
+                            foreach ($tables as $table) {
+                                DB::table($table)->where('branch_id', $record->id)->update(['branch_id' => null]);
+                            }
+                            $record->delete();
+                        });
+
+                        Notification::make()
+                            ->title('Branch dihapus permanen')
                             ->success()
                             ->send();
                     }),

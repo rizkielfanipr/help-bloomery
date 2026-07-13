@@ -1,7 +1,9 @@
 @php
-    $user      = auth()->user();
-    $hasBranch = (bool) $user->branch_id;
-    $branch    = $user->branch?->name ?? null;
+    $user        = auth()->user();
+    $hasBranch   = (bool) $user->branch_id;
+    $branch      = $user->branch?->name ?? null;
+    $formOpen    = $this->isFormOpen();
+    $closeReason = $this->getCloseReason();
 @endphp
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh">
@@ -38,6 +40,23 @@
         @php $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600'; @endphp
 
         <div class="flex flex-col gap-4 px-5">
+
+        @if(! $formOpen)
+            {{-- Form Closed Notice --}}
+            <div class="flex flex-col items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-800 dark:bg-red-900/20">
+                <div class="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/40">
+                    <svg class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-red-700 dark:text-red-400">Form Pengajuan Ditutup</p>
+                    @if($closeReason)
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-300">{{ $closeReason }}</p>
+                    @endif
+                </div>
+            </div>
+        @else
             <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
 
             {{-- Branch / Divisi (read-only) --}}
@@ -183,6 +202,8 @@
                 <span wire:loading.remove wire:target="submit">Kirim Pengajuan</span>
                 <span wire:loading wire:target="submit">Mengirim...</span>
             </button>
+
+        @endif
 
         </div>
     </div>

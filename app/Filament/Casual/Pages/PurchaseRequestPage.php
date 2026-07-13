@@ -4,6 +4,7 @@ namespace App\Filament\Casual\Pages;
 
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\PurchaseType;
+use App\Models\AppSetting;
 use App\Models\PurchaseRequest;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -68,9 +69,25 @@ class PurchaseRequestPage extends Page
         $this->attachments = array_values($this->attachments);
     }
 
+    public function isFormOpen(): bool
+    {
+        return AppSetting::get('purchase_request_open', 'true') === 'true';
+    }
+
+    public function getCloseReason(): ?string
+    {
+        return AppSetting::get('purchase_request_close_reason');
+    }
+
     public function submit(): void
     {
         $user = auth()->user();
+
+        if (! $this->isFormOpen()) {
+            Notification::make()->title('Form sedang ditutup')->warning()->send();
+
+            return;
+        }
 
         if (! $user->branch_id) {
             Notification::make()->title('Cabang belum diatur')->body('Hubungi admin untuk mengatur cabang Anda.')->warning()->send();

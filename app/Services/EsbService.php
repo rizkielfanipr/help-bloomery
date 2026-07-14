@@ -174,6 +174,34 @@ class EsbService
         } while ($page <= $pageCount);
     }
 
+    /**
+     * Fetch promotion list (static catalog) for a branch or all branches.
+     *
+     * @return array<int, mixed>
+     *
+     * @throws \RuntimeException
+     */
+    public function getPromotionList(string $branchCode = '', ?string $token = null): array
+    {
+        $resolvedToken = $token ?? $this->token;
+
+        $params = [];
+        if ($branchCode !== '') {
+            $params['branchCode'] = $branchCode;
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.$resolvedToken,
+            'Content-Type' => 'application/json',
+        ])->timeout(30)->get($this->baseUrl.'/extv1/promotion', $params);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('ESB Promo API error: '.$response->status().' '.$response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
     public function isConfigured(): bool
     {
         return $this->token !== '';

@@ -35,7 +35,7 @@ class EsbService
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer '.$resolvedToken,
                 'Content-Type' => 'application/json',
-            ])->get($this->baseUrl.'/corev1/sales/sales-information', [
+            ])->timeout(60)->get($this->baseUrl.'/corev1/sales/sales-information', [
                 'salesDateFrom' => $date,
                 'salesDateTo' => $date,
                 'branchCode' => $branchCode,
@@ -70,6 +70,108 @@ class EsbService
         usort($rows, fn ($a, $b) => [$a['type'], $a['name']] <=> [$b['type'], $b['name']]);
 
         return $rows;
+    }
+
+    /**
+     * Fetch all finished sales transactions for a branch over a date range.
+     *
+     * @return array<int, mixed>
+     *
+     * @throws \RuntimeException
+     */
+    public function getRawSales(string $branchCode, string $dateFrom, string $dateTo, string $token): array
+    {
+        $all = [];
+        $page = 1;
+        $pageCount = 1;
+
+        do {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer '.$token,
+                'Content-Type' => 'application/json',
+            ])->timeout(60)->get($this->baseUrl.'/corev1/sales/sales-information', [
+                'salesDateFrom' => $dateFrom,
+                'salesDateTo' => $dateTo,
+                'branchCode' => $branchCode,
+                'statusName' => 'Finished',
+                'page' => $page,
+            ]);
+
+            if ($response->failed()) {
+                throw new \RuntimeException('ESB API error: '.$response->status().' '.$response->body());
+            }
+
+            $pageCount = (int) ($response->header('X-Pagination-Page-Count') ?: 1);
+            array_push($all, ...($response->json() ?? []));
+            $page++;
+        } while ($page <= $pageCount);
+
+        return $all;
+    }
+
+    /**
+     * Fetch a single page of finished sales.
+     *
+     * @return array{data: array<int, mixed>, pageCount: int}
+     *
+     * @throws \RuntimeException
+     */
+    public function getSalesPage(string $branchCode, string $dateFrom, string $dateTo, string $token, int $page): array
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'Content-Type' => 'application/json',
+        ])->timeout(60)->get($this->baseUrl.'/corev1/sales/sales-information', [
+            'salesDateFrom' => $dateFrom,
+            'salesDateTo' => $dateTo,
+            'branchCode' => $branchCode,
+            'statusName' => 'Finished',
+            'page' => $page,
+        ]);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('ESB API error: '.$response->status().' '.$response->body());
+        }
+
+        return [
+            'data' => $response->json() ?? [],
+            'pageCount' => (int) ($response->header('X-Pagination-Page-Count') ?: 1),
+        ];
+    }
+
+    /**
+     * Stream finished sales page-by-page, calling $eachPage with each page's rows.
+     * Memory-efficient alternative to getRawSales for large date ranges.
+     *
+     * @param  callable(array<int, mixed>): void  $eachPage
+     *
+     * @throws \RuntimeException
+     */
+    public function streamRawSales(string $branchCode, string $dateFrom, string $dateTo, string $token, callable $eachPage): void
+    {
+        $page = 1;
+        $pageCount = 1;
+
+        do {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer '.$token,
+                'Content-Type' => 'application/json',
+            ])->timeout(60)->get($this->baseUrl.'/corev1/sales/sales-information', [
+                'salesDateFrom' => $dateFrom,
+                'salesDateTo' => $dateTo,
+                'branchCode' => $branchCode,
+                'statusName' => 'Finished',
+                'page' => $page,
+            ]);
+
+            if ($response->failed()) {
+                throw new \RuntimeException('ESB API error: '.$response->status().' '.$response->body());
+            }
+
+            $pageCount = (int) ($response->header('X-Pagination-Page-Count') ?: 1);
+            $eachPage($response->json() ?? []);
+            $page++;
+        } while ($page <= $pageCount);
     }
 
     public function isConfigured(): bool

@@ -111,7 +111,14 @@
             'items' => [
                 ['label' => 'Sales Report',      'icon' => 'bar-chart-2', 'perm' => 'view sales reports',   'href' => $r('filament.helpdesk.resources.sales-reports.index'),   'active' => $active($r('filament.helpdesk.resources.sales-reports.index'))],
                 ['label' => 'Metode Pembayaran', 'icon' => 'credit-card', 'perm' => 'view payment methods', 'href' => $r('filament.helpdesk.resources.payment-methods.index'), 'active' => $active($r('filament.helpdesk.resources.payment-methods.index'))],
-                ['label' => 'ESB Sales',         'icon' => 'bar-chart-3',   'perm' => null,                   'href' => $r('filament.helpdesk.pages.esb-sales-page'),            'active' => $active($r('filament.helpdesk.pages.esb-sales-page'))],
+            ],
+        ],
+        [
+            'id'    => 'analytics',
+            'label' => 'Analytics',
+            'icon'  => 'chart-bar',
+            'items' => [
+                ['label' => 'Sales Information', 'icon' => 'bar-chart-3', 'perm' => null, 'href' => $r('filament.helpdesk.pages.sales-information-page'), 'active' => $active($r('filament.helpdesk.pages.sales-information-page'))],
             ],
         ],
         [

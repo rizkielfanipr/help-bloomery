@@ -186,12 +186,16 @@
     @if($isFetching)
     @php
         $totalBranches = count($fetchBranchIds);
-        $branchProgress = $totalBranches > 0 ? round(($fetchBranchIndex / $totalBranches) * 100) : 5;
+        $branchDone    = $totalBranches > 0 ? $fetchBranchIndex / $totalBranches : 0;
+        $pageSlice     = ($totalBranches > 0 && $fetchTotalPages > 0)
+            ? ($fetchCurrentPage / $fetchTotalPages) / $totalBranches
+            : 0;
+        $progressWidth = max(3, (int) round(($branchDone + $pageSlice) * 100));
     @endphp
     <div class="rounded-xl border border-blue-100 bg-white p-4 dark:border-blue-900/40 dark:bg-gray-900">
         <div class="mb-2 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <svg class="h-4 w-4 animate-spin text-primary-600" fill="none" viewBox="0 0 24 24">
+                <svg class="h-4 w-4 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                 </svg>
@@ -201,16 +205,16 @@
                 @if($totalBranches > 1)
                     Branch {{ $fetchBranchIndex + 1 }}/{{ $totalBranches }}
                     @if($fetchTotalPages > 0)
-                        &mdash; hal. {{ $fetchCurrentPage }}/{{ $fetchTotalPages }}
+                        &mdash; page {{ $fetchCurrentPage }}/{{ $fetchTotalPages }}
                     @endif
-                @else
-                    Halaman {{ $fetchCurrentPage }} / {{ $fetchTotalPages ?: '?' }}
+                @elseif($fetchTotalPages > 0)
+                    Page {{ $fetchCurrentPage }}/{{ $fetchTotalPages }}
                 @endif
             </span>
         </div>
         <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-            <div class="h-full rounded-full bg-primary-500 transition-all duration-300"
-                 style="width: {{ max(5, $branchProgress) }}%">
+            <div class="h-full rounded-full transition-all duration-300"
+                 style="width: {{ $progressWidth }}%; background-color: #3b82f6;">
             </div>
         </div>
     </div>

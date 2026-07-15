@@ -287,6 +287,19 @@ class PromotionInformationPage extends Page
             promoUsage: $this->chartPromoUsage,
             promoDiscount: $this->chartPromoDiscount,
             promoTrend: $this->chartPromoTrend,
+            promoPerformanceTable: $this->promoPerformanceTable,
+            branchPromoTable: $this->branchPromoTable,
+            promotionCatalog: array_values($this->promotionCatalog),
+            kpi: [
+                'totalTransactions' => $this->totalTransactions,
+                'promoTransactions' => $this->promoTransactions,
+                'promoAdoptionRate' => $this->promoAdoptionRate,
+                'totalRevenue' => $this->totalRevenue,
+                'promoRevenue' => $this->promoRevenue,
+                'totalDiscount' => $this->totalDiscount,
+                'avgPromoTransaction' => $this->avgPromoTransaction,
+                'avgNonPromoTransaction' => $this->avgNonPromoTransaction,
+            ],
         );
     }
 

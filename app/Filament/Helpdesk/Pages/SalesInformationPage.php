@@ -287,6 +287,20 @@ class SalesInformationPage extends Page
             visitPurpose: $this->chartVisitPurpose,
             branchTable: $this->branchTable,
             categoryDetailMap: $this->categoryDetailMap,
+            promoTable: $this->promoTable,
+            paymentTable: $this->paymentTable,
+            kpi: [
+                'totalRevenue' => $this->totalRevenue,
+                'totalTransactions' => $this->totalTransactions,
+                'avgTransaction' => $this->avgTransaction,
+                'totalPax' => $this->totalPax,
+                'avgPerPax' => $this->avgPerPax,
+                'totalItems' => $this->totalItems,
+                'totalDiscount' => $this->totalDiscount,
+                'discountMenuTotal' => $this->discountMenuTotal,
+                'discountPromoTotal' => $this->discountPromoTotal,
+                'discountVoucherTotal' => $this->discountVoucherTotal,
+            ],
         );
     }
 

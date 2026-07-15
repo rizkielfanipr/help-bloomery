@@ -553,27 +553,56 @@
                 @error('dateTo') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
             </div>
 
-            <div>
+            {{-- Brand multiselect --}}
+            <div x-data="{ open: false, search: '' }" class="relative" @click.outside="open = false; search = ''">
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Brand</label>
-                <select wire:model.live="selectedBrandId"
-                        class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
-                    <option value="">— Semua Brand —</option>
-                    @foreach($this->getBrands() as $brand)
-                        <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                <div @click="open = true; $nextTick(() => $refs.searchBrand.focus())"
+                     class="flex min-h-[38px] min-w-[160px] cursor-text flex-wrap items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 dark:border-gray-600 dark:bg-gray-800">
+                    @foreach(collect($this->getBrands())->whereIn('id', $selectedBrandIds) as $brand)
+                        <span class="inline-flex items-center gap-1 rounded bg-primary-100 px-1.5 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-300">
+                            {{ $brand->name }}
+                            <button type="button" wire:click.stop="toggleBrandId({{ $brand->id }})" class="leading-none hover:text-red-500">×</button>
+                        </span>
                     @endforeach
-                </select>
+                    <input x-ref="searchBrand" x-model="search" @focus="open = true"
+                           placeholder="{{ count($selectedBrandIds) ? '' : 'Semua Brand' }}"
+                           class="min-w-[80px] flex-1 border-none bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none dark:text-gray-200">
+                </div>
+                <div x-show="open" x-transition class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    @foreach(collect($this->getBrands())->whereNotIn('id', $selectedBrandIds) as $brand)
+                        <div x-show="search === '' || '{{ strtolower($brand->name) }}'.includes(search.toLowerCase())"
+                             wire:click="toggleBrandId({{ $brand->id }})"
+                             class="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-gray-700">
+                            {{ $brand->name }}
+                        </div>
+                    @endforeach
+                </div>
             </div>
 
-            <div class="min-w-[200px] flex-1">
+            {{-- Branch multiselect --}}
+            <div x-data="{ open: false, search: '' }" class="relative min-w-[220px] flex-1" @click.outside="open = false; search = ''">
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Cabang</label>
-                <select wire:model="selectedBranchId"
-                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
-                    <option value="">— Semua Cabang —</option>
-                    @foreach($this->getBranches() as $branch)
-                        <option value="{{ $branch->id }}">{{ $branch->name }} ({{ $branch->esb_branch_code }})</option>
+                <div @click="open = true; $nextTick(() => $refs.searchBranch.focus())"
+                     class="flex min-h-[38px] cursor-text flex-wrap items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 dark:border-gray-600 dark:bg-gray-800">
+                    @foreach(collect($this->getBranches())->whereIn('id', $selectedBranchIds) as $branch)
+                        <span class="inline-flex items-center gap-1 rounded bg-primary-100 px-1.5 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-300">
+                            {{ $branch->name }}
+                            <button type="button" wire:click.stop="toggleBranchId({{ $branch->id }})" class="leading-none hover:text-red-500">×</button>
+                        </span>
                     @endforeach
-                </select>
-                @error('selectedBranchId') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                    <input x-ref="searchBranch" x-model="search" @focus="open = true"
+                           placeholder="{{ count($selectedBranchIds) ? '' : 'Semua Cabang' }}"
+                           class="min-w-[80px] flex-1 border-none bg-transparent text-sm text-gray-700 placeholder-gray-400 outline-none dark:text-gray-200">
+                </div>
+                <div x-show="open" x-transition class="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    @foreach(collect($this->getBranches())->whereNotIn('id', $selectedBranchIds) as $branch)
+                        <div x-show="search === '' || '{{ strtolower($branch->name) }}'.includes(search.toLowerCase())"
+                             wire:click="toggleBranchId({{ $branch->id }})"
+                             class="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-gray-700">
+                            {{ $branch->name }} <span class="text-xs text-gray-400">({{ $branch->esb_branch_code }})</span>
+                        </div>
+                    @endforeach
+                </div>
             </div>
 
             <button wire:click="fetch" @disabled($isFetching)

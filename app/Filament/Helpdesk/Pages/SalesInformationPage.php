@@ -4,6 +4,8 @@ namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\Branch;
 use App\Models\Brand;
+use App\Models\EsbPaymentMethodCache;
+use App\Models\PaymentMethodGroupItem;
 use App\Services\EsbService;
 use BackedEnum;
 use Filament\Notifications\Notification;
@@ -25,9 +27,11 @@ class SalesInformationPage extends Page
         return auth()->user()?->can('view sales information') ?? false;
     }
 
-    public ?int $selectedBrandId = null;
+    /** @var list<int> */
+    public array $selectedBrandIds = [];
 
-    public ?int $selectedBranchId = null;
+    /** @var list<int> */
+    public array $selectedBranchIds = [];
 
     public ?string $dateFrom = null;
 
@@ -127,12 +131,36 @@ class SalesInformationPage extends Page
         return Brand::orderBy('name')->get()->all();
     }
 
+    public function updatedSelectedBrandIds(): void
+    {
+        $this->selectedBranchIds = [];
+    }
+
+    public function toggleBrandId(int $id): void
+    {
+        if (in_array($id, $this->selectedBrandIds)) {
+            $this->selectedBrandIds = array_values(array_filter($this->selectedBrandIds, fn ($v) => $v !== $id));
+        } else {
+            $this->selectedBrandIds[] = $id;
+        }
+        $this->updatedSelectedBrandIds();
+    }
+
+    public function toggleBranchId(int $id): void
+    {
+        if (in_array($id, $this->selectedBranchIds)) {
+            $this->selectedBranchIds = array_values(array_filter($this->selectedBranchIds, fn ($v) => $v !== $id));
+        } else {
+            $this->selectedBranchIds[] = $id;
+        }
+    }
+
     /** @return list<Branch> */
     public function getBranches(): array
     {
         return Branch::whereNotNull('esb_branch_code')
             ->whereNotNull('esb_comcode')
-            ->when($this->selectedBrandId, fn ($q) => $q->where('brand_id', $this->selectedBrandId))
+            ->when($this->selectedBrandIds, fn ($q) => $q->whereIn('brand_id', $this->selectedBrandIds))
             ->orderBy('name')
             ->get()
             ->all();
@@ -149,40 +177,28 @@ class SalesInformationPage extends Page
 
     public function fetch(): void
     {
-        $this->validate([
-            'dateTo' => ['required', 'date'],
-            'selectedBranchId' => ['nullable', 'integer', 'exists:branches,id'],
-        ]);
+        $this->validate(['dateTo' => ['required', 'date']]);
 
-        if ($this->selectedBranchId) {
-
-            $branch = Branch::find($this->selectedBranchId);
-
-            if (! $branch?->esb_branch_code) {
-                Notification::make()->title('Branch belum memiliki ESB Branch Code')->warning()->send();
-
-                return;
-            }
-
-            if (! $branch->esb_token) {
-                Notification::make()->title('Token ESB untuk branch ini belum dikonfigurasi')->warning()->send();
-
-                return;
-            }
-
-            $branchIds = [$branch->id];
-        } else {
-            $branchIds = collect($this->getBranches())
-                ->filter(fn (Branch $b) => $b->esb_token !== '')
+        if (! empty($this->selectedBranchIds)) {
+            $branchIds = Branch::whereIn('id', $this->selectedBranchIds)
+                ->whereNotNull('esb_branch_code')
+                ->get()
+                ->filter(fn (Branch $b) => ! empty($b->esb_token))
                 ->pluck('id')
                 ->values()
                 ->all();
+        } else {
+            $branchIds = collect($this->getBranches())
+                ->filter(fn (Branch $b) => ! empty($b->esb_token))
+                ->pluck('id')
+                ->values()
+                ->all();
+        }
 
-            if (empty($branchIds)) {
-                Notification::make()->title('Tidak ada branch dengan token ESB yang dikonfigurasi')->warning()->send();
+        if (empty($branchIds)) {
+            Notification::make()->title('Tidak ada branch dengan token ESB yang dikonfigurasi')->warning()->send();
 
-                return;
-            }
+            return;
         }
 
         $this->fetched = false;
@@ -192,6 +208,12 @@ class SalesInformationPage extends Page
         $this->fetchCurrentPage = 0;
         $this->fetchTotalPages = 0;
         $this->fetchAcc = $this->initAcc();
+
+        // Load payment method group map: esb_id => group name
+        $this->fetchAcc['groupMap'] = PaymentMethodGroupItem::with('group')
+            ->get()
+            ->pluck('group.name', 'esb_payment_method_id')
+            ->all();
 
         $this->fetchNextPage();
     }
@@ -332,6 +354,7 @@ class SalesInformationPage extends Page
             'branches' => [],
             'promos' => [],
             'categoryDetailMap' => [],
+            'groupMap' => [],
         ];
     }
 
@@ -419,9 +442,21 @@ class SalesInformationPage extends Page
         }
 
         foreach ($sale['salesPayments'] ?? [] as $payment) {
-            $method = $payment['paymentMethodName'] ?? 'Unknown';
+            $rawName = $payment['paymentMethodName'] ?? 'Unknown';
             $type = $payment['paymentMethodTypeName'] ?? '';
             $amount = (float) ($payment['paymentAmount'] ?? 0);
+            $esbId = (int) ($payment['paymentMethodID'] ?? 0);
+
+            // Normalize via group map; fall back to raw name
+            $method = ($esbId && isset($acc['groupMap'][$esbId]))
+                ? $acc['groupMap'][$esbId]
+                : $rawName;
+
+            // Populate cache with discovered payment methods
+            if ($esbId) {
+                EsbPaymentMethodCache::upsertFromEsb($payment, $branchCode, $branchName);
+            }
+
             if (! isset($acc['paymentRows'][$method])) {
                 $acc['paymentRows'][$method] = ['name' => $method, 'type' => $type, 'total' => 0.0];
             }

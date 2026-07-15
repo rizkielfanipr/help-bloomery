@@ -118,8 +118,8 @@
             'label' => 'Analytics',
             'icon'  => 'chart-bar',
             'items' => [
-                ['label' => 'Sales Information', 'icon' => 'bar-chart-3', 'perm' => null, 'href' => $r('filament.helpdesk.pages.sales-information-page'), 'active' => $active($r('filament.helpdesk.pages.sales-information-page'))],
-                ['label' => 'Promotion Information', 'icon' => 'tag', 'perm' => null, 'href' => $r('filament.helpdesk.pages.promotion-information-page'), 'active' => $active($r('filament.helpdesk.pages.promotion-information-page'))],
+                ['label' => 'Sales Information', 'icon' => 'bar-chart-3', 'perm' => 'view sales information', 'href' => $r('filament.helpdesk.pages.sales-information-page'), 'active' => $active($r('filament.helpdesk.pages.sales-information-page'))],
+                ['label' => 'Promotion Information', 'icon' => 'tag', 'perm' => 'view promotion information', 'href' => $r('filament.helpdesk.pages.promotion-information-page'), 'active' => $active($r('filament.helpdesk.pages.promotion-information-page'))],
             ],
         ],
         [

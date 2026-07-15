@@ -19,6 +19,11 @@ class SalesInformationPage extends Page
 
     protected string $view = 'filament.helpdesk.pages.sales-information-page';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('view sales information') ?? false;
+    }
+
     public ?int $selectedBranchId = null;
 
     public ?string $dateFrom = null;

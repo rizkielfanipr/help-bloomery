@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Users;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
-use App\Models\Branch;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -17,6 +16,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -133,11 +133,18 @@ class UserResource extends Resource
                             ->nullable()
                             ->maxLength(255),
 
-                        Select::make('branch_id')
+                        Toggle::make('access_all_branches')
+                            ->label('Akses Semua Cabang')
+                            ->default(false)
+                            ->live(),
+
+                        Select::make('supervisedBranches')
                             ->label('Cabang')
-                            ->options(Branch::pluck('name', 'id'))
+                            ->multiple()
+                            ->relationship('supervisedBranches', 'name')
                             ->searchable()
-                            ->nullable(),
+                            ->preload()
+                            ->hidden(fn (Get $get): bool => (bool) $get('access_all_branches')),
 
                         Toggle::make('is_active')
                             ->label('Aktif')

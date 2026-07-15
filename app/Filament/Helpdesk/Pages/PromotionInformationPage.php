@@ -19,6 +19,11 @@ class PromotionInformationPage extends Page
 
     protected string $view = 'filament.helpdesk.pages.promotion-information-page';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('view promotion information') ?? false;
+    }
+
     public ?int $selectedBranchId = null;
 
     public ?string $dateFrom = null;

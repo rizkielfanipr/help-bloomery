@@ -306,7 +306,7 @@ class BriefingItemResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->join('briefing_records', 'briefing_items.briefing_record_id', '=', 'briefing_records.id')
             ->join('users', 'briefing_records.user_id', '=', 'users.id')
             ->leftJoin('branches', 'users.branch_id', '=', 'branches.id')
@@ -317,5 +317,15 @@ class BriefingItemResource extends Resource
                 'users.name as staff_name',
                 'branches.name as branch_name',
             );
+
+        $user = auth()->user();
+
+        if (! $user->hasRole('SUPERVISOR_STORE') || $user->access_all_branches) {
+            return $query;
+        }
+
+        $supervisedBranchIds = $user->supervisedBranches()->pluck('branches.id');
+
+        return $query->whereIn('branches.id', $supervisedBranchIds);
     }
 }

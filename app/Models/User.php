@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -17,7 +18,7 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'username', 'email', 'password', 'branch_id', 'phone', 'bank_name', 'bank_account_number', 'avatar', 'is_active', 'casual_position_id'])]
+#[Fillable(['name', 'username', 'email', 'password', 'branch_id', 'phone', 'bank_name', 'bank_account_number', 'avatar', 'is_active', 'casual_position_id', 'access_all_branches'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -30,6 +31,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'access_all_branches' => 'boolean',
         ];
     }
 
@@ -41,10 +43,10 @@ class User extends Authenticatable implements FilamentUser
 
         return match ($panel->getId()) {
             'admin' => $this->hasRole('SUPERADMIN'),
-            'helpdesk' => $this->hasAnyRole(['SUPERADMIN', 'HRD_STAFF']),
+            'helpdesk' => $this->hasAnyRole(['SUPERADMIN', 'HRD_STAFF', 'SUPERVISOR_STORE']),
             'driver' => $this->hasRole('SUPERADMIN'),
             'technician' => $this->hasRole('SUPERADMIN'),
-            'casual' => $this->hasAnyRole(['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN']),
+            'casual' => $this->hasAnyRole(['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN', 'SUPERVISOR_STORE']),
             default => false,
         };
     }
@@ -52,6 +54,11 @@ class User extends Authenticatable implements FilamentUser
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function supervisedBranches(): BelongsToMany
+    {
+        return $this->belongsToMany(Branch::class, 'user_branches');
     }
 
     public function casualPosition(): BelongsTo

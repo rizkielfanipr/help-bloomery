@@ -49,6 +49,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view tile purchasing',
                 'view tile desain',
                 'view tile erp',
+                // analytics
+                'view sales information',
+                'view promotion information',
             ]);
 
         Role::firstOrCreate(['name' => 'STORE_STAFF', 'guard_name' => 'web'])
@@ -80,10 +83,15 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view tile req teknisi',
             ]);
 
+        Role::firstOrCreate(['name' => 'SUPERVISOR_STORE', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'view briefing items', 'edit briefing items',
+            ]);
+
         // Remove any role not in the new set
-        $newRoles = ['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN'];
+        $newRoles = ['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN', 'SUPERVISOR_STORE'];
         Role::whereNotIn('name', $newRoles)->delete();
 
-        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN');
+        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, SUPERVISOR_STORE');
     }
 }

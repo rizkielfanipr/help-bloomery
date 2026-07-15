@@ -45,6 +45,11 @@ return [
         'Role & Permission' => ['view roles', 'create roles', 'edit roles', 'delete roles'],
     ],
 
+    'Analytics' => [
+        'Sales Information' => ['view sales information'],
+        'Promotion Information' => ['view promotion information'],
+    ],
+
     'Master' => [
         'Cabang' => ['view branches', 'create branches', 'edit branches', 'delete branches'],
     ],

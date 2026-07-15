@@ -51,6 +51,7 @@ return [
     ],
 
     'Master' => [
+        'Brand' => ['view brands', 'create brands', 'edit brands', 'delete brands'],
         'Cabang' => ['view branches', 'create branches', 'edit branches', 'delete branches'],
     ],
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\Branch;
+use App\Models\Brand;
 use App\Services\EsbService;
 use BackedEnum;
 use Filament\Notifications\Notification;
@@ -24,11 +25,18 @@ class SalesInformationPage extends Page
         return auth()->user()?->can('view sales information') ?? false;
     }
 
+    public ?int $selectedBrandId = null;
+
     public ?int $selectedBranchId = null;
 
     public ?string $dateFrom = null;
 
     public ?string $dateTo = null;
+
+    public function mount(): void
+    {
+        $this->dateFrom = today()->toDateString();
+    }
 
     public bool $fetched = false;
 
@@ -113,11 +121,18 @@ class SalesInformationPage extends Page
         return [];
     }
 
+    /** @return list<Brand> */
+    public function getBrands(): array
+    {
+        return Brand::orderBy('name')->get()->all();
+    }
+
     /** @return list<Branch> */
     public function getBranches(): array
     {
         return Branch::whereNotNull('esb_branch_code')
             ->whereNotNull('esb_comcode')
+            ->when($this->selectedBrandId, fn ($q) => $q->where('brand_id', $this->selectedBrandId))
             ->orderBy('name')
             ->get()
             ->all();
@@ -134,8 +149,12 @@ class SalesInformationPage extends Page
 
     public function fetch(): void
     {
+        $this->validate([
+            'dateTo' => ['required', 'date'],
+            'selectedBranchId' => ['nullable', 'integer', 'exists:branches,id'],
+        ]);
+
         if ($this->selectedBranchId) {
-            $this->validate(['selectedBranchId' => ['integer', 'exists:branches,id']]);
 
             $branch = Branch::find($this->selectedBranchId);
 

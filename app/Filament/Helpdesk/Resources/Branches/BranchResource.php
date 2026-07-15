@@ -8,6 +8,7 @@ use App\Filament\Helpdesk\Resources\Branches\Pages\CreateBranch;
 use App\Filament\Helpdesk\Resources\Branches\Pages\EditBranch;
 use App\Filament\Helpdesk\Resources\Branches\Pages\ListBranches;
 use App\Models\Branch;
+use App\Models\Brand;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -16,6 +17,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -53,6 +55,13 @@ class BranchResource extends Resource
             ->components([
                 Section::make('Informasi Branch')
                     ->schema([
+                        Select::make('brand_id')
+                            ->label('Brand')
+                            ->options(Brand::orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->nullable()
+                            ->placeholder('— Pilih Brand —'),
+
                         TextInput::make('name')
                             ->label('Nama Branch')
                             ->required()
@@ -107,6 +116,11 @@ class BranchResource extends Resource
             ->defaultSort('name')
             ->paginationPageOptions([20, 50, 100])
             ->columns([
+                TextColumn::make('brand.name')
+                    ->label('Brand')
+                    ->placeholder('—')
+                    ->sortable(),
+
                 TextColumn::make('name')
                     ->label('Nama')
                     ->searchable()

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -12,6 +13,7 @@ class Branch extends Model
     use HasFactory;
 
     protected $fillable = [
+        'brand_id',
         'name',
         'esb_branch_code',
         'esb_comcode',
@@ -36,6 +38,11 @@ class Branch extends Model
     public function getEsbTokenAttribute(): string
     {
         return config('esb.tokens.'.$this->esb_comcode, '');
+    }
+
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
     public function users(): HasMany

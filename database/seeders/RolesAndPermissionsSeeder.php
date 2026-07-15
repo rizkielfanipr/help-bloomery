@@ -41,6 +41,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view purchase requests', 'create purchase requests', 'edit purchase requests',
                 'view design requests', 'edit design requests',
                 'view users',
+                'view brands', 'create brands', 'edit brands', 'delete brands',
                 'view branches', 'create branches', 'edit branches', 'delete branches',
                 // tiles
                 'view tile req teknisi',

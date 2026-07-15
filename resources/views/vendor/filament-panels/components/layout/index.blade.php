@@ -35,7 +35,7 @@
     if (preg_match('/trip|vehicle|driver|fuel-type/', $path))        { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path) || str_contains($path, 'permissions-page')) { $initialOpen[] = 'management'; }
-    if (str_contains($path, 'branches'))                              { $initialOpen[] = 'master'; }
+    if (str_contains($path, 'branches') || str_contains($path, 'brands')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'payment-method')) { $initialOpen[] = 'finance'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module')) { $initialOpen[] = 'it'; }
@@ -146,7 +146,8 @@
             'label' => 'Master',
             'icon'  => 'database',
             'items' => [
-                ['label' => 'Branch', 'icon' => 'building-2', 'perm' => 'view branches', 'href' => $r('filament.helpdesk.resources.branches.index'), 'active' => $active($r('filament.helpdesk.resources.branches.index'))],
+                ['label' => 'Brand',  'icon' => 'tag',        'perm' => 'view brands',   'href' => $r('filament.helpdesk.resources.brands.index'),    'active' => $active($r('filament.helpdesk.resources.brands.index'))],
+                ['label' => 'Branch', 'icon' => 'building-2', 'perm' => 'view branches', 'href' => $r('filament.helpdesk.resources.branches.index'),  'active' => $active($r('filament.helpdesk.resources.branches.index'))],
             ],
         ],
     ];

@@ -38,6 +38,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view briefing items', 'create briefing items', 'edit briefing items', 'delete briefing items',
                 'view briefing scores', 'create briefing scores', 'edit briefing scores', 'delete briefing scores',
                 'view sales reports',
+                'view stock cards',
                 'view purchase requests', 'create purchase requests', 'edit purchase requests',
                 'view design requests', 'edit design requests',
                 'view users',
@@ -48,18 +49,21 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view tile req teknisi',
                 'view tile briefing',
                 'view tile sales report',
+                'view tile stock card',
                 'view tile purchasing',
                 'view tile desain',
                 'view tile erp',
                 // analytics
                 'view sales information',
                 'view promotion information',
+                'view stock information',
             ]);
 
         Role::firstOrCreate(['name' => 'STORE_STAFF', 'guard_name' => 'web'])
             ->syncPermissions([
                 'view service requests', 'create service requests',
                 'view sales reports',
+                'view stock cards', 'create stock cards', 'edit stock cards',
                 'view purchase requests', 'create purchase requests',
                 'view design requests', 'create design requests',
                 'view erp requests', 'create erp requests',
@@ -67,6 +71,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view tile req teknisi',
                 'view tile briefing',
                 'view tile sales report',
+                'view tile stock card',
                 'view tile purchasing',
                 'view tile desain',
                 'view tile erp',

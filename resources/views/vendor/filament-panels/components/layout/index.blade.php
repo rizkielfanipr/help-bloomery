@@ -37,6 +37,8 @@
     if (preg_match('/\busers?\b|\broles?\b/', $path) || str_contains($path, 'permissions-page')) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'payment-method-groups')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'payment-method')) { $initialOpen[] = 'finance'; }
+    if (str_contains($path, 'stock-card')) { $initialOpen[] = 'inventory'; }
+    if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
@@ -105,6 +107,14 @@
             ],
         ],
         [
+            'id'    => 'inventory',
+            'label' => 'Inventory',
+            'icon'  => 'database',
+            'items' => [
+                ['label' => 'Stock Card', 'icon' => 'clipboard-list', 'perm' => 'view stock cards', 'href' => $r('filament.helpdesk.resources.stock-cards.index'), 'active' => $active($r('filament.helpdesk.resources.stock-cards.index'))],
+            ],
+        ],
+        [
             'id'    => 'finance',
             'label' => 'Finance',
             'icon'  => 'banknote',
@@ -120,6 +130,7 @@
             'items' => [
                 ['label' => 'Sales Information', 'icon' => 'bar-chart-3', 'perm' => 'view sales information', 'href' => $r('filament.helpdesk.pages.sales-information-page'), 'active' => $active($r('filament.helpdesk.pages.sales-information-page'))],
                 ['label' => 'Promotion Information', 'icon' => 'tag', 'perm' => 'view promotion information', 'href' => $r('filament.helpdesk.pages.promotion-information-page'), 'active' => $active($r('filament.helpdesk.pages.promotion-information-page'))],
+                ['label' => 'Stock Information', 'icon' => 'clipboard-list', 'perm' => 'view stock information', 'href' => $r('filament.helpdesk.pages.stock-information-page'), 'active' => $active($r('filament.helpdesk.pages.stock-information-page'))],
             ],
         ],
         [

@@ -17,13 +17,27 @@ return new class extends Migration
         });
 
         // Migrate comcode values from esb_companies into branches
-        DB::table('branches')
-            ->join('esb_companies', 'branches.esb_company_id', '=', 'esb_companies.id')
-            ->update(['branches.esb_comcode' => DB::raw('esb_companies.comcode')]);
+        // Use a subquery to stay SQLite-compatible (MySQL JOIN-UPDATE not portable)
+        $companies = DB::table('esb_companies')->pluck('comcode', 'id');
+        foreach ($companies as $id => $comcode) {
+            DB::table('branches')->where('esb_company_id', $id)->update(['esb_comcode' => $comcode]);
+        }
 
-        Schema::table('branches', function (Blueprint $table): void {
-            $table->dropConstrainedForeignId('esb_company_id');
-        });
+        // Drop FK constraint first (before dropping esb_companies, so SQLite rebuild can still resolve the reference)
+        if (DB::getDriverName() === 'sqlite') {
+            // On SQLite, must be two separate closures: first rebuild removes the FK,
+            // then the second closure can safely drop the column via ALTER TABLE DROP COLUMN.
+            Schema::table('branches', function (Blueprint $table): void {
+                $table->dropForeign(['esb_company_id']);
+            });
+            Schema::table('branches', function (Blueprint $table): void {
+                $table->dropColumn('esb_company_id');
+            });
+        } else {
+            Schema::table('branches', function (Blueprint $table): void {
+                $table->dropConstrainedForeignId('esb_company_id');
+            });
+        }
 
         Schema::dropIfExists('esb_companies');
     }

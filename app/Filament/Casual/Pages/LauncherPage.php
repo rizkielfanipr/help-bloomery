@@ -94,6 +94,14 @@ class LauncherPage extends Page
                 'permission' => 'view tile sales report',
             ],
             [
+                'label' => 'Stock Card',
+                'iconBg' => 'bg-blue-50',
+                'iconColor' => 'text-blue-500',
+                'path' => 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 2.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125',
+                'href' => route('filament.casual.pages.stock-card-page'),
+                'permission' => 'view tile stock card',
+            ],
+            [
                 'label' => 'Purchasing',
                 'iconBg' => 'bg-amber-50',
                 'iconColor' => 'text-amber-500',

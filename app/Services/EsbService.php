@@ -202,6 +202,31 @@ class EsbService
         return $response->json() ?? [];
     }
 
+    /**
+     * Fetch daily sales material usage for a branch on a given date.
+     *
+     * @return array<int, array{branchCode: string, branch: string, salesDate: string, productCode: string, productName: string, totalQty: string, unit: string, totalConversionQty: string, unitConversion: string}>
+     *
+     * @throws \RuntimeException
+     */
+    public function getDailySalesMaterialUsage(string $branchCode, string $salesDate, string $flagUnit, string $token): array
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer '.$token,
+            'Content-Type' => 'application/json',
+        ])->timeout(60)->get($this->baseUrl.'/corev1/sales/get-daily-sales-material-usage', [
+            'branchCode' => $branchCode,
+            'salesDate' => $salesDate,
+            'flagUnit' => $flagUnit,
+        ]);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('ESB Material Usage API error: '.$response->status().' '.$response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
     public function isConfigured(): bool
     {
         return $this->token !== '';

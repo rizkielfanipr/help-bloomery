@@ -21,6 +21,10 @@ return [
         'Service Request' => ['view service requests', 'create service requests', 'edit service requests', 'delete service requests'],
     ],
 
+    'Inventory' => [
+        'Stock Card' => ['view stock cards', 'create stock cards', 'edit stock cards', 'delete stock cards'],
+    ],
+
     'Finance' => [
         'Sales Report' => ['view sales reports', 'create sales reports', 'edit sales reports', 'delete sales reports'],
         'Metode Pembayaran' => ['view payment methods', 'create payment methods', 'edit payment methods', 'delete payment methods'],
@@ -48,6 +52,7 @@ return [
     'Analytics' => [
         'Sales Information' => ['view sales information'],
         'Promotion Information' => ['view promotion information'],
+        'Stock Information' => ['view stock information'],
     ],
 
     'Master' => [
@@ -66,5 +71,6 @@ return [
         'Tile Purchasing' => ['view tile purchasing'],
         'Tile Desain' => ['view tile desain'],
         'Tile ERP' => ['view tile erp'],
+        'Tile Stock Card' => ['view tile stock card'],
     ],
 ];

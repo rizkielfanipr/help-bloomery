@@ -1,0 +1,5 @@
+# Matikan RewriteEngine Laravel & Paksa Baca index.html
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    DirectoryIndex index.html
+</IfModule>

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class BriefingTask extends Model
 {
@@ -31,6 +32,13 @@ class BriefingTask extends Model
             'deadline_day' => 'integer',
             'weight' => 'float',
         ];
+    }
+
+    protected function noteType(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => $value ?? '',
+        );
     }
 
     public function branch(): BelongsTo

@@ -10,6 +10,14 @@
          uploading: false,
          camError:  null,
          locStatus: 'idle',
+         facingMode: 'environment',
+
+         toggleCamera() {
+             this.facingMode = this.facingMode === 'environment' ? 'user' : 'environment';
+             this.stopStream();
+             if (this.mode === 'camera') this.startCamera();
+             if (this.mode === 'odo-camera') this.startOdoCamera();
+         },
 
          /* ── odo state ── */
          odoCtx:    'start',   /* 'start' | 'end' */
@@ -101,7 +109,7 @@
              }
              try {
                  this.stream = await navigator.mediaDevices.getUserMedia({
-                     video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } },
+                     video: { facingMode: this.facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
                      audio: false
                  });
                  await this.$nextTick();
@@ -266,7 +274,7 @@
              }
              try {
                  this.stream = await navigator.mediaDevices.getUserMedia({
-                     video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } },
+                     video: { facingMode: this.facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
                      audio: false
                  });
                  await this.$nextTick();
@@ -912,7 +920,12 @@
                 <p class="font-semibold text-white">Check-in Titik</p>
                 <p class="text-xs text-blue-200" x-text="hasPhoto ? 'Konfirmasi foto' : 'Ambil foto'"></p>
             </div>
-            <div class="h-10 w-10"></div>
+            <button @click="toggleCamera()" x-show="hasStream && !hasPhoto" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white transition active:bg-white/25">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                </svg>
+            </button>
+            <div x-show="!(hasStream && !hasPhoto)" class="h-10 w-10 shrink-0"></div>
         </div>
     </div>
 

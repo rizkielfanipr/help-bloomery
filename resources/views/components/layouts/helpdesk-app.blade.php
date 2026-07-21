@@ -82,7 +82,7 @@
                 ['label' => 'Perjalanan',      'icon' => 'map',      'perm' => 'view trips',       'href' => $r('filament.helpdesk.resources.trips.index'),       'active' => request()->is('helpdesk/trips*')],
                 ['label' => 'Rute Perjalanan', 'icon' => 'route',    'perm' => 'view trip routes', 'href' => $r('filament.helpdesk.resources.trip-routes.index'), 'active' => request()->is('helpdesk/trip-routes*')],
                 ['label' => 'Kendaraan',       'icon' => 'car',      'perm' => 'view vehicles',    'href' => $r('filament.helpdesk.resources.vehicles.index'),    'active' => request()->is('helpdesk/vehicles*')],
-                ['label' => 'Pengaturan Trip', 'icon' => 'settings', 'perm' => 'edit trips',       'href' => $r('filament.helpdesk.pages.driver-trip-settings'),  'active' => request()->is('helpdesk/driver-trip-settings*')],
+                ['label' => 'Pengaturan', 'icon' => 'settings', 'href' => $r('filament.helpdesk.pages.driver-trip-settings-page'), 'active' => request()->is('driver-trip-settings-page')],
             ],
         ],
         [

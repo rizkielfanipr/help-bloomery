@@ -84,7 +84,7 @@ class StartTrip extends Page
                             ->searchable(),
 
                     ])
-                    ->columns(2),
+                    ->columns(1),
             ])
             ->statePath('data');
     }
@@ -92,6 +92,20 @@ class StartTrip extends Page
     public function startTrip(): void
     {
         $data = $this->form->getState();
+
+        $existingTrip = Trip::where('driver_id', auth()->id())
+            ->where('trip_date', $data['trip_date'])
+            ->exists();
+
+        if ($existingTrip) {
+            Notification::make()
+                ->title('Gagal memulai perjalanan')
+                ->body('Anda sudah memiliki atau menyelesaikan logbook perjalanan pada tanggal tersebut.')
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         DB::transaction(function () use ($data) {
             $route = TripRoute::with('waypoints')->findOrFail($data['trip_route_id']);

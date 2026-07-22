@@ -12,16 +12,16 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('briefing:auto-reject')]
-#[Description('Auto-reject briefing items for tasks whose deadline has passed without submission')]
+#[Description('Auto-reject overdue briefing submissions and items pending review for seven days')]
 class BriefingAutoRejectCommand extends Command
 {
     public function handle(): int
     {
+        $rejectedCount = $this->rejectExpiredPendingReviews();
+
         $tasks = BriefingTask::where('deadline_enabled', true)
             ->where('is_active', true)
             ->get();
-
-        $rejectedCount = 0;
 
         foreach ($tasks as $task) {
             if (! $task->isPastDeadline()) {
@@ -80,5 +80,30 @@ class BriefingAutoRejectCommand extends Command
         $this->info("Auto-rejected {$rejectedCount} briefing item(s).");
 
         return Command::SUCCESS;
+    }
+
+    private function rejectExpiredPendingReviews(): int
+    {
+        $rejectedCount = 0;
+
+        BriefingItem::query()
+            ->where('review_status', BriefingReviewStatus::Pending->value)
+            ->where('is_completed', true)
+            ->whereNotNull('completed_at')
+            ->where('completed_at', '<=', now()->subWeek())
+            ->chunkById(100, function ($items) use (&$rejectedCount): void {
+                foreach ($items as $item) {
+                    $item->update([
+                        'review_status' => BriefingReviewStatus::Rejected->value,
+                        'rejection_reason' => 'Tidak ada approval dalam 7 hari setelah poin diselesaikan.',
+                        'reviewed_by' => null,
+                        'reviewed_at' => now(),
+                    ]);
+
+                    $rejectedCount++;
+                }
+            });
+
+        return $rejectedCount;
     }
 }

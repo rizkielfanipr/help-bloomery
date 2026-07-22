@@ -1,4 +1,4 @@
-<div class="space-y-4 p-1">
+<div class="max-h-[75dvh] space-y-4 overflow-y-auto overscroll-contain p-1 pr-2">
     {{-- Review status --}}
     @if ($record->review_status)
         <div class="flex items-center gap-2">
@@ -36,13 +36,16 @@
     @if ($record->photo_paths)
         <div>
             <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Foto</p>
-            <div class="grid grid-cols-2 gap-3">
-                @foreach ($record->photo_paths as $path)
-                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" target="_blank">
+            <div class="space-y-4">
+                @foreach ($record->photo_paths as $index => $path)
+                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="block overflow-hidden rounded-xl bg-black">
                         <img
                             src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
-                            alt="Foto bukti"
-                            class="w-full rounded-lg object-cover aspect-square"
+                            alt="Foto bukti {{ $index + 1 }}"
+                            class="max-h-[70dvh] w-full object-contain"
                         >
                     </a>
                 @endforeach

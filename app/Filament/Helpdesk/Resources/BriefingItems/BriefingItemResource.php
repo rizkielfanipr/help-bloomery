@@ -23,6 +23,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -105,6 +106,7 @@ class BriefingItemResource extends Resource
                     ->tooltip('Lihat Detail')
                     ->color('info')
                     ->modalHeading('Detail Briefing')
+                    ->modalWidth(Width::SevenExtraLarge)
                     ->registerModalActions([
                         Action::make('approve')
                             ->label('Setujui')

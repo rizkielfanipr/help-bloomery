@@ -27,6 +27,9 @@
          isSelfie: false,
          uploading: false,
          currentFacing: 'user',
+         selectedTimer: 0,
+         countdown: null,
+         countdownInterval: null,
 
          async openCamera() {
              this.isSelfie = $wire.activeTaskIsSelfie;
@@ -75,12 +78,40 @@
          },
 
          closeCamera() {
+             this.cancelCountdown();
              if (this.stream) {
                  this.stream.getTracks().forEach(t => t.stop());
                  this.stream = null;
              }
              clearInterval(this.timeInterval);
              this.cameraOpen = false;
+         },
+
+         cancelCountdown() {
+             if (this.countdownInterval) {
+                 clearInterval(this.countdownInterval);
+                 this.countdownInterval = null;
+             }
+             this.countdown = null;
+         },
+
+         startCapture() {
+             if (this.countdown !== null || this.uploading) return;
+
+             if (this.selectedTimer === 0) {
+                 this.capturePhoto();
+                 return;
+             }
+
+             this.countdown = this.selectedTimer;
+             this.countdownInterval = setInterval(() => {
+                 this.countdown--;
+                 if (this.countdown <= 0) {
+                     clearInterval(this.countdownInterval);
+                     this.countdownInterval = null;
+                     this.capturePhoto();
+                 }
+             }, 1000);
          },
 
          initLocation() {
@@ -268,6 +299,14 @@
                    :class="currentFacing === 'user' ? '-scale-x-100' : ''"
                    class="h-full w-full object-cover"></video>
 
+            {{-- Timer countdown --}}
+            <div x-show="countdown !== null"
+                 x-cloak
+                 class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+                <span x-text="countdown"
+                      class="flex h-28 w-28 items-center justify-center rounded-full bg-black/60 text-6xl font-bold text-white shadow-2xl ring-4 ring-white/80"></span>
+            </div>
+
             {{-- Live timestamp overlay (HTML — mirrors the burned-in version) --}}
             <div class="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-2.5">
                 <p x-text="stampTime"
@@ -277,21 +316,37 @@
             </div>
         </div>
 
-        {{-- Capture button --}}
-        <div class="flex flex-shrink-0 items-center justify-between bg-black px-8 py-8">
-            <div style="width:48px"></div>
-            <button @click="capturePhoto()"
-                    class="flex items-center justify-center rounded-full border-4 border-white/70 bg-white shadow-xl transition active:scale-90"
-                    style="height:72px;width:72px">
-                <div class="rounded-full bg-white ring-2 ring-gray-300" style="height:56px;width:56px"></div>
-            </button>
-            <button @click="flipCamera()"
-                    class="flex items-center justify-center rounded-full bg-white/15 text-white transition active:bg-white/25"
-                    style="height:48px;width:48px">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
-                </svg>
-            </button>
+        {{-- Timer and capture controls --}}
+        <div class="flex flex-shrink-0 flex-col gap-5 bg-black px-6 pb-8 pt-4">
+            <div class="flex items-center justify-center gap-2" aria-label="Timer kamera">
+                <template x-for="seconds in [0, 5, 10, 20]" :key="seconds">
+                    <button type="button"
+                            @click="selectedTimer = seconds"
+                            :disabled="countdown !== null"
+                            :class="selectedTimer === seconds ? 'bg-white text-black' : 'bg-white/15 text-white'"
+                            class="min-w-14 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50"
+                            x-text="seconds === 0 ? 'Mati' : seconds + ' dtk'"></button>
+                </template>
+            </div>
+            <div class="flex items-center justify-between px-2">
+                <div style="width:48px"></div>
+                <button @click="startCapture()"
+                        :disabled="countdown !== null"
+                        aria-label="Ambil foto"
+                        class="flex items-center justify-center rounded-full border-4 border-white/70 bg-white shadow-xl transition active:scale-90 disabled:opacity-60"
+                        style="height:72px;width:72px">
+                    <div class="rounded-full bg-white ring-2 ring-gray-300" style="height:56px;width:56px"></div>
+                </button>
+                <button @click="flipCamera()"
+                        :disabled="countdown !== null"
+                        aria-label="Balik kamera"
+                        class="flex items-center justify-center rounded-full bg-white/15 text-white transition active:bg-white/25 disabled:opacity-40"
+                        style="height:48px;width:48px">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -699,9 +754,9 @@
                             <div class="grid grid-cols-3 gap-2">
 
                                 @foreach($this->cameraPhotoPaths as $index => $path)
-                                    <div class="relative aspect-square overflow-hidden rounded-xl">
+                                    <div class="relative aspect-square overflow-hidden rounded-xl bg-black">
                                         <img src="{{ Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
-                                             class="h-full w-full object-cover"
+                                             class="h-full w-full object-contain"
                                              alt="Foto {{ $index + 1 }}">
                                         <button wire:click="removePhoto({{ $index }})"
                                                 wire:loading.attr="disabled"
@@ -712,8 +767,8 @@
                                 @endforeach
 
                                 <div x-show="previewSrc" x-cloak
-                                     class="relative aspect-square overflow-hidden rounded-xl bg-gray-100">
-                                    <img :src="previewSrc" class="h-full w-full object-cover">
+                                     class="relative aspect-square overflow-hidden rounded-xl bg-black">
+                                    <img :src="previewSrc" class="h-full w-full object-contain">
                                     <div class="absolute inset-0 flex items-center justify-center bg-black/40">
                                         <svg class="h-5 w-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>

@@ -7,8 +7,7 @@ use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
 use App\Models\BriefingTask;
 use App\Models\User;
-use Database\Seeders\BriefingTasksSeeder;
-use Database\Seeders\RolesAndPermissionsSeeder;
+use Database\Seeders\DailyBriefingTestSeeder;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 
@@ -16,8 +15,7 @@ use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
 
 beforeEach(function () {
-    $this->seed(RolesAndPermissionsSeeder::class);
-    $this->seed(BriefingTasksSeeder::class);
+    $this->seed(DailyBriefingTestSeeder::class);
     Cache::flush();
 });
 
@@ -28,7 +26,7 @@ it('redirects guests to login', function () {
 
 it('renders the daily briefing page for authenticated casual_staff', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -41,7 +39,7 @@ it('renders the daily briefing page for authenticated casual_staff', function ()
 
 it('shows all task labels for each period', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -54,7 +52,7 @@ it('shows all task labels for each period', function () {
 
 it('creates a briefing record and item when a task is saved with a photo', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -80,7 +78,7 @@ it('creates a briefing record and item when a task is saved with a photo', funct
 
 it('marks tasks as completed after saving with photo', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -99,7 +97,7 @@ it('marks tasks as completed after saving with photo', function () {
 
 it('does not duplicate records when saving multiple tasks in the same period', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -119,7 +117,7 @@ it('does not duplicate records when saving multiple tasks in the same period', f
 
 it('updates completed count after saving tasks with photos', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -134,12 +132,22 @@ it('updates completed count after saving tasks with photos', function () {
 
     expect(BriefingItem::count())->toBe(2);
 
-    $page->assertSee('2/3 tugas selesai');
+    $weeklyTasks = BriefingTask::query()
+        ->where('period', BriefingPeriod::Weekly->value)
+        ->whereNull('branch_id')
+        ->where('is_active', true)
+        ->get();
+    $completedWeeklyTaskCount = BriefingItem::query()
+        ->whereIn('task_key', $weeklyTasks->pluck('key'))
+        ->where('is_completed', true)
+        ->count();
+
+    $page->assertSee("{$completedWeeklyTaskCount}/{$weeklyTasks->count()} tugas selesai");
 });
 
 it('requires a photo before saving a task', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -152,7 +160,7 @@ it('requires a photo before saving a task', function () {
 
 it('saves daily_detail_briefing without photo when notes are filled', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -172,7 +180,7 @@ it('saves daily_detail_briefing without photo when notes are filled', function (
 
 it('requires notes before saving daily_detail_briefing', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     actingAs($user);
 
@@ -198,7 +206,7 @@ it('auto-rejects items for tasks past deadline', function () {
     BriefingTask::clearCache();
 
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     $this->artisan('briefing:auto-reject')->assertSuccessful();
 
@@ -229,7 +237,7 @@ it('does not auto-reject tasks before their deadline', function () {
     BriefingTask::clearCache();
 
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     $this->artisan('briefing:auto-reject')->assertSuccessful();
 
@@ -239,7 +247,7 @@ it('does not auto-reject tasks before their deadline', function () {
     expect($futureItem)->toBeNull();
 });
 
-it('does not auto-reject already completed items', function () {
+it('does not auto-reject completed items still within the approval window', function () {
     BriefingTask::create([
         'key' => 'test_completed_task',
         'label' => 'Test Completed Task',
@@ -254,7 +262,7 @@ it('does not auto-reject already completed items', function () {
     BriefingTask::clearCache();
 
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     $record = BriefingRecord::create([
         'user_id' => $user->id,
@@ -275,4 +283,33 @@ it('does not auto-reject already completed items', function () {
 
     $item = $record->items()->where('task_key', 'test_completed_task')->first();
     expect($item->review_status)->toBe(BriefingReviewStatus::Pending);
+});
+
+it('auto-rejects completed items pending approval for seven days', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('CASUAL_STAFF');
+
+    $record = BriefingRecord::create([
+        'user_id' => $user->id,
+        'period' => 'daily',
+        'record_date' => today()->subWeek(),
+        'submitted_at' => now()->subWeek(),
+    ]);
+
+    $item = BriefingItem::create([
+        'briefing_record_id' => $record->id,
+        'task_key' => 'daily_selfie_pagi',
+        'is_completed' => true,
+        'completed_at' => now()->subWeek()->subSecond(),
+        'review_status' => BriefingReviewStatus::Pending->value,
+    ]);
+
+    $this->artisan('briefing:auto-reject')->assertSuccessful();
+
+    $item->refresh();
+
+    expect($item->review_status)->toBe(BriefingReviewStatus::Rejected)
+        ->and($item->rejection_reason)->toBe('Tidak ada approval dalam 7 hari setelah poin diselesaikan.')
+        ->and($item->reviewed_at)->not->toBeNull()
+        ->and($item->reviewed_by)->toBeNull();
 });

@@ -1,15 +1,15 @@
 @php
     $photoCount = count($record->photo_paths ?? []);
-    $photoGridClass = match (true) {
-        $photoCount === 1 => 'grid-cols-1',
-        $photoCount <= 4 => 'grid-cols-2',
-        default => 'grid-cols-3',
+    $photoColumns = match (true) {
+        $photoCount === 1 => 1,
+        $photoCount <= 4 => 2,
+        default => 3,
     };
-    $photoHeightClass = match (true) {
-        $photoCount === 1 => 'h-[50dvh]',
-        $photoCount === 2 => 'h-[42dvh]',
-        $photoCount <= 4 => 'h-[25dvh]',
-        default => 'h-[21dvh]',
+    $photoHeight = match (true) {
+        $photoCount === 1 => 'min(380px, 40dvh)',
+        $photoCount === 2 => 'min(340px, 36dvh)',
+        $photoCount <= 4 => 'min(240px, 24dvh)',
+        default => 'min(190px, 19dvh)',
     };
 @endphp
 
@@ -51,9 +51,11 @@
     @if ($record->photo_paths)
         <div>
             <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Foto</p>
-            <div class="grid {{ $photoGridClass }} gap-3">
+            <div class="grid gap-3"
+                 style="grid-template-columns: repeat({{ $photoColumns }}, minmax(0, 1fr));">
                 @foreach ($record->photo_paths as $index => $path)
-                    <div class="flex {{ $photoHeightClass }} items-center justify-center overflow-hidden rounded-xl bg-black">
+                    <div class="flex items-center justify-center overflow-hidden rounded-xl bg-black"
+                         style="height: {{ $photoHeight }};{{ $photoCount === 1 ? ' max-width: 720px; width: 100%; margin-inline: auto;' : '' }}">
                         <img
                             src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
                             alt="Foto bukti {{ $index + 1 }}"

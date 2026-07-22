@@ -1,4 +1,19 @@
-<div class="max-h-[75dvh] space-y-4 overflow-y-auto overscroll-contain p-1 pr-2">
+@php
+    $photoCount = count($record->photo_paths ?? []);
+    $photoGridClass = match (true) {
+        $photoCount === 1 => 'grid-cols-1',
+        $photoCount <= 4 => 'grid-cols-2',
+        default => 'grid-cols-3',
+    };
+    $photoHeightClass = match (true) {
+        $photoCount === 1 => 'h-[50dvh]',
+        $photoCount === 2 => 'h-[42dvh]',
+        $photoCount <= 4 => 'h-[25dvh]',
+        default => 'h-[21dvh]',
+    };
+@endphp
+
+<div class="space-y-4 p-1">
     {{-- Review status --}}
     @if ($record->review_status)
         <div class="flex items-center gap-2">
@@ -36,18 +51,15 @@
     @if ($record->photo_paths)
         <div>
             <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Foto</p>
-            <div class="space-y-4">
+            <div class="grid {{ $photoGridClass }} gap-3">
                 @foreach ($record->photo_paths as $index => $path)
-                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       class="block overflow-hidden rounded-xl bg-black">
+                    <div class="flex {{ $photoHeightClass }} items-center justify-center overflow-hidden rounded-xl bg-black">
                         <img
                             src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}"
                             alt="Foto bukti {{ $index + 1 }}"
-                            class="max-h-[70dvh] w-full object-contain"
+                            class="h-full w-full object-contain"
                         >
-                    </a>
+                    </div>
                 @endforeach
             </div>
         </div>

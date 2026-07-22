@@ -106,7 +106,7 @@ class BriefingItemResource extends Resource
                     ->tooltip('Lihat Detail')
                     ->color('info')
                     ->modalHeading('Detail Briefing')
-                    ->modalWidth(Width::SevenExtraLarge)
+                    ->modalWidth(Width::FiveExtraLarge)
                     ->registerModalActions([
                         Action::make('approve')
                             ->label('Setujui')

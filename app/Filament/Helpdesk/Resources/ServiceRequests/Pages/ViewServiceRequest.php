@@ -7,7 +7,6 @@ use App\Filament\Helpdesk\Resources\ServiceRequests\ServiceRequestResource;
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestRepair;
 use Filament\Actions\Action;
-use Filament\Actions\EditAction;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -19,16 +18,21 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
+use Filament\Support\Enums\Width;
 
 class ViewServiceRequest extends ViewRecord
 {
     protected static string $resource = ServiceRequestResource::class;
 
+    protected string $view = 'filament.helpdesk.service-requests.view';
+
+    protected Width|string|null $maxContentWidth = Width::Full;
+
     public function mount(int|string $record): void
     {
         parent::mount($record);
         $this->record->checkAndAutoComplete();
-        $this->record->refresh();
+        $this->record->refresh()->load(['scheduledBy', 'technician', 'repairs.technician']);
     }
 
     public function infolist(Schema $schema): Schema
@@ -120,8 +124,6 @@ class ViewServiceRequest extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
-            EditAction::make(),
-
             Action::make('klaim_garansi')
                 ->label('Klaim Garansi')
                 ->icon('heroicon-o-arrow-path')

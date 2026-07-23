@@ -18,13 +18,15 @@ class TechnicianSettingsPage extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Teknisi';
+    protected static string|\UnitEnum|null $navigationGroup = 'Technician';
 
     protected static ?int $navigationSort = 10;
 
-    protected static ?string $navigationLabel = 'Pengaturan Teknisi';
+    protected static ?string $navigationLabel = 'Pengaturan';
 
     protected static ?string $title = 'Pengaturan Teknisi';
+
+    protected static ?string $slug = 'technician-settings';
 
     protected string $view = 'filament.helpdesk.pages.technician-settings';
 

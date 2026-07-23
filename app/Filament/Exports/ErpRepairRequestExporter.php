@@ -15,12 +15,20 @@ class ErpRepairRequestExporter extends Exporter
     {
         return [
             ExportColumn::make('id')->label('ID'),
+            ExportColumn::make('ticket_number')->label('Ticket'),
             ExportColumn::make('requester.name')->label('Pemohon'),
             ExportColumn::make('branch.name')->label('Cabang'),
             ExportColumn::make('module.name')->label('Modul ERP'),
+            ExportColumn::make('requestType.name')->label('Request Type'),
             ExportColumn::make('keterangan')->label('Keterangan'),
             ExportColumn::make('status')->label('Status'),
             ExportColumn::make('assignee.name')->label('PIC'),
+            ExportColumn::make('work_classification')->label('Classification'),
+            ExportColumn::make('priority')->label('Priority'),
+            ExportColumn::make('due_at')->label('Due Date'),
+            ExportColumn::make('escalation_target')->label('Escalation Target'),
+            ExportColumn::make('escalation_reason')->label('Escalation Reason'),
+            ExportColumn::make('resolution_note')->label('Resolution'),
             ExportColumn::make('created_at')->label('Tanggal'),
         ];
     }

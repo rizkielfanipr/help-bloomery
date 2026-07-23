@@ -2,10 +2,11 @@
 
 namespace Database\Factories;
 
-use App\Enums\RequestStatus;
+use App\Enums\ItRequestStatus;
 use App\Models\Branch;
 use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
+use App\Models\ItRequestType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -23,18 +24,21 @@ class ErpRepairRequestFactory extends Factory
 
     public function definition(): array
     {
-        $status = fake()->randomElement(RequestStatus::cases());
-        $isAssigned = ! in_array($status, [RequestStatus::Draft, RequestStatus::Submitted]);
+        $status = fake()->randomElement(ItRequestStatus::cases());
+        $isAssigned = $status !== ItRequestStatus::Submitted;
 
         return [
             'requester_id' => User::inRandomOrder()->value('id'),
             'branch_id' => Branch::inRandomOrder()->value('id'),
             'assignee_id' => $isAssigned ? User::inRandomOrder()->value('id') : null,
             'erp_module_id' => ErpModule::inRandomOrder()->value('id'),
+            'request_type_id' => ItRequestType::inRandomOrder()->value('id'),
             'keterangan' => fake()->randomElement(self::$issues).'. '.fake()->sentence(8),
             'attachments' => null,
             'status' => $status,
-            'resolved_at' => $status === RequestStatus::Completed ? fake()->dateTimeBetween('-30 days', 'now') : null,
+            'work_classification' => $isAssigned ? fake()->randomElement(['standard', 'major_project']) : null,
+            'priority' => fake()->randomElement(['low', 'medium', 'high', 'critical']),
+            'resolved_at' => $status === ItRequestStatus::Completed ? fake()->dateTimeBetween('-30 days', 'now') : null,
         ];
     }
 }

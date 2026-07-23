@@ -85,8 +85,8 @@
             'label' => 'Technician',
             'icon'  => 'wrench',
             'items' => [
-                ['label' => 'Permintaan Servis',  'icon' => 'clipboard-list', 'perm' => 'view service requests', 'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => $active($r('filament.helpdesk.resources.service-requests.index'))],
-                ['label' => 'Pengaturan Teknisi', 'icon' => 'settings',       'perm' => 'edit service requests', 'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => $active($r('filament.helpdesk.pages.technician-settings'))],
+                ['label' => 'Permintaan Service', 'icon' => 'clipboard-list', 'perm' => 'view service requests', 'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => $active($r('filament.helpdesk.resources.service-requests.index'))],
+                ['label' => 'Pengaturan', 'icon' => 'settings',       'perm' => 'edit service requests', 'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => $active($r('filament.helpdesk.pages.technician-settings'))],
             ],
         ],
         [
@@ -96,6 +96,7 @@
             'items' => [
                 ['label' => 'Permintaan ERP', 'icon' => 'server',      'perm' => 'view erp requests', 'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => $active($r('filament.helpdesk.resources.erp-repair-requests.index'))],
                 ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => $active($r('filament.helpdesk.resources.erp-modules.index'))],
+                ['label' => 'Request Types',  'icon' => 'tags',        'perm' => 'view it request types', 'href' => $r('filament.helpdesk.resources.it-request-types.index'),  'active' => $active($r('filament.helpdesk.resources.it-request-types.index'))],
             ],
         ],
         [

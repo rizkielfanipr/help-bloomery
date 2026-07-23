@@ -433,7 +433,7 @@ function app() {
                 {id:'kendaraan',label:'Kendaraan'},
             ]},
             { id:'technician', label:'Technician', icon:'wrench', items:[
-                {id:'permintaan-teknisi',label:'Permintaan Teknisi'},
+                {id:'permintaan-teknisi',label:'Permintaan Service'},
                 {id:'pengaduan-teknisi',label:'Pengaduan Teknisi'},
                 {id:'monitoring-perbaikan',label:'Monitoring Perbaikan'},
                 {id:'jadwal-teknisi',label:'Jadwal Teknisi'},

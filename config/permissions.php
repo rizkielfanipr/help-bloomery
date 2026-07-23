@@ -46,6 +46,7 @@ return [
     'Information Technology' => [
         'Permintaan ERP' => ['view erp requests', 'create erp requests', 'edit erp requests', 'delete erp requests'],
         'Modul ERP' => ['view erp modules', 'create erp modules', 'edit erp modules', 'delete erp modules'],
+        'Request Type' => ['view it request types', 'create it request types', 'edit it request types', 'delete it request types'],
     ],
 
     'Management Access' => [

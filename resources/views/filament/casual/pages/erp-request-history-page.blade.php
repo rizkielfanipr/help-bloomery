@@ -6,7 +6,9 @@
         'approved'    => 'bg-green-100 text-green-700',
         'in_progress' => 'bg-blue-100 text-blue-700',
         'completed'   => 'bg-green-100 text-green-700',
-        'rejected'    => 'bg-red-100 text-red-700',
+        'waiting_user' => 'bg-amber-100 text-amber-700',
+        'escalated' => 'bg-red-100 text-red-700',
+        'cancelled' => 'bg-gray-100 text-gray-600',
     ];
 @endphp
 
@@ -55,9 +57,9 @@
             <div class="flex flex-col gap-3 px-5">
                 @foreach($requests as $request)
                     @php
-                        $statusValue = $request->status instanceof \App\Enums\RequestStatus
+                        $statusValue = $request->status instanceof \App\Enums\ItRequestStatus
                             ? $request->status->value : $request->status;
-                        $statusLabel = $request->status instanceof \App\Enums\RequestStatus
+                        $statusLabel = $request->status instanceof \App\Enums\ItRequestStatus
                             ? $request->status->getLabel() : $statusValue;
                         $statusColor = $statusColors[$statusValue] ?? 'bg-gray-100 text-gray-600';
                         $isExpanded  = $expandedId === $request->id;
@@ -105,14 +107,14 @@
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-start justify-between gap-2">
                                     <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                        {{ $request->module?->name ?? 'Modul ERP' }}
+                                        {{ $request->ticket_number }} · {{ $request->module?->name ?? 'Modul ERP' }}
                                     </p>
                                     <span class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $statusColor }}">
                                         {{ $statusLabel }}
                                     </span>
                                 </div>
                                 <p class="mt-0.5 line-clamp-1 text-xs text-slate-500 dark:text-slate-400">
-                                    {{ $request->keterangan }}
+                                    {{ $request->requestType?->name ?? 'Request' }} · {{ $request->keterangan }}
                                 </p>
                                 <p class="mt-0.5 text-xs text-slate-400">
                                     {{ $request->created_at->locale('id')->isoFormat('D MMM Y, HH:mm') }}
@@ -153,14 +155,14 @@
                                     <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Progress</p>
                                     @php
                                         $steps = [
-                                            ['value' => 'submitted',   'label' => 'Diajukan'],
-                                            ['value' => 'in_review',   'label' => 'Ditinjau'],
-                                            ['value' => 'in_progress', 'label' => 'Dikerjakan'],
-                                            ['value' => 'completed',   'label' => 'Selesai'],
+                                            ['value' => 'submitted',   'label' => 'Submitted'],
+                                            ['value' => 'in_review',   'label' => 'Review'],
+                                            ['value' => 'in_progress', 'label' => 'Progress'],
+                                            ['value' => 'completed',   'label' => 'Completed'],
                                         ];
                                         $stepValues   = array_column($steps, 'value');
                                         $currentIndex = array_search($statusValue, $stepValues);
-                                        if ($statusValue === 'rejected') { $currentIndex = 0; }
+                                        if (in_array($statusValue, ['cancelled', 'escalated', 'waiting_user'], true)) { $currentIndex = 2; }
                                     @endphp
                                     <div class="flex items-center gap-0">
                                         @foreach($steps as $i => $step)

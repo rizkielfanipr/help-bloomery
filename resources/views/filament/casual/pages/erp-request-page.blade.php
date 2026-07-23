@@ -3,6 +3,7 @@
     $hasBranch = (bool) $user->branch_id;
     $branch    = $user->branch?->name ?? null;
     $modules   = $this->getModules();
+    $requestTypes = $this->getRequestTypes();
 @endphp
 
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
@@ -59,6 +60,28 @@
                         <span class="text-sm text-amber-700 dark:text-amber-400">Cabang belum diatur. Hubungi admin.</span>
                     </div>
                 @endif
+            </div>
+
+            {{-- Jenis Modul ERP --}}
+            <div>
+                <label for="requestTypeId" class="{{ $labelClass }}">
+                    Request Type <span class="text-red-400">*</span>
+                </label>
+                <div class="relative">
+                    <select id="requestTypeId" wire:model="requestTypeId"
+                            class="{{ $fieldClass }} appearance-none pr-10">
+                        <option value="">-- Select request type --</option>
+                        @foreach($requestTypes as $type)
+                            <option value="{{ $type->id }}">{{ $type->name }}</option>
+                        @endforeach
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                        <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/>
+                        </svg>
+                    </div>
+                </div>
+                @error('requestTypeId') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
             </div>
 
             {{-- Jenis Modul ERP --}}

@@ -49,13 +49,13 @@ class ServiceRequestResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-wrench-screwdriver';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Teknisi';
+    protected static string|\UnitEnum|null $navigationGroup = 'Technician';
 
     protected static ?int $navigationSort = 2;
 
-    protected static ?string $modelLabel = 'Permintaan Servis';
+    protected static ?string $modelLabel = 'Permintaan Service';
 
-    protected static ?string $pluralModelLabel = 'Permintaan Servis';
+    protected static ?string $pluralModelLabel = 'Permintaan Service';
 
     public static function form(Schema $schema): Schema
     {

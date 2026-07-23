@@ -2,7 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\ErpRepairRequests;
 
-use App\Enums\RequestStatus;
+use App\Enums\ItRequestStatus;
 use App\Filament\Exports\ErpRepairRequestExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\EditErpRepairRequest;
@@ -10,6 +10,7 @@ use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequest
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest;
 use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
+use App\Models\ItRequestType;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -18,11 +19,15 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -50,7 +55,7 @@ class ErpRepairRequestResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) ErpRepairRequest::whereIn('status', [RequestStatus::Submitted, RequestStatus::InReview])->count() ?: null;
+        return (string) ErpRepairRequest::whereIn('status', [ItRequestStatus::Submitted, ItRequestStatus::Review])->count() ?: null;
     }
 
     public static function getNavigationBadgeColor(): ?string
@@ -63,16 +68,21 @@ class ErpRepairRequestResource extends Resource
         return $schema->components([
             Section::make('Informasi Permintaan')->schema([
                 Grid::make(3)->schema([
+                    TextEntry::make('ticket_number')->label('Ticket')->badge()->color('info'),
                     TextEntry::make('requester.name')->label('Pemohon'),
                     TextEntry::make('branch.name')->label('Cabang')->placeholder('-'),
                     TextEntry::make('status')
                         ->label('Status')
                         ->badge()
-                        ->formatStateUsing(fn (RequestStatus $state) => $state->getLabel())
-                        ->color(fn (RequestStatus $state) => $state->getColor()),
+                        ->formatStateUsing(fn (ItRequestStatus $state) => $state->getLabel())
+                        ->color(fn (ItRequestStatus $state) => $state->getColor()),
+                    TextEntry::make('requestType.name')->label('Request Type')->placeholder('-'),
                     TextEntry::make('module.name')->label('Modul ERP')->placeholder('-'),
                     TextEntry::make('assignee.name')->label('Dikerjakan oleh')->placeholder('Belum ditugaskan'),
                     TextEntry::make('created_at')->label('Tanggal Pengajuan')->dateTime('d M Y H:i'),
+                    TextEntry::make('work_classification')->label('Classification')->badge()->placeholder('Not classified'),
+                    TextEntry::make('priority')->label('Priority')->badge(),
+                    TextEntry::make('due_at')->label('Due Date')->dateTime('d M Y H:i')->placeholder('-'),
                 ]),
             ]),
 
@@ -91,23 +101,82 @@ class ErpRepairRequestResource extends Resource
                         ->placeholder('Tidak ada lampiran'),
                 ])
                 ->hidden(fn (ErpRepairRequest $record): bool => empty($record->attachments)),
+
+            Section::make('IT Follow-up')->schema([
+                TextEntry::make('it_notes')->label('IT Notes')->placeholder('-')->columnSpanFull(),
+                TextEntry::make('escalation_target')->label('Escalation Target')->placeholder('-'),
+                TextEntry::make('escalation_reason')->label('Escalation Reason')->placeholder('-'),
+                TextEntry::make('resolution_note')->label('Resolution')->placeholder('-')->columnSpanFull(),
+            ]),
+
+            Section::make('Activity Timeline')->schema([
+                RepeatableEntry::make('activities')
+                    ->label('')
+                    ->schema([
+                        TextEntry::make('created_at')->label('Time')->dateTime('d M Y H:i'),
+                        TextEntry::make('actor.name')->label('Actor')->placeholder('System'),
+                        TextEntry::make('action')->label('Action')->badge(),
+                        TextEntry::make('notes')->label('Notes')->placeholder('-')->columnSpanFull(),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull(),
+            ]),
         ]);
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->schema([
+            Section::make('Triage & Assignment')->schema([
                 Select::make('status')
                     ->label('Status')
-                    ->options(collect(RequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()]))
+                    ->options(ItRequestStatus::class)
+                    ->live()
                     ->required(),
 
                 Select::make('assignee_id')
                     ->label('Ditugaskan ke')
-                    ->options(User::all()->pluck('name', 'id'))
+                    ->options(User::role(['IT_STAFF', 'SUPERADMIN'])->orderBy('name')->pluck('name', 'id'))
                     ->searchable()
                     ->nullable(),
+
+                Select::make('work_classification')
+                    ->label('Classification')
+                    ->options(['standard' => 'Standard', 'major_project' => 'Major Project'])
+                    ->required(),
+
+                Select::make('priority')
+                    ->label('Priority')
+                    ->options(['low' => 'Low', 'medium' => 'Medium', 'high' => 'High', 'critical' => 'Critical'])
+                    ->required(),
+
+                DateTimePicker::make('due_at')->label('Due Date')->seconds(false),
+                Textarea::make('it_notes')->label('IT Notes')->rows(4)->columnSpanFull(),
+            ])->columns(2),
+
+            Section::make('Escalation')->schema([
+                Select::make('escalation_target')
+                    ->label('Escalation Target')
+                    ->options([
+                        'it_level_2' => 'IT Level 2',
+                        'developer' => 'Developer',
+                        'vendor' => 'Vendor',
+                        'other' => 'Other',
+                    ])
+                    ->required(fn (Get $get): bool => self::statusValue($get('status')) === ItRequestStatus::Escalated->value),
+                Textarea::make('escalation_reason')
+                    ->label('Escalation Reason')
+                    ->rows(3)
+                    ->required(fn (Get $get): bool => self::statusValue($get('status')) === ItRequestStatus::Escalated->value)
+                    ->columnSpanFull(),
+            ]),
+
+            Section::make('Resolution')->schema([
+                Textarea::make('resolution_note')
+                    ->label('Resolution Note')
+                    ->rows(4)
+                    ->required(fn (Get $get): bool => self::statusValue($get('status')) === ItRequestStatus::Completed->value)
+                    ->columnSpanFull(),
             ]),
         ]);
     }
@@ -116,6 +185,12 @@ class ErpRepairRequestResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('ticket_number')
+                    ->label('Ticket')
+                    ->searchable()
+                    ->copyable()
+                    ->weight('bold'),
+
                 TextColumn::make('created_at')
                     ->label('Tanggal')
                     ->date('d M Y')
@@ -137,6 +212,11 @@ class ErpRepairRequestResource extends Resource
                     ->color('info')
                     ->placeholder('-'),
 
+                TextColumn::make('requestType.name')
+                    ->label('Type')
+                    ->badge()
+                    ->placeholder('-'),
+
                 TextColumn::make('keterangan')
                     ->label('Keterangan')
                     ->limit(50)
@@ -145,8 +225,27 @@ class ErpRepairRequestResource extends Resource
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn (RequestStatus $state) => $state->getLabel())
-                    ->color(fn (RequestStatus $state) => $state->getColor()),
+                    ->formatStateUsing(fn (ItRequestStatus $state) => $state->getLabel())
+                    ->color(fn (ItRequestStatus $state) => $state->getColor()),
+
+                TextColumn::make('work_classification')
+                    ->label('Class')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'major_project' => 'Major Project',
+                        'standard' => 'Standard',
+                        default => 'Unclassified',
+                    }),
+
+                TextColumn::make('priority')
+                    ->label('Priority')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'critical' => 'danger',
+                        'high' => 'warning',
+                        'low' => 'gray',
+                        default => 'info',
+                    }),
 
                 TextColumn::make('assignee.name')
                     ->label('PIC')
@@ -157,7 +256,19 @@ class ErpRepairRequestResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->label('Status')
-                    ->options(collect(RequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()])),
+                    ->options(ItRequestStatus::class),
+
+                SelectFilter::make('request_type_id')
+                    ->label('Request Type')
+                    ->options(ItRequestType::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id')),
+
+                SelectFilter::make('work_classification')
+                    ->label('Classification')
+                    ->options(['standard' => 'Standard', 'major_project' => 'Major Project']),
+
+                SelectFilter::make('priority')
+                    ->label('Priority')
+                    ->options(['low' => 'Low', 'medium' => 'Medium', 'high' => 'High', 'critical' => 'Critical']),
 
                 SelectFilter::make('erp_module_id')
                     ->label('Modul ERP')
@@ -186,8 +297,13 @@ class ErpRepairRequestResource extends Resource
         ];
     }
 
+    private static function statusValue(mixed $status): ?string
+    {
+        return $status instanceof ItRequestStatus ? $status->value : $status;
+    }
+
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['requester', 'assignee', 'branch', 'module']);
+        return parent::getEloquentQuery()->with(['requester', 'assignee', 'branch', 'module', 'requestType']);
     }
 }

@@ -2,9 +2,10 @@
 
 namespace App\Filament\Casual\Pages;
 
-use App\Enums\RequestStatus;
+use App\Enums\ItRequestStatus;
 use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
+use App\Models\ItRequestType;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -24,6 +25,8 @@ class ErpRequestPage extends Page
     protected string $view = 'filament.casual.pages.erp-request-page';
 
     public string $erpModuleId = '';
+
+    public string $requestTypeId = '';
 
     public string $keterangan = '';
 
@@ -52,6 +55,12 @@ class ErpRequestPage extends Page
         return ErpModule::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
     }
 
+    /** @return Collection<int, ItRequestType> */
+    public function getRequestTypes(): Collection
+    {
+        return ItRequestType::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
+    }
+
     public function removeAttachment(int $index): void
     {
         array_splice($this->attachments, $index, 1);
@@ -70,6 +79,7 @@ class ErpRequestPage extends Page
 
         $this->validate([
             'erpModuleId' => ['required', 'exists:erp_modules,id'],
+            'requestTypeId' => ['required', 'exists:it_request_types,id'],
             'keterangan' => ['required', 'string'],
             'attachments.*' => ['file', 'max:10240'],
         ]);
@@ -79,20 +89,28 @@ class ErpRequestPage extends Page
             $paths[] = $file->store('erp-requests', 'b2');
         }
 
-        ErpRepairRequest::create([
+        $request = ErpRepairRequest::create([
             'requester_id' => $user->id,
             'branch_id' => $user->branch_id,
             'erp_module_id' => $this->erpModuleId,
+            'request_type_id' => $this->requestTypeId,
             'keterangan' => $this->keterangan,
             'attachments' => $paths ?: null,
-            'status' => RequestStatus::Submitted,
+            'status' => ItRequestStatus::Submitted,
         ]);
 
-        $this->reset(['erpModuleId', 'keterangan', 'attachments']);
+        $request->activities()->create([
+            'actor_id' => $user->id,
+            'action' => 'submitted',
+            'to_status' => ItRequestStatus::Submitted->value,
+            'notes' => 'Request submitted by user.',
+        ]);
+
+        $this->reset(['erpModuleId', 'requestTypeId', 'keterangan', 'attachments']);
 
         Notification::make()
             ->title('Permintaan ERP berhasil dikirim!')
-            ->body('Tim IT akan segera meninjau permintaan Anda.')
+            ->body("Ticket {$request->ticket_number} berhasil dibuat. Tim IT akan segera meninjau.")
             ->success()
             ->send();
     }

@@ -3,6 +3,7 @@
 @source '../../../../app/Filament/Helpdesk/**/*';
 @source '../../../../app/Filament/Resources/**/*';
 @source '../../../../resources/views/filament/helpdesk/**/*';
+@source '../../../../resources/views/components/helpdesk/**/*';
 @source '../../../../resources/views/components/layouts/**/*';
 @source '../../../../resources/views/vendor/filament-panels/**/*';
 

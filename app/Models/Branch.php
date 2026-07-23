@@ -23,6 +23,10 @@ class Branch extends Model
         'radius_meters',
         'is_active',
         'location_required',
+        'sales_shift_1_start',
+        'sales_shift_1_end',
+        'sales_shift_2_start',
+        'sales_shift_2_end',
     ];
 
     protected function casts(): array
@@ -68,6 +72,20 @@ class Branch extends Model
     public function briefingTasks(): HasMany
     {
         return $this->hasMany(BriefingTask::class);
+    }
+
+    public function salesReports(): HasMany
+    {
+        return $this->hasMany(SalesReport::class);
+    }
+
+    /** @return array{start: string, end: string} */
+    public function salesShiftSchedule(int $shiftNumber): array
+    {
+        return [
+            'start' => (string) $this->getAttribute("sales_shift_{$shiftNumber}_start"),
+            'end' => (string) $this->getAttribute("sales_shift_{$shiftNumber}_end"),
+        ];
     }
 
     public function hasLocation(): bool

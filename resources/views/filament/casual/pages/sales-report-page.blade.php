@@ -1,6 +1,5 @@
 @php
-    $submittedAt = $this->getDailyStatus();
-    $isDone = (bool) $submittedAt;
+    $shiftStatuses = $this->getShiftStatuses();
     $date = $reportDate ?: now()->toDateString();
 @endphp
 
@@ -39,11 +38,19 @@
                        class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
             </div>
 
-            {{-- Laporan Harian button --}}
-            <a href="{{ route('filament.casual.pages.sales-report-shift-page') }}?date={{ $date }}"
+            @foreach([1, 2] as $shiftNumber)
+            @php
+                $submittedAt = $shiftStatuses[$shiftNumber] ?? null;
+                $isDone = (bool) $submittedAt;
+                $isLocked = $shiftNumber === 2 && ! ($shiftStatuses[1] ?? null);
+                $schedule = auth()->user()->branch?->salesShiftSchedule($shiftNumber);
+            @endphp
+            <a href="{{ route('filament.casual.pages.sales-report-shift-page') }}?date={{ $date }}&shift={{ $shiftNumber }}"
                wire:navigate
                class="relative flex items-center gap-4 rounded-2xl border bg-white p-5 transition active:scale-95 dark:bg-gray-900
-                      {{ $isDone ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700' }}">
+                      {{ $isDone ? 'border-green-200 dark:border-green-800' : 'border-gray-200 dark:border-gray-700' }}
+                      {{ $isLocked ? 'pointer-events-none opacity-50' : '' }}"
+               @if($isLocked) aria-disabled="true" tabindex="-1" @endif>
 
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl
                             {{ $isDone ? 'bg-green-100 dark:bg-green-900/40' : 'bg-blue-100 dark:bg-blue-900/40' }}">
@@ -60,13 +67,15 @@
 
                 <div class="flex-1">
                     <p class="font-semibold {{ $isDone ? 'text-green-700 dark:text-green-400' : 'text-slate-700 dark:text-slate-200' }}">
-                        Laporan Harian
+                        Shift {{ $shiftNumber }}
                     </p>
                     <p class="text-xs {{ $isDone ? 'text-green-600 dark:text-green-500' : 'text-slate-400' }}">
                         @if($isDone)
                             Sudah disubmit · {{ \Carbon\Carbon::parse($submittedAt)->locale('id')->isoFormat('HH:mm') }}
+                        @elseif($isLocked)
+                            Terkunci · Submit Shift 1 terlebih dahulu
                         @else
-                            Belum diisi
+                            {{ substr((string) ($schedule['start'] ?? ''), 0, 5) }}–{{ substr((string) ($schedule['end'] ?? ''), 0, 5) }} · Belum diisi
                         @endif
                     </p>
                 </div>
@@ -75,6 +84,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
                 </svg>
             </a>
+            @endforeach
 
         </div>
     </div>

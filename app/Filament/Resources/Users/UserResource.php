@@ -138,13 +138,22 @@ class UserResource extends Resource
                             ->default(false)
                             ->live(),
 
+                        Select::make('branch_id')
+                            ->label('Cabang Utama')
+                            ->relationship('branch', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Cabang ini digunakan di aplikasi user, termasuk Sales Report, Stock Card, dan pengajuan lainnya.')
+                            ->nullable(),
+
                         Select::make('supervisedBranches')
-                            ->label('Cabang')
+                            ->label('Cabang yang Diawasi')
                             ->multiple()
                             ->relationship('supervisedBranches', 'name')
                             ->searchable()
                             ->preload()
-                            ->hidden(fn (Get $get): bool => (bool) $get('access_all_branches')),
+                            ->hidden(fn (Get $get): bool => (bool) $get('access_all_branches'))
+                            ->helperText('Khusus cakupan monitoring/approval SPV; tidak mengubah cabang utama user.'),
 
                         Toggle::make('is_active')
                             ->label('Aktif')
@@ -190,6 +199,12 @@ class UserResource extends Resource
                     ->label('Role')
                     ->badge()
                     ->separator(','),
+
+                TextColumn::make('branch.name')
+                    ->label('Cabang Utama')
+                    ->placeholder('-')
+                    ->sortable()
+                    ->searchable(),
 
                 IconColumn::make('is_active')
                     ->label('Aktif')

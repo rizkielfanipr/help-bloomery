@@ -46,18 +46,22 @@ class SalesReportPage extends Page
         // triggers reactive re-render for checkmarks
     }
 
-    public function getDailyStatus(): ?Carbon
+    /** @return array<int, Carbon|null> */
+    public function getShiftStatuses(): array
     {
         $user = auth()->user();
 
         if (! $user->branch_id) {
-            return null;
+            return [1 => null, 2 => null];
         }
 
-        $report = SalesReport::where('branch_id', $user->branch_id)
+        return SalesReport::where('branch_id', $user->branch_id)
             ->whereDate('report_date', $this->reportDate ?: now()->toDateString())
-            ->first();
-
-        return $report?->submitted_at;
+            ->get()
+            ->keyBy('shift_number')
+            ->mapWithKeys(fn (SalesReport $report) => [$report->shift_number => $report->submitted_at])
+            ->union([1 => null, 2 => null])
+            ->sortKeys()
+            ->all();
     }
 }

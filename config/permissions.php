@@ -26,7 +26,11 @@ return [
     ],
 
     'Finance' => [
-        'Sales Report' => ['view sales reports', 'create sales reports', 'edit sales reports', 'delete sales reports'],
+        'Sales Report' => [
+            'view sales reports', 'create sales reports', 'edit sales reports', 'delete sales reports',
+            'review sales reports as supervisor', 'review sales reports as finance',
+            'input sales settlements',
+        ],
         'Metode Pembayaran' => ['view payment methods', 'create payment methods', 'edit payment methods', 'delete payment methods'],
     ],
 

@@ -17,12 +17,24 @@ class SalesReportEntry extends Model
         'payment_method_name',
         'sales_system_amount',
         'sales_store_amount',
+        'settlement_amount',
+        'mdr_percentage',
+        'mdr_amount',
+        'expected_settlement_amount',
+        'settlement_difference',
+        'reconciliation_status',
+        'finance_note',
         'notes',
     ];
 
     protected $casts = [
         'sales_system_amount' => 'decimal:2',
         'sales_store_amount' => 'decimal:2',
+        'settlement_amount' => 'decimal:2',
+        'mdr_percentage' => 'decimal:4',
+        'mdr_amount' => 'decimal:2',
+        'expected_settlement_amount' => 'decimal:2',
+        'settlement_difference' => 'decimal:2',
     ];
 
     public function salesReport(): BelongsTo

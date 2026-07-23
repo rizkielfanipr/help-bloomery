@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\SalesReports;
 
+use App\Enums\SalesReportStatus;
 use App\Filament\Exports\SalesReportExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
@@ -59,6 +60,18 @@ class SalesReportResource extends Resource
                     ->sortable()
                     ->searchable(),
 
+                TextColumn::make('shift_number')
+                    ->label('Shift')
+                    ->badge()
+                    ->formatStateUsing(fn (int $state): string => 'Shift '.$state)
+                    ->sortable(),
+
+                TextColumn::make('shift_started_at')
+                    ->label('Jam Shift')
+                    ->state(fn (SalesReport $record): string => $record->shift_started_at && $record->shift_ended_at
+                        ? $record->shift_started_at->format('H:i').'–'.$record->shift_ended_at->format('H:i')
+                        : '-'),
+
                 TextColumn::make('submittedBy.name')
                     ->label('Disubmit oleh')
                     ->sortable()
@@ -68,6 +81,28 @@ class SalesReportResource extends Resource
                     ->label('Disubmit')
                     ->dateTime('d M Y HH:mm')
                     ->sortable(),
+
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn (SalesReportStatus $state): string => $state->getLabel())
+                    ->color(fn (SalesReportStatus $state): string => $state->getColor()),
+
+                TextColumn::make('total_system')
+                    ->label('Sales System')
+                    ->money('IDR')
+                    ->state(fn (SalesReport $record): float => $record->total_system),
+
+                TextColumn::make('total_store')
+                    ->label('Sales Store')
+                    ->money('IDR')
+                    ->state(fn (SalesReport $record): float => $record->total_store),
+
+                TextColumn::make('total_settlement')
+                    ->label('Settlement')
+                    ->money('IDR')
+                    ->placeholder('-')
+                    ->state(fn (SalesReport $record): ?float => $record->status === SalesReportStatus::Completed ? $record->total_settlement : null),
 
                 TextColumn::make('updated_at')
                     ->label('Terakhir Diperbarui')
@@ -79,6 +114,14 @@ class SalesReportResource extends Resource
                     ->label('Cabang')
                     ->options(Branch::orderBy('name')->pluck('name', 'id'))
                     ->searchable(),
+
+                SelectFilter::make('status')
+                    ->label('Status')
+                    ->options(SalesReportStatus::class),
+
+                SelectFilter::make('shift_number')
+                    ->label('Shift')
+                    ->options([1 => 'Shift 1', 2 => 'Shift 2']),
 
                 Filter::make('report_date')
                     ->form([
@@ -108,6 +151,30 @@ class SalesReportResource extends Resource
                 ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(SalesReportExporter::class),
             ])
             ->defaultSort('report_date', 'desc');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'submittedBy']);
+        $user = auth()->user();
+
+        if ($user && ! $user->access_all_branches && ! $user->hasAnyRole(['SUPERADMIN', 'FINANCE_STAFF'])) {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        return $query;
+    }
+
+    public static function canView($record): bool
+    {
+        $user = auth()->user();
+        if (! $user?->can('view sales reports')) {
+            return false;
+        }
+
+        return $user->access_all_branches
+            || $user->hasAnyRole(['SUPERADMIN', 'FINANCE_STAFF'])
+            || $user->branch_id === $record->branch_id;
     }
 
     public static function getPages(): array

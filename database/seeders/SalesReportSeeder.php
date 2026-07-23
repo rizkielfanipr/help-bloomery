@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\SalesReportStatus;
 use App\Models\Branch;
 use App\Models\SalesReport;
 use App\Models\SalesReportEntry;
@@ -66,6 +67,7 @@ class SalesReportSeeder extends Seeder
                     'submitted_by' => $submittedBy,
                     'report_date' => $date,
                     'submitted_at' => Carbon::parse($date)->setTime(17, 0, 0),
+                    'status' => SalesReportStatus::PendingSupervisor->value,
                 ]);
 
                 foreach ($rows as $row) {

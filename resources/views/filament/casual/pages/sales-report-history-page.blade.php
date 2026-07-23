@@ -87,8 +87,18 @@
                                         Rp {{ number_format($totalStore, 0, ',', '.') }}
                                     </p>
                                     <p class="mt-0.5 text-xs text-gray-400">
+                                        Shift {{ $report->shift_number }} · {{ $report->shift_started_at?->format('H:i') ?? '-' }}–{{ $report->shift_ended_at?->format('H:i') ?? '-' }}
+                                    </p>
+                                    <p class="mt-0.5 text-xs text-gray-400">
                                         {{ $report->entries->count() }} metode pembayaran
                                     </p>
+                                    <span @class([
+                                        'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                                        'bg-emerald-100 text-emerald-700' => $report->status === \App\Enums\SalesReportStatus::Completed,
+                                        'bg-red-100 text-red-700' => in_array($report->status, [\App\Enums\SalesReportStatus::RejectedBySupervisor, \App\Enums\SalesReportStatus::RejectedByFinance], true),
+                                        'bg-amber-100 text-amber-700' => in_array($report->status, [\App\Enums\SalesReportStatus::PendingSupervisor, \App\Enums\SalesReportStatus::PendingFinance], true),
+                                        'bg-gray-100 text-gray-600' => $report->status === \App\Enums\SalesReportStatus::Draft,
+                                    ])>{{ $report->status->getLabel() }}</span>
                                     @if($report->submittedBy)
                                         <p class="mt-0.5 text-[11px] text-gray-400">{{ $report->submittedBy->name }}</p>
                                     @endif

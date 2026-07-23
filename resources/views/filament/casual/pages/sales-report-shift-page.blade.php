@@ -19,12 +19,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/>
                 </svg>
             </div>
-            <span class="text-base font-semibold text-white">Sales Report Harian</span>
+            <span class="text-base font-semibold text-white">Sales Report Shift {{ $shiftNumber }}</span>
         </div>
         <p class="text-blue-200">{{ auth()->user()->branch?->name ?? 'Tanpa Cabang' }}</p>
         <p class="text-xl font-semibold text-white">
             {{ \Carbon\Carbon::parse($reportDate)->locale('id')->isoFormat('dddd, D MMMM Y') }}
         </p>
+        <p class="mt-1 text-sm font-medium text-blue-100">{{ $shiftStart }}–{{ $shiftEnd }} · berdasarkan waktu transaksi selesai</p>
     </div>
 
     {{-- WHITE CONTENT CARD --}}
@@ -40,9 +41,17 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-green-700 dark:text-green-400">Data sudah terkunci</p>
-                        <p class="text-xs text-green-600 dark:text-green-500">Laporan harian tidak dapat diubah kembali.</p>
+                        <p class="text-sm font-semibold text-green-700 dark:text-green-400">Data terkunci sementara</p>
+                        <p class="text-xs text-green-600 dark:text-green-500">
+                            {{ \App\Enums\SalesReportStatus::from($currentStatus)->getLabel() }}. Data akan terbuka kembali jika ditolak.
+                        </p>
                     </div>
+                </div>
+            @elseif($rejectionReason)
+                <div class="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+                    <p class="text-sm font-semibold text-red-700 dark:text-red-400">Laporan perlu diperbaiki</p>
+                    <p class="mt-1 text-xs text-red-600 dark:text-red-300">{{ $rejectionReason }}</p>
+                    <p class="mt-2 text-xs font-medium text-red-700 dark:text-red-300">Perbaiki data, lalu submit ulang untuk approval SPV.</p>
                 </div>
             @endif
 
@@ -211,7 +220,7 @@
             @if(! $isSubmitted)
                 @if($showConfirm)
                     <p class="text-center text-xs text-slate-400 dark:text-slate-500">
-                        Data tidak dapat diubah setelah disimpan
+                        Data dikunci selama proses approval
                     </p>
                     <div class="flex gap-3">
                         <button wire:click="cancelConfirm"
@@ -223,7 +232,7 @@
                             <svg wire:loading.remove wire:target="save" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                             </svg>
-                            <span wire:loading.remove wire:target="save">Ya, Simpan</span>
+                            <span wire:loading.remove wire:target="save">Ya, Submit</span>
                             <span wire:loading wire:target="save">Menyimpan...</span>
                         </button>
                     </div>
@@ -232,7 +241,7 @@
                             class="w-full rounded-2xl py-4 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60
                                    {{ $esbFetched ? 'bg-blue-600 active:bg-blue-700' : 'cursor-not-allowed bg-slate-400' }}">
                         <span wire:loading.remove wire:target="requestConfirm">
-                            {{ $esbFetched ? 'Simpan Laporan' : 'Fetch ESB Dulu Sebelum Simpan' }}
+                            {{ $esbFetched ? ($rejectionReason ? 'Submit Ulang Laporan' : 'Submit Laporan') : 'Fetch ESB Dulu Sebelum Submit' }}
                         </span>
                         <span wire:loading wire:target="requestConfirm">Memvalidasi...</span>
                     </button>

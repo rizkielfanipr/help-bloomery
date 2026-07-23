@@ -19,6 +19,7 @@ use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -107,6 +108,16 @@ class BranchResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->columns(1),
+
+                Section::make('Jadwal Shift Sales Report')
+                    ->description('Transaksi ESB dikelompokkan berdasarkan salesDateOut. Jam akhir tidak ikut shift sebelumnya agar tidak terhitung dua kali.')
+                    ->schema([
+                        TimePicker::make('sales_shift_1_start')->label('Shift 1 Mulai')->seconds(false)->required()->default('09:00'),
+                        TimePicker::make('sales_shift_1_end')->label('Shift 1 Selesai')->seconds(false)->required()->default('15:00'),
+                        TimePicker::make('sales_shift_2_start')->label('Shift 2 Mulai')->seconds(false)->required()->default('15:00'),
+                        TimePicker::make('sales_shift_2_end')->label('Shift 2 Selesai')->seconds(false)->required()->default('21:00'),
+                    ])
+                    ->columns(2),
             ]);
     }
 

@@ -93,12 +93,19 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::firstOrCreate(['name' => 'SUPERVISOR_STORE', 'guard_name' => 'web'])
             ->syncPermissions([
                 'view briefing items', 'edit briefing items',
+                'view sales reports', 'review sales reports as supervisor',
+            ]);
+
+        Role::firstOrCreate(['name' => 'FINANCE_STAFF', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'view sales reports', 'review sales reports as finance',
+                'input sales settlements',
             ]);
 
         // Remove any role not in the new set
-        $newRoles = ['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN', 'SUPERVISOR_STORE'];
+        $newRoles = ['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN', 'SUPERVISOR_STORE', 'FINANCE_STAFF'];
         Role::whereNotIn('name', $newRoles)->delete();
 
-        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, SUPERVISOR_STORE');
+        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, SUPERVISOR_STORE, FINANCE_STAFF');
     }
 }

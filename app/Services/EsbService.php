@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 
 class EsbService
@@ -70,6 +71,76 @@ class EsbService
         usort($rows, fn ($a, $b) => [$a['type'], $a['name']] <=> [$b['type'], $b['name']]);
 
         return $rows;
+    }
+
+    /**
+     * Fetch and aggregate finished ESB transactions whose salesDateOut is within
+     * the half-open shift interval [start, end).
+     *
+     * @return array{rows: array<int, array{name: string, type: string, total: float}>, transactions: array<int, array{sales_num: string, sales_date_out: string, payment_total: float}>}
+     */
+    public function getShiftPaymentSummary(
+        string $branchCode,
+        string $reportDate,
+        string $startTime,
+        string $endTime,
+        ?string $token = null,
+    ): array {
+        $timezone = (string) config('app.timezone', 'Asia/Jakarta');
+        $startedAt = CarbonImmutable::parse($reportDate.' '.$startTime, $timezone);
+        $endedAt = CarbonImmutable::parse($reportDate.' '.$endTime, $timezone);
+
+        if ($endedAt->lessThanOrEqualTo($startedAt)) {
+            $endedAt = $endedAt->addDay();
+        }
+
+        $sales = $this->getRawSales(
+            $branchCode,
+            $startedAt->toDateString(),
+            $endedAt->toDateString(),
+            $token ?? $this->token,
+        );
+
+        $totals = [];
+        $transactions = [];
+
+        foreach ($sales as $sale) {
+            $dateOut = $sale['salesDateOut'] ?? null;
+            if (! $dateOut) {
+                continue;
+            }
+
+            $completedAt = CarbonImmutable::parse($dateOut, $timezone);
+            if ($completedAt->lessThan($startedAt) || ! $completedAt->lessThan($endedAt)) {
+                continue;
+            }
+
+            $paymentTotal = 0.0;
+            foreach ($sale['salesPayments'] ?? [] as $payment) {
+                $name = $payment['paymentMethodName'] ?? 'Unknown';
+                $type = $payment['paymentMethodTypeName'] ?? '';
+                $amount = (float) ($payment['paymentAmount'] ?? 0);
+                $key = $type.'|'.$name;
+
+                $totals[$key] ??= ['name' => $name, 'type' => $type, 'total' => 0.0];
+                $totals[$key]['total'] += $amount;
+                $paymentTotal += $amount;
+            }
+
+            $salesNum = (string) ($sale['salesNum'] ?? '');
+            if ($salesNum !== '') {
+                $transactions[$salesNum] = [
+                    'sales_num' => $salesNum,
+                    'sales_date_out' => $completedAt->format('Y-m-d H:i:s'),
+                    'payment_total' => $paymentTotal,
+                ];
+            }
+        }
+
+        $rows = array_values($totals);
+        usort($rows, fn ($a, $b) => [$a['type'], $a['name']] <=> [$b['type'], $b['name']]);
+
+        return ['rows' => $rows, 'transactions' => array_values($transactions)];
     }
 
     /**

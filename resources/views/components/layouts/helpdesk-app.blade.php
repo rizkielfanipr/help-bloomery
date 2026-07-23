@@ -50,6 +50,7 @@
     if (str_contains($path, 'sales-report') || str_contains($path, 'payment-method')) { $initialOpen[] = 'finance'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module')) { $initialOpen[] = 'it'; }
+    if (str_contains($path, 'bill-of-material')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
 
@@ -106,6 +107,16 @@
             ],
         ],
         [
+            'id'    => 'rnd',
+            'label' => 'Research & Development',
+            'icon'  => 'flask-conical',
+            'items' => [
+                ['label' => 'Bill of Material', 'icon' => 'beaker', 'perm' => 'view bill of materials', 'href' => $r('filament.helpdesk.pages.bill-of-material'), 'active' => request()->is('bill-of-material')],
+                ['label' => 'Buat Resep', 'icon' => 'file-plus-2', 'perm' => 'create bill of materials', 'href' => $r('filament.helpdesk.pages.bill-of-material.create'), 'active' => request()->is('bill-of-material/create')],
+                ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => request()->is('rnd-projects*')],
+            ],
+        ],
+        [
             'id'    => 'purchasing',
             'label' => 'Purchasing',
             'icon'  => 'shopping-cart',
@@ -152,7 +163,7 @@
 
     $navGroups = array_values(array_filter(array_map(function (array $group) use ($user): ?array {
         $items = array_values(array_filter($group['items'], fn ($item) =>
-            ! isset($item['perm']) || $user?->can($item['perm'])
+            ! isset($item['perm']) || $user?->hasRole('SUPERADMIN') || $user?->can($item['perm'])
         ));
         if (empty($items)) {
             return null;

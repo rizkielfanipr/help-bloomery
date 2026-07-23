@@ -98,6 +98,12 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view tile erp',
             ]);
 
+        Role::firstOrCreate(['name' => 'RND_STAFF', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'view bill of materials', 'create bill of materials', 'edit bill of materials',
+                'view rnd projects', 'create rnd projects', 'edit rnd projects', 'delete rnd projects',
+            ]);
+
         Role::firstOrCreate(['name' => 'SUPERVISOR_STORE', 'guard_name' => 'web'])
             ->syncPermissions([
                 'view briefing items', 'edit briefing items',
@@ -111,9 +117,9 @@ class RolesAndPermissionsSeeder extends Seeder
             ]);
 
         // Remove any role not in the new set
-        $newRoles = ['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN', 'IT_STAFF', 'SUPERVISOR_STORE', 'FINANCE_STAFF'];
+        $newRoles = ['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN', 'IT_STAFF', 'RND_STAFF', 'SUPERVISOR_STORE', 'FINANCE_STAFF'];
         Role::whereNotIn('name', $newRoles)->delete();
 
-        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, IT_STAFF, SUPERVISOR_STORE, FINANCE_STAFF');
+        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, IT_STAFF, RND_STAFF, SUPERVISOR_STORE, FINANCE_STAFF');
     }
 }

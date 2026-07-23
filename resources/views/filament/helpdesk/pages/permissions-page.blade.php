@@ -10,6 +10,7 @@
             'Purchasing'            => ['icon' => 'heroicon-o-shopping-cart', 'color' => 'teal'],
             'Brand Marketing'       => ['icon' => 'heroicon-o-megaphone', 'color' => 'pink'],
             'Information Technology'=> ['icon' => 'heroicon-o-computer-desktop', 'color' => 'cyan'],
+            'Research & Development'=> ['icon' => 'heroicon-o-beaker', 'color' => 'indigo'],
             'Management Access'     => ['icon' => 'heroicon-o-shield-check', 'color' => 'red'],
             'Master'                => ['icon' => 'heroicon-o-circle-stack', 'color' => 'gray'],
         ];

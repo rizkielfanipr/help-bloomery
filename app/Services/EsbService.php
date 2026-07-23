@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class EsbService
@@ -10,6 +12,312 @@ class EsbService
     private string $baseUrl;
 
     private string $token;
+
+    /**
+     * Return active ESB product details flattened for BOM selectors.
+     *
+     * @return array<int, array{productDetailID:int, productID:int, productCode:string, productName:string, categoryName:string, subCategoryName:string, unit:string, baseUnit:string, conversionFactor:float, sku:string, basePrice:float, receiptTolerance:float}>
+     */
+    public function getActiveProductDetails(): array
+    {
+        $baseUrl = rtrim((string) config('esb.master_product.base_url'), '/');
+        $token = (string) config('esb.master_product.token');
+
+        if ($baseUrl === '' || $token === '') {
+            throw new \RuntimeException('Token static Master Product ESB belum dikonfigurasi.');
+        }
+
+        $products = [];
+        $page = 1;
+
+        do {
+            $response = Http::withToken($token)
+                ->acceptJson()
+                ->timeout(60)
+                ->get($baseUrl.'/corev1/master/product', [
+                    'statusActive' => 'Yes',
+                    'page' => $page,
+                ]);
+
+            $payload = $response->json();
+            if ($response->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'ok') {
+                $message = is_array($payload) ? ($payload['message'] ?? null) : null;
+
+                throw new \RuntimeException(
+                    'Gagal mengambil Master Product ESB'.($message ? ': '.$message : ' (HTTP '.$response->status().').')
+                );
+            }
+
+            $result = is_array($payload['result'] ?? null) ? $payload['result'] : [];
+            foreach ($result['data'] ?? [] as $product) {
+                foreach ($product['productDetails'] ?? [] as $detail) {
+                    $detailId = (int) ($detail['productDetailID'] ?? 0);
+                    if ($detailId < 1) {
+                        continue;
+                    }
+
+                    $products[$detailId] = [
+                        'productDetailID' => $detailId,
+                        'productID' => (int) ($product['productID'] ?? 0),
+                        'productCode' => (string) ($product['productCode'] ?? ''),
+                        'productName' => (string) ($product['productName'] ?? ''),
+                        'categoryName' => (string) ($product['categoryName'] ?? ''),
+                        'subCategoryName' => (string) ($product['subCategoryName'] ?? ''),
+                        'unit' => (string) ($detail['unit'] ?? ''),
+                        'baseUnit' => $this->resolveBaseUnit($product),
+                        'conversionFactor' => (float) ($detail['conversionFactor'] ?? 0),
+                        'sku' => (string) ($detail['sku'] ?? ''),
+                        'basePrice' => (float) ($detail['basePrice'] ?? 0),
+                        'receiptTolerance' => (float) ($product['receiptTolerance'] ?? 0),
+                    ];
+                }
+            }
+
+            $currentPage = (int) ($result['page'] ?? $page);
+            $limit = max(1, (int) ($result['limit'] ?? count($result['data'] ?? [])));
+            $count = (int) ($result['count'] ?? count($result['data'] ?? []));
+            $page++;
+            $hasNextPage = (
+                filled($result['next'] ?? null)
+                || ($count > $currentPage * $limit)
+            ) && $page <= 500;
+        } while ($hasNextPage);
+
+        uasort($products, fn (array $left, array $right) => [
+            $left['productName'],
+            $left['unit'],
+        ] <=> [
+            $right['productName'],
+            $right['unit'],
+        ]);
+
+        return $products;
+    }
+
+    /**
+     * @return array{data:array<int, array>, page:int, total:int, perPage:int, hasNext:bool}
+     */
+    public function getActiveProductDetailsPage(
+        string $productName = '',
+        int $page = 1,
+        string $productCode = '',
+    ): array {
+        $baseUrl = rtrim((string) config('esb.master_product.base_url'), '/');
+        $token = (string) config('esb.master_product.token');
+
+        if ($baseUrl === '' || $token === '') {
+            throw new \RuntimeException('Token static Master Product ESB belum dikonfigurasi.');
+        }
+
+        $response = Http::withToken($token)
+            ->acceptJson()
+            ->timeout(20)
+            ->get($baseUrl.'/corev1/master/product', array_filter([
+                'statusActive' => 'Yes',
+                'productName' => trim($productName),
+                'productCode' => trim($productCode),
+                'page' => max(1, $page),
+            ], fn ($value) => $value !== ''));
+
+        $payload = $response->json();
+        if ($response->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'ok') {
+            $message = is_array($payload) ? ($payload['message'] ?? null) : null;
+
+            if (is_string($message) && str_contains(strtolower($message), 'not found')) {
+                return [
+                    'data' => [],
+                    'page' => max(1, $page),
+                    'total' => 0,
+                    'perPage' => 10,
+                    'hasNext' => false,
+                ];
+            }
+
+            throw new \RuntimeException(
+                'Gagal mengambil Master Product ESB'.($message ? ': '.$message : ' (HTTP '.$response->status().').')
+            );
+        }
+
+        $result = is_array($payload['result'] ?? null) ? $payload['result'] : [];
+        $products = [];
+
+        foreach ($result['data'] ?? [] as $product) {
+            foreach ($product['productDetails'] ?? [] as $detail) {
+                $detailId = (int) ($detail['productDetailID'] ?? 0);
+                if ($detailId < 1) {
+                    continue;
+                }
+
+                $products[$detailId] = $this->mapProductDetail($product, $detail);
+            }
+        }
+
+        uasort($products, fn (array $left, array $right) => [
+            $left['productName'],
+            $left['unit'],
+        ] <=> [
+            $right['productName'],
+            $right['unit'],
+        ]);
+
+        $currentPage = (int) ($result['page'] ?? $page);
+        $total = (int) ($result['count'] ?? count($products));
+        $limit = max(1, (int) ($result['limit'] ?? count($result['data'] ?? [])));
+
+        return [
+            'data' => $products,
+            'page' => $currentPage,
+            'total' => $total,
+            'perPage' => $limit,
+            'hasNext' => filled($result['next'] ?? null) || ($currentPage * $limit < $total),
+        ];
+    }
+
+    private function mapProductDetail(array $product, array $detail): array
+    {
+        return [
+            'productDetailID' => (int) $detail['productDetailID'],
+            'productID' => (int) ($product['productID'] ?? 0),
+            'productCode' => (string) ($product['productCode'] ?? ''),
+            'productName' => (string) ($product['productName'] ?? ''),
+            'categoryName' => (string) ($product['categoryName'] ?? ''),
+            'subCategoryName' => (string) ($product['subCategoryName'] ?? ''),
+            'unit' => (string) ($detail['unit'] ?? ''),
+            'baseUnit' => $this->resolveBaseUnit($product),
+            'conversionFactor' => (float) ($detail['conversionFactor'] ?? 0),
+            'sku' => (string) ($detail['sku'] ?? ''),
+            'basePrice' => (float) ($detail['basePrice'] ?? 0),
+            'receiptTolerance' => (float) ($product['receiptTolerance'] ?? 0),
+        ];
+    }
+
+    private function resolveBaseUnit(array $product): string
+    {
+        foreach ($product['productDetails'] ?? [] as $detail) {
+            $baseUnitFlag = strtolower((string) data_get($detail, 'defaultUnit.baseUnit', ''));
+            if (in_array($baseUnitFlag, ['yes', '1', 'true'], true)) {
+                return (string) ($detail['unit'] ?? '');
+            }
+        }
+
+        return (string) data_get($product, 'productDetails.0.unit', '');
+    }
+
+    /**
+     * Fetch product details for exact product codes in parallel.
+     *
+     * @return array<int, array>
+     */
+    public function getActiveProductDetailsByCodes(array $productCodes): array
+    {
+        $baseUrl = rtrim((string) config('esb.master_product.base_url'), '/');
+        $token = (string) config('esb.master_product.token');
+        $codes = array_values(array_unique(array_filter(array_map('strval', $productCodes))));
+
+        if ($baseUrl === '' || $token === '') {
+            throw new \RuntimeException('Token static Master Product ESB belum dikonfigurasi.');
+        }
+
+        if ($codes === []) {
+            return [];
+        }
+
+        $responses = Http::pool(fn (Pool $pool): array => array_map(
+            fn (string $code) => $pool
+                ->as($code)
+                ->withToken($token)
+                ->acceptJson()
+                ->timeout(20)
+                ->get($baseUrl.'/corev1/master/product', [
+                    'statusActive' => 'Yes',
+                    'productCode' => $code,
+                    'page' => 1,
+                ]),
+            $codes,
+        ));
+
+        $products = [];
+        foreach ($responses as $response) {
+            if (! $response || $response->failed()) {
+                continue;
+            }
+
+            $payload = $response->json();
+            if (! is_array($payload) || ($payload['status'] ?? null) !== 'ok') {
+                continue;
+            }
+
+            foreach (data_get($payload, 'result.data', []) as $product) {
+                foreach ($product['productDetails'] ?? [] as $detail) {
+                    $detailId = (int) ($detail['productDetailID'] ?? 0);
+                    if ($detailId > 0) {
+                        $products[$detailId] = $this->mapProductDetail($product, $detail);
+                    }
+                }
+            }
+        }
+
+        return $products;
+    }
+
+    /**
+     * Return every unit used by active Master Product details.
+     *
+     * @return array<int, string>
+     */
+    public function getAllActiveProductUnits(): array
+    {
+        return Cache::remember('esb.master_product_units', now()->addDay(), function (): array {
+            $baseUrl = rtrim((string) config('esb.master_product.base_url'), '/');
+            $token = (string) config('esb.master_product.token');
+
+            $first = Http::withToken($token)->acceptJson()->timeout(20)
+                ->get($baseUrl.'/corev1/master/product', ['statusActive' => 'Yes', 'page' => 1]);
+
+            if ($first->failed() || data_get($first->json(), 'status') !== 'ok') {
+                throw new \RuntimeException('Gagal mengambil daftar Unit Master Product ESB.');
+            }
+
+            $firstResult = data_get($first->json(), 'result', []);
+            $rows = is_array($firstResult['data'] ?? null) ? $firstResult['data'] : [];
+            $limit = max(1, (int) ($firstResult['limit'] ?? count($rows)));
+            $lastPage = max(1, (int) ceil(((int) ($firstResult['count'] ?? count($rows))) / $limit));
+            $remainingPages = $lastPage > 1 ? range(2, $lastPage) : [];
+
+            foreach (array_chunk($remainingPages, 30) as $pages) {
+                $responses = Http::pool(fn (Pool $pool): array => array_map(
+                    fn (int $page) => $pool->as((string) $page)
+                        ->withToken($token)
+                        ->acceptJson()
+                        ->timeout(20)
+                        ->get($baseUrl.'/corev1/master/product', [
+                            'statusActive' => 'Yes',
+                            'page' => $page,
+                        ]),
+                    $pages,
+                ));
+
+                foreach ($responses as $response) {
+                    if ($response && $response->successful()) {
+                        $pageRows = data_get($response->json(), 'result.data', []);
+                        if (is_array($pageRows)) {
+                            array_push($rows, ...$pageRows);
+                        }
+                    }
+                }
+            }
+
+            $units = collect($rows)
+                ->flatMap(fn (array $product) => collect($product['productDetails'] ?? [])->pluck('unit'))
+                ->filter()
+                ->unique()
+                ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+                ->values()
+                ->all();
+
+            return $units;
+        });
+    }
 
     public function __construct()
     {

@@ -41,6 +41,7 @@
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module')) { $initialOpen[] = 'it'; }
+    if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
 
@@ -98,6 +99,16 @@
                 ['label' => 'Permintaan ERP', 'icon' => 'server',      'perm' => 'view erp requests', 'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => $active($r('filament.helpdesk.resources.erp-repair-requests.index'))],
                 ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => $active($r('filament.helpdesk.resources.erp-modules.index'))],
                 ['label' => 'Request Types',  'icon' => 'tags',        'perm' => 'view it request types', 'href' => $r('filament.helpdesk.resources.it-request-types.index'),  'active' => $active($r('filament.helpdesk.resources.it-request-types.index'))],
+            ],
+        ],
+        [
+            'id'    => 'rnd',
+            'label' => 'Research & Development',
+            'icon'  => 'flask-conical',
+            'items' => [
+                ['label' => 'Bill of Material', 'icon' => 'beaker', 'perm' => 'view bill of materials', 'href' => $r('filament.helpdesk.pages.bill-of-material'), 'active' => $active($r('filament.helpdesk.pages.bill-of-material'))],
+                ['label' => 'Buat Resep', 'icon' => 'file-plus-2', 'perm' => 'create bill of materials', 'href' => $r('filament.helpdesk.pages.bill-of-material.create'), 'active' => $active($r('filament.helpdesk.pages.bill-of-material.create'))],
+                ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-projects.index'))],
             ],
         ],
         [
@@ -169,7 +180,7 @@
     /* ── Filter groups by permission ───────────────────────────────*/
     $navGroups = array_values(array_filter(array_map(function (array $group) use ($user): ?array {
         $items = array_values(array_filter($group['items'], fn ($item) =>
-            ! isset($item['perm']) || $user?->can($item['perm'])
+            ! isset($item['perm']) || $user?->hasRole('SUPERADMIN') || $user?->can($item['perm'])
         ));
         if (empty($items)) {
             return null;

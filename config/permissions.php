@@ -49,6 +49,20 @@ return [
         'Request Type' => ['view it request types', 'create it request types', 'edit it request types', 'delete it request types'],
     ],
 
+    'Research & Development' => [
+        'Bill of Material' => [
+            'view bill of materials',
+            'create bill of materials',
+            'edit bill of materials',
+        ],
+        'Project' => [
+            'view rnd projects',
+            'create rnd projects',
+            'edit rnd projects',
+            'delete rnd projects',
+        ],
+    ],
+
     'Management Access' => [
         'Pengguna' => ['view users', 'create users', 'edit users', 'delete users'],
         'Role & Permission' => ['view roles', 'create roles', 'edit roles', 'delete roles'],

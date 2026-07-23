@@ -8,7 +8,7 @@ use App\Filament\Technician\Resources\ServiceRequests\Pages\ViewServiceRequest;
 use App\Models\ServiceRequest;
 use BackedEnum;
 use Filament\Actions\ViewAction;
-use Filament\Resources\resource;
+use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;

@@ -42,6 +42,7 @@
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
+    $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
 
     /* ── Navigation groups with real routes ───────────────────────*/
     $allNavGroups = [
@@ -176,6 +177,15 @@
         $group['items'] = $items;
         return $group;
     }, $allNavGroups)));
+
+    $navSearchGroups = [];
+    foreach ($navGroups as $group) {
+        $navSearchGroups[] = [
+            'id' => $group['id'],
+            'label' => $group['label'],
+            'items' => array_column($group['items'], 'label'),
+        ];
+    }
 @endphp
 
 <x-filament-panels::layout.base :livewire="$livewire" @class(['fi-has-sidebar'])>
@@ -208,6 +218,7 @@
 
         {{-- Dashboard --}}
         <a
+            x-show="!hasSearch()"
             href="{{ url('/') }}"
             class="group flex items-center rounded-xl py-2 text-[13px] font-medium transition-all duration-150
                 {{ request()->is('/')
@@ -235,12 +246,13 @@
         </a>
 
         {{-- Divider --}}
-        <div x-show="sidebarOpen" class="py-1.5">
+        <div x-show="sidebarOpen && !hasSearch()" class="py-1.5">
             <div class="mx-3 border-t border-slate-100 dark:border-white/[0.06]"></div>
         </div>
 
         {{-- App User --}}
         <a
+            x-show="!hasSearch()"
             href="{{ env('APP_DOMAIN') ? 'https://' . env('APP_DOMAIN') . '/launcher-page' : url('casual/launcher-page') }}"
             target="_blank"
             class="group flex items-center rounded-xl py-2 text-[13px] font-medium transition-all duration-150 text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
@@ -262,13 +274,13 @@
         </a>
 
         {{-- Divider --}}
-        <div x-show="sidebarOpen" class="py-1.5">
+        <div x-show="sidebarOpen && !hasSearch()" class="py-1.5">
             <div class="mx-3 border-t border-slate-100 dark:border-white/[0.06]"></div>
         </div>
 
         {{-- Nav Groups --}}
         @foreach ($navGroups as $group)
-            <div>
+            <div x-show="groupMatches('{{ $group['id'] }}')" x-cloak>
                 <button
                     @click="toggleSidebarGroup('{{ $group['id'] }}')"
                     class="flex w-full items-center rounded-xl py-2 text-[13px] font-medium text-slate-600 transition-all duration-150 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
@@ -287,7 +299,7 @@
                         x-transition:leave-start="opacity-100"
                         x-transition:leave-end="opacity-0"
                         class="flex-1 text-left"
-                    >{{ $group['label'] }}</span>
+                    x-html="highlight(@js($group['label']))"></span>
                     <i
                         data-lucide="chevron-right"
                         x-show="sidebarOpen"
@@ -309,6 +321,7 @@
                 >
                     @foreach ($group['items'] as $item)
                         <a
+                            x-show="itemMatches(@js($group['label']), @js($item['label']))"
                             href="{{ $item['href'] }}"
                             class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] transition-all duration-150
                                 {{ $item['active']
@@ -319,12 +332,16 @@
                             @if($item['href'] === '#') @click.prevent="" @endif
                         >
                             <i data-lucide="{{ $item['icon'] }}" class="h-3.5 w-3.5 shrink-0 opacity-70"></i>
-                            {{ $item['label'] }}
+                            <span x-html="highlight(@js($item['label']))"></span>
                         </a>
                     @endforeach
                 </div>
             </div>
         @endforeach
+        <div x-show="hasSearch() && !hasSearchResults()" x-cloak class="px-3 py-8 text-center">
+            <i data-lucide="search-x" class="mx-auto h-5 w-5 text-slate-300"></i>
+            <p class="mt-2 text-xs text-slate-400">Menu tidak ditemukan</p>
+        </div>
     </nav>
 
     {{-- User footer --}}
@@ -399,7 +416,9 @@
                 <i data-lucide="search" class="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
                 <input
                     type="text"
-                    placeholder="Cari tiket, pengguna..."
+                    x-model.debounce.50ms="searchQuery"
+                    @input="sidebarOpen = true"
+                    placeholder="Cari menu atau submenu..."
                     class="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-9 pr-4 text-sm text-slate-700 placeholder-slate-400 outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-500/15 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-200 dark:placeholder-slate-600 dark:focus:bg-white/[0.08]"
                 >
             </div>
@@ -457,6 +476,8 @@ document.addEventListener('alpine:init', () => {
         dark: document.documentElement.classList.contains('dark'),
         sidebarOpen: window.innerWidth >= 1024,
         openGroups: @json($initialOpen),
+        searchQuery: '',
+        navSearchGroups: @js($navSearchGroups),
 
         init() {
             this.$watch('dark', v => {
@@ -477,9 +498,9 @@ document.addEventListener('alpine:init', () => {
 
         toggleGroup(id) {
             if (this.openGroups.includes(id)) {
-                this.openGroups = this.openGroups.filter(g => g !== id);
+                this.openGroups = [];
             } else {
-                this.openGroups.push(id);
+                this.openGroups = [id];
                 this.$nextTick(() => {
                     if (typeof lucide !== 'undefined') lucide.createIcons();
                 });
@@ -489,7 +510,7 @@ document.addEventListener('alpine:init', () => {
         toggleSidebarGroup(id) {
             if (!this.sidebarOpen) {
                 this.sidebarOpen = true;
-                if (!this.openGroups.includes(id)) this.openGroups.push(id);
+                this.openGroups = [id];
                 this.$nextTick(() => {
                     if (typeof lucide !== 'undefined') lucide.createIcons();
                 });
@@ -498,7 +519,35 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        isOpen(id) { return this.openGroups.includes(id); },
+        normalizedSearch() { return this.searchQuery.trim().toLocaleLowerCase('id'); },
+        hasSearch() { return this.normalizedSearch().length > 0; },
+        groupMatches(id) {
+            if (!this.hasSearch()) return true;
+            const group = this.navSearchGroups.find(group => group.id === id);
+            if (!group) return false;
+            const query = this.normalizedSearch();
+            return group.label.toLocaleLowerCase('id').includes(query)
+                || group.items.some(label => label.toLocaleLowerCase('id').includes(query));
+        },
+        hasSearchResults() { return this.navSearchGroups.some(group => this.groupMatches(group.id)); },
+        itemMatches(groupLabel, itemLabel) {
+            if (!this.hasSearch()) return true;
+            const query = this.normalizedSearch();
+            return groupLabel.toLocaleLowerCase('id').includes(query)
+                || itemLabel.toLocaleLowerCase('id').includes(query);
+        },
+        highlight(label) {
+            const escaped = String(label)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+            if (!this.hasSearch()) return escaped;
+            const query = this.searchQuery.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return escaped.replace(new RegExp(`(${query})`, 'ig'), '<mark class="rounded bg-yellow-200 px-0.5 text-slate-900">$1</mark>');
+        },
+        isOpen(id) { return this.hasSearch() ? this.groupMatches(id) : this.openGroups.includes(id); },
     }));
 });
 </script>

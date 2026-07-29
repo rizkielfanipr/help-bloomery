@@ -71,7 +71,7 @@ class BriefingTask extends Model
     {
         $deadline = $this->deadlineAt();
 
-        return $deadline !== null && now()->isAfter($deadline);
+        return $deadline !== null && now()->greaterThanOrEqualTo($deadline);
     }
 
     public function deadlineLabel(): ?string
@@ -133,6 +133,24 @@ class BriefingTask extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (self $task): void {
+            $period = $task->period instanceof BriefingPeriod
+                ? $task->period
+                : BriefingPeriod::tryFrom((string) $task->period);
+
+            if ($period === BriefingPeriod::Weekly) {
+                $task->deadline_enabled = true;
+                $task->deadline_day = 7;
+                $task->deadline_time = '23:59:00';
+            }
+
+            if ($period === BriefingPeriod::Monthly) {
+                $task->deadline_enabled = true;
+                $task->deadline_day = 0;
+                $task->deadline_time = '23:59:00';
+            }
+        });
+
         static::saved(fn () => static::clearCache());
         static::deleted(fn () => static::clearCache());
     }

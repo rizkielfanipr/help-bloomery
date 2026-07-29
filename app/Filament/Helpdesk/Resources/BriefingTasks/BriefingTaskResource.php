@@ -23,6 +23,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -81,7 +82,23 @@ class BriefingTaskResource extends Resource
                         ->label('Periode')
                         ->options(BriefingPeriod::class)
                         ->required()
-                        ->live(),
+                        ->live()
+                        ->afterStateUpdated(function (BriefingPeriod|string|null $state, Set $set): void {
+                            $period = $state instanceof BriefingPeriod ? $state->value : $state;
+
+                            if ($period === BriefingPeriod::Weekly->value) {
+                                $set('deadline_enabled', true);
+                                $set('deadline_day', 7);
+                                $set('deadline_time', '23:59');
+                            }
+
+                            if ($period === BriefingPeriod::Monthly->value) {
+                                $set('deadline_enabled', true);
+                                $set('deadline_day', 0);
+                                $set('deadline_time', '23:59');
+                                $set('monthly_deadline_label', 'Tanggal terakhir bulan');
+                            }
+                        }),
 
                     Select::make('submission_type')
                         ->label('Jenis Input')
@@ -139,81 +156,68 @@ class BriefingTaskResource extends Resource
                 Toggle::make('deadline_enabled')
                     ->label('Aktifkan Deadline')
                     ->live()
-                    ->default(false),
+                    ->default(false)
+                    ->visible(function ($get): bool {
+                        $period = $get('period');
+                        $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                        return $value === 'daily';
+                    }),
 
                 Grid::make(2)->schema([
+                    Select::make('deadline_day')
+                        ->label('Hari Batas')
+                        ->options([7 => 'Minggu'])
+                        ->default(7)
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->visible(function ($get): bool {
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return $value === BriefingPeriod::Weekly->value;
+                        })
+                        ->helperText('Ditentukan otomatis untuk periode mingguan.'),
+
+                    TextInput::make('monthly_deadline_label')
+                        ->label('Tanggal Batas')
+                        ->default('Tanggal terakhir bulan')
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->visible(function ($get): bool {
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return $value === BriefingPeriod::Monthly->value;
+                        })
+                        ->helperText('Otomatis mengikuti jumlah hari pada bulan tersebut.'),
+
                     TimePicker::make('deadline_time')
                         ->label('Jam Batas')
                         ->seconds(false)
                         ->nullable()
-                        ->visible(fn ($get) => $get('deadline_enabled')),
-
-                    Select::make('deadline_day')
-                        ->label('Hari Batas')
-                        ->options([
-                            1 => 'Senin',
-                            2 => 'Selasa',
-                            3 => 'Rabu',
-                            4 => 'Kamis',
-                            5 => 'Jumat',
-                            6 => 'Sabtu',
-                            7 => 'Minggu',
-                        ])
-                        ->nullable()
-                        ->dehydrated(function ($get) {
+                        ->disabled(function ($get): bool {
                             $period = $get('period');
                             $value = $period instanceof BriefingPeriod ? $period->value : $period;
 
-                            return $value === 'weekly';
+                            return in_array($value, [BriefingPeriod::Weekly->value, BriefingPeriod::Monthly->value], true);
                         })
-                        ->visible(function ($get) {
-                            if (! $get('deadline_enabled')) {
-                                return false;
-                            }
+                        ->visible(function ($get): bool {
                             $period = $get('period');
                             $value = $period instanceof BriefingPeriod ? $period->value : $period;
 
-                            return $value === 'weekly';
+                            return in_array($value, [BriefingPeriod::Weekly->value, BriefingPeriod::Monthly->value], true)
+                                || ($value === BriefingPeriod::Daily->value && (bool) $get('deadline_enabled'));
+                        })
+                        ->helperText(function ($get): ?string {
+                            $period = $get('period');
+                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
+
+                            return in_array($value, [BriefingPeriod::Weekly->value, BriefingPeriod::Monthly->value], true)
+                                ? 'Terisi otomatis dan tidak dapat diubah.'
+                                : null;
                         }),
 
-                    TextInput::make('deadline_day')
-                        ->label('Tanggal Batas')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(31)
-                        ->nullable()
-                        ->helperText('Isi 1–31, atau 0 untuk hari terakhir bulan.')
-                        ->extraAttributes([
-                            'x-on:keydown' => "
-                                if (/^[0-9]$/.test(\$event.key)) {
-                                    const digits = \$el.value.replace(/[^0-9]/g, '');
-                                    if (digits.length >= 2) {
-                                        \$event.preventDefault();
-                                        alert('Tanggal hanya boleh 2 digit (0–31).');
-                                    }
-                                }
-                            ",
-                            'x-on:input' => '
-                                let v = parseInt($el.value);
-                                if (!isNaN(v) && v > 31) $el.value = 31;
-                                if (!isNaN(v) && v < 0) $el.value = 0;
-                            ',
-                        ])
-                        ->dehydrated(function ($get) {
-                            $period = $get('period');
-                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
-
-                            return $value === 'monthly';
-                        })
-                        ->visible(function ($get) {
-                            if (! $get('deadline_enabled')) {
-                                return false;
-                            }
-                            $period = $get('period');
-                            $value = $period instanceof BriefingPeriod ? $period->value : $period;
-
-                            return $value === 'monthly';
-                        }),
                 ]),
             ]),
         ]);

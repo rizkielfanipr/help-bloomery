@@ -94,5 +94,17 @@ class BriefingTasksSeeder extends Seeder
             uniqueBy: ['key'],
             update: ['branch_id', 'label', 'group', 'group_label', 'period', 'weight', 'submission_type', 'note_type', 'is_active', 'sort_order', 'deadline_enabled', 'deadline_day', 'deadline_time'],
         );
+
+        BriefingTask::query()->where('period', 'weekly')->update([
+            'deadline_enabled' => true,
+            'deadline_day' => 7,
+            'deadline_time' => '23:59:00',
+        ]);
+        BriefingTask::query()->where('period', 'monthly')->update([
+            'deadline_enabled' => true,
+            'deadline_day' => 0,
+            'deadline_time' => '23:59:00',
+        ]);
+        BriefingTask::clearCache();
     }
 }

@@ -264,7 +264,7 @@
         {{-- App User --}}
         <a
             x-show="!hasSearch()"
-            href="{{ env('APP_DOMAIN') ? 'https://' . env('APP_DOMAIN') . '/launcher-page' : url('casual/launcher-page') }}"
+            href="{{ config('app.domain') ? 'https://' . config('app.domain') . '/launcher-page' : url('casual/launcher-page') }}"
             target="_blank"
             class="group flex items-center rounded-xl py-2 text-[13px] font-medium transition-all duration-150 text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
             :class="sidebarOpen ? 'gap-3 px-3' : 'justify-center px-2'"

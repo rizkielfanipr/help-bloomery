@@ -28,7 +28,7 @@ class CasualPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        $domain = env('APP_DOMAIN');
+        $domain = config('app.domain');
 
         return $panel
             ->id('casual')

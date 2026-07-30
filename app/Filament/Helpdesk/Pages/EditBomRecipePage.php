@@ -2,7 +2,6 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
-use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Models\RndProjectBom;
 use App\Services\EsbCoreService;
 
@@ -18,10 +17,7 @@ class EditBomRecipePage extends CreateBomRecipePage
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-
-        return $user?->hasRole('SUPERADMIN')
-            || ($user?->can('edit bill of materials') ?? false);
+        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
     }
 
     public function mount(?int $project = null, ?int $product = null, ?int $bom = null): void

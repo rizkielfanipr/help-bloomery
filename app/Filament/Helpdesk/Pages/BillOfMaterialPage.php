@@ -2,8 +2,8 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
-use App\Services\EsbCoreService;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Services\EsbCoreService;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -45,10 +45,7 @@ class BillOfMaterialPage extends Page
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-
-        return $user?->hasRole('SUPERADMIN')
-            || ($user?->can('view bill of materials') ?? false);
+        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
     }
 
     public function mount(): void

@@ -56,6 +56,27 @@ it('SUPERADMIN role has all permissions', function () {
     }
 });
 
+it('keeps the entire R&D module exclusive to SUPERADMIN even when another role has R&D permissions', function () {
+    $rndStaff = User::factory()->create(['is_active' => true]);
+    $rndStaff->assignRole('RND_STAFF');
+
+    actingAs($rndStaff)
+        ->get('/rnd-projects')
+        ->assertForbidden();
+
+    actingAs($rndStaff)
+        ->get('/product-price-index')
+        ->assertForbidden();
+
+    actingAs($rndStaff)
+        ->get('/bill-of-material/create')
+        ->assertForbidden();
+
+    actingAs(superAdmin())
+        ->get('/rnd-projects')
+        ->assertOk();
+});
+
 // ─── UserResource access ──────────────────────────────────────────────────────
 
 it('SUPERADMIN can access user management', function () {

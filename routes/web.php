@@ -1,5 +1,8 @@
 <?php
 
+use App\Filament\Helpdesk\Pages\EditBomRecipePage;
+use App\Filament\Helpdesk\Pages\ViewBomPage;
+use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Http\Controllers\Casual\BriefingScorePdfController;
 use App\Http\Controllers\Helpdesk\BriefingExportController;
 use App\Http\Controllers\Helpdesk\BriefingScoreExportController;
@@ -7,9 +10,6 @@ use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
 use App\Http\Controllers\Helpdesk\CasualStaffExportController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
-use App\Filament\Helpdesk\Pages\EditBomRecipePage;
-use App\Filament\Helpdesk\Pages\ViewBomPage;
-use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Models\RndProjectBom;
 use Illuminate\Support\Facades\Route;
 
@@ -35,10 +35,15 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/rnd-projects/{project}/products/{product}/materials/export', RndProductEsbMaterialExportController::class)
         ->name('helpdesk.rnd-products.esb-materials-export');
 
-    Route::get('/bill-of-material/create', fn () => redirect()->to(ProjectResource::getUrl()))
+    Route::get('/bill-of-material/create', function () {
+        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
+
+        return redirect()->to(ProjectResource::getUrl());
+    })
         ->name('legacy.bill-of-material.create');
 
     Route::get('/bill-of-material/{bom}/view', function (int $bom) {
+        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
         $projectBom = RndProjectBom::query()->with('products:id')->where('esb_bom_id', $bom)->first();
         $product = $projectBom?->products->first();
 
@@ -48,6 +53,7 @@ Route::middleware(['auth'])->group(function (): void {
     })->name('legacy.bill-of-material.view');
 
     Route::get('/bill-of-material/{bom}/edit', function (int $bom) {
+        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
         $projectBom = RndProjectBom::query()->with('products:id')->where('esb_bom_id', $bom)->first();
         $product = $projectBom?->products->first();
 
@@ -56,11 +62,14 @@ Route::middleware(['auth'])->group(function (): void {
             : ProjectResource::getUrl());
     })->name('legacy.bill-of-material.edit');
 
-    Route::get('/rnd-projects/{project}/bom/create', fn (int $project) => redirect()->to(
-        ProjectResource::getUrl('view', ['record' => $project])
-    ))->name('legacy.rnd-projects.bom.create');
+    Route::get('/rnd-projects/{project}/bom/create', function (int $project) {
+        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
+
+        return redirect()->to(ProjectResource::getUrl('view', ['record' => $project]));
+    })->name('legacy.rnd-projects.bom.create');
 
     Route::get('/rnd-projects/{project}/bom/{bom}/{action}', function (int $project, int $bom, string $action) {
+        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
         abort_unless(in_array($action, ['view', 'edit'], true), 404);
         $projectBom = RndProjectBom::query()
             ->with('products:id')

@@ -3,20 +3,21 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
+use App\Models\RndBomInstruction;
+use App\Models\RndProductEsbMaterial;
+use App\Models\RndProductEsbMaterialUnit;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
-use App\Models\RndBomInstruction;
 use App\Models\RndProjectMarketingMaterial;
 use App\Models\RndProjectProduct;
-use App\Models\RndProductEsbMaterial;
 use App\Services\EsbCoreService;
 use App\Services\EsbService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\WithFileUploads;
 use Throwable;
@@ -177,10 +178,7 @@ class ViewProjectProductPage extends Page
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-
-        return $user?->hasRole('SUPERADMIN')
-            || ($user?->can('view rnd projects') && $user?->can('view bill of materials'));
+        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
     }
 
     public function mount(int $project, int $product): void
@@ -1357,7 +1355,7 @@ class ViewProjectProductPage extends Page
         }
 
         $unitSkus = collect($validated['esbMaterialUnits'])->pluck('sku');
-        $duplicateSku = \App\Models\RndProductEsbMaterialUnit::query()
+        $duplicateSku = RndProductEsbMaterialUnit::query()
             ->whereIn('sku', $unitSkus)
             ->when($material, fn ($query) => $query->where('rnd_product_esb_material_id', '!=', $material->id))
             ->exists();

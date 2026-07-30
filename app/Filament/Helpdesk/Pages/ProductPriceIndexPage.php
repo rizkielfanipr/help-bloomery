@@ -49,10 +49,7 @@ class ProductPriceIndexPage extends Page
 
     public static function canAccess(): bool
     {
-        $user = auth()->user();
-
-        return $user?->hasRole('SUPERADMIN')
-            || ($user?->can('view product price index') ?? false);
+        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
     }
 
     public function mount(): void

@@ -105,6 +105,7 @@
             'id'    => 'rnd',
             'label' => 'Research & Development',
             'icon'  => 'flask-conical',
+            'superadmin_only' => true,
             'items' => [
                 ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-projects.index'))],
                 ['label' => 'Product Price Index', 'icon' => 'chart-no-axes-combined', 'perm' => 'view product price index', 'href' => $r('filament.helpdesk.pages.product-price-index'), 'active' => $active($r('filament.helpdesk.pages.product-price-index'))],
@@ -178,6 +179,9 @@
 
     /* ── Filter groups by permission ───────────────────────────────*/
     $navGroups = array_values(array_filter(array_map(function (array $group) use ($user): ?array {
+        if (($group['superadmin_only'] ?? false) && ! $user?->hasRole('SUPERADMIN')) {
+            return null;
+        }
         $items = array_values(array_filter($group['items'], fn ($item) =>
             ! isset($item['perm']) || $user?->hasRole('SUPERADMIN') || $user?->can($item['perm'])
         ));

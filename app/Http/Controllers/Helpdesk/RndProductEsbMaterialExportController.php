@@ -20,7 +20,7 @@ class RndProductEsbMaterialExportController
     public function __invoke(Request $request, int $project, int $product): Response|BinaryFileResponse
     {
         $user = $request->user();
-        abort_unless($user?->hasRole('SUPERADMIN') || $user?->can('view rnd projects'), 403);
+        abort_unless($user?->hasRole('SUPERADMIN'), 403);
 
         $projectRecord = RndProject::query()->findOrFail($project);
         $productRecord = $projectRecord->products()->findOrFail($product);

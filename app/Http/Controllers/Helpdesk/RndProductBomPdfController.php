@@ -16,7 +16,7 @@ class RndProductBomPdfController extends Controller
     public function __invoke(int $project, int $product): Response
     {
         $user = auth()->user();
-        abort_unless($user?->hasRole('SUPERADMIN') || $user?->can('view bill of materials'), 403);
+        abort_unless($user?->hasRole('SUPERADMIN'), 403);
 
         $projectRecord = RndProject::query()->findOrFail($project);
         $productRecord = $projectRecord->products()->with('boms')->findOrFail($product);
@@ -51,8 +51,7 @@ class RndProductBomPdfController extends Controller
         $mainBoms = $productRecord->boms->where('pivot.usage_type', 'main');
         $autoWipBoms = $this->autoWipBoms($mainBoms, $details, $esb);
         $mainIds = $mainBoms->pluck('id');
-        $unassigned = $productRecord->boms->filter(fn ($bom) =>
-            $bom->pivot->usage_type !== 'main'
+        $unassigned = $productRecord->boms->filter(fn ($bom) => $bom->pivot->usage_type !== 'main'
             && (! $bom->pivot->parent_rnd_project_bom_id || ! $mainIds->contains($bom->pivot->parent_rnd_project_bom_id))
         );
         $logo = 'data:image/png;base64,'.base64_encode(
@@ -123,5 +122,4 @@ class RndProductBomPdfController extends Controller
 
         return $result;
     }
-
 }

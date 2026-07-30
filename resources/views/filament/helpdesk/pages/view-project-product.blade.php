@@ -744,11 +744,11 @@
 
         @if($importModalOpen)
             <div wire:init="loadImportBoms" class="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6">
-                <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/50" wire:click="closeModal('import')"></button>
+                <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/50" wire:click="closeModal('import')" wire:loading.attr="disabled" wire:target="attachBom"></button>
                 <div class="relative flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                     <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                         <div><h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $bomGroups[$importUsageType]['button'] ?? 'Add BOM' }}</h3><p class="text-sm text-gray-500">Pilih BOM untuk kelompok {{ $bomGroups[$importUsageType]['title'] ?? 'BOM' }}.</p></div>
-                        <button type="button" wire:click="closeModal('import')" class="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
+                        <button type="button" wire:click="closeModal('import')" wire:loading.attr="disabled" wire:target="attachBom" class="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
                     </div>
                     <div class="relative min-h-0 flex-1 overflow-auto">
                         <div wire:loading.flex wire:target="loadImportBoms" class="absolute inset-0 z-40 items-center justify-center bg-white/80 backdrop-blur-[2px] dark:bg-gray-900/80" role="status">
@@ -758,6 +758,15 @@
                                 <div class="absolute inset-[10px] animate-[spin_1.2s_linear_infinite_reverse] rounded-full border-2 border-transparent border-b-blue-500"></div>
                             </div>
                             <span class="sr-only">Memuat daftar BOM...</span>
+                        </div>
+                        <div wire:loading.flex wire:target="attachBom" class="absolute inset-0 z-50 flex-col items-center justify-center bg-white/90 px-6 text-center backdrop-blur-[2px] dark:bg-gray-900/90" role="status" aria-live="polite">
+                            <div class="relative h-16 w-16">
+                                <div class="absolute inset-0 rounded-full border-4 border-blue-100 dark:border-blue-950"></div>
+                                <div class="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-r-blue-400 border-t-blue-600"></div>
+                                <div class="absolute inset-[11px] animate-[spin_1.1s_linear_infinite_reverse] rounded-full border-2 border-transparent border-b-violet-500 border-l-violet-300"></div>
+                            </div>
+                            <p class="mt-4 text-sm font-bold text-gray-900 dark:text-white">Menambahkan Bill of Material...</p>
+                            <p class="mt-1 max-w-md text-xs leading-5 text-gray-500 dark:text-gray-400">Mengambil detail BOM dari ESB dan memetakan komponen WIP serta packaging secara otomatis.</p>
                         </div>
                         @php
                             $importUnitOptions = collect($importBomOptions)->pluck('uomName')->filter()->unique()->sort()->values();
@@ -800,7 +809,7 @@
                                         <td class="px-4 py-3"><p class="truncate">{{ $bom['productName'] ?: '-' }}</p></td>
                                         <td class="px-4 py-3"><span class="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">{{ $bom['uomName'] ?: '-' }}</span></td>
                                         <td class="px-4 py-3">{{ $bom['bomTypeName'] ?? 'Assembly' }}</td>
-                                        <td class="px-4 py-3 text-right"><button type="button" wire:click="attachBom({{ $bom['bomID'] }})" class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700">Tambahkan</button></td>
+                                        <td class="px-4 py-3 text-right"><button type="button" wire:click="attachBom({{ $bom['bomID'] }})" wire:loading.attr="disabled" wire:target="attachBom" class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60">Tambahkan</button></td>
                                     </tr>
                                 @empty
                                     <tr><td colspan="6" class="px-4 py-12 text-center text-gray-500">Tidak ada BOM yang dapat diimport.</td></tr>

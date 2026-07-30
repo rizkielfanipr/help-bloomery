@@ -17,7 +17,11 @@
         };
     @endphp
 
-    <div class="space-y-6">
+    <div
+        class="space-y-6"
+        x-data
+        x-on:run-rnd-bom-mapping.window="$nextTick(() => $wire.refreshWipComponentRecipes())"
+    >
         <section class="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:border-blue-900/50 dark:from-blue-950/40 dark:to-indigo-950/40">
             <div class="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
                 <div class="flex min-w-0 flex-1 flex-col gap-5 sm:flex-row sm:items-center">

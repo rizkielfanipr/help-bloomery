@@ -564,12 +564,13 @@ class ViewProjectProductPage extends Page
             Cache::forget("rnd.wip-recipes.v2.{$projectBom->esb_bom_id}");
             Cache::forget("rnd.wip-recipes.v3.{$projectBom->esb_bom_id}");
             Cache::forget("rnd.wip-recipes.v4.{$projectBom->esb_bom_id}");
-            if ($this->importUsageType === 'main') {
-                $this->discoverWipComponentRecipes(true);
-            }
+            $shouldMapComponents = $this->importUsageType === 'main';
             $this->importModalOpen = false;
             $this->dispatch('close-import-bom');
             Notification::make()->title('BOM berhasil ditambahkan ke product')->success()->send();
+            if ($shouldMapComponents) {
+                $this->dispatch('run-rnd-bom-mapping');
+            }
         } catch (\RuntimeException $exception) {
             Notification::make()->title('BOM gagal ditambahkan')->body($exception->getMessage())->danger()->send();
         }

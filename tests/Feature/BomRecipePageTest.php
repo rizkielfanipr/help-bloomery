@@ -367,6 +367,8 @@ it('automatically displays a matching Barang WIP recipe below its main recipe', 
         'product' => $this->product->id,
     ])->set('importUsageType', 'main')
         ->call('attachBom', 42)
+        ->assertDispatched('run-rnd-bom-mapping')
+        ->call('refreshWipComponentRecipes')
         ->assertSee('AUTO · BARANG WIP')
         ->assertSee('Resep Adonan Bitterballen')
         ->assertSee('Tepung Premium')

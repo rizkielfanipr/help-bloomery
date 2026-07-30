@@ -563,6 +563,7 @@ class ViewProjectProductPage extends Page
             Cache::forget("rnd.wip-recipes.{$projectBom->esb_bom_id}");
             Cache::forget("rnd.wip-recipes.v2.{$projectBom->esb_bom_id}");
             Cache::forget("rnd.wip-recipes.v3.{$projectBom->esb_bom_id}");
+            Cache::forget("rnd.wip-recipes.v4.{$projectBom->esb_bom_id}");
             if ($this->importUsageType === 'main') {
                 $this->discoverWipComponentRecipes(true);
             }
@@ -690,6 +691,7 @@ class ViewProjectProductPage extends Page
             Cache::forget("rnd.wip-recipes.{$bom->esb_bom_id}");
             Cache::forget("rnd.wip-recipes.v2.{$bom->esb_bom_id}");
             Cache::forget("rnd.wip-recipes.v3.{$bom->esb_bom_id}");
+            Cache::forget("rnd.wip-recipes.v4.{$bom->esb_bom_id}");
         }
 
         $this->discoverWipComponentRecipes(true);
@@ -703,7 +705,6 @@ class ViewProjectProductPage extends Page
 
         try {
             $core = app(EsbCoreService::class);
-            $products = app(EsbService::class);
             $mainBoms = $this->productRecord->boms->filter(
                 fn (RndProjectBom $bom): bool => $bom->pivot->usage_type === 'main',
             );
@@ -730,7 +731,7 @@ class ViewProjectProductPage extends Page
                     ->values()
                     ->all();
 
-                $cacheKey = "rnd.wip-recipes.v3.{$mainBom->esb_bom_id}";
+                $cacheKey = "rnd.wip-recipes.v4.{$mainBom->esb_bom_id}";
                 if ($force) {
                     Cache::forget($cacheKey);
                 }
@@ -738,37 +739,21 @@ class ViewProjectProductPage extends Page
                 $this->autoWipComponentRecipes[$mainBom->id] = Cache::remember(
                     $cacheKey,
                     now()->addMinutes(30),
-                    function () use ($mainDetail, $mainBom, $core, $products): array {
+                    function () use ($mainDetail, $mainBom, $core): array {
                         $recipes = [];
 
                         foreach ($mainDetail['bomDetails'] ?? [] as $component) {
                             $productDetailId = (int) ($component['productDetailID'] ?? 0);
+                            $productCode = strtoupper(trim((string) ($component['productCode'] ?? '')));
+                            $isWipCode = str_starts_with($productCode, 'BW');
                             $categoryName = trim((string) ($component['categoryName'] ?? ''));
-                            $product = null;
 
-                            if ($categoryName === '') {
-                                $product = $products->findActiveProductDetail(
-                                    $productDetailId,
-                                    (string) ($component['productCode'] ?? ''),
-                                    (string) ($component['productName'] ?? ''),
-                                );
-                                $categoryName = trim((string) ($product['categoryName'] ?? ''));
-                            }
-
-                            if (mb_strtolower($categoryName) !== 'barang wip') {
+                            if (! $isWipCode && mb_strtolower($categoryName) !== 'barang wip') {
                                 continue;
                             }
 
-                            $productName = (string) (
-                                $product['productName']
-                                ?? $component['productName']
-                                ?? ''
-                            );
-                            $productId = (int) (
-                                $product['productID']
-                                ?? $component['productID']
-                                ?? 0
-                            );
+                            $productName = (string) ($component['productName'] ?? '');
+                            $productId = (int) ($component['productID'] ?? 0);
                             $candidates = $core->getBillOfMaterials([
                                 'productName' => $productName,
                                 'limit' => 100,
@@ -784,8 +769,10 @@ class ViewProjectProductPage extends Page
                                 $sameProductDetail = (int) ($detail['productDetailID'] ?? 0) === $productDetailId;
                                 $sameMasterProduct = $productId > 0
                                     && (int) ($detail['productID'] ?? 0) === $productId;
+                                $sameProductCode = $productCode !== ''
+                                    && strtoupper(trim((string) ($detail['productCode'] ?? ''))) === $productCode;
 
-                                if (! $sameProductDetail && ! $sameMasterProduct) {
+                                if (! $sameProductDetail && ! $sameMasterProduct && ! $sameProductCode) {
                                     continue;
                                 }
 
@@ -795,7 +782,7 @@ class ViewProjectProductPage extends Page
                                     'bomCode' => (string) ($detail['bomCode'] ?? $candidate['bomCode'] ?? ''),
                                     'bomName' => (string) ($detail['bomName'] ?? $candidate['bomName'] ?? ''),
                                     'productDetailID' => $productDetailId,
-                                    'productCode' => (string) ($component['productCode'] ?? ''),
+                                    'productCode' => $productCode,
                                     'productName' => $productName,
                                     'uomName' => (string) ($detail['uomName'] ?? $component['uomName'] ?? ''),
                                     'sourceQty' => (float) ($component['qty'] ?? 0),

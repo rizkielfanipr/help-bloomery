@@ -4,17 +4,17 @@ use App\Filament\Helpdesk\Pages\CreateBomRecipePage;
 use App\Filament\Helpdesk\Pages\EditBomRecipePage;
 use App\Filament\Helpdesk\Pages\ViewBomPage;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
-use App\Models\RndProjectProduct;
+use App\Models\RndBomInstruction;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
-use App\Models\RndBomInstruction;
+use App\Models\RndProjectProduct;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -292,11 +292,11 @@ it('automatically displays a matching Barang WIP recipe below its main recipe', 
 
     $mainDetail = bomDetail();
     $mainDetail['bomDetails'][0] = array_merge($mainDetail['bomDetails'][0], [
-        'productID' => 800,
+        'productID' => 0,
         'productDetailID' => 200,
         'productCode' => 'BW0200',
         'productName' => 'Adonan Bitterballen',
-        'categoryName' => 'Barang WIP',
+        'categoryName' => '',
         'uomName' => 'Resep',
         'qty' => 2,
     ]);
@@ -317,7 +317,7 @@ it('automatically displays a matching Barang WIP recipe below its main recipe', 
         'bomID' => 99,
         'bomCode' => 'BOM-ATL',
         'bomName' => 'Resep Adonan Bitterballen',
-        'productID' => 800,
+        'productID' => 999,
         'productDetailID' => 201,
         'productCode' => 'BW0200',
         'productName' => 'Adonan Bitterballen',
@@ -383,8 +383,8 @@ it('stores sanitized BOM instructions and process images on R2', function () {
         'project' => $this->project->id,
         'product' => $this->product->id,
     ])->set('bomInstructionInlineUploads.1054', [
-            UploadedFile::fake()->image('proses-crepes.jpg', 800, 600),
-        ])
+        UploadedFile::fake()->image('proses-crepes.jpg', 800, 600),
+    ])
         ->call('saveInlineBomInstruction', 1054, '<h2 onclick="alert(1)">Cara Membuat</h2><p>Aduk perlahan.</p><script>alert(1)</script>')
         ->assertHasNoErrors();
 

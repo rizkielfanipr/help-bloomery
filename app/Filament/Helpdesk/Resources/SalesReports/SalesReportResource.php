@@ -159,7 +159,7 @@ class SalesReportResource extends Resource
         $user = auth()->user();
 
         if ($user && ! $user->access_all_branches && ! $user->hasAnyRole(['SUPERADMIN', 'FINANCE_STAFF'])) {
-            $query->where('branch_id', $user->branch_id);
+            $query->whereIn('branch_id', $user->accessibleBranchIds());
         }
 
         return $query;
@@ -174,7 +174,7 @@ class SalesReportResource extends Resource
 
         return $user->access_all_branches
             || $user->hasAnyRole(['SUPERADMIN', 'FINANCE_STAFF'])
-            || $user->branch_id === $record->branch_id;
+            || $user->canAccessBranch($record->branch_id);
     }
 
     public static function getPages(): array

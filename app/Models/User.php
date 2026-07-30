@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
@@ -58,7 +60,70 @@ class User extends Authenticatable implements FilamentUser
 
     public function supervisedBranches(): BelongsToMany
     {
-        return $this->belongsToMany(Branch::class, 'user_branches');
+        return $this->belongsToMany(Branch::class, 'user_branches')->withPivot('is_primary');
+    }
+
+    public function accessibleBranches(): BelongsToMany
+    {
+        return $this->supervisedBranches();
+    }
+
+    public function primaryBranchId(): ?int
+    {
+        $pivotPrimary = $this->accessibleBranches()
+            ->wherePivot('is_primary', true)
+            ->value('branches.id');
+
+        return $pivotPrimary ? (int) $pivotPrimary : ($this->branch_id ? (int) $this->branch_id : null);
+    }
+
+    public function accessibleBranchIds(): Collection
+    {
+        if ($this->access_all_branches) {
+            return Branch::query()->pluck('id')->map(fn ($id): int => (int) $id);
+        }
+
+        $ids = $this->accessibleBranches()->pluck('branches.id');
+        if ($this->branch_id) {
+            $ids->push($this->branch_id);
+        }
+
+        return $ids->map(fn ($id): int => (int) $id)->unique()->values();
+    }
+
+    public function canAccessBranch(?int $branchId): bool
+    {
+        if (! $branchId) {
+            return false;
+        }
+
+        return $this->access_all_branches
+            || $this->hasRole('SUPERADMIN')
+            || $this->accessibleBranchIds()->contains($branchId);
+    }
+
+    public function syncBranchAccess(array $branchIds, ?int $primaryBranchId): void
+    {
+        $branchIds = collect($branchIds)
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($primaryBranchId && ! $branchIds->contains($primaryBranchId)) {
+            $branchIds->push($primaryBranchId);
+        }
+
+        if (! $primaryBranchId && $branchIds->count() === 1) {
+            $primaryBranchId = $branchIds->first();
+        }
+
+        DB::transaction(function () use ($branchIds, $primaryBranchId): void {
+            $this->accessibleBranches()->sync($branchIds->mapWithKeys(
+                fn (int $branchId): array => [$branchId => ['is_primary' => $branchId === $primaryBranchId]],
+            )->all());
+            $this->forceFill(['branch_id' => $primaryBranchId])->saveQuietly();
+        });
     }
 
     public function casualPosition(): BelongsTo

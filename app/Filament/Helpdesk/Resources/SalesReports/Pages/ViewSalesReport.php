@@ -51,7 +51,7 @@ class ViewSalesReport extends Page
         return $this->record->status === SalesReportStatus::PendingSupervisor
             && $user?->can('review sales reports as supervisor')
             && ($user->hasRole('SUPERADMIN') || $user->id !== $this->record->submitted_by)
-            && ($user->hasRole('SUPERADMIN') || $user->access_all_branches || $user->branch_id === $this->record->branch_id);
+            && ($user->hasRole('SUPERADMIN') || $user->canAccessBranch($this->record->branch_id));
     }
 
     public function canReviewAsFinance(): bool

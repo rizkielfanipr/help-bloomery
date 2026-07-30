@@ -326,7 +326,7 @@ class BriefingItemResource extends Resource
             return $query;
         }
 
-        $supervisedBranchIds = $user->supervisedBranches()->pluck('branches.id');
+        $supervisedBranchIds = $user->accessibleBranchIds();
 
         return $query->whereIn('branches.id', $supervisedBranchIds);
     }

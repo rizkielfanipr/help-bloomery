@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
+use App\Models\Branch;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -17,6 +18,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -138,22 +140,41 @@ class UserResource extends Resource
                             ->default(false)
                             ->live(),
 
-                        Select::make('branch_id')
-                            ->label('Cabang Utama')
-                            ->relationship('branch', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->helperText('Cabang ini digunakan di aplikasi user, termasuk Sales Report, Stock Card, dan pengajuan lainnya.')
-                            ->nullable(),
-
-                        Select::make('supervisedBranches')
-                            ->label('Cabang yang Diawasi')
+                        Select::make('branch_access_ids')
+                            ->label('Akses Cabang')
                             ->multiple()
-                            ->relationship('supervisedBranches', 'name')
+                            ->options(fn () => Branch::query()->orderBy('name')->pluck('name', 'id'))
                             ->searchable()
                             ->preload()
-                            ->hidden(fn (Get $get): bool => (bool) $get('access_all_branches'))
-                            ->helperText('Khusus cakupan monitoring/approval SPV; tidak mengubah cabang utama user.'),
+                            ->live()
+                            ->afterStateUpdated(function (?array $state, Get $get, Set $set): void {
+                                $ids = array_map('intval', $state ?? []);
+                                $primary = (int) $get('primary_branch_id');
+
+                                if (count($ids) === 1) {
+                                    $set('primary_branch_id', $ids[0]);
+                                } elseif ($primary && ! in_array($primary, $ids, true)) {
+                                    $set('primary_branch_id', null);
+                                }
+                            })
+                            ->required(fn (Get $get): bool => ! (bool) $get('access_all_branches'))
+                            ->helperText('Menentukan seluruh cabang yang dapat dilihat, dimonitor, dan di-approve oleh user.'),
+
+                        Select::make('primary_branch_id')
+                            ->label('Cabang Utama / Default')
+                            ->options(function (Get $get): array {
+                                $ids = array_map('intval', $get('branch_access_ids') ?? []);
+
+                                return Branch::query()
+                                    ->whereIn('id', $ids)
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->all();
+                            })
+                            ->searchable()
+                            ->visible(fn (Get $get): bool => count($get('branch_access_ids') ?? []) > 1)
+                            ->required(fn (Get $get): bool => count($get('branch_access_ids') ?? []) > 1)
+                            ->helperText('Cabang default untuk Sales Report, Stock Card, Daily Briefing, dan pengajuan dari aplikasi user.'),
 
                         Toggle::make('is_active')
                             ->label('Aktif')

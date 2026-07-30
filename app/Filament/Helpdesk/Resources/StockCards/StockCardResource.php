@@ -123,4 +123,24 @@ class StockCardResource extends Resource
             'view' => ViewStockCard::route('/{record}'),
         ];
     }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery()->with(['branch', 'submittedBy']);
+        $user = auth()->user();
+
+        if ($user && ! $user->access_all_branches && ! $user->hasRole('SUPERADMIN')) {
+            $query->whereIn('branch_id', $user->accessibleBranchIds());
+        }
+
+        return $query;
+    }
+
+    public static function canView($record): bool
+    {
+        $user = auth()->user();
+
+        return parent::canView($record)
+            && ($user?->hasRole('SUPERADMIN') || $user?->canAccessBranch($record->branch_id));
+    }
 }

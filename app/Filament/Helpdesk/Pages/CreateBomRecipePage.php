@@ -2,6 +2,10 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
+use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Models\RndProject;
+use App\Models\RndProjectBom;
+use App\Models\RndProjectProduct;
 use App\Services\EsbCoreService;
 use App\Services\EsbService;
 use BackedEnum;
@@ -20,13 +24,21 @@ class CreateBomRecipePage extends Page
 
     protected static ?string $title = 'Buat Resep Assembly';
 
-    protected static ?string $slug = 'bill-of-material/create';
+    protected static ?string $slug = 'rnd-projects/{project}/products/{product}/bom/create';
 
-    protected static ?int $navigationSort = 2;
+    protected static bool $shouldRegisterNavigation = false;
 
     protected string $view = 'filament.helpdesk.pages.create-bom-recipe';
 
     public array $data = [];
+
+    public int $projectId;
+
+    public string $projectName = '';
+
+    public int $productId;
+
+    public string $productName = '';
 
     public bool $isEditing = false;
 
@@ -82,8 +94,17 @@ class CreateBomRecipePage extends Page
             || ($user?->can('create bill of materials') ?? false);
     }
 
-    public function mount(?int $bom = null): void
+    public function mount(?int $project = null, ?int $product = null, ?int $bom = null): void
     {
+        abort_unless($project && $product, 404);
+        $projectRecord = RndProject::query()->findOrFail($project);
+        abort_unless(ProjectResource::canView($projectRecord), 403);
+        $productRecord = $projectRecord->products()->findOrFail($product);
+        $this->projectId = $projectRecord->id;
+        $this->projectName = $projectRecord->name;
+        $this->productId = $productRecord->id;
+        $this->productName = $productRecord->name;
+
         $this->data = [
             'bomName' => '',
             'bomCode' => '',
@@ -347,6 +368,7 @@ class CreateBomRecipePage extends Page
 
         try {
             $bomId = $this->persistBom($payload);
+            $this->syncProjectBom($bomId, $payload);
 
             Notification::make()
                 ->title($this->isEditing ? 'BOM berhasil diperbarui' : 'Resep berhasil dibuat')
@@ -367,7 +389,37 @@ class CreateBomRecipePage extends Page
 
     protected function successRedirectUrl(int $bomId): string
     {
-        return BillOfMaterialPage::getUrl();
+        return ViewProjectProductPage::getUrl([
+            'project' => $this->projectId,
+            'product' => $this->productId,
+        ]);
+    }
+
+    protected function syncProjectBom(int $bomId, array $payload): void
+    {
+        $resultProduct = $this->selectedProducts[(int) $payload['productDetailID']] ?? [];
+
+        $projectBom = RndProjectBom::query()->updateOrCreate(
+            ['esb_bom_id' => $bomId],
+            [
+                'rnd_project_id' => $this->projectId,
+                'bom_code' => $payload['bomCode'],
+                'bom_name' => $payload['bomName'],
+                'product_name' => $resultProduct['productName'] ?? null,
+                'uom_name' => ($resultProduct['baseUnit'] ?? '') ?: ($resultProduct['unit'] ?? null),
+                'bom_type_name' => 'Assembly',
+                'is_active' => true,
+                'sync_status' => 'synced',
+                'created_by' => auth()->id(),
+                'last_synced_at' => now(),
+            ],
+        );
+
+        RndProjectProduct::query()
+            ->where('rnd_project_id', $this->projectId)
+            ->findOrFail($this->productId)
+            ->boms()
+            ->syncWithoutDetaching([$projectBom->id => ['usage_type' => 'main']]);
     }
 
     protected function emptyMaterial(): array

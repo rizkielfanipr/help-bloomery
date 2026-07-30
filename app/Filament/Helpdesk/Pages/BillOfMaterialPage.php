@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Services\EsbCoreService;
+use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -21,6 +22,8 @@ class BillOfMaterialPage extends Page
     protected static ?string $slug = 'bill-of-material';
 
     protected static ?int $navigationSort = 1;
+
+    protected static bool $shouldRegisterNavigation = false;
 
     protected string $view = 'filament.helpdesk.pages.bill-of-material';
 
@@ -50,7 +53,7 @@ class BillOfMaterialPage extends Page
 
     public function mount(): void
     {
-        $this->fetch();
+        $this->redirect(ProjectResource::getUrl());
     }
 
     public function search(): void

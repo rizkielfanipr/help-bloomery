@@ -111,8 +111,6 @@
             'label' => 'Research & Development',
             'icon'  => 'flask-conical',
             'items' => [
-                ['label' => 'Bill of Material', 'icon' => 'beaker', 'perm' => 'view bill of materials', 'href' => $r('filament.helpdesk.pages.bill-of-material'), 'active' => request()->is('bill-of-material')],
-                ['label' => 'Buat Resep', 'icon' => 'file-plus-2', 'perm' => 'create bill of materials', 'href' => $r('filament.helpdesk.pages.bill-of-material.create'), 'active' => request()->is('bill-of-material/create')],
                 ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => request()->is('rnd-projects*')],
             ],
         ],

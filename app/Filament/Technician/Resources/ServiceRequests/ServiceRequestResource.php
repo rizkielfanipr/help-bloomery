@@ -28,7 +28,7 @@ class ServiceRequestResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasAnyRole(['super_admin', 'technician']);
+        return auth()->user()->hasAnyRole(['SUPERADMIN', 'TECHNICIAN']);
     }
 
     public static function canCreate(): bool
@@ -79,7 +79,7 @@ class ServiceRequestResource extends Resource
     {
         $query = parent::getEloquentQuery()->with(['technician', 'repairs.technician']);
 
-        if (auth()->user()->hasRole('super_admin')) {
+        if (auth()->user()->hasRole('SUPERADMIN')) {
             return $query;
         }
 

@@ -1,0 +1,253 @@
+<x-filament-panels::page>
+    @php
+        $project = $this->record;
+        $status = today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active');
+        $canManage = \App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project);
+        $input = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
+        $label = 'mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200';
+    @endphp
+
+    <div class="space-y-6" x-data="{ productFormOpen: false }"
+         @open-product-form.window="productFormOpen = true"
+         @close-product-form.window="productFormOpen = false"
+         @keydown.escape.window="productFormOpen = false">
+        <section class="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
+            <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('index') }}" class="text-sm font-semibold text-blue-100 hover:text-white">Project</a>
+                        <span class="text-blue-300">/</span>
+                        <span class="rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold">{{ $status }}</span>
+                    </div>
+                    <h2 class="mt-3 text-3xl font-bold">{{ $project->name }}</h2>
+                    <p class="mt-2 max-w-3xl text-sm leading-6 text-blue-100">{{ $project->description ?: 'Tidak ada deskripsi project.' }}</p>
+                </div>
+                <div class="grid min-w-72 grid-cols-2 gap-3">
+                    <div class="rounded-xl bg-white/10 p-3 backdrop-blur">
+                        <p class="text-xs text-blue-100">Periode</p>
+                        <p class="mt-1 text-sm font-bold">{{ $project->start_date->format('d M') }} – {{ $project->end_date->format('d M Y') }}</p>
+                    </div>
+                    <div class="rounded-xl bg-white/10 p-3 backdrop-blur">
+                        <p class="text-xs text-blue-100">Product Release</p>
+                        <p class="mt-1 text-sm font-bold">{{ $project->products->count() }} Product</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div>
+            <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Product Release</h3>
+                        <p class="text-sm text-gray-500">Daftar produk yang dikembangkan dan akan dirilis dalam project ini.</p>
+                    </div>
+                    @if($canManage)
+                        <button type="button" wire:click="openCreateProduct" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
+                            <x-heroicon-o-plus class="h-4 w-4" />
+                            Tambah Product
+                        </button>
+                    @endif
+                </div>
+
+                <div class="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
+                    @forelse($project->products as $product)
+                        @php
+                            $imageUrl = $product->imageUrl();
+                            $statusStyle = match($product->status) {
+                                'released' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+                                'ready' => 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+                                'trial' => 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+                                'development' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+                                'cancelled' => 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+                                default => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+                            };
+                            $activePrices = $product->currentRegionalPrices->unique('sales_region_id');
+                            $offlineMin = $activePrices->min('offline_price');
+                            $offlineMax = $activePrices->max('offline_price');
+                            $onlineMin = $activePrices->min('online_price');
+                            $onlineMax = $activePrices->max('online_price');
+                        @endphp
+                        <article class="flex flex-col rounded-xl border border-gray-200 p-4 transition hover:border-blue-300 dark:border-gray-700 dark:hover:border-blue-700">
+                            <div class="flex items-start justify-between gap-3">
+                                @if($imageUrl)
+                                    <img src="{{ $imageUrl }}" alt="{{ $product->name }}" class="h-12 w-12 rounded-lg border border-gray-200 object-cover dark:border-gray-700">
+                                @else
+                                    <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300">
+                                        <x-heroicon-o-cake class="h-6 w-6" />
+                                    </div>
+                                @endif
+                                <span class="rounded-full px-2.5 py-1 text-[11px] font-bold {{ $statusStyle }}">{{ \App\Models\RndProjectProduct::STATUSES[$product->status] ?? ucfirst($product->status) }}</span>
+                            </div>
+                            <p class="mt-3 font-mono text-xs font-bold text-blue-600">{{ $product->product_code ?: 'Belum ada kode' }}</p>
+                            <h4 class="mt-1 text-base font-bold text-gray-900 dark:text-white">{{ $product->name }}</h4>
+                            <p class="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-gray-500">{{ $product->description ?: 'Tidak ada deskripsi produk.' }}</p>
+
+                            <div class="mt-3 grid grid-cols-2 gap-2">
+                                <div class="rounded-lg bg-gray-50 p-2.5 dark:bg-gray-800/60">
+                                    <p class="text-[11px] text-gray-400">Harga Offline</p>
+                                    <p class="mt-0.5 text-sm font-bold text-gray-800 dark:text-gray-100">
+                                        @if($offlineMin === null)Belum diatur
+                                        @elseif((float) $offlineMin === (float) $offlineMax)Rp {{ number_format((float) $offlineMin, 0, ',', '.') }}
+                                        @else Rp {{ number_format((float) $offlineMin, 0, ',', '.') }}–{{ number_format((float) $offlineMax, 0, ',', '.') }}
+                                        @endif
+                                    </p>
+                                </div>
+                                <div class="rounded-lg bg-gray-50 p-2.5 dark:bg-gray-800/60">
+                                    <p class="text-[11px] text-gray-400">Harga Online</p>
+                                    <p class="mt-0.5 text-sm font-bold text-gray-800 dark:text-gray-100">
+                                        @if($onlineMin === null)Belum diatur
+                                        @elseif((float) $onlineMin === (float) $onlineMax)Rp {{ number_format((float) $onlineMin, 0, ',', '.') }}
+                                        @else Rp {{ number_format((float) $onlineMin, 0, ',', '.') }}–{{ number_format((float) $onlineMax, 0, ',', '.') }}
+                                        @endif
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 flex items-center justify-between text-xs text-gray-500">
+                                <span>{{ $product->release_date ? 'Rilis '.$product->release_date->format('d M Y') : 'Tanggal rilis belum diatur' }} · {{ $activePrices->count() }} Region</span>
+                                <span class="font-bold text-blue-600">{{ $product->boms->count() }} BOM</span>
+                            </div>
+
+                            <div class="mt-auto flex items-center gap-2 pt-4">
+                                <a href="{{ \App\Filament\Helpdesk\Pages\ViewProjectProductPage::getUrl(['project' => $project->id, 'product' => $product->id]) }}" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
+                                    Buka Product
+                                    <x-heroicon-o-arrow-right class="h-4 w-4" />
+                                </a>
+                                @if($canManage)
+                                    <button type="button" wire:click="editProduct({{ $product->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Product">
+                                        <x-heroicon-o-pencil-square class="h-4 w-4" />
+                                    </button>
+                                    <button type="button" wire:click="deleteProduct({{ $product->id }})" wire:confirm="Hapus product ini?" class="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30" title="Hapus Product">
+                                        <x-heroicon-o-trash class="h-4 w-4" />
+                                    </button>
+                                @endif
+                            </div>
+                        </article>
+                    @empty
+                        <div class="col-span-full rounded-xl border border-dashed border-gray-300 py-14 text-center dark:border-gray-700">
+                            <x-heroicon-o-cake class="mx-auto h-11 w-11 text-gray-300" />
+                            <h4 class="mt-3 font-bold text-gray-700 dark:text-gray-200">Belum ada Product Release</h4>
+                            <p class="mt-1 text-sm text-gray-500">Tambahkan produk sebelum membuat atau mengimport BOM.</p>
+                        </div>
+                    @endforelse
+                </div>
+            </section>
+
+        </div>
+
+        <template x-teleport="body">
+            <div x-show="productFormOpen" x-cloak class="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6">
+                <div class="absolute inset-0 bg-slate-950/50" @click="productFormOpen = false"></div>
+                <div x-show="productFormOpen" x-transition class="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $editingProductId ? 'Edit Product Release' : 'Tambah Product Release' }}</h3>
+                            <p class="text-sm text-gray-500">Lengkapi informasi produk dan harga penjualan.</p>
+                        </div>
+                        <button type="button" @click="productFormOpen = false" class="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
+                    </div>
+                    <form wire:submit="saveProduct" class="space-y-4 p-5">
+                        <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                            <label class="{{ $label }}">Foto Product</label>
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+                                <div class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
+                                    @if($productPhoto)
+                                        <img src="{{ $productPhoto->temporaryUrl() }}" alt="Preview foto product" class="h-full w-full object-cover">
+                                    @elseif($this->productImageUrl())
+                                        <img src="{{ $this->productImageUrl() }}" alt="Foto product" class="h-full w-full object-cover">
+                                    @else
+                                        <x-heroicon-o-photo class="h-9 w-9 text-gray-300" />
+                                    @endif
+                                </div>
+                                <div class="flex-1">
+                                    <input wire:model="productPhoto" type="file" accept="image/jpeg,image/png,image/webp"
+                                           class="block w-full rounded-lg border border-gray-300 bg-white text-sm text-gray-600 file:mr-3 file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-bold file:text-blue-700 hover:file:bg-blue-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                    <p class="mt-2 text-xs text-gray-500">JPG, PNG, atau WebP. Maksimal 5 MB. Foto disimpan langsung ke Cloudflare R2.</p>
+                                    <div wire:loading wire:target="productPhoto" class="mt-2 text-xs font-semibold text-blue-600">Menyiapkan preview foto...</div>
+                                    @error('productPhoto')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <div>
+                                <label class="{{ $label }}">Nama Product *</label>
+                                <input wire:model="productName" class="{{ $input }}" placeholder="Contoh: Strawberry Croissant">
+                                @error('productName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $label }}">Product Code / SKU</label>
+                                <input wire:model="productCode" class="{{ $input }}" placeholder="Contoh: PRD-STB-001">
+                                @error('productCode')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $label }}">Target Tanggal Rilis</label>
+                                <input wire:model="releaseDate" type="date" class="{{ $input }}">
+                                @error('releaseDate')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $label }}">Status *</label>
+                                <select wire:model="productStatus" class="{{ $input }}">
+                                    @foreach(\App\Models\RndProjectProduct::STATUSES as $value => $statusLabel)
+                                        <option value="{{ $value }}">{{ $statusLabel }}</option>
+                                    @endforeach
+                                </select>
+                                @error('productStatus')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="{{ $label }}">Deskripsi Product</label>
+                                <textarea wire:model="productDescription" rows="4" class="{{ $input }}" placeholder="Deskripsi, positioning, atau catatan pengembangan product..."></textarea>
+                                @error('productDescription')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+                        <section class="rounded-xl border border-gray-200 dark:border-gray-700">
+                            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center">
+                                <div>
+                                    <h4 class="font-bold text-gray-900 dark:text-white">Regional Pricing</h4>
+                                    <p class="text-xs text-gray-500">Harga online dan offline dapat berbeda untuk setiap region.</p>
+                                </div>
+                                <div class="w-full sm:w-48">
+                                    <label class="{{ $label }}">Berlaku Mulai *</label>
+                                    <input wire:model="priceEffectiveFrom" type="date" class="{{ $input }}">
+                                    @error('priceEffectiveFrom')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                            <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @forelse($regionalPrices as $index => $price)
+                                    <div class="grid gap-3 p-4 md:grid-cols-[minmax(160px,1fr)_minmax(0,1fr)_minmax(0,1fr)] md:items-end">
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-900 dark:text-white">{{ $price['region_name'] }}</p>
+                                            <p class="font-mono text-xs text-gray-400">{{ $price['region_code'] }}</p>
+                                            <input wire:model="regionalPrices.{{ $index }}.region_id" type="hidden">
+                                        </div>
+                                        <div>
+                                            <label class="{{ $label }}">Harga Offline *</label>
+                                            <input wire:model="regionalPrices.{{ $index }}.offline_price" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
+                                            @error("regionalPrices.$index.offline_price")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                        <div>
+                                            <label class="{{ $label }}">Harga Online *</label>
+                                            <input wire:model="regionalPrices.{{ $index }}.online_price" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
+                                            @error("regionalPrices.$index.online_price")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                    </div>
+                                @empty
+                                    <p class="p-5 text-center text-sm text-gray-500">Belum ada region aktif. Tambahkan melalui Master Region Penjualan.</p>
+                                @endforelse
+                            </div>
+                            @error('regionalPrices')<p class="px-4 pb-4 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </section>
+                        <div class="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                            <button type="button" @click="productFormOpen = false" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200">Batal</button>
+                            <button type="submit" wire:loading.attr="disabled" wire:target="saveProduct" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                                <span wire:loading.remove wire:target="saveProduct">{{ $editingProductId ? 'Simpan Perubahan' : 'Tambah Product' }}</span>
+                                <span wire:loading wire:target="saveProduct">Menyimpan...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </template>
+
+    </div>
+</x-filament-panels::page>

@@ -2,10 +2,20 @@
 
 use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
+use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
+use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Models\RndProject;
+use App\Models\RndProjectBom;
+use App\Models\RndProjectProduct;
+use App\Models\SalesRegion;
 use App\Models\User;
+use App\Services\EsbCoreService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -24,31 +34,454 @@ it('renders the R&D project list and create pages', function () {
 
     Livewire::test(CreateProject::class)
         ->assertSee('Informasi Project')
-        ->assertSee('Timeline Project')
-        ->assertSee('Tambah Timeline');
+        ->assertDontSee('Timeline Project');
 });
 
-it('creates a project with a dynamic timeline', function () {
+it('creates a project', function () {
     Livewire::test(CreateProject::class)
         ->fillForm([
             'name' => 'Seasonal Product Development',
             'description' => 'Project pengembangan menu seasonal.',
             'start_date' => '2026-08-01',
             'end_date' => '2026-08-31',
-            'timelines' => [[
-                'title' => 'Trial Recipe',
-                'description' => 'Trial resep tahap pertama.',
-                'start_date' => '2026-08-01',
-                'end_date' => '2026-08-07',
-                'status' => 'planned',
-            ]],
         ])
         ->call('create')
         ->assertHasNoFormErrors();
 
     $project = RndProject::query()->where('name', 'Seasonal Product Development')->firstOrFail();
 
-    expect($project->timelines)->toHaveCount(1)
-        ->and($project->timelines->first()->title)->toBe('Trial Recipe')
-        ->and($project->timelines->first()->status)->toBe('planned');
+    expect($project->description)->toBe('Project pengembangan menu seasonal.')
+        ->and($project->start_date->toDateString())->toBe('2026-08-01')
+        ->and($project->end_date->toDateString())->toBe('2026-08-31');
+});
+
+it('creates and updates a product release with online and offline prices', function () {
+    Storage::fake('b2');
+    $project = RndProject::query()->create([
+        'name' => 'New Beverage Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $regionalPrices = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->get()
+        ->map(fn (SalesRegion $region, int $index): array => [
+            'region_id' => $region->id,
+            'region_name' => $region->name,
+            'region_code' => $region->code,
+            'offline_price' => (string) (32000 + ($index * 1000)),
+            'online_price' => (string) (36000 + ($index * 1000)),
+        ])->all();
+
+    $page = Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->set('productName', 'Matcha Strawberry')
+        ->set('productCode', 'PRD-MTC-001')
+        ->set('productDescription', 'Seasonal beverage.')
+        ->set('priceEffectiveFrom', '2026-08-01')
+        ->set('regionalPrices', $regionalPrices)
+        ->set('releaseDate', '2026-09-01')
+        ->set('productStatus', 'development')
+        ->set('productPhoto', UploadedFile::fake()->image('matcha-product.jpg', 800, 800))
+        ->call('saveProduct')
+        ->assertHasNoErrors()
+        ->assertSee('Matcha Strawberry');
+
+    $product = $project->products()->where('product_code', 'PRD-MTC-001')->firstOrFail();
+    $originalImagePath = $product->image_path;
+    Storage::disk('b2')->assertExists($originalImagePath);
+
+    $page->call('editProduct', $product->id)
+        ->set('priceEffectiveFrom', '2026-08-01')
+        ->set('regionalPrices.0.online_price', '38000')
+        ->set('productStatus', 'trial')
+        ->set('productPhoto', UploadedFile::fake()->image('matcha-product-new.png', 900, 900))
+        ->call('saveProduct')
+        ->assertHasNoErrors();
+
+    $product->refresh();
+    expect((float) $product->offline_price)->toBe(32000.0)
+        ->and((float) $product->online_price)->toBe(37000.0)
+        ->and($product->status)->toBe('trial')
+        ->and($product->image_path)->not->toBe($originalImagePath);
+    Storage::disk('b2')->assertMissing($originalImagePath);
+    Storage::disk('b2')->assertExists($product->image_path);
+    $this->assertDatabaseHas('rnd_product_regional_prices', [
+        'rnd_project_product_id' => $product->id,
+        'sales_region_id' => $regionalPrices[0]['region_id'],
+        'online_price' => 38000,
+    ]);
+    expect($product->regionalPrices()
+        ->where('sales_region_id', $regionalPrices[0]['region_id'])
+        ->firstOrFail()
+        ->effective_from
+        ->toDateString())->toBe('2026-08-01');
+});
+
+it('uploads and deletes product marketing materials on Cloudflare storage', function () {
+    Storage::fake('b2');
+    $project = RndProject::query()->create([
+        'name' => 'Packaging Development',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Premium Cookies',
+        'offline_price' => 50000,
+        'online_price' => 55000,
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->call('openMaterialForm')
+        ->set('materialType', 'packaging_design')
+        ->set('materialTitle', 'Final Packaging Design')
+        ->set('materialNotes', 'Versi cetak pertama.')
+        ->set('materialFile', UploadedFile::fake()->create('packaging.pdf', 200, 'application/pdf'))
+        ->call('saveMaterial')
+        ->assertHasNoErrors()
+        ->assertSee('Final Packaging Design')
+        ->assertSee('Marketing Materials')
+        ->assertSee('Download');
+
+    $material = $product->marketingMaterials()->firstOrFail();
+    Storage::disk('b2')->assertExists($material->file_path);
+    $this->assertDatabaseHas('rnd_project_marketing_materials', [
+        'rnd_project_product_id' => $product->id,
+        'type' => 'packaging_design',
+        'title' => 'Final Packaging Design',
+    ]);
+
+    $page->call('deleteMaterial', $material->id)->assertHasNoErrors();
+    Storage::disk('b2')->assertMissing($material->file_path);
+    $this->assertDatabaseMissing('rnd_project_marketing_materials', ['id' => $material->id]);
+});
+
+it('stores a new material draft and creates its Master Product in ESB', function () {
+    Cache::forget('esb_core.access_token');
+    Http::fake([
+        'https://services.esb.co.id/core/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token-test'],
+        ]),
+        'https://services.esb.co.id/core/product' => Http::response([
+            'status' => 'ok',
+            'code' => 'EC03100000',
+            'message' => 'OK',
+            'result' => ['productID' => 9150, 'isTemp' => false],
+            'errors' => null,
+        ]),
+    ]);
+
+    config()->set('esb.core.base_url', 'https://services.esb.co.id/core');
+    config()->set('esb.core.username', 'rnd-test');
+    config()->set('esb.core.password', 'secret');
+
+    $project = RndProject::query()->create([
+        'name' => 'New Material Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Matcha Product Release',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, [
+        'project' => $project->id,
+        'product' => $product->id,
+    ])->set('esbMaterialProductName', 'Matcha Powder Premium')
+        ->set('esbMaterialProductCode', 'BBMK-MATCHA-01')
+        ->set('esbMaterialCategoryId', 11)
+        ->set('esbMaterialSubCategoryId', 21)
+        ->set('esbMaterialUnits', [
+            [
+                'uom_id' => 5,
+                'uom_name' => 'GR',
+                'sku' => '',
+                'conversion_factor' => '1',
+                'base_price' => '125',
+                'is_base' => true,
+            ],
+            [
+                'uom_id' => 16,
+                'uom_name' => 'Resep',
+                'sku' => '',
+                'conversion_factor' => '300',
+                'base_price' => '37500',
+                'is_base' => false,
+            ],
+        ])
+        ->set('esbMaterialNotes', 'Bahan untuk menu seasonal.')
+        ->call('saveEsbMaterial')
+        ->assertHasNoErrors()
+        ->assertSee('Matcha Powder Premium')
+        ->assertSee('Create to ESB');
+
+    $material = $product->esbMaterials()->firstOrFail();
+    expect($material->status)->toBe('draft')
+        ->and($material->sku)->toBe('BBMK-MATCHA-01-GR');
+    expect($material->units()->count())->toBe(2);
+
+    $page->call('syncEsbMaterial', $material->id)->assertHasNoErrors();
+
+    $material->refresh();
+    expect($material->status)->toBe('synced')
+        ->and($material->esb_product_id)->toBe(9150)
+        ->and($material->synced_at)->not->toBeNull();
+
+    Http::assertSent(function ($request): bool {
+        if ($request->url() !== 'https://services.esb.co.id/core/product') {
+            return false;
+        }
+
+        return $request['productName'] === 'Matcha Powder Premium'
+            && $request['categoryID'] === 11
+            && data_get($request->data(), 'productDetails.0.uomID') === 5
+            && data_get($request->data(), 'productDetails.0.sku') === 'BBMK-MATCHA-01-GR'
+            && data_get($request->data(), 'productDetails.0.qty') === 1.0
+            && data_get($request->data(), 'productDetails.1.uomID') === 16
+            && data_get($request->data(), 'productDetails.1.sku') === 'BBMK-MATCHA-01-RESEP'
+            && data_get($request->data(), 'productDetails.1.qty') === 300.0;
+    });
+
+    $this->get(route('helpdesk.rnd-products.esb-materials-export', [
+        'project' => $project->id,
+        'product' => $product->id,
+        'format' => 'xlsx',
+    ]))->assertOk();
+});
+
+it('suggests the next ESB product code from the highest code in its category', function () {
+    Cache::forget('esb_core.access_token');
+    config()->set('esb.core.base_url', 'https://services.esb.co.id/core');
+    config()->set('esb.core.username', 'rnd-test');
+    config()->set('esb.core.password', 'secret');
+
+    Http::fake([
+        'https://services.esb.co.id/core/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token-code-test'],
+        ]),
+        'https://services.esb.co.id/core/product/list*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1,
+                'limit' => 100,
+                'count' => 5,
+                'data' => [
+                    ['productCode' => 'BBMK0098'],
+                    ['productCode' => 'BBMK0100'],
+                    ['productCode' => 'BBMK0101'],
+                    ['productCode' => 'BBMK0102'],
+                    ['productCode' => 'BBMK11203'],
+                ],
+                'prev' => '',
+                'next' => '',
+            ],
+        ]),
+    ]);
+
+    expect(app(EsbCoreService::class)->suggestNextProductCode(11))->toBe('BBMK0103');
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/product/list')
+        && (int) $request['categoryID'] === 11);
+});
+
+it('renders project cards and the individual project workspace', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Menu Lebaran 2027',
+        'description' => 'Pengembangan rangkaian menu Lebaran.',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = RndProjectProduct::query()->create([
+        'rnd_project_id' => $project->id,
+        'name' => 'Lebaran Cookies',
+        'product_code' => 'PRD-LBR',
+        'offline_price' => 45000,
+        'online_price' => 50000,
+        'release_date' => '2026-10-01',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $project->id,
+        'esb_bom_id' => 777,
+        'bom_code' => 'BOM-LBR',
+        'bom_name' => 'Lebaran Cookies',
+        'product_name' => 'Cookies',
+        'uom_name' => 'PCS',
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ListProjects::class)
+        ->assertSee('Menu Lebaran 2027')
+        ->assertSee('Buka Project');
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->assertSee('Menu Lebaran 2027')
+        ->assertSee('Lebaran Cookies')
+        ->assertSee('Harga Offline')
+        ->assertSee('Buka Product')
+        ->assertDontSee('Marketing Materials')
+        ->assertDontSee('Bill of Materials');
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->assertSee('Lebaran Cookies')
+        ->assertSee('Marketing Materials')
+        ->assertSee('Bill of Material')
+        ->assertSee('BOM-LBR')
+        ->assertSee('Main Recipe')
+        ->assertSee('Add Component')
+        ->assertSee('Add Packaging')
+        ->assertDontSee('Add Support')
+        ->assertSee('Create Main Recipe');
+});
+
+it('imports an existing ESB BOM into a project workspace', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Existing Recipe Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-09-30',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Existing Product Release',
+        'offline_price' => 10000,
+        'online_price' => 12000,
+        'status' => 'draft',
+        'created_by' => auth()->id(),
+    ]);
+    $mainBom = $project->boms()->create([
+        'esb_bom_id' => 777,
+        'bom_code' => 'BOM-MAIN',
+        'bom_name' => 'Main Product Recipe',
+        'product_name' => 'Existing Product Release',
+        'uom_name' => 'PCS',
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($mainBom->id, ['usage_type' => 'main']);
+
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/888' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'bomID' => 888,
+                'bomCode' => 'BOM-EXIST',
+                'bomName' => 'Existing Assembly',
+                'bomTypeName' => 'Assembly',
+                'productName' => 'Existing Product',
+                'uomName' => 'PCS',
+                'flagActive' => 1,
+            ],
+        ]),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->set('importUsageType', 'component')
+        ->set('importParentBomId', $mainBom->id)
+        ->call('attachBom', 888)
+        ->assertHasNoErrors()
+        ->assertSee('Existing Assembly');
+
+    $this->assertDatabaseHas('rnd_project_boms', [
+        'rnd_project_id' => $project->id,
+        'esb_bom_id' => 888,
+        'bom_code' => 'BOM-EXIST',
+    ]);
+    $projectBomId = RndProjectBom::query()->where('esb_bom_id', 888)->value('id');
+    $this->assertDatabaseHas('rnd_project_product_boms', [
+        'rnd_project_product_id' => $product->id,
+        'rnd_project_bom_id' => $projectBomId,
+        'usage_type' => 'component',
+        'parent_rnd_project_bom_id' => $mainBom->id,
+    ]);
+});
+
+it('exports the complete product BOM as a PIN-protected PDF', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'rnd.bom_pin' => '246810',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/901' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'bomID' => 901,
+                'bomTypeName' => 'Assembly',
+                'bomName' => 'Signature Cake Recipe',
+                'bomCode' => 'BOM-SIG',
+                'productName' => 'Signature Cake',
+                'uomName' => 'PCS',
+                'notes' => 'Main recipe',
+                'bomDetails' => [[
+                    'productCode' => 'BBMK001',
+                    'productName' => 'Flour',
+                    'uomName' => 'GR',
+                    'qty' => 250,
+                    'yieldPercent' => 0,
+                    'printGroup' => '',
+                ]],
+            ],
+        ]),
+    ]);
+
+    $project = RndProject::query()->create([
+        'name' => 'Signature Product',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Signature Cake',
+        'product_code' => 'SIG-CAKE',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $bom = $project->boms()->create([
+        'esb_bom_id' => 901,
+        'bom_code' => 'BOM-SIG',
+        'bom_name' => 'Signature Cake Recipe',
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($bom->id, ['usage_type' => 'main']);
+    $exportUrl = route('helpdesk.rnd-products.bom-pdf', ['project' => $project->id, 'product' => $product->id]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->assertSee('Export PDF')
+        ->set('exportPin', '000000')
+        ->call('exportBomPdf')
+        ->assertHasErrors('exportPin')
+        ->set('exportPin', '246810')
+        ->call('exportBomPdf')
+        ->assertHasNoErrors()
+        ->assertRedirect($exportUrl);
+
+    $this->get($exportUrl)
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
 });

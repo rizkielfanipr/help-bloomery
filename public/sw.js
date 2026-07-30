@@ -1,4 +1,4 @@
-const CACHE = 'bloomery-v1';
+const CACHE = 'bloomery-v2';
 
 const PRECACHE = [
     '/icons/pwa-192.png',
@@ -26,24 +26,44 @@ self.addEventListener('fetch', (e) => {
     if (e.request.method !== 'GET') return;
     if (!e.request.url.startsWith(self.location.origin)) return;
 
-    // For navigation requests: network-first so Livewire always gets fresh HTML
-    if (e.request.mode === 'navigate') {
+    const acceptsHtml = (e.request.headers.get('accept') || '').includes('text/html');
+    const isPageRequest = e.request.mode === 'navigate' || acceptsHtml;
+    const isStaticAsset = /\.(png|jpe?g|webp|gif|svg|ico|woff2?|css|js)(\?|$)/i.test(e.request.url);
+
+    // Handle regular navigation and wire:navigate page requests network-first.
+    if (isPageRequest) {
         e.respondWith(
-            fetch(e.request).catch(() => caches.match(e.request))
+            fetch(e.request).catch(async () => {
+                const cached = await caches.match(e.request);
+
+                return cached || new Response('Koneksi ke server terputus. Silakan muat ulang halaman.', {
+                    status: 503,
+                    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                });
+            })
         );
         return;
     }
 
-    // For static assets: cache-first
+    // Do not intercept ordinary application GET requests.
+    if (!isStaticAsset) return;
+
+    // For static assets: cache-first with a non-rejecting network fallback.
     e.respondWith(
-        caches.match(e.request).then(
-            (cached) => cached || fetch(e.request).then((res) => {
-                if (res.ok && e.request.url.match(/\.(png|jpg|svg|woff2?|css|js)(\?|$)/)) {
+        caches.match(e.request).then(async (cached) => {
+            if (cached) return cached;
+
+            try {
+                const res = await fetch(e.request);
+                if (res.ok) {
                     const clone = res.clone();
                     caches.open(CACHE).then((c) => c.put(e.request, clone));
                 }
+
                 return res;
-            })
-        )
+            } catch {
+                return new Response('', { status: 504, statusText: 'Asset unavailable' });
+            }
+        })
     );
 });

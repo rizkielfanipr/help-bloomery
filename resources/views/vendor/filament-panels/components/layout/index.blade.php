@@ -106,9 +106,8 @@
             'label' => 'Research & Development',
             'icon'  => 'flask-conical',
             'items' => [
-                ['label' => 'Bill of Material', 'icon' => 'beaker', 'perm' => 'view bill of materials', 'href' => $r('filament.helpdesk.pages.bill-of-material'), 'active' => $active($r('filament.helpdesk.pages.bill-of-material'))],
-                ['label' => 'Buat Resep', 'icon' => 'file-plus-2', 'perm' => 'create bill of materials', 'href' => $r('filament.helpdesk.pages.bill-of-material.create'), 'active' => $active($r('filament.helpdesk.pages.bill-of-material.create'))],
                 ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-projects.index'))],
+                ['label' => 'Product Price Index', 'icon' => 'chart-no-axes-combined', 'perm' => 'view product price index', 'href' => $r('filament.helpdesk.pages.product-price-index'), 'active' => $active($r('filament.helpdesk.pages.product-price-index'))],
             ],
         ],
         [

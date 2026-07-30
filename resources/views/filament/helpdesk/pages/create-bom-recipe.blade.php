@@ -20,7 +20,7 @@
             <div class="flex items-start gap-4">
                 <div class="rounded-xl bg-blue-600 p-3 text-white"><x-heroicon-o-beaker class="h-6 w-6" /></div>
                 <div>
-                    <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">Assembly Recipe</p>
+                    <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">{{ $projectName }} · {{ $productName }} · Assembly Recipe</p>
                     <h2 class="mt-0.5 text-2xl font-bold text-gray-900 dark:text-white">{{ $isEditing ? 'Update Bill of Material' : 'Buat Bill of Material Baru' }}</h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $isEditing ? 'Perbarui informasi dan bahan BOM yang tersimpan di ESB Core.' : 'Isi produk hasil dan bahan penyusun. Data akan dikirim ke ESB Core.' }}</p>
                 </div>
@@ -174,7 +174,7 @@
             </section>
 
             <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-                <a href="{{ \App\Filament\Helpdesk\Pages\BillOfMaterialPage::getUrl() }}" class="rounded-xl border border-gray-300 px-5 py-2.5 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Batal</a>
+                <a href="{{ \App\Filament\Helpdesk\Pages\ViewProjectProductPage::getUrl(['project' => $projectId, 'product' => $productId]) }}" class="rounded-xl border border-gray-300 px-5 py-2.5 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Batal</a>
                 <button type="submit" wire:loading.attr="disabled" wire:target="create"
                         class="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-600 bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60">
                     <x-heroicon-o-paper-airplane class="h-5 w-5" />
@@ -316,20 +316,19 @@
             >
                 <div x-show="productModalOpen" x-transition.opacity class="absolute inset-0 bg-slate-950/50" @click="productModalOpen = false"></div>
 
-                <div
+                <x-rnd.picker-modal
+                    title="Pilih Produk Aktif"
+                    description="Pilih product aktif dari Master Product ESB."
+                    max-width="7xl"
                     x-show="productModalOpen"
                     x-transition
-                    class="relative flex max-h-[90vh] w-full max-w-7xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
                     @click.stop
                 >
-                    <div class="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                        <div>
-                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Pilih Produk Aktif</h3>
-                        </div>
+                    <x-slot:close>
                         <button type="button" @click="productModalOpen = false" class="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800">
                             <x-heroicon-o-x-mark class="h-5 w-5" />
                         </button>
-                    </div>
+                    </x-slot:close>
 
                     <div class="relative min-h-0 flex-1 overflow-auto">
                         <div
@@ -507,7 +506,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </x-rnd.picker-modal>
             </div>
         </template>
     </div>

@@ -14,7 +14,7 @@ beforeEach(function () {
 function superAdmin(): User
 {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('super_admin');
+    $user->assignRole('SUPERADMIN');
 
     return $user;
 }
@@ -42,8 +42,8 @@ it('permissions config is loaded and permissions exist in the database', functio
     }
 });
 
-it('super_admin role has all permissions', function () {
-    $superAdminRole = Role::findByName('super_admin', 'web');
+it('SUPERADMIN role has all permissions', function () {
+    $superAdminRole = Role::findByName('SUPERADMIN', 'web');
     $allPermissions = array_merge(...array_values(array_map(
         fn (array $resources) => array_merge(...array_values($resources)),
         config('permissions', [])
@@ -51,14 +51,14 @@ it('super_admin role has all permissions', function () {
 
     foreach ($allPermissions as $permission) {
         expect($superAdminRole->hasPermissionTo($permission))->toBeTrue(
-            "super_admin missing permission: {$permission}"
+            "SUPERADMIN missing permission: {$permission}"
         );
     }
 });
 
 // ─── UserResource access ──────────────────────────────────────────────────────
 
-it('super_admin can access user management', function () {
+it('SUPERADMIN can access user management', function () {
     actingAs(superAdmin())
         ->get('/admin/users')
         ->assertOk();
@@ -70,7 +70,7 @@ it('regular user cannot access user management', function () {
         ->assertForbidden();
 });
 
-it('super_admin can access user create page', function () {
+it('SUPERADMIN can access user create page', function () {
     actingAs(superAdmin())
         ->get('/admin/users/create')
         ->assertOk();
@@ -78,7 +78,7 @@ it('super_admin can access user create page', function () {
 
 // ─── RoleResource access ──────────────────────────────────────────────────────
 
-it('super_admin can access role management', function () {
+it('SUPERADMIN can access role management', function () {
     actingAs(superAdmin())
         ->get('/admin/roles')
         ->assertOk();
@@ -90,7 +90,7 @@ it('regular user cannot access role management', function () {
         ->assertForbidden();
 });
 
-it('super_admin can access role create page', function () {
+it('SUPERADMIN can access role create page', function () {
     actingAs(superAdmin())
         ->get('/admin/roles/create')
         ->assertOk();
@@ -99,5 +99,5 @@ it('super_admin can access role create page', function () {
 it('roles list page shows existing roles', function () {
     actingAs(superAdmin())
         ->get('/admin/roles')
-        ->assertSee('super_admin');
+        ->assertSee('SUPERADMIN');
 });

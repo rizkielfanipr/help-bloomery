@@ -19,6 +19,14 @@ return [
         'password' => env('ESB_CORE_PASSWORD'),
         'timeout' => (int) env('ESB_CORE_TIMEOUT', 60),
         'token_ttl' => (int) env('ESB_CORE_TOKEN_TTL', 3300),
+        'uoms' => [
+            2 => 'PCS',
+            5 => 'GR',
+            6 => 'ML',
+            8 => 'BUTIR',
+            16 => 'Resep',
+            26 => 'Porsi',
+        ],
     ],
 
     'master_product' => [

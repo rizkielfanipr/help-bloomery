@@ -60,7 +60,7 @@ class HelpdeskPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn (): string => Blade::render(
-                    '<script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js", { scope: "/" }); }</script>'
+                    '<script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).then(function (registration) { registration.update(); }); }</script>'
                 ),
             )
             ->navigationGroups([

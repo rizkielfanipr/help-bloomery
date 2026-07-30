@@ -6,16 +6,15 @@ use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\EditProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
+use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
 use App\Models\RndProject;
-use App\Models\RndProjectTimeline;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -80,55 +79,6 @@ class ProjectResource extends Resource
                 ])
                 ->columns(2),
 
-            Section::make('Timeline Project')
-                ->description('Tambahkan tahapan project secara dinamis dan geser urutannya sesuai kebutuhan.')
-                ->schema([
-                    Repeater::make('timelines')
-                        ->relationship()
-                        ->label('')
-                        ->addActionLabel('Tambah Timeline')
-                        ->defaultItems(0)
-                        ->reorderable()
-                        ->orderColumn('sort_order')
-                        ->collapsible()
-                        ->cloneable()
-                        ->itemLabel(fn (array $state): ?string => $state['title'] ?? 'Timeline Baru')
-                        ->schema([
-                            TextInput::make('title')
-                                ->label('Nama Timeline')
-                                ->required()
-                                ->maxLength(255)
-                                ->live(onBlur: true)
-                                ->placeholder('Contoh: Trial resep pertama'),
-
-                            Select::make('status')
-                                ->label('Status')
-                                ->options(RndProjectTimeline::STATUSES)
-                                ->default('planned')
-                                ->required()
-                                ->native(false),
-
-                            DatePicker::make('start_date')
-                                ->label('Start Date')
-                                ->required()
-                                ->native(false)
-                                ->displayFormat('d M Y'),
-
-                            DatePicker::make('end_date')
-                                ->label('End Date')
-                                ->required()
-                                ->native(false)
-                                ->displayFormat('d M Y')
-                                ->afterOrEqual('start_date'),
-
-                            Textarea::make('description')
-                                ->label('Deskripsi Timeline')
-                                ->rows(2)
-                                ->columnSpanFull()
-                                ->placeholder('Detail aktivitas, target, atau catatan timeline...'),
-                        ])
-                        ->columns(2),
-                ]),
         ]);
     }
 
@@ -152,12 +102,6 @@ class ProjectResource extends Resource
                     ->date('d M Y')
                     ->sortable(),
 
-                TextColumn::make('timelines_count')
-                    ->label('Timeline')
-                    ->counts('timelines')
-                    ->badge()
-                    ->color('primary'),
-
                 TextColumn::make('creator.name')
                     ->label('Dibuat Oleh')
                     ->placeholder('-')
@@ -170,6 +114,7 @@ class ProjectResource extends Resource
             ])
             ->defaultSort('updated_at', 'desc')
             ->recordActions([
+                ViewAction::make()->iconButton()->tooltip('Buka Project'),
                 EditAction::make()->iconButton()->tooltip('Edit Project'),
                 DeleteAction::make()->iconButton()->tooltip('Hapus Project'),
             ])
@@ -185,6 +130,7 @@ class ProjectResource extends Resource
         return [
             'index' => ListProjects::route('/'),
             'create' => CreateProject::route('/create'),
+            'view' => ViewProject::route('/{record}'),
             'edit' => EditProject::route('/{record}/edit'),
         ];
     }

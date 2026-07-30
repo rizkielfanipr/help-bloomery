@@ -63,11 +63,66 @@ class EsbCoreService
         return $bomId;
     }
 
+    /**
+     * @return array{productID:int, isTemp:bool}
+     */
+    public function createProduct(array $payload): array
+    {
+        $response = $this->request('post', '/product', $payload);
+        $result = $this->successfulResult($response, 'membuat Master Product');
+        $productId = (int) ($result['productID'] ?? 0);
+
+        if ($productId < 1) {
+            throw new RuntimeException('ESB tidak mengembalikan Product ID.');
+        }
+
+        return [
+            'productID' => $productId,
+            'isTemp' => (bool) ($result['isTemp'] ?? false),
+        ];
+    }
+
     public function getBillOfMaterial(int $bomId): array
     {
         $response = $this->request('get', '/product/bom/'.$bomId, []);
 
         return $this->successfulResult($response, 'mengambil detail Bill of Material');
+    }
+
+    /**
+     * @return array{page:int, limit:int, count:int, data:array<int, mixed>, prev:?string, next:?string}
+     */
+    public function getPurchaseOrders(array $filters = []): array
+    {
+        $response = $this->request('get', '/purchase/purchase-order', array_filter([
+            'page' => max(1, (int) ($filters['page'] ?? 1)),
+            'limit' => min(100, max(1, (int) ($filters['limit'] ?? 100))),
+            'sort' => $filters['sort'] ?? '-purchaseDate',
+            'purchaseNum' => $filters['purchaseNum'] ?? null,
+            'branchID' => $filters['branchID'] ?? null,
+            'supplierID' => $filters['supplierID'] ?? null,
+            'statusID' => $filters['statusID'] ?? null,
+            'dateFrom' => $filters['dateFrom'] ?? null,
+            'dateTo' => $filters['dateTo'] ?? null,
+        ], fn ($value) => $value !== null && $value !== ''));
+
+        $result = $this->successfulResult($response, 'mengambil daftar Purchase Order');
+
+        return [
+            'page' => (int) ($result['page'] ?? 1),
+            'limit' => (int) ($result['limit'] ?? 100),
+            'count' => (int) ($result['count'] ?? 0),
+            'data' => is_array($result['data'] ?? null) ? $result['data'] : [],
+            'prev' => ($result['prev'] ?? null) ?: null,
+            'next' => ($result['next'] ?? null) ?: null,
+        ];
+    }
+
+    public function getPurchaseOrder(string $purchaseNum): array
+    {
+        $response = $this->request('get', '/purchase/purchase-order/'.rawurlencode($purchaseNum), []);
+
+        return $this->successfulResult($response, 'mengambil detail Purchase Order '.$purchaseNum);
     }
 
     public function updateBillOfMaterial(int $bomId, array $payload): void
@@ -193,6 +248,94 @@ class EsbCoreService
                 'subCategories' => $subCategories,
             ];
         });
+    }
+
+    /**
+     * Suggest the next code by incrementing the largest numeric suffix used in
+     * an active product code for the selected category.
+     */
+    public function suggestNextProductCode(int $categoryId): ?string
+    {
+        if ($categoryId < 1) {
+            return null;
+        }
+
+        $codes = [];
+        $page = 1;
+
+        do {
+            $result = $this->getProducts([
+                'page' => $page,
+                'limit' => 100,
+                'categoryID' => $categoryId,
+            ]);
+
+            foreach ($result['data'] as $product) {
+                $code = trim((string) ($product['productCode'] ?? ''));
+                if ($code !== '') {
+                    $codes[] = $code;
+                }
+            }
+
+            $hasNext = filled($result['next'])
+                || (($result['page'] * $result['limit']) < $result['count']);
+            $page++;
+        } while ($hasNext && $page <= 100);
+
+        $sequences = collect($codes)
+            ->map(function (string $code): ?array {
+                if (! preg_match('/^(.*?)(\d+)$/', $code, $matches)) {
+                    return null;
+                }
+
+                return [
+                    'prefix' => $matches[1],
+                    'number' => (int) $matches[2],
+                    'padding' => strlen($matches[2]),
+                    'code' => $code,
+                ];
+            })
+            ->filter()
+            ->groupBy('prefix')
+            ->sortByDesc(fn ($items): int => $items->count());
+
+        $dominantSequence = $sequences->first();
+        if (! $dominantSequence) {
+            return null;
+        }
+
+        $numbers = $dominantSequence
+            ->pluck('number')
+            ->unique()
+            ->sortDesc()
+            ->values();
+
+        // Ignore isolated outliers such as BW11203 among the continuous
+        // BW0001–BW1300 sequence. A valid latest number should have at least
+        // three nearby predecessors in the previous 20 numbers.
+        $candidateNumber = $numbers->first(function (int $number) use ($numbers): bool {
+            if ($numbers->count() < 4) {
+                return true;
+            }
+
+            return $numbers
+                ->filter(fn (int $other): bool => $other < $number && $other >= ($number - 20))
+                ->count() >= 3;
+        }) ?? $numbers->first();
+
+        $candidate = $dominantSequence
+            ->first(fn (array $item): bool => $item['number'] === $candidateNumber);
+
+        if (! is_array($candidate)) {
+            return null;
+        }
+
+        return $candidate['prefix'].str_pad(
+            (string) ($candidate['number'] + 1),
+            $candidate['padding'],
+            '0',
+            STR_PAD_LEFT,
+        );
     }
 
     private function request(string $method, string $path, array $data): Response

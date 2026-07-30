@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -171,6 +172,40 @@ class EsbService
             'perPage' => $limit,
             'hasNext' => filled($result['next'] ?? null) || ($currentPage * $limit < $total),
         ];
+    }
+
+    /**
+     * Resolve one active Master Product detail using an exact Product Detail ID.
+     */
+    public function findActiveProductDetail(
+        int $productDetailId,
+        string $productCode = '',
+        string $productName = '',
+    ): ?array {
+        if ($productDetailId < 1) {
+            return null;
+        }
+
+        foreach ([
+            ['name' => '', 'code' => $productCode],
+            ['name' => $productName, 'code' => ''],
+        ] as $search) {
+            if (trim($search['name']) === '' && trim($search['code']) === '') {
+                continue;
+            }
+
+            $result = $this->getActiveProductDetailsPage(
+                $search['name'],
+                1,
+                $search['code'],
+            );
+
+            if (isset($result['data'][$productDetailId])) {
+                return $result['data'][$productDetailId];
+            }
+        }
+
+        return null;
     }
 
     private function mapProductDetail(array $product, array $detail): array
@@ -500,7 +535,16 @@ class EsbService
         $response = Http::withHeaders([
             'Authorization' => 'Bearer '.$token,
             'Content-Type' => 'application/json',
-        ])->timeout(60)->get($this->baseUrl.'/corev1/sales/sales-information', [
+        ])
+            ->timeout(60)
+            ->retry(
+                times: 3,
+                sleepMilliseconds: fn (int $attempt): int => $attempt * 500,
+                when: fn (\Throwable $exception): bool => $exception instanceof RequestException
+                    && ($exception->response->serverError() || $exception->response->status() === 429),
+                throw: false,
+            )
+            ->get($this->baseUrl.'/corev1/sales/sales-information', [
             'salesDateFrom' => $dateFrom,
             'salesDateTo' => $dateTo,
             'branchCode' => $branchCode,

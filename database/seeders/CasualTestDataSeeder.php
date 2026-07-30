@@ -99,7 +99,7 @@ class CasualTestDataSeeder extends Seeder
                 false,
             ];
 
-            if (! $user->hasRole('casual_staff')) {
+            if (! $user->hasRole('CASUAL_STAFF')) {
                 $user->assignRole('casual_staff');
             }
 

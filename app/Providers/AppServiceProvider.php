@@ -3,13 +3,8 @@
 namespace App\Providers;
 
 use App\Http\Middleware\EnsureRole;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -18,37 +13,5 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Route::aliasMiddleware('role', EnsureRole::class);
-
-        $this->syncPermissions();
-    }
-
-    private function syncPermissions(): void
-    {
-        if (! Schema::hasTable('permissions')) {
-            return;
-        }
-
-        $allPermissions = array_merge(...array_values(array_map(
-            fn (array $resources) => array_merge(...array_values($resources)),
-            config('permissions', [])
-        )));
-        $cacheKey = 'permissions_synced_'.md5(serialize($allPermissions));
-
-        if (Cache::has($cacheKey)) {
-            return;
-        }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        Permission::whereNotIn('name', $allPermissions)->delete();
-
-        foreach ($allPermissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
-        }
-
-        $superAdmin = Role::where('name', 'super_admin')->where('guard_name', 'web')->first();
-        $superAdmin?->syncPermissions(Permission::all());
-
-        Cache::forever($cacheKey, true);
     }
 }

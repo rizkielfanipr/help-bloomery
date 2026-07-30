@@ -61,6 +61,10 @@ return [
             'edit rnd projects',
             'delete rnd projects',
         ],
+        'Product Price Index' => [
+            'view product price index',
+            'sync product price index',
+        ],
     ],
 
     'Management Access' => [
@@ -77,6 +81,7 @@ return [
     'Master' => [
         'Brand' => ['view brands', 'create brands', 'edit brands', 'delete brands'],
         'Cabang' => ['view branches', 'create branches', 'edit branches', 'delete branches'],
+        'Region Penjualan' => ['view sales regions', 'create sales regions', 'edit sales regions', 'delete sales regions'],
         'Grup Metode Pembayaran' => ['view payment method groups', 'create payment method groups', 'edit payment method groups', 'delete payment method groups'],
     ],
 

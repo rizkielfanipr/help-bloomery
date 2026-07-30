@@ -69,7 +69,8 @@
 
         <script>
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/sw.js', { scope: '/helpdesk' });
+                navigator.serviceWorker.register('/sw.js', { scope: '/helpdesk', updateViaCache: 'none' })
+                    .then((registration) => registration.update());
             }
         </script>
     </body>

@@ -15,7 +15,7 @@ class EditRole extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->hidden(fn (Role $record): bool => $record->name === 'super_admin'),
+                ->hidden(fn (Role $record): bool => $record->name === 'SUPERADMIN'),
         ];
     }
 }

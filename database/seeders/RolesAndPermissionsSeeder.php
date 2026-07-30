@@ -102,6 +102,8 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'view bill of materials', 'create bill of materials', 'edit bill of materials',
                 'view rnd projects', 'create rnd projects', 'edit rnd projects', 'delete rnd projects',
+                'view product price index', 'sync product price index',
+                'view sales regions', 'create sales regions', 'edit sales regions', 'delete sales regions',
             ]);
 
         Role::firstOrCreate(['name' => 'SUPERVISOR_STORE', 'guard_name' => 'web'])

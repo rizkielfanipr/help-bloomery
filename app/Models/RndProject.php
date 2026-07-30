@@ -24,9 +24,14 @@ class RndProject extends Model
         ];
     }
 
-    public function timelines(): HasMany
+    public function boms(): HasMany
     {
-        return $this->hasMany(RndProjectTimeline::class)->orderBy('sort_order');
+        return $this->hasMany(RndProjectBom::class)->latest('updated_at');
+    }
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(RndProjectProduct::class)->latest('updated_at');
     }
 
     public function creator(): BelongsTo

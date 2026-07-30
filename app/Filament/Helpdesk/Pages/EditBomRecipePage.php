@@ -2,11 +2,13 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
+use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Models\RndProjectBom;
 use App\Services\EsbCoreService;
 
 class EditBomRecipePage extends CreateBomRecipePage
 {
-    protected static ?string $slug = 'bill-of-material/{bom}/edit';
+    protected static ?string $slug = 'rnd-projects/{project}/products/{product}/bom/{bom}/edit';
 
     protected static ?string $title = 'Update Bill of Material';
 
@@ -22,11 +24,19 @@ class EditBomRecipePage extends CreateBomRecipePage
             || ($user?->can('edit bill of materials') ?? false);
     }
 
-    public function mount(?int $bom = null): void
+    public function mount(?int $project = null, ?int $product = null, ?int $bom = null): void
     {
-        parent::mount();
+        parent::mount($project, $product);
 
         abort_if(! $bom, 404);
+        abort_unless(
+            RndProjectBom::query()
+                ->where('rnd_project_id', $this->projectId)
+                ->where('esb_bom_id', $bom)
+                ->whereHas('products', fn ($query) => $query->where('rnd_project_products.id', $this->productId))
+                ->exists(),
+            404,
+        );
         $this->isEditing = true;
         $this->bomId = $bom;
         $detail = app(EsbCoreService::class)->getBillOfMaterial($bom);
@@ -70,6 +80,9 @@ class EditBomRecipePage extends CreateBomRecipePage
 
     protected function successRedirectUrl(int $bomId): string
     {
-        return ViewBomPage::getUrl(['bom' => $bomId]);
+        return ViewProjectProductPage::getUrl([
+            'project' => $this->projectId,
+            'product' => $this->productId,
+        ]);
     }
 }

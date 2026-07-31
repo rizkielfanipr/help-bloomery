@@ -5,6 +5,7 @@ use App\Filament\Casual\Pages\SalesReportShiftPage;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
 use App\Filament\Helpdesk\Pages\DriverTripSettingsPage;
+use App\Filament\Helpdesk\Resources\Employees\EmployeeResource;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
@@ -255,6 +256,27 @@ it('grants supervisors full employee access without driver access', function () 
 
     $this->actingAs($supervisor);
     expect(DriverTripSettingsPage::canAccess())->toBeFalse();
+});
+
+it('limits employee branches and records to branches accessible by the supervisor', function () {
+    $monitoredBranch = Branch::factory()->create(['name' => 'Monitored Branch']);
+    $hiddenBranch = Branch::factory()->create(['name' => 'Hidden Branch']);
+    $supervisor = User::factory()->create([
+        'branch_id' => $this->branch->id,
+        'is_active' => true,
+    ]);
+    $supervisor->assignRole('SUPERVISOR_STORE');
+    $supervisor->accessibleBranches()->attach($monitoredBranch->id);
+    $hiddenEmployee = Employee::factory()->create(['branch_id' => $hiddenBranch->id]);
+
+    $this->actingAs($supervisor);
+
+    expect(EmployeeResource::branchOptions())
+        ->toHaveKeys([$this->branch->id, $monitoredBranch->id])
+        ->not->toHaveKey($hiddenBranch->id)
+        ->and(EmployeeResource::getEloquentQuery()->whereKey($hiddenEmployee)->exists())->toBeFalse()
+        ->and(EmployeeResource::canEdit($hiddenEmployee))->toBeFalse()
+        ->and(EmployeeResource::canDelete($hiddenEmployee))->toBeFalse();
 });
 
 it('allows a superadmin to test both supervisor and finance approval stages', function () {

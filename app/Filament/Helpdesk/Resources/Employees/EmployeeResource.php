@@ -6,6 +6,7 @@ use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Employees\Pages\CreateEmployee;
 use App\Filament\Helpdesk\Resources\Employees\Pages\EditEmployee;
 use App\Filament\Helpdesk\Resources\Employees\Pages\ListEmployees;
+use App\Models\Branch;
 use App\Models\Employee;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -22,6 +23,9 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\Rule;
 
 class EmployeeResource extends Resource
 {
@@ -62,9 +66,13 @@ class EmployeeResource extends Resource
                         ->maxLength(255),
                     Select::make('branch_id')
                         ->label('Branch')
-                        ->relationship('branch', 'name')
+                        ->options(fn (): array => static::branchOptions())
                         ->searchable()
                         ->preload()
+                        ->rules(fn (): array => [
+                            Rule::exists('branches', 'id')
+                                ->where(fn ($query) => $query->whereIn('id', static::accessibleBranchIds())),
+                        ])
                         ->required(),
                     Select::make('is_active')
                         ->label('Status')
@@ -89,7 +97,7 @@ class EmployeeResource extends Resource
             ->filters([
                 SelectFilter::make('branch_id')
                     ->label('Branch')
-                    ->relationship('branch', 'name')
+                    ->options(fn (): array => static::branchOptions())
                     ->searchable()
                     ->preload(),
                 SelectFilter::make('is_active')
@@ -119,5 +127,61 @@ class EmployeeResource extends Resource
             'create' => CreateEmployee::route('/create'),
             'edit' => EditEmployee::route('/{record}/edit'),
         ];
+    }
+
+    /** @return array<int, string> */
+    public static function branchOptions(): array
+    {
+        return Branch::query()
+            ->whereIn('id', static::accessibleBranchIds())
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    /** @return array<int, int> */
+    public static function accessibleBranchIds(): array
+    {
+        $user = auth()->user();
+        if (! $user) {
+            return [];
+        }
+
+        if ($user->hasRole('SUPERADMIN') || $user->access_all_branches) {
+            return Branch::query()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        }
+
+        return $user->accessibleBranchIds()->all();
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->whereIn('branch_id', static::accessibleBranchIds());
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return static::canManageRecord('view employees', $record);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return static::canManageRecord('edit employees', $record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canManageRecord('delete employees', $record);
+    }
+
+    private static function canManageRecord(string $permission, Model $record): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null
+            && ($user->hasRole('SUPERADMIN') || $user->can($permission))
+            && $user->canAccessBranch((int) $record->getAttribute('branch_id'));
     }
 }

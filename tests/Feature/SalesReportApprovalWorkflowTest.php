@@ -4,6 +4,7 @@ use App\Enums\SalesReportStatus;
 use App\Filament\Casual\Pages\SalesReportShiftPage;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
+use App\Filament\Helpdesk\Pages\DriverTripSettingsPage;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
@@ -251,6 +252,9 @@ it('grants supervisors full employee access without driver access', function () 
         ->and($supervisor->can('view trip routes'))->toBeFalse()
         ->and($supervisor->can('view vehicles'))->toBeFalse()
         ->and($supervisor->can('view tile driver'))->toBeFalse();
+
+    $this->actingAs($supervisor);
+    expect(DriverTripSettingsPage::canAccess())->toBeFalse();
 });
 
 it('allows a superadmin to test both supervisor and finance approval stages', function () {

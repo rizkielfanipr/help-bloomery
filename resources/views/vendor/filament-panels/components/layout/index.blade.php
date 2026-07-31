@@ -79,7 +79,7 @@
                 ['label' => 'Rute Perjalanan', 'icon' => 'route',    'perm' => 'view trip routes', 'href' => $r('filament.helpdesk.resources.trip-routes.index'), 'active' => $active($r('filament.helpdesk.resources.trip-routes.index'))],
                 ['label' => 'Kendaraan',       'icon' => 'car',      'perm' => 'view vehicles',    'href' => $r('filament.helpdesk.resources.vehicles.index'),    'active' => $active($r('filament.helpdesk.resources.vehicles.index'))],
                 ['label' => 'Jenis BBM',        'icon' => 'fuel',     'perm' => 'edit trips',       'href' => $r('filament.helpdesk.resources.fuel-types.index'),  'active' => $active($r('filament.helpdesk.resources.fuel-types.index'))],
-                ['label' => 'Pengaturan', 'icon' => 'settings', 'href' => $r('filament.helpdesk.pages.driver-trip-settings-page'), 'active' => $active($r('filament.helpdesk.pages.driver-trip-settings-page'))],
+                ['label' => 'Pengaturan', 'icon' => 'settings', 'perm' => 'edit trips', 'href' => $r('filament.helpdesk.pages.driver-trip-settings-page'), 'active' => $active($r('filament.helpdesk.pages.driver-trip-settings-page'))],
             ],
         ],
         [

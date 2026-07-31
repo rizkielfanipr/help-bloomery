@@ -14,7 +14,10 @@ class DriverTripSettingsPage extends Page
 {
     public static function canAccess(): bool
     {
-        return true;
+        $user = auth()->user();
+
+        return $user !== null
+            && ($user->hasRole('SUPERADMIN') || $user->can('edit trips'));
     }
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';

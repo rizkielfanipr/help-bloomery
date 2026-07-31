@@ -111,6 +111,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'view briefing items', 'edit briefing items',
                 'view sales reports', 'review sales reports as supervisor',
+                'view employees', 'create employees', 'edit employees', 'delete employees',
             ]);
 
         Role::firstOrCreate(['name' => 'FINANCE_STAFF', 'guard_name' => 'web'])

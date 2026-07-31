@@ -236,6 +236,23 @@ it('uses concise English labels throughout the sales report workflow', function 
         ->and(SalesReportStatus::Completed->getLabel())->toBe('Completed');
 });
 
+it('grants supervisors full employee access without driver access', function () {
+    $supervisor = User::factory()->create(['is_active' => true]);
+    $supervisor->assignRole('SUPERVISOR_STORE');
+
+    expect($supervisor->can('view employees'))->toBeTrue()
+        ->and($supervisor->can('create employees'))->toBeTrue()
+        ->and($supervisor->can('edit employees'))->toBeTrue()
+        ->and($supervisor->can('delete employees'))->toBeTrue()
+        ->and($supervisor->can('view trips'))->toBeFalse()
+        ->and($supervisor->can('create trips'))->toBeFalse()
+        ->and($supervisor->can('edit trips'))->toBeFalse()
+        ->and($supervisor->can('delete trips'))->toBeFalse()
+        ->and($supervisor->can('view trip routes'))->toBeFalse()
+        ->and($supervisor->can('view vehicles'))->toBeFalse()
+        ->and($supervisor->can('view tile driver'))->toBeFalse();
+});
+
 it('allows a superadmin to test both supervisor and finance approval stages', function () {
     $superadmin = User::factory()->create([
         'is_active' => true,

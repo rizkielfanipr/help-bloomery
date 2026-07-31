@@ -3,6 +3,7 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Enums\SalesReportStatus;
+use App\Models\Employee;
 use App\Models\SalesReport;
 use App\Models\SalesReportApproval;
 use App\Models\SalesReportEntry;
@@ -12,6 +13,8 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 
 class SalesReportShiftPage extends Page
@@ -38,9 +41,19 @@ class SalesReportShiftPage extends Page
 
     public bool $esbFetched = false;
 
+    public bool $showDiscrepancies = false;
+
     public string $currentStatus = 'draft';
 
     public ?string $rejectionReason = null;
+
+    public ?int $employeeId = null;
+
+    public ?string $employeeCode = null;
+
+    public ?string $employeeName = null;
+
+    public ?string $employeePosition = null;
 
     /** @var array<int, array{name: string, sales_system: float, sales_store: string, notes: string}> */
     public array $rows = [];
@@ -115,6 +128,10 @@ class SalesReportShiftPage extends Page
         $this->isSubmitted = ! $status->canBeEditedBySubmitter();
         $this->currentStatus = $status->value;
         $this->rejectionReason = $report->rejection_reason;
+        $this->employeeId = $report->employee_id;
+        $this->employeeCode = $report->employee_code;
+        $this->employeeName = $report->employee_name;
+        $this->employeePosition = $report->employee_position;
         $this->shiftStart = $report->shift_started_at?->format('H:i') ?? $this->shiftStart;
         $this->shiftEnd = $report->shift_ended_at?->format('H:i') ?? $this->shiftEnd;
 
@@ -242,16 +259,38 @@ class SalesReportShiftPage extends Page
             return;
         }
 
+        $this->resetValidation();
         $this->validate([
             'reportDate' => ['required', 'date'],
+            'employeeId' => [
+                'required',
+                'integer',
+                Rule::exists('employees', 'id')->where(fn ($query) => $query
+                    ->where('branch_id', $user->branch_id)
+                    ->where('is_active', true)),
+            ],
             'rows.*.sales_store' => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'employeeId.required' => 'Pilih staff yang mengisi Sales Report.',
+            'employeeId.exists' => 'Staff tidak aktif atau tidak terdaftar pada branch ini.',
         ]);
 
+        $hasMissingDifferenceNotes = false;
         foreach ($this->rows as $idx => $row) {
-            $selisih = (float) $row['sales_system'] - (float) ($row['sales_store'] ?? 0);
-            if ($selisih < 0 && empty(trim($row['notes'] ?? ''))) {
-                $this->addError("rows.{$idx}.notes", 'Catatan wajib diisi karena selisih negatif.');
+            $difference = (float) $row['sales_system'] - (float) ($row['sales_store'] ?? 0);
+            if (abs($difference) > 0.009 && empty(trim($row['notes'] ?? ''))) {
+                $this->addError("rows.{$idx}.notes", 'Notes wajib diisi karena terdapat selisih pada payment method ini.');
+                $hasMissingDifferenceNotes = true;
             }
+        }
+
+        if ($hasMissingDifferenceNotes) {
+            $this->showDiscrepancies = true;
+            Notification::make()
+                ->title('Sales difference detected')
+                ->body('Terdapat selisih pada Sales Report. Isi notes pada payment method yang ditandai, lalu submit ulang.')
+                ->warning()
+                ->send();
         }
 
         if ($this->getErrorBag()->isNotEmpty()) {
@@ -288,7 +327,19 @@ class SalesReportShiftPage extends Page
             return;
         }
 
-        DB::transaction(function () use ($user): void {
+        $this->validate([
+            'employeeId' => [
+                'required',
+                'integer',
+                Rule::exists('employees', 'id')->where(fn ($query) => $query
+                    ->where('branch_id', $user->branch_id)
+                    ->where('is_active', true)),
+            ],
+        ]);
+
+        $employee = Employee::query()->findOrFail($this->employeeId);
+
+        DB::transaction(function () use ($user, $employee): void {
             $report = SalesReport::query()
                 ->where('branch_id', $user->branch_id)
                 ->whereDate('report_date', $this->reportDate)
@@ -306,6 +357,10 @@ class SalesReportShiftPage extends Page
 
             $report->fill([
                 'submitted_by' => $user->id,
+                'employee_id' => $employee->id,
+                'employee_code' => $employee->employee_code,
+                'employee_name' => $employee->name,
+                'employee_position' => $employee->position,
                 'submitted_at' => now(),
                 'status' => SalesReportStatus::PendingSupervisor->value,
                 'rejection_reason' => null,
@@ -375,6 +430,18 @@ class SalesReportShiftPage extends Page
         }
 
         return $boundary;
+    }
+
+    #[Computed]
+    public function employees()
+    {
+        $branchId = auth()->user()?->branch_id;
+
+        return Employee::query()
+            ->where('branch_id', $branchId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'employee_code', 'name', 'position']);
     }
 
     private function shiftIsUnlocked(): bool

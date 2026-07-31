@@ -10,6 +10,7 @@ use App\Services\EsbService;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Carbon;
 use UnitEnum;
 
 class SalesInformationPage extends Page
@@ -37,9 +38,16 @@ class SalesInformationPage extends Page
 
     public ?string $dateTo = null;
 
+    public string $comparisonType = 'none';
+
+    public ?string $comparisonDateFrom = null;
+
+    public ?string $comparisonDateTo = null;
+
     public function mount(): void
     {
         $this->dateFrom = today()->toDateString();
+        $this->dateTo = today()->toDateString();
     }
 
     public bool $fetched = false;
@@ -58,6 +66,17 @@ class SalesInformationPage extends Page
 
     /** @var array<string, mixed> */
     public array $fetchAcc = [];
+
+    /** @var list<array{key: string, label: string, from: string, to: string}> */
+    public array $fetchPeriods = [];
+
+    public int $fetchPeriodIndex = 0;
+
+    /** @var array<string, mixed> */
+    public array $primaryAcc = [];
+
+    /** @var array<string, mixed> */
+    public array $comparisonSummary = [];
 
     // ── KPI ───────────────────────────────────────────────────────────────
     public float $totalRevenue = 0;
@@ -175,9 +194,65 @@ class SalesInformationPage extends Page
         ];
     }
 
+    public function updatedComparisonType(): void
+    {
+        $this->syncComparisonDates();
+    }
+
+    public function updatedDateFrom(): void
+    {
+        $this->syncComparisonDates();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->syncComparisonDates();
+    }
+
+    private function syncComparisonDates(): void
+    {
+        if ($this->comparisonType === 'none' || $this->comparisonType === 'custom' || ! $this->dateFrom || ! $this->dateTo) {
+            if ($this->comparisonType === 'none') {
+                $this->comparisonDateFrom = null;
+                $this->comparisonDateTo = null;
+            }
+
+            return;
+        }
+
+        $from = Carbon::parse($this->dateFrom);
+        $to = Carbon::parse($this->dateTo);
+
+        [$comparisonFrom, $comparisonTo] = match ($this->comparisonType) {
+            'yoy' => [$from->copy()->subYearNoOverflow(), $to->copy()->subYearNoOverflow()],
+            'previous_month' => [
+                $from->copy()->subMonthNoOverflow()->startOfMonth(),
+                $to->copy()->subMonthNoOverflow()->endOfMonth(),
+            ],
+            'previous_period' => (function () use ($from, $to): array {
+                $days = $from->diffInDays($to) + 1;
+                $comparisonTo = $from->copy()->subDay();
+
+                return [$comparisonTo->copy()->subDays($days - 1), $comparisonTo];
+            })(),
+            default => [$from, $to],
+        };
+
+        $this->comparisonDateFrom = $comparisonFrom->toDateString();
+        $this->comparisonDateTo = $comparisonTo->toDateString();
+    }
+
     public function fetch(): void
     {
-        $this->validate(['dateTo' => ['required', 'date']]);
+        $rules = [
+            'dateFrom' => ['required', 'date'],
+            'dateTo' => ['required', 'date', 'after_or_equal:dateFrom'],
+        ];
+        if ($this->comparisonType !== 'none') {
+            $rules['comparisonDateFrom'] = ['required', 'date'];
+            $rules['comparisonDateTo'] = ['required', 'date', 'after_or_equal:comparisonDateFrom'];
+        }
+        $this->validate($rules);
 
         if (! empty($this->selectedBranchIds)) {
             $branchIds = Branch::whereIn('id', $this->selectedBranchIds)
@@ -207,15 +282,38 @@ class SalesInformationPage extends Page
         $this->fetchBranchIndex = 0;
         $this->fetchCurrentPage = 0;
         $this->fetchTotalPages = 0;
-        $this->fetchAcc = $this->initAcc();
+        $this->fetchPeriodIndex = 0;
+        $this->primaryAcc = [];
+        $this->comparisonSummary = [];
+        $this->fetchPeriods = [[
+            'key' => 'primary',
+            'label' => 'Periode Utama',
+            'from' => (string) $this->dateFrom,
+            'to' => (string) $this->dateTo,
+        ]];
+        if ($this->comparisonType !== 'none') {
+            $this->fetchPeriods[] = [
+                'key' => 'comparison',
+                'label' => 'Periode Pembanding',
+                'from' => (string) $this->comparisonDateFrom,
+                'to' => (string) $this->comparisonDateTo,
+            ];
+        }
+        $this->fetchAcc = $this->newPeriodAcc();
 
+        $this->fetchNextPage();
+    }
+
+    private function newPeriodAcc(): array
+    {
+        $acc = $this->initAcc();
         // Load payment method group map: esb_id => group name
-        $this->fetchAcc['groupMap'] = PaymentMethodGroupItem::with('group')
+        $acc['groupMap'] = PaymentMethodGroupItem::with('group')
             ->get()
             ->pluck('group.name', 'esb_payment_method_id')
             ->all();
 
-        $this->fetchNextPage();
+        return $acc;
     }
 
     public function fetchNextPage(): void
@@ -240,7 +338,14 @@ class SalesInformationPage extends Page
             return;
         }
 
-        [$dateFrom, $dateTo] = $this->getDateRange();
+        $period = $this->fetchPeriods[$this->fetchPeriodIndex] ?? null;
+        if (! $period) {
+            $this->finishFetch();
+
+            return;
+        }
+        $dateFrom = $period['from'];
+        $dateTo = $period['to'];
 
         try {
             ['data' => $rows, 'pageCount' => $pageCount] = (new EsbService)->getSalesPage(
@@ -282,20 +387,44 @@ class SalesInformationPage extends Page
         if ($this->fetchBranchIndex < count($this->fetchBranchIds)) {
             $this->dispatch('fetch-next-page');
         } else {
-            $this->finishFetch();
+            $this->finishPeriodFetch();
         }
+    }
+
+    private function finishPeriodFetch(): void
+    {
+        if ($this->fetchPeriodIndex === 0) {
+            $this->primaryAcc = $this->fetchAcc;
+        }
+
+        if ($this->fetchPeriodIndex + 1 < count($this->fetchPeriods)) {
+            $this->fetchPeriodIndex++;
+            $this->fetchBranchIndex = 0;
+            $this->fetchCurrentPage = 0;
+            $this->fetchTotalPages = 0;
+            $this->fetchAcc = $this->newPeriodAcc();
+            $this->dispatch('fetch-next-page');
+
+            return;
+        }
+
+        $this->finishFetch();
     }
 
     private function finishFetch(): void
     {
-        if (! $this->fetchAcc['hasData']) {
+        $primary = $this->primaryAcc ?: $this->fetchAcc;
+        if (! ($primary['hasData'] ?? false)) {
             Notification::make()->title('Tidak ada data penjualan pada periode ini')->info()->send();
             $this->stopFetch();
 
             return;
         }
 
-        $this->finalizeData($this->fetchAcc);
+        $this->finalizeData($primary);
+        if (count($this->fetchPeriods) > 1) {
+            $this->comparisonSummary = $this->buildComparisonSummary($primary, $this->fetchAcc);
+        }
         $this->stopFetch();
         $this->fetched = true;
 
@@ -311,6 +440,9 @@ class SalesInformationPage extends Page
             categoryDetailMap: $this->categoryDetailMap,
             promoTable: $this->promoTable,
             paymentTable: $this->paymentTable,
+            comparison: $this->comparisonSummary,
+            dateFrom: $this->dateFrom,
+            dateTo: $this->dateTo,
             kpi: [
                 'totalRevenue' => $this->totalRevenue,
                 'totalTransactions' => $this->totalTransactions,
@@ -330,6 +462,7 @@ class SalesInformationPage extends Page
     {
         $this->isFetching = false;
         $this->fetchAcc = [];
+        $this->primaryAcc = [];
     }
 
     /** @return array<string, mixed> */
@@ -462,6 +595,87 @@ class SalesInformationPage extends Page
             }
             $acc['paymentRows'][$method]['total'] += $amount;
         }
+    }
+
+    /** @param array<string, mixed> $primary @param array<string, mixed> $comparison */
+    private function buildComparisonSummary(array $primary, array $comparison): array
+    {
+        $metrics = [
+            'totalRevenue' => [(float) $primary['revenue'], (float) ($comparison['revenue'] ?? 0)],
+            'totalTransactions' => [(int) $primary['transactions'], (int) ($comparison['transactions'] ?? 0)],
+            'avgTransaction' => [
+                $primary['transactions'] > 0 ? $primary['revenue'] / $primary['transactions'] : 0,
+                ($comparison['transactions'] ?? 0) > 0 ? $comparison['revenue'] / $comparison['transactions'] : 0,
+            ],
+            'totalPax' => [(int) $primary['paxTotal'], (int) ($comparison['paxTotal'] ?? 0)],
+            'avgPerPax' => [
+                $primary['paxTotal'] > 0 ? $primary['revenue'] / $primary['paxTotal'] : 0,
+                ($comparison['paxTotal'] ?? 0) > 0 ? $comparison['revenue'] / $comparison['paxTotal'] : 0,
+            ],
+            'totalItems' => [(int) $primary['items'], (int) ($comparison['items'] ?? 0)],
+            'totalDiscount' => [
+                (float) ($primary['discountMenuTotal'] + $primary['discountPromoTotal'] + $primary['discountVoucherTotal']),
+                (float) (($comparison['discountMenuTotal'] ?? 0) + ($comparison['discountPromoTotal'] ?? 0) + ($comparison['discountVoucherTotal'] ?? 0)),
+            ],
+        ];
+
+        $kpis = [];
+        foreach ($metrics as $key => [$current, $previous]) {
+            $kpis[$key] = [
+                'current' => $current,
+                'comparison' => $previous,
+                'change' => $previous != 0
+                    ? (($current - $previous) / abs($previous)) * 100
+                    : ($current == 0 ? 0 : null),
+            ];
+        }
+
+        $primaryTrend = $primary['byDate'] ?? [];
+        $comparisonTrend = $comparison['byDate'] ?? [];
+        ksort($primaryTrend);
+        ksort($comparisonTrend);
+        $trendLength = max(count($primaryTrend), count($comparisonTrend));
+
+        $primaryBranches = $primary['branches'] ?? [];
+        $comparisonBranches = $comparison['branches'] ?? [];
+        $branchCodes = collect(array_keys($primaryBranches))
+            ->merge(array_keys($comparisonBranches))
+            ->unique();
+        $branchRows = $branchCodes->map(function (string $code) use ($primaryBranches, $comparisonBranches): array {
+            $current = $primaryBranches[$code] ?? [];
+            $previous = $comparisonBranches[$code] ?? [];
+            $currentRevenue = (float) ($current['revenue'] ?? 0);
+            $previousRevenue = (float) ($previous['revenue'] ?? 0);
+
+            return [
+                'code' => $code,
+                'name' => $current['name'] ?? $previous['name'] ?? $code,
+                'currentRevenue' => $currentRevenue,
+                'comparisonRevenue' => $previousRevenue,
+                'revenueChange' => $previousRevenue != 0
+                    ? (($currentRevenue - $previousRevenue) / abs($previousRevenue)) * 100
+                    : ($currentRevenue == 0 ? 0 : null),
+                'currentTransactions' => (int) ($current['transactions'] ?? 0),
+                'comparisonTransactions' => (int) ($previous['transactions'] ?? 0),
+            ];
+        })->sortByDesc(fn (array $row): float => (float) ($row['revenueChange'] ?? -INF))->values()->all();
+
+        $primaryPeriod = $this->fetchPeriods[0];
+        $comparisonPeriod = $this->fetchPeriods[1];
+
+        return [
+            'enabled' => true,
+            'type' => $this->comparisonType,
+            'primaryLabel' => Carbon::parse($primaryPeriod['from'])->isoFormat('D MMM Y').' – '.Carbon::parse($primaryPeriod['to'])->isoFormat('D MMM Y'),
+            'comparisonLabel' => Carbon::parse($comparisonPeriod['from'])->isoFormat('D MMM Y').' – '.Carbon::parse($comparisonPeriod['to'])->isoFormat('D MMM Y'),
+            'kpis' => $kpis,
+            'revenueTrend' => [
+                'labels' => array_map(fn (int $index): string => 'Hari '.($index + 1), range(0, max(0, $trendLength - 1))),
+                'primary' => array_pad(array_values($primaryTrend), $trendLength, null),
+                'comparison' => array_pad(array_values($comparisonTrend), $trendLength, null),
+            ],
+            'branches' => $branchRows,
+        ];
     }
 
     /** @param array<string, mixed> $acc */

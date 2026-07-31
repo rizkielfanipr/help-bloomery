@@ -79,6 +79,7 @@ return [
     ],
 
     'Master' => [
+        'Employee' => ['view employees', 'create employees', 'edit employees', 'delete employees'],
         'Brand' => ['view brands', 'create brands', 'edit brands', 'delete brands'],
         'Cabang' => ['view branches', 'create branches', 'edit branches', 'delete branches'],
         'Region Penjualan' => ['view sales regions', 'create sales regions', 'edit sales regions', 'delete sales regions'],

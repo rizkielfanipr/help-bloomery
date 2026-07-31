@@ -172,6 +172,7 @@
             'items' => [
                 ['label' => 'Brand',  'icon' => 'tag',        'perm' => 'view brands',   'href' => $r('filament.helpdesk.resources.brands.index'),    'active' => $active($r('filament.helpdesk.resources.brands.index'))],
                 ['label' => 'Branch', 'icon' => 'building-2', 'perm' => 'view branches', 'href' => $r('filament.helpdesk.resources.branches.index'),  'active' => $active($r('filament.helpdesk.resources.branches.index'))],
+                ['label' => 'Employee', 'icon' => 'users', 'perm' => 'view employees', 'href' => $r('filament.helpdesk.resources.employees.index'), 'active' => $active($r('filament.helpdesk.resources.employees.index'))],
                 ['label' => 'Payment Grouping', 'icon' => 'layers', 'perm' => 'view payment method groups', 'href' => $r('filament.helpdesk.resources.payment-method-groups.index'), 'active' => $active($r('filament.helpdesk.resources.payment-method-groups.index'))],
             ],
         ],

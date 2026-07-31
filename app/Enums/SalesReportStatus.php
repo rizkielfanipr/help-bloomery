@@ -18,11 +18,11 @@ enum SalesReportStatus: string implements HasColor, HasLabel
     {
         return match ($this) {
             self::Draft => 'Draft',
-            self::PendingSupervisor => 'Menunggu Approval SPV',
-            self::RejectedBySupervisor => 'Ditolak SPV',
-            self::PendingFinance => 'Menunggu Approval Finance',
-            self::RejectedByFinance => 'Ditolak Finance',
-            self::Completed => 'Selesai',
+            self::PendingSupervisor => 'Supervisor Review',
+            self::RejectedBySupervisor => 'Rejected by Supervisor',
+            self::PendingFinance => 'Finance Review',
+            self::RejectedByFinance => 'Rejected by Finance',
+            self::Completed => 'Completed',
         };
     }
 

@@ -41,7 +41,12 @@ class ViewSalesReport extends Page
 
     public function getTitle(): string
     {
-        return 'Sales Report Shift '.$this->record->shift_number.' — '.$this->record->branch->name.' '.$this->record->report_date->isoFormat('D MMMM Y');
+        return collect([
+            'Sales Report',
+            $this->record->branch->name,
+            'Shift '.$this->record->shift_number,
+            $this->record->report_date->isoFormat('D MMMM Y'),
+        ])->join(' · ');
     }
 
     public function canReviewAsSupervisor(): bool
@@ -73,7 +78,7 @@ class ViewSalesReport extends Page
         );
         if ($hasDifference && trim($this->reviewNote) === '') {
             throw ValidationException::withMessages([
-                'reviewNote' => 'Catatan wajib diisi karena terdapat selisih Sales Store dan Sales System.',
+                'reviewNote' => 'Review notes are required because System Sales and Store Sales have a difference.',
             ]);
         }
 
@@ -91,7 +96,7 @@ class ViewSalesReport extends Page
             ],
         );
 
-        Notification::make()->title('Sales Report disetujui SPV')->success()->send();
+        Notification::make()->title('Status updated to Finance Review')->success()->send();
     }
 
     public function rejectSupervisor(): void
@@ -112,7 +117,7 @@ class ViewSalesReport extends Page
             ],
         );
 
-        Notification::make()->title('Sales Report ditolak SPV')->danger()->send();
+        Notification::make()->title('Status updated to Rejected by Supervisor')->danger()->send();
     }
 
     public function approveFinance(): void
@@ -132,7 +137,7 @@ class ViewSalesReport extends Page
 
             if (abs($difference) > self::SETTLEMENT_TOLERANCE && trim($row['note']) === '') {
                 throw ValidationException::withMessages([
-                    "settlementRows.{$entry->id}.note" => 'Catatan wajib untuk selisih settlement di atas Rp100.',
+                    "settlementRows.{$entry->id}.note" => 'Finance notes are required when the settlement difference exceeds Rp100.',
                 ]);
             }
         }
@@ -177,7 +182,7 @@ class ViewSalesReport extends Page
         });
 
         $this->refreshRecord();
-        Notification::make()->title('Rekonsiliasi Finance selesai')->success()->send();
+        Notification::make()->title('Status updated to Completed')->success()->send();
     }
 
     public function rejectFinance(): void
@@ -198,7 +203,7 @@ class ViewSalesReport extends Page
             ],
         );
 
-        Notification::make()->title('Sales Report ditolak Finance')->danger()->send();
+        Notification::make()->title('Status updated to Rejected by Finance')->danger()->send();
     }
 
     public function settlementPreview(int $entryId): array

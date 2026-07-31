@@ -156,6 +156,7 @@
             'icon'  => 'database',
             'items' => [
                 ['label' => 'Branch', 'icon' => 'building-2', 'perm' => 'view branches', 'href' => $r('filament.helpdesk.resources.branches.index'), 'active' => request()->is('helpdesk/branches*')],
+                ['label' => 'Employee', 'icon' => 'users', 'perm' => 'view employees', 'href' => $r('filament.helpdesk.resources.employees.index'), 'active' => request()->is('helpdesk/employees*')],
             ],
         ],
     ];

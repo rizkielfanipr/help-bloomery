@@ -5,6 +5,7 @@ use App\Filament\Casual\Pages\SalesReportShiftPage;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
 use App\Models\Branch;
+use App\Models\Employee;
 use App\Models\SalesReport;
 use App\Models\SalesReportEntry;
 use App\Models\User;
@@ -22,10 +23,20 @@ beforeEach(function () {
         'is_active' => true,
     ]);
     $this->submitter->assignRole('CASUAL_STAFF');
+    $this->employee = Employee::factory()->create([
+        'branch_id' => $this->branch->id,
+        'employee_code' => 'EMP-STORE-001',
+        'name' => 'Staff Kasir',
+        'position' => 'Cashier',
+    ]);
 
     $this->report = SalesReport::create([
         'branch_id' => $this->branch->id,
         'submitted_by' => $this->submitter->id,
+        'employee_id' => $this->employee->id,
+        'employee_code' => $this->employee->employee_code,
+        'employee_name' => $this->employee->name,
+        'employee_position' => $this->employee->position,
         'report_date' => today(),
         'submitted_at' => now(),
         'status' => SalesReportStatus::PendingSupervisor->value,
@@ -36,6 +47,43 @@ beforeEach(function () {
         'sales_system_amount' => 1_000_000,
         'sales_store_amount' => 1_000_000,
     ]);
+});
+
+it('only allows an active employee from the submitter branch', function () {
+    $this->report->update(['status' => SalesReportStatus::RejectedBySupervisor->value]);
+    $otherEmployee = Employee::factory()->create([
+        'branch_id' => Branch::factory()->create()->id,
+    ]);
+
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->submitter);
+
+    Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
+        ->assertSee('EMP-STORE-001')
+        ->assertDontSee($otherEmployee->employee_code)
+        ->set('employeeId', $otherEmployee->id)
+        ->call('requestConfirm')
+        ->assertHasErrors(['employeeId']);
+});
+
+it('hides system sales and requires notes for each differing payment method', function () {
+    $this->report->update(['status' => SalesReportStatus::RejectedBySupervisor->value]);
+    $this->entry->update(['sales_store_amount' => 900_000]);
+
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->submitter);
+
+    Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
+        ->assertDontSee('Sales System')
+        ->assertDontSee('1.000.000')
+        ->call('requestConfirm')
+        ->assertSet('showDiscrepancies', true)
+        ->assertSee('Difference detected')
+        ->assertHasErrors(['rows.0.notes'])
+        ->set('rows.0.notes', 'Cash count was below the recorded transaction total.')
+        ->call('requestConfirm')
+        ->assertHasNoErrors()
+        ->assertSet('showConfirm', true);
 });
 
 it('moves a report from supervisor approval through finance reconciliation', function () {
@@ -176,7 +224,16 @@ it('shows the workflow status in the finance sales report list', function () {
 
     Livewire::test(ListSalesReports::class)
         ->assertSee($this->branch->name)
-        ->assertSee('Menunggu Approval SPV');
+        ->assertSee('Supervisor Review');
+});
+
+it('uses concise English labels throughout the sales report workflow', function () {
+    expect(SalesReportStatus::Draft->getLabel())->toBe('Draft')
+        ->and(SalesReportStatus::PendingSupervisor->getLabel())->toBe('Supervisor Review')
+        ->and(SalesReportStatus::RejectedBySupervisor->getLabel())->toBe('Rejected by Supervisor')
+        ->and(SalesReportStatus::PendingFinance->getLabel())->toBe('Finance Review')
+        ->and(SalesReportStatus::RejectedByFinance->getLabel())->toBe('Rejected by Finance')
+        ->and(SalesReportStatus::Completed->getLabel())->toBe('Completed');
 });
 
 it('allows a superadmin to test both supervisor and finance approval stages', function () {
@@ -214,10 +271,10 @@ it('allows a superadmin to approve a report they submitted for testing', functio
     $this->actingAs($superadmin);
 
     $page = Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->assertSee('Approve SPV')
+        ->assertSee('Set as Finance Review')
         ->call('approveSupervisor')
         ->assertHasNoErrors()
-        ->assertSee('Approve & Selesaikan');
+        ->assertSee('Set as Completed');
 
     $page->set("settlementRows.{$this->entry->id}.settlement", '995000')
         ->call('approveFinance')

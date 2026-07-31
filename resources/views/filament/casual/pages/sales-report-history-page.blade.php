@@ -92,6 +92,11 @@
                                     <p class="mt-0.5 text-xs text-gray-400">
                                         {{ $report->entries->count() }} metode pembayaran
                                     </p>
+                                    @if($report->employee_name)
+                                        <p class="mt-0.5 truncate text-[11px] text-gray-500">
+                                            {{ $report->employee_code }} · {{ $report->employee_name }} · {{ $report->employee_position }}
+                                        </p>
+                                    @endif
                                     <span @class([
                                         'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
                                         'bg-emerald-100 text-emerald-700' => $report->status === \App\Enums\SalesReportStatus::Completed,

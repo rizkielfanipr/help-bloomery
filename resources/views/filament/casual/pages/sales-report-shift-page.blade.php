@@ -68,6 +68,34 @@
                 </div>
             </div>
 
+            {{-- Staff pengisi --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                <label for="employeeId" class="{{ $labelClass }}">Staff Pengisi <span class="text-red-500">*</span></label>
+                @if($isSubmitted)
+                    <div class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800">
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ $employeeName ?? 'Data employee tersimpan' }}</p>
+                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                            {{ collect([$employeeCode, $employeePosition])->filter()->join(' · ') ?: '-' }}
+                        </p>
+                    </div>
+                @else
+                    <select id="employeeId" wire:model="employeeId"
+                            class="w-full rounded-xl border bg-gray-50 px-3 py-2.5 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-slate-200
+                                   {{ $errors->has('employeeId') ? 'border-red-400 dark:border-red-500' : 'border-gray-200 dark:border-gray-700' }}">
+                        <option value="">Pilih staff sesuai branch</option>
+                        @foreach($this->employees as $employee)
+                            <option value="{{ $employee->id }}">{{ $employee->employee_code }} · {{ $employee->name }} · {{ $employee->position }}</option>
+                        @endforeach
+                    </select>
+                    @if($this->employees->isEmpty())
+                        <p class="mt-1.5 text-xs text-amber-600">Belum ada employee aktif pada branch ini. Tambahkan melalui Master › Employee.</p>
+                    @endif
+                    @error('employeeId')
+                        <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>
+                    @enderror
+                @endif
+            </div>
+
             {{-- ESB Fetch card --}}
             @if(! $isSubmitted)
                 <div class="rounded-2xl border p-4
@@ -103,59 +131,46 @@
                 <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
                     {{-- Column header --}}
-                    <div class="grid grid-cols-3 border-b border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
-                        <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Sales System</span>
-                        <span class="text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Sales Store</span>
-                        <span class="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400">Selisih</span>
+                    <div class="grid grid-cols-[1fr_140px] border-b border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
+                        <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Payment Method</span>
+                        <span class="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400">Sales Store</span>
                     </div>
 
                     {{-- Rows --}}
                     @foreach($rows as $idx => $row)
                         @php
-                            $selisih  = $this->getSelisih($idx);
-                            $isNeg    = $selisih < 0;
+                            $hasDifference = abs($this->getSelisih($idx)) > 0.009;
                             $hasError = $errors->has("rows.{$idx}.notes");
-
-                            $selisihColor = $isNeg
-                                ? 'text-red-600 dark:text-red-400'
-                                : ($selisih == 0 ? 'text-slate-400 dark:text-slate-500' : 'text-emerald-600 dark:text-emerald-400');
                         @endphp
 
                         <div class="border-b border-gray-100 dark:border-gray-800 last:border-0">
-
-                            {{-- Method name --}}
-                            <div class="px-4 pb-1 pt-3">
-                                <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['name'] }}</p>
-                            </div>
-
-                            {{-- 3 columns: Sistem | Toko | Selisih --}}
-                            <div class="grid grid-cols-3 items-center gap-2 px-4 pb-3">
-
-                                {{-- Sales System --}}
-                                <div class="text-xs font-mono text-slate-500 dark:text-slate-400">
-                                    {{ number_format($row['sales_system'], 0, ',', '.') }}
+                            <div class="grid grid-cols-[1fr_140px] items-center gap-3 px-4 py-3">
+                                <div class="min-w-0">
+                                    <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['name'] }}</p>
+                                    @if($showDiscrepancies && $hasDifference)
+                                        <span class="mt-1 inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-900/20 dark:text-red-400">
+                                            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
+                                            </svg>
+                                            Difference detected
+                                        </span>
+                                    @endif
                                 </div>
 
-                                {{-- Sales Store --}}
                                 @if($isSubmitted)
-                                    <div class="text-center text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
+                                    <div class="text-right text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
                                         {{ number_format((float) ($row['sales_store'] ?? 0), 0, ',', '.') }}
                                     </div>
                                 @else
                                     <input type="number"
                                            wire:model.live="rows.{{ $idx }}.sales_store"
                                            min="0" step="1000" placeholder="0"
-                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-center text-xs font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-right text-xs font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
                                 @endif
-
-                                {{-- Selisih --}}
-                                <div class="text-right text-xs font-mono font-semibold {{ $selisihColor }}">
-                                    {{ $isNeg ? '-' : '' }}{{ number_format(abs($selisih), 0, ',', '.') }}
-                                </div>
                             </div>
 
-                            {{-- Notes (only when selisih < 0) --}}
-                            @if($isNeg || ! empty($row['notes']))
+                            {{-- Notes become visible only after backend detects a difference. --}}
+                            @if(($showDiscrepancies && $hasDifference) || ! empty($row['notes']))
                                 <div class="px-4 pb-3">
                                     @if($isSubmitted)
                                         @if(! empty($row['notes']))
@@ -171,11 +186,11 @@
                                             <svg class="h-3 w-3 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
                                             </svg>
-                                            <span class="text-[10px] font-semibold text-red-500">Catatan selisih wajib diisi</span>
+                                            <span class="text-[10px] font-semibold text-red-500">Notes are required for this payment method</span>
                                         </div>
                                         <input type="text"
                                                wire:model.live="rows.{{ $idx }}.notes"
-                                               placeholder="Tulis keterangan selisih..."
+                                               placeholder="Explain the sales difference..."
                                                class="w-full rounded-lg border bg-gray-50 px-3 py-2 text-xs text-slate-600 placeholder-slate-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-slate-300
                                                       {{ $hasError ? 'border-red-400 focus:border-red-400 dark:border-red-500' : 'border-gray-200 focus:border-blue-400 dark:border-gray-700' }}">
                                         @error("rows.{$idx}.notes")
@@ -189,27 +204,11 @@
                     @endforeach
 
                     {{-- Total row --}}
-                    @php
-                        $totalSystem  = $this->totalSystem();
-                        $totalStore   = $this->totalStore();
-                        $totalSelisih = $totalSystem - $totalStore;
-                        $totalColor   = $totalSelisih < 0
-                            ? 'text-red-600 dark:text-red-400'
-                            : ($totalSelisih == 0 ? 'text-slate-400 dark:text-slate-500' : 'text-emerald-600 dark:text-emerald-400');
-                    @endphp
                     <div class="border-t-2 border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
-                        <div class="mb-1">
-                            <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total</span>
-                        </div>
-                        <div class="grid grid-cols-3 items-center gap-2">
-                            <span class="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
-                                {{ number_format($totalSystem, 0, ',', '.') }}
-                            </span>
-                            <span class="text-center text-xs font-mono font-bold text-blue-600 dark:text-blue-400">
-                                {{ number_format($totalStore, 0, ',', '.') }}
-                            </span>
-                            <span class="text-right text-xs font-mono font-bold {{ $totalColor }}">
-                                {{ $totalSelisih < 0 ? '-' : '' }}{{ number_format(abs($totalSelisih), 0, ',', '.') }}
+                        <div class="flex items-center justify-between gap-3">
+                            <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Sales Store</span>
+                            <span class="text-sm font-mono font-bold text-blue-600 dark:text-blue-400">
+                                Rp {{ number_format($this->totalStore(), 0, ',', '.') }}
                             </span>
                         </div>
                     </div>

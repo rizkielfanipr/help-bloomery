@@ -6,53 +6,61 @@ use Illuminate\Database\Eloquent\Model;
 
 trait HasPermissions
 {
+    private static function hasPermission(string $ability): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null
+            && ($user->hasRole('SUPERADMIN') || $user->can($ability));
+    }
+
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('view '.static::$permissionPrefix);
     }
 
     public static function canView(Model $record): bool
     {
-        return auth()->user()?->can('view '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('view '.static::$permissionPrefix);
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can('create '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('create '.static::$permissionPrefix);
     }
 
     public static function canEdit(Model $record): bool
     {
-        return auth()->user()?->can('edit '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('edit '.static::$permissionPrefix);
     }
 
     public static function canDelete(Model $record): bool
     {
-        return auth()->user()?->can('delete '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('delete '.static::$permissionPrefix);
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()?->can('delete '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('delete '.static::$permissionPrefix);
     }
 
     public static function canForceDelete(Model $record): bool
     {
-        return auth()->user()?->can('delete '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('delete '.static::$permissionPrefix);
     }
 
     public static function canForceDeleteAny(): bool
     {
-        return auth()->user()?->can('delete '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('delete '.static::$permissionPrefix);
     }
 
     public static function canRestore(Model $record): bool
     {
-        return auth()->user()?->can('edit '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('edit '.static::$permissionPrefix);
     }
 
     public static function canRestoreAny(): bool
     {
-        return auth()->user()?->can('edit '.static::$permissionPrefix) ?? false;
+        return static::hasPermission('edit '.static::$permissionPrefix);
     }
 }

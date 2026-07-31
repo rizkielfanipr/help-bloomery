@@ -77,6 +77,15 @@ class SalesReportResource extends Resource
                     ->sortable()
                     ->searchable(),
 
+                TextColumn::make('employee_name')
+                    ->label('Staff Pengisi')
+                    ->description(fn (SalesReport $record): ?string => collect([
+                        $record->employee_code,
+                        $record->employee_position,
+                    ])->filter()->join(' · ') ?: null)
+                    ->searchable(['employee_name', 'employee_code', 'employee_position'])
+                    ->placeholder('-'),
+
                 TextColumn::make('submitted_at')
                     ->label('Disubmit')
                     ->dateTime('d M Y HH:mm')
@@ -155,7 +164,7 @@ class SalesReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'submittedBy']);
+        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'submittedBy', 'employee']);
         $user = auth()->user();
 
         if ($user && ! $user->access_all_branches && ! $user->hasAnyRole(['SUPERADMIN', 'FINANCE_STAFF'])) {

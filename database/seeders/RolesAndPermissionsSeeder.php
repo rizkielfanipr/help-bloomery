@@ -45,6 +45,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view brands', 'create brands', 'edit brands', 'delete brands',
                 'view branches', 'create branches', 'edit branches', 'delete branches',
                 'view payment method groups', 'create payment method groups', 'edit payment method groups', 'delete payment method groups',
+                'view employees', 'create employees', 'edit employees', 'delete employees',
                 // tiles
                 'view tile req teknisi',
                 'view tile briefing',

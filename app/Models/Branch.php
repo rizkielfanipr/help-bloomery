@@ -79,6 +79,11 @@ class Branch extends Model
         return $this->hasMany(SalesReport::class);
     }
 
+    public function employees(): HasMany
+    {
+        return $this->hasMany(Employee::class);
+    }
+
     /** @return array{start: string, end: string} */
     public function salesShiftSchedule(int $shiftNumber): array
     {

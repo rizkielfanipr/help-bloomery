@@ -51,6 +51,40 @@
                 ]
             ), 'KPI');
 
+            if (d.comparison?.enabled) {
+                const comparisonLabels = {
+                    totalRevenue: 'Total Pendapatan',
+                    totalTransactions: 'Total Transaksi',
+                    avgTransaction: 'Rata-rata / Transaksi',
+                    totalPax: 'Total Pax',
+                    avgPerPax: 'Rata-rata / Pax',
+                    totalItems: 'Total Item',
+                    totalDiscount: 'Total Diskon',
+                };
+                XLSX.utils.book_append_sheet(wb, this.sheet(
+                    ['Metrik', d.comparison.primaryLabel, d.comparison.comparisonLabel, 'Growth (%)'],
+                    Object.entries(d.comparison.kpis ?? {}).map(([key, value]) => [
+                        comparisonLabels[key] ?? key,
+                        value.current,
+                        value.comparison,
+                        value.change,
+                    ])
+                ), 'Comparison Summary');
+
+                XLSX.utils.book_append_sheet(wb, this.sheet(
+                    ['Branch', 'Kode', 'Pendapatan Utama', 'Pendapatan Pembanding', 'Growth (%)', 'Transaksi Utama', 'Transaksi Pembanding'],
+                    (d.comparison.branches ?? []).map(branch => [
+                        branch.name,
+                        branch.code,
+                        branch.currentRevenue,
+                        branch.comparisonRevenue,
+                        branch.revenueChange,
+                        branch.currentTransactions,
+                        branch.comparisonTransactions,
+                    ])
+                ), 'Branch Growth');
+            }
+
             // Tren Pendapatan
             if (d.revenueTrend?.labels?.length) {
                 const tot = d.revenueTrend.data.reduce((a, b) => a + b, 0);
@@ -367,18 +401,47 @@
             const trendEl = document.getElementById('chartRevenueTrend');
             if (trendEl && d.revenueTrend) {
                 const totalRevenue = d.revenueTrend.data.reduce((a, b) => a + b, 0);
+                const comparison = d.comparison?.enabled ? d.comparison : null;
                 const ctx = trendEl.getContext('2d');
                 const grad = ctx.createLinearGradient(0, 0, 0, 280);
                 grad.addColorStop(0, '#3b82f620');
                 grad.addColorStop(1, '#3b82f600');
+                const chartLabels = comparison?.revenueTrend?.labels ?? d.revenueTrend.labels;
+                const datasets = comparison
+                    ? [
+                        {
+                            label: comparison.primaryLabel,
+                            data: comparison.revenueTrend.primary,
+                            borderColor: '#2563eb',
+                            backgroundColor: grad,
+                            fill: true,
+                            tension: 0.35,
+                            borderWidth: 2.5,
+                            pointRadius: 2,
+                            pointBackgroundColor: '#2563eb',
+                        },
+                        {
+                            label: comparison.comparisonLabel,
+                            data: comparison.revenueTrend.comparison,
+                            borderColor: '#94a3b8',
+                            backgroundColor: 'transparent',
+                            borderDash: [6, 5],
+                            fill: false,
+                            tension: 0.35,
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            pointBackgroundColor: '#94a3b8',
+                        },
+                    ]
+                    : [{ label: 'Pendapatan', data: d.revenueTrend.data, borderColor: '#3b82f6', backgroundColor: grad, fill: true, tension: 0.4, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#3b82f6', pointHoverRadius: 5 }];
                 this.charts.revenueTrend = new Chart(ctx, {
                     type: 'line',
-                    data: { labels: d.revenueTrend.labels, datasets: [{ label: 'Pendapatan', data: d.revenueTrend.data, borderColor: '#3b82f6', backgroundColor: grad, fill: true, tension: 0.4, borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#3b82f6', pointHoverRadius: 5 }] },
+                    data: { labels: chartLabels, datasets },
                     options: {
                         responsive: true, maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: false },
-                            tooltip: { ...tooltipBase, callbacks: { label: ctx => ` ${rupiah(ctx.parsed.y)} (${pct(ctx.parsed.y, totalRevenue)} dari total periode berjalan)` } },
+                            legend: { display: Boolean(comparison), position: 'bottom', labels: { color: tick(), usePointStyle: true, padding: 18 } },
+                            tooltip: { ...tooltipBase, callbacks: { label: ctx => ` ${ctx.dataset.label}: ${rupiah(ctx.parsed.y)}` } },
                             datalabels: { display: false },
                         },
                         scales: { x: axisBase, y: { ...axisBase, beginAtZero: true, ticks: { ...axisBase.ticks, callback: v => rupiah(v) } } },
@@ -553,6 +616,32 @@
                 @error('dateTo') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
             </div>
 
+            <div>
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Bandingkan</label>
+                <select wire:model.live="comparisonType" class="min-w-[180px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
+                    <option value="none">Tanpa Perbandingan</option>
+                    <option value="yoy">YoY · Tahun Sebelumnya</option>
+                    <option value="previous_month">Bulan Sebelumnya</option>
+                    <option value="previous_period">Periode Sebelumnya</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+
+            @if($comparisonType !== 'none')
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Pembanding Awal</label>
+                    <input type="date" wire:model="comparisonDateFrom" @readonly($comparisonType !== 'custom')
+                           class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 read-only:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:read-only:bg-gray-800/60">
+                    @error('comparisonDateFrom') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Pembanding Akhir</label>
+                    <input type="date" wire:model="comparisonDateTo" @readonly($comparisonType !== 'custom')
+                           class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 read-only:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:read-only:bg-gray-800/60">
+                    @error('comparisonDateTo') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                </div>
+            @endif
+
             {{-- Brand multiselect --}}
             <div x-data="{ open: false, search: '' }" class="relative" @click.outside="open = false; search = ''">
                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Brand</label>
@@ -622,7 +711,9 @@
         $branchDone    = $totalBranches > 0 ? $fetchBranchIndex / $totalBranches : 0;
         $pageSlice     = ($totalBranches > 0 && $fetchTotalPages > 0)
             ? ($fetchCurrentPage / $fetchTotalPages) / $totalBranches : 0;
-        $progressWidth = max(3, (int) round(($branchDone + $pageSlice) * 100));
+        $periodCount = max(1, count($fetchPeriods));
+        $progressWidth = max(3, (int) round((($fetchPeriodIndex + $branchDone + $pageSlice) / $periodCount) * 100));
+        $activePeriod = $fetchPeriods[$fetchPeriodIndex] ?? null;
     @endphp
     <div class="rounded-xl border border-blue-100 bg-white p-4 dark:border-blue-900/40 dark:bg-gray-900">
         <div class="mb-2 flex items-center justify-between">
@@ -631,7 +722,10 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                 </svg>
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Mengambil data dari sistem ESB...</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Mengambil {{ $activePeriod['label'] ?? 'data' }} dari ESB
+                    @if($activePeriod) · {{ \Carbon\Carbon::parse($activePeriod['from'])->format('d M Y') }}–{{ \Carbon\Carbon::parse($activePeriod['to'])->format('d M Y') }} @endif
+                </span>
             </div>
             <span class="text-xs text-gray-500 dark:text-gray-400">
                 @if($totalBranches > 1)
@@ -670,12 +764,12 @@
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
         @php
             $kpis = [
-                ['label' => 'Total Pendapatan',         'value' => 'Rp '.number_format($totalRevenue, 0, ',', '.'),   'icon_color' => 'text-blue-600',   'icon_bg' => 'bg-blue-50 dark:bg-blue-500/10',    'path' => 'M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z'],
-                ['label' => 'Total Transaksi',          'value' => number_format($totalTransactions),                  'icon_color' => 'text-indigo-600', 'icon_bg' => 'bg-indigo-50 dark:bg-indigo-500/10', 'path' => 'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z'],
-                ['label' => 'Rata-rata / Transaksi',   'value' => 'Rp '.number_format($avgTransaction, 0, ',', '.'), 'icon_color' => 'text-emerald-600','icon_bg' => 'bg-emerald-50 dark:bg-emerald-500/10', 'path' => 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z'],
-                ['label' => 'Total Pax',               'value' => number_format($totalPax),                          'icon_color' => 'text-cyan-600',   'icon_bg' => 'bg-cyan-50 dark:bg-cyan-500/10',    'path' => 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z'],
-                ['label' => 'Rata-rata / Pax',         'value' => 'Rp '.number_format($avgPerPax, 0, ',', '.'),     'icon_color' => 'text-violet-600', 'icon_bg' => 'bg-violet-50 dark:bg-violet-500/10', 'path' => 'M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941'],
-                ['label' => 'Total Item Terjual',      'value' => number_format($totalItems),                        'icon_color' => 'text-amber-600',  'icon_bg' => 'bg-amber-50 dark:bg-amber-500/10',  'path' => 'M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z'],
+                ['key' => 'totalRevenue', 'label' => 'Total Pendapatan', 'value' => 'Rp '.number_format($totalRevenue, 0, ',', '.'), 'icon_color' => 'text-blue-600', 'icon_bg' => 'bg-blue-50 dark:bg-blue-500/10', 'path' => 'M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z'],
+                ['key' => 'totalTransactions', 'label' => 'Total Transaksi', 'value' => number_format($totalTransactions), 'icon_color' => 'text-indigo-600', 'icon_bg' => 'bg-indigo-50 dark:bg-indigo-500/10', 'path' => 'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z'],
+                ['key' => 'avgTransaction', 'label' => 'Rata-rata / Transaksi', 'value' => 'Rp '.number_format($avgTransaction, 0, ',', '.'), 'icon_color' => 'text-emerald-600','icon_bg' => 'bg-emerald-50 dark:bg-emerald-500/10', 'path' => 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z'],
+                ['key' => 'totalPax', 'label' => 'Total Pax', 'value' => number_format($totalPax), 'icon_color' => 'text-cyan-600', 'icon_bg' => 'bg-cyan-50 dark:bg-cyan-500/10', 'path' => 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z'],
+                ['key' => 'avgPerPax', 'label' => 'Rata-rata / Pax', 'value' => 'Rp '.number_format($avgPerPax, 0, ',', '.'), 'icon_color' => 'text-violet-600', 'icon_bg' => 'bg-violet-50 dark:bg-violet-500/10', 'path' => 'M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941'],
+                ['key' => 'totalItems', 'label' => 'Total Item Terjual', 'value' => number_format($totalItems), 'icon_color' => 'text-amber-600', 'icon_bg' => 'bg-amber-50 dark:bg-amber-500/10', 'path' => 'M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z'],
             ];
         @endphp
         @foreach($kpis as $kpi)
@@ -684,6 +778,21 @@
                 <div class="min-w-0">
                     <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $kpi['label'] }}</p>
                     <p class="mt-1.5 truncate text-xl font-bold tracking-tight text-gray-900 dark:text-white">{{ $kpi['value'] }}</p>
+                    @if($comparisonSummary['enabled'] ?? false)
+                        @php $comparisonKpi = $comparisonSummary['kpis'][$kpi['key']] ?? null; @endphp
+                        @if($comparisonKpi)
+                            <div class="mt-2 flex items-center gap-2">
+                                @if($comparisonKpi['change'] === null)
+                                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-bold text-gray-500">Data baru</span>
+                                @else
+                                    <span class="rounded-full px-2 py-0.5 text-[11px] font-bold {{ $comparisonKpi['change'] >= 0 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' }}">
+                                        {{ $comparisonKpi['change'] >= 0 ? '↑' : '↓' }} {{ number_format(abs($comparisonKpi['change']), 1, ',', '.') }}%
+                                    </span>
+                                    <span class="text-[10px] text-gray-400">vs pembanding</span>
+                                @endif
+                            </div>
+                        @endif
+                    @endif
                 </div>
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $kpi['icon_bg'] }}">
                     <svg class="h-5 w-5 {{ $kpi['icon_color'] }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -694,6 +803,56 @@
         </div>
         @endforeach
     </div>
+
+    @if($comparisonSummary['enabled'] ?? false)
+        <div class="overflow-hidden rounded-xl border border-blue-100 bg-white dark:border-blue-900/40 dark:bg-gray-900">
+            <div class="flex flex-col justify-between gap-2 border-b border-blue-100 bg-blue-50/60 px-5 py-4 dark:border-blue-900/40 dark:bg-blue-950/20 sm:flex-row sm:items-center">
+                <div>
+                    <p class="text-sm font-bold text-gray-900 dark:text-white">Performance Comparison</p>
+                    <p class="mt-1 text-xs text-gray-500">{{ $comparisonSummary['primaryLabel'] }} dibandingkan {{ $comparisonSummary['comparisonLabel'] }}</p>
+                </div>
+                <span class="w-fit rounded-full bg-blue-600 px-3 py-1 text-xs font-bold text-white">{{ strtoupper($comparisonSummary['type']) }}</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[780px] text-sm">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-800">
+                        <tr>
+                            <th class="px-5 py-3 text-left">Branch</th>
+                            <th class="px-5 py-3 text-right">Periode Utama</th>
+                            <th class="px-5 py-3 text-right">Pembanding</th>
+                            <th class="px-5 py-3 text-right">Growth</th>
+                            <th class="px-5 py-3 text-right">Transaksi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach($comparisonSummary['branches'] as $branch)
+                            <tr>
+                                <td class="px-5 py-3">
+                                    <p class="font-semibold text-gray-900 dark:text-white">{{ $branch['name'] }}</p>
+                                    <p class="font-mono text-[10px] text-gray-400">{{ $branch['code'] }}</p>
+                                </td>
+                                <td class="px-5 py-3 text-right font-semibold">Rp {{ number_format($branch['currentRevenue'], 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right text-gray-500">Rp {{ number_format($branch['comparisonRevenue'], 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right">
+                                    @if($branch['revenueChange'] === null)
+                                        <span class="rounded-full bg-gray-100 px-2 py-1 text-xs font-bold text-gray-500">Data baru</span>
+                                    @else
+                                        <span class="rounded-full px-2 py-1 text-xs font-bold {{ $branch['revenueChange'] >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700' }}">
+                                            {{ $branch['revenueChange'] >= 0 ? '↑' : '↓' }} {{ number_format(abs($branch['revenueChange']), 1, ',', '.') }}%
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-3 text-right">
+                                    <span class="font-semibold">{{ number_format($branch['currentTransactions']) }}</span>
+                                    <span class="text-xs text-gray-400">/ {{ number_format($branch['comparisonTransactions']) }}</span>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
 
     {{-- Discount Breakdown --}}
     @if($totalDiscount > 0)
@@ -793,7 +952,7 @@
         <div class="mb-4 flex items-start justify-between gap-3">
             <div>
                 <h3 class="font-semibold text-gray-800 dark:text-white">Tren Pendapatan Harian</h3>
-                <p class="mt-0.5 text-xs text-gray-400">Akumulasi pendapatan bersih per hari dalam periode berjalan</p>
+                <p class="mt-0.5 text-xs text-gray-400">{{ ($comparisonSummary['enabled'] ?? false) ? 'Perbandingan pendapatan berdasarkan urutan hari dalam setiap periode' : 'Akumulasi pendapatan bersih per hari dalam periode berjalan' }}</p>
             </div>
             <button @click="exportRevenueTrendXlsx()"
                     class="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-gray-50 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200">

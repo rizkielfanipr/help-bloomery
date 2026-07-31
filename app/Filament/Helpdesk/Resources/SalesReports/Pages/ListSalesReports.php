@@ -20,19 +20,19 @@ class ListSalesReports extends ListRecords
     public function getTabs(): array
     {
         return [
-            'all' => Tab::make('Semua'),
-            'pending_supervisor' => Tab::make('Menunggu SPV')
+            'all' => Tab::make('All'),
+            'pending_supervisor' => Tab::make('Supervisor Review')
                 ->badge(fn (): int => $this->statusCount(SalesReportStatus::PendingSupervisor))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::PendingSupervisor->value)),
-            'pending_finance' => Tab::make('Menunggu Finance')
+            'pending_finance' => Tab::make('Finance Review')
                 ->badge(fn (): int => $this->statusCount(SalesReportStatus::PendingFinance))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::PendingFinance->value)),
-            'rejected' => Tab::make('Ditolak')
+            'rejected' => Tab::make('Rejected')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
                     SalesReportStatus::RejectedBySupervisor->value,
                     SalesReportStatus::RejectedByFinance->value,
                 ])),
-            'completed' => Tab::make('Selesai')
+            'completed' => Tab::make('Completed')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::Completed->value)),
         ];
     }

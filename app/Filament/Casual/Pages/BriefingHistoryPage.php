@@ -71,14 +71,14 @@ class BriefingHistoryPage extends Page
         return match ($status) {
             BriefingReviewStatus::Approved => 'bg-green-100 text-green-700',
             BriefingReviewStatus::Rejected => 'bg-red-100 text-red-700',
-            BriefingReviewStatus::Pending => 'bg-amber-100 text-amber-700',
+            BriefingReviewStatus::LegacyPending, BriefingReviewStatus::SupervisorReview => 'bg-amber-100 text-amber-700',
             default => 'bg-blue-100 text-blue-700',
         };
     }
 
     public function reviewBadgeLabel(?BriefingReviewStatus $status): string
     {
-        return $status?->getLabel() ?? 'Tersubmit';
+        return $status?->getLabel() ?? 'Not Submitted';
     }
 
     public function periodBadgeClass(string $period): string

@@ -38,4 +38,21 @@ enum ItRequestStatus: string implements HasColor, HasLabel
             self::Completed => 'success',
         };
     }
+
+    /** @return array<int, self> */
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::Submitted => [self::Review],
+            self::Review => [self::Progress],
+            self::Progress => [self::Waiting, self::Escalated, self::Completed],
+            self::Waiting, self::Escalated => [self::Progress],
+            self::Completed, self::Cancelled => [],
+        };
+    }
+
+    public function canTransitionTo(self $status): bool
+    {
+        return $status === $this || in_array($status, $this->allowedTransitions(), true);
+    }
 }

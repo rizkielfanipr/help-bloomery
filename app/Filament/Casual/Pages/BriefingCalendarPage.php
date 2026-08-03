@@ -99,8 +99,8 @@ class BriefingCalendarPage extends Page
             if ($items->every(fn (BriefingItem $i) => $i->review_status === BriefingReviewStatus::Approved)) {
                 return 'approved';
             }
-            if ($items->contains(fn (BriefingItem $i) => $i->review_status === BriefingReviewStatus::Pending)) {
-                return 'pending';
+            if ($items->contains(fn (BriefingItem $i) => $i->review_status?->isAwaitingSupervisorReview() ?? false)) {
+                return 'supervisor_review';
             }
 
             return 'submitted';

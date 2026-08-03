@@ -58,7 +58,7 @@ class BriefingItemsSeeder extends Seeder
                             'is_completed' => true,
                             'completed_at' => $date->copy()->setTime(16, 0),
                             'notes' => $key === 'daily_detail_briefing' ? 'Briefing berjalan lancar, semua poin dibahas.' : null,
-                            'review_status' => 'pending',
+                            'review_status' => 'supervisor_review',
                         ]
                     );
                 }

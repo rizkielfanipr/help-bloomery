@@ -74,6 +74,12 @@ class ViewErpRepairRequest extends ViewRecord
             return;
         }
 
+        if (! $this->record->status->canTransitionTo($status)) {
+            $this->addError('status', 'Status must follow the configured workflow sequence.');
+
+            return;
+        }
+
         $previousStatus = $this->record->status->value;
 
         DB::transaction(function () use ($data, $status, $previousStatus): void {
@@ -102,6 +108,7 @@ class ViewErpRepairRequest extends ViewRecord
     public function escalate(): void
     {
         $this->authorizeFollowUp();
+        abort_unless($this->record->status->canTransitionTo(ItRequestStatus::Escalated), 409);
         $data = $this->validate([
             'assigneeId' => ['required', 'exists:users,id'],
             'classification' => ['required', Rule::in(['standard', 'major_project'])],
@@ -139,6 +146,7 @@ class ViewErpRepairRequest extends ViewRecord
     public function complete(): void
     {
         $this->authorizeFollowUp();
+        abort_unless($this->record->status->canTransitionTo(ItRequestStatus::Completed), 409);
         $data = $this->validate([
             'assigneeId' => ['required', 'exists:users,id'],
             'classification' => ['required', Rule::in(['standard', 'major_project'])],
@@ -176,6 +184,24 @@ class ViewErpRepairRequest extends ViewRecord
     {
         return (auth()->user()?->can('edit erp requests') ?? false)
             && ! in_array($this->record->status, [ItRequestStatus::Completed, ItRequestStatus::Cancelled], true);
+    }
+
+    /** @return array<string, string> */
+    public function nextStatusOptions(): array
+    {
+        return collect($this->record->status->allowedTransitions())
+            ->reject(fn (ItRequestStatus $status): bool => in_array($status, [ItRequestStatus::Escalated, ItRequestStatus::Completed], true))
+            ->mapWithKeys(fn (ItRequestStatus $status): array => [$status->value => $status->getLabel()])
+            ->all();
+    }
+
+    public function transitionTo(string $status): void
+    {
+        $target = ItRequestStatus::tryFrom($status);
+        abort_unless($target && array_key_exists($target->value, $this->nextStatusOptions()), 409);
+
+        $this->status = $target->value;
+        $this->saveFollowUp();
     }
 
     private function authorizeFollowUp(): void

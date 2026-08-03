@@ -73,8 +73,8 @@ class DailyBriefingPage extends Page
 
             if ($item?->review_status === BriefingReviewStatus::Approved) {
                 Notification::make()
-                    ->title('Sudah Disetujui')
-                    ->body('Item ini sudah disetujui HR dan tidak dapat diubah.')
+                    ->title('Already Approved')
+                    ->body('This item has been approved and can no longer be changed.')
                     ->warning()
                     ->send();
 
@@ -188,8 +188,8 @@ class DailyBriefingPage extends Page
 
         if ($item->exists && $item->review_status === BriefingReviewStatus::Approved) {
             Notification::make()
-                ->title('Sudah Disetujui')
-                ->body('Item ini sudah disetujui HR dan tidak dapat diubah.')
+                ->title('Already Approved')
+                ->body('This item has been approved and can no longer be changed.')
                 ->warning()
                 ->send();
 
@@ -203,7 +203,7 @@ class DailyBriefingPage extends Page
             'notes' => $this->taskData['notes'] ?? null,
             'is_completed' => $isAutoComplete,
             'completed_at' => $isAutoComplete ? now() : null,
-            'review_status' => BriefingReviewStatus::Pending->value,
+            'review_status' => BriefingReviewStatus::SupervisorReview->value,
             'rejection_reason' => null,
             'reviewed_by' => null,
             'reviewed_at' => null,

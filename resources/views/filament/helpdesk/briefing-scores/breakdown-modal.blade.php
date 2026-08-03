@@ -33,7 +33,7 @@
                     <tr class="border-b border-gray-100 dark:border-white/[0.06] bg-gray-50 dark:bg-gray-800/50">
                         <th class="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Poin</th>
                         <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Periode</th>
-                        <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Disetujui</th>
+                        <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Approved</th>
                         <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Bobot</th>
                         <th class="px-3 py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Nilai</th>
                     </tr>

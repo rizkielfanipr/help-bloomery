@@ -74,6 +74,7 @@ it('creates a briefing record and item when a task is saved with a photo', funct
     expect($item)->not->toBeNull();
     expect($item->notes)->toBe('Test catatan cleaning');
     expect($item->photo_paths)->toBe(['briefing-photos/test.jpg']);
+    expect($item->review_status)->toBe(BriefingReviewStatus::SupervisorReview);
 });
 
 it('marks tasks as completed after saving with photo', function () {
@@ -276,13 +277,13 @@ it('does not auto-reject completed items still within the approval window', func
         'task_key' => 'test_completed_task',
         'is_completed' => true,
         'completed_at' => now()->subMinutes(5),
-        'review_status' => BriefingReviewStatus::Pending->value,
+        'review_status' => BriefingReviewStatus::SupervisorReview->value,
     ]);
 
     $this->artisan('briefing:auto-reject')->assertSuccessful();
 
     $item = $record->items()->where('task_key', 'test_completed_task')->first();
-    expect($item->review_status)->toBe(BriefingReviewStatus::Pending);
+    expect($item->review_status)->toBe(BriefingReviewStatus::SupervisorReview);
 });
 
 it('auto-rejects completed items pending approval for seven days', function () {
@@ -301,7 +302,7 @@ it('auto-rejects completed items pending approval for seven days', function () {
         'task_key' => 'daily_selfie_pagi',
         'is_completed' => true,
         'completed_at' => now()->subWeek()->subSecond(),
-        'review_status' => BriefingReviewStatus::Pending->value,
+        'review_status' => BriefingReviewStatus::SupervisorReview->value,
     ]);
 
     $this->artisan('briefing:auto-reject')->assertSuccessful();

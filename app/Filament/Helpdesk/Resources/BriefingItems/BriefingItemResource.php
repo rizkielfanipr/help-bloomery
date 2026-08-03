@@ -91,9 +91,9 @@ class BriefingItemResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('review_status')
-                    ->label('Status Review')
+                    ->label('Review Status')
                     ->badge()
-                    ->placeholder('Belum Disubmit')
+                    ->placeholder('Not Submitted')
                     ->formatStateUsing(fn (?BriefingReviewStatus $state): string => $state?->getLabel() ?? '')
                     ->color(fn (?BriefingReviewStatus $state): string => $state?->getColor() ?? 'gray'),
 
@@ -109,13 +109,13 @@ class BriefingItemResource extends Resource
                     ->modalWidth(Width::FiveExtraLarge)
                     ->registerModalActions([
                         Action::make('approve')
-                            ->label('Setujui')
+                            ->label('Approve')
                             ->color('success')
                             ->icon('heroicon-o-check-circle')
                             ->requiresConfirmation()
                             ->modalFooterActionsAlignment(Alignment::End)
-                            ->modalHeading('Setujui Item Ini?')
-                            ->modalDescription('Setelah disetujui, staff tidak dapat mengubah item ini.')
+                            ->modalHeading('Approve This Item?')
+                            ->modalDescription('After approval, staff can no longer modify this item.')
                             ->action(function (BriefingItem $record): void {
                                 $record->update([
                                     'review_status' => BriefingReviewStatus::Approved->value,
@@ -124,15 +124,15 @@ class BriefingItemResource extends Resource
                                     'rejection_reason' => null,
                                 ]);
                             })
-                            ->hidden(fn (BriefingItem $record): bool => $record->review_status === BriefingReviewStatus::Approved),
+                            ->visible(fn (BriefingItem $record): bool => $record->review_status?->isAwaitingSupervisorReview() ?? false),
 
                         Action::make('reject')
-                            ->label('Tolak')
+                            ->label('Reject')
                             ->color('danger')
                             ->icon('heroicon-o-x-circle')
                             ->form([
                                 Textarea::make('rejection_reason')
-                                    ->label('Alasan Penolakan')
+                                    ->label('Rejection Reason')
                                     ->required()
                                     ->rows(3),
                             ])
@@ -144,7 +144,7 @@ class BriefingItemResource extends Resource
                                     'reviewed_at' => now(),
                                 ]);
                             })
-                            ->hidden(fn (BriefingItem $record): bool => $record->review_status === BriefingReviewStatus::Approved),
+                            ->visible(fn (BriefingItem $record): bool => $record->review_status?->isAwaitingSupervisorReview() ?? false),
                     ])
                     ->modalContent(fn (BriefingItem $record, Action $action): View => view(
                         'filament.helpdesk.briefing-items.photo-modal',
@@ -255,16 +255,16 @@ class BriefingItemResource extends Resource
 
                 BulkActionGroup::make([
                     BulkAction::make('bulk_approve')
-                        ->label('Setujui')
+                        ->label('Approve')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
                         ->requiresConfirmation()
                         ->modalFooterActionsAlignment(Alignment::End)
-                        ->modalHeading('Setujui Item yang Dipilih?')
-                        ->modalDescription('Item yang sudah disetujui sebelumnya akan dilewati.')
+                        ->modalHeading('Approve Selected Items?')
+                        ->modalDescription('Only items awaiting supervisor review will be approved.')
                         ->action(function (Collection $records): void {
                             $records
-                                ->reject(fn (BriefingItem $item) => $item->review_status === BriefingReviewStatus::Approved)
+                                ->filter(fn (BriefingItem $item) => $item->review_status?->isAwaitingSupervisorReview() ?? false)
                                 ->each(fn (BriefingItem $item) => $item->update([
                                     'review_status' => BriefingReviewStatus::Approved->value,
                                     'reviewed_by' => auth()->id(),
@@ -274,18 +274,18 @@ class BriefingItemResource extends Resource
                         }),
 
                     BulkAction::make('bulk_reject')
-                        ->label('Tolak')
+                        ->label('Reject')
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->form([
                             Textarea::make('rejection_reason')
-                                ->label('Alasan Penolakan')
+                                ->label('Rejection Reason')
                                 ->required()
                                 ->rows(3),
                         ])
                         ->action(function (array $data, Collection $records): void {
                             $records
-                                ->reject(fn (BriefingItem $item) => $item->review_status === BriefingReviewStatus::Approved)
+                                ->filter(fn (BriefingItem $item) => $item->review_status?->isAwaitingSupervisorReview() ?? false)
                                 ->each(fn (BriefingItem $item) => $item->update([
                                     'review_status' => BriefingReviewStatus::Rejected->value,
                                     'rejection_reason' => $data['rejection_reason'],

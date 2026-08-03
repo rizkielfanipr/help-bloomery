@@ -4,7 +4,7 @@
 
     $dotColor = fn (?string $status): string => match ($status) {
         'approved'  => 'bg-green-500',
-        'pending'   => 'bg-amber-400',
+        'supervisor_review' => 'bg-amber-400',
         'submitted' => 'bg-blue-400',
         'rejected'  => 'bg-red-500',
         'missing'   => 'bg-red-300',
@@ -169,7 +169,7 @@
                 <div class="grid grid-cols-2 gap-x-4 gap-y-1.5">
                     <div class="flex items-center gap-1.5">
                         <div class="h-2 w-2 flex-shrink-0 rounded-full bg-green-500"></div>
-                        <span class="text-xs text-gray-500">Disetujui</span>
+                        <span class="text-xs text-gray-500">Approved</span>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <div class="h-2 w-2 flex-shrink-0 rounded-full bg-amber-400"></div>
@@ -181,7 +181,7 @@
                     </div>
                     <div class="flex items-center gap-1.5">
                         <div class="h-2 w-2 flex-shrink-0 rounded-full bg-red-500"></div>
-                        <span class="text-xs text-gray-500">Ditolak</span>
+                        <span class="text-xs text-gray-500">Rejected</span>
                     </div>
                     <div class="flex items-center gap-1.5">
                         <div class="h-2 w-2 flex-shrink-0 rounded-full bg-red-300"></div>

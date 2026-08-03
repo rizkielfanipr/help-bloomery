@@ -6,6 +6,7 @@ use App\Enums\ItRequestStatus;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\ErpRepairRequestResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Validation\ValidationException;
 
 class EditErpRepairRequest extends EditRecord
 {
@@ -21,6 +22,13 @@ class EditErpRepairRequest extends EditRecord
     protected function beforeSave(): void
     {
         $this->previousStatus = $this->record->status->value;
+
+        $target = ItRequestStatus::from((string) $this->data['status']);
+        if (! $this->record->status->canTransitionTo($target)) {
+            throw ValidationException::withMessages([
+                'data.status' => 'Status must follow the configured workflow sequence.',
+            ]);
+        }
     }
 
     protected function afterSave(): void

@@ -53,7 +53,7 @@ class BriefingAutoRejectCommand extends Command
                     ->where('task_key', $task->key)
                     ->first();
 
-                if ($item && ($item->is_completed || in_array($item->review_status, [BriefingReviewStatus::Approved, BriefingReviewStatus::Pending]))) {
+                if ($item && ($item->is_completed || $item->review_status === BriefingReviewStatus::Approved || ($item->review_status?->isAwaitingSupervisorReview() ?? false))) {
                     continue;
                 }
 
@@ -87,7 +87,10 @@ class BriefingAutoRejectCommand extends Command
         $rejectedCount = 0;
 
         BriefingItem::query()
-            ->where('review_status', BriefingReviewStatus::Pending->value)
+            ->whereIn('review_status', [
+                BriefingReviewStatus::LegacyPending->value,
+                BriefingReviewStatus::SupervisorReview->value,
+            ])
             ->where('is_completed', true)
             ->whereNotNull('completed_at')
             ->where('completed_at', '<=', now()->subWeek())

@@ -28,9 +28,9 @@
     };
 
     $statusBadge = fn (string $status): array => match ($status) {
-        'approved'  => ['label' => 'Disetujui',       'class' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'],
-        'pending'   => ['label' => 'Menunggu Review',  'class' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'],
-        'rejected'  => ['label' => 'Ditolak',          'class' => 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'],
+        'approved'          => ['label' => 'Approved',          'class' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400'],
+        'supervisor_review' => ['label' => 'Supervisor Review', 'class' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'],
+        'rejected'          => ['label' => 'Rejected',          'class' => 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400'],
         'submitted' => ['label' => 'Submitted',         'class' => 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'],
         default     => ['label' => 'Belum Submit',     'class' => 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'],
     };
@@ -250,7 +250,7 @@
                                         </div>
                                         @if($branch['approved'] === $branch['total'])
                                             <span class="flex-shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
-                                                Disetujui
+                                                Approved
                                             </span>
                                         @else
                                             <span class="flex-shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">

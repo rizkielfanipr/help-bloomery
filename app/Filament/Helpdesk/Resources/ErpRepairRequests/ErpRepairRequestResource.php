@@ -130,7 +130,13 @@ class ErpRepairRequestResource extends Resource
             Section::make('Triage & Assignment')->schema([
                 Select::make('status')
                     ->label('Status')
-                    ->options(ItRequestStatus::class)
+                    ->options(fn (?ErpRepairRequest $record): array => $record
+                        ? collect([$record->status, ...$record->status->allowedTransitions()])
+                            ->mapWithKeys(fn (ItRequestStatus $status): array => [$status->value => $status->getLabel()])
+                            ->all()
+                        : collect(ItRequestStatus::cases())
+                            ->mapWithKeys(fn (ItRequestStatus $status): array => [$status->value => $status->getLabel()])
+                            ->all())
                     ->live()
                     ->required(),
 

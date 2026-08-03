@@ -46,7 +46,7 @@ it('records triage and escalation in the ticket timeline', function () {
         'branch_id' => $this->branch->id,
         'erp_module_id' => $this->module->id,
         'request_type_id' => $this->type->id,
-        'status' => ItRequestStatus::Submitted,
+        'status' => ItRequestStatus::Progress,
     ]);
     $itStaff = User::factory()->create(['is_active' => true]);
     $itStaff->assignRole('IT_STAFF');
@@ -114,16 +114,40 @@ it('handles IT follow-up directly from the desktop ticket detail page', function
     Livewire::test(ViewErpRepairRequest::class, ['record' => $request->getRouteKey()])
         ->assertSee($request->ticket_number)
         ->assertSee('IT Follow-up')
-        ->set('status', ItRequestStatus::Progress->value)
         ->set('assigneeId', (string) $itStaff->id)
         ->set('classification', 'standard')
         ->set('priority', 'high')
         ->set('itNotes', 'Issue reproduced and under investigation.')
-        ->call('saveFollowUp')
+        ->call('transitionTo', ItRequestStatus::Review->value)
+        ->assertHasNoErrors()
+        ->call('transitionTo', ItRequestStatus::Progress->value)
         ->assertHasNoErrors();
 
     expect($request->refresh()->status)->toBe(ItRequestStatus::Progress)
         ->and($request->assignee_id)->toBe($itStaff->id)
         ->and($request->work_classification)->toBe('standard')
         ->and($request->activities()->where('action', 'status_changed')->exists())->toBeTrue();
+});
+
+it('prevents status transitions from skipping the workflow sequence', function () {
+    $request = ErpRepairRequest::factory()->create([
+        'requester_id' => $this->user->id,
+        'branch_id' => $this->branch->id,
+        'erp_module_id' => $this->module->id,
+        'request_type_id' => $this->type->id,
+        'status' => ItRequestStatus::Submitted,
+    ]);
+    $itStaff = User::factory()->create(['is_active' => true]);
+    $itStaff->assignRole('IT_STAFF');
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $this->actingAs($itStaff);
+
+    Livewire::test(ViewErpRepairRequest::class, ['record' => $request->getRouteKey()])
+        ->set('status', ItRequestStatus::Progress->value)
+        ->set('assigneeId', (string) $itStaff->id)
+        ->set('classification', 'standard')
+        ->call('saveFollowUp')
+        ->assertHasErrors(['status']);
+
+    expect($request->refresh()->status)->toBe(ItRequestStatus::Submitted);
 });

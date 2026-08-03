@@ -135,7 +135,10 @@ class Dashboard extends BaseDashboard
                 'key' => 'briefing',
                 'label' => 'Poin Briefing',
                 'total' => BriefingItem::count(),
-                'pending' => BriefingItem::whereNotNull('completed_at')->whereNull('review_status')->count(),
+                'pending' => BriefingItem::whereIn('review_status', [
+                    BriefingReviewStatus::LegacyPending->value,
+                    BriefingReviewStatus::SupervisorReview->value,
+                ])->count(),
                 'completed' => BriefingItem::where('review_status', BriefingReviewStatus::Approved->value)->count(),
                 'pending_label' => 'perlu ditinjau',
                 'completed_label' => 'disetujui',

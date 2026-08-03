@@ -457,7 +457,7 @@
                                 $reviewStatus = $task['reviewStatus']?->value ?? null;
                                 $isApproved   = $reviewStatus === 'approved';
                                 $isRejected   = $reviewStatus === 'rejected';
-                                $isPending    = $reviewStatus === 'pending';
+                                $isPending    = in_array($reviewStatus, ['pending', 'supervisor_review'], true);
                                 $isPastDL     = $task['isPastDeadline'];
                                 $isClickable  = ! $isPastDL && ($isRejected || (! $task['reviewStatus'] && ! $task['isCompleted']));
                             @endphp
@@ -504,13 +504,13 @@
                                     </p>
                                     <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
                                         @if($isApproved)
-                                            <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Disetujui</span>
+                                            <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Approved</span>
                                         @elseif($isRejected)
-                                            <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Ditolak</span>
+                                            <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Rejected</span>
                                         @elseif($isPastDL)
                                             <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Deadline Terlewat</span>
                                         @elseif($isPending)
-                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Menunggu Review</span>
+                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Supervisor Review</span>
                                         @elseif($task['requiresPhoto'])
                                             <span class="text-xs text-gray-400">
                                                 <svg class="inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -605,7 +605,7 @@
                                             $cReview    = $cleanTask['reviewStatus']?->value ?? null;
                                             $cApproved  = $cReview === 'approved';
                                             $cRejected  = $cReview === 'rejected';
-                                            $cPending   = $cReview === 'pending';
+                                            $cPending   = in_array($cReview, ['pending', 'supervisor_review'], true);
                                             $cPastDL    = $cleanTask['isPastDeadline'];
                                             $cClickable = ! $cPastDL && ($cRejected || (! $cleanTask['reviewStatus'] && ! $cleanTask['isCompleted']));
                                         @endphp
@@ -648,13 +648,13 @@
                                                 </p>
                                                 <div class="mt-0.5 flex flex-wrap items-center gap-1">
                                                     @if($cApproved)
-                                                        <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Disetujui</span>
+                                                        <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Approved</span>
                                                     @elseif($cRejected)
-                                                        <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Ditolak</span>
+                                                        <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Rejected</span>
                                                     @elseif($cPastDL)
                                                         <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Deadline Terlewat</span>
                                                     @elseif($cPending)
-                                                        <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Menunggu Review</span>
+                                                        <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Supervisor Review</span>
                                                     @elseif($cleanTask['completedAt'])
                                                         <span class="text-xs text-gray-400">{{ $cleanTask['completedAt']->format('H.i') }}</span>
                                                     @else

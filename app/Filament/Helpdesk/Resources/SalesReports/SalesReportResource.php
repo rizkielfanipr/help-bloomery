@@ -167,7 +167,7 @@ class SalesReportResource extends Resource
         $query = parent::getEloquentQuery()->with(['entries', 'branch', 'submittedBy', 'employee']);
         $user = auth()->user();
 
-        if ($user && ! $user->access_all_branches && ! $user->hasAnyRole(['SUPERADMIN', 'FINANCE_STAFF'])) {
+        if ($user && ! $user->canAccessAllBranches()) {
             $query->whereIn('branch_id', $user->accessibleBranchIds());
         }
 
@@ -181,8 +181,7 @@ class SalesReportResource extends Resource
             return false;
         }
 
-        return $user->access_all_branches
-            || $user->hasAnyRole(['SUPERADMIN', 'FINANCE_STAFF'])
+        return $user->canAccessAllBranches()
             || $user->canAccessBranch($record->branch_id);
     }
 

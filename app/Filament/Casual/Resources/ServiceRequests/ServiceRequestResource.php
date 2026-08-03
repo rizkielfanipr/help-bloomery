@@ -79,7 +79,7 @@ class ServiceRequestResource extends Resource
     {
         $query = parent::getEloquentQuery()->with(['technician', 'repairs.technician']);
 
-        if (auth()->user()->hasRole('SUPERADMIN')) {
+        if (auth()->user()?->canAccessAllBranches()) {
             return $query;
         }
 

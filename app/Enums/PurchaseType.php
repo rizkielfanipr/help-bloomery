@@ -13,8 +13,8 @@ enum PurchaseType: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::New => 'Baru',
-            self::Broken => 'Rusak / Penggantian',
+            self::New => 'New Purchase',
+            self::Broken => 'Replacement (Broken)',
         };
     }
 

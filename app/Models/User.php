@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\PermissionRegistry;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -44,13 +45,39 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return match ($panel->getId()) {
-            'admin' => $this->hasRole('SUPERADMIN'),
-            'helpdesk' => $this->hasAnyRole(['SUPERADMIN', 'HRD_STAFF', 'SUPERVISOR_STORE', 'FINANCE_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN', 'IT_STAFF', 'RND_STAFF']),
-            'driver' => $this->hasAnyRole(['SUPERADMIN', 'DRIVER']),
-            'technician' => $this->hasAnyRole(['SUPERADMIN', 'TECHNICIAN']),
-            'casual' => $this->hasAnyRole(['SUPERADMIN', 'CASUAL_STAFF', 'HRD_STAFF', 'STORE_STAFF', 'DRIVER', 'TECHNICIAN', 'SUPERVISOR_STORE']),
+            'helpdesk' => $this->can('access backoffice'),
+            'casual' => $this->hasAnyConfiguredPermission(
+                ['Akses Employee App'],
+                app(PermissionRegistry::class)->groups(),
+            ),
+            'driver' => $this->can('access employee app driver'),
+            'technician' => $this->can('access employee app technician'),
+            'admin' => $this->can('access backoffice')
+                && $this->hasAnyConfiguredPermission(
+                    ['Management Access'],
+                    app(PermissionRegistry::class)->groups(),
+                ),
             default => false,
         };
+    }
+
+    /**
+     * @param  array<int, string>  $groups
+     * @param  array<string, array<string, array<int, string>>>  $permissionGroups
+     */
+    private function hasAnyConfiguredPermission(array $groups, array $permissionGroups): bool
+    {
+        foreach ($groups as $group) {
+            foreach ($permissionGroups[$group] ?? [] as $permissions) {
+                foreach ($permissions as $permission) {
+                    if ($this->can($permission)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     public function branch(): BelongsTo
@@ -79,7 +106,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function accessibleBranchIds(): Collection
     {
-        if ($this->access_all_branches) {
+        if ($this->canAccessAllBranches()) {
             return Branch::query()->pluck('id')->map(fn ($id): int => (int) $id);
         }
 
@@ -97,9 +124,13 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
-        return $this->access_all_branches
-            || $this->hasRole('SUPERADMIN')
+        return $this->canAccessAllBranches()
             || $this->accessibleBranchIds()->contains($branchId);
+    }
+
+    public function canAccessAllBranches(): bool
+    {
+        return $this->access_all_branches || $this->hasRole('SUPERADMIN');
     }
 
     public function syncBranchAccess(array $branchIds, ?int $primaryBranchId): void

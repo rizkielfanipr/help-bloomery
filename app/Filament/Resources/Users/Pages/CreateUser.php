@@ -15,12 +15,14 @@ class CreateUser extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $this->branchAccessIds = $data['branch_access_ids'] ?? [];
-        $this->primaryBranchId = isset($data['primary_branch_id'])
+        $accessAllBranches = (bool) ($data['access_all_branches'] ?? false);
+        $this->branchAccessIds = $accessAllBranches ? [] : ($data['branch_access_ids'] ?? []);
+        $this->primaryBranchId = ! $accessAllBranches && isset($data['primary_branch_id'])
             ? (int) $data['primary_branch_id']
             : null;
         unset($data['branch_access_ids'], $data['primary_branch_id']);
         $data['branch_id'] = $this->primaryBranchId;
+        $data['is_active'] = true;
 
         return $data;
     }

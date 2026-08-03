@@ -20,7 +20,7 @@ class BriefingExportController
 {
     public function __invoke(Request $request): BinaryFileResponse
     {
-        abort_unless(auth()->check(), 403);
+        abort_unless(auth()->user()?->can('view briefing records'), 403);
 
         $period = BriefingPeriod::from($request->input('period', 'daily'));
         $branchId = $request->integer('branch_id');

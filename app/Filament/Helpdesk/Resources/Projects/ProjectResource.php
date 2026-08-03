@@ -22,7 +22,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 class ProjectResource extends Resource
@@ -46,36 +45,6 @@ class ProjectResource extends Resource
     protected static ?string $pluralModelLabel = 'Project';
 
     protected static ?string $slug = 'rnd-projects';
-
-    public static function canViewAny(): bool
-    {
-        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
-    }
-
-    public static function canView(Model $record): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canCreate(): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canEdit(Model $record): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canDelete(Model $record): bool
-    {
-        return static::canViewAny();
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return static::canViewAny();
-    }
 
     public static function form(Schema $schema): Schema
     {

@@ -129,7 +129,7 @@ class StockCardResource extends Resource
         $query = parent::getEloquentQuery()->with(['branch', 'submittedBy']);
         $user = auth()->user();
 
-        if ($user && ! $user->access_all_branches && ! $user->hasRole('SUPERADMIN')) {
+        if ($user && ! $user->canAccessAllBranches()) {
             $query->whereIn('branch_id', $user->accessibleBranchIds());
         }
 
@@ -141,6 +141,6 @@ class StockCardResource extends Resource
         $user = auth()->user();
 
         return parent::canView($record)
-            && ($user?->hasRole('SUPERADMIN') || $user?->canAccessBranch($record->branch_id));
+            && $user?->canAccessBranch($record->branch_id);
     }
 }

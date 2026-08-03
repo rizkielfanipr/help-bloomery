@@ -322,7 +322,7 @@ class BriefingItemResource extends Resource
 
         $user = auth()->user();
 
-        if (! $user->hasRole('SUPERVISOR_STORE') || $user->access_all_branches) {
+        if (! $user->can('review sales reports as supervisor') || $user->access_all_branches) {
             return $query;
         }
 

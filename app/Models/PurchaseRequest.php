@@ -8,6 +8,7 @@ use Database\Factories\PurchaseRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseRequest extends Model
 {
@@ -40,6 +41,30 @@ class PurchaseRequest extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::created(function (PurchaseRequest $request): void {
+            $request->statusHistories()->create([
+                'from_status' => null,
+                'to_status' => $request->status->value,
+                'changed_by' => auth()->id() ?: $request->user_id,
+            ]);
+        });
+
+        static::updated(function (PurchaseRequest $request): void {
+            if (! $request->wasChanged('status')) {
+                return;
+            }
+
+            $request->statusHistories()->create([
+                'from_status' => $request->getRawOriginal('status'),
+                'to_status' => $request->status->value,
+                'changed_by' => auth()->id(),
+                'notes' => $request->admin_notes,
+            ]);
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -53,5 +78,10 @@ class PurchaseRequest extends Model
     public function processedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'processed_by');
+    }
+
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(PurchaseRequestStatusHistory::class);
     }
 }

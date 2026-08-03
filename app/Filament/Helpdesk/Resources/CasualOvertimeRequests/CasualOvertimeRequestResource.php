@@ -28,6 +28,8 @@ class CasualOvertimeRequestResource extends Resource
 
     protected static string $permissionPrefix = 'overtime requests';
 
+    protected static string $permissionGroup = 'Human Resources';
+
     protected static ?string $model = CasualOvertimeRequest::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-clock';

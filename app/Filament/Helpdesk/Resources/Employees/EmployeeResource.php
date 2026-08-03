@@ -148,7 +148,7 @@ class EmployeeResource extends Resource
             return [];
         }
 
-        if ($user->hasRole('SUPERADMIN') || $user->access_all_branches) {
+        if ($user->canAccessAllBranches()) {
             return Branch::query()->pluck('id')->map(fn ($id): int => (int) $id)->all();
         }
 
@@ -181,7 +181,7 @@ class EmployeeResource extends Resource
         $user = auth()->user();
 
         return $user !== null
-            && ($user->hasRole('SUPERADMIN') || $user->can($permission))
+            && $user->can($permission)
             && $user->canAccessBranch((int) $record->getAttribute('branch_id'));
     }
 }

@@ -18,7 +18,7 @@ class BriefingScoreExportController
 {
     public function __invoke(Request $request): Response|BinaryFileResponse|StreamedResponse
     {
-        abort_unless(auth()->check(), 403);
+        abort_unless(auth()->user()?->can('view briefing scores'), 403);
 
         $year = $request->integer('year', now()->year);
         $month = $request->integer('month') ?: null;

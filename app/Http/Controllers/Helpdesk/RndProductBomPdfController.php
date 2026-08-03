@@ -16,7 +16,7 @@ class RndProductBomPdfController extends Controller
     public function __invoke(int $project, int $product): Response
     {
         $user = auth()->user();
-        abort_unless($user?->hasRole('SUPERADMIN'), 403);
+        abort_unless($user?->can('view bill of materials'), 403);
 
         $projectRecord = RndProject::query()->findOrFail($project);
         $productRecord = $projectRecord->products()->with('boms')->findOrFail($product);

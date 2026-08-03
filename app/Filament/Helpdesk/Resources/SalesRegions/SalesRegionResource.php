@@ -24,7 +24,11 @@ class SalesRegionResource extends Resource
 {
     use HasPermissions;
 
-    protected static string $permissionPrefix = 'sales regions';
+    protected static string $permissionPrefix = 'rnd projects';
+
+    protected static string $permissionGroup = 'Research & Development';
+
+    protected static string $permissionLabel = 'Project';
 
     protected static ?string $model = SalesRegion::class;
 

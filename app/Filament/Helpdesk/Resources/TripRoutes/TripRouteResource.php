@@ -38,6 +38,10 @@ class TripRouteResource extends Resource
 
     protected static string $permissionPrefix = 'trip routes';
 
+    protected static string $permissionGroup = 'Driver';
+
+    protected static string $permissionLabel = 'Rute Perjalanan';
+
     protected static ?string $model = TripRoute::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map';

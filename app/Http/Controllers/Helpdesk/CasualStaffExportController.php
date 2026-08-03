@@ -14,7 +14,7 @@ class CasualStaffExportController extends Controller
 {
     public function __invoke(): BinaryFileResponse
     {
-        abort_unless(auth()->check(), 403);
+        abort_unless(auth()->user()?->can('view casual staff'), 403);
 
         $query = User::query()
             ->role('casual_staff')

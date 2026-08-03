@@ -88,7 +88,7 @@ class CreateBomRecipePage extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
+        return auth()->user()?->can('create bill of materials') ?? false;
     }
 
     public function mount(?int $project = null, ?int $product = null, ?int $bom = null): void

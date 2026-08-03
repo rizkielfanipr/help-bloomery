@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\FuelTypes;
 
+use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\FuelTypes\Pages\CreateFuelType;
 use App\Filament\Helpdesk\Resources\FuelTypes\Pages\EditFuelType;
 use App\Filament\Helpdesk\Resources\FuelTypes\Pages\ListFuelTypes;
@@ -15,6 +16,12 @@ use Filament\Tables\Table;
 
 class FuelTypeResource extends Resource
 {
+    use HasPermissions;
+
+    protected static string $permissionPrefix = 'fuel types';
+
+    protected static string $permissionGroup = 'Driver';
+
     protected static ?string $model = FuelType::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-fire';

@@ -50,7 +50,7 @@ class Dashboard extends BaseDashboard
     {
         $pendingService = [ServiceRequestStatus::Submitted->value, ServiceRequestStatus::InProgress->value, ServiceRequestStatus::ReSubmitted->value];
         $pendingRequest = [RequestStatus::Submitted->value, RequestStatus::InReview->value, RequestStatus::InProgress->value];
-        $pendingPurchase = [PurchaseRequestStatus::Submitted->value, PurchaseRequestStatus::InProcess->value];
+        $pendingPurchase = [PurchaseRequestStatus::Submitted->value, PurchaseRequestStatus::Approved->value];
 
         $serviceCounts = ServiceRequest::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
         $erpCounts = ErpRepairRequest::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');

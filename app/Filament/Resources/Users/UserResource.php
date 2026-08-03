@@ -91,7 +91,7 @@ class UserResource extends Resource
 
                         TextInput::make('username')
                             ->label('Username')
-                            ->nullable()
+                            ->required()
                             ->prefix('BLO')
                             ->extraInputAttributes(['x-on:input' => '$el.value = $el.value.toUpperCase()'])
                             ->formatStateUsing(fn (?string $state): ?string => $state && str_starts_with($state, 'BLO') ? substr($state, 3) : $state)
@@ -110,13 +110,12 @@ class UserResource extends Resource
                                 }
                             })
                             ->validationMessages(['regex' => 'Username hanya boleh huruf kapital dan angka.'])
-                            ->maxLength(47)
-                            ->helperText('Ketik username tanpa prefix. Contoh: RIZKI → tersimpan sebagai BLORIZKI'),
+                            ->maxLength(47),
 
                         TextInput::make('email')
                             ->label('Email')
                             ->email()
-                            ->required()
+                            ->nullable()
                             ->unique(User::class, 'email', ignoreRecord: true)
                             ->maxLength(255),
 
@@ -138,7 +137,13 @@ class UserResource extends Resource
                         Toggle::make('access_all_branches')
                             ->label('Akses Semua Cabang')
                             ->default(false)
-                            ->live(),
+                            ->live()
+                            ->afterStateUpdated(function (bool $state, Set $set): void {
+                                if ($state) {
+                                    $set('branch_access_ids', []);
+                                    $set('primary_branch_id', null);
+                                }
+                            }),
 
                         Select::make('branch_access_ids')
                             ->label('Akses Cabang')
@@ -147,6 +152,7 @@ class UserResource extends Resource
                             ->searchable()
                             ->preload()
                             ->live()
+                            ->visible(fn (Get $get): bool => ! (bool) $get('access_all_branches'))
                             ->afterStateUpdated(function (?array $state, Get $get, Set $set): void {
                                 $ids = array_map('intval', $state ?? []);
                                 $primary = (int) $get('primary_branch_id');
@@ -157,8 +163,7 @@ class UserResource extends Resource
                                     $set('primary_branch_id', null);
                                 }
                             })
-                            ->required(fn (Get $get): bool => ! (bool) $get('access_all_branches'))
-                            ->helperText('Menentukan seluruh cabang yang dapat dilihat, dimonitor, dan di-approve oleh user.'),
+                            ->required(fn (Get $get): bool => ! (bool) $get('access_all_branches')),
 
                         Select::make('primary_branch_id')
                             ->label('Cabang Utama / Default')
@@ -172,24 +177,21 @@ class UserResource extends Resource
                                     ->all();
                             })
                             ->searchable()
-                            ->visible(fn (Get $get): bool => count($get('branch_access_ids') ?? []) > 1)
-                            ->required(fn (Get $get): bool => count($get('branch_access_ids') ?? []) > 1)
+                            ->visible(fn (Get $get): bool => ! (bool) $get('access_all_branches') && count($get('branch_access_ids') ?? []) > 1)
+                            ->required(fn (Get $get): bool => ! (bool) $get('access_all_branches') && count($get('branch_access_ids') ?? []) > 1)
                             ->helperText('Cabang default untuk Sales Report, Stock Card, Daily Briefing, dan pengajuan dari aplikasi user.'),
 
                         Toggle::make('is_active')
                             ->label('Aktif')
-                            ->default(true),
-                    ]),
+                            ->default(true)
+                            ->visibleOn('edit'),
 
-                Section::make('Hak Akses')
-                    ->schema([
                         Select::make('roles')
                             ->label('Role')
                             ->multiple()
                             ->relationship('roles', 'name')
                             ->preload(),
                     ]),
-
             ]);
     }
 

@@ -5,7 +5,6 @@ namespace App\Filament\Helpdesk\Pages;
 use App\Models\Branch;
 use App\Models\Brand;
 use App\Models\EsbPaymentMethodCache;
-use App\Models\PaymentMethodGroupItem;
 use App\Services\EsbService;
 use BackedEnum;
 use Filament\Notifications\Notification;
@@ -306,14 +305,7 @@ class SalesInformationPage extends Page
 
     private function newPeriodAcc(): array
     {
-        $acc = $this->initAcc();
-        // Load payment method group map: esb_id => group name
-        $acc['groupMap'] = PaymentMethodGroupItem::with('group')
-            ->get()
-            ->pluck('group.name', 'esb_payment_method_id')
-            ->all();
-
-        return $acc;
+        return $this->initAcc();
     }
 
     public function fetchNextPage(): void
@@ -487,7 +479,6 @@ class SalesInformationPage extends Page
             'branches' => [],
             'promos' => [],
             'categoryDetailMap' => [],
-            'groupMap' => [],
         ];
     }
 
@@ -580,10 +571,7 @@ class SalesInformationPage extends Page
             $amount = (float) ($payment['paymentAmount'] ?? 0);
             $esbId = (int) ($payment['paymentMethodID'] ?? 0);
 
-            // Normalize via group map; fall back to raw name
-            $method = ($esbId && isset($acc['groupMap'][$esbId]))
-                ? $acc['groupMap'][$esbId]
-                : $rawName;
+            $method = $rawName;
 
             // Populate cache with discovered payment methods
             if ($esbId) {

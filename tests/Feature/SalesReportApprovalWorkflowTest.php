@@ -2,10 +2,10 @@
 
 use App\Enums\SalesReportStatus;
 use App\Filament\Casual\Pages\SalesReportShiftPage;
-use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
-use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
 use App\Filament\Helpdesk\Pages\DriverTripSettingsPage;
 use App\Filament\Helpdesk\Resources\Employees\EmployeeResource;
+use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
+use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
@@ -104,7 +104,7 @@ it('moves a report from supervisor approval through finance reconciliation', fun
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingFinance)
         ->and($this->report->supervisor_reviewed_by)->toBe($supervisor->id);
 
-    $finance = User::factory()->create(['is_active' => true]);
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
@@ -144,7 +144,7 @@ it('requires a supervisor note when store and system sales differ', function () 
 
 it('returns a finance rejection to the submitter with an audit trail', function () {
     $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
-    $finance = User::factory()->create(['is_active' => true]);
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
@@ -205,7 +205,7 @@ it('resubmits a rejected report and clears the previous finance reconciliation',
 
 it('calculates mdr percentage automatically from settlement', function () {
     $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
-    $finance = User::factory()->create(['is_active' => true]);
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
@@ -220,7 +220,7 @@ it('calculates mdr percentage automatically from settlement', function () {
 });
 
 it('shows the workflow status in the finance sales report list', function () {
-    $finance = User::factory()->create(['is_active' => true]);
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
@@ -329,7 +329,7 @@ it('allows a superadmin to approve a report they submitted for testing', functio
 it('allows finance to input settlement for cash payment methods', function () {
     $this->entry->update(['payment_method_name' => 'Cash']);
     $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
-    $finance = User::factory()->create(['is_active' => true]);
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 

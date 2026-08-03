@@ -49,7 +49,7 @@ class ProductPriceIndexPage extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
+        return auth()->user()?->can('view product price index') ?? false;
     }
 
     public function mount(): void
@@ -75,7 +75,7 @@ class ProductPriceIndexPage extends Page
     public function sync(): void
     {
         $user = auth()->user();
-        abort_unless($user?->hasRole('SUPERADMIN') || $user?->can('sync product price index'), 403);
+        abort_unless($user?->can('sync product price index'), 403);
 
         $this->validate([
             'syncFrom' => ['required', 'date'],

@@ -34,8 +34,8 @@
     if (str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-scores')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver|fuel-type/', $path))        { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
-    if (preg_match('/\busers?\b|\broles?\b/', $path) || str_contains($path, 'permissions-page')) { $initialOpen[] = 'management'; }
-    if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'payment-method-groups')) { $initialOpen[] = 'master'; }
+    if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
+    if (str_contains($path, 'branches') || str_contains($path, 'brands')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'payment-method')) { $initialOpen[] = 'finance'; }
     if (str_contains($path, 'stock-card')) { $initialOpen[] = 'inventory'; }
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
@@ -162,7 +162,6 @@
             'items' => [
                 ['label' => 'Pengguna',          'icon' => 'user', 'perm' => 'view users', 'href' => $r('filament.helpdesk.resources.users.index'),  'active' => $active($r('filament.helpdesk.resources.users.index'))],
                 ['label' => 'Role & Permission', 'icon' => 'lock', 'perm' => 'view roles', 'href' => $r('filament.helpdesk.resources.roles.index'),  'active' => $active($r('filament.helpdesk.resources.roles.index'))],
-                ['label' => 'Permissions',       'icon' => 'key',  'perm' => 'view roles', 'href' => $r('filament.helpdesk.pages.permissions-page'), 'active' => $active($r('filament.helpdesk.pages.permissions-page'))],
             ],
         ],
         [
@@ -173,7 +172,6 @@
                 ['label' => 'Brand',  'icon' => 'tag',        'perm' => 'view brands',   'href' => $r('filament.helpdesk.resources.brands.index'),    'active' => $active($r('filament.helpdesk.resources.brands.index'))],
                 ['label' => 'Branch', 'icon' => 'building-2', 'perm' => 'view branches', 'href' => $r('filament.helpdesk.resources.branches.index'),  'active' => $active($r('filament.helpdesk.resources.branches.index'))],
                 ['label' => 'Employee', 'icon' => 'users', 'perm' => 'view employees', 'href' => $r('filament.helpdesk.resources.employees.index'), 'active' => $active($r('filament.helpdesk.resources.employees.index'))],
-                ['label' => 'Payment Grouping', 'icon' => 'layers', 'perm' => 'view payment method groups', 'href' => $r('filament.helpdesk.resources.payment-method-groups.index'), 'active' => $active($r('filament.helpdesk.resources.payment-method-groups.index'))],
             ],
         ],
     ];

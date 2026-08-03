@@ -49,10 +49,11 @@ class Login extends BaseLogin
      */
     protected function getCredentialsFromFormData(array $data): array
     {
-        $email = User::where('username', $data['email'])->value('email') ?? $data['email'];
+        $login = (string) $data['email'];
+        $usesUsername = User::where('username', $login)->exists();
 
         return [
-            'email' => $email,
+            $usesUsername ? 'username' : 'email' => $login,
             'password' => $data['password'],
         ];
     }

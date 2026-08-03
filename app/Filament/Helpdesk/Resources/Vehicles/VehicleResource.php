@@ -36,6 +36,10 @@ class VehicleResource extends Resource
 
     protected static string $permissionPrefix = 'vehicles';
 
+    protected static string $permissionGroup = 'Driver';
+
+    protected static string $permissionLabel = 'Kendaraan';
+
     protected static ?string $model = Vehicle::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-key';

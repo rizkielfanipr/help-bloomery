@@ -6,6 +6,7 @@ use App\Enums\RequestStatus;
 use App\Enums\ServiceRequestStatus;
 use App\Enums\TripStatus;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ViewDesignRequest;
+use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ViewPurchaseRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ViewServiceRequest;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ViewTrip;
@@ -103,14 +104,78 @@ it('renders the purchasing request desktop detail workspace', function () {
     ]);
 
     Livewire::test(ViewPurchaseRequest::class, ['record' => $request->id])
-        ->assertSee('Detail Pengajuan')
-        ->assertSee('Tindak Lanjut Purchasing')
-        ->assertSee('Progress Pembelian')
-        ->set('status', PurchaseRequestStatus::InProcess->value)
+        ->assertSee('Purchase Reason')
+        ->assertSee('Approved')
+        ->assertDontSee('Update Status')
+        ->assertDontSee('Tindak Lanjut Purchasing')
+        ->set('status', PurchaseRequestStatus::Approved->value)
         ->set('adminNotes', 'Sedang meminta penawaran vendor.')
         ->call('saveFollowUp')
         ->assertHasNoErrors();
 
-    expect($request->refresh()->status)->toBe(PurchaseRequestStatus::InProcess)
-        ->and($request->processed_by)->toBe($this->admin->id);
+    expect($request->refresh()->status)->toBe(PurchaseRequestStatus::Approved)
+        ->and($request->processed_by)->toBe($this->admin->id)
+        ->and($request->statusHistories()->count())->toBe(2)
+        ->and($request->statusHistories()->latest('id')->first()->changed_by)->toBe($this->admin->id)
+        ->and($request->statusHistories()->latest('id')->first()->notes)->toBe('Sedang meminta penawaran vendor.');
+});
+
+it('requires a reason when rejecting a purchasing request', function () {
+    $request = PurchaseRequest::factory()->create([
+        'user_id' => $this->admin->id,
+        'branch_id' => $this->branch->id,
+        'status' => PurchaseRequestStatus::Submitted,
+        'admin_notes' => null,
+    ]);
+
+    Livewire::test(ViewPurchaseRequest::class, ['record' => $request->id])
+        ->set('status', PurchaseRequestStatus::Rejected->value)
+        ->set('adminNotes', '')
+        ->call('saveFollowUp')
+        ->assertHasErrors(['adminNotes']);
+
+    expect($request->refresh()->status)->toBe(PurchaseRequestStatus::Submitted);
+});
+
+it('prevents skipping the purchasing status sequence', function () {
+    $request = PurchaseRequest::factory()->create([
+        'user_id' => $this->admin->id,
+        'branch_id' => $this->branch->id,
+        'status' => PurchaseRequestStatus::Submitted,
+    ]);
+
+    Livewire::test(ViewPurchaseRequest::class, ['record' => $request->id])
+        ->set('status', PurchaseRequestStatus::Purchased->value)
+        ->call('saveFollowUp')
+        ->assertHasErrors(['status']);
+
+    expect($request->refresh()->status)->toBe(PurchaseRequestStatus::Submitted);
+});
+
+it('provides direct bulk status actions for selected purchasing requests', function () {
+    $submitted = PurchaseRequest::factory()->count(2)->create([
+        'branch_id' => $this->branch->id,
+        'status' => PurchaseRequestStatus::Submitted,
+    ]);
+    Livewire::test(ListPurchaseRequests::class)
+        ->assertSee('Cari kode...')
+        ->assertSee('Cari alasan...')
+        ->assertSee('- Semua Cabang -')
+        ->selectTableRecords($submitted)
+        ->assertTableBulkActionVisible('set_approved')
+        ->assertTableBulkActionExists('set_rejected')
+        ->assertTableBulkActionExists('set_purchased');
+});
+
+it('bulk updates purchasing requests using the next valid status', function () {
+    $requests = PurchaseRequest::factory()->count(2)->create([
+        'branch_id' => $this->branch->id,
+        'status' => PurchaseRequestStatus::Approved,
+    ]);
+
+    Livewire::test(ListPurchaseRequests::class)
+        ->callTableBulkAction('set_purchased', $requests)
+        ->assertHasNoTableBulkActionErrors();
+
+    expect($requests->map->refresh()->pluck('status')->all())->each->toBe(PurchaseRequestStatus::Purchased);
 });

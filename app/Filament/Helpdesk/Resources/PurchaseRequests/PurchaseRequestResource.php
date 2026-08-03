@@ -4,7 +4,6 @@ namespace App\Filament\Helpdesk\Resources\PurchaseRequests;
 
 use App\Enums\PurchaseRequestStatus;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
-use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\EditPurchaseRequest;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ViewPurchaseRequest;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Schemas\PurchaseRequestForm;
@@ -54,7 +53,6 @@ class PurchaseRequestResource extends Resource
         return [
             'index' => ListPurchaseRequests::route('/'),
             'view' => ViewPurchaseRequest::route('/{record}'),
-            'edit' => EditPurchaseRequest::route('/{record}/edit'),
         ];
     }
 

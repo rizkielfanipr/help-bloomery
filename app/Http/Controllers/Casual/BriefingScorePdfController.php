@@ -12,7 +12,7 @@ class BriefingScorePdfController
     public function __invoke(Request $request): Response
     {
         $user = auth()->user();
-        abort_unless($user?->branch_id, 403);
+        abort_unless($user?->can('view briefing scores') && $user->branch_id, 403);
 
         $year = $request->integer('year', now()->year);
         $month = $request->integer('month', now()->month);

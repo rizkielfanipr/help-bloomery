@@ -36,14 +36,14 @@ Route::middleware(['auth'])->group(function (): void {
         ->name('helpdesk.rnd-products.esb-materials-export');
 
     Route::get('/bill-of-material/create', function () {
-        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
+        abort_unless(auth()->user()?->can('create bill of materials'), 403);
 
         return redirect()->to(ProjectResource::getUrl());
     })
         ->name('legacy.bill-of-material.create');
 
     Route::get('/bill-of-material/{bom}/view', function (int $bom) {
-        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
+        abort_unless(auth()->user()?->can('view bill of materials'), 403);
         $projectBom = RndProjectBom::query()->with('products:id')->where('esb_bom_id', $bom)->first();
         $product = $projectBom?->products->first();
 
@@ -53,7 +53,7 @@ Route::middleware(['auth'])->group(function (): void {
     })->name('legacy.bill-of-material.view');
 
     Route::get('/bill-of-material/{bom}/edit', function (int $bom) {
-        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
+        abort_unless(auth()->user()?->can('edit bill of materials'), 403);
         $projectBom = RndProjectBom::query()->with('products:id')->where('esb_bom_id', $bom)->first();
         $product = $projectBom?->products->first();
 
@@ -63,14 +63,14 @@ Route::middleware(['auth'])->group(function (): void {
     })->name('legacy.bill-of-material.edit');
 
     Route::get('/rnd-projects/{project}/bom/create', function (int $project) {
-        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
+        abort_unless(auth()->user()?->can('create bill of materials'), 403);
 
         return redirect()->to(ProjectResource::getUrl('view', ['record' => $project]));
     })->name('legacy.rnd-projects.bom.create');
 
     Route::get('/rnd-projects/{project}/bom/{bom}/{action}', function (int $project, int $bom, string $action) {
-        abort_unless(auth()->user()?->hasRole('SUPERADMIN'), 403);
         abort_unless(in_array($action, ['view', 'edit'], true), 404);
+        abort_unless(auth()->user()?->can($action.' bill of materials'), 403);
         $projectBom = RndProjectBom::query()
             ->with('products:id')
             ->where('rnd_project_id', $project)

@@ -112,8 +112,8 @@
                 <div class="relative">
                     <select wire:model.live="purchaseType" class="{{ $fieldClass }} appearance-none pr-10">
                         <option value="">-- Pilih jenis pembelian --</option>
-                        <option value="new">Baru</option>
-                        <option value="broken">Rusak / Penggantian</option>
+                        <option value="new">New Purchase</option>
+                        <option value="broken">Replacement (Broken)</option>
                     </select>
                     <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
                         <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

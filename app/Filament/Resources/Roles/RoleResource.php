@@ -10,6 +10,7 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -65,7 +66,8 @@ class RoleResource extends Resource
         return $schema
             ->columns(1)
             ->components([
-                Section::make('Informasi Role')
+                Section::make('Role & Permission')
+                    ->description('Atur nama role dan centang aksi yang diizinkan per resource.')
                     ->schema([
                         TextInput::make('name')
                             ->label('Nama Role')
@@ -73,16 +75,8 @@ class RoleResource extends Resource
                             ->maxLength(255)
                             ->unique(Role::class, 'name', ignoreRecord: true),
 
-                        TextInput::make('guard_name')
-                            ->label('Guard')
-                            ->default('web')
-                            ->required()
-                            ->maxLength(255),
-                    ]),
+                        Hidden::make('guard_name')->default('web'),
 
-                Section::make('Hak Akses')
-                    ->description('Centang aksi yang diizinkan per resource.')
-                    ->schema([
                         PermissionsMatrix::make('permissions')->label(''),
                     ]),
             ]);

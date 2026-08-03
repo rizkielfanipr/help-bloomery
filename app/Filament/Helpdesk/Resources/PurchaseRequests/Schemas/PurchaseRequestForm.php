@@ -20,16 +20,8 @@ class PurchaseRequestForm
             Section::make('Informasi Pengajuan')
                 ->columns(2)
                 ->schema([
-                    TextInput::make('user.name')
-                        ->label('Pemohon')
-                        ->disabled(),
-
                     TextInput::make('branch.name')
                         ->label('Cabang')
-                        ->disabled(),
-
-                    TextInput::make('division')
-                        ->label('Divisi')
                         ->disabled(),
 
                     TextInput::make('item_name')

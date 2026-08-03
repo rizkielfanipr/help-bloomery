@@ -4,7 +4,8 @@
 
     $statusColors = [
         'submitted'  => 'bg-gray-100 text-gray-600',
-        'in_process' => 'bg-amber-100 text-amber-700',
+        'approved'   => 'bg-green-100 text-green-700',
+        'rejected'   => 'bg-red-100 text-red-700',
         'purchased'  => 'bg-blue-100 text-blue-700',
         'delivered'  => 'bg-blue-100 text-blue-700',
         'completed'  => 'bg-green-100 text-green-700',
@@ -102,7 +103,13 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"/>
                                         </svg>
                                     </div>
-                                @elseif($statusValue === 'in_process')
+                                @elseif($statusValue === 'rejected')
+                                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+                                        <svg class="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                                        </svg>
+                                    </div>
+                                @elseif($statusValue === 'approved')
                                     <div class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
                                         <svg class="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
@@ -126,7 +133,7 @@
                                     </span>
                                 </div>
                                 <p class="mt-0.5 text-xs text-slate-500">
-                                    {{ $request->division }} • Qty: {{ $request->quantity }}
+                                    {{ $request->branch?->name ?? 'No Branch' }} • Qty: {{ $request->quantity }}
                                 </p>
                                 <p class="mt-0.5 text-xs text-slate-400">
                                     {{ $request->created_at->locale('id')->isoFormat('D MMM Y, HH:mm') }}
@@ -206,11 +213,11 @@
                                     </div>
                                 @endif
 
-                                {{-- Admin notes --}}
+                                {{-- Purchasing notes / rejection reason --}}
                                 @if($request->admin_notes)
-                                    <div class="border-t border-gray-100 bg-amber-50 px-4 py-3 dark:border-gray-800 dark:bg-amber-900/20">
-                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-amber-600">Catatan Admin</p>
-                                        <p class="mt-1 text-xs text-amber-800 dark:text-amber-300">{{ $request->admin_notes }}</p>
+                                    <div class="border-t border-gray-100 {{ $statusValue === 'rejected' ? 'bg-red-50 dark:bg-red-900/20' : 'bg-amber-50 dark:bg-amber-900/20' }} px-4 py-3 dark:border-gray-800">
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider {{ $statusValue === 'rejected' ? 'text-red-600' : 'text-amber-600' }}">{{ $statusValue === 'rejected' ? 'Alasan Penolakan' : 'Catatan Purchasing' }}</p>
+                                        <p class="mt-1 text-xs {{ $statusValue === 'rejected' ? 'text-red-800 dark:text-red-300' : 'text-amber-800 dark:text-amber-300' }}">{{ $request->admin_notes }}</p>
                                     </div>
                                 @endif
 
@@ -219,14 +226,14 @@
                                     <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Progress</p>
                                     @php
                                         $steps = [
-                                            ['value' => 'submitted',  'label' => 'Diajukan'],
-                                            ['value' => 'in_process', 'label' => 'Diproses'],
-                                            ['value' => 'purchased',  'label' => 'Dibeli'],
-                                            ['value' => 'delivered',  'label' => 'Dikirim'],
-                                            ['value' => 'completed',  'label' => 'Selesai'],
+                                            ['value' => 'submitted',  'label' => 'Submitted'],
+                                            ['value' => 'approved',  'label' => 'Approved'],
+                                            ['value' => 'purchased',  'label' => 'Purchased'],
+                                            ['value' => 'delivered',  'label' => 'Delivered'],
+                                            ['value' => 'completed',  'label' => 'Completed'],
                                         ];
                                         $stepValues = array_column($steps, 'value');
-                                        $currentIndex = array_search($statusValue, $stepValues);
+                                        $currentIndex = $statusValue === 'rejected' ? 0 : array_search($statusValue, $stepValues);
                                     @endphp
                                     <div class="flex items-center gap-0">
                                         @foreach($steps as $i => $step)
@@ -243,6 +250,9 @@
                                             @endif
                                         @endforeach
                                     </div>
+                                    @if($statusValue === 'rejected')
+                                        <p class="mt-3 rounded-lg bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-700 dark:bg-red-900/20 dark:text-red-300">Pengajuan ditolak dan proses dihentikan.</p>
+                                    @endif
                                 </div>
 
                                 {{-- Confirm received button (only when delivered) --}}

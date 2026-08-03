@@ -178,7 +178,7 @@ class ViewProjectProductPage extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
+        return auth()->user()?->can('view rnd projects') ?? false;
     }
 
     public function mount(int $project, int $product): void
@@ -1751,15 +1751,14 @@ class ViewProjectProductPage extends Page
     private function authorizeProjectManagement(): void
     {
         $user = auth()->user();
-        abort_unless($user?->hasRole('SUPERADMIN') || $user?->can('edit rnd projects'), 403);
+        abort_unless($user?->can('edit rnd projects'), 403);
     }
 
     private function authorizeBomManagement(): void
     {
         $user = auth()->user();
         abort_unless(
-            $user?->hasRole('SUPERADMIN')
-            || ($user?->can('edit rnd projects') && $user?->can('create bill of materials')),
+            $user?->can('edit rnd projects') && $user?->can('create bill of materials'),
             403,
         );
     }
@@ -1768,8 +1767,7 @@ class ViewProjectProductPage extends Page
     {
         $user = auth()->user();
         abort_unless(
-            $user?->hasRole('SUPERADMIN')
-            || ($user?->can('edit rnd projects') && $user?->can('edit bill of materials')),
+            $user?->can('edit rnd projects') && $user?->can('edit bill of materials'),
             403,
         );
     }

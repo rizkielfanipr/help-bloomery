@@ -1,6 +1,23 @@
 <?php
 
 return [
+    'Akses Back Office' => [
+        'Back Office' => ['access backoffice'],
+    ],
+
+    'Akses Employee App' => [
+        'Absensi' => ['access employee app attendance'],
+        'Driver' => ['access employee app driver'],
+        'Teknisi' => ['access employee app technician'],
+        'Request Teknisi' => ['access employee app technician request'],
+        'Briefing' => ['access employee app briefing'],
+        'Sales Report' => ['access employee app sales report'],
+        'Stock Card' => ['access employee app stock card'],
+        'Purchasing' => ['access employee app purchasing'],
+        'Desain' => ['access employee app design'],
+        'ERP' => ['access employee app erp'],
+    ],
+
     'Human Resources' => [
         'Casual Staff' => ['view casual staff', 'create casual staff', 'edit casual staff', 'delete casual staff'],
         'Posisi Casual' => ['view casual positions', 'create casual positions', 'edit casual positions', 'delete casual positions'],
@@ -82,20 +99,6 @@ return [
         'Employee' => ['view employees', 'create employees', 'edit employees', 'delete employees'],
         'Brand' => ['view brands', 'create brands', 'edit brands', 'delete brands'],
         'Cabang' => ['view branches', 'create branches', 'edit branches', 'delete branches'],
-        'Region Penjualan' => ['view sales regions', 'create sales regions', 'edit sales regions', 'delete sales regions'],
-        'Grup Metode Pembayaran' => ['view payment method groups', 'create payment method groups', 'edit payment method groups', 'delete payment method groups'],
     ],
 
-    'App Tiles' => [
-        'Tile Absensi' => ['view tile absensi'],
-        'Tile Driver' => ['view tile driver'],
-        'Tile Teknisi' => ['view tile teknisi'],
-        'Tile Req Teknisi' => ['view tile req teknisi'],
-        'Tile Briefing' => ['view tile briefing'],
-        'Tile Sales Report' => ['view tile sales report'],
-        'Tile Purchasing' => ['view tile purchasing'],
-        'Tile Desain' => ['view tile desain'],
-        'Tile ERP' => ['view tile erp'],
-        'Tile Stock Card' => ['view tile stock card'],
-    ],
 ];

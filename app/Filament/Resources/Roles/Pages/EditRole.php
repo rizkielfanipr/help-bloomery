@@ -11,6 +11,14 @@ class EditRole extends EditRecord
 {
     protected static string $resource = RoleResource::class;
 
+    /** @param  array<string, mixed>  $data */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $data['guard_name'] = 'web';
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [

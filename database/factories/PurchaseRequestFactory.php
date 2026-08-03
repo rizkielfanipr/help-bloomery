@@ -55,9 +55,9 @@ class PurchaseRequestFactory extends Factory
         return $this->state(['status' => PurchaseRequestStatus::Submitted, 'processed_by' => null, 'admin_notes' => null]);
     }
 
-    public function inProcess(): static
+    public function approved(): static
     {
-        return $this->state(['status' => PurchaseRequestStatus::InProcess]);
+        return $this->state(['status' => PurchaseRequestStatus::Approved]);
     }
 
     public function completed(): static

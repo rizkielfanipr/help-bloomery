@@ -45,7 +45,7 @@ class BillOfMaterialPage extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('SUPERADMIN') ?? false;
+        return auth()->user()?->can('view bill of materials') ?? false;
     }
 
     public function mount(): void

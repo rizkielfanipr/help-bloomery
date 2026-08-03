@@ -15,7 +15,7 @@ class CasualClockRecordExportController extends Controller
 {
     public function __invoke(Request $request): BinaryFileResponse
     {
-        abort_unless(auth()->check(), 403);
+        abort_unless(auth()->user()?->can('view clock records'), 403);
 
         $query = CasualClockRecord::query()
             ->with(['user.casualPosition', 'branch', 'overtimeRequest'])

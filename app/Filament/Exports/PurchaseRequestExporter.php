@@ -15,9 +15,7 @@ class PurchaseRequestExporter extends Exporter
     {
         return [
             ExportColumn::make('id')->label('ID'),
-            ExportColumn::make('user.name')->label('Pemohon'),
             ExportColumn::make('branch.name')->label('Cabang'),
-            ExportColumn::make('division')->label('Divisi'),
             ExportColumn::make('item_name')->label('Nama Barang'),
             ExportColumn::make('quantity')->label('Qty'),
             ExportColumn::make('purchase_type')->label('Jenis'),

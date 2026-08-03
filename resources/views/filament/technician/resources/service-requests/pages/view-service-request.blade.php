@@ -1,10 +1,10 @@
 @php
     $record = $this->record;
     $statusConfig = match($record->status->value) {
-        'submitted'   => ['label' => 'Menunggu',   'bg' => 'bg-amber-100',   'text' => 'text-amber-700',   'dark' => 'dark:bg-amber-900/30 dark:text-amber-400'],
-        'in_progress' => ['label' => 'Dikerjakan', 'bg' => 'bg-blue-100',    'text' => 'text-blue-700',    'dark' => 'dark:bg-blue-900/30 dark:text-blue-400'],
-        'warranty'    => ['label' => 'Garansi',    'bg' => 'bg-purple-100',  'text' => 'text-purple-700',  'dark' => 'dark:bg-purple-900/30 dark:text-purple-400'],
-        'completed'   => ['label' => 'Selesai',    'bg' => 'bg-emerald-100', 'text' => 'text-emerald-700', 'dark' => 'dark:bg-emerald-900/30 dark:text-emerald-400'],
+        'submitted'   => ['label' => 'Submitted',   'bg' => 'bg-amber-100',   'text' => 'text-amber-700',   'dark' => 'dark:bg-amber-900/30 dark:text-amber-400'],
+        'in_progress' => ['label' => 'In Progress', 'bg' => 'bg-blue-100',    'text' => 'text-blue-700',    'dark' => 'dark:bg-blue-900/30 dark:text-blue-400'],
+        'warranty'    => ['label' => 'Warranty',    'bg' => 'bg-purple-100',  'text' => 'text-purple-700',  'dark' => 'dark:bg-purple-900/30 dark:text-purple-400'],
+        'completed'   => ['label' => 'Completed',   'bg' => 'bg-emerald-100', 'text' => 'text-emerald-700', 'dark' => 'dark:bg-emerald-900/30 dark:text-emerald-400'],
         default       => ['label' => $record->status->getLabel(), 'bg' => 'bg-gray-100', 'text' => 'text-gray-600', 'dark' => ''],
     };
     $canStart    = $record->status->value === 'submitted';
@@ -52,7 +52,7 @@
             <div class="mx-5 mb-4 flex gap-3">
                 @if($canStart)
                     <button wire:click="mountAction('mulai_kerjakan')"
-                            class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-amber-500 py-3.5 text-sm font-semibold text-white transition active:scale-95 active:bg-amber-600">
+                            class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/>
                         </svg>
@@ -61,7 +61,7 @@
                 @endif
                 @if($canComplete)
                     <button wire:click="mountAction('selesai_kerjakan')"
-                            class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 active:bg-emerald-700">
+                            class="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                         </svg>
@@ -157,9 +157,9 @@
                             <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
                                 <p class="font-semibold text-gray-900 dark:text-white">{{ $repair->cycle_label ?? 'Tahap '.$repair->cycle }}</p>
                                 @if($repair->completed_at)
-                                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Selesai</span>
+                                    <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Completed</span>
                                 @else
-                                    <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Dikerjakan</span>
+                                    <span class="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">In Progress</span>
                                 @endif
                             </div>
                             <div class="space-y-4 px-5 py-4">
@@ -191,11 +191,14 @@
                                         <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $repair->before_notes }}</p>
                                     </div>
                                 @endif
-                                @if($repair->before_photo)
-                                    <a href="{{ \Storage::disk('b2')->temporaryUrl($repair->before_photo, now()->addHour()) }}" target="_blank"
-                                       class="block h-40 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                        <img src="{{ \Storage::disk('b2')->temporaryUrl($repair->before_photo, now()->addHour()) }}" class="h-full w-full object-cover" alt="Foto Sebelum">
-                                    </a>
+                                @if($repair->before_photos !== [])
+                                    <div class="grid grid-cols-2 gap-2">
+                                        @foreach($repair->before_photos as $photo)
+                                            <a href="{{ \Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" target="_blank" class="block aspect-[4/3] overflow-hidden rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+                                                <img src="{{ \Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" class="h-full w-full object-cover" alt="Foto Sebelum">
+                                            </a>
+                                        @endforeach
+                                    </div>
                                 @endif
                                 @if($repair->completed_at)
                                     <div class="flex items-center gap-3">
@@ -228,11 +231,14 @@
                                             <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ $repair->after_notes }}</p>
                                         </div>
                                     @endif
-                                    @if($repair->after_photo)
-                                        <a href="{{ \Storage::disk('b2')->temporaryUrl($repair->after_photo, now()->addHour()) }}" target="_blank"
-                                           class="block h-40 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                            <img src="{{ \Storage::disk('b2')->temporaryUrl($repair->after_photo, now()->addHour()) }}" class="h-full w-full object-cover" alt="Foto Setelah">
-                                        </a>
+                                    @if($repair->after_photos !== [])
+                                        <div class="grid grid-cols-2 gap-2">
+                                            @foreach($repair->after_photos as $photo)
+                                                <a href="{{ \Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" target="_blank" class="block aspect-[4/3] overflow-hidden rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+                                                    <img src="{{ \Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" class="h-full w-full object-cover" alt="Foto Setelah">
+                                                </a>
+                                            @endforeach
+                                        </div>
                                     @endif
                                 @endif
                             </div>

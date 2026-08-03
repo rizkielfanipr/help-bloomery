@@ -5,11 +5,11 @@
     $canComplete   = $record->status->value === 'in_progress' && $record->technician_id === auth()->id();
 
     $statusConfig = match($record->status->value) {
-        'submitted'    => ['label' => 'Menunggu',        'bg' => 'bg-amber-100',   'text' => 'text-amber-700'],
-        'in_progress'  => ['label' => 'Dikerjakan',      'bg' => 'bg-blue-100',    'text' => 'text-blue-700'],
-        'warranty'     => ['label' => 'Garansi',         'bg' => 'bg-purple-100',  'text' => 'text-purple-700'],
-        're_submitted' => ['label' => 'Pengaduan Ulang', 'bg' => 'bg-red-100',     'text' => 'text-red-700'],
-        'completed'    => ['label' => 'Selesai',         'bg' => 'bg-blue-100', 'text' => 'text-blue-700'],
+        'submitted'    => ['label' => 'Submitted',    'bg' => 'bg-amber-100',  'text' => 'text-amber-700'],
+        'in_progress'  => ['label' => 'In Progress',  'bg' => 'bg-blue-100',   'text' => 'text-blue-700'],
+        'warranty'     => ['label' => 'Warranty',     'bg' => 'bg-purple-100', 'text' => 'text-purple-700'],
+        're_submitted' => ['label' => 'Re-submitted', 'bg' => 'bg-red-100',    'text' => 'text-red-700'],
+        'completed'    => ['label' => 'Completed',    'bg' => 'bg-blue-100',   'text' => 'text-blue-700'],
         default        => ['label' => $record->status->getLabel(), 'bg' => 'bg-gray-100', 'text' => 'text-gray-600'],
     };
 @endphp
@@ -200,11 +200,14 @@
                                 @if($repair->before_notes)
                                     <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{{ $repair->before_notes }}</p>
                                 @endif
-                                @if($repair->before_photo)
-                                    <a href="{{ \Storage::disk('b2')->temporaryUrl($repair->before_photo, now()->addHour()) }}" target="_blank"
-                                       class="mt-3 block overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                        <img src="{{ \Storage::disk('b2')->temporaryUrl($repair->before_photo, now()->addHour()) }}" class="h-44 w-full object-cover" alt="Foto Sebelum">
-                                    </a>
+                                @if($repair->before_photos !== [])
+                                    <div class="mt-3 grid grid-cols-2 gap-2">
+                                        @foreach($repair->before_photos as $photo)
+                                            <a href="{{ \Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" target="_blank" class="block aspect-[4/3] overflow-hidden rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+                                                <img src="{{ \Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" class="h-full w-full object-cover" alt="Foto Sebelum">
+                                            </a>
+                                        @endforeach
+                                    </div>
                                 @endif
                             </div>
 
@@ -227,18 +230,21 @@
                                     @if($repair->after_notes)
                                         <p class="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{{ $repair->after_notes }}</p>
                                     @endif
-                                    @if($repair->after_photo)
-                                        <a href="{{ \Storage::disk('b2')->temporaryUrl($repair->after_photo, now()->addHour()) }}" target="_blank"
-                                           class="mt-3 block overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                            <img src="{{ \Storage::disk('b2')->temporaryUrl($repair->after_photo, now()->addHour()) }}" class="h-44 w-full object-cover" alt="Foto Setelah">
-                                        </a>
+                                    @if($repair->after_photos !== [])
+                                        <div class="mt-3 grid grid-cols-2 gap-2">
+                                            @foreach($repair->after_photos as $photo)
+                                                <a href="{{ \Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" target="_blank" class="block aspect-[4/3] overflow-hidden rounded-xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800">
+                                                    <img src="{{ \Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" class="h-full w-full object-cover" alt="Foto Setelah">
+                                                </a>
+                                            @endforeach
+                                        </div>
                                     @endif
                                 </div>
                             @else
                                 <div class="border-t border-gray-100 px-4 py-4 dark:border-gray-800">
                                     <div class="flex items-center gap-2">
                                         <div class="h-2 w-2 animate-pulse rounded-full bg-blue-400"></div>
-                                        <p class="text-xs font-bold uppercase tracking-wider text-blue-500">Sedang Dikerjakan</p>
+                                        <p class="text-xs font-bold uppercase tracking-wider text-blue-500">In Progress</p>
                                     </div>
                                 </div>
                             @endif

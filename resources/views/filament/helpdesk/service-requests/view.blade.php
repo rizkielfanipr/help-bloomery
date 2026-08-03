@@ -55,13 +55,13 @@
                             <div><p class="text-xs text-gray-400">Hasil Perbaikan</p><p class="text-sm">{{ $repair->after_notes ?: '-' }}</p></div>
                         </div>
                         <div class="mt-4 grid grid-cols-2 gap-3">
-                            @foreach(['before_photo' => 'Sebelum', 'after_photo' => 'Sesudah'] as $field => $label)
-                                @if($repair->{$field})
-                                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($repair->{$field}, now()->addHour()) }}" target="_blank" class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
-                                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($repair->{$field}, now()->addHour()) }}" class="h-44 w-full object-cover">
+                            @foreach(['before_photos' => 'Sebelum', 'after_photos' => 'Sesudah'] as $field => $label)
+                                @foreach($repair->{$field} as $photo)
+                                    <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" target="_blank" class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                                        <img src="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($photo, now()->addHour()) }}" class="h-44 w-full object-cover">
                                         <p class="p-2 text-center text-xs font-medium">{{ $label }}</p>
                                     </a>
-                                @endif
+                                @endforeach
                             @endforeach
                         </div>
                     </article>

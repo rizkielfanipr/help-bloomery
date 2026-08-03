@@ -3,11 +3,11 @@
     use Illuminate\Support\Facades\Storage;
 
     $statusConfig = [
-        'submitted'    => ['label' => 'Diajukan',        'bg' => 'bg-blue-100',    'text' => 'text-blue-700'],
-        'in_progress'  => ['label' => 'Dikerjakan',      'bg' => 'bg-amber-100',   'text' => 'text-amber-700'],
-        'warranty'     => ['label' => 'Garansi',         'bg' => 'bg-purple-100',  'text' => 'text-purple-700'],
-        're_submitted' => ['label' => 'Pengaduan Ulang', 'bg' => 'bg-red-100',     'text' => 'text-red-700'],
-        'completed'    => ['label' => 'Selesai',         'bg' => 'bg-blue-100', 'text' => 'text-blue-700'],
+        'submitted'    => ['label' => 'Submitted',    'bg' => 'bg-blue-100',   'text' => 'text-blue-700'],
+        'in_progress'  => ['label' => 'In Progress',  'bg' => 'bg-amber-100',  'text' => 'text-amber-700'],
+        'warranty'     => ['label' => 'Warranty',     'bg' => 'bg-purple-100', 'text' => 'text-purple-700'],
+        're_submitted' => ['label' => 'Re-submitted', 'bg' => 'bg-red-100',    'text' => 'text-red-700'],
+        'completed'    => ['label' => 'Completed',    'bg' => 'bg-blue-100',   'text' => 'text-blue-700'],
     ];
 @endphp
 

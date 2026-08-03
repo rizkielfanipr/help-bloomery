@@ -12,8 +12,10 @@ class ServiceRequestRepair extends Model
         'technician_id',
         'cycle',
         'before_photo',
+        'before_photos',
         'before_notes',
         'after_photo',
+        'after_photos',
         'after_notes',
         'started_at',
         'completed_at',
@@ -28,8 +30,26 @@ class ServiceRequestRepair extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'warranty_expires_at' => 'datetime',
+            'before_photos' => 'array',
+            'after_photos' => 'array',
             'warranty_claim_attachments' => 'array',
         ];
+    }
+
+    /** @return array<int, string> */
+    public function getBeforePhotosAttribute(mixed $value): array
+    {
+        $photos = is_string($value) ? json_decode($value, true) : $value;
+
+        return array_values(array_filter((array) ($photos ?: $this->before_photo)));
+    }
+
+    /** @return array<int, string> */
+    public function getAfterPhotosAttribute(mixed $value): array
+    {
+        $photos = is_string($value) ? json_decode($value, true) : $value;
+
+        return array_values(array_filter((array) ($photos ?: $this->after_photo)));
     }
 
     public function serviceRequest(): BelongsTo

@@ -37,6 +37,119 @@
     92%  { opacity: 1; }
     100% { top: 96%; opacity: 0; }
 }
+
+/* Consistent, compact action modals for employee app workflows. */
+.fi-modal-window {
+    @apply overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-none dark:border-gray-700 dark:bg-gray-900;
+}
+
+.fi-modal-header {
+    @apply border-b border-gray-100 px-5 py-4 dark:border-gray-800;
+}
+
+.fi-modal-content {
+    @apply px-5 py-5;
+}
+
+.fi-modal-footer {
+    @apply border-t border-gray-100 px-5 py-4 dark:border-gray-800;
+}
+
+.fi-modal-close-overlay {
+    @apply bg-slate-950/40 backdrop-blur-[1px];
+}
+/* Work form inspired by the employee-app request form. */
+.technician-work-modal {
+    width: calc(100vw - 2rem);
+    max-width: 42rem;
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+}
+.technician-work-modal > .fi-modal-header,
+.technician-work-modal > .fi-modal-footer { flex-shrink: 0; }
+.technician-work-modal > .fi-modal-content {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+.technician-work-modal .fi-modal-header,
+.technician-work-modal .fi-modal-content { background: #ffffff; }
+.technician-work-modal .fi-modal-icon-bg { background: #eff6ff; color: #2563eb; }
+.technician-work-modal .fi-sc { gap: 1.5rem; }
+.technician-work-modal .fi-fo-field-label-content {
+    color: #40516d;
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+.technician-work-modal .fi-input-wrp {
+    overflow: hidden;
+    border: 1px solid #dbe1e8;
+    border-radius: 1rem;
+    box-shadow: none;
+}
+.technician-work-modal .fi-fo-textarea,
+.technician-work-modal .fi-fo-textarea textarea { min-height: 9rem; }
+.technician-work-modal .fi-fo-textarea textarea {
+    padding: 1rem;
+    color: #334155;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+.technician-work-modal .fi-fo-file-upload .filepond--root {
+    min-height: 7rem;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 1rem;
+    background: #ffffff;
+    box-shadow: none;
+}
+.technician-work-modal .fi-fo-file-upload .filepond--drop-label,
+.technician-work-modal .fi-fo-file-upload .filepond--drop-label label {
+    min-height: 7rem;
+    color: #64748b !important;
+    font-size: 0.9375rem;
+}
+.technician-work-modal .fi-fo-file-upload .filepond--label-action { color: #2563eb; }
+.technician-work-modal .fi-fo-field-helper-text { color: #94a3b8; }
+.technician-work-modal .fi-modal-footer .fi-color-primary { background: #2563eb; }
+.technician-work-modal .fi-modal-footer .fi-color-primary:hover { background: #1d4ed8; }
+.dark .technician-work-modal .fi-modal-header,
+.dark .technician-work-modal .fi-modal-content { background: #111827; }
+.dark .technician-work-modal .fi-fo-field-label-content { color: #cbd5e1; }
+.dark .technician-work-modal .fi-input-wrp,
+.dark .technician-work-modal .fi-fo-file-upload .filepond--root {
+    border-color: #374151;
+    background: #111827;
+}
+
+@media (max-width: 639px) {
+    .technician-work-modal {
+        width: calc(100vw - 1rem);
+        max-height: calc(100dvh - 2rem);
+        border-radius: 1.25rem;
+    }
+
+    .technician-work-modal .fi-modal-header,
+    .technician-work-modal .fi-modal-content,
+    .technician-work-modal .fi-modal-footer {
+        padding-inline: 1.25rem;
+    }
+
+    .technician-work-modal .fi-modal-footer-actions {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+        gap: 0.625rem;
+    }
+
+    .technician-work-modal .fi-modal-footer-actions .fi-btn {
+        width: 100%;
+        min-height: 3rem;
+        justify-content: center;
+        border-radius: 0.875rem;
+    }
+}
 @keyframes ovalPulse {
     0%, 100% { opacity: 0.7; }
     50%      { opacity: 1; }

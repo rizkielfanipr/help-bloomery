@@ -45,9 +45,9 @@
             @php
                 $isResubmitted = $job->status->value === 're_submitted';
                 $statusConfig = match($job->status->value) {
-                    'submitted'    => ['label' => 'Menunggu',        'bg' => 'bg-amber-100',   'text' => 'text-amber-700',   'dark' => 'dark:bg-amber-900/30 dark:text-amber-400'],
-                    'in_progress'  => ['label' => 'Dikerjakan',      'bg' => 'bg-blue-100',    'text' => 'text-blue-700',    'dark' => 'dark:bg-blue-900/30 dark:text-blue-400'],
-                    're_submitted' => ['label' => 'Pengaduan Ulang', 'bg' => 'bg-red-100',     'text' => 'text-red-700',     'dark' => 'dark:bg-red-900/30 dark:text-red-400'],
+                    'submitted'    => ['label' => 'Submitted',    'bg' => 'bg-amber-100', 'text' => 'text-amber-700', 'dark' => 'dark:bg-amber-900/30 dark:text-amber-400'],
+                    'in_progress'  => ['label' => 'In Progress',  'bg' => 'bg-blue-100',  'text' => 'text-blue-700',  'dark' => 'dark:bg-blue-900/30 dark:text-blue-400'],
+                    're_submitted' => ['label' => 'Re-submitted', 'bg' => 'bg-red-100',   'text' => 'text-red-700',   'dark' => 'dark:bg-red-900/30 dark:text-red-400'],
                     default        => ['label' => $job->status->getLabel(), 'bg' => 'bg-gray-100', 'text' => 'text-gray-600', 'dark' => 'dark:bg-gray-800 dark:text-gray-400'],
                 };
             @endphp

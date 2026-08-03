@@ -15,6 +15,7 @@ use App\Models\DesignCategory;
 use App\Models\DesignRequest;
 use App\Models\PurchaseRequest;
 use App\Models\ServiceRequest;
+use App\Models\ServiceRequestRepair;
 use App\Models\Trip;
 use App\Models\TripRoute;
 use App\Models\User;
@@ -45,6 +46,34 @@ it('renders the service request desktop detail workspace', function () {
         ->assertSee('Detail Permintaan')
         ->assertSee('Riwayat Perbaikan')
         ->assertDontSee('Tindak Lanjut');
+});
+
+it('preserves legacy repair photos and supports multiple repair photos', function () {
+    $request = ServiceRequest::query()->forceCreate([
+        'scheduled_by' => $this->admin->id,
+        'branch_id' => $this->branch->id,
+        'scheduled_date' => today(),
+        'status' => ServiceRequestStatus::InProgress,
+    ]);
+
+    $legacyRepair = ServiceRequestRepair::create([
+        'service_request_id' => $request->id,
+        'technician_id' => $this->admin->id,
+        'cycle' => 1,
+        'before_photo' => 'service-requests/before/legacy.jpg',
+    ]);
+
+    $repair = ServiceRequestRepair::create([
+        'service_request_id' => $request->id,
+        'technician_id' => $this->admin->id,
+        'cycle' => 2,
+        'before_photos' => ['before-1.jpg', 'before-2.jpg'],
+        'after_photos' => ['after-1.jpg', 'after-2.jpg'],
+    ]);
+
+    expect($legacyRepair->before_photos)->toBe(['service-requests/before/legacy.jpg'])
+        ->and($repair->before_photos)->toBe(['before-1.jpg', 'before-2.jpg'])
+        ->and($repair->after_photos)->toBe(['after-1.jpg', 'after-2.jpg']);
 });
 
 it('renders the driver trip desktop detail workspace', function () {

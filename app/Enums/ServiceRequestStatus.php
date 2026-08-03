@@ -17,11 +17,11 @@ enum ServiceRequestStatus: string implements HasColor, HasIcon, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Submitted => 'Diajukan',
-            self::InProgress => 'Dikerjakan',
-            self::Warranty => 'Garansi',
-            self::ReSubmitted => 'Pengaduan Ulang',
-            self::Completed => 'Selesai',
+            self::Submitted => 'Submitted',
+            self::InProgress => 'In Progress',
+            self::Warranty => 'Warranty',
+            self::ReSubmitted => 'Re-submitted',
+            self::Completed => 'Completed',
         };
     }
 

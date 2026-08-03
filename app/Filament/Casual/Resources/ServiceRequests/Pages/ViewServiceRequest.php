@@ -17,8 +17,10 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
+use Filament\Support\Enums\Width;
 
 class ViewServiceRequest extends ViewRecord
 {
@@ -99,12 +101,12 @@ class ViewServiceRequest extends ViewRecord
                                 ->label('Catatan Kondisi Sebelum')
                                 ->placeholder('-'),
 
-                            ImageEntry::make('before_photo')
+                            ImageEntry::make('before_photos')
                                 ->label('Foto Kondisi Sebelum')
                                 ->disk('b2')
                                 ->size(280)
                                 ->default(null)
-                                ->visible(fn (ServiceRequestRepair $record): bool => $record->before_photo !== null),
+                                ->visible(fn (ServiceRequestRepair $record): bool => $record->before_photos !== []),
 
                             Grid::make(2)->schema([
                                 TextEntry::make('completed_at')
@@ -122,12 +124,12 @@ class ViewServiceRequest extends ViewRecord
                                 ->placeholder('-')
                                 ->visible(fn (ServiceRequestRepair $record): bool => $record->completed_at !== null),
 
-                            ImageEntry::make('after_photo')
+                            ImageEntry::make('after_photos')
                                 ->label('Foto Kondisi Setelah')
                                 ->disk('b2')
                                 ->size(280)
                                 ->default(null)
-                                ->visible(fn (ServiceRequestRepair $record): bool => $record->after_photo !== null),
+                                ->visible(fn (ServiceRequestRepair $record): bool => $record->after_photos !== []),
                         ])
                         ->contained(false),
                 ])
@@ -141,29 +143,40 @@ class ViewServiceRequest extends ViewRecord
             Action::make('mulai_kerjakan')
                 ->label('Mulai Kerjakan')
                 ->icon('heroicon-o-play')
-                ->color('warning')
+                ->color('primary')
                 ->visible(fn (ServiceRequest $record): bool => in_array($record->status, [
                     ServiceRequestStatus::Submitted,
                     ServiceRequestStatus::ReSubmitted,
                 ]))
                 ->form([
+                    Textarea::make('notes')
+                        ->label('Catatan Kondisi Awal')
+                        ->rows(5)
+                        ->required()
+                        ->placeholder('Jelaskan kondisi perangkat, kerusakan yang terlihat, dan temuan awal sebelum pekerjaan dimulai.'),
+
                     FileUpload::make('photo')
-                        ->label('Foto Kondisi Sebelum')
+                        ->label('Foto Kondisi Awal')
                         ->image()
+                        ->multiple()
+                        ->maxFiles(5)
+                        ->maxSize(5120)
                         ->disk('b2')
                         ->directory('service-requests/before')
                         ->imageEditor()
+                        ->reorderable()
+                        ->panelLayout('grid')
+                        ->imagePreviewHeight('120')
+                        ->idleLabel('Tambah foto')
+                        ->helperText('Wajib diisi · Maksimal 5 foto · Maksimal 5 MB per foto')
                         ->required(),
-
-                    Textarea::make('notes')
-                        ->label('Catatan Kondisi Sebelum')
-                        ->rows(4)
-                        ->required()
-                        ->placeholder('Deskripsikan kondisi perangkat sebelum diperbaiki...'),
                 ])
-                ->modalHeading('Mulai Kerjakan — Kondisi Sebelum')
-                ->modalDescription('Isi kondisi perangkat sebelum perbaikan dimulai.')
-                ->modalSubmitActionLabel('Mulai Kerjakan')
+                ->modalHeading('Dokumentasi Kondisi Awal')
+                ->modalDescription('Lengkapi catatan dan foto perangkat sebelum memulai pekerjaan.')
+                ->modalWidth(Width::Large)
+                ->modalFooterActionsAlignment(Alignment::End)
+                ->extraModalWindowAttributes(['class' => 'technician-work-modal'])
+                ->modalSubmitActionLabel('Mulai Pekerjaan')
                 ->action(function (ServiceRequest $record, array $data): void {
                     $nextCycle = $record->repairs()->max('cycle') + 1;
 
@@ -171,7 +184,7 @@ class ViewServiceRequest extends ViewRecord
                         'service_request_id' => $record->id,
                         'technician_id' => auth()->id(),
                         'cycle' => $nextCycle,
-                        'before_photo' => $data['photo'],
+                        'before_photos' => array_values($data['photo']),
                         'before_notes' => $data['notes'],
                         'started_at' => now(),
                         'warranty_claim_notes' => $record->warranty_claim_notes,
@@ -191,33 +204,44 @@ class ViewServiceRequest extends ViewRecord
             Action::make('selesai_kerjakan')
                 ->label('Selesai Kerjakan')
                 ->icon('heroicon-o-check-circle')
-                ->color('success')
+                ->color('primary')
                 ->visible(fn (ServiceRequest $record): bool => $record->status === ServiceRequestStatus::InProgress
                     && $record->technician_id === auth()->id())
                 ->form([
+                    Textarea::make('notes')
+                        ->label('Catatan Hasil Pekerjaan')
+                        ->rows(5)
+                        ->required()
+                        ->placeholder('Jelaskan tindakan yang telah dilakukan dan kondisi perangkat setelah pekerjaan selesai.'),
+
                     FileUpload::make('photo')
-                        ->label('Foto Kondisi Setelah')
+                        ->label('Foto Kondisi Akhir')
                         ->image()
+                        ->multiple()
+                        ->maxFiles(5)
+                        ->maxSize(5120)
                         ->disk('b2')
                         ->directory('service-requests/after')
                         ->imageEditor()
+                        ->reorderable()
+                        ->panelLayout('grid')
+                        ->imagePreviewHeight('120')
+                        ->idleLabel('Tambah foto')
+                        ->helperText('Wajib diisi · Maksimal 5 foto · Maksimal 5 MB per foto')
                         ->required(),
-
-                    Textarea::make('notes')
-                        ->label('Catatan Hasil Perbaikan')
-                        ->rows(4)
-                        ->required()
-                        ->placeholder('Deskripsikan tindakan perbaikan dan kondisi akhir perangkat...'),
                 ])
-                ->modalHeading('Selesai Kerjakan — Kondisi Setelah')
-                ->modalDescription('Pekerjaan akan masuk masa garansi 30 hari setelah ini.')
-                ->modalSubmitActionLabel('Tandai Selesai')
+                ->modalHeading('Dokumentasi Hasil Pekerjaan')
+                ->modalDescription('Lengkapi hasil pekerjaan. Setelah disimpan, perangkat memasuki masa garansi 30 hari.')
+                ->modalWidth(Width::Large)
+                ->modalFooterActionsAlignment(Alignment::End)
+                ->extraModalWindowAttributes(['class' => 'technician-work-modal'])
+                ->modalSubmitActionLabel('Selesaikan Pekerjaan')
                 ->action(function (ServiceRequest $record, array $data): void {
                     $completedAt = now();
                     $warrantyExpiresAt = $completedAt->copy()->addDays(30);
 
                     $record->activeRepair()->update([
-                        'after_photo' => $data['photo'],
+                        'after_photos' => array_values($data['photo']),
                         'after_notes' => $data['notes'],
                         'completed_at' => $completedAt,
                         'warranty_expires_at' => $warrantyExpiresAt,

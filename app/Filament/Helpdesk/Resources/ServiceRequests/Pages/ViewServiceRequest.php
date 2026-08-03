@@ -85,12 +85,12 @@ class ViewServiceRequest extends ViewRecord
                                 ->label('Catatan Kondisi Sebelum')
                                 ->placeholder('-'),
 
-                            ImageEntry::make('before_photo')
+                            ImageEntry::make('before_photos')
                                 ->label('Foto Kondisi Sebelum')
                                 ->disk('b2')
                                 ->size(280)
                                 ->default(null)
-                                ->visible(fn (ServiceRequestRepair $record): bool => $record->before_photo !== null),
+                                ->visible(fn (ServiceRequestRepair $record): bool => $record->before_photos !== []),
 
                             Grid::make(2)->schema([
                                 TextEntry::make('completed_at')
@@ -108,12 +108,12 @@ class ViewServiceRequest extends ViewRecord
                                 ->placeholder('-')
                                 ->visible(fn (ServiceRequestRepair $record): bool => $record->completed_at !== null),
 
-                            ImageEntry::make('after_photo')
+                            ImageEntry::make('after_photos')
                                 ->label('Foto Kondisi Setelah')
                                 ->disk('b2')
                                 ->size(280)
                                 ->default(null)
-                                ->visible(fn (ServiceRequestRepair $record): bool => $record->after_photo !== null),
+                                ->visible(fn (ServiceRequestRepair $record): bool => $record->after_photos !== []),
                         ])
                         ->contained(false),
                 ])

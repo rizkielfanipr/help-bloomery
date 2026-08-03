@@ -2,6 +2,7 @@
 @php
     $entries = $record->entries->sortBy('payment_method_name');
     $totalSystem = (float) $entries->sum('sales_system_amount');
+    $totalOriginalStore = (float) $entries->sum(fn ($entry) => $entry->original_sales_store_amount ?? $entry->sales_store_amount);
     $totalStore = (float) $entries->sum('sales_store_amount');
     $totalStoreDifference = $totalStore - $totalSystem;
     $totalSettlement = (float) $entries->sum('settlement_amount');
@@ -59,9 +60,10 @@
                 <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ $fmt($totalSystem) }}</p>
             </div>
             <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700 sm:border-r sm:border-t-0">
-                <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Store Sales</p>
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Store Sales <span class="normal-case text-gray-300">(after SPV review)</span></p>
                 <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ $fmt($totalStore) }}</p>
                 <p @class(['mt-1 text-xs', 'text-emerald-600' => abs($totalStoreDifference) < .01, 'text-red-600' => abs($totalStoreDifference) >= .01])>Difference {{ $totalStoreDifference > 0 ? '+' : '' }}{{ $fmt($totalStoreDifference) }}</p>
+                <p class="mt-1 text-xs text-gray-400">First input: {{ $fmt($totalOriginalStore) }}</p>
             </div>
             <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700 sm:border-t-0">
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Settlement Total</p>
@@ -80,13 +82,13 @@
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Sales and Settlement Reconciliation</h2>
-            <p class="mt-1 text-xs text-gray-400">Finance enters the settlement amount. MDR and reconciliation are calculated automatically.</p>
+            <p class="mt-1 text-xs text-gray-400">Store Staff input is preserved. Supervisor corrections and Finance settlement are processed here.</p>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1250px] text-sm">
                 <thead class="border-b border-gray-200 bg-gray-50/70 text-xs uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800/60">
                     <tr>
-                        <th class="px-4 py-3 text-left">Payment Method</th><th class="px-4 py-3 text-right">System Sales</th><th class="px-4 py-3 text-right">Store Sales</th><th class="px-4 py-3 text-right">Store Difference</th><th class="px-4 py-3 text-right">Settlement</th><th class="px-4 py-3 text-right">MDR (%)</th><th class="px-4 py-3 text-right">Expected Settlement</th><th class="px-4 py-3 text-right">Settlement Difference</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Notes</th>
+                        <th class="px-4 py-3 text-left">Payment Method</th><th class="px-4 py-3 text-right">System Sales</th><th class="px-4 py-3 text-right">First Store Input</th><th class="px-4 py-3 text-right">SPV Correction</th><th class="px-4 py-3 text-right">Store Difference</th><th class="px-4 py-3 text-right">Settlement</th><th class="px-4 py-3 text-right">MDR (%)</th><th class="px-4 py-3 text-right">Expected Settlement</th><th class="px-4 py-3 text-right">Settlement Difference</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Notes</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -94,6 +96,7 @@
                         @php
                             $storeDifference = (float) $entry->sales_store_amount - (float) $entry->sales_system_amount;
                             $preview = $this->settlementPreview($entry->id);
+                            $isSupervisorInput = $this->canReviewAsSupervisor();
                             $isFinanceInput = $this->canReviewAsFinance();
                             $recon = $reconciliationLabels[$entry->reconciliation_status] ?? null;
                             $expectedSettlement = $isFinanceInput ? $preview['expected'] : $entry->expected_settlement_amount;
@@ -102,7 +105,18 @@
                         <tr class="align-top">
                             <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{{ $entry->payment_method_name }}</td>
                             <td class="px-4 py-3 text-right font-mono">{{ $fmt($entry->sales_system_amount) }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ $fmt($entry->sales_store_amount) }}</td>
+                            <td class="px-4 py-3 text-right font-mono">
+                                {{ $fmt($entry->original_sales_store_amount ?? $entry->sales_store_amount) }}
+                                @if($entry->original_notes)<p class="mt-1 max-w-44 text-left font-sans text-[11px] leading-4 text-gray-400">{{ $entry->original_notes }}</p>@endif
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                @if($isSupervisorInput)
+                                    <input type="number" min="0" step="0.01" wire:model="supervisorRows.{{ $entry->id }}.sales_store" class="w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-right text-sm dark:border-gray-700 dark:bg-gray-900">
+                                    @error("supervisorRows.{$entry->id}.sales_store") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                @else
+                                    <span class="font-mono">{{ $fmt($entry->sales_store_amount) }}</span>
+                                @endif
+                            </td>
                             <td @class(['px-4 py-3 text-right font-mono font-semibold', 'text-emerald-600' => abs($storeDifference) < .01, 'text-red-600' => abs($storeDifference) >= .01])>{{ $storeDifference > 0 ? '+' : '' }}{{ $fmt($storeDifference) }}</td>
                             <td class="px-4 py-3 text-right">
                                 @if($isFinanceInput)
@@ -117,7 +131,10 @@
                             <td class="px-4 py-3 text-right font-mono font-semibold"><span @class(['text-red-600' => $settlementDifference !== null && abs((float) $settlementDifference) > 100, 'text-emerald-600' => $settlementDifference === null || abs((float) $settlementDifference) <= 100])>{{ $settlementDifference === null ? '-' : (((float) $settlementDifference > 0 ? '+' : '').$fmt($settlementDifference)) }}</span></td>
                             <td class="px-4 py-3">@if($recon)<span class="rounded-md border px-2 py-1 text-xs {{ $recon[1] }}">{{ $recon[0] }}</span>@elseif($isFinanceInput)<span class="text-xs text-gray-400">Automatic</span>@else<span class="text-gray-400">-</span>@endif</td>
                             <td class="px-4 py-3">
-                                @if($isFinanceInput)
+                                @if($isSupervisorInput)
+                                    <textarea rows="2" wire:model="supervisorRows.{{ $entry->id }}.notes" class="w-52 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Supervisor notes"></textarea>
+                                    @error("supervisorRows.{$entry->id}.notes") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                @elseif($isFinanceInput)
                                     <textarea rows="2" wire:model="settlementRows.{{ $entry->id }}.note" class="w-52 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Finance notes"></textarea>
                                     @error("settlementRows.{$entry->id}.note") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                 @else
@@ -132,7 +149,8 @@
 
         @if($this->canReviewAsSupervisor() || $this->canReviewAsFinance())
             <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
-                <div class="grid gap-5 lg:grid-cols-2">
+                <div @class(['grid gap-5', 'lg:grid-cols-2' => $this->canReviewAsFinance()])>
+                    @if($this->canReviewAsFinance())
                     <div>
                         <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Review Notes <span class="font-normal normal-case text-gray-400">(optional, required when sales differ)</span></label>
                         <textarea wire:model="reviewNote" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Add review notes if needed"></textarea>
@@ -143,9 +161,12 @@
                         <textarea wire:model="rejectionReason" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Explain what must be corrected"></textarea>
                         @error('rejectionReason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
+                    @endif
                 </div>
                 <div class="mt-4 flex flex-wrap justify-end gap-2">
-                    <button type="button" wire:click="{{ $this->canReviewAsSupervisor() ? 'rejectSupervisor' : 'rejectFinance' }}" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-x-mark class="h-4 w-4" />{{ $this->canReviewAsSupervisor() ? 'Set as Rejected by Supervisor' : 'Set as Rejected by Finance' }}</button>
+                    @if($this->canReviewAsFinance())
+                        <button type="button" wire:click="rejectFinance" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-arrow-uturn-left class="h-4 w-4" />Return to Supervisor</button>
+                    @endif
                     <button type="button" wire:click="{{ $this->canReviewAsSupervisor() ? 'approveSupervisor' : 'approveFinance' }}" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 dark:border-blue-900 dark:bg-gray-900"><x-heroicon-o-check class="h-4 w-4" />{{ $this->canReviewAsSupervisor() ? 'Set as Finance Review' : 'Set as Completed' }}</button>
                 </div>
             </div>

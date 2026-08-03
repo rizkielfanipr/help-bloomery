@@ -79,6 +79,7 @@ it('bundles sales region access into Project and removes payment grouping permis
     expect($groups['Master'])->not->toHaveKeys(['Region Penjualan', 'Grup Metode Pembayaran'])
         ->and($groups['Research & Development']['Project'])->toContain('view rnd projects')
         ->and(Permission::where('name', 'view sales regions')->exists())->toBeFalse()
+        ->and(Permission::where('name', 'view payment methods')->exists())->toBeFalse()
         ->and(Permission::where('name', 'view payment method groups')->exists())->toBeFalse();
 });
 

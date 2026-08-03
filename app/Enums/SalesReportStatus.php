@@ -38,6 +38,6 @@ enum SalesReportStatus: string implements HasColor, HasLabel
 
     public function canBeEditedBySubmitter(): bool
     {
-        return in_array($this, [self::Draft, self::RejectedBySupervisor, self::RejectedByFinance], true);
+        return $this === self::Draft;
     }
 }

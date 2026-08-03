@@ -47,7 +47,7 @@
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path))                { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches'))                              { $initialOpen[] = 'master'; }
-    if (str_contains($path, 'sales-report') || str_contains($path, 'payment-method')) { $initialOpen[] = 'finance'; }
+    if (str_contains($path, 'sales-report')) { $initialOpen[] = 'finance'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material')) { $initialOpen[] = 'rnd'; }
@@ -129,7 +129,6 @@
             'icon'  => 'banknote',
             'items' => [
                 ['label' => 'Sales Report',      'icon' => 'bar-chart-2', 'perm' => 'view sales reports',   'href' => $r('filament.helpdesk.resources.sales-reports.index'),   'active' => request()->is('helpdesk/sales-reports*')],
-                ['label' => 'Metode Pembayaran', 'icon' => 'credit-card', 'perm' => 'view payment methods', 'href' => $r('filament.helpdesk.resources.payment-methods.index'), 'active' => request()->is('helpdesk/payment-methods*')],
             ],
         ],
         [

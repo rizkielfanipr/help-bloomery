@@ -26,6 +26,9 @@ class ViewSalesReport extends Page
     /** @var array<int, array{settlement: string, note: string}> */
     public array $settlementRows = [];
 
+    /** @var array<int, array{sales_store: string, notes: string}> */
+    public array $supervisorRows = [];
+
     private const SETTLEMENT_TOLERANCE = 100.0;
 
     public function mount(SalesReport $record): void
@@ -37,6 +40,7 @@ class ViewSalesReport extends Page
             'financeReviewer', 'approvals.actor',
         ]);
         $this->loadSettlementRows();
+        $this->loadSupervisorRows();
     }
 
     public function getTitle(): string
@@ -73,51 +77,56 @@ class ViewSalesReport extends Page
     {
         abort_unless($this->canReviewAsSupervisor(), 403);
 
-        $hasDifference = $this->record->entries->contains(
-            fn ($entry): bool => abs((float) $entry->sales_store_amount - (float) $entry->sales_system_amount) > 0.009
-        );
-        if ($hasDifference && trim($this->reviewNote) === '') {
-            throw ValidationException::withMessages([
-                'reviewNote' => 'Review notes are required because System Sales and Store Sales have a difference.',
+        foreach ($this->record->entries as $entry) {
+            $this->validate([
+                "supervisorRows.{$entry->id}.sales_store" => ['required', 'numeric', 'min:0'],
+                "supervisorRows.{$entry->id}.notes" => ['nullable', 'string', 'max:2000'],
             ]);
+
+            $row = $this->supervisorRows[$entry->id];
+            if (
+                abs((float) $row['sales_store'] - (float) $entry->sales_system_amount) > 0.009
+                && trim($row['notes']) === ''
+            ) {
+                throw ValidationException::withMessages([
+                    "supervisorRows.{$entry->id}.notes" => 'Supervisor notes are required while System Sales and corrected Store Sales differ.',
+                ]);
+            }
         }
 
-        $this->transitionReview(
-            expected: SalesReportStatus::PendingSupervisor,
-            next: SalesReportStatus::PendingFinance,
-            stage: 'supervisor',
-            action: 'approved',
-            notes: trim($this->reviewNote) ?: null,
-            values: [
+        DB::transaction(function (): void {
+            $report = SalesReport::query()->lockForUpdate()->findOrFail($this->record->id);
+            abort_unless($report->status === SalesReportStatus::PendingSupervisor, 409);
+
+            foreach ($report->entries as $entry) {
+                $row = $this->supervisorRows[$entry->id];
+                $entry->update([
+                    'sales_store_amount' => (float) $row['sales_store'],
+                    'notes' => trim($row['notes']) ?: null,
+                    'settlement_amount' => null,
+                    'mdr_percentage' => null,
+                    'mdr_amount' => null,
+                    'expected_settlement_amount' => null,
+                    'settlement_difference' => null,
+                    'reconciliation_status' => null,
+                    'finance_note' => null,
+                ]);
+            }
+
+            $report->update([
+                'status' => SalesReportStatus::PendingFinance->value,
                 'supervisor_reviewed_by' => auth()->id(),
                 'supervisor_reviewed_at' => now(),
                 'supervisor_note' => trim($this->reviewNote) ?: null,
                 'rejection_reason' => null,
-            ],
-        );
+            ]);
+            $this->recordApproval($report, 'supervisor', 'approved', trim($this->reviewNote) ?: null);
+        });
+
+        $this->refreshRecord();
+        $this->reset(['reviewNote', 'rejectionReason']);
 
         Notification::make()->title('Status updated to Finance Review')->success()->send();
-    }
-
-    public function rejectSupervisor(): void
-    {
-        abort_unless($this->canReviewAsSupervisor(), 403);
-        $this->validate(['rejectionReason' => ['required', 'string', 'min:5', 'max:2000']]);
-
-        $this->transitionReview(
-            expected: SalesReportStatus::PendingSupervisor,
-            next: SalesReportStatus::RejectedBySupervisor,
-            stage: 'supervisor',
-            action: 'rejected',
-            notes: trim($this->rejectionReason),
-            values: [
-                'supervisor_reviewed_by' => auth()->id(),
-                'supervisor_reviewed_at' => now(),
-                'rejection_reason' => trim($this->rejectionReason),
-            ],
-        );
-
-        Notification::make()->title('Status updated to Rejected by Supervisor')->danger()->send();
     }
 
     public function approveFinance(): void
@@ -192,7 +201,7 @@ class ViewSalesReport extends Page
 
         $this->transitionReview(
             expected: SalesReportStatus::PendingFinance,
-            next: SalesReportStatus::RejectedByFinance,
+            next: SalesReportStatus::PendingSupervisor,
             stage: 'finance',
             action: 'rejected',
             notes: trim($this->rejectionReason),
@@ -203,7 +212,7 @@ class ViewSalesReport extends Page
             ],
         );
 
-        Notification::make()->title('Status updated to Rejected by Finance')->danger()->send();
+        Notification::make()->title('Report returned to Supervisor Review')->warning()->send();
     }
 
     public function settlementPreview(int $entryId): array
@@ -260,6 +269,16 @@ class ViewSalesReport extends Page
         ])->all();
     }
 
+    private function loadSupervisorRows(): void
+    {
+        $this->supervisorRows = $this->record->entries->mapWithKeys(fn ($entry): array => [
+            $entry->id => [
+                'sales_store' => (string) $entry->sales_store_amount,
+                'notes' => $entry->notes ?? '',
+            ],
+        ])->all();
+    }
+
     private function refreshRecord(): void
     {
         $this->record = $this->record->fresh([
@@ -267,5 +286,6 @@ class ViewSalesReport extends Page
             'financeReviewer', 'approvals.actor',
         ]);
         $this->loadSettlementRows();
+        $this->loadSupervisorRows();
     }
 }

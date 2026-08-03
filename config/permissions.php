@@ -48,7 +48,6 @@ return [
             'review sales reports as supervisor', 'review sales reports as finance',
             'input sales settlements',
         ],
-        'Metode Pembayaran' => ['view payment methods', 'create payment methods', 'edit payment methods', 'delete payment methods'],
     ],
 
     'Purchasing' => [

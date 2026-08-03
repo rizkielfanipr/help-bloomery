@@ -350,11 +350,6 @@ class SalesReportShiftPage extends Page
                     'report_date' => $this->reportDate,
                     'shift_number' => $this->shiftNumber,
                 ]);
-            $isRevision = $report->exists && in_array($report->status, [
-                SalesReportStatus::RejectedBySupervisor,
-                SalesReportStatus::RejectedByFinance,
-            ], true);
-
             $report->fill([
                 'submitted_by' => $user->id,
                 'employee_id' => $employee->id,
@@ -370,27 +365,38 @@ class SalesReportShiftPage extends Page
                 'finance_reviewed_by' => null,
                 'finance_reviewed_at' => null,
                 'finance_note' => null,
-                'revision_number' => $isRevision ? $report->revision_number + 1 : ($report->revision_number ?? 0),
+                'revision_number' => $report->revision_number ?? 0,
                 'shift_started_at' => $this->shiftBoundary($this->shiftStart),
                 'shift_ended_at' => $this->shiftBoundary($this->shiftEnd, true),
             ])->save();
 
             foreach ($this->rows as $row) {
-                SalesReportEntry::updateOrCreate(
-                    ['sales_report_id' => $report->id, 'payment_method_name' => $row['name']],
-                    [
-                        'sales_system_amount' => (float) $row['sales_system'],
-                        'sales_store_amount' => (float) ($row['sales_store'] ?? 0),
-                        'notes' => trim($row['notes'] ?? '') ?: null,
-                        'settlement_amount' => null,
-                        'mdr_percentage' => null,
-                        'mdr_amount' => null,
-                        'expected_settlement_amount' => null,
-                        'settlement_difference' => null,
-                        'reconciliation_status' => null,
-                        'finance_note' => null,
-                    ]
-                );
+                $entry = SalesReportEntry::firstOrNew([
+                    'sales_report_id' => $report->id,
+                    'payment_method_name' => $row['name'],
+                ]);
+                $storeAmount = (float) ($row['sales_store'] ?? 0);
+                $notes = trim($row['notes'] ?? '') ?: null;
+
+                $entry->fill([
+                    'sales_system_amount' => (float) $row['sales_system'],
+                    'sales_store_amount' => $storeAmount,
+                    'notes' => $notes,
+                    'settlement_amount' => null,
+                    'mdr_percentage' => null,
+                    'mdr_amount' => null,
+                    'expected_settlement_amount' => null,
+                    'settlement_difference' => null,
+                    'reconciliation_status' => null,
+                    'finance_note' => null,
+                ]);
+
+                if (! $entry->exists) {
+                    $entry->original_sales_store_amount = $storeAmount;
+                    $entry->original_notes = $notes;
+                }
+
+                $entry->save();
             }
 
             $report->esbTransactions()->delete();
@@ -401,7 +407,7 @@ class SalesReportShiftPage extends Page
             SalesReportApproval::create([
                 'sales_report_id' => $report->id,
                 'stage' => 'submitter',
-                'action' => $isRevision ? 'resubmitted' : 'submitted',
+                'action' => 'submitted',
                 'actor_id' => $user->id,
                 'revision_number' => $report->revision_number,
             ]);
@@ -413,7 +419,7 @@ class SalesReportShiftPage extends Page
 
         Notification::make()
             ->title('Laporan Shift '.$this->shiftNumber.' berhasil disimpan')
-            ->body('Data dikunci sementara dan menunggu approval Supervisor Store.')
+            ->body('Data sudah dikunci dan menunggu pemeriksaan Supervisor Store.')
             ->success()
             ->send();
     }

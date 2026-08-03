@@ -41,17 +41,11 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-green-700 dark:text-green-400">Data terkunci sementara</p>
+                        <p class="text-sm font-semibold text-green-700 dark:text-green-400">Data sudah dikunci</p>
                         <p class="text-xs text-green-600 dark:text-green-500">
-                            {{ \App\Enums\SalesReportStatus::from($currentStatus)->getLabel() }}. Data akan terbuka kembali jika ditolak.
+                            {{ \App\Enums\SalesReportStatus::from($currentStatus)->getLabel() }}. Koreksi selanjutnya dilakukan Supervisor melalui back office.
                         </p>
                     </div>
-                </div>
-            @elseif($rejectionReason)
-                <div class="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-                    <p class="text-sm font-semibold text-red-700 dark:text-red-400">Laporan perlu diperbaiki</p>
-                    <p class="mt-1 text-xs text-red-600 dark:text-red-300">{{ $rejectionReason }}</p>
-                    <p class="mt-2 text-xs font-medium text-red-700 dark:text-red-300">Perbaiki data, lalu submit ulang untuk approval SPV.</p>
                 </div>
             @endif
 

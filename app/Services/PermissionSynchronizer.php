@@ -37,6 +37,10 @@ class PermissionSynchronizer
         'create payment method groups',
         'edit payment method groups',
         'delete payment method groups',
+        'view payment methods',
+        'create payment methods',
+        'edit payment methods',
+        'delete payment methods',
     ];
 
     /** @return Collection<int, string> */

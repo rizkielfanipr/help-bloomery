@@ -17,6 +17,7 @@ class SalesReportEntry extends Model
         'payment_method_name',
         'sales_system_amount',
         'sales_store_amount',
+        'original_sales_store_amount',
         'settlement_amount',
         'mdr_percentage',
         'mdr_amount',
@@ -25,11 +26,13 @@ class SalesReportEntry extends Model
         'reconciliation_status',
         'finance_note',
         'notes',
+        'original_notes',
     ];
 
     protected $casts = [
         'sales_system_amount' => 'decimal:2',
         'sales_store_amount' => 'decimal:2',
+        'original_sales_store_amount' => 'decimal:2',
         'settlement_amount' => 'decimal:2',
         'mdr_percentage' => 'decimal:4',
         'mdr_amount' => 'decimal:2',

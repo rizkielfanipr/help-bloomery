@@ -68,6 +68,35 @@ it('only allows an active employee from the submitter branch', function () {
         ->assertHasErrors(['employeeId']);
 });
 
+it('shows the delete action on the index and deletes related report data for permitted users', function () {
+    $admin = User::factory()->create([
+        'is_active' => true,
+        'access_all_branches' => true,
+    ]);
+    $admin->givePermissionTo(['view sales reports', 'delete sales reports']);
+    $this->actingAs($admin);
+
+    Livewire::test(ListSalesReports::class)
+        ->assertTableActionVisible('delete', $this->report)
+        ->callTableAction('delete', $this->report)
+        ->assertHasNoActionErrors();
+
+    expect(SalesReport::find($this->report->id))->toBeNull()
+        ->and(SalesReportEntry::find($this->entry->id))->toBeNull();
+});
+
+it('hides the delete action on the index without delete sales reports permission', function () {
+    $viewer = User::factory()->create([
+        'is_active' => true,
+        'access_all_branches' => true,
+    ]);
+    $viewer->givePermissionTo('view sales reports');
+    $this->actingAs($viewer);
+
+    Livewire::test(ListSalesReports::class)
+        ->assertTableActionHidden('delete', $this->report);
+});
+
 it('hides system sales and requires notes for each differing payment method', function () {
     $this->report->update(['status' => SalesReportStatus::RejectedBySupervisor->value]);
     $this->entry->update(['sales_store_amount' => 900_000]);

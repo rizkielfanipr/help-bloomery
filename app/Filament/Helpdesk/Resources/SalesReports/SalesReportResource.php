@@ -11,6 +11,9 @@ use App\Models\Branch;
 use App\Models\SalesReport;
 use BackedEnum;
 use Carbon\Carbon;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -154,10 +157,26 @@ class SalesReportResource extends Resource
                     }),
             ])
             ->recordActions([
-                ViewAction::make(),
+                ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Lihat'),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Hapus')
+                    ->visible(fn (SalesReport $record): bool => static::canDelete($record))
+                    ->requiresConfirmation()
+                    ->modalHeading('Hapus Sales Report')
+                    ->modalDescription('Sales report beserta detail terkait akan dihapus secara permanen.'),
             ])
             ->toolbarActions([
                 ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(SalesReportExporter::class),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->visible(fn (): bool => static::canDeleteAny())
+                        ->requiresConfirmation()
+                        ->modalHeading('Hapus Sales Report Terpilih')
+                        ->modalDescription('Semua sales report terpilih beserta detail terkait akan dihapus secara permanen.'),
+                ]),
             ])
             ->defaultSort('report_date', 'desc');
     }

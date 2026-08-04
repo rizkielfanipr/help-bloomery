@@ -100,7 +100,9 @@
                 </div>
                 <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                     @foreach($this->recentTrips as $index => $trip)
-                        <div class="flex items-center gap-3 px-5 py-3.5 {{ $index > 0 ? 'border-t border-gray-100 dark:border-gray-800' : '' }}">
+                        <a href="{{ \App\Filament\Driver\Pages\TripDetail::getUrl(['trip' => $trip->id]) }}"
+                           aria-label="Lihat detail perjalanan {{ $trip->tripRoute->name }} tanggal {{ $trip->trip_date->format('d M Y') }}"
+                           class="flex items-center gap-3 px-5 py-3.5 transition hover:bg-emerald-50/60 active:bg-emerald-50 dark:hover:bg-emerald-900/10 {{ $index > 0 ? 'border-t border-gray-100 dark:border-gray-800' : '' }}">
                             <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/20">
                                 <svg class="h-4 w-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
@@ -110,7 +112,10 @@
                                 <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $trip->tripRoute->name }}</p>
                                 <p class="text-xs text-gray-400">{{ $trip->trip_date->format('d M Y') }} · {{ $trip->vehicle->license_plate ?? '-' }}</p>
                             </div>
-                        </div>
+                            <svg class="h-4 w-4 shrink-0 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
+                            </svg>
+                        </a>
                     @endforeach
                 </div>
             </div>

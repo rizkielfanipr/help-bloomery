@@ -32,7 +32,7 @@
     $initialOpen = [];
     if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
     if (str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-scores')) { $initialOpen[] = 'daily_briefing'; }
-    if (preg_match('/trip|vehicle|driver|fuel-type/', $path))        { $initialOpen[] = 'driver'; }
+    if (preg_match('/trip|vehicle|driver|fuel-type/', $path)) { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches') || str_contains($path, 'brands')) { $initialOpen[] = 'master'; }
@@ -79,6 +79,7 @@
                 ['label' => 'Rute Perjalanan', 'icon' => 'route',    'perm' => 'view trip routes', 'href' => $r('filament.helpdesk.resources.trip-routes.index'), 'active' => $active($r('filament.helpdesk.resources.trip-routes.index'))],
                 ['label' => 'Kendaraan',       'icon' => 'car',      'perm' => 'view vehicles',    'href' => $r('filament.helpdesk.resources.vehicles.index'),    'active' => $active($r('filament.helpdesk.resources.vehicles.index'))],
                 ['label' => 'Jenis BBM',        'icon' => 'fuel',     'perm' => 'edit trips',       'href' => $r('filament.helpdesk.resources.fuel-types.index'),  'active' => $active($r('filament.helpdesk.resources.fuel-types.index'))],
+                ['label' => 'Uang Makan Driver', 'icon' => 'banknote', 'perm' => 'view driver meal allowance periods', 'href' => $r('filament.helpdesk.pages.driver-meal-allowance-page'), 'active' => $active($r('filament.helpdesk.pages.driver-meal-allowance-page'))],
                 ['label' => 'Pengaturan', 'icon' => 'settings', 'perm' => 'edit trips', 'href' => $r('filament.helpdesk.pages.driver-trip-settings-page'), 'active' => $active($r('filament.helpdesk.pages.driver-trip-settings-page'))],
             ],
         ],

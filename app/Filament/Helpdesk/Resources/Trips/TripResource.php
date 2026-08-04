@@ -11,6 +11,7 @@ use App\Models\Trip;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
@@ -218,25 +219,37 @@ class TripResource extends Resource
                     ->label('Kode')
                     ->searchable()
                     ->fontFamily('mono')
+                    ->weight('bold')
+                    ->color('primary')
+                    ->icon('heroicon-o-document-text')
                     ->copyable()
                     ->copyMessage('Kode disalin')
-                    ->placeholder('—'),
+                    ->formatStateUsing(fn (?string $state, Trip $record): string => $state ?: 'TRIP-'.$record->id),
 
                 TextColumn::make('driver.name')
                     ->label('Driver')
                     ->searchable()
+                    ->icon('heroicon-o-user-circle')
+                    ->description(fn (Trip $record): ?string => $record->driver?->username)
                     ->sortable(),
 
                 TextColumn::make('tripRoute.name')
                     ->label('Rute')
-                    ->searchable(),
-
-                TextColumn::make('vehicle.license_plate')
-                    ->label('Kendaraan'),
+                    ->searchable()
+                    ->weight('semibold')
+                    ->description(fn (Trip $record): string => collect([
+                        $record->vehicle?->license_plate,
+                        $record->vehicle ? trim($record->vehicle->brand.' '.$record->vehicle->model) : null,
+                    ])->filter()->join(' · ') ?: 'Kendaraan tidak tercatat')
+                    ->wrap(),
 
                 TextColumn::make('trip_date')
                     ->label('Tanggal')
                     ->date('d M Y')
+                    ->icon('heroicon-o-calendar-days')
+                    ->description(fn (Trip $record): string => $record->started_at
+                        ? $record->started_at->format('H:i').' – '.($record->completed_at?->format('H:i') ?? 'Berjalan')
+                        : 'Waktu belum tercatat')
                     ->sortable(),
 
                 TextColumn::make('status')
@@ -244,16 +257,28 @@ class TripResource extends Resource
                     ->badge()
                     ->sortable(),
 
-                TextColumn::make('completed_at')
-                    ->label('Selesai')
-                    ->dateTime('d M Y H:i')
-                    ->sortable(),
-
-                TextColumn::make('has_fuel_fillup')
+                TextColumn::make('fuel_summary')
                     ->label('BBM')
                     ->badge()
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Ada' : 'Tidak')
-                    ->color(fn (bool $state): string => $state ? 'warning' : 'gray'),
+                    ->state(fn (Trip $record): string => $record->fuelFillup
+                        ? number_format((float) $record->fuelFillup->liters, 2, ',', '.').' L'
+                        : ($record->has_fuel_fillup ? 'Tercatat' : 'Tanpa pengisian'))
+                    ->description(fn (Trip $record): ?string => $record->fuelFillup
+                        ? collect([
+                            $record->fuelFillup->fuel_type,
+                            'Rp '.number_format((float) $record->fuelFillup->total_price, 0, ',', '.'),
+                        ])->filter()->join(' · ')
+                        : null)
+                    ->icon(fn (Trip $record): string => match (true) {
+                        $record->fuelFillup !== null => 'heroicon-o-fire',
+                        $record->has_fuel_fillup => 'heroicon-o-check-circle',
+                        default => 'heroicon-o-minus-circle',
+                    })
+                    ->color(fn (Trip $record): string => match (true) {
+                        $record->fuelFillup !== null => 'warning',
+                        $record->has_fuel_fillup => 'info',
+                        default => 'gray',
+                    }),
 
                 TextColumn::make('meal_allowance_amount')
                     ->label('Uang Makan')
@@ -280,8 +305,16 @@ class TripResource extends Resource
                     ]),
             ])
             ->defaultSort('trip_date', 'desc')
+            ->recordUrl(fn (Trip $record): string => static::getUrl('view', ['record' => $record]))
             ->recordActions([
                 ViewAction::make()->iconButton()->tooltip('Lihat')->color('info'),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Hapus Perjalanan')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Hapus Perjalanan?')
+                    ->modalDescription('Record perjalanan akan dihapus dari daftar. Tindakan ini hanya tersedia untuk user dengan permission Delete Perjalanan.'),
             ])
             ->toolbarActions([
                 Action::make('import_excel')

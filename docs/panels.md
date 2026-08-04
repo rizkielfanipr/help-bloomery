@@ -40,9 +40,8 @@ Panel utama yang digunakan staff helpdesk untuk mengelola semua operasional. Men
 
 | Grup | Menu Item |
 |------|-----------|
-| Human Resources | Casual Staff, Posisi Casual, Lowongan Posisi, Absensi Casual, Daily Briefing |
+| Driver | Perjalanan, Rute Perjalanan, Kendaraan, Jenis BBM, Uang Makan Driver, Pengaturan |
 | Master | Branch |
-| Driver | Perjalanan, Rute Perjalanan, Kendaraan, Pengaturan Trip |
 | Technician | Permintaan Servis, Pengaturan Teknisi |
 | Purchasing | *(placeholder — belum aktif)* |
 | Information Technology | *(placeholder — belum aktif)* |
@@ -154,3 +153,38 @@ Karena sidebar Helpdesk menggunakan layout kustom, menu **tidak** ditambahkan vi
 ```
 
 4. Jika menambah grup baru, ikuti struktur yang sudah ada dengan `id`, `label`, `icon`, dan `items`.
+
+### Catatan penting: route ada tetapi menu tidak muncul
+
+Helpdesk meng-override layout Filament pada
+`resources/views/vendor/filament-panels/components/layout/index.blade.php`. Akibatnya,
+`$navigationGroup`, `$navigationLabel`, `canAccess()`, auto-discovery page, dan
+`Panel::pages()` hanya mendaftarkan route/otorisasi; semuanya **tidak otomatis
+menambahkan item ke sidebar Helpdesk**.
+
+Setiap page/resource baru yang perlu tampil di sidebar wajib ditambahkan ke
+`$allNavGroups` pada layout tersebut. Gunakan struktur berikut agar tetap mengikuti
+RBAC dinamis:
+
+```php
+[
+    'label' => 'Nama Menu',
+    'icon' => 'nama-icon-lucide',
+    'perm' => 'view nama resource',
+    'href' => $r('nama-route-filament'),
+    'active' => $active($r('nama-route-filament')),
+],
+```
+
+- `perm` harus sama persis dengan permission `view` pada `config/permissions.php`.
+- Icon memakai nama **Lucide**, bukan Heroicon.
+- Tambahkan pola URL ke `$initialOpen` agar grup terbuka otomatis saat page aktif.
+- Jangan mengedit file di `vendor/filament`; vendor hanya dipakai untuk memahami
+  alurnya. Perubahan aplikasi harus tetap berada di override `resources/views/vendor`.
+- Tambahkan regression test yang memastikan HTML layout berisi URL menu untuk user
+  yang memiliki permission.
+
+Di Filament, `vendor/filament/filament/src/Pages/Page.php::registerNavigationItems()`
+memang memeriksa `shouldRegisterNavigation()` dan `canAccess()`. Namun sidebar kustom
+Helpdesk tidak merender hasil navigation manager tersebut, sehingga pemeriksaan vendor
+itu saja tidak cukup.

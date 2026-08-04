@@ -3,6 +3,7 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Enums\TripStatus;
+use App\Filament\Concerns\HasTripHistoryLedger;
 use App\Models\DriverTripSettings;
 use App\Models\Trip;
 use Carbon\Carbon;
@@ -13,6 +14,8 @@ use Livewire\Attributes\Url;
 
 class TripHistory extends Page
 {
+    use HasTripHistoryLedger;
+
     protected static bool $shouldRegisterNavigation = false;
 
     public function getTitle(): string
@@ -73,18 +76,12 @@ class TripHistory extends Page
             ->get();
     }
 
-    #[Computed]
-    public function totalFuelCost(): float
-    {
-        return (float) $this->trips->sum(fn ($t) => $t->fuelFillup?->total_price ?? 0);
-    }
-
     public function previousPeriod(): void
     {
         $date = Carbon::createFromDate($this->reportYear, $this->reportMonth, 1)->subMonth();
         $this->reportMonth = $date->month;
         $this->reportYear = $date->year;
-        unset($this->trips, $this->periodStart, $this->periodEnd);
+        unset($this->trips, $this->tripDays, $this->periodStart, $this->periodEnd);
     }
 
     public function nextPeriod(): void
@@ -109,7 +106,7 @@ class TripHistory extends Page
 
         $this->reportMonth = $date->month;
         $this->reportYear = $date->year;
-        unset($this->trips, $this->periodStart, $this->periodEnd);
+        unset($this->trips, $this->tripDays, $this->periodStart, $this->periodEnd);
     }
 
     public function downloadPdf(): void

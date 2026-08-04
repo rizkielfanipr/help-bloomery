@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\DriverTripSettings;
+use App\Services\DriverMealAllowanceService;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -74,13 +75,17 @@ class DriverTripSettingsPage extends Page
             ->statePath('data');
     }
 
-    public function save(): void
+    public function save(DriverMealAllowanceService $mealAllowanceService): void
     {
         $settings = DriverTripSettings::instance();
         $settings->update($this->form->getState());
+        $updatedPeriods = $mealAllowanceService->refreshOpenPeriods();
 
         Notification::make()
             ->title('Pengaturan berhasil disimpan')
+            ->body($updatedPeriods > 0
+                ? "{$updatedPeriods} periode uang makan yang masih Open ikut diperbarui."
+                : 'Tidak ada periode uang makan Open yang perlu diperbarui.')
             ->success()
             ->send();
     }

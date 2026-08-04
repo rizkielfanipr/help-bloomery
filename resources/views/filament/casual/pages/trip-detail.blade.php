@@ -3,9 +3,9 @@
     $trip = $this->tripModel;
     $fuel = $trip->fuelFillup;
 
-    $sectionClass = 'rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900';
-    $labelClass   = 'text-xs font-semibold text-slate-500 dark:text-slate-400';
-    $valueClass   = 'mt-0.5 text-sm font-medium text-gray-900 dark:text-white';
+    $sectionClass = 'border-b border-gray-100 px-5 py-5 last:border-b-0 dark:border-white/10';
+    $labelClass   = 'text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500';
+    $valueClass   = 'mt-1 text-sm font-medium leading-5 text-slate-800 dark:text-white';
 @endphp
 
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
@@ -26,13 +26,20 @@
             </div>
             <span class="text-base font-semibold text-white">Detail Perjalanan</span>
         </div>
-        <p class="font-mono text-sm text-blue-200">{{ $trip->code }}</p>
-        <p class="text-xl font-semibold text-white">{{ $trip->tripRoute?->name ?? '—' }}</p>
+        <div class="flex items-end justify-between gap-3">
+            <div class="min-w-0">
+                <p class="font-mono text-sm text-blue-200">{{ $trip->code ?: 'TRIP-'.$trip->id }}</p>
+                <p class="truncate text-xl font-semibold text-white">{{ $trip->tripRoute?->name ?? '—' }}</p>
+            </div>
+            <span class="shrink-0 rounded-full border border-white/20 bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                {{ $trip->status->getLabel() }}
+            </span>
+        </div>
     </div>
 
     {{-- CONTENT --}}
     <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
-        <div class="flex flex-col gap-4 px-5">
+        <div class="mx-5 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900">
 
             {{-- ── Info Umum ── --}}
             <div class="{{ $sectionClass }}">
@@ -118,7 +125,7 @@
                     <p class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">Titik Perjalanan</p>
                     <div class="flex flex-col gap-3">
                         @foreach($trip->waypointCheckins->sortBy('waypoint.urutan') as $checkin)
-                            <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                            <div class="rounded-xl border border-gray-100 bg-gray-50/80 p-3 dark:border-white/10 dark:bg-white/5">
                                 <div class="flex items-center justify-between gap-2">
                                     <div class="flex items-center gap-2">
                                         @if($checkin->checked_in_at)

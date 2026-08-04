@@ -117,6 +117,7 @@ class StartTrip extends Page
                 'trip_date' => $data['trip_date'],
                 'status' => TripStatus::InProgress,
                 'started_at' => now(),
+                'meal_allowance_amount' => $route->meal_allowance_amount,
             ]);
 
             foreach ($route->waypoints as $waypoint) {

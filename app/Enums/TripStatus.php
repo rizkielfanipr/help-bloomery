@@ -15,9 +15,9 @@ enum TripStatus: string implements HasColor, HasIcon, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Pending => 'Menunggu',
-            self::InProgress => 'Dalam Perjalanan',
-            self::Completed => 'Selesai',
+            self::Pending => 'Pending',
+            self::InProgress => 'In Progress',
+            self::Completed => 'Completed',
         };
     }
 

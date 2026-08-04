@@ -29,6 +29,14 @@ return [
     ],
 
     'Driver' => [
+        'Uang Makan Driver' => [
+            'view driver meal allowance periods',
+            'create driver meal allowance periods',
+            'edit driver meal allowance periods',
+            'finalize driver meal allowance periods',
+            'reopen driver meal allowance periods',
+            'export driver meal allowance periods',
+        ],
         'Perjalanan' => ['view trips', 'create trips', 'edit trips', 'delete trips'],
         'Rute Perjalanan' => ['view trip routes', 'create trip routes', 'edit trip routes', 'delete trip routes'],
         'Kendaraan' => ['view vehicles', 'create vehicles', 'edit vehicles', 'delete vehicles'],

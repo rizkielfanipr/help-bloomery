@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Helpdesk\Pages\Auth\Login;
+use App\Filament\Helpdesk\Pages\DriverMealAllowancePage;
 use App\Filament\Resources\Roles\RoleResource;
 use App\Filament\Resources\Users\UserResource;
 use Filament\Enums\ThemeMode;
@@ -76,7 +77,9 @@ class HelpdeskPanelProvider extends PanelProvider
                 RoleResource::class,
             ])
             ->discoverPages(in: app_path('Filament/Helpdesk/Pages'), for: 'App\Filament\Helpdesk\Pages')
-            ->pages([])
+            ->pages([
+                DriverMealAllowancePage::class,
+            ])
             ->discoverWidgets(in: app_path('Filament/Helpdesk/Widgets'), for: 'App\Filament\Helpdesk\Widgets')
             ->widgets([])
             ->middleware([

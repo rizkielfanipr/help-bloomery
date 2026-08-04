@@ -8,6 +8,7 @@ use App\Http\Controllers\Helpdesk\BriefingExportController;
 use App\Http\Controllers\Helpdesk\BriefingScoreExportController;
 use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
 use App\Http\Controllers\Helpdesk\CasualStaffExportController;
+use App\Http\Controllers\Helpdesk\DriverMealAllowanceExportController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Models\RndProjectBom;
@@ -19,6 +20,9 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/helpdesk/exports/casual-staff', CasualStaffExportController::class)
         ->name('helpdesk.exports.casual-staff');
+
+    Route::get('/helpdesk/exports/driver-meal-allowance/{period}', DriverMealAllowanceExportController::class)
+        ->name('helpdesk.exports.driver-meal-allowance');
 
     Route::get('/helpdesk/exports/briefing', BriefingExportController::class)
         ->name('helpdesk.exports.briefing');

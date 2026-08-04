@@ -496,7 +496,12 @@ class SalesInformationPage extends Page
         $discountPromo = max(0.0, (float) ($sale['discountTotal'] ?? 0) - $discountMenu - $discountVoucher);
 
         // Revenue = sum of payment amounts so it always matches Rekapitulasi Pembayaran.
-        $paymentTotal = (float) array_sum(array_column($sale['salesPayments'] ?? [], 'paymentAmount'));
+        // Payment amounts are net of CASH change given back (see EsbService::netPaymentAmount).
+        $esbService = app(EsbService::class);
+        $paymentTotal = (float) array_sum(array_map(
+            fn (array $payment): float => $esbService->netPaymentAmount($sale, $payment),
+            $sale['salesPayments'] ?? [],
+        ));
         $netRevenue = $paymentTotal > 0 ? $paymentTotal : $grandTotal;
 
         $acc['revenue'] += $netRevenue;
@@ -568,7 +573,7 @@ class SalesInformationPage extends Page
         foreach ($sale['salesPayments'] ?? [] as $payment) {
             $rawName = $payment['paymentMethodName'] ?? 'Unknown';
             $type = $payment['paymentMethodTypeName'] ?? '';
-            $amount = (float) ($payment['paymentAmount'] ?? 0);
+            $amount = $esbService->netPaymentAmount($sale, $payment);
             $esbId = (int) ($payment['paymentMethodID'] ?? 0);
 
             $method = $rawName;

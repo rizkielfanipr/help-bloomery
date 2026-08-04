@@ -418,7 +418,7 @@ class EsbService
                 foreach ($sale['salesPayments'] ?? [] as $payment) {
                     $name = $payment['paymentMethodName'] ?? 'Unknown';
                     $type = $payment['paymentMethodTypeName'] ?? '';
-                    $amount = (float) ($payment['paymentAmount'] ?? 0);
+                    $amount = $this->netPaymentAmount($sale, $payment);
 
                     if (! isset($totals[$name])) {
                         $totals[$name] = ['name' => $name, 'type' => $type, 'total' => 0.0];
@@ -435,6 +435,26 @@ class EsbService
         usort($rows, fn ($a, $b) => [$a['type'], $a['name']] <=> [$b['type'], $b['name']]);
 
         return $rows;
+    }
+
+    /**
+     * CASH payments in ESB record the cash physically tendered by the customer,
+     * which can exceed the bill when change is given back (e.g. paying a Rp35.000
+     * bill with a Rp50.000 note records paymentAmount=50.000, not the Rp35.000
+     * actually kept). For a sale paid with a single CASH payment, cap it at the
+     * sale's grandTotal so reconciliation compares against net sales, not the
+     * gross cash handed over. Split-payment and non-cash amounts are untouched.
+     */
+    public function netPaymentAmount(array $sale, array $payment): float
+    {
+        $amount = (float) ($payment['paymentAmount'] ?? 0);
+        $method = mb_strtoupper(trim((string) ($payment['paymentMethodName'] ?? '')));
+
+        if ($method !== 'CASH' || count($sale['salesPayments'] ?? []) !== 1) {
+            return $amount;
+        }
+
+        return min($amount, (float) ($sale['grandTotal'] ?? $amount));
     }
 
     /**
@@ -483,7 +503,7 @@ class EsbService
             foreach ($sale['salesPayments'] ?? [] as $payment) {
                 $name = $payment['paymentMethodName'] ?? 'Unknown';
                 $type = $payment['paymentMethodTypeName'] ?? '';
-                $amount = (float) ($payment['paymentAmount'] ?? 0);
+                $amount = $this->netPaymentAmount($sale, $payment);
                 $key = $type.'|'.$name;
 
                 $totals[$key] ??= ['name' => $name, 'type' => $type, 'total' => 0.0];

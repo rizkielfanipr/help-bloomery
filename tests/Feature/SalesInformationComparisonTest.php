@@ -87,3 +87,49 @@ it('fetches both periods and calculates KPI and branch growth', function () {
         ->assertSet('comparisonSummary.branches.0.currentRevenue', 150000.0)
         ->assertSet('comparisonSummary.branches.0.comparisonRevenue', 100000.0);
 });
+
+it('excludes CASH change given back from total revenue and the payment method breakdown', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.TESTCO' => 'branch-token',
+    ]);
+
+    $branch = Branch::factory()->create([
+        'name' => 'Bloomery Test',
+        'esb_branch_code' => 'BTST',
+        'esb_comcode' => 'TESTCO',
+    ]);
+
+    Http::fake(fn () => Http::response([[
+        'salesDate' => '2026-06-01',
+        'salesDateIn' => '2026-06-01T10:00:00+07:00',
+        'grandTotal' => 35000,
+        'paxTotal' => 1,
+        'discountTotal' => 0,
+        'menuDiscountTotal' => 0,
+        'voucherDiscountTotal' => 0,
+        'visitPurposeName' => 'Dine In',
+        'branchCode' => 'BTST',
+        'branchName' => 'Bloomery Test',
+        'salesMenus' => [],
+        'salesPayments' => [[
+            'paymentMethodName' => 'CASH',
+            'paymentMethodTypeName' => 'Cash',
+            'paymentAmount' => 50000,
+            'paymentMethodID' => 1,
+        ]],
+    ]], 200, ['X-Pagination-Page-Count' => '1']));
+
+    $page = Livewire::test(SalesInformationPage::class)
+        ->set('selectedBranchIds', [$branch->id])
+        ->set('dateFrom', '2026-06-01')
+        ->set('dateTo', '2026-06-30')
+        ->call('fetch')
+        ->call('fetchNextPage')
+        ->assertSet('fetched', true)
+        ->assertSet('totalRevenue', 35000.0);
+
+    $cashRow = collect($page->get('paymentTable'))->firstWhere('name', 'CASH');
+    expect($cashRow)->not->toBeNull()
+        ->and((float) $cashRow['total'])->toBe(35000.0);
+});

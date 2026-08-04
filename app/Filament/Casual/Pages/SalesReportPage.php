@@ -46,21 +46,29 @@ class SalesReportPage extends Page
         // triggers reactive re-render for checkmarks
     }
 
+    /** @return array<int, int> */
+    public function getShiftNumbers(): array
+    {
+        return auth()->user()->branch?->salesShiftNumbers() ?? [1];
+    }
+
     /** @return array<int, Carbon|null> */
     public function getShiftStatuses(): array
     {
         $user = auth()->user();
 
         if (! $user->branch_id) {
-            return [1 => null, 2 => null];
+            return [1 => null];
         }
+
+        $defaults = array_fill_keys($this->getShiftNumbers(), null);
 
         return SalesReport::where('branch_id', $user->branch_id)
             ->whereDate('report_date', $this->reportDate ?: now()->toDateString())
             ->get()
             ->keyBy('shift_number')
             ->mapWithKeys(fn (SalesReport $report) => [$report->shift_number => $report->submitted_at])
-            ->union([1 => null, 2 => null])
+            ->union($defaults)
             ->sortKeys()
             ->all();
     }

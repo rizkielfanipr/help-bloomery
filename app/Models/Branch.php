@@ -25,6 +25,7 @@ class Branch extends Model
         'location_required',
         'sales_shift_1_start',
         'sales_shift_1_end',
+        'sales_shift_count',
         'sales_shift_2_start',
         'sales_shift_2_end',
     ];
@@ -36,6 +37,7 @@ class Branch extends Model
             'lng' => 'float',
             'is_active' => 'boolean',
             'location_required' => 'boolean',
+            'sales_shift_count' => 'integer',
         ];
     }
 
@@ -91,6 +93,17 @@ class Branch extends Model
             'start' => (string) $this->getAttribute("sales_shift_{$shiftNumber}_start"),
             'end' => (string) $this->getAttribute("sales_shift_{$shiftNumber}_end"),
         ];
+    }
+
+    public function hasSalesShift(int $shiftNumber): bool
+    {
+        return $shiftNumber >= 1 && $shiftNumber <= $this->sales_shift_count;
+    }
+
+    /** @return array<int, int> */
+    public function salesShiftNumbers(): array
+    {
+        return range(1, max(1, $this->sales_shift_count));
     }
 
     public function hasLocation(): bool

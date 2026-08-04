@@ -67,12 +67,27 @@ class SalesReportShiftPage extends Page
             $this->reportDate = now()->toDateString();
         }
 
-        $this->shiftNumber = in_array($this->shiftNumber, [1, 2], true) ? $this->shiftNumber : 1;
+        $branch = auth()->user()->branch;
+        $this->shiftNumber = $this->shiftNumber >= 1 ? $this->shiftNumber : 1;
+
+        if (! ($branch?->hasSalesShift($this->shiftNumber) ?? $this->shiftNumber === 1)) {
+            Notification::make()
+                ->title('Shift tidak tersedia')
+                ->body('Branch ini tidak memiliki Shift '.$this->shiftNumber.'.')
+                ->warning()
+                ->send();
+
+            $this->redirect(route('filament.casual.pages.sales-report-page', [
+                'reportDate' => $this->reportDate,
+            ]), navigate: true);
+
+            return;
+        }
 
         if (! $this->shiftIsUnlocked()) {
             Notification::make()
-                ->title('Shift 2 masih terkunci')
-                ->body('Submit laporan Shift 1 terlebih dahulu.')
+                ->title('Shift '.$this->shiftNumber.' masih terkunci')
+                ->body('Submit laporan Shift '.($this->shiftNumber - 1).' terlebih dahulu.')
                 ->warning()
                 ->send();
 
@@ -155,7 +170,7 @@ class SalesReportShiftPage extends Page
     public function fetchFromEsb(): void
     {
         if (! $this->shiftIsUnlocked()) {
-            Notification::make()->title('Submit Shift 1 terlebih dahulu')->warning()->send();
+            Notification::make()->title('Submit Shift '.($this->shiftNumber - 1).' terlebih dahulu')->warning()->send();
 
             return;
         }
@@ -236,7 +251,7 @@ class SalesReportShiftPage extends Page
     public function requestConfirm(): void
     {
         if (! $this->shiftIsUnlocked()) {
-            Notification::make()->title('Submit Shift 1 terlebih dahulu')->warning()->send();
+            Notification::make()->title('Submit Shift '.($this->shiftNumber - 1).' terlebih dahulu')->warning()->send();
 
             return;
         }
@@ -308,7 +323,7 @@ class SalesReportShiftPage extends Page
     public function save(): void
     {
         if (! $this->shiftIsUnlocked()) {
-            Notification::make()->title('Submit Shift 1 terlebih dahulu')->warning()->send();
+            Notification::make()->title('Submit Shift '.($this->shiftNumber - 1).' terlebih dahulu')->warning()->send();
 
             return;
         }
@@ -452,7 +467,7 @@ class SalesReportShiftPage extends Page
 
     private function shiftIsUnlocked(): bool
     {
-        if ($this->shiftNumber === 1) {
+        if ($this->shiftNumber <= 1) {
             return true;
         }
 
@@ -464,7 +479,7 @@ class SalesReportShiftPage extends Page
         return SalesReport::query()
             ->where('branch_id', $branchId)
             ->whereDate('report_date', $this->reportDate)
-            ->where('shift_number', 1)
+            ->where('shift_number', $this->shiftNumber - 1)
             ->whereNotNull('submitted_at')
             ->exists();
     }

@@ -38,11 +38,11 @@
                        class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
             </div>
 
-            @foreach([1, 2] as $shiftNumber)
+            @foreach($this->getShiftNumbers() as $shiftNumber)
             @php
                 $submittedAt = $shiftStatuses[$shiftNumber] ?? null;
                 $isDone = (bool) $submittedAt;
-                $isLocked = $shiftNumber === 2 && ! ($shiftStatuses[1] ?? null);
+                $isLocked = $shiftNumber > 1 && ! ($shiftStatuses[$shiftNumber - 1] ?? null);
                 $schedule = auth()->user()->branch?->salesShiftSchedule($shiftNumber);
             @endphp
             <a href="{{ route('filament.casual.pages.sales-report-shift-page') }}?date={{ $date }}&shift={{ $shiftNumber }}"
@@ -73,7 +73,7 @@
                         @if($isDone)
                             Sudah disubmit · {{ \Carbon\Carbon::parse($submittedAt)->locale('id')->isoFormat('HH:mm') }}
                         @elseif($isLocked)
-                            Terkunci · Submit Shift 1 terlebih dahulu
+                            Terkunci · Submit Shift {{ $shiftNumber - 1 }} terlebih dahulu
                         @else
                             {{ substr((string) ($schedule['start'] ?? ''), 0, 5) }}–{{ substr((string) ($schedule['end'] ?? ''), 0, 5) }} · Belum diisi
                         @endif

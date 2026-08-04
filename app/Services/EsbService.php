@@ -239,6 +239,27 @@ class EsbService
     }
 
     /**
+     * Format a BOM result product for display, e.g. "WIP | Adonan Bolu GR - Resep (200 GR)".
+     */
+    public static function formatResultLabel(string $productName, string $uomName, ?string $baseUnit, ?float $conversionFactor): string
+    {
+        $label = $productName;
+
+        if (filled($baseUnit) && $baseUnit !== $uomName) {
+            $label .= ' '.$baseUnit;
+        }
+
+        $label .= ' - '.$uomName;
+
+        if (filled($baseUnit) && $conversionFactor > 0) {
+            $factor = rtrim(rtrim(number_format($conversionFactor, 4, '.', ''), '0'), '.');
+            $label .= " ($factor $baseUnit)";
+        }
+
+        return $label;
+    }
+
+    /**
      * Fetch product details for exact product codes in parallel.
      *
      * @return array<int, array>
@@ -545,12 +566,12 @@ class EsbService
                 throw: false,
             )
             ->get($this->baseUrl.'/corev1/sales/sales-information', [
-            'salesDateFrom' => $dateFrom,
-            'salesDateTo' => $dateTo,
-            'branchCode' => $branchCode,
-            'statusName' => 'Finished',
-            'page' => $page,
-        ]);
+                'salesDateFrom' => $dateFrom,
+                'salesDateTo' => $dateTo,
+                'branchCode' => $branchCode,
+                'statusName' => 'Finished',
+                'page' => $page,
+            ]);
 
         if ($response->failed()) {
             throw new \RuntimeException('ESB API error: '.$response->status().' '.$response->body());

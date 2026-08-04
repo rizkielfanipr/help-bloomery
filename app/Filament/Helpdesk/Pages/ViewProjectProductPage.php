@@ -120,6 +120,8 @@ class ViewProjectProductPage extends Page
 
     public array $bomComponentDetails = [];
 
+    public array $resultUnitLabels = [];
+
     public array $bomComponentDrafts = [];
 
     public array $bomComponentExpanded = [];
@@ -210,6 +212,7 @@ class ViewProjectProductPage extends Page
     public function openBomInstruction(int $esbBomId, string $bomName): void
     {
         $this->authorizeProjectManagement();
+        $this->assertBomInstructionTarget($esbBomId);
         $instruction = RndBomInstruction::query()
             ->where('rnd_project_id', $this->projectId)
             ->where('rnd_project_product_id', $this->productId)
@@ -233,11 +236,13 @@ class ViewProjectProductPage extends Page
             'bomInstructionUploads' => ['array', 'max:8'],
             'bomInstructionUploads.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
         ]);
+        $this->assertBomInstructionTarget($validated['bomInstructionEsbId']);
         $instruction = RndBomInstruction::query()->firstOrNew([
             'rnd_project_id' => $this->projectId,
             'rnd_project_product_id' => $this->productId,
             'esb_bom_id' => $validated['bomInstructionEsbId'],
         ]);
+        $previousHtml = (string) ($instruction->content_html ?? '');
         $newPaths = [];
 
         try {
@@ -252,11 +257,13 @@ class ViewProjectProductPage extends Page
                 $newPaths[] = $path;
             }
 
+            $sanitizedHtml = $this->sanitizeBomInstruction($validated['bomInstructionHtml'] ?? '');
             $instruction->fill([
-                'content_html' => $this->sanitizeBomInstruction($validated['bomInstructionHtml'] ?? ''),
+                'content_html' => $sanitizedHtml,
                 'image_paths' => array_values(array_merge($instruction->image_paths ?? [], $newPaths)),
                 'updated_by' => auth()->id(),
             ])->save();
+            $this->pruneOrphanedStoredImages($previousHtml, $sanitizedHtml);
         } catch (Throwable $exception) {
             if ($newPaths !== []) {
                 Storage::disk('b2')->delete($newPaths);
@@ -273,10 +280,11 @@ class ViewProjectProductPage extends Page
     public function saveInlineBomInstruction(int $esbBomId, string $contentHtml): void
     {
         $this->authorizeProjectManagement();
+        $this->assertBomInstructionTarget($esbBomId);
         validator(
             ['content' => $contentHtml, 'uploads' => $this->bomInstructionInlineUploads[$esbBomId] ?? []],
             [
-                'content' => ['nullable', 'string', 'max:100000'],
+                'content' => ['nullable', 'string', 'max:5000000'],
                 'uploads' => ['array', 'max:8'],
                 'uploads.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
             ],
@@ -287,6 +295,7 @@ class ViewProjectProductPage extends Page
             'rnd_project_product_id' => $this->productId,
             'esb_bom_id' => $esbBomId,
         ]);
+        $previousHtml = (string) ($instruction->content_html ?? '');
         $newPaths = [];
 
         try {
@@ -301,11 +310,13 @@ class ViewProjectProductPage extends Page
                 $newPaths[] = $path;
             }
 
+            $sanitizedHtml = $this->sanitizeBomInstruction($contentHtml);
             $instruction->fill([
-                'content_html' => $this->sanitizeBomInstruction($contentHtml),
+                'content_html' => $sanitizedHtml,
                 'image_paths' => array_values(array_merge($instruction->image_paths ?? [], $newPaths)),
                 'updated_by' => auth()->id(),
             ])->save();
+            $this->pruneOrphanedStoredImages($previousHtml, $sanitizedHtml);
         } catch (Throwable $exception) {
             if ($newPaths !== []) {
                 Storage::disk('b2')->delete($newPaths);
@@ -379,13 +390,107 @@ class ViewProjectProductPage extends Page
         }
     }
 
+    /**
+     * Verify the ESB BOM id is a legitimate target: either attached to the
+     * current product, or a WIP recipe discovered live via ESB for it.
+     */
+    private function assertBomInstructionTarget(int $esbBomId): void
+    {
+        $isAttached = $this->productRecord->boms()
+            ->where('rnd_project_boms.esb_bom_id', $esbBomId)
+            ->exists();
+
+        if ($isAttached) {
+            return;
+        }
+
+        foreach ($this->autoWipComponentRecipes as $recipes) {
+            foreach ($recipes as $recipe) {
+                if ((int) ($recipe['bomID'] ?? 0) === $esbBomId) {
+                    return;
+                }
+            }
+        }
+
+        abort(422, 'BOM tidak terpasang pada product ini.');
+    }
+
     private function sanitizeBomInstruction(string $html): string
     {
-        $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><ol><ul><li><h1><h2><h3><blockquote><a>');
+        $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><ol><ul><li><h1><h2><h3><blockquote><a><img>');
         $html = preg_replace('/\son\w+\s*=\s*(["\']).*?\1/iu', '', $html) ?? '';
         $html = preg_replace('/javascript\s*:/iu', '', $html) ?? '';
+        $html = preg_replace_callback('/<img\b[^>]*>/iu', function (array $match): string {
+            if (! preg_match('/\bsrc\s*=\s*(["\'])(.*?)\1/iu', $match[0], $src)) {
+                return '';
+            }
+
+            $url = $src[2];
+            $isBase64 = preg_match('/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/iu', $url) === 1;
+            $isStoredImage = preg_match($this->storedImageUrlPattern(), $url) === 1;
+
+            if (! $isBase64 && ! $isStoredImage) {
+                return '';
+            }
+
+            return '<img src="'.e($url).'" alt="Foto proses BOM">';
+        }, $html) ?? '';
+        $html = preg_replace_callback('/<a\b[^>]*>/iu', static function (array $match): string {
+            if (! preg_match('/\bhref\s*=\s*(["\'])(.*?)\1/iu', $match[0], $hrefMatch)) {
+                return '<a>';
+            }
+
+            $href = html_entity_decode($hrefMatch[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $href = preg_replace('/[\x00-\x20]+/u', '', $href) ?? $href;
+
+            $scheme = null;
+            if (preg_match('/^([a-z][a-z0-9+.\-]*):/i', $href, $schemeMatch)) {
+                $scheme = strtolower($schemeMatch[1]);
+            }
+
+            $isSafeRelative = $scheme === null && ! str_starts_with($href, '//');
+            $isAllowedScheme = $scheme !== null && in_array($scheme, ['http', 'https', 'mailto'], true);
+
+            if (! $isSafeRelative && ! $isAllowedScheme) {
+                return '<a>';
+            }
+
+            return '<a href="'.e($href).'" target="_blank" rel="noopener noreferrer">';
+        }, $html) ?? '';
 
         return trim($html);
+    }
+
+    private function storedImageUrlPattern(): string
+    {
+        return '#^(?:https?://[^/"\'\s]+)?/rnd-bom-instruction-images/(rnd/bom-instructions/'
+            .$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)$#iu';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function extractStoredImagePaths(string $html): array
+    {
+        preg_match_all(
+            '#/rnd-bom-instruction-images/(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)#iu',
+            $html,
+            $matches,
+        );
+
+        return array_values(array_unique($matches[1] ?? []));
+    }
+
+    private function pruneOrphanedStoredImages(string $previousHtml, string $sanitizedHtml): void
+    {
+        $removed = array_diff(
+            $this->extractStoredImagePaths($previousHtml),
+            $this->extractStoredImagePaths($sanitizedHtml),
+        );
+
+        if ($removed !== []) {
+            Storage::disk('b2')->delete(array_values($removed));
+        }
     }
 
     public function loadImportBoms(): void
@@ -1083,6 +1188,35 @@ class ViewProjectProductPage extends Page
         $detail['bomDetails'] = $this->normalizedBomRows($detail['bomDetails'] ?? []);
         $this->bomComponentDetails[$projectBomId] = $detail;
         $this->bomComponentDrafts[$projectBomId] = $detail;
+        $this->resultUnitLabels[$projectBomId] = $this->resolveResultLabel($detail);
+    }
+
+    private function resolveResultLabel(array $detail): string
+    {
+        $productDetailId = (int) ($detail['productDetailID'] ?? 0);
+        $productName = (string) ($detail['productName'] ?? '-');
+        $uomName = (string) ($detail['uomName'] ?? '-');
+
+        if ($productDetailId < 1) {
+            return EsbService::formatResultLabel($productName, $uomName, null, null);
+        }
+
+        try {
+            $resultDetail = app(EsbService::class)->findActiveProductDetail(
+                $productDetailId,
+                (string) ($detail['productCode'] ?? ''),
+                $productName,
+            );
+        } catch (Throwable) {
+            $resultDetail = null;
+        }
+
+        return EsbService::formatResultLabel(
+            $productName,
+            $uomName,
+            $resultDetail['baseUnit'] ?? null,
+            $resultDetail['conversionFactor'] ?? null,
+        );
     }
 
     private function normalizedBomRows(array $rows): array

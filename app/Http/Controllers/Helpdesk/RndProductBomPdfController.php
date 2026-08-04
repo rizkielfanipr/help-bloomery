@@ -10,6 +10,7 @@ use App\Services\EsbService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class RndProductBomPdfController extends Controller
 {
@@ -36,7 +37,7 @@ class RndProductBomPdfController extends Controller
             ->get()
             ->mapWithKeys(fn (RndBomInstruction $instruction): array => [
                 $instruction->esb_bom_id => [
-                    'content_html' => $instruction->content_html,
+                    'content_html' => $this->inlineStoredImages((string) $instruction->content_html),
                     'images' => collect($instruction->image_paths ?? [])->map(function (string $path): ?string {
                         $contents = Storage::disk('b2')->get($path);
                         if (! is_string($contents) || $contents === '') {
@@ -50,6 +51,7 @@ class RndProductBomPdfController extends Controller
             ]);
         $mainBoms = $productRecord->boms->where('pivot.usage_type', 'main');
         $autoWipBoms = $this->autoWipBoms($mainBoms, $details, $esb);
+        $resultUnitMap = $this->resultUnitMap($details, $autoWipBoms, app(EsbService::class));
         $mainIds = $mainBoms->pluck('id');
         $unassigned = $productRecord->boms->filter(fn ($bom) => $bom->pivot->usage_type !== 'main'
             && (! $bom->pivot->parent_rnd_project_bom_id || ! $mainIds->contains($bom->pivot->parent_rnd_project_bom_id))
@@ -66,6 +68,7 @@ class RndProductBomPdfController extends Controller
             'instructions',
             'mainBoms',
             'autoWipBoms',
+            'resultUnitMap',
             'unassigned',
             'logo',
             'documentNumber',
@@ -79,6 +82,48 @@ class RndProductBomPdfController extends Controller
     public static function sessionKey(int $userId, int $projectId, int $productId): string
     {
         return "rnd.bom.export.$userId.$projectId.$productId";
+    }
+
+    private function inlineStoredImages(string $html): string
+    {
+        if ($html === '') {
+            return $html;
+        }
+
+        return preg_replace_callback(
+            '#<img\b([^>]*?)\bsrc\s*=\s*(["\'])(?:https?://[^/"\']+)?/rnd-bom-instruction-images/(rnd/bom-instructions/\d+/\d+/\d+/inline/[A-Za-z0-9\-]+\.jpg)\2([^>]*)>#i',
+            function (array $match): string {
+                $contents = Storage::disk('b2')->get($match[3]);
+                if (! is_string($contents) || $contents === '') {
+                    return '';
+                }
+
+                return '<img'.$match[1].'src="data:image/jpeg;base64,'.base64_encode($contents).'"'.$match[4].'>';
+            },
+            $html,
+        ) ?? $html;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>> keyed by productDetailID
+     */
+    private function resultUnitMap($details, array $autoWipBoms, EsbService $products): array
+    {
+        $codes = collect($details)->pluck('productCode')->filter();
+        foreach ($autoWipBoms as $recipes) {
+            $codes = $codes->merge(collect($recipes)->pluck('productCode')->filter());
+        }
+        $codes = $codes->unique()->values()->all();
+
+        if ($codes === []) {
+            return [];
+        }
+
+        try {
+            return $products->getActiveProductDetailsByCodes($codes);
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     private function autoWipBoms($mainBoms, $details, EsbCoreService $esb): array

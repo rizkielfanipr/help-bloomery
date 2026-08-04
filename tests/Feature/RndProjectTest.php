@@ -1,9 +1,10 @@
 <?php
 
+use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
-use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
+use App\Models\RndBomInstruction;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
 use App\Models\RndProjectProduct;
@@ -16,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -476,6 +478,87 @@ it('exports the complete product BOM as a PIN-protected PDF', function () {
         ->set('exportPin', '000000')
         ->call('exportBomPdf')
         ->assertHasErrors('exportPin')
+        ->set('exportPin', '246810')
+        ->call('exportBomPdf')
+        ->assertHasNoErrors()
+        ->assertRedirect($exportUrl);
+
+    $this->get($exportUrl)
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+});
+
+it('inlines R2-hosted BOM instruction images as base64 in the exported PDF', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'rnd.bom_pin' => '246810',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+    Storage::fake('b2');
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/902' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'bomID' => 902,
+                'bomTypeName' => 'Assembly',
+                'bomName' => 'Brownie Recipe',
+                'bomCode' => 'BOM-BRW',
+                'productName' => 'Brownie',
+                'uomName' => 'PCS',
+                'notes' => 'Main recipe',
+                'bomDetails' => [[
+                    'productCode' => 'BBMK002',
+                    'productName' => 'Cocoa',
+                    'uomName' => 'GR',
+                    'qty' => 100,
+                    'yieldPercent' => 0,
+                    'printGroup' => '',
+                ]],
+            ],
+        ]),
+    ]);
+
+    $project = RndProject::query()->create([
+        'name' => 'Brownie Product',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Brownie',
+        'product_code' => 'BRW',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $bom = $project->boms()->create([
+        'esb_bom_id' => 902,
+        'bom_code' => 'BOM-BRW',
+        'bom_name' => 'Brownie Recipe',
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($bom->id, ['usage_type' => 'main']);
+
+    $path = "rnd/bom-instructions/{$project->id}/{$product->id}/902/inline/".Str::uuid().'.jpg';
+    Storage::disk('b2')->put($path, UploadedFile::fake()->image('foto.jpg')->get());
+    $imageUrl = route('helpdesk.rnd-products.bom-instruction-images.show', ['path' => $path]);
+    RndBomInstruction::query()->create([
+        'rnd_project_id' => $project->id,
+        'rnd_project_product_id' => $product->id,
+        'esb_bom_id' => 902,
+        'content_html' => '<p>Panggang selama 30 menit.</p><img src="'.$imageUrl.'" alt="Foto proses BOM">',
+        'updated_by' => auth()->id(),
+    ]);
+
+    $exportUrl = route('helpdesk.rnd-products.bom-pdf', ['project' => $project->id, 'product' => $product->id]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
         ->set('exportPin', '246810')
         ->call('exportBomPdf')
         ->assertHasNoErrors()

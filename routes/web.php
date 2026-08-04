@@ -9,6 +9,7 @@ use App\Http\Controllers\Helpdesk\BriefingScoreExportController;
 use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
 use App\Http\Controllers\Helpdesk\CasualStaffExportController;
 use App\Http\Controllers\Helpdesk\DriverMealAllowanceExportController;
+use App\Http\Controllers\Helpdesk\RndBomInstructionImageController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Models\RndProjectBom;
@@ -38,6 +39,13 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/rnd-projects/{project}/products/{product}/materials/export', RndProductEsbMaterialExportController::class)
         ->name('helpdesk.rnd-products.esb-materials-export');
+
+    Route::post('/rnd-projects/{project}/products/{product}/boms/{bom}/instruction-images', [RndBomInstructionImageController::class, 'store'])
+        ->name('helpdesk.rnd-products.bom-instruction-images.store');
+
+    Route::get('/rnd-bom-instruction-images/{path}', [RndBomInstructionImageController::class, 'show'])
+        ->where('path', '.*')
+        ->name('helpdesk.rnd-products.bom-instruction-images.show');
 
     Route::get('/bill-of-material/create', function () {
         abort_unless(auth()->user()?->can('create bill of materials'), 403);

@@ -15,6 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -380,6 +381,14 @@ it('automatically displays a matching Barang WIP recipe below its main recipe', 
 
 it('stores sanitized BOM instructions and process images on R2', function () {
     Storage::fake('b2');
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
 
     Livewire::test(ViewProjectProductPage::class, [
         'project' => $this->project->id,
@@ -397,6 +406,119 @@ it('stores sanitized BOM instructions and process images on R2', function () {
         ->not->toContain('<script>');
     expect($instruction->image_paths)->toHaveCount(1);
     Storage::disk('b2')->assertExists($instruction->image_paths[0]);
+});
+
+it('stores safe inline Quill images for BOM instructions', function () {
+    $image = 'data:image/png;base64,'.base64_encode('small-image');
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('saveInlineBomInstruction', 1054, '<p>Diamkan 10 menit.</p><img src="'.$image.'" onerror="alert(1)">')
+        ->assertHasNoErrors();
+
+    $html = RndBomInstruction::query()->firstOrFail()->content_html;
+    expect($html)->toContain('Diamkan 10 menit.')
+        ->toContain($image)
+        ->not->toContain('onerror');
+});
+
+it('rejects saving a BOM instruction for a BOM not attached to the product', function () {
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('saveInlineBomInstruction', 9999, '<p>Tidak sah.</p>')
+        ->assertStatus(422);
+
+    expect(RndBomInstruction::query()->count())->toBe(0);
+});
+
+it('strips dangerous href schemes and entity-encoded javascript links from BOM instructions', function () {
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call(
+        'saveInlineBomInstruction',
+        1054,
+        '<p>Lihat <a href="jav&#09;ascript:alert(1)">tautan berbahaya</a> dan '
+        .'<a href="https://bloomery.org/resep">tautan aman</a>.</p>',
+    )->assertHasNoErrors();
+
+    $html = RndBomInstruction::query()->firstOrFail()->content_html;
+    expect($html)
+        ->not->toContain('javascript:')
+        ->toContain('href="https://bloomery.org/resep"')
+        ->toContain('tautan berbahaya');
+});
+
+it('preserves R2-hosted image references uploaded through the instruction image endpoint', function () {
+    Storage::fake('b2');
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    $path = "rnd/bom-instructions/{$this->project->id}/{$this->product->id}/1054/inline/".Str::uuid().'.jpg';
+    Storage::disk('b2')->put($path, UploadedFile::fake()->image('foto.jpg')->get());
+    $imageUrl = route('helpdesk.rnd-products.bom-instruction-images.show', ['path' => $path]);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('saveInlineBomInstruction', 1054, '<p>Langkah 1</p><img src="'.$imageUrl.'">')
+        ->assertHasNoErrors();
+
+    expect(RndBomInstruction::query()->firstOrFail()->content_html)->toContain($path);
+});
+
+it('deletes orphaned R2 images from storage when removed from BOM instruction content', function () {
+    Storage::fake('b2');
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    $path = "rnd/bom-instructions/{$this->project->id}/{$this->product->id}/1054/inline/".Str::uuid().'.jpg';
+    Storage::disk('b2')->put($path, UploadedFile::fake()->image('foto.jpg')->get());
+    $imageUrl = route('helpdesk.rnd-products.bom-instruction-images.show', ['path' => $path]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('saveInlineBomInstruction', 1054, '<p>Langkah 1</p><img src="'.$imageUrl.'">')
+        ->assertHasNoErrors();
+
+    Storage::disk('b2')->assertExists($path);
+
+    $page->call('saveInlineBomInstruction', 1054, '<p>Langkah 1 tanpa foto lagi.</p>')
+        ->assertHasNoErrors();
+
+    Storage::disk('b2')->assertMissing($path);
 });
 
 function bomDetail(): array

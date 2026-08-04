@@ -286,6 +286,7 @@
                         </div>
 
                         @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $mainBom])
+                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $mainBom->esb_bom_id])
 
                         <div class="grid grid-cols-1 gap-3 p-4">
                             @foreach($childGroups as $usageType => $group)
@@ -370,6 +371,7 @@
                                                     </div>
                                                 </div>
                                                 @endif
+                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $autoRecipe['bomID']])
                                             </div>
                                         @endforeach
                                         @foreach($autoPackaging as $packagingItem)
@@ -402,6 +404,7 @@
                                                     @endif
                                                 </div>
                                                 @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $bom])
+                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id])
                                             </div>
                                         @endforeach
                                         @if($children->isEmpty() && count($autoRecipes) === 0 && count($autoPackaging) === 0)
@@ -438,6 +441,7 @@
                                     @endif
                                 </div>
                                 @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $bom])
+                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id])
                             @endforeach
                         </div>
                     </section>
@@ -846,4 +850,148 @@
             </div>
         @endif
     </div>
+
+    @push('styles')
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+        <style>
+            .bom-quill-toolbar.ql-toolbar.ql-snow { border: 0; border-bottom: 1px solid rgb(229 231 235); }
+            .bom-quill-editor.ql-container.ql-snow { min-height: 180px; border: 0; font-size: 0.875rem; }
+            .bom-quill-editor .ql-editor { min-height: 180px; line-height: 1.65; }
+            .bom-quill-editor .ql-editor img { display: block; max-width: min(45%, 280px); max-height: 280px; width: auto; height: auto; object-fit: contain; margin: .75rem 0; border-radius: .5rem; }
+        </style>
+    @endpush
+
+    @push('scripts')
+        <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+        <script>
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('bomQuillEditor', ({ bomId, uploadUrl, initialHtml }) => ({
+                    quill: null,
+                    saving: false,
+                    uploading: false,
+                    imageCount: 0,
+                    async init() {
+                        while (typeof window.Quill === 'undefined') await new Promise(resolve => setTimeout(resolve, 30));
+                        this.quill = new Quill(this.$refs.editor, {
+                            theme: 'snow',
+                            placeholder: 'Contoh: Campurkan bahan kering, aduk 3 menit, lalu panggang pada suhu 170°C...',
+                            modules: { toolbar: this.$refs.toolbar },
+                        });
+                        // Quill's built-in Uploader module inserts pasted/dropped images as base64
+                        // on its own before our listeners run, bypassing compression and R2 upload.
+                        // It can't be disabled via the modules config, so neutralize it directly.
+                        this.quill.uploader.upload = () => {};
+                        if (initialHtml) this.quill.clipboard.dangerouslyPasteHTML(initialHtml);
+                        // Some clipboards (e.g. macOS screenshots) paste an <img> with an embedded
+                        // data URI as rich HTML rather than a raw file, which skips the Uploader
+                        // module entirely. Strip <img> from that pipeline too, now that any saved
+                        // content has already loaded above; our own insertEmbed() calls bypass this.
+                        const Delta = window.Quill.import('delta');
+                        this.quill.clipboard.addMatcher('img', () => new Delta());
+                        this.imageCount = this.$refs.editor.querySelectorAll('img').length;
+                        // Quill's default toolbar dispatch calls quill.focus() before invoking our
+                        // handler, which can make Chrome refuse input.click() for missing "user
+                        // activation". Intercept the button in the capture phase instead, so opening
+                        // the file picker is the very first, most direct reaction to the click.
+                        this.$refs.toolbar.querySelector('.ql-image')?.addEventListener('click', event => {
+                            event.preventDefault();
+                            event.stopImmediatePropagation();
+                            this.$refs.imageInput.click();
+                        }, true);
+                        this.$refs.editor.addEventListener('drop', event => {
+                            if (!event.dataTransfer?.files?.length) return;
+                            event.preventDefault();
+                            this.insertFiles(event.dataTransfer.files);
+                        });
+                        this.$refs.editor.addEventListener('paste', event => {
+                            const files = Array.from(event.clipboardData?.items ?? [])
+                                .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
+                                .map(item => item.getAsFile()).filter(Boolean);
+                            if (files.length) { event.preventDefault(); this.insertFiles(files); }
+                        });
+                    },
+                    async insertFiles(fileList) {
+                        const files = Array.from(fileList).filter(file => file.type.startsWith('image/'));
+                        if (this.imageCount + files.length > 8) {
+                            window.alert('Maksimal 8 foto untuk setiap BOM.');
+                            return;
+                        }
+                        // Capture the cursor position up front, synchronously, while the editor's
+                        // native selection is still definitely valid. Calling quill.getSelection(true)
+                        // again after the async upload forces a focus/selection-restore that Quill can
+                        // throw on (e.g. after a native file-picker dialog steals focus), which would
+                        // otherwise be mistaken for an upload failure.
+                        let insertIndex = this.quill.getSelection()?.index ?? this.quill.getLength() - 1;
+                        this.uploading = true;
+                        try {
+                            for (const file of files) {
+                                if (file.size > 8 * 1024 * 1024) { window.alert(`Foto ${file.name} melebihi 8 MB.`); continue; }
+                                let url;
+                                try {
+                                    const blob = await this.resizeImage(file);
+                                    url = await this.uploadImage(blob);
+                                } catch (error) {
+                                    window.alert(`Foto ${file.name} gagal diunggah.`);
+                                    continue;
+                                }
+                                this.quill.insertEmbed(insertIndex, 'image', url, 'user');
+                                insertIndex += 1;
+                                this.imageCount++;
+                                try { this.quill.setSelection(insertIndex, 0, 'silent'); } catch (error) { /* cosmetic only */ }
+                            }
+                        } finally {
+                            this.uploading = false;
+                        }
+                    },
+                    resizeImage(file) {
+                        return new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onerror = reject;
+                            reader.onload = () => {
+                                const image = new Image();
+                                image.onerror = reject;
+                                image.onload = () => {
+                                    const scale = Math.min(1, 1600 / Math.max(image.width, image.height));
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = Math.round(image.width * scale);
+                                    canvas.height = Math.round(image.height * scale);
+                                    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+                                    canvas.toBlob(
+                                        blob => blob ? resolve(blob) : reject(new Error('encode-failed')),
+                                        'image/jpeg',
+                                        .82,
+                                    );
+                                };
+                                image.src = reader.result;
+                            };
+                            reader.readAsDataURL(file);
+                        });
+                    },
+                    async uploadImage(blob) {
+                        const formData = new FormData();
+                        formData.append('image', blob, 'photo.jpg');
+                        const response = await fetch(uploadUrl, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                                'Accept': 'application/json',
+                            },
+                            body: formData,
+                        });
+                        if (!response.ok) {
+                            console.error('Gagal mengunggah foto instruksi BOM:', response.status, await response.text().catch(() => ''));
+                            throw new Error('upload-failed');
+                        }
+
+                        return (await response.json()).url;
+                    },
+                    async save() {
+                        this.saving = true;
+                        try { await this.$wire.saveInlineBomInstruction(bomId, this.quill.root.innerHTML); }
+                        finally { this.saving = false; }
+                    },
+                }));
+            });
+        </script>
+    @endpush
 </x-filament-panels::page>

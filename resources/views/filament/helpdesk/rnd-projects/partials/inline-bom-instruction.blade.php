@@ -1,50 +1,50 @@
 @php
     $instruction = $bomInstructions[$instructionBomId] ?? [];
+    $instructionHtml = (string) ($instruction['content_html'] ?? '');
 @endphp
 
 @if($canManageProject)
     <section
         wire:key="bom-instruction-{{ $instructionBomId }}"
-        class="border-t border-violet-100 bg-violet-50/20 p-3 dark:border-violet-900/50 dark:bg-violet-950/10"
+        class="border-t border-gray-200 bg-gray-50/60 p-4 dark:border-gray-700 dark:bg-gray-900/40"
+        x-data="bomQuillEditor({
+            bomId: {{ $instructionBomId }},
+            uploadUrl: @js(route('helpdesk.rnd-products.bom-instruction-images.store', ['project' => $projectId, 'product' => $productId, 'bom' => $instructionBomId])),
+            initialHtml: @js($instructionHtml),
+        })"
+        x-init="init()"
     >
-        <div class="mb-2 flex items-center justify-between gap-2">
+        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <p class="text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300">Informasi Tambahan</p>
-                <p class="text-[10px] text-gray-500">Cara pembuatan, suhu, durasi, dan catatan proses.</p>
+                <p class="text-xs font-bold text-gray-800 dark:text-gray-100">Informasi Tambahan & Cara Pembuatan</p>
+                <p class="text-[11px] text-gray-500">Tuliskan tahapan, suhu, durasi, catatan proses, dan sisipkan foto pada posisi yang diperlukan.</p>
             </div>
             @if(!empty($instruction['updated_at']))
-                <span class="text-[9px] text-emerald-600">Tersimpan</span>
+                <span class="text-[10px] font-semibold text-emerald-600">Tersimpan</span>
             @endif
         </div>
 
-        <textarea
-            wire:model="bomInstructionTextDrafts.{{ $instructionBomId }}"
-            rows="5"
-            maxlength="50000"
-            placeholder="Tulis cara pembuatan, suhu, durasi, atau informasi tambahan..."
-            class="block min-h-28 w-full resize-y rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs leading-5 text-gray-900 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 dark:border-violet-800 dark:bg-gray-900 dark:text-white"
-        ></textarea>
-
-        <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div class="min-w-0 flex-1">
-                <input wire:model="bomInstructionInlineUploads.{{ $instructionBomId }}" type="file" multiple accept="image/jpeg,image/png,image/webp" class="block w-full rounded-md border border-gray-300 text-[10px] file:mr-2 file:border-0 file:bg-violet-100 file:px-2 file:py-1.5 file:font-bold file:text-violet-700 dark:border-gray-600 dark:bg-gray-800">
-                <p wire:loading wire:target="bomInstructionInlineUploads.{{ $instructionBomId }}" class="mt-1 text-[9px] font-bold text-violet-600">Menyiapkan gambar...</p>
+        <div wire:ignore class="overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900">
+            <div x-ref="toolbar" class="bom-quill-toolbar">
+                <span class="ql-formats">
+                    <select class="ql-header"><option selected></option><option value="2"></option><option value="3"></option></select>
+                </span>
+                <span class="ql-formats"><button class="ql-bold"></button><button class="ql-italic"></button><button class="ql-underline"></button></span>
+                <span class="ql-formats"><button class="ql-list" value="ordered"></button><button class="ql-list" value="bullet"></button></span>
+                <span class="ql-formats"><button class="ql-blockquote"></button><button class="ql-link"></button><button class="ql-image"></button></span>
+                <span class="ql-formats"><button class="ql-clean"></button></span>
             </div>
-            <button type="button" wire:click="saveInlineBomInstructionDraft({{ $instructionBomId }})" wire:loading.attr="disabled" wire:target="saveInlineBomInstructionDraft({{ $instructionBomId }})" class="shrink-0 rounded-md bg-violet-600 px-3 py-2 text-[10px] font-bold text-white hover:bg-violet-700 disabled:opacity-50">
-                <span wire:loading.remove wire:target="saveInlineBomInstructionDraft({{ $instructionBomId }})">Simpan Informasi</span>
-                <span wire:loading wire:target="saveInlineBomInstructionDraft({{ $instructionBomId }})">Menyimpan...</span>
+            <div x-ref="editor" class="bom-quill-editor"></div>
+        </div>
+        <input x-ref="imageInput" x-on:change="insertFiles($event.target.files); $event.target.value = ''" type="file" multiple accept="image/jpeg,image/png,image/webp" class="hidden">
+        <p class="mt-1 text-[10px] text-gray-400">JPG, PNG, atau WebP. Maksimal 8 foto. Tarik & lepas atau paste foto langsung ke editor, atau gunakan ikon gambar pada toolbar.</p>
+
+        <div class="mt-3 flex items-center justify-end gap-2">
+            <span x-show="uploading" x-cloak class="text-[11px] font-semibold text-gray-500">Mengunggah foto...</span>
+            <button type="button" x-on:click="save()" :disabled="saving || uploading" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                <x-heroicon-o-check class="h-4 w-4" />
+                <span x-text="saving ? 'Menyimpan...' : 'Simpan Informasi'"></span>
             </button>
         </div>
-
-        @if(!empty($instruction['images']))
-            <div class="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                @foreach($instruction['images'] as $image)
-                    <div class="relative overflow-hidden rounded-md border border-violet-100 dark:border-violet-900">
-                        <img src="{{ $image['url'] }}" class="h-20 w-full object-cover" alt="Gambar proses">
-                        <button type="button" wire:click="deleteBomInstructionImage({{ $instructionBomId }}, '{{ base64_encode($image['path']) }}')" wire:confirm="Hapus gambar ini?" class="absolute right-1 top-1 rounded bg-red-600 p-1 text-white"><x-heroicon-o-trash class="h-3 w-3" /></button>
-                    </div>
-                @endforeach
-            </div>
-        @endif
     </section>
 @endif

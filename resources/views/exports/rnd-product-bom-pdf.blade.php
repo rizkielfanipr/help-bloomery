@@ -4,77 +4,113 @@
     <meta charset="utf-8">
     <title>Bill of Material - {{ $productRecord->name }}</title>
     <style>
-        @page { margin: 22px 26px 42px; }
+        @page { margin: 15mm; }
         * { box-sizing: border-box; }
-        body { margin: 0; color: #172033; font-family: DejaVu Sans, sans-serif; font-size: 10px; }
+        body { margin: 0; color: #1e293b; font-family: DejaVu Sans, sans-serif; font-size: 9pt; }
         table { width: 100%; border-collapse: collapse; }
-        .document-header { margin-bottom: 18px; table-layout: fixed; page-break-inside: avoid; }
-        .document-header td { border: 1.2px solid #111827; vertical-align: middle; }
-        .logo-cell { width: 16%; padding: 10px; text-align: center; }
-        .logo { width: 66px; height: 66px; }
-        .title-cell { width: 51%; padding: 10px 14px; }
-        .company { margin-bottom: 6px; font-size: 11px; }
-        .document-title { font-size: 15px; font-weight: 700; line-height: 1.28; text-transform: uppercase; }
-        .meta-label { width: 15%; padding: 7px 8px; }
-        .meta-value { width: 18%; padding: 7px 8px; font-weight: 700; }
-        .summary { margin-bottom: 16px; border: 1px solid #cbd5e1; background: #f8fafc; }
+        .page-wrapper { width: 100%; }
+
+        /* ─── KOP ─── */
+        .kop { display: table; width: 100%; border: 1.2px solid #111827; margin-bottom: 14px; }
+        .kop-logo { display: table-cell; width: 90px; vertical-align: middle; padding: 8px; border-right: 1px solid #111827; text-align: center; }
+        .kop-logo img { width: 65px; }
+        .kop-center { display: table-cell; vertical-align: middle; padding: 8px 12px; border-right: 1px solid #111827; }
+        .kop-center .company-name { font-size: 9pt; margin-bottom: 4px; }
+        .kop-center .title-sop { font-size: 10pt; font-weight: bold; text-transform: uppercase; margin-bottom: 3px; }
+        .kop-center .project-label { font-size: 9pt; font-weight: bold; text-transform: uppercase; }
+        .kop-right { display: table-cell; width: 230px; vertical-align: top; }
+        .kop-right-row { display: table; width: 100%; border-bottom: 1px solid #111827; }
+        .kop-right-row:last-child { border-bottom: none; }
+        .kop-right-label { display: table-cell; width: 110px; padding: 6px; font-size: 8pt; color: #64748b; border-right: 1px solid #111827; }
+        .kop-right-value { display: table-cell; padding: 6px; font-size: 8pt; font-weight: bold; }
+
+        /* ─── SUMMARY ─── */
+        .summary { margin-bottom: 14px; border: 1px solid #cbd5e1; background: #f8fafc; }
         .summary td { padding: 7px 9px; border-right: 1px solid #cbd5e1; }
         .summary td:last-child { border-right: 0; }
         .summary-label { color: #64748b; font-size: 8px; text-transform: uppercase; }
         .summary-value { margin-top: 2px; font-weight: 700; }
-        .main-group { margin-bottom: 18px; }
+
+        /* ─── MAIN GROUP ─── */
+        .main-group { margin-bottom: 14px; }
         .main-heading { padding: 8px 10px; border: 1.4px solid #1d4ed8; background: #eff6ff; }
         .main-badge { color: #1d4ed8; font-size: 8px; font-weight: 700; text-transform: uppercase; }
         .main-name { margin-top: 2px; font-size: 13px; font-weight: 700; }
-        .bom-section { margin-top: 10px; border: 1.2px solid #111827; page-break-inside: avoid; }
-        .bom-title { padding: 7px 9px; border-bottom: 1.2px solid #111827; background: #f8fafc; }
-        .bom-title strong { font-size: 11px; }
-        .bom-subtitle { margin-top: 2px; color: #64748b; }
-        .materials th { border-right: 1px solid #111827; border-bottom: 1.2px solid #111827; padding: 6px; text-align: center; font-size: 8px; text-transform: uppercase; }
-        .materials th:last-child { border-right: 0; }
-        .materials td { border-top: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
-        .materials td:last-child { border-right: 0; }
-        .materials tbody tr:first-child td { border-top: 0; }
-        .number { width: 6%; text-align: center; color: #64748b; }
-        .code { width: 15%; font-weight: 700; }
-        .material-name { width: 30%; }
-        .unit { width: 10%; text-align: center; font-weight: 700; color: #1d4ed8; }
-        .qty { width: 10%; text-align: right; font-weight: 700; }
-        .additional { width: 29%; color: #64748b; }
-        .instruction { border-top: 1.2px solid #111827; padding: 9px; }
-        .instruction-title { margin-bottom: 5px; color: #4c1d95; font-size: 9px; font-weight: 700; text-transform: uppercase; }
-        .instruction-content { line-height: 1.55; }
-        .instruction-content p { margin: 0 0 5px; }
-        .instruction-images { margin-top: 7px; }
-        .instruction-image { display: inline-block; width: 31%; height: 105px; margin: 0 1.5% 5px 0; object-fit: cover; vertical-align: top; }
-        .empty { padding: 15px !important; text-align: center; color: #94a3b8; }
         .group-label { margin: 12px 0 3px; color: #475569; font-size: 9px; font-weight: 700; text-transform: uppercase; }
         .unassigned { border-color: #d97706; }
-        .footer { position: fixed; right: 0; bottom: -25px; left: 0; border-top: 1px solid #cbd5e1; padding-top: 7px; color: #94a3b8; font-size: 8px; }
-        .footer-left { float: left; }
-        .footer-right { float: right; }
-        .page-number:after { content: counter(page); }
+
+        /* ─── BOM SECTION ─── */
+        .bom-section { margin-top: 10px; margin-bottom: 14px; page-break-inside: avoid; border: 1.2px solid #111827; }
+        .bom-header { padding: 6px 8px; border-bottom: 1.2px solid #111827; background: #f8fafc; }
+        .bom-title { font-size: 9pt; font-weight: bold; }
+        .bom-subtitle { margin-top: 2px; color: #64748b; font-size: 8pt; }
+        .bom-result { margin-top: 5px; padding: 4px 7px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 8pt; }
+        .bom-result strong { color: #047857; }
+
+        /* ─── MATERIALS TABLE ─── */
+        thead th { padding: 5px 8px; font-size: 8pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #111827; border-right: 1px solid #111827; }
+        thead th:last-child { border-right: none; }
+        tbody td { padding: 5px 8px; font-size: 8.5pt; vertical-align: top; border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; }
+        tbody td:last-child { border-right: none; }
+        tbody tr:last-child td { border-bottom: none; }
+        .center { text-align: center; }
+        .num { color: #94a3b8; }
+        .unit-badge { background: #dbeafe; color: #1d4ed8; padding: 1px 5px; border-radius: 3px; font-size: 7.5pt; font-weight: bold; }
+        .no-bom { text-align: center; color: #94a3b8; padding: 12px; }
+
+        /* ─── INFORMASI TAMBAHAN ─── */
+        .additional-cell { width: 220px; vertical-align: top; padding: 8px; border-left: 1px solid #cbd5e1; }
+        .instruction-content { font-size: 8.5pt; line-height: 1.5; color: #1e293b; }
+        .instruction-content p { margin: 0 0 4px; }
+        .instruction-content h1 { font-size: 11pt; font-weight: bold; margin: 0 0 4px; }
+        .instruction-content h2 { font-size: 10pt; font-weight: bold; margin: 0 0 4px; }
+        .instruction-content h3 { font-size: 9pt; font-weight: bold; margin: 0 0 3px; }
+        .instruction-content strong { font-weight: bold; }
+        .instruction-content em { font-style: italic; }
+        .instruction-content u { text-decoration: underline; }
+        .instruction-content s { text-decoration: line-through; }
+        .instruction-content ul, .instruction-content ol { margin: 2px 0 4px 16px; padding: 0; }
+        .instruction-content li { margin-bottom: 2px; }
+        .instruction-content blockquote { border-left: 3px solid #cbd5e1; padding-left: 8px; color: #64748b; margin: 4px 0; }
+        .instruction-content a { color: #2563eb; }
+        .instruction-content img { width: 195px; height: auto; margin: 4px 0; display: block; }
+        .instruction-images { margin-top: 6px; }
+        .instruction-image { max-width: 80px; max-height: 80px; width: auto; height: auto; margin: 0 3px 3px 0; display: inline-block; object-fit: cover; }
+        .instruction-empty { color: #94a3b8; font-size: 7.5pt; }
+
+        .empty { padding: 15px !important; text-align: center; color: #94a3b8; }
+
+        /* ─── FOOTER (normal flow, not fixed — DomPDF mis-paginates position:fixed here) ─── */
+        .footer { margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 6px; display: table; width: 100%; }
+        .footer-left { display: table-cell; font-size: 7pt; color: #94a3b8; }
+        .footer-right { display: table-cell; text-align: right; font-size: 7pt; color: #94a3b8; }
     </style>
 </head>
 <body>
-    <div class="footer">
-        <span class="footer-left">Dicetak: {{ now()->translatedFormat('d M Y, H:i') }}</span>
-        <span class="footer-right">{{ $productRecord->name }} · {{ $productRecord->boms->count() }} Bill of Material · Halaman <span class="page-number"></span></span>
-    </div>
+<div class="page-wrapper">
 
-    <table class="document-header">
-        <tr>
-            <td class="logo-cell" rowspan="3"><img class="logo" src="{{ $logo }}" alt="Bloomery"></td>
-            <td class="title-cell" rowspan="3">
-                <div class="company">PT Bloomery Sekawan Sejahtera</div>
-                <div class="document-title">Standar Prosedur Operasional<br>Produk Baru: {{ $productRecord->name }}</div>
-            </td>
-            <td class="meta-label">Nomor Dokumen</td>
-            <td class="meta-value">{{ $documentNumber }}</td>
-        </tr>
-        <tr><td class="meta-label">Tanggal Berlaku</td><td class="meta-value">{{ $projectRecord->start_date->format('d M Y') }} – {{ $projectRecord->end_date->format('d M Y') }}</td></tr>
-        <tr><td class="meta-label">Status Produk</td><td class="meta-value">{{ \App\Models\RndProjectProduct::STATUSES[$productRecord->status] ?? ucfirst($productRecord->status) }}</td></tr>
-    </table>
+    <div class="kop">
+        <div class="kop-logo"><img src="{{ $logo }}" alt="Bloomery"></div>
+        <div class="kop-center">
+            <div class="company-name">PT Bloomery Sekawan Sejahtera</div>
+            <div class="title-sop">Standar Prosedur Operasional</div>
+            <div class="project-label">Produk Baru:<br>{{ strtoupper($productRecord->name) }}</div>
+        </div>
+        <div class="kop-right">
+            <div class="kop-right-row">
+                <div class="kop-right-label">Nomor Dokumen</div>
+                <div class="kop-right-value">{{ $documentNumber }}</div>
+            </div>
+            <div class="kop-right-row">
+                <div class="kop-right-label">Tanggal Berlaku</div>
+                <div class="kop-right-value">{{ $projectRecord->start_date->format('d M Y') }} – {{ $projectRecord->end_date->format('d M Y') }}</div>
+            </div>
+            <div class="kop-right-row">
+                <div class="kop-right-label">Status Produk</div>
+                <div class="kop-right-value">{{ \App\Models\RndProjectProduct::STATUSES[$productRecord->status] ?? ucfirst($productRecord->status) }}</div>
+            </div>
+        </div>
+    </div>
 
     <table class="summary">
         <tr>
@@ -140,5 +176,12 @@
             @endforeach
         </div>
     @endif
+
+    <div class="footer">
+        <div class="footer-left">Dicetak: {{ now()->translatedFormat('d M Y, H:i') }}</div>
+        <div class="footer-right">{{ $productRecord->name }} · {{ $productRecord->boms->count() }} Bill of Material</div>
+    </div>
+
+</div>
 </body>
 </html>

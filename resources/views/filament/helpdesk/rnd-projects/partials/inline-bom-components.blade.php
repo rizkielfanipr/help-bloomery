@@ -38,8 +38,12 @@
                     <p class="mt-0.5 truncate text-sm font-bold text-gray-900 dark:text-white">{{ $inlineResult['productName'] ?? 'Product hasil belum dipilih' }}</p>
                     <p class="mt-0.5 truncate text-xs text-gray-500">
                         <span class="font-mono font-bold text-blue-600">{{ ($inlineResult['productCode'] ?? '') ?: 'Tanpa kode' }}</span>
-                        <span> | {{ ($inlineResult['productName'] ?? '') ?: '-' }} · {{ ($inlineResult['uomName'] ?? '') ?: '-' }}</span>
                     </p>
+                    @if(!empty($resultUnitLabels[$inlineBomId]))
+                        <p class="mt-1.5 inline-block rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            {{ $resultUnitLabels[$inlineBomId] }}
+                        </p>
+                    @endif
                     @error("bomComponentDrafts.$inlineBomId.productDetailID")<p class="mt-1 text-[10px] font-semibold text-red-600">{{ $message }}</p>@enderror
                 </div>
                 @if($inlineEditing)

@@ -9,6 +9,7 @@ use App\Services\EsbCoreService;
 use App\Services\EsbService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -135,25 +136,61 @@ class RndProductBomPdfController extends Controller
             $recipes = [];
             foreach (($details[$mainBom->id]['bomDetails'] ?? []) as $component) {
                 $productDetailId = (int) ($component['productDetailID'] ?? 0);
-                $product = $products->findActiveProductDetail(
-                    $productDetailId,
-                    (string) ($component['productCode'] ?? ''),
-                    (string) ($component['productName'] ?? ''),
-                );
+
+                try {
+                    $product = $products->findActiveProductDetail(
+                        $productDetailId,
+                        (string) ($component['productCode'] ?? ''),
+                        (string) ($component['productName'] ?? ''),
+                    );
+                } catch (Throwable $exception) {
+                    Log::warning('RnD BOM PDF: auto WIP product lookup failed.', [
+                        'mainBomId' => $mainBom->id,
+                        'productDetailId' => $productDetailId,
+                        'productCode' => $component['productCode'] ?? null,
+                        'error' => $exception->getMessage(),
+                    ]);
+
+                    continue;
+                }
+
                 if (mb_strtolower(trim((string) ($product['categoryName'] ?? ''))) !== 'barang wip') {
                     continue;
                 }
 
-                $candidates = $esb->getBillOfMaterials([
-                    'productName' => $product['productName'] ?? $component['productName'] ?? '',
-                    'limit' => 100,
-                ]);
+                try {
+                    $candidates = $esb->getBillOfMaterials([
+                        'productName' => $product['productName'] ?? $component['productName'] ?? '',
+                        'limit' => 100,
+                    ]);
+                } catch (Throwable $exception) {
+                    Log::warning('RnD BOM PDF: auto WIP BOM search failed.', [
+                        'mainBomId' => $mainBom->id,
+                        'productName' => $product['productName'] ?? null,
+                        'error' => $exception->getMessage(),
+                    ]);
+
+                    continue;
+                }
+
                 foreach ($candidates['data'] as $candidate) {
                     $bomId = (int) ($candidate['bomID'] ?? 0);
                     if ($bomId < 1 || $bomId === $mainBom->esb_bom_id) {
                         continue;
                     }
-                    $detail = $esb->getBillOfMaterial($bomId);
+
+                    try {
+                        $detail = $esb->getBillOfMaterial($bomId);
+                    } catch (Throwable $exception) {
+                        Log::warning('RnD BOM PDF: auto WIP BOM detail fetch failed.', [
+                            'mainBomId' => $mainBom->id,
+                            'candidateBomId' => $bomId,
+                            'error' => $exception->getMessage(),
+                        ]);
+
+                        continue;
+                    }
+
                     $sameDetail = (int) ($detail['productDetailID'] ?? 0) === $productDetailId;
                     $sameProduct = (int) ($product['productID'] ?? 0) > 0
                         && (int) ($detail['productID'] ?? 0) === (int) $product['productID'];

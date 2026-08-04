@@ -3,6 +3,10 @@
 use App\Services\EsbService;
 use Illuminate\Support\Facades\Http;
 
+it('registers the BLSS comcode token configuration', function () {
+    expect(config('esb.tokens'))->toHaveKey('BLSS');
+});
+
 it('retries a transient ESB sales server error', function () {
     config()->set('esb.base_url', 'https://core-api.esb.test');
 

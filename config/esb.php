@@ -47,5 +47,6 @@ return [
         'BLO10' => env('ESB_TOKEN_BLO10', ''),
         'BLMN' => env('ESB_TOKEN_BLMN', ''),
         'BLAR' => env('ESB_TOKEN_BLAR', ''),
+        'BLSS' => env('ESB_TOKEN_BLSS', ''),
     ],
 ];

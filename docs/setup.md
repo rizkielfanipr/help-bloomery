@@ -69,6 +69,27 @@ Jika tidak diset, semua panel diakses melalui `APP_URL` dengan path masing-masin
 FILESYSTEM_DISK=public
 ```
 
+### Token ESB per Comcode
+
+Token ESB disimpan per comcode melalui environment server. Jangan menyimpan token
+asli di repository.
+
+```env
+ESB_TOKEN_BLSS=
+```
+
+Branch yang memakai token tersebut harus memiliki `ESB Comcode` bernilai `BLSS`
+dan `ESB Branch Code` sesuai kode cabang resmi dari ESB. Isi token mentah tanpa
+prefix `Bearer`; aplikasi menambahkan prefix tersebut saat mengirim request.
+
+Setelah menambah atau mengganti token di server, muat ulang konfigurasi:
+
+```bash
+php artisan optimize:clear
+php artisan config:cache
+php artisan queue:restart
+```
+
 ## Development
 
 ```bash

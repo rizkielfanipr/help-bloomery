@@ -4,6 +4,7 @@ use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
+use App\Models\PrefixCategory;
 use App\Models\RndBomInstruction;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
@@ -254,6 +255,108 @@ it('stores a new material draft and creates its Master Product in ESB', function
         'product' => $product->id,
         'format' => 'xlsx',
     ]))->assertOk();
+});
+
+it('combines prefix name, prefix category, and base name into the final ESB material product name for WIP items', function () {
+    Cache::forget('esb_core.access_token');
+    Http::fake([
+        'https://services.esb.co.id/core/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token-test'],
+        ]),
+        'https://services.esb.co.id/core/product' => Http::response([
+            'status' => 'ok',
+            'code' => 'EC03100000',
+            'message' => 'OK',
+            'result' => ['productID' => 9200, 'isTemp' => false],
+            'errors' => null,
+        ]),
+    ]);
+
+    config()->set('esb.core.base_url', 'https://services.esb.co.id/core');
+    config()->set('esb.core.username', 'rnd-test');
+    config()->set('esb.core.password', 'secret');
+
+    $prefixCategory = PrefixCategory::create(['name' => 'Whole Cake', 'sort_order' => 1, 'is_active' => true]);
+
+    $project = RndProject::query()->create([
+        'name' => 'Prefix Category Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'JYM Product Release',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $project->id,
+        'product' => $product->id,
+    ])->set('esbCategoryOptions', [77 => 'Barang WIP'])
+        ->set('prefixCategoryOptions', [$prefixCategory->id => 'Whole Cake'])
+        ->set('esbMaterialCategoryId', 77)
+        ->set('esbMaterialSubCategoryId', 21)
+        ->set('esbMaterialNamePrefix', 'JYM |')
+        ->set('esbMaterialPrefixCategoryId', $prefixCategory->id)
+        ->set('esbMaterialProductBaseName', 'Chocolate')
+        ->set('esbMaterialProductCode', 'BBMK-JYM-01')
+        ->set('esbMaterialUnits', [[
+            'uom_id' => 5,
+            'uom_name' => 'GR',
+            'sku' => '',
+            'conversion_factor' => '1',
+            'base_price' => '100',
+            'is_base' => true,
+        ]])
+        ->call('saveEsbMaterial')
+        ->assertHasNoErrors();
+
+    $material = $product->esbMaterials()->firstOrFail();
+    expect($material->product_name)->toBe('JYM | Whole Cake Chocolate');
+});
+
+it('rehydrates prefix name, prefix category, and base name when editing an existing WIP material draft', function () {
+    $prefixCategory = PrefixCategory::create(['name' => 'Whole Cake', 'sort_order' => 1, 'is_active' => true]);
+
+    $project = RndProject::query()->create([
+        'name' => 'Edit Prefix Category Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'JYM Edit Product Release',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $material = $product->esbMaterials()->create([
+        'category_id' => 77,
+        'category_name' => 'Barang WIP',
+        'sub_category_id' => 21,
+        'sub_category_name' => 'Adonan',
+        'uom_id' => 5,
+        'uom_name' => 'GR',
+        'product_code' => 'BBMK-JYM-01',
+        'product_name' => 'JYM | Whole Cake Chocolate',
+        'sku' => 'BBMK-JYM-01-GR',
+        'conversion_factor' => 1,
+        'base_price' => 100,
+        'status' => 'draft',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, [
+        'project' => $project->id,
+        'product' => $product->id,
+    ])->set('esbCategoryOptions', [77 => 'Barang WIP'])
+        ->set('esbSubCategoryOptions', [21 => 'Adonan'])
+        ->call('openEsbMaterialForm', $material->id);
+
+    expect($page->instance()->esbMaterialNamePrefix)->toBe('JYM |')
+        ->and($page->instance()->esbMaterialPrefixCategoryId)->toBe($prefixCategory->id)
+        ->and($page->instance()->esbMaterialProductBaseName)->toBe('Chocolate');
 });
 
 it('suggests the next ESB product code from the highest code in its category', function () {

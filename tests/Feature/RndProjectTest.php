@@ -359,6 +359,16 @@ it('rehydrates prefix name, prefix category, and base name when editing an exist
         ->and($page->instance()->esbMaterialProductBaseName)->toBe('Chocolate');
 });
 
+it('renders the prefix category link in the custom helpdesk sidebar', function () {
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+
+    $response = $this->get(route('filament.helpdesk.resources.prefix-categories.index'));
+
+    $response->assertOk()
+        ->assertSee('Research & Development')
+        ->assertSee(route('filament.helpdesk.resources.prefix-categories.index'), false);
+});
+
 it('suggests the next ESB product code from the highest code in its category', function () {
     Cache::forget('esb_core.access_token');
     config()->set('esb.core.base_url', 'https://services.esb.co.id/core');

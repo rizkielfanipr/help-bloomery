@@ -252,6 +252,21 @@
                 </div>
             @endif
 
+            <div class="flex flex-wrap items-end gap-2 border-b border-gray-200 bg-gray-50/60 px-5 py-3 dark:border-gray-700 dark:bg-gray-800/40">
+                <div>
+                    <label class="mb-1 block text-[10px] font-bold uppercase text-gray-500">Harga WA Dari Tanggal</label>
+                    <input type="date" wire:model="waDateFrom" class="rounded-md border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-800">
+                </div>
+                <div>
+                    <label class="mb-1 block text-[10px] font-bold uppercase text-gray-500">Sampai Tanggal</label>
+                    <input type="date" wire:model="waDateTo" class="rounded-md border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-800">
+                </div>
+                <button type="button" wire:click="applyWaDateFilter" wire:loading.attr="disabled" wire:target="applyWaDateFilter" class="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+                    Terapkan
+                </button>
+                <p class="text-[10px] text-gray-400">Kosongkan untuk memakai seluruh histori pembelian. Harga Weighted Average dipakai untuk menghitung estimasi HPP tiap BOM di bawah.</p>
+            </div>
+
             @php
                 $bomGroups = [
                     'main' => ['title' => 'Main Recipe', 'description' => 'Resep utama yang menghasilkan produk ini.', 'button' => 'Add Main Recipe', 'optional' => false],
@@ -341,6 +356,10 @@
                                                     <div class="flex shrink-0 flex-col items-end gap-1.5">
                                                         <span class="rounded-md bg-white px-2 py-1 text-[9px] font-bold text-blue-700 ring-1 ring-blue-100 dark:bg-gray-900 dark:ring-blue-900">
                                                             Dipakai {{ rtrim(rtrim(number_format($autoRecipe['sourceQty'], 4, '.', ''), '0'), '.') }} {{ $autoRecipe['sourceUnit'] }}
+                                                        </span>
+                                                        @php $autoRecipeWaTotal = $this->weightedAverageTotalForRows($autoRecipe['bomDetails'] ?? []); @endphp
+                                                        <span class="rounded-md bg-emerald-50 px-2 py-1 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900" title="{{ $autoRecipeWaTotal['hasFallback'] ? 'Sebagian bahan belum punya histori pembelian, memakai harga ESB' : 'Dihitung dari Weighted Average Product Price Index' }}">
+                                                            Est. HPP: Rp {{ number_format($autoRecipeWaTotal['total'], 0, ',', '.') }}{{ $autoRecipeWaTotal['hasFallback'] ? '*' : '' }}
                                                         </span>
                                                         @if($canUpdateBomInline)
                                                             <button
@@ -601,6 +620,15 @@
                                     @error('esbMaterialNamePrefix')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
+                                    <label class="mb-1.5 block text-sm font-semibold">Prefix Category *</label>
+                                    <select wire:model.live="esbMaterialPrefixCategoryId" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800">
+                                        <option value="">Pilih Prefix Category</option>
+                                        @foreach($prefixCategoryOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
+                                    </select>
+                                    <p class="mt-1 text-xs text-gray-500">Kelola daftar Prefix Category di menu Research & Development &gt; Prefix Category.</p>
+                                    @error('esbMaterialPrefixCategoryId')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <div class="md:col-span-2">
                                     <label class="mb-1.5 block text-sm font-semibold">Nama Dasar Product *</label>
                                     <input wire:model.live.debounce.250ms="esbMaterialProductBaseName" maxlength="90" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Contoh: Adonan Croissant">
                                     @error('esbMaterialProductBaseName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror

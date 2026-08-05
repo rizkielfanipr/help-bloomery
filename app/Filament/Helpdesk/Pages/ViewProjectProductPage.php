@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
+use App\Models\PrefixCategory;
 use App\Models\RndBomInstruction;
 use App\Models\RndProductEsbMaterial;
 use App\Models\RndProductEsbMaterialUnit;
@@ -12,6 +13,7 @@ use App\Models\RndProjectMarketingMaterial;
 use App\Models\RndProjectProduct;
 use App\Services\EsbCoreService;
 use App\Services\EsbService;
+use App\Services\ProductPriceIndexService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -94,6 +96,8 @@ class ViewProjectProductPage extends Page
 
     public string $esbMaterialNamePrefix = '';
 
+    public ?int $esbMaterialPrefixCategoryId = null;
+
     public string $esbMaterialProductCode = '';
 
     public ?int $esbMaterialCategoryId = null;
@@ -118,6 +122,8 @@ class ViewProjectProductPage extends Page
 
     public array $esbSubCategoryOptions = [];
 
+    public array $prefixCategoryOptions = [];
+
     public array $bomComponentDetails = [];
 
     public array $resultUnitLabels = [];
@@ -135,6 +141,13 @@ class ViewProjectProductPage extends Page
     public array $autoPackagingItems = [];
 
     public ?string $autoWipComponentError = null;
+
+    public string $waDateFrom = '';
+
+    public string $waDateTo = '';
+
+    /** @var array<int, array{average_price: float, po_count: int}> */
+    public array $waPrices = [];
 
     public array $bomInstructions = [];
 
@@ -789,6 +802,78 @@ class ViewProjectProductPage extends Page
         }
 
         $this->discoverWipComponentRecipes();
+        $this->loadWeightedAveragePrices();
+    }
+
+    public function applyWaDateFilter(): void
+    {
+        $this->loadWeightedAveragePrices();
+    }
+
+    private function loadWeightedAveragePrices(): void
+    {
+        $productDetailIds = [];
+
+        foreach ($this->bomComponentDetails as $detail) {
+            foreach ($detail['bomDetails'] ?? [] as $component) {
+                $productDetailIds[] = (int) ($component['productDetailID'] ?? 0);
+            }
+        }
+
+        foreach ($this->autoWipComponentRecipes as $recipes) {
+            foreach ($recipes as $recipe) {
+                foreach ($recipe['bomDetails'] ?? [] as $component) {
+                    $productDetailIds[] = (int) ($component['productDetailID'] ?? 0);
+                }
+            }
+        }
+
+        $prices = app(ProductPriceIndexService::class)->weightedAveragePrices(
+            $productDetailIds,
+            $this->waDateFrom ?: null,
+            $this->waDateTo ?: null,
+        );
+
+        $this->waPrices = $prices->map(fn ($row): array => [
+            'average_price' => (float) $row->average_price,
+            'po_count' => (int) $row->po_count,
+        ])->all();
+    }
+
+    /** @return array{total: float, hasFallback: bool} */
+    public function bomWeightedAverageTotal(int $projectBomId): array
+    {
+        return $this->weightedAverageTotalForRows($this->bomComponentDetails[$projectBomId]['bomDetails'] ?? []);
+    }
+
+    /**
+     * Same calculation as bomWeightedAverageTotal(), but works directly off a
+     * bomDetails array — used for auto-discovered WIP recipes that aren't
+     * (yet) attached as a local RndProjectBom, so there's no projectBomId to
+     * look up in bomComponentDetails.
+     *
+     * @param  array<int, array{productDetailID?: int, qty?: float, lastHPP?: float}>  $bomDetails
+     * @return array{total: float, hasFallback: bool}
+     */
+    public function weightedAverageTotalForRows(array $bomDetails): array
+    {
+        $total = 0.0;
+        $hasFallback = false;
+
+        foreach ($bomDetails as $component) {
+            $productDetailId = (int) ($component['productDetailID'] ?? 0);
+            $qty = (float) ($component['qty'] ?? 0);
+            $waPrice = $this->waPrices[$productDetailId]['average_price'] ?? null;
+
+            if ($waPrice === null) {
+                $waPrice = (float) ($component['lastHPP'] ?? 0);
+                $hasFallback = true;
+            }
+
+            $total += $qty * $waPrice;
+        }
+
+        return ['total' => $total, 'hasFallback' => $hasFallback];
     }
 
     public function refreshWipComponentRecipes(): void
@@ -801,6 +886,7 @@ class ViewProjectProductPage extends Page
         }
 
         $this->discoverWipComponentRecipes(true);
+        $this->loadWeightedAveragePrices();
     }
 
     private function discoverWipComponentRecipes(bool $force = false): void
@@ -1376,6 +1462,7 @@ class ViewProjectProductPage extends Page
         $this->authorizeProjectManagement();
         $this->resetValidation();
         $this->loadEsbTaxonomy();
+        $this->loadPrefixCategoryOptions();
         $this->materialDraftId = $materialId;
 
         if ($materialId) {
@@ -1407,6 +1494,7 @@ class ViewProjectProductPage extends Page
                 'esbMaterialProductName',
                 'esbMaterialProductBaseName',
                 'esbMaterialNamePrefix',
+                'esbMaterialPrefixCategoryId',
                 'esbMaterialProductCode',
                 'esbMaterialCategoryId',
                 'esbMaterialSubCategoryId',
@@ -1443,6 +1531,10 @@ class ViewProjectProductPage extends Page
             'esbMaterialNamePrefix' => [
                 Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
                 'nullable', Rule::in(array_keys($this->esbMaterialNamePrefixOptions())),
+            ],
+            'esbMaterialPrefixCategoryId' => [
+                Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
+                'nullable', Rule::in(array_keys($this->prefixCategoryOptions)),
             ],
             'esbMaterialProductCode' => [
                 'required', 'string', 'max:50',
@@ -1584,6 +1676,7 @@ class ViewProjectProductPage extends Page
                 $this->esbMaterialProductName = $this->esbMaterialProductBaseName;
             }
             $this->esbMaterialNamePrefix = '';
+            $this->esbMaterialPrefixCategoryId = null;
         }
         $this->syncEsbMaterialProductName();
 
@@ -1598,6 +1691,11 @@ class ViewProjectProductPage extends Page
     }
 
     public function updatedEsbMaterialNamePrefix(): void
+    {
+        $this->syncEsbMaterialProductName();
+    }
+
+    public function updatedEsbMaterialPrefixCategoryId(): void
     {
         $this->syncEsbMaterialProductName();
     }
@@ -1626,12 +1724,17 @@ class ViewProjectProductPage extends Page
             return;
         }
 
+        $categoryName = $this->prefixCategoryOptions[$this->esbMaterialPrefixCategoryId] ?? '';
+
         // Preserve trailing spaces while the user is typing. Normalization is
         // performed when the draft is saved, otherwise a space between words
         // is immediately removed by Livewire's real-time update.
-        $this->esbMaterialProductName = $this->esbMaterialNamePrefix === ''
-            ? $this->esbMaterialProductBaseName
-            : $this->esbMaterialNamePrefix.' '.$this->esbMaterialProductBaseName;
+        $segments = array_filter(
+            [$this->esbMaterialNamePrefix, $categoryName, $this->esbMaterialProductBaseName],
+            fn (string $segment): bool => $segment !== ''
+        );
+
+        $this->esbMaterialProductName = implode(' ', $segments);
     }
 
     private function hydrateEsbMaterialNaming(string $productName): void
@@ -1644,7 +1747,11 @@ class ViewProjectProductPage extends Page
             }
         }
 
-        $this->esbMaterialProductBaseName = $this->stripEsbMaterialNamePrefix($productName);
+        $remainder = $this->stripEsbMaterialNamePrefix($productName);
+        $this->esbMaterialPrefixCategoryId = $this->matchPrefixCategoryId($remainder);
+        $this->esbMaterialProductBaseName = $this->esbMaterialPrefixCategoryId
+            ? $this->stripPrefixCategoryName($remainder, $this->esbMaterialPrefixCategoryId)
+            : $remainder;
         $this->syncEsbMaterialProductName();
     }
 
@@ -1658,6 +1765,47 @@ class ViewProjectProductPage extends Page
         }
 
         return $name;
+    }
+
+    /**
+     * Matches the longest known Prefix Category name at the start of the
+     * remainder, so a category like "Whole Cake" wins over a shorter
+     * category that happens to share its first word (e.g. "Whole").
+     */
+    private function matchPrefixCategoryId(string $remainder): ?int
+    {
+        $remainder = trim($remainder);
+
+        $candidates = collect($this->prefixCategoryOptions)
+            ->sortByDesc(fn (string $name): int => mb_strlen(trim($name)));
+
+        foreach ($candidates as $id => $name) {
+            $name = trim($name);
+            if ($name === '') {
+                continue;
+            }
+
+            $lowerRemainder = mb_strtolower($remainder);
+            $lowerName = mb_strtolower($name);
+
+            if ($lowerRemainder === $lowerName || str_starts_with($lowerRemainder, $lowerName.' ')) {
+                return (int) $id;
+            }
+        }
+
+        return null;
+    }
+
+    private function stripPrefixCategoryName(string $remainder, int $categoryId): string
+    {
+        $name = trim((string) ($this->prefixCategoryOptions[$categoryId] ?? ''));
+        $remainder = trim($remainder);
+
+        if ($name !== '' && str_starts_with(mb_strtolower($remainder), mb_strtolower($name))) {
+            return trim(mb_substr($remainder, mb_strlen($name)));
+        }
+
+        return $remainder;
     }
 
     public function generateEsbMaterialProductCode(): void
@@ -1838,6 +1986,16 @@ class ViewProjectProductPage extends Page
                 ->warning()
                 ->send();
         }
+    }
+
+    private function loadPrefixCategoryOptions(): void
+    {
+        $this->prefixCategoryOptions = PrefixCategory::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
     }
 
     public function openExportPdf(): void

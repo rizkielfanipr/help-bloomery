@@ -65,18 +65,20 @@
             <div class="overflow-x-auto">
             <table class="w-full min-w-[880px] table-fixed text-xs">
                 <colgroup>
-                    <col class="w-[31%]">
-                    <col class="w-[10%]">
+                    <col class="w-[28%]">
+                    <col class="w-[9%]">
                     <col class="w-[12%]">
+                    <col class="w-[10%]">
+                    <col class="w-[10%]">
                     <col class="w-[11%]">
-                    <col class="w-[13%]">
-                    <col class="w-[17%]">
+                    <col class="w-[14%]">
                     <col class="w-[6%]">
                 </colgroup>
                 <thead class="bg-gray-50 text-[10px] uppercase text-gray-500 dark:bg-gray-800">
                     <tr>
                         <th class="px-3 py-2 text-left">Kode & Bahan</th>
                         <th class="px-3 py-2 text-left">Unit</th>
+                        <th class="px-3 py-2 text-right" title="Harga rata-rata tertimbang dari histori pembelian (Product Price Index)">Harga WA</th>
                         <th class="px-3 py-2 text-right">Qty</th>
                         <th class="px-3 py-2 text-right">Waste %</th>
                         <th class="px-3 py-2 text-right">Tolerance %</th>
@@ -96,6 +98,18 @@
                                 <p class="mt-0.5 truncate font-semibold text-gray-900 dark:text-white" title="{{ $component['productName'] ?: 'Product Detail '.$component['productDetailID'] }}">{{ $component['productName'] ?: 'Product Detail '.$component['productDetailID'] }}</p>
                             </td>
                             <td class="px-3 py-2.5 font-semibold">{{ $component['uomName'] ?: '-' }}</td>
+                            <td class="px-3 py-2 text-right">
+                                @php
+                                    $waRow = $waPrices[(int) $component['productDetailID']] ?? null;
+                                @endphp
+                                @if($waRow)
+                                    <p class="font-bold text-emerald-700 dark:text-emerald-400">{{ number_format($waRow['average_price'], 0, ',', '.') }}</p>
+                                    <p class="text-[9px] text-gray-400">{{ $waRow['po_count'] }}x beli</p>
+                                @else
+                                    <p class="text-gray-400" title="Tidak ada histori pembelian pada rentang tanggal ini, pakai harga ESB">{{ number_format((float) ($component['lastHPP'] ?? 0), 0, ',', '.') }}</p>
+                                    <p class="text-[9px] text-amber-600">pakai ESB</p>
+                                @endif
+                            </td>
                             <td class="px-3 py-2">
                                 @if($inlineEditing)
                                     <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.bomDetails.{{ $componentIndex }}.qty" type="number" min="0.0001" step="0.0001" class="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-right text-xs dark:border-gray-600 dark:bg-gray-800">
@@ -132,11 +146,25 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-3 py-8 text-center text-gray-500">Tidak ada komponen pada BOM ini.</td></tr>
+                        <tr><td colspan="8" class="px-3 py-8 text-center text-gray-500">Tidak ada komponen pada BOM ini.</td></tr>
                     @endforelse
                 </tbody>
             </table>
             </div>
+
+            @if(!empty($inlineRows))
+                @php
+                    $waTotal = $this->bomWeightedAverageTotal($inlineBomId);
+                @endphp
+                <div class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 bg-emerald-50/40 px-3 py-2.5 dark:border-gray-800 dark:bg-emerald-950/10">
+                    <p class="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                        Total HPP (dari Weighted Average): Rp {{ number_format($waTotal['total'], 0, ',', '.') }}
+                    </p>
+                    @if($waTotal['hasFallback'])
+                        <p class="text-[10px] text-amber-600">*Sebagian komponen belum punya histori pembelian pada rentang tanggal ini, memakai harga ESB.</p>
+                    @endif
+                </div>
+            @endif
 
             @error("bomComponentDrafts.$inlineBomId")<p class="border-t border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{{ $message }}</p>@enderror
             @error("bomComponentDrafts.$inlineBomId.bomDetails")<p class="border-t border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700">{{ $message }}</p>@enderror

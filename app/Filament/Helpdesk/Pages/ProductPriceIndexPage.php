@@ -4,6 +4,7 @@ namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\EsbPurchaseOrder;
 use App\Models\EsbPurchaseOrderItem;
+use App\Services\ProductPriceIndexService;
 use App\Services\PurchaseOrderPriceSyncService;
 use BackedEnum;
 use Filament\Notifications\Notification;
@@ -97,8 +98,8 @@ class ProductPriceIndexPage extends Page
 
     public function rows(): LengthAwarePaginator
     {
-        $baseQuantity = 'CASE WHEN esb_purchase_order_items.stock_qty > 0 THEN esb_purchase_order_items.stock_qty ELSE esb_purchase_order_items.qty * (CASE WHEN esb_purchase_order_items.conversion_qty > 1 THEN esb_purchase_order_items.conversion_qty ELSE 1 END) END';
-        $netAmount = '((esb_purchase_order_items.total - esb_purchase_order_items.vat) * esb_purchase_orders.rate)';
+        $baseQuantity = ProductPriceIndexService::baseQuantitySql();
+        $netAmount = ProductPriceIndexService::netAmountSql();
         $normalized = "($netAmount / NULLIF($baseQuantity, 0))";
 
         $query = EsbPurchaseOrderItem::query()

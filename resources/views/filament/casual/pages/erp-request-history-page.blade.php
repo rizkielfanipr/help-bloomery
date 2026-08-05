@@ -1,14 +1,11 @@
 @php
     $statusColors = [
-        'draft'       => 'bg-gray-100 text-gray-600',
         'submitted'   => 'bg-blue-100 text-blue-700',
         'in_review'   => 'bg-amber-100 text-amber-700',
         'approved'    => 'bg-green-100 text-green-700',
+        'rejected'    => 'bg-red-100 text-red-700',
         'in_progress' => 'bg-blue-100 text-blue-700',
         'completed'   => 'bg-green-100 text-green-700',
-        'waiting_user' => 'bg-amber-100 text-amber-700',
-        'escalated' => 'bg-red-100 text-red-700',
-        'cancelled' => 'bg-gray-100 text-gray-600',
     ];
 @endphp
 
@@ -83,6 +80,12 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
                                         </svg>
                                     </div>
+                                @elseif($statusValue === 'approved')
+                                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                                        <svg class="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                        </svg>
+                                    </div>
                                 @elseif($statusValue === 'in_progress')
                                     <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
                                         <svg class="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -155,14 +158,14 @@
                                     <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Progress</p>
                                     @php
                                         $steps = [
-                                            ['value' => 'submitted',   'label' => 'Submitted'],
-                                            ['value' => 'in_review',   'label' => 'Review'],
+                                            ['value' => 'submitted', 'label' => 'Submitted'],
+                                            ['value' => 'in_review', 'label' => 'Review'],
+                                            ['value' => $statusValue === 'rejected' ? 'rejected' : 'approved', 'label' => $statusValue === 'rejected' ? 'Rejected' : 'Approved'],
                                             ['value' => 'in_progress', 'label' => 'Progress'],
-                                            ['value' => 'completed',   'label' => 'Completed'],
+                                            ['value' => 'completed', 'label' => 'Completed'],
                                         ];
                                         $stepValues   = array_column($steps, 'value');
                                         $currentIndex = array_search($statusValue, $stepValues);
-                                        if (in_array($statusValue, ['cancelled', 'escalated', 'waiting_user'], true)) { $currentIndex = 2; }
                                     @endphp
                                     <div class="flex items-center gap-0">
                                         @foreach($steps as $i => $step)

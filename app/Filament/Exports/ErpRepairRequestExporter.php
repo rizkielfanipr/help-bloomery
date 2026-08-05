@@ -22,13 +22,8 @@ class ErpRepairRequestExporter extends Exporter
             ExportColumn::make('requestType.name')->label('Request Type'),
             ExportColumn::make('keterangan')->label('Keterangan'),
             ExportColumn::make('status')->label('Status'),
-            ExportColumn::make('assignee.name')->label('PIC'),
-            ExportColumn::make('work_classification')->label('Classification'),
             ExportColumn::make('priority')->label('Priority'),
-            ExportColumn::make('due_at')->label('Due Date'),
-            ExportColumn::make('escalation_target')->label('Escalation Target'),
-            ExportColumn::make('escalation_reason')->label('Escalation Reason'),
-            ExportColumn::make('resolution_note')->label('Resolution'),
+            ExportColumn::make('it_notes')->label('IT Notes'),
             ExportColumn::make('created_at')->label('Tanggal'),
         ];
     }

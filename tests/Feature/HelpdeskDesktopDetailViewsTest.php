@@ -1,8 +1,8 @@
 <?php
 
+use App\Enums\DesignRequestStatus;
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\PurchaseType;
-use App\Enums\RequestStatus;
 use App\Enums\ServiceRequestStatus;
 use App\Enums\TripStatus;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ViewDesignRequest;
@@ -104,20 +104,105 @@ it('renders the design request desktop detail workspace', function () {
         'design_category_id' => $category->id,
         'judul_permintaan' => 'Banner Promo',
         'ringkasan_brief' => 'Buat banner promo bulan ini.',
-        'status' => RequestStatus::Submitted,
+        'status' => DesignRequestStatus::DesignRequest,
     ]);
 
     Livewire::test(ViewDesignRequest::class, ['record' => $request->id])
-        ->assertSee('Design Brief')
-        ->assertSee('Tindak Lanjut Design')
-        ->assertSee('Activity Timeline')
-        ->set('assigneeId', (string) $this->admin->id)
-        ->set('status', RequestStatus::InProgress->value)
-        ->call('saveFollowUp')
+        ->assertSee('Ringkasan Brief')
+        ->assertSee('In Progress')
+        ->assertDontSee('PIC Design')
+        ->assertDontSee('Design Notes')
+        ->call('transitionTo', DesignRequestStatus::InProgress->value)
         ->assertHasNoErrors();
 
-    expect($request->refresh()->status)->toBe(RequestStatus::InProgress)
-        ->and($request->assignee_id)->toBe($this->admin->id);
+    expect($request->refresh()->status)->toBe(DesignRequestStatus::InProgress)
+        ->and($request->statusHistories()->count())->toBe(2)
+        ->and($request->statusHistories()->latest('id')->first()->changed_by)->toBe($this->admin->id);
+});
+
+it('only shows the Design Notes field at the approval step', function () {
+    $category = DesignCategory::create(['name' => 'Social Media', 'sort_order' => 1, 'is_active' => true]);
+    $request = DesignRequest::create([
+        'requester_id' => $this->admin->id,
+        'branch_id' => $this->branch->id,
+        'design_category_id' => $category->id,
+        'judul_permintaan' => 'Banner Promo',
+        'ringkasan_brief' => 'Buat banner promo bulan ini.',
+        'status' => DesignRequestStatus::Approval,
+    ]);
+
+    Livewire::test(ViewDesignRequest::class, ['record' => $request->id])
+        ->assertSee('Design Notes')
+        ->set('adminNotes', 'Disetujui, lanjut ke proses cetak.')
+        ->call('transitionTo', DesignRequestStatus::PrintingProcess->value)
+        ->assertHasNoErrors();
+
+    expect($request->refresh()->status)->toBe(DesignRequestStatus::PrintingProcess)
+        ->and($request->statusHistories()->latest('id')->first()->notes)->toBe('Disetujui, lanjut ke proses cetak.');
+});
+
+it('requires a reason when rejecting a design request at the approval step', function () {
+    $category = DesignCategory::create(['name' => 'Social Media', 'sort_order' => 1, 'is_active' => true]);
+    $request = DesignRequest::create([
+        'requester_id' => $this->admin->id,
+        'branch_id' => $this->branch->id,
+        'design_category_id' => $category->id,
+        'judul_permintaan' => 'Banner Promo',
+        'ringkasan_brief' => 'Buat banner promo bulan ini.',
+        'status' => DesignRequestStatus::Approval,
+    ]);
+
+    Livewire::test(ViewDesignRequest::class, ['record' => $request->id])
+        ->set('adminNotes', '')
+        ->call('transitionTo', DesignRequestStatus::Rejected->value)
+        ->assertHasErrors(['adminNotes']);
+
+    expect($request->refresh()->status)->toBe(DesignRequestStatus::Approval);
+});
+
+it('prevents skipping the design request status sequence', function () {
+    $category = DesignCategory::create(['name' => 'Social Media', 'sort_order' => 1, 'is_active' => true]);
+    $request = DesignRequest::create([
+        'requester_id' => $this->admin->id,
+        'branch_id' => $this->branch->id,
+        'design_category_id' => $category->id,
+        'judul_permintaan' => 'Banner Promo',
+        'ringkasan_brief' => 'Buat banner promo bulan ini.',
+        'status' => DesignRequestStatus::DesignRequest,
+    ]);
+
+    Livewire::test(ViewDesignRequest::class, ['record' => $request->id])
+        ->call('transitionTo', DesignRequestStatus::Completed->value)
+        ->assertHasErrors(['status']);
+
+    expect($request->refresh()->status)->toBe(DesignRequestStatus::DesignRequest);
+});
+
+it('walks a design request through the full sequential flow to completion', function () {
+    $category = DesignCategory::create(['name' => 'Social Media', 'sort_order' => 1, 'is_active' => true]);
+    $request = DesignRequest::create([
+        'requester_id' => $this->admin->id,
+        'branch_id' => $this->branch->id,
+        'design_category_id' => $category->id,
+        'judul_permintaan' => 'Banner Promo',
+        'ringkasan_brief' => 'Buat banner promo bulan ini.',
+        'status' => DesignRequestStatus::DesignRequest,
+    ]);
+
+    $page = Livewire::test(ViewDesignRequest::class, ['record' => $request->id]);
+
+    foreach ([
+        DesignRequestStatus::InProgress,
+        DesignRequestStatus::Approval,
+        DesignRequestStatus::PrintingProcess,
+        DesignRequestStatus::Completed,
+    ] as $nextStatus) {
+        $page->call('transitionTo', $nextStatus->value)->assertHasNoErrors();
+        expect($request->refresh()->status)->toBe($nextStatus);
+    }
+
+    expect($request->resolved_at)->not->toBeNull()
+        ->and($request->statusHistories()->count())->toBe(5);
 });
 
 it('renders the purchasing request desktop detail workspace', function () {

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Casual\Pages;
 
-use App\Enums\RequestStatus;
+use App\Enums\DesignRequestStatus;
 use App\Models\DesignCategory;
 use App\Models\DesignRequest;
 use Filament\Notifications\Notification;
@@ -89,7 +89,7 @@ class DesignRequestPage extends Page
             'judul_permintaan' => $this->judulPermintaan,
             'ringkasan_brief' => $this->ringkasanBrief,
             'attachments' => $paths ?: null,
-            'status' => RequestStatus::Submitted,
+            'status' => DesignRequestStatus::DesignRequest,
         ]);
 
         $this->reset(['judulPermintaan', 'designCategoryId', 'ringkasanBrief', 'attachments']);

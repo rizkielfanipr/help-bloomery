@@ -1,12 +1,11 @@
 @php
     $statusColors = [
-        'draft'       => 'bg-gray-100 text-gray-600',
-        'submitted'   => 'bg-blue-100 text-blue-700',
-        'in_review'   => 'bg-amber-100 text-amber-700',
-        'approved'    => 'bg-green-100 text-green-700',
-        'in_progress' => 'bg-blue-100 text-blue-700',
-        'completed'   => 'bg-green-100 text-green-700',
-        'rejected'    => 'bg-red-100 text-red-700',
+        'design_request'   => 'bg-gray-100 text-gray-600',
+        'in_progress'      => 'bg-blue-100 text-blue-700',
+        'approval'         => 'bg-amber-100 text-amber-700',
+        'printing_process' => 'bg-violet-100 text-violet-700',
+        'completed'        => 'bg-green-100 text-green-700',
+        'rejected'         => 'bg-red-100 text-red-700',
     ];
 @endphp
 
@@ -55,9 +54,9 @@
             <div class="flex flex-col gap-3 px-5">
                 @foreach($requests as $request)
                     @php
-                        $statusValue = $request->status instanceof \App\Enums\RequestStatus
+                        $statusValue = $request->status instanceof \App\Enums\DesignRequestStatus
                             ? $request->status->value : $request->status;
-                        $statusLabel = $request->status instanceof \App\Enums\RequestStatus
+                        $statusLabel = $request->status instanceof \App\Enums\DesignRequestStatus
                             ? $request->status->getLabel() : $statusValue;
                         $statusColor = $statusColors[$statusValue] ?? 'bg-gray-100 text-gray-600';
                         $isExpanded  = $expandedId === $request->id;
@@ -87,10 +86,16 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42"/>
                                         </svg>
                                     </div>
-                                @elseif($statusValue === 'in_review')
+                                @elseif($statusValue === 'approval')
                                     <div class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
                                         <svg class="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                                        </svg>
+                                    </div>
+                                @elseif($statusValue === 'printing_process')
+                                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-violet-100">
+                                        <svg class="h-4 w-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.19-.568-1.12-1.227L6.34 18m11.32 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.06 2.06 0 0 0-1.58-.86 109.126 109.126 0 0 0-3.845-.076c-.535 0-.98.4-1.02.933a17.902 17.902 0 0 0-3.213 9.193c-.038.62.47 1.124 1.09 1.124H6.34"/>
                                         </svg>
                                     </div>
                                 @else
@@ -153,10 +158,11 @@
                                     <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Progress</p>
                                     @php
                                         $steps = [
-                                            ['value' => 'submitted',   'label' => 'Diajukan'],
-                                            ['value' => 'in_review',   'label' => 'Ditinjau'],
-                                            ['value' => 'in_progress', 'label' => 'Dikerjakan'],
-                                            ['value' => 'completed',   'label' => 'Selesai'],
+                                            ['value' => 'design_request',   'label' => 'Diajukan'],
+                                            ['value' => 'in_progress',      'label' => 'Dikerjakan'],
+                                            ['value' => 'approval',         'label' => 'Approval'],
+                                            ['value' => 'printing_process', 'label' => 'Proses Cetak'],
+                                            ['value' => 'completed',        'label' => 'Selesai'],
                                         ];
                                         $stepValues   = array_column($steps, 'value');
                                         $currentIndex = array_search($statusValue, $stepValues);

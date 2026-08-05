@@ -2,7 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\DesignRequests;
 
-use App\Enums\RequestStatus;
+use App\Enums\DesignRequestStatus;
 use App\Filament\Exports\DesignRequestExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\EditDesignRequest;
@@ -10,7 +10,6 @@ use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ListDesignRequests;
 use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ViewDesignRequest;
 use App\Models\DesignCategory;
 use App\Models\DesignRequest;
-use App\Models\User;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -50,7 +49,7 @@ class DesignRequestResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) DesignRequest::whereIn('status', [RequestStatus::Submitted, RequestStatus::InReview])->count() ?: null;
+        return (string) DesignRequest::whereIn('status', [DesignRequestStatus::DesignRequest, DesignRequestStatus::InProgress, DesignRequestStatus::Approval])->count() ?: null;
     }
 
     public static function getNavigationBadgeColor(): ?string
@@ -68,10 +67,9 @@ class DesignRequestResource extends Resource
                     TextEntry::make('status')
                         ->label('Status')
                         ->badge()
-                        ->formatStateUsing(fn (RequestStatus $state) => $state->getLabel())
-                        ->color(fn (RequestStatus $state) => $state->getColor()),
+                        ->formatStateUsing(fn (DesignRequestStatus $state) => $state->getLabel())
+                        ->color(fn (DesignRequestStatus $state) => $state->getColor()),
                     TextEntry::make('category.name')->label('Kategori')->placeholder('-'),
-                    TextEntry::make('assignee.name')->label('Dikerjakan oleh')->placeholder('Belum ditugaskan'),
                     TextEntry::make('created_at')->label('Tanggal Pengajuan')->dateTime('d M Y H:i'),
                 ]),
             ]),
@@ -101,14 +99,8 @@ class DesignRequestResource extends Resource
             Section::make()->schema([
                 Select::make('status')
                     ->label('Status')
-                    ->options(collect(RequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()]))
+                    ->options(collect(DesignRequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()]))
                     ->required(),
-
-                Select::make('assignee_id')
-                    ->label('Ditugaskan ke')
-                    ->options(User::all()->pluck('name', 'id'))
-                    ->searchable()
-                    ->nullable(),
             ]),
         ]);
     }
@@ -146,19 +138,14 @@ class DesignRequestResource extends Resource
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn (RequestStatus $state) => $state->getLabel())
-                    ->color(fn (RequestStatus $state) => $state->getColor()),
-
-                TextColumn::make('assignee.name')
-                    ->label('PIC')
-                    ->placeholder('-')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->formatStateUsing(fn (DesignRequestStatus $state) => $state->getLabel())
+                    ->color(fn (DesignRequestStatus $state) => $state->getColor()),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')
                     ->label('Status')
-                    ->options(collect(RequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()])),
+                    ->options(collect(DesignRequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()])),
 
                 SelectFilter::make('design_category_id')
                     ->label('Kategori')
@@ -189,6 +176,6 @@ class DesignRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['requester', 'assignee', 'branch', 'category']);
+        return parent::getEloquentQuery()->with(['requester', 'branch', 'category']);
     }
 }

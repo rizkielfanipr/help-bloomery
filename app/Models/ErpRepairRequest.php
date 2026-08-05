@@ -21,20 +21,13 @@ class ErpRepairRequest extends Model
         'requester_id',
         'ticket_number',
         'branch_id',
-        'assignee_id',
         'erp_module_id',
         'request_type_id',
         'keterangan',
         'attachments',
         'status',
-        'work_classification',
         'priority',
-        'due_at',
         'it_notes',
-        'escalation_target',
-        'escalation_reason',
-        'escalated_at',
-        'resolution_note',
         'closed_by',
         'resolved_at',
     ];
@@ -44,8 +37,6 @@ class ErpRepairRequest extends Model
         return [
             'attachments' => 'array',
             'status' => ItRequestStatus::class,
-            'due_at' => 'datetime',
-            'escalated_at' => 'datetime',
             'resolved_at' => 'datetime',
         ];
     }
@@ -53,11 +44,6 @@ class ErpRepairRequest extends Model
     public function requester(): BelongsTo
     {
         return $this->belongsTo(User::class, 'requester_id');
-    }
-
-    public function assignee(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assignee_id');
     }
 
     public function branch(): BelongsTo

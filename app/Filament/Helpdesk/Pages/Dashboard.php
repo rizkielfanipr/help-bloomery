@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Enums\BriefingReviewStatus;
+use App\Enums\DesignRequestStatus;
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\RequestStatus;
 use App\Enums\ServiceRequestStatus;
@@ -50,6 +51,7 @@ class Dashboard extends BaseDashboard
     {
         $pendingService = [ServiceRequestStatus::Submitted->value, ServiceRequestStatus::InProgress->value, ServiceRequestStatus::ReSubmitted->value];
         $pendingRequest = [RequestStatus::Submitted->value, RequestStatus::InReview->value, RequestStatus::InProgress->value];
+        $pendingDesign = [DesignRequestStatus::DesignRequest->value, DesignRequestStatus::InProgress->value, DesignRequestStatus::Approval->value, DesignRequestStatus::PrintingProcess->value];
         $pendingPurchase = [PurchaseRequestStatus::Submitted->value, PurchaseRequestStatus::Approved->value];
 
         $serviceCounts = ServiceRequest::selectRaw('status, count(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
@@ -91,8 +93,8 @@ class Dashboard extends BaseDashboard
                 'key' => 'design',
                 'label' => 'Permintaan Design',
                 'total' => $designCounts->sum(),
-                'pending' => $designCounts->only($pendingRequest)->sum(),
-                'completed' => (int) ($designCounts[RequestStatus::Completed->value] ?? 0),
+                'pending' => $designCounts->only($pendingDesign)->sum(),
+                'completed' => (int) ($designCounts[DesignRequestStatus::Completed->value] ?? 0),
                 'bg' => 'bg-pink-50',
                 'icon_bg' => 'bg-pink-100',
                 'icon_color' => 'text-pink-600',

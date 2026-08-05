@@ -40,4 +40,22 @@ enum RequestStatus: string implements HasColor, HasLabel
             self::Rejected => 'danger',
         };
     }
+
+    /** @return array<self> */
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::Draft => [self::Submitted],
+            self::Submitted => [self::InReview, self::Rejected],
+            self::InReview => [self::Approved, self::Rejected],
+            self::Approved => [self::InProgress],
+            self::InProgress => [self::Completed],
+            self::Rejected, self::Completed => [],
+        };
+    }
+
+    public function canTransitionTo(self $status): bool
+    {
+        return in_array($status, $this->allowedTransitions(), true);
+    }
 }

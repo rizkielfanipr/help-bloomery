@@ -36,10 +36,6 @@ class EditErpRepairRequest extends EditRecord
         $newStatus = $this->record->status->value;
         $action = $newStatus !== $this->previousStatus ? 'status_changed' : 'updated';
 
-        if ($this->record->status === ItRequestStatus::Escalated && ! $this->record->escalated_at) {
-            $this->record->updateQuietly(['escalated_at' => now()]);
-        }
-
         if ($this->record->status === ItRequestStatus::Completed && ! $this->record->resolved_at) {
             $this->record->updateQuietly([
                 'resolved_at' => now(),

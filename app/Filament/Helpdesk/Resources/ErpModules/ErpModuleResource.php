@@ -9,7 +9,6 @@ use App\Filament\Helpdesk\Resources\ErpModules\Pages\EditErpModule;
 use App\Filament\Helpdesk\Resources\ErpModules\Pages\ListErpModules;
 use App\Models\ErpModule;
 use BackedEnum;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -74,22 +73,22 @@ class ErpModuleResource extends Resource
                     ->width(50),
 
                 TextColumn::make('name')
-                    ->label('Nama Modul')
+                    ->label('NAMA MODUL')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('erp_repair_requests_count')
-                    ->label('Jumlah Request')
+                    ->label('JUMLAH REQUEST')
                     ->counts('erpRepairRequests')
                     ->badge()
                     ->color('gray'),
 
                 IconColumn::make('is_active')
-                    ->label('Aktif')
+                    ->label('AKTIF')
                     ->boolean(),
 
                 TextColumn::make('created_at')
-                    ->label('Dibuat')
+                    ->label('DIBUAT')
                     ->date('d M Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -97,15 +96,16 @@ class ErpModuleResource extends Resource
             ->defaultSort('sort_order')
             ->reorderable('sort_order')
             ->recordActions([
-                EditAction::make()->iconButton(),
-                DeleteAction::make()->iconButton(),
+                EditAction::make()->iconButton()->tooltip('Edit'),
+                DeleteAction::make()->iconButton()->tooltip('Hapus'),
             ])
             ->toolbarActions([
                 ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(ErpModuleExporter::class),
 
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
+                DeleteBulkAction::make()
+                    ->iconButton()
+                    ->tooltip('Hapus data terpilih')
+                    ->color('danger'),
             ]);
     }
 

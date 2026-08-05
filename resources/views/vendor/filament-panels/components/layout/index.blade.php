@@ -40,7 +40,7 @@
     if (str_contains($path, 'stock-card')) { $initialOpen[] = 'inventory'; }
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
-    if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module')) { $initialOpen[] = 'it'; }
+    if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);

@@ -25,19 +25,19 @@ class ErpRepairRequestFactory extends Factory
     public function definition(): array
     {
         $status = fake()->randomElement(ItRequestStatus::cases());
-        $isAssigned = $status !== ItRequestStatus::Submitted;
+        $requestType = ItRequestType::inRandomOrder()->first();
 
         return [
             'requester_id' => User::inRandomOrder()->value('id'),
             'branch_id' => Branch::inRandomOrder()->value('id'),
-            'assignee_id' => $isAssigned ? User::inRandomOrder()->value('id') : null,
             'erp_module_id' => ErpModule::inRandomOrder()->value('id'),
-            'request_type_id' => ItRequestType::inRandomOrder()->value('id'),
+            'request_type_id' => $requestType?->id,
             'keterangan' => fake()->randomElement(self::$issues).'. '.fake()->sentence(8),
             'attachments' => null,
             'status' => $status,
-            'work_classification' => $isAssigned ? fake()->randomElement(['standard', 'major_project']) : null,
-            'priority' => fake()->randomElement(['low', 'medium', 'high', 'critical']),
+            // Priority is derived from the Request Type's configured default,
+            // mirroring how a real ticket is created via ErpRequestPage::submit().
+            'priority' => $requestType?->priority ?? 'medium',
             'resolved_at' => $status === ItRequestStatus::Completed ? fake()->dateTimeBetween('-30 days', 'now') : null,
         ];
     }

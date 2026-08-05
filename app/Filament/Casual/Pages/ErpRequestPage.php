@@ -89,6 +89,8 @@ class ErpRequestPage extends Page
             $paths[] = $file->store('erp-requests', 'b2');
         }
 
+        $requestType = ItRequestType::findOrFail($this->requestTypeId);
+
         $request = ErpRepairRequest::create([
             'requester_id' => $user->id,
             'branch_id' => $user->branch_id,
@@ -97,6 +99,7 @@ class ErpRequestPage extends Page
             'keterangan' => $this->keterangan,
             'attachments' => $paths ?: null,
             'status' => ItRequestStatus::Submitted,
+            'priority' => $requestType->priority,
         ]);
 
         $request->activities()->create([

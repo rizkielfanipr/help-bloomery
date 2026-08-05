@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Http\Middleware\EnsureRole;
 use App\Models\User;
@@ -27,6 +28,12 @@ class AppServiceProvider extends ServiceProvider
             TablesRenderHook::HEADER_CELL,
             fn (array $data) => view('filament.helpdesk.purchase-requests.table-header-cell', $data),
             scopes: ListPurchaseRequests::class,
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.erp-repair-requests.table-header-cell', $data),
+            scopes: ListErpRepairRequests::class,
         );
     }
 }

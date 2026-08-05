@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Enums\RequestStatus;
+use App\Enums\DesignRequestStatus;
 use App\Models\Branch;
 use App\Models\DesignCategory;
 use App\Models\DesignRequest;
@@ -24,19 +24,17 @@ class DesignRequestFactory extends Factory
 
     public function definition(): array
     {
-        $status = fake()->randomElement(RequestStatus::cases());
-        $isAssigned = ! in_array($status, [RequestStatus::Draft, RequestStatus::Submitted]);
+        $status = fake()->randomElement(DesignRequestStatus::cases());
 
         return [
             'requester_id' => User::inRandomOrder()->value('id'),
             'branch_id' => Branch::inRandomOrder()->value('id'),
-            'assignee_id' => $isAssigned ? User::inRandomOrder()->value('id') : null,
             'design_category_id' => DesignCategory::inRandomOrder()->value('id'),
             'judul_permintaan' => fake()->randomElement(self::$titles),
             'ringkasan_brief' => fake()->paragraph(3),
             'attachments' => null,
             'status' => $status,
-            'resolved_at' => $status === RequestStatus::Completed ? fake()->dateTimeBetween('-30 days', 'now') : null,
+            'resolved_at' => $status === DesignRequestStatus::Completed ? fake()->dateTimeBetween('-30 days', 'now') : null,
         ];
     }
 }

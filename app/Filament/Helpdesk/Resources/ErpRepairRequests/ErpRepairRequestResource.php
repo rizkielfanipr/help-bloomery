@@ -8,20 +8,19 @@ use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\EditErpRepairRequest;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest;
+use App\Models\Branch;
 use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
 use App\Models\ItRequestType;
-use App\Models\User;
 use BackedEnum;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
@@ -30,6 +29,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,11 +79,8 @@ class ErpRepairRequestResource extends Resource
                         ->color(fn (ItRequestStatus $state) => $state->getColor()),
                     TextEntry::make('requestType.name')->label('Request Type')->placeholder('-'),
                     TextEntry::make('module.name')->label('Modul ERP')->placeholder('-'),
-                    TextEntry::make('assignee.name')->label('Dikerjakan oleh')->placeholder('Belum ditugaskan'),
                     TextEntry::make('created_at')->label('Tanggal Pengajuan')->dateTime('d M Y H:i'),
-                    TextEntry::make('work_classification')->label('Classification')->badge()->placeholder('Not classified'),
                     TextEntry::make('priority')->label('Priority')->badge(),
-                    TextEntry::make('due_at')->label('Due Date')->dateTime('d M Y H:i')->placeholder('-'),
                 ]),
             ]),
 
@@ -102,11 +100,8 @@ class ErpRepairRequestResource extends Resource
                 ])
                 ->hidden(fn (ErpRepairRequest $record): bool => empty($record->attachments)),
 
-            Section::make('IT Follow-up')->schema([
+            Section::make()->schema([
                 TextEntry::make('it_notes')->label('IT Notes')->placeholder('-')->columnSpanFull(),
-                TextEntry::make('escalation_target')->label('Escalation Target')->placeholder('-'),
-                TextEntry::make('escalation_reason')->label('Escalation Reason')->placeholder('-'),
-                TextEntry::make('resolution_note')->label('Resolution')->placeholder('-')->columnSpanFull(),
             ]),
 
             Section::make('Activity Timeline')->schema([
@@ -127,7 +122,7 @@ class ErpRepairRequestResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Triage & Assignment')->schema([
+            Section::make('Status')->schema([
                 Select::make('status')
                     ->label('Status')
                     ->options(fn (?ErpRepairRequest $record): array => $record
@@ -140,50 +135,13 @@ class ErpRepairRequestResource extends Resource
                     ->live()
                     ->required(),
 
-                Select::make('assignee_id')
-                    ->label('Ditugaskan ke')
-                    ->options(User::role(['IT_STAFF', 'SUPERADMIN'])->orderBy('name')->pluck('name', 'id'))
-                    ->searchable()
-                    ->nullable(),
-
-                Select::make('work_classification')
-                    ->label('Classification')
-                    ->options(['standard' => 'Standard', 'major_project' => 'Major Project'])
-                    ->required(),
-
-                Select::make('priority')
-                    ->label('Priority')
-                    ->options(['low' => 'Low', 'medium' => 'Medium', 'high' => 'High', 'critical' => 'Critical'])
-                    ->required(),
-
-                DateTimePicker::make('due_at')->label('Due Date')->seconds(false),
-                Textarea::make('it_notes')->label('IT Notes')->rows(4)->columnSpanFull(),
-            ])->columns(2),
-
-            Section::make('Escalation')->schema([
-                Select::make('escalation_target')
-                    ->label('Escalation Target')
-                    ->options([
-                        'it_level_2' => 'IT Level 2',
-                        'developer' => 'Developer',
-                        'vendor' => 'Vendor',
-                        'other' => 'Other',
-                    ])
-                    ->required(fn (Get $get): bool => self::statusValue($get('status')) === ItRequestStatus::Escalated->value),
-                Textarea::make('escalation_reason')
-                    ->label('Escalation Reason')
-                    ->rows(3)
-                    ->required(fn (Get $get): bool => self::statusValue($get('status')) === ItRequestStatus::Escalated->value)
-                    ->columnSpanFull(),
-            ]),
-
-            Section::make('Resolution')->schema([
-                Textarea::make('resolution_note')
-                    ->label('Resolution Note')
+                Textarea::make('it_notes')
+                    ->label('IT Notes')
                     ->rows(4)
-                    ->required(fn (Get $get): bool => self::statusValue($get('status')) === ItRequestStatus::Completed->value)
+                    ->required(fn (Get $get): bool => self::statusValue($get('status')) === ItRequestStatus::Rejected->value)
+                    ->helperText('Wajib diisi jika status diubah menjadi Rejected.')
                     ->columnSpanFull(),
-            ]),
+            ])->columns(2),
         ]);
     }
 
@@ -192,59 +150,52 @@ class ErpRepairRequestResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('ticket_number')
-                    ->label('Ticket')
+                    ->label('TIKET')
                     ->searchable()
                     ->copyable()
-                    ->weight('bold'),
+                    ->weight('semibold'),
 
                 TextColumn::make('created_at')
-                    ->label('Tanggal')
+                    ->label('TANGGAL')
                     ->date('d M Y')
                     ->sortable(),
 
                 TextColumn::make('requester.name')
-                    ->label('Pemohon')
+                    ->label('PEMOHON')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('branch.name')
-                    ->label('Cabang')
+                    ->label('CABANG')
                     ->placeholder('-')
                     ->sortable(),
 
                 TextColumn::make('module.name')
-                    ->label('Modul ERP')
+                    ->label('MODUL ERP')
                     ->badge()
                     ->color('info')
                     ->placeholder('-'),
 
                 TextColumn::make('requestType.name')
-                    ->label('Type')
+                    ->label('TYPE')
                     ->badge()
                     ->placeholder('-'),
 
                 TextColumn::make('keterangan')
-                    ->label('Keterangan')
-                    ->limit(50)
-                    ->searchable(),
+                    ->label('KETERANGAN')
+                    ->limit(55)
+                    ->tooltip(fn (ErpRepairRequest $record): string => (string) $record->keterangan)
+                    ->wrap(),
 
                 TextColumn::make('status')
-                    ->label('Status')
+                    ->label('STATUS')
                     ->badge()
+                    ->sortable()
                     ->formatStateUsing(fn (ItRequestStatus $state) => $state->getLabel())
                     ->color(fn (ItRequestStatus $state) => $state->getColor()),
 
-                TextColumn::make('work_classification')
-                    ->label('Class')
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'major_project' => 'Major Project',
-                        'standard' => 'Standard',
-                        default => 'Unclassified',
-                    }),
-
                 TextColumn::make('priority')
-                    ->label('Priority')
+                    ->label('PRIORITY')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'critical' => 'danger',
@@ -252,25 +203,48 @@ class ErpRepairRequestResource extends Resource
                         'low' => 'gray',
                         default => 'info',
                     }),
-
-                TextColumn::make('assignee.name')
-                    ->label('PIC')
-                    ->placeholder('-')
-                    ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('created_at', 'desc')
             ->filters([
+                Filter::make('ticket_number')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('ticket_number', 'like', '%'.trim((string) $data['value']).'%'))),
+
+                Filter::make('created_at')
+                    ->form([
+                        DatePicker::make('from'),
+                        DatePicker::make('until'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('created_at', '>=', $date))
+                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('created_at', '<=', $date))),
+
+                Filter::make('requester_name')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->whereHas('requester', fn (Builder $query) => $query
+                                ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
+
+                Filter::make('keterangan')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('keterangan', 'like', '%'.trim((string) $data['value']).'%'))),
+
                 SelectFilter::make('status')
-                    ->label('Status')
+                    ->label('STATUS')
                     ->options(ItRequestStatus::class),
+
+                SelectFilter::make('branch_id')
+                    ->label('CABANG')
+                    ->options(Branch::orderBy('name')->pluck('name', 'id'))
+                    ->searchable(),
 
                 SelectFilter::make('request_type_id')
                     ->label('Request Type')
                     ->options(ItRequestType::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id')),
-
-                SelectFilter::make('work_classification')
-                    ->label('Classification')
-                    ->options(['standard' => 'Standard', 'major_project' => 'Major Project']),
 
                 SelectFilter::make('priority')
                     ->label('Priority')
@@ -279,19 +253,23 @@ class ErpRepairRequestResource extends Resource
                 SelectFilter::make('erp_module_id')
                     ->label('Modul ERP')
                     ->options(ErpModule::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id')),
-            ])
+            ], layout: FiltersLayout::AboveContent)
+            ->deferFilters(false)
             ->recordActions([
-                ViewAction::make()->iconButton()->tooltip('Lihat'),
-                EditAction::make()->iconButton()->tooltip('Edit'),
-                DeleteAction::make()->iconButton(),
+                ViewAction::make()->iconButton()->tooltip('Lihat Detail'),
+                DeleteAction::make()->iconButton()->tooltip('Hapus'),
             ])
             ->toolbarActions([
                 ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(ErpRepairRequestExporter::class),
 
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+                DeleteBulkAction::make()
+                    ->iconButton()
+                    ->tooltip('Hapus data terpilih')
+                    ->color('danger'),
+            ])
+            ->defaultSort('created_at', 'desc')
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50, 100]);
     }
 
     public static function getPages(): array
@@ -310,6 +288,6 @@ class ErpRepairRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['requester', 'assignee', 'branch', 'module', 'requestType']);
+        return parent::getEloquentQuery()->with(['requester', 'branch', 'module', 'requestType']);
     }
 }

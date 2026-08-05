@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ItRequestType extends Model
 {
-    protected $fillable = ['name', 'sort_order', 'is_active'];
+    protected $fillable = ['name', 'priority', 'sort_order', 'is_active'];
 
     protected function casts(): array
     {

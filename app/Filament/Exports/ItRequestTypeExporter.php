@@ -2,26 +2,23 @@
 
 namespace App\Filament\Exports;
 
-use App\Models\DesignRequest;
+use App\Models\ItRequestType;
 use Filament\Actions\Exports\ExportColumn;
 use Filament\Actions\Exports\Exporter;
 use Filament\Actions\Exports\Models\Export;
 
-class DesignRequestExporter extends Exporter
+class ItRequestTypeExporter extends Exporter
 {
-    protected static ?string $model = DesignRequest::class;
+    protected static ?string $model = ItRequestType::class;
 
     public static function getColumns(): array
     {
         return [
             ExportColumn::make('id')->label('ID'),
-            ExportColumn::make('requester.name')->label('Pemohon'),
-            ExportColumn::make('branch.name')->label('Cabang'),
-            ExportColumn::make('category.name')->label('Kategori'),
-            ExportColumn::make('judul_permintaan')->label('Judul'),
-            ExportColumn::make('ringkasan_brief')->label('Brief'),
-            ExportColumn::make('status')->label('Status'),
-            ExportColumn::make('created_at')->label('Tanggal'),
+            ExportColumn::make('name')->label('Name'),
+            ExportColumn::make('priority')->label('Priority'),
+            ExportColumn::make('sort_order')->label('Order'),
+            ExportColumn::make('is_active')->label('Active'),
         ];
     }
 

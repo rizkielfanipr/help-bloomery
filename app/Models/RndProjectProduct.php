@@ -25,6 +25,7 @@ class RndProjectProduct extends Model
         'component' => 'Component',
         'packaging' => 'Packaging',
         'supporting' => 'Supporting',
+        'menu' => 'Menu',
     ];
 
     protected $fillable = [

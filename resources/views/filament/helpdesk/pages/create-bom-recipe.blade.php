@@ -20,7 +20,7 @@
             <div class="flex items-start gap-4">
                 <div class="rounded-xl bg-blue-600 p-3 text-white"><x-heroicon-o-beaker class="h-6 w-6" /></div>
                 <div>
-                    <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">{{ $projectName }} · {{ $productName }} · Assembly Recipe</p>
+                    <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">{{ $projectName }} · {{ $productName }} · {{ $usageType === 'menu' ? 'Menu Recipe' : 'Assembly Recipe' }}</p>
                     <h2 class="mt-0.5 text-2xl font-bold text-gray-900 dark:text-white">{{ $isEditing ? 'Update Bill of Material' : 'Buat Bill of Material Baru' }}</h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $isEditing ? 'Perbarui informasi dan bahan BOM yang tersimpan di ESB Core.' : 'Isi produk hasil dan bahan penyusun. Data akan dikirim ke ESB Core.' }}</p>
                 </div>
@@ -44,29 +44,31 @@
                         <input wire:model="data.bomCode" class="{{ $input }}" placeholder="Contoh: BOM-CRS-001">
                         @error('data.bomCode') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
-                    <div class="md:col-span-2 xl:col-span-4">
-                        @php
-                            $selectedResult = $selectedProducts[(int) ($data['productDetailID'] ?? 0)] ?? null;
-                        @endphp
-                        <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(120px,0.6fr)]">
-                            <div>
-                                <label class="{{ $label }}">Product Name <span class="text-red-500">*</span></label>
-                                <button type="button" @click="$dispatch('open-product-picker', { target: 'result', index: 0 })" class="flex min-h-10 w-full overflow-hidden rounded-lg border border-gray-300 bg-white text-left text-sm hover:border-blue-400 dark:border-gray-600 dark:bg-gray-800">
-                                    <span class="min-w-0 flex-1 truncate px-3 py-2 {{ $selectedResult ? 'text-gray-900 dark:text-white' : 'text-gray-400' }}">{{ $selectedResult['productName'] ?? 'Pilih produk hasil' }}</span>
-                                    <span class="flex w-10 shrink-0 items-center justify-center bg-blue-600 font-bold text-white">...</span>
-                                </button>
+                    @unless($usageType === 'menu')
+                        <div class="md:col-span-2 xl:col-span-4">
+                            @php
+                                $selectedResult = $selectedProducts[(int) ($data['productDetailID'] ?? 0)] ?? null;
+                            @endphp
+                            <div class="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(120px,0.6fr)]">
+                                <div>
+                                    <label class="{{ $label }}">Product Name <span class="text-red-500">*</span></label>
+                                    <button type="button" @click="$dispatch('open-product-picker', { target: 'result', index: 0 })" class="flex min-h-10 w-full overflow-hidden rounded-lg border border-gray-300 bg-white text-left text-sm hover:border-blue-400 dark:border-gray-600 dark:bg-gray-800">
+                                        <span class="min-w-0 flex-1 truncate px-3 py-2 {{ $selectedResult ? 'text-gray-900 dark:text-white' : 'text-gray-400' }}">{{ $selectedResult['productName'] ?? 'Pilih produk hasil' }}</span>
+                                        <span class="flex w-10 shrink-0 items-center justify-center bg-blue-600 font-bold text-white">...</span>
+                                    </button>
+                                </div>
+                                <div>
+                                    <label class="{{ $label }}">Product Code</label>
+                                    <input value="{{ $selectedResult['productCode'] ?? '' }}" readonly class="{{ $input }} bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                </div>
+                                <div>
+                                    <label class="{{ $label }}">Unit</label>
+                                    <input value="{{ ($selectedResult['baseUnit'] ?? '') ?: ($selectedResult['unit'] ?? '') }}" readonly class="{{ $input }} bg-gray-50 text-center font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                </div>
                             </div>
-                            <div>
-                                <label class="{{ $label }}">Product Code</label>
-                                <input value="{{ $selectedResult['productCode'] ?? '' }}" readonly class="{{ $input }} bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                            </div>
-                            <div>
-                                <label class="{{ $label }}">Unit</label>
-                                <input value="{{ ($selectedResult['baseUnit'] ?? '') ?: ($selectedResult['unit'] ?? '') }}" readonly class="{{ $input }} bg-gray-50 text-center font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                            </div>
+                            @error('data.productDetailID') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
-                        @error('data.productDetailID') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
+                    @endunless
                     <div>
                         <label class="{{ $label }}">Total Biaya BOM</label>
                         <input wire:model="data.bomCostTotal" type="number" min="0" step="0.0001" class="{{ $input }}">
@@ -97,8 +99,8 @@
             <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900 lg:p-6">
                 <div class="mb-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
                     <div>
-                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Bahan Penyusun</h3>
-                        <p class="text-sm text-gray-500">Minimal satu material untuk membentuk produk hasil.</p>
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $usageType === 'menu' ? 'Item Menu' : 'Bahan Penyusun' }}</h3>
+                        <p class="text-sm text-gray-500">{{ $usageType === 'menu' ? 'Minimal satu item untuk BOM Menu ini.' : 'Minimal satu material untuk membentuk produk hasil.' }}</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         @if(!$isEditing)
@@ -158,11 +160,13 @@
                                     <input wire:model="data.bomDetails.{{ $index }}.yieldPercent" type="number" min="0" max="100" step="0.0001" class="{{ $input }}">
                                     @error("data.bomDetails.$index.yieldPercent") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                 </div>
-                                <div>
-                                    <label class="{{ $label }}">Tolerance (%)</label>
-                                    <input wire:model="data.bomDetails.{{ $index }}.tolerancePercent" type="number" min="0" max="100" step="0.0001" class="{{ $input }}">
-                                    @error("data.bomDetails.$index.tolerancePercent") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                </div>
+                                @unless($usageType === 'menu')
+                                    <div>
+                                        <label class="{{ $label }}">Tolerance (%)</label>
+                                        <input wire:model="data.bomDetails.{{ $index }}.tolerancePercent" type="number" min="0" max="100" step="0.0001" class="{{ $input }}">
+                                        @error("data.bomDetails.$index.tolerancePercent") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+                                @endunless
                                 <div>
                                     <label class="{{ $label }}">Print Group</label>
                                     <input wire:model="data.bomDetails.{{ $index }}.printGroup" class="{{ $input }}" placeholder="Opsional">

@@ -584,10 +584,11 @@ it('exports the complete product BOM as a PIN-protected PDF', function () {
         'created_by' => auth()->id(),
     ]);
     $product->boms()->attach($bom->id, ['usage_type' => 'main']);
-    $exportUrl = route('helpdesk.rnd-products.bom-pdf', ['project' => $project->id, 'product' => $product->id]);
+    $exportUrl = route('helpdesk.rnd-products.bom-pdf', ['project' => $project->id, 'product' => $product->id, 'scope' => 'kitchen']);
 
     Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
-        ->assertSee('Export PDF')
+        ->assertSee('Export Kitchen PDF')
+        ->call('openExportPdf', 'kitchen')
         ->set('exportPin', '000000')
         ->call('exportBomPdf')
         ->assertHasErrors('exportPin')
@@ -599,6 +600,94 @@ it('exports the complete product BOM as a PIN-protected PDF', function () {
     $this->get($exportUrl)
         ->assertOk()
         ->assertHeader('Content-Type', 'application/pdf');
+});
+
+it('includes the Bill of Material Store section and product photo when exporting a product with a Menu BOM', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'rnd.bom_pin' => '246810',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+    Storage::fake('b2');
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/903' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'bomID' => 903,
+                'bomTypeName' => 'Menu',
+                'bomName' => 'Signature Cake Menu',
+                'bomCode' => 'BOM-SIG-MENU',
+                'productName' => 'Signature Cake',
+                'uomName' => 'PCS',
+                'notes' => 'Menu set',
+                'bomDetails' => [[
+                    'productCode' => 'SIG-CAKE',
+                    'productName' => 'Signature Cake',
+                    'uomName' => 'PCS',
+                    'qty' => 1,
+                    'yieldPercent' => 0,
+                    'printGroup' => '',
+                ]],
+            ],
+        ]),
+    ]);
+
+    $imagePath = 'rnd/products/photo.jpg';
+    Storage::disk('b2')->put($imagePath, UploadedFile::fake()->image('produk.jpg')->get());
+
+    $project = RndProject::query()->create([
+        'name' => 'Signature Product Store',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Signature Cake',
+        'product_code' => 'SIG-CAKE-STORE',
+        'status' => 'development',
+        'image_path' => $imagePath,
+        'created_by' => auth()->id(),
+    ]);
+    $bom = $project->boms()->create([
+        'esb_bom_id' => 903,
+        'bom_code' => 'BOM-SIG-MENU',
+        'bom_name' => 'Signature Cake Menu',
+        'bom_type_name' => 'Menu',
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($bom->id, ['usage_type' => 'menu']);
+    SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->take(3)->get()
+        ->each(function (SalesRegion $region, int $index) use ($product): void {
+            $product->regionalPrices()->create([
+                'sales_region_id' => $region->id,
+                'offline_price' => 45000 + ($index * 1000),
+                'online_price' => 50000 + ($index * 1000),
+                'effective_from' => today()->subDay(),
+                'status' => 'active',
+                'created_by' => auth()->id(),
+            ]);
+        });
+    $exportUrl = route('helpdesk.rnd-products.bom-pdf', ['project' => $project->id, 'product' => $product->id, 'scope' => 'store']);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->assertSee('Export Store PDF')
+        ->call('openExportPdf', 'store')
+        ->set('exportPin', '246810')
+        ->call('exportBomPdf')
+        ->assertHasNoErrors()
+        ->assertRedirect($exportUrl);
+
+    $this->get($exportUrl)
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf')
+        ->assertHeader('Content-Disposition', 'attachment; filename=BOM-STORE-SIG-CAKE-STORE.pdf');
 });
 
 it('inlines R2-hosted BOM instruction images as base64 in the exported PDF', function () {

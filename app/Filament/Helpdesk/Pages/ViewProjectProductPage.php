@@ -88,6 +88,8 @@ class ViewProjectProductPage extends Page
 
     public string $exportPin = '';
 
+    public string $exportScope = 'all';
+
     public ?int $materialDraftId = null;
 
     public string $esbMaterialProductName = '';
@@ -534,19 +536,24 @@ class ViewProjectProductPage extends Page
     {
         $this->authorizeBomManagement();
         abort_unless(array_key_exists($usageType, RndProjectProduct::BOM_USAGE_TYPES), 422);
-        if ($usageType !== 'main') {
+        if (! $this->isTopLevelUsageType($usageType)) {
             abort_unless($parentBomId !== null && $this->isAttachedMainBom($parentBomId), 422);
         }
         $this->importUsageType = $usageType;
-        $this->importParentBomId = $usageType === 'main' ? null : $parentBomId;
+        $this->importParentBomId = $this->isTopLevelUsageType($usageType) ? null : $parentBomId;
         $this->importSearch = '';
         $this->importBomCodeSearch = '';
         $this->importBomNameSearch = '';
         $this->importBomProductSearch = '';
         $this->importBomUnitSearch = '';
-        $this->importBomTypeSearch = '';
+        $this->importBomTypeSearch = $usageType === 'menu' ? 'Menu' : '';
         $this->importPage = 1;
         $this->importModalOpen = true;
+    }
+
+    private function isTopLevelUsageType(string $usageType): bool
+    {
+        return in_array($usageType, ['main', 'menu'], true);
     }
 
     public function updatedImportSearch(): void
@@ -586,7 +593,9 @@ class ViewProjectProductPage extends Page
         $name = mb_strtolower(trim($this->importBomNameSearch));
         $product = mb_strtolower(trim($this->importBomProductSearch));
         $unit = mb_strtolower(trim($this->importBomUnitSearch));
-        $type = mb_strtolower(trim($this->importBomTypeSearch));
+        // "Add Existing Menu" is hard-locked to Menu-type BOMs only, regardless
+        // of whatever the type filter field is currently set to.
+        $type = $this->importUsageType === 'menu' ? 'menu' : mb_strtolower(trim($this->importBomTypeSearch));
 
         return array_values(array_filter($this->importBomOptions, function (array $bom) use ($search, $code, $name, $product, $unit, $type): bool {
             $bomCode = mb_strtolower((string) ($bom['bomCode'] ?? ''));
@@ -623,7 +632,7 @@ class ViewProjectProductPage extends Page
     public function attachBom(int $bomId): void
     {
         $this->authorizeBomManagement();
-        if ($this->importUsageType !== 'main') {
+        if (! $this->isTopLevelUsageType($this->importUsageType)) {
             abort_unless($this->importParentBomId !== null && $this->isAttachedMainBom($this->importParentBomId), 422);
         }
 
@@ -668,7 +677,7 @@ class ViewProjectProductPage extends Page
             $this->productRecord->boms()->syncWithoutDetaching([
                 $projectBom->id => [
                     'usage_type' => $this->importUsageType,
-                    'parent_rnd_project_bom_id' => $this->importUsageType === 'main' ? null : $this->importParentBomId,
+                    'parent_rnd_project_bom_id' => $this->isTopLevelUsageType($this->importUsageType) ? null : $this->importParentBomId,
                 ],
             ]);
             $this->importBomOptions = array_values(array_filter(
@@ -1188,8 +1197,9 @@ class ViewProjectProductPage extends Page
     {
         $this->authorizeBomUpdate();
         $projectBom = $this->attachedProjectBom($projectBomId);
+        $isMenu = $this->isMenuBomDetail(data_get($this->bomComponentDetails, $projectBomId, []));
         $validated = $this->validate([
-            "bomComponentDrafts.$projectBomId.productDetailID" => ['required', 'integer', 'min:1'],
+            "bomComponentDrafts.$projectBomId.productDetailID" => $isMenu ? ['nullable', 'integer'] : ['required', 'integer', 'min:1'],
             "bomComponentDrafts.$projectBomId.productName" => ['nullable', 'string', 'max:255'],
             "bomComponentDrafts.$projectBomId.productCode" => ['nullable', 'string', 'max:100'],
             "bomComponentDrafts.$projectBomId.uomName" => ['nullable', 'string', 'max:100'],
@@ -1199,12 +1209,12 @@ class ViewProjectProductPage extends Page
             "bomComponentDrafts.$projectBomId.bomDetails.*.lastHPP" => ['required', 'numeric', 'min:0'],
             "bomComponentDrafts.$projectBomId.bomDetails.*.qty" => ['required', 'numeric', 'gt:0'],
             "bomComponentDrafts.$projectBomId.bomDetails.*.yieldPercent" => ['required', 'numeric', 'between:0,100'],
-            "bomComponentDrafts.$projectBomId.bomDetails.*.tolerancePercent" => ['required', 'numeric', 'between:0,100'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.tolerancePercent" => $isMenu ? ['nullable', 'numeric', 'between:0,100'] : ['required', 'numeric', 'between:0,100'],
             "bomComponentDrafts.$projectBomId.bomDetails.*.printGroup" => ['nullable', 'string', 'max:100'],
         ]);
         $draft = data_get($validated, "bomComponentDrafts.$projectBomId");
 
-        if (collect($draft['bomDetails'])->pluck('productDetailID')->map(fn ($id): int => (int) $id)
+        if (! $isMenu && collect($draft['bomDetails'])->pluck('productDetailID')->map(fn ($id): int => (int) $id)
             ->contains((int) $draft['productDetailID'])) {
             $this->addError(
                 "bomComponentDrafts.$projectBomId.productDetailID",
@@ -1329,27 +1339,56 @@ class ViewProjectProductPage extends Page
 
     private function inlineBomPayload(array $latest, array $draft): array
     {
-        return [
+        $isMenu = $this->isMenuBomDetail($latest);
+
+        $payload = [
             'bomTypeID' => (int) ($latest['bomTypeID'] ?? 1),
             'bomName' => (string) ($latest['bomName'] ?? ''),
             'bomCode' => (string) ($latest['bomCode'] ?? ''),
-            'productDetailID' => (int) $draft['productDetailID'],
             'notes' => (string) ($latest['notes'] ?? ''),
             'bomCostTotal' => (float) ($latest['bomCostTotal'] ?? 0),
             'accessType' => (int) ($latest['accessType'] ?? 0),
             'selectedUserAccess' => is_array($latest['selectedUserAccess'] ?? null) ? $latest['selectedUserAccess'] : [],
-            'bomDetails' => array_map(fn (array $item): array => [
-                'ID' => (int) $item['ID'],
-                'productDetailID' => (int) $item['productDetailID'],
-                'lastHPP' => (float) $item['lastHPP'],
-                'qty' => (float) $item['qty'],
-                'yieldPercent' => (float) $item['yieldPercent'],
-                'printGroup' => (string) ($item['printGroup'] ?? ''),
-                'tolerancePercent' => (float) $item['tolerancePercent'],
-                'subtitution' => is_array($item['subtitution'] ?? null) ? $item['subtitution'] : [],
-            ], $draft['bomDetails']),
+            'bomDetails' => array_map(function (array $item) use ($isMenu): array {
+                $row = [
+                    'ID' => (int) $item['ID'],
+                    'productDetailID' => (int) $item['productDetailID'],
+                    'lastHPP' => (float) $item['lastHPP'],
+                    'qty' => (float) $item['qty'],
+                    'yieldPercent' => (float) $item['yieldPercent'],
+                    'printGroup' => (string) ($item['printGroup'] ?? ''),
+                    'subtitution' => is_array($item['subtitution'] ?? null) ? $item['subtitution'] : [],
+                ];
+
+                if (! $isMenu) {
+                    $row['tolerancePercent'] = (float) ($item['tolerancePercent'] ?? 0);
+                }
+
+                return $row;
+            }, $draft['bomDetails']),
             'bomCosts' => is_array($latest['bomCosts'] ?? null) ? $latest['bomCosts'] : [],
         ];
+
+        // BOM Menu has no "Product Hasil" concept in ESB's API — only Assembly
+        // BOMs carry a top-level productDetailID.
+        if (! $isMenu) {
+            $payload['productDetailID'] = (int) $draft['productDetailID'];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * BOM Menu (bomTypeID 3) has a leaner bomDetails schema than Assembly per
+     * ESB's API — no `tolerancePercent` field — so callers use this to decide
+     * whether to validate/send it.
+     *
+     * @param  array<string, mixed>  $detail
+     */
+    public function isMenuBomDetail(array $detail): bool
+    {
+        return (int) ($detail['bomTypeID'] ?? 0) === 3
+            || mb_strtolower(trim((string) ($detail['bomTypeName'] ?? ''))) === 'menu';
     }
 
     private function attachedProjectBom(int $projectBomId): RndProjectBom
@@ -1998,9 +2037,11 @@ class ViewProjectProductPage extends Page
             ->all();
     }
 
-    public function openExportPdf(): void
+    public function openExportPdf(string $scope = 'all'): void
     {
         abort_unless(static::canAccess(), 403);
+        abort_unless(in_array($scope, ['all', 'kitchen', 'store'], true), 422);
+        $this->exportScope = $scope;
         $this->exportPin = '';
         $this->resetValidation();
         $this->exportPinModalOpen = true;
@@ -2034,10 +2075,15 @@ class ViewProjectProductPage extends Page
             now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
         );
 
-        return $this->redirect(route('helpdesk.rnd-products.bom-pdf', [
+        $routeParameters = [
             'project' => $this->projectId,
             'product' => $this->productId,
-        ]), navigate: false);
+        ];
+        if ($this->exportScope !== 'all') {
+            $routeParameters['scope'] = $this->exportScope;
+        }
+
+        return $this->redirect(route('helpdesk.rnd-products.bom-pdf', $routeParameters), navigate: false);
     }
 
     private function authorizeProjectManagement(): void

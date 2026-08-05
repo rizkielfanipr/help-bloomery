@@ -221,7 +221,7 @@
         <section wire:init="loadAllBomComponents" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
                 <div>
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Bill of Material</h3>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Bill of Material Kitchen</h3>
                     <p class="text-sm text-gray-500">{{ $product->boms->count() }} BOM digunakan untuk membuat produk ini.</p>
                 </div>
                 @if($canExportBom)
@@ -231,8 +231,8 @@
                             <span wire:loading.remove wire:target="refreshWipComponentRecipes,loadAllBomComponents">Refresh Mapping</span>
                             <span wire:loading wire:target="refreshWipComponentRecipes,loadAllBomComponents">Memetakan...</span>
                         </button>
-                        <button type="button" wire:click="openExportPdf" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-                            <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export PDF
+                        <button type="button" wire:click="openExportPdf('kitchen')" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Kitchen PDF
                         </button>
                         @if($canManageBom)
                             <button type="button" wire:click="openBomPicker('main')" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
@@ -272,12 +272,14 @@
                     'main' => ['title' => 'Main Recipe', 'description' => 'Resep utama yang menghasilkan produk ini.', 'button' => 'Add Main Recipe', 'optional' => false],
                     'component' => ['title' => 'Components', 'description' => 'Resep turunan seperti sponge, filling, cream, atau sauce.', 'button' => 'Add Component', 'optional' => false],
                     'packaging' => ['title' => 'Packaging', 'description' => 'BOM kebutuhan box, cup, label, dan kemasan produk.', 'button' => 'Add Packaging', 'optional' => false],
+                    'menu' => ['title' => 'Menu', 'description' => 'BOM Menu yang dijual langsung di store.', 'button' => 'Add Existing Menu', 'optional' => false],
                 ];
-                $childGroups = array_filter($bomGroups, fn ($key) => $key !== 'main', ARRAY_FILTER_USE_KEY);
+                $childGroups = array_filter($bomGroups, fn ($key) => ! in_array($key, ['main', 'menu'], true), ARRAY_FILTER_USE_KEY);
                 $mainBoms = $product->boms->filter(fn ($bom) => $bom->pivot->usage_type === 'main');
+                $menuBoms = $product->boms->filter(fn ($bom) => $bom->pivot->usage_type === 'menu');
                 $mainIds = $mainBoms->pluck('id');
                 $unassignedBoms = $product->boms->filter(fn ($bom) =>
-                    $bom->pivot->usage_type !== 'main'
+                    ! in_array($bom->pivot->usage_type, ['main', 'menu'], true)
                     && (! $bom->pivot->parent_rnd_project_bom_id || ! $mainIds->contains($bom->pivot->parent_rnd_project_bom_id))
                 );
             @endphp
@@ -465,6 +467,61 @@
                         </div>
                     </section>
                 @endif
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Bill of Material Store</h3>
+                    <p class="text-sm text-gray-500">{{ $menuBoms->count() }} BOM Menu digunakan untuk penjualan produk ini.</p>
+                </div>
+                @if($canExportBom)
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" wire:click="openExportPdf('store')" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Store PDF
+                        </button>
+                        @if($canManageBom)
+                            <button type="button" wire:click="openBomPicker('menu')" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
+                                <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Add Existing Menu
+                            </button>
+                            <a href="{{ \App\Filament\Helpdesk\Pages\CreateBomRecipePage::getUrl(['project' => $project->id, 'product' => $product->id]) }}?usageType=menu" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                                <x-heroicon-o-plus class="h-4 w-4" /> Create Menu
+                            </a>
+                        @endif
+                    </div>
+                @endif
+            </div>
+
+            <div class="space-y-4 p-5">
+                @forelse($menuBoms as $menuBom)
+                    <section class="overflow-hidden rounded-xl border border-blue-200 bg-blue-50/20 dark:border-blue-900 dark:bg-blue-950/10">
+                        <div class="flex flex-col gap-3 border-b border-blue-200 bg-blue-50 px-4 py-4 dark:border-blue-900 dark:bg-blue-950/30 lg:flex-row lg:items-center">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white"><x-heroicon-o-shopping-bag class="h-5 w-5" /></div>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2"><span class="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">MENU</span><span class="font-mono text-xs font-bold text-blue-700 dark:text-blue-300">{{ $menuBom->bom_code ?: 'BOM-'.$menuBom->esb_bom_id }}</span></div>
+                                <h4 class="mt-1 truncate font-bold text-gray-900 dark:text-white">{{ $menuBom->bom_name }}</h4>
+                                <p class="truncate text-xs text-gray-500">{{ count($bomComponentDetails[$menuBom->id]['bomDetails'] ?? []) }} item pada Menu ini</p>
+                            </div>
+                            <div class="flex shrink-0 gap-2">
+                                <a href="{{ \App\Filament\Helpdesk\Pages\ViewBomPage::getUrl(['project' => $project->id, 'product' => $product->id, 'bom' => $menuBom->esb_bom_id]) }}" class="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 dark:border-blue-800 dark:bg-gray-900">View Recipe</a>
+                                @if($canManageBom)
+                                    <a href="{{ \App\Filament\Helpdesk\Pages\EditBomRecipePage::getUrl(['project' => $project->id, 'product' => $product->id, 'bom' => $menuBom->esb_bom_id]) }}" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">Update</a>
+                                    <button wire:click="detachBom({{ $menuBom->esb_bom_id }})" wire:confirm="Lepas BOM Menu ini?" class="rounded-lg border border-red-200 bg-white p-2 text-red-600 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-link-slash class="h-4 w-4" /></button>
+                                @endif
+                            </div>
+                        </div>
+
+                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $menuBom])
+                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $menuBom->esb_bom_id])
+                    </section>
+                @empty
+                    <div class="rounded-xl border border-dashed border-blue-300 py-12 text-center dark:border-blue-800">
+                        <x-heroicon-o-shopping-bag class="mx-auto h-10 w-10 text-blue-300" />
+                        <h4 class="mt-3 font-bold text-gray-700 dark:text-gray-200">Belum ada BOM Menu</h4>
+                        <p class="mt-1 text-sm text-gray-500">Buat atau tambahkan BOM Menu untuk resep yang dijual langsung di store.</p>
+                    </div>
+                @endforelse
             </div>
         </section>
 
@@ -720,7 +777,7 @@
                 <div class="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
                     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300"><x-heroicon-o-lock-closed class="h-7 w-7" /></div>
                     <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">Export Dokumen Resep</h3>
-                    <p class="mt-2 text-sm leading-6 text-gray-500">Masukkan PIN keamanan untuk mengunduh seluruh Bill of Material dalam format PDF.</p>
+                    <p class="mt-2 text-sm leading-6 text-gray-500">Masukkan PIN keamanan untuk mengunduh Bill of Material {{ $exportScope === 'store' ? 'Store' : ($exportScope === 'kitchen' ? 'Kitchen' : '') }} dalam format PDF.</p>
                     <form wire:submit="exportBomPdf" class="mt-5">
                         <input wire:model="exportPin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Masukkan PIN" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-center text-lg font-bold tracking-[0.3em] dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                         @error('exportPin')<p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>@enderror
@@ -829,10 +886,14 @@
                                         </select>
                                     </th>
                                     <th class="px-4 pb-3 pt-2">
-                                        <select wire:model.live="importBomTypeSearch" class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-normal normal-case dark:border-gray-600 dark:bg-gray-900">
-                                            <option value="">- Semua -</option>
-                                            @foreach($importTypeOptions as $type)<option value="{{ $type }}">{{ $type }}</option>@endforeach
-                                        </select>
+                                        @if($importUsageType === 'menu')
+                                            <span class="flex w-full items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs font-bold text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300" title="Add Existing Menu hanya menampilkan BOM bertipe Menu">Menu</span>
+                                        @else
+                                            <select wire:model.live="importBomTypeSearch" class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-normal normal-case dark:border-gray-600 dark:bg-gray-900">
+                                                <option value="">- Semua -</option>
+                                                @foreach($importTypeOptions as $type)<option value="{{ $type }}">{{ $type }}</option>@endforeach
+                                            </select>
+                                        @endif
                                     </th>
                                     <th class="px-4 pb-3 pt-2"></th>
                                 </tr>

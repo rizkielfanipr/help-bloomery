@@ -9,28 +9,76 @@
         $resultInfo['baseUnit'] ?? null,
         $resultInfo['conversionFactor'] ?? null,
     );
+    $showProductSummary = in_array($sectionLabel, ['Main Recipe', 'Menu'], true);
 ?>
 <div class="bom-section">
-    <div class="bom-header">
-        <div class="bom-title">{{ $bom['bomName'] ?? $bomModel->bom_name }}</div>
-        <div class="bom-subtitle">{{ $sectionLabel }} · {{ ($bom['bomCode'] ?? '') ?: ($bomModel->bom_code ?: '-') }}</div>
-        <div class="bom-result">Product Hasil: <strong>{{ $resultLabel }}</strong></div>
-    </div>
-    <table>
-        <thead>
+    <table class="bom-table">
+        @if($showProductSummary)
+        <tbody class="product-info-row">
             <tr>
-                <th style="width:22px" class="center">No</th>
-                <th style="width:70px">Kode</th>
-                <th>Nama Bahan</th>
-                <th style="width:55px" class="center">Unit</th>
-                <th style="width:55px" class="center">Qty</th>
-                <th style="width:220px" class="center">Informasi Tambahan</th>
+                <td class="product-release-photo">
+                    @if($productPhoto)
+                        <img src="{{ $productPhoto }}" alt="{{ $productRecord->name }}">
+                    @else
+                        <div class="product-release-placeholder">FOTO PRODUK<br>BELUM TERSEDIA</div>
+                    @endif
+                </td>
+                <td class="product-release-info" colspan="2">
+                    <div class="product-field-heading">Nama Product</div>
+                    <div class="product-field-content">
+                        <div class="product-release-name">{{ $productRecord->name }}</div>
+                        <div class="simple-product-code">Product Code / SKU: {{ $productRecord->product_code ?: '-' }}</div>
+                    </div>
+                </td>
+                <td class="simple-price-cell" colspan="3">
+                    <div class="product-field-heading">Harga</div>
+                    <div class="product-field-content">
+                        @forelse($regionalPrices as $price)
+                            <div class="regional-price-line">
+                                <div class="regional-price-name">{{ $price->region?->name ?? '-' }} <span>{{ $price->region?->code ?? '-' }}</span></div>
+                                <div class="regional-price-values">
+                                    Offline <strong>Rp {{ number_format((float) $price->offline_price, 0, ',', '.') }}</strong>
+                                    &nbsp;·&nbsp; Online <strong>Rp {{ number_format((float) $price->online_price, 0, ',', '.') }}</strong>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="regional-price-empty">Belum ada harga regional aktif.</div>
+                        @endforelse
+                    </div>
+                </td>
             </tr>
-        </thead>
+            <tr>
+                <td class="product-detail-cell" colspan="6">
+                    <div class="product-field-heading">Product Detail</div>
+                    <div class="product-field-content product-detail-text">{{ $productRecord->description ?: 'Belum ada deskripsi product.' }}</div>
+                </td>
+            </tr>
+        </tbody>
+        @endif
+        <tbody>
+            <tr>
+                <td class="bom-header" colspan="6">
+                    <div class="bom-title">{{ $bom['bomName'] ?? $bomModel->bom_name }}</div>
+                    @unless($sectionLabel === 'Menu')
+                        <div class="bom-result">Product Hasil: <strong>{{ $resultLabel }}</strong></div>
+                    @endunless
+                </td>
+            </tr>
+        </tbody>
+        <tbody>
+            <tr>
+                <th class="center number-column">NO</th>
+                <th style="width:70px">KODE</th>
+                <th>NAMA BAHAN</th>
+                <th style="width:55px" class="center">UNIT</th>
+                <th style="width:55px" class="center">QTY</th>
+                <th style="width:220px" class="center">INFORMASI TAMBAHAN</th>
+            </tr>
+        </tbody>
         <tbody>
             @forelse($materialRows as $index => $item)
                 <tr>
-                    <td class="center num">{{ $index + 1 }}</td>
+                    <td class="center num number-column">{{ $index + 1 }}</td>
                     <td>{{ $item['productCode'] ?? '-' }}</td>
                     <td>{{ $item['productName'] ?? '-' }}</td>
                     <td class="center"><span class="unit-badge">{{ $item['uomName'] ?? '-' }}</span></td>

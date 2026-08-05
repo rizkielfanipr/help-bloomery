@@ -188,6 +188,200 @@ it('stores a newly created ESB BOM inside its project', function () {
     ]);
 });
 
+it('creates a BOM Menu with bomTypeID 3 when usageType is menu', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom' => Http::response([
+            'status' => 'ok',
+            'result' => ['bomID' => 777],
+        ]),
+    ]);
+
+    $products = [
+        101 => [
+            'productDetailID' => 101,
+            'productName' => 'Croissant Set',
+            'productCode' => 'CRS-SET',
+            'unit' => 'PCS',
+            'baseUnit' => 'PCS',
+            'basePrice' => 0,
+            'receiptTolerance' => 0,
+        ],
+        202 => [
+            'productDetailID' => 202,
+            'productName' => 'Croissant',
+            'productCode' => 'CRS',
+            'unit' => 'PCS',
+            'baseUnit' => 'PCS',
+            'basePrice' => 15000,
+            'receiptTolerance' => 0,
+        ],
+    ];
+
+    // Note: no top-level "Product Hasil" (data.productDetailID) is set — BOM
+    // Menu has no result-product concept in ESB's API, unlike Assembly.
+    Livewire::test(CreateBomRecipePage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->set('usageType', 'menu')
+        ->set('selectedProducts', $products)
+        ->set('data', [
+            'bomName' => 'Croissant Set Menu',
+            'bomCode' => 'BOM-CRS-SET',
+            'notes' => 'Test BOM Menu',
+            'bomCostTotal' => 0,
+            'accessType' => 0,
+            'selectedUserAccess' => [],
+            'bomDetails' => [[
+                'ID' => 0,
+                'productDetailID' => 202,
+                'lastHPP' => 15000,
+                'qty' => 1,
+                'yieldPercent' => 0,
+                'printGroup' => '',
+                'tolerancePercent' => 0,
+            ]],
+        ])
+        ->call('create')
+        ->assertHasNoErrors();
+
+    Http::assertSent(function ($request): bool {
+        if ($request->url() !== 'https://core-esb.test/product/bom' || $request->method() !== 'POST') {
+            return false;
+        }
+
+        // ESB's BOM Menu API doesn't have a tolerancePercent field on bomDetails
+        // (unlike Assembly), nor a top-level productDetailID (no result product)
+        // — neither must be sent for a Menu BOM.
+        return $request['bomTypeID'] === 3
+            && ! array_key_exists('productDetailID', $request->data())
+            && ! array_key_exists('tolerancePercent', $request['bomDetails'][0]);
+    });
+
+    $this->assertDatabaseHas('rnd_project_boms', [
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 777,
+        'bom_type_name' => 'Menu',
+    ]);
+    $projectBomId = RndProjectBom::query()->where('esb_bom_id', 777)->value('id');
+    $this->assertDatabaseHas('rnd_project_product_boms', [
+        'rnd_project_product_id' => $this->product->id,
+        'rnd_project_bom_id' => $projectBomId,
+        'usage_type' => 'menu',
+    ]);
+});
+
+it('filters "Add Existing Menu" to only Menu-type BOMs from ESB', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1, 'limit' => 100, 'count' => 2,
+                'data' => [
+                    ['bomID' => 601, 'bomCode' => 'BOM-ASM', 'bomName' => 'Assembly Recipe', 'bomTypeName' => 'Assembly', 'productName' => 'Croissant', 'uomName' => 'PCS'],
+                    ['bomID' => 602, 'bomCode' => 'BOM-MENU', 'bomName' => 'Croissant Set Menu', 'bomTypeName' => 'Menu', 'productName' => 'Croissant Set', 'uomName' => 'PCS'],
+                ],
+                'prev' => '', 'next' => '',
+            ],
+        ]),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->call('openBomPicker', 'menu')
+        ->call('loadImportBoms');
+
+    $rows = collect($page->instance()->importRows());
+
+    expect($rows->pluck('bomCode')->all())->toBe(['BOM-MENU'])
+        ->and($rows->pluck('bomTypeName')->all())->toBe(['Menu']);
+});
+
+it('shows Bill of Material Kitchen and Store sections with a Menu BOM\'s components', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/555' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'bomID' => 555,
+                'bomTypeID' => 3,
+                'bomTypeName' => 'Menu',
+                'bomName' => 'Croissant Set Menu',
+                'bomCode' => 'BOM-CRS-SET',
+                'bomCostTotal' => 0,
+                'notes' => '',
+                'accessType' => 0,
+                'bomDetails' => [[
+                    'ID' => 1,
+                    'productDetailID' => 202,
+                    'productName' => 'Croissant Panggang',
+                    'productCode' => 'CRS',
+                    'uomName' => 'PCS',
+                    'qty' => 1,
+                    'lastHPP' => 15000,
+                    'yieldPercent' => 0,
+                    'tolerancePercent' => 0,
+                    'printGroup' => '',
+                ]],
+            ],
+        ]),
+    ]);
+
+    $menuBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 555,
+        'bom_code' => 'BOM-CRS-SET',
+        'bom_name' => 'Croissant Set Menu',
+        'bom_type_name' => 'Menu',
+        'sync_status' => 'synced',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($menuBom->id, ['usage_type' => 'menu']);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->call('loadAllBomComponents')
+        ->assertSee('Bill of Material Kitchen')
+        ->assertSee('Bill of Material Store')
+        ->assertSee('Croissant Set Menu')
+        ->assertSee('Croissant Panggang')
+        ->assertDontSee('Belum Ditentukan')
+        // BOM Menu has no tolerancePercent field in ESB's API, unlike Assembly,
+        // and has no top-level "Product Hasil" (result product) concept either.
+        ->assertDontSee('Tolerance %')
+        ->assertDontSee('Product Hasil');
+});
+
 it('loads and updates BOM components inline from the product release page', function () {
     config()->set([
         'cache.default' => 'array',

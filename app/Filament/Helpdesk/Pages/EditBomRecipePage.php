@@ -36,6 +36,7 @@ class EditBomRecipePage extends CreateBomRecipePage
         $this->isEditing = true;
         $this->bomId = $bom;
         $detail = app(EsbCoreService::class)->getBillOfMaterial($bom);
+        $this->usageType = mb_strtolower(trim((string) ($detail['bomTypeName'] ?? ''))) === 'menu' ? 'menu' : 'main';
 
         $this->data = [
             'bomName' => (string) ($detail['bomName'] ?? ''),

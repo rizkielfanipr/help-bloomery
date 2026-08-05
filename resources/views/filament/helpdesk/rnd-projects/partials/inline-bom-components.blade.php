@@ -7,6 +7,8 @@
         ? ($inlineDraft['bomDetails'] ?? [])
         : ($inlineDetail['bomDetails'] ?? []);
     $inlineResult = $inlineEditing ? $inlineDraft : $inlineDetail;
+    $inlineIsMenu = $this->isMenuBomDetail($inlineDetail ?? []);
+    $inlineColumnCount = $inlineIsMenu ? 7 : 8;
 @endphp
 
 <div class="border-t border-gray-200 bg-white/70 dark:border-gray-700 dark:bg-gray-900/60">
@@ -32,29 +34,31 @@
 
     @if($inlineDetail)
         <div wire:loading.remove wire:target="loadBomComponents({{ $inlineBomId }}),loadBomComponents({{ $inlineBomId }}, true)" class="border-t border-gray-100 dark:border-gray-800">
-            <div class="flex flex-col gap-3 border-b border-gray-100 bg-blue-50/40 px-3 py-3 dark:border-gray-800 dark:bg-blue-950/10 sm:flex-row sm:items-center sm:justify-between">
-                <div class="min-w-0">
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-blue-600">Product Hasil</p>
-                    <p class="mt-0.5 truncate text-sm font-bold text-gray-900 dark:text-white">{{ $inlineResult['productName'] ?? 'Product hasil belum dipilih' }}</p>
-                    <p class="mt-0.5 truncate text-xs text-gray-500">
-                        <span class="font-mono font-bold text-blue-600">{{ ($inlineResult['productCode'] ?? '') ?: 'Tanpa kode' }}</span>
-                    </p>
-                    @if(!empty($resultUnitLabels[$inlineBomId]))
-                        <p class="mt-1.5 inline-block rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
-                            {{ $resultUnitLabels[$inlineBomId] }}
+            @unless($inlineIsMenu)
+                <div class="flex flex-col gap-3 border-b border-gray-100 bg-blue-50/40 px-3 py-3 dark:border-gray-800 dark:bg-blue-950/10 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-bold uppercase tracking-wide text-blue-600">Product Hasil</p>
+                        <p class="mt-0.5 truncate text-sm font-bold text-gray-900 dark:text-white">{{ $inlineResult['productName'] ?? 'Product hasil belum dipilih' }}</p>
+                        <p class="mt-0.5 truncate text-xs text-gray-500">
+                            <span class="font-mono font-bold text-blue-600">{{ ($inlineResult['productCode'] ?? '') ?: 'Tanpa kode' }}</span>
                         </p>
+                        @if(!empty($resultUnitLabels[$inlineBomId]))
+                            <p class="mt-1.5 inline-block rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                {{ $resultUnitLabels[$inlineBomId] }}
+                            </p>
+                        @endif
+                        @error("bomComponentDrafts.$inlineBomId.productDetailID")<p class="mt-1 text-[10px] font-semibold text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    @if($inlineEditing)
+                        <button type="button" wire:click="openInlineProductPicker({{ $inlineBomId }}, 'result')" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900">
+                            <x-heroicon-o-arrow-path class="h-4 w-4" /> Ganti Product Hasil
+                        </button>
                     @endif
-                    @error("bomComponentDrafts.$inlineBomId.productDetailID")<p class="mt-1 text-[10px] font-semibold text-red-600">{{ $message }}</p>@enderror
                 </div>
-                @if($inlineEditing)
-                    <button type="button" wire:click="openInlineProductPicker({{ $inlineBomId }}, 'result')" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-gray-900">
-                        <x-heroicon-o-arrow-path class="h-4 w-4" /> Ganti Product Hasil
-                    </button>
-                @endif
-            </div>
+            @endunless
 
             <div class="flex items-center justify-between gap-3 px-3 py-2.5">
-                <p class="text-xs font-bold text-gray-700 dark:text-gray-200">Komponen Penyusun</p>
+                <p class="text-xs font-bold text-gray-700 dark:text-gray-200">{{ $inlineIsMenu ? 'Item Menu' : 'Komponen Penyusun' }}</p>
                 @if($inlineEditing)
                     <button type="button" wire:click="openInlineProductPicker({{ $inlineBomId }}, 'component')" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
                         <x-heroicon-o-plus class="h-4 w-4" /> Tambah Komponen
@@ -70,7 +74,9 @@
                     <col class="w-[12%]">
                     <col class="w-[10%]">
                     <col class="w-[10%]">
-                    <col class="w-[11%]">
+                    @unless($inlineIsMenu)
+                        <col class="w-[11%]">
+                    @endunless
                     <col class="w-[14%]">
                     <col class="w-[6%]">
                 </colgroup>
@@ -81,7 +87,9 @@
                         <th class="px-3 py-2 text-right" title="Harga rata-rata tertimbang dari histori pembelian (Product Price Index)">Harga WA</th>
                         <th class="px-3 py-2 text-right">Qty</th>
                         <th class="px-3 py-2 text-right">Waste %</th>
-                        <th class="px-3 py-2 text-right">Tolerance %</th>
+                        @unless($inlineIsMenu)
+                            <th class="px-3 py-2 text-right">Tolerance %</th>
+                        @endunless
                         <th class="px-3 py-2 text-left">Print Group</th>
                         <th class="px-2 py-2 text-right">
                             @if($inlineEditing)
@@ -125,13 +133,15 @@
                                     <p class="text-right">{{ $component['yieldPercent'] }}</p>
                                 @endif
                             </td>
-                            <td class="px-3 py-2">
-                                @if($inlineEditing)
-                                    <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.bomDetails.{{ $componentIndex }}.tolerancePercent" type="number" min="0" max="100" step="0.01" class="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-right text-xs dark:border-gray-600 dark:bg-gray-800">
-                                @else
-                                    <p class="text-right">{{ $component['tolerancePercent'] }}</p>
-                                @endif
-                            </td>
+                            @unless($inlineIsMenu)
+                                <td class="px-3 py-2">
+                                    @if($inlineEditing)
+                                        <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.bomDetails.{{ $componentIndex }}.tolerancePercent" type="number" min="0" max="100" step="0.01" class="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-right text-xs dark:border-gray-600 dark:bg-gray-800">
+                                    @else
+                                        <p class="text-right">{{ $component['tolerancePercent'] }}</p>
+                                    @endif
+                                </td>
+                            @endunless
                             <td class="px-3 py-2">
                                 @if($inlineEditing)
                                     <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.bomDetails.{{ $componentIndex }}.printGroup" maxlength="100" class="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-800">
@@ -146,7 +156,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" class="px-3 py-8 text-center text-gray-500">Tidak ada komponen pada BOM ini.</td></tr>
+                        <tr><td colspan="{{ $inlineColumnCount }}" class="px-3 py-8 text-center text-gray-500">Tidak ada komponen pada BOM ini.</td></tr>
                     @endforelse
                 </tbody>
             </table>

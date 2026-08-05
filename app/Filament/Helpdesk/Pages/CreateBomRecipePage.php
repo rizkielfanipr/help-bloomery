@@ -12,6 +12,7 @@ use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Url;
 use UnitEnum;
 
 class CreateBomRecipePage extends Page
@@ -41,6 +42,9 @@ class CreateBomRecipePage extends Page
     public string $productName = '';
 
     public bool $isEditing = false;
+
+    #[Url]
+    public string $usageType = 'main';
 
     public string $importBomId = '';
 
@@ -91,6 +95,11 @@ class CreateBomRecipePage extends Page
         return auth()->user()?->can('create bill of materials') ?? false;
     }
 
+    public function getTitle(): string
+    {
+        return $this->usageType === 'menu' ? 'Buat Resep Menu' : 'Buat Resep Assembly';
+    }
+
     public function mount(?int $project = null, ?int $product = null, ?int $bom = null): void
     {
         abort_unless($project && $product, 404);
@@ -101,6 +110,7 @@ class CreateBomRecipePage extends Page
         $this->projectName = $projectRecord->name;
         $this->productId = $productRecord->id;
         $this->productName = $productRecord->name;
+        $this->usageType = $this->usageType === 'menu' ? 'menu' : 'main';
 
         $this->data = [
             'bomName' => '',
@@ -326,41 +336,60 @@ class CreateBomRecipePage extends Page
 
     public function create(): void
     {
+        $isMenu = $this->usageType === 'menu';
+
         $validated = $this->validate([
             'data.bomName' => ['required', 'string', 'max:255'],
             'data.bomCode' => ['required', 'string', 'max:100'],
-            'data.productDetailID' => ['required', 'integer', Rule::in(array_keys($this->selectedProducts))],
+            'data.productDetailID' => $isMenu ? ['nullable', 'integer'] : ['required', 'integer', Rule::in(array_keys($this->selectedProducts))],
             'data.notes' => ['nullable', 'string', 'max:2000'],
             'data.bomCostTotal' => ['required', 'numeric', 'min:0'],
             'data.accessType' => ['required', 'integer', 'in:0,1'],
             'data.selectedUserAccess' => ['array'],
             'data.bomDetails' => ['required', 'array', 'min:1'],
-            'data.bomDetails.*.productDetailID' => ['required', 'integer', Rule::in(array_keys($this->selectedProducts)), 'different:data.productDetailID'],
+            'data.bomDetails.*.productDetailID' => $isMenu
+                ? ['required', 'integer', Rule::in(array_keys($this->selectedProducts))]
+                : ['required', 'integer', Rule::in(array_keys($this->selectedProducts)), 'different:data.productDetailID'],
             'data.bomDetails.*.lastHPP' => ['required', 'numeric', 'min:0'],
             'data.bomDetails.*.qty' => ['required', 'numeric', 'gt:0'],
             'data.bomDetails.*.yieldPercent' => ['required', 'numeric', 'between:0,100'],
             'data.bomDetails.*.printGroup' => ['nullable', 'string', 'max:100'],
-            'data.bomDetails.*.tolerancePercent' => ['required', 'numeric', 'between:0,100'],
+            'data.bomDetails.*.tolerancePercent' => $isMenu ? ['nullable', 'numeric', 'between:0,100'] : ['required', 'numeric', 'between:0,100'],
         ], [
             'data.bomDetails.*.productDetailID.different' => 'Material tidak boleh sama dengan produk hasil.',
         ]);
 
         $payload = $validated['data'];
-        $payload['bomTypeID'] = 1;
-        $payload['productDetailID'] = (int) $payload['productDetailID'];
+        $payload['bomTypeID'] = $isMenu ? 3 : 1;
+
+        // BOM Menu has no "Product Hasil" concept in ESB's API — only Assembly
+        // BOMs carry a top-level productDetailID.
+        if ($isMenu) {
+            unset($payload['productDetailID']);
+        } else {
+            $payload['productDetailID'] = (int) $payload['productDetailID'];
+        }
+
         $payload['bomCostTotal'] = (float) $payload['bomCostTotal'];
         $payload['accessType'] = (int) $payload['accessType'];
         $payload['selectedUserAccess'] = $payload['accessType'] === 0 ? [] : array_values($payload['selectedUserAccess']);
-        $payload['bomDetails'] = array_map(fn (array $item): array => [
-            'ID' => (int) ($item['ID'] ?? 0),
-            'productDetailID' => (int) $item['productDetailID'],
-            'lastHPP' => (float) $item['lastHPP'],
-            'qty' => (float) $item['qty'],
-            'yieldPercent' => (float) $item['yieldPercent'],
-            'printGroup' => (string) ($item['printGroup'] ?? ''),
-            'tolerancePercent' => (float) $item['tolerancePercent'],
-            'subtitution' => [],
-        ], $payload['bomDetails']);
+        $payload['bomDetails'] = array_map(function (array $item) use ($isMenu): array {
+            $row = [
+                'ID' => (int) ($item['ID'] ?? 0),
+                'productDetailID' => (int) $item['productDetailID'],
+                'lastHPP' => (float) $item['lastHPP'],
+                'qty' => (float) $item['qty'],
+                'yieldPercent' => (float) $item['yieldPercent'],
+                'printGroup' => (string) ($item['printGroup'] ?? ''),
+                'subtitution' => [],
+            ];
+
+            if (! $isMenu) {
+                $row['tolerancePercent'] = (float) ($item['tolerancePercent'] ?? 0);
+            }
+
+            return $row;
+        }, $payload['bomDetails']);
         $payload['bomCosts'] = [];
 
         try {
@@ -394,7 +423,7 @@ class CreateBomRecipePage extends Page
 
     protected function syncProjectBom(int $bomId, array $payload): void
     {
-        $resultProduct = $this->selectedProducts[(int) $payload['productDetailID']] ?? [];
+        $resultProduct = $this->selectedProducts[(int) ($payload['productDetailID'] ?? 0)] ?? [];
 
         $projectBom = RndProjectBom::query()->updateOrCreate(
             ['esb_bom_id' => $bomId],
@@ -404,7 +433,7 @@ class CreateBomRecipePage extends Page
                 'bom_name' => $payload['bomName'],
                 'product_name' => $resultProduct['productName'] ?? null,
                 'uom_name' => ($resultProduct['baseUnit'] ?? '') ?: ($resultProduct['unit'] ?? null),
-                'bom_type_name' => 'Assembly',
+                'bom_type_name' => $this->usageType === 'menu' ? 'Menu' : 'Assembly',
                 'is_active' => true,
                 'sync_status' => 'synced',
                 'created_by' => auth()->id(),
@@ -416,7 +445,7 @@ class CreateBomRecipePage extends Page
             ->where('rnd_project_id', $this->projectId)
             ->findOrFail($this->productId)
             ->boms()
-            ->syncWithoutDetaching([$projectBom->id => ['usage_type' => 'main']]);
+            ->syncWithoutDetaching([$projectBom->id => ['usage_type' => $this->usageType]]);
     }
 
     protected function emptyMaterial(): array

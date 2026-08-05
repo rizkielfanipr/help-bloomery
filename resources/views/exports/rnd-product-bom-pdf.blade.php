@@ -24,12 +24,27 @@
         .kop-right-label { display: table-cell; width: 110px; padding: 6px; font-size: 8pt; color: #64748b; border-right: 1px solid #111827; }
         .kop-right-value { display: table-cell; padding: 6px; font-size: 8pt; font-weight: bold; }
 
-        /* ─── SUMMARY ─── */
-        .summary { margin-bottom: 14px; border: 1px solid #cbd5e1; background: #f8fafc; }
-        .summary td { padding: 7px 9px; border-right: 1px solid #cbd5e1; }
-        .summary td:last-child { border-right: 0; }
-        .summary-label { color: #64748b; font-size: 8px; text-transform: uppercase; }
-        .summary-value { margin-top: 2px; font-weight: 700; }
+        /* ─── PRODUCT INFORMATION TABLE ─── */
+        .product-info-row td { border-color: #bfdbfe; }
+        .product-release-photo { width: 90px; padding: 7px; vertical-align: middle; background: #eff6ff; text-align: center; }
+        .product-release-photo img { max-width: 72px; max-height: 72px; border: 1px solid #93c5fd; border-radius: 4px; }
+        .product-release-placeholder { padding: 24px 3px; color: #60a5fa; background: #ffffff; border: 1px solid #bfdbfe; font-size: 7px; }
+        .product-release-info { padding: 0 !important; background: #eff6ff; vertical-align: top; }
+        .product-release-label { color: #2563eb; font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+        .product-field-heading { padding: 5px 8px; border-bottom: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; font-size: 8pt; font-weight: 700; text-transform: uppercase; }
+        .product-field-content { padding: 7px 9px; }
+        .product-release-name { margin-top: 3px; font-size: 12px; font-weight: 700; }
+        .simple-product-code { margin-top: 4px; color: #64748b; font-size: 8px; font-family: DejaVu Sans Mono, monospace; }
+        .product-detail-cell { padding: 0 !important; background: #ffffff; vertical-align: top; }
+        .product-detail-text { color: #475569; font-size: 8px; line-height: 1.45; }
+        .simple-price-cell { width: 260px; padding: 0 !important; background: #ffffff; vertical-align: top; }
+        .regional-price-line { margin-top: 5px; padding-top: 4px; border-top: 1px solid #e2e8f0; }
+        .regional-price-line:first-of-type { border-top: 0; }
+        .regional-price-name { color: #1e293b; font-size: 8px; font-weight: 700; }
+        .regional-price-name span { color: #94a3b8; font-family: DejaVu Sans Mono, monospace; font-size: 7px; }
+        .regional-price-values { margin-top: 2px; color: #64748b; font-size: 7.5px; }
+        .regional-price-values strong { color: #1e293b; }
+        .regional-price-empty { margin-top: 5px; color: #94a3b8; font-size: 8px; }
 
         /* ─── MAIN GROUP ─── */
         .main-group { margin-bottom: 14px; }
@@ -39,9 +54,20 @@
         .group-label { margin: 12px 0 3px; color: #475569; font-size: 9px; font-weight: 700; text-transform: uppercase; }
         .unassigned { border-color: #d97706; }
 
+        /* ─── SECTION DIVIDER (Kitchen / Store) ─── */
+        .section-divider { margin: 18px 0 10px; padding: 7px 10px; background: #0f172a; color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .section-divider:first-child { margin-top: 0; }
+
         /* ─── BOM SECTION ─── */
-        .bom-section { margin-top: 10px; margin-bottom: 14px; page-break-inside: avoid; border: 1.2px solid #111827; }
-        .bom-header { padding: 6px 8px; border-bottom: 1.2px solid #111827; background: #f8fafc; }
+        .bom-section { margin-top: 10px; margin-bottom: 14px; page-break-inside: avoid; }
+        .bom-table { border: 1.2px solid #111827; }
+        .bom-table td,
+        .bom-table th { border: 1px solid #cbd5e1 !important; }
+        .bom-table > tbody:first-child > tr:first-child > td { border-top: 0 !important; }
+        .bom-table tr > :first-child { border-left: 0 !important; }
+        .bom-table tr > :last-child { border-right: 0 !important; }
+        .bom-table > tbody:last-child > tr:last-child > td { border-bottom: 0 !important; }
+        .bom-header { padding: 6px 8px !important; background: #f8fafc; }
         .bom-title { font-size: 9pt; font-weight: bold; }
         .bom-subtitle { margin-top: 2px; color: #64748b; font-size: 8pt; }
         .bom-result { margin-top: 5px; padding: 4px 7px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 8pt; }
@@ -55,6 +81,7 @@
         tbody tr:last-child td { border-bottom: none; }
         .center { text-align: center; }
         .num { color: #94a3b8; }
+        .number-column { width: 34px !important; min-width: 34px; padding-left: 5px !important; padding-right: 5px !important; }
         .unit-badge { background: #dbeafe; color: #1d4ed8; padding: 1px 5px; border-radius: 3px; font-size: 7.5pt; font-weight: bold; }
         .no-bom { text-align: center; color: #94a3b8; padding: 12px; }
 
@@ -80,10 +107,15 @@
 
         .empty { padding: 15px !important; text-align: center; color: #94a3b8; }
 
-        /* ─── FOOTER (normal flow, not fixed — DomPDF mis-paginates position:fixed here) ─── */
-        .footer { margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 6px; display: table; width: 100%; }
-        .footer-left { display: table-cell; font-size: 7pt; color: #94a3b8; }
-        .footer-right { display: table-cell; text-align: right; font-size: 7pt; color: #94a3b8; }
+        /* ─── SYSTEM-GENERATED FOOTER ─── */
+        .footer { width: 100%; margin-top: 18px; padding-top: 9px; border-top: 1px solid #cbd5e1; }
+        .footer-meta { width: 100%; border-collapse: collapse; }
+        .footer-meta td { width: 33.333%; padding: 0 8px; border: 0; vertical-align: top; }
+        .footer-meta td:first-child { padding-left: 0; }
+        .footer-meta td:last-child { padding-right: 0; text-align: right; }
+        .footer-label { color: #94a3b8; font-size: 6.5pt; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+        .footer-value { margin-top: 3px; color: #334155; font-size: 7.5pt; font-weight: 700; }
+        .footer-notice { margin-top: 10px; color: #94a3b8; font-size: 6.5pt; line-height: 1.4; text-align: center; }
     </style>
 </head>
 <body>
@@ -112,15 +144,6 @@
         </div>
     </div>
 
-    <table class="summary">
-        <tr>
-            <td><div class="summary-label">Project</div><div class="summary-value">{{ $projectRecord->name }}</div></td>
-            <td><div class="summary-label">Product Code</div><div class="summary-value">{{ $productRecord->product_code ?: '-' }}</div></td>
-            <td><div class="summary-label">Target Rilis</div><div class="summary-value">{{ $productRecord->release_date?->format('d M Y') ?? '-' }}</div></td>
-            <td><div class="summary-label">Total BOM</div><div class="summary-value">{{ $productRecord->boms->count() }}</div></td>
-        </tr>
-    </table>
-
     @php
         $groupLabels = [
             'component' => 'Components',
@@ -128,6 +151,7 @@
         ];
     @endphp
 
+    @if($exportScope !== 'store')
     @forelse($mainBoms as $mainBom)
         <div class="main-group">
             <div class="main-heading">
@@ -176,10 +200,46 @@
             @endforeach
         </div>
     @endif
+    @endif
 
+    @if($exportScope !== 'kitchen')
+    @forelse($menuBoms as $menuBom)
+        @include('exports.partials.rnd-bom-section', ['bomModel' => $menuBom, 'bom' => $details[$menuBom->id], 'sectionLabel' => 'Menu', 'instruction' => $instructions[$menuBom->esb_bom_id] ?? null])
+    @empty
+        <div class="bom-section"><div class="empty">Belum ada BOM Menu pada produk ini.</div></div>
+    @endforelse
+    @endif
+
+    @php
+        $footerScope = match($exportScope) {
+            'store' => 'STORE-',
+            'kitchen' => 'KITCHEN-',
+            default => '',
+        };
+        $footerDocument = 'BOM-'.$footerScope.str($productRecord->product_code ?: $productRecord->name)->slug()->upper();
+        $generatedAt = now()->timezone('Asia/Jakarta')->translatedFormat('d M Y · H:i').' WIB';
+    @endphp
     <div class="footer">
-        <div class="footer-left">Dicetak: {{ now()->translatedFormat('d M Y, H:i') }}</div>
-        <div class="footer-right">{{ $productRecord->name }} · {{ $productRecord->boms->count() }} Bill of Material</div>
+        <table class="footer-meta">
+            <tr>
+                <td>
+                    <div class="footer-label">Generated By</div>
+                    <div class="footer-value">Bloomery R&amp;D System</div>
+                </td>
+                <td>
+                    <div class="footer-label">Document</div>
+                    <div class="footer-value">{{ $footerDocument }}</div>
+                </td>
+                <td>
+                    <div class="footer-label">Generated At</div>
+                    <div class="footer-value">{{ $generatedAt }}</div>
+                </td>
+            </tr>
+        </table>
+        <div class="footer-notice">
+            Dokumen ini dibuat secara otomatis oleh Bloomery R&amp;D System<br>
+            dan tidak memerlukan tanda tangan manual.
+        </div>
     </div>
 
 </div>

@@ -8,6 +8,7 @@ use App\Models\RndProject;
 use App\Services\EsbCoreService;
 use App\Services\EsbService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -15,13 +16,17 @@ use Throwable;
 
 class RndProductBomPdfController extends Controller
 {
-    public function __invoke(int $project, int $product): Response
+    public function __invoke(Request $request, int $project, int $product): Response
     {
         $user = auth()->user();
         abort_unless($user?->can('view bill of materials'), 403);
 
         $projectRecord = RndProject::query()->findOrFail($project);
-        $productRecord = $projectRecord->products()->with('boms')->findOrFail($product);
+        $productRecord = $projectRecord->products()
+            ->with(['boms', 'currentRegionalPrices.region'])
+            ->findOrFail($product);
+        $exportScope = (string) $request->query('scope', 'all');
+        abort_unless(in_array($exportScope, ['all', 'kitchen', 'store'], true), 422);
         abort_unless(
             (int) session()->get(self::sessionKey($user->id, $projectRecord->id, $productRecord->id), 0) > now()->timestamp,
             403,
@@ -29,7 +34,12 @@ class RndProductBomPdfController extends Controller
         );
 
         $esb = app(EsbCoreService::class);
-        $details = $productRecord->boms->mapWithKeys(fn ($bom): array => [
+        $exportBoms = $productRecord->boms->filter(fn ($bom): bool => match ($exportScope) {
+            'kitchen' => $bom->pivot->usage_type !== 'menu',
+            'store' => $bom->pivot->usage_type === 'menu',
+            default => true,
+        });
+        $details = $exportBoms->mapWithKeys(fn ($bom): array => [
             $bom->id => $bom->detail_snapshot ?: $esb->getBillOfMaterial($bom->esb_bom_id),
         ]);
         $instructions = RndBomInstruction::query()
@@ -50,16 +60,22 @@ class RndProductBomPdfController extends Controller
                     })->filter()->values()->all(),
                 ],
             ]);
-        $mainBoms = $productRecord->boms->where('pivot.usage_type', 'main');
+        $mainBoms = $exportBoms->where('pivot.usage_type', 'main');
+        $menuBoms = $exportBoms->where('pivot.usage_type', 'menu');
         $autoWipBoms = $this->autoWipBoms($mainBoms, $details, $esb);
         $resultUnitMap = $this->resultUnitMap($details, $autoWipBoms, app(EsbService::class));
         $mainIds = $mainBoms->pluck('id');
-        $unassigned = $productRecord->boms->filter(fn ($bom) => $bom->pivot->usage_type !== 'main'
+        $unassigned = $exportBoms->filter(fn ($bom) => ! in_array($bom->pivot->usage_type, ['main', 'menu'], true)
             && (! $bom->pivot->parent_rnd_project_bom_id || ! $mainIds->contains($bom->pivot->parent_rnd_project_bom_id))
         );
         $logo = 'data:image/png;base64,'.base64_encode(
             file_get_contents(public_path('images/bloomery-icon-pdf.png')),
         );
+        $productPhoto = $this->productPhotoDataUri($productRecord->image_path);
+        $regionalPrices = $productRecord->currentRegionalPrices
+            ->unique('sales_region_id')
+            ->sortBy(fn ($price) => $price->region?->sort_order ?? PHP_INT_MAX)
+            ->values();
         $documentNumber = sprintf('RND/%03d/%03d/%s', $projectRecord->id, $productRecord->id, now()->format('Y'));
 
         $pdf = Pdf::loadView('exports.rnd-product-bom-pdf', compact(
@@ -68,14 +84,24 @@ class RndProductBomPdfController extends Controller
             'details',
             'instructions',
             'mainBoms',
+            'menuBoms',
             'autoWipBoms',
             'resultUnitMap',
             'unassigned',
             'logo',
+            'productPhoto',
+            'regionalPrices',
             'documentNumber',
+            'exportScope',
+            'exportBoms',
         ))->setPaper('a4', 'portrait');
 
-        $filename = 'BOM-'.str($productRecord->product_code ?: $productRecord->name)->slug()->upper().'.pdf';
+        $scopeLabel = match ($exportScope) {
+            'kitchen' => 'KITCHEN-',
+            'store' => 'STORE-',
+            default => '',
+        };
+        $filename = 'BOM-'.$scopeLabel.str($productRecord->product_code ?: $productRecord->name)->slug()->upper().'.pdf';
 
         return $pdf->download($filename);
     }
@@ -83,6 +109,22 @@ class RndProductBomPdfController extends Controller
     public static function sessionKey(int $userId, int $projectId, int $productId): string
     {
         return "rnd.bom.export.$userId.$projectId.$productId";
+    }
+
+    private function productPhotoDataUri(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        $contents = Storage::disk('b2')->get($path);
+        if (! is_string($contents) || $contents === '') {
+            return null;
+        }
+
+        $mime = Storage::disk('b2')->mimeType($path) ?: 'image/jpeg';
+
+        return "data:$mime;base64,".base64_encode($contents);
     }
 
     private function inlineStoredImages(string $html): string

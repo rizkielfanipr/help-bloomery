@@ -50,7 +50,7 @@ class EsbCoreService
 
     public function createAssembly(array $payload): int
     {
-        $payload['bomTypeID'] = 1;
+        $payload['bomTypeID'] ??= 1;
 
         $response = $this->request('post', '/product/bom', $payload);
         $result = $this->successfulResult($response, 'membuat Bill of Material');

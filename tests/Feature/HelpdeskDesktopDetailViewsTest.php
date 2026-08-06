@@ -281,6 +281,19 @@ it('provides direct bulk status actions for selected purchasing requests', funct
         ->assertTableBulkActionExists('set_purchased');
 });
 
+it('renders the purchasing request list without erroring when a legacy record has no code', function () {
+    $legacy = PurchaseRequest::factory()->create([
+        'branch_id' => $this->branch->id,
+        'status' => PurchaseRequestStatus::Submitted,
+    ]);
+    // Simulate a pre-existing production row created before the `code`
+    // column/backfill existed: no generated code and no manual PR number.
+    $legacy->newQuery()->whereKey($legacy->id)->update(['code' => null, 'purchase_request_number' => null]);
+
+    Livewire::test(ListPurchaseRequests::class)
+        ->assertSuccessful();
+});
+
 it('bulk updates purchasing requests using the next valid status', function () {
     $requests = PurchaseRequest::factory()->count(2)->create([
         'branch_id' => $this->branch->id,

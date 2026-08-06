@@ -36,11 +36,12 @@ class PurchaseRequestsTable
             ->columns([
                 TextColumn::make('request_code')
                     ->label('KODE')
-                    ->getStateUsing(fn (PurchaseRequest $record): string => $record->purchase_request_number
+                    ->getStateUsing(fn (PurchaseRequest $record): ?string => $record->purchase_request_number
                         ?: $record->code)
                     ->sortable(query: fn (Builder $query, string $direction): Builder => $query
                         ->orderBy('purchase_request_number', $direction)
                         ->orderBy('code', $direction))
+                    ->placeholder('-')
                     ->copyable()
                     ->weight('semibold'),
 

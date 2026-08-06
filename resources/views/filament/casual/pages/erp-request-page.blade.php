@@ -40,6 +40,17 @@
         @php $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600'; @endphp
 
         <div class="px-5">
+        @if($submitted)
+
+            <x-casual.whatsapp-success-card
+                title="Permintaan ERP berhasil dikirim!"
+                subtitle="Supaya lebih cepat diproses, konfirmasikan juga ke tim IT lewat WhatsApp."
+                :whatsapp-url="$whatsappUrl"
+                :code="$requestCode"
+                cta-label="Kirim ke WhatsApp Tim IT"
+            />
+
+        @else
             <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
 
             {{-- Branch / Divisi (read-only) --}}
@@ -177,6 +188,7 @@
                 <span wire:loading wire:target="submit">Mengirim...</span>
             </button>
 
+        @endif
         </div>
     </div>
 

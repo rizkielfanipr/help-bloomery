@@ -1,15 +1,14 @@
 <?php
 
-namespace App\Filament\Helpdesk\Resources\DesignRequests;
+namespace App\Filament\Helpdesk\Resources\ContentRequests;
 
-use App\Enums\DesignRequestStatus;
-use App\Filament\Exports\DesignRequestExporter;
+use App\Enums\ContentRequestStatus;
+use App\Filament\Exports\ContentRequestExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
-use App\Filament\Helpdesk\Resources\DesignRequests\Pages\EditDesignRequest;
-use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ListDesignRequests;
-use App\Filament\Helpdesk\Resources\DesignRequests\Pages\ViewDesignRequest;
-use App\Models\DesignCategory;
-use App\Models\DesignRequest;
+use App\Filament\Helpdesk\Resources\ContentRequests\Pages\EditContentRequest;
+use App\Filament\Helpdesk\Resources\ContentRequests\Pages\ListContentRequests;
+use App\Filament\Helpdesk\Resources\ContentRequests\Pages\ViewContentRequest;
+use App\Models\ContentRequest;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -29,27 +28,27 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
-class DesignRequestResource extends Resource
+class ContentRequestResource extends Resource
 {
     use HasPermissions;
 
-    protected static string $permissionPrefix = 'design requests';
+    protected static string $permissionPrefix = 'content requests';
 
-    protected static ?string $model = DesignRequest::class;
+    protected static ?string $model = ContentRequest::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-paint-brush';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-video-camera';
 
     protected static string|UnitEnum|null $navigationGroup = 'Brand Marketing';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
-    protected static ?string $modelLabel = 'Permintaan Design';
+    protected static ?string $modelLabel = 'Permintaan Konten';
 
-    protected static ?string $pluralModelLabel = 'Permintaan Design';
+    protected static ?string $pluralModelLabel = 'Permintaan Konten';
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) DesignRequest::whereIn('status', [DesignRequestStatus::DesignRequest, DesignRequestStatus::InProgress, DesignRequestStatus::Approval])->count() ?: null;
+        return (string) ContentRequest::whereIn('status', [ContentRequestStatus::Submitted, ContentRequestStatus::InProgress, ContentRequestStatus::Approval])->count() ?: null;
     }
 
     public static function getNavigationBadgeColor(): ?string
@@ -68,29 +67,34 @@ class DesignRequestResource extends Resource
                     TextEntry::make('status')
                         ->label('Status')
                         ->badge()
-                        ->formatStateUsing(fn (DesignRequestStatus $state) => $state->getLabel())
-                        ->color(fn (DesignRequestStatus $state) => $state->getColor()),
-                    TextEntry::make('category.name')->label('Kategori')->placeholder('-'),
+                        ->formatStateUsing(fn (ContentRequestStatus $state) => $state->getLabel())
+                        ->color(fn (ContentRequestStatus $state) => $state->getColor()),
+                    TextEntry::make('jenis_konten')
+                        ->label('Jenis Konten')
+                        ->badge()
+                        ->formatStateUsing(fn (string $state): string => $state === 'video' ? 'Video' : 'Foto'),
+                    TextEntry::make('platform_tujuan')->label('Platform Tujuan')->placeholder('-'),
                     TextEntry::make('created_at')->label('Tanggal Pengajuan')->dateTime('d M Y H:i'),
                 ]),
             ]),
 
-            Section::make('Detail Brief')->schema([
-                TextEntry::make('judul_permintaan')->label('Judul Permintaan'),
-                TextEntry::make('ringkasan_brief')->label('Brief Design')->columnSpanFull(),
+            Section::make('Detail Konten')->schema([
+                TextEntry::make('judul_konten')->label('Judul Konten'),
+                TextEntry::make('tujuan_konten')->label('Tujuan Konten')->columnSpanFull(),
+                TextEntry::make('link_contoh_konten')->label('Link Contoh Konten')->url(fn (?string $state): ?string => $state)->openUrlInNewTab()->placeholder('-'),
             ]),
 
             Section::make('Lampiran')
                 ->schema([
                     TextEntry::make('attachments')
                         ->label('')
-                        ->state(fn (DesignRequest $record): string => implode(', ', array_map(
+                        ->state(fn (ContentRequest $record): string => implode(', ', array_map(
                             fn ($path) => basename($path),
                             $record->attachments ?? []
                         )))
                         ->placeholder('Tidak ada lampiran'),
                 ])
-                ->hidden(fn (DesignRequest $record): bool => empty($record->attachments)),
+                ->hidden(fn (ContentRequest $record): bool => empty($record->attachments)),
         ]);
     }
 
@@ -100,7 +104,7 @@ class DesignRequestResource extends Resource
             Section::make()->schema([
                 Select::make('status')
                     ->label('Status')
-                    ->options(collect(DesignRequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()]))
+                    ->options(collect(ContentRequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()]))
                     ->required(),
             ]),
         ]);
@@ -131,32 +135,36 @@ class DesignRequestResource extends Resource
                     ->placeholder('-')
                     ->sortable(),
 
-                TextColumn::make('judul_permintaan')
+                TextColumn::make('judul_konten')
                     ->label('Judul')
                     ->limit(40)
                     ->searchable(),
 
-                TextColumn::make('category.name')
-                    ->label('Kategori')
+                TextColumn::make('jenis_konten')
+                    ->label('Jenis')
                     ->badge()
-                    ->color('info')
+                    ->formatStateUsing(fn (string $state): string => $state === 'video' ? 'Video' : 'Foto')
+                    ->color(fn (string $state): string => $state === 'video' ? 'violet' : 'info'),
+
+                TextColumn::make('platform_tujuan')
+                    ->label('Platform')
                     ->placeholder('-'),
 
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn (DesignRequestStatus $state) => $state->getLabel())
-                    ->color(fn (DesignRequestStatus $state) => $state->getColor()),
+                    ->formatStateUsing(fn (ContentRequestStatus $state) => $state->getLabel())
+                    ->color(fn (ContentRequestStatus $state) => $state->getColor()),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')
                     ->label('Status')
-                    ->options(collect(DesignRequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()])),
+                    ->options(collect(ContentRequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()])),
 
-                SelectFilter::make('design_category_id')
-                    ->label('Kategori')
-                    ->options(DesignCategory::where('is_active', true)->orderBy('sort_order')->pluck('name', 'id')),
+                SelectFilter::make('jenis_konten')
+                    ->label('Jenis Konten')
+                    ->options(['photo' => 'Foto', 'video' => 'Video']),
             ])
             ->recordActions([
                 ViewAction::make()->iconButton()->tooltip('Lihat'),
@@ -164,7 +172,7 @@ class DesignRequestResource extends Resource
                 DeleteAction::make()->iconButton(),
             ])
             ->toolbarActions([
-                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(DesignRequestExporter::class),
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(ContentRequestExporter::class),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
@@ -175,14 +183,14 @@ class DesignRequestResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListDesignRequests::route('/'),
-            'view' => ViewDesignRequest::route('/{record}'),
-            'edit' => EditDesignRequest::route('/{record}/edit'),
+            'index' => ListContentRequests::route('/'),
+            'view' => ViewContentRequest::route('/{record}'),
+            'edit' => EditContentRequest::route('/{record}/edit'),
         ];
     }
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['requester', 'branch', 'category']);
+        return parent::getEloquentQuery()->with(['requester', 'branch']);
     }
 }

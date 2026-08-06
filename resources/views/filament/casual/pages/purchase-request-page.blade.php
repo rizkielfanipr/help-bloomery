@@ -56,6 +56,16 @@
                     @endif
                 </div>
             </div>
+        @elseif($submitted)
+
+            <x-casual.whatsapp-success-card
+                title="Pengajuan pembelian berhasil dikirim!"
+                subtitle="Supaya lebih cepat diproses, konfirmasikan juga ke tim purchasing lewat WhatsApp."
+                :whatsapp-url="$whatsappUrl"
+                :code="$requestCode"
+                cta-label="Kirim ke WhatsApp Purchasing"
+            />
+
         @else
             <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
 

@@ -9,18 +9,17 @@
         <div class="flex flex-col gap-4 border-b border-gray-200 px-6 py-5 dark:border-gray-700 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
                 <p class="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400">{{ $record->code }}</p>
-                <h1 class="mt-1 truncate text-xl font-semibold text-gray-900 dark:text-white">{{ $record->judul_permintaan }}</h1>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $record->category?->name ?? 'Design' }} · {{ $record->branch?->name ?? 'No Branch' }}</p>
+                <h1 class="mt-1 truncate text-xl font-semibold text-gray-900 dark:text-white">{{ $record->judul_konten }}</h1>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $record->jenis_konten === 'video' ? 'Video' : 'Foto' }} · {{ $record->platform_tujuan ?? '-' }} · {{ $record->branch?->name ?? 'No Branch' }}</p>
             </div>
             <div class="flex shrink-0 flex-col items-start gap-1 sm:items-end">
                 <span @class([
                     'rounded-md px-2.5 py-1 text-xs font-semibold',
-                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' => $status === \App\Enums\DesignRequestStatus::DesignRequest,
-                    'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' => $status === \App\Enums\DesignRequestStatus::InProgress,
-                    'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' => $status === \App\Enums\DesignRequestStatus::Approval,
-                    'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300' => $status === \App\Enums\DesignRequestStatus::PrintingProcess,
-                    'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' => $status === \App\Enums\DesignRequestStatus::Completed,
-                    'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' => $status === \App\Enums\DesignRequestStatus::Rejected,
+                    'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' => $status === \App\Enums\ContentRequestStatus::Submitted,
+                    'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' => $status === \App\Enums\ContentRequestStatus::InProgress,
+                    'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' => $status === \App\Enums\ContentRequestStatus::Approval,
+                    'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' => $status === \App\Enums\ContentRequestStatus::Completed,
+                    'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' => $status === \App\Enums\ContentRequestStatus::Rejected,
                 ])>{{ $status->getLabel() }}</span>
                 <span class="text-xs text-gray-400">{{ $record->created_at->format('d M Y, H:i') }}</span>
             </div>
@@ -29,31 +28,34 @@
         <div class="grid gap-x-8 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Pemohon</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->requester?->name ?? '-' }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Branch</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->branch?->name ?? '-' }}</p></div>
-            <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Kategori</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->category?->name ?? '-' }}</p></div>
-            <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Last Updated</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->updated_at->format('d M Y, H:i') }}</p></div>
+            <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Jenis Konten</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->jenis_konten === 'video' ? 'Video' : 'Foto' }}</p></div>
+            <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Platform Tujuan</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->platform_tujuan ?? '-' }}</p></div>
+            @if($record->link_contoh_konten)
+                <div class="sm:col-span-2"><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Link Contoh Konten</p><a href="{{ $record->link_contoh_konten }}" target="_blank" class="mt-1 block truncate text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400">{{ $record->link_contoh_konten }}</a></div>
+            @endif
             @if($record->resolved_at)
                 <div class="sm:col-span-2"><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Resolved At</p><p class="mt-1 text-sm font-semibold text-emerald-700 dark:text-emerald-400">{{ $record->resolved_at->format('d M Y, H:i') }}</p></div>
             @endif
         </div>
 
         <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
-            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Ringkasan Brief</p>
-            <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-300">{{ $record->ringkasan_brief }}</p>
+            <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Tujuan Konten</p>
+            <p class="mt-2 whitespace-pre-line text-sm leading-6 text-gray-700 dark:text-gray-300">{{ $record->tujuan_konten }}</p>
         </div>
 
-    @can('edit design requests')
+    @can('edit content requests')
         @if(count($statusOptions) > 0)
             <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
-                @if($status === \App\Enums\DesignRequestStatus::Approval)
+                @if($status === \App\Enums\ContentRequestStatus::Approval)
                     <div>
-                        <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Design Notes <span class="font-normal normal-case text-gray-400">(wajib diisi jika ditolak)</span></label>
+                        <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Catatan <span class="font-normal normal-case text-gray-400">(wajib diisi jika ditolak)</span></label>
                         <textarea wire:model="adminNotes" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Add notes for this status update..."></textarea>
                         @error('adminNotes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>
                 @endif
-                <div @class(['flex flex-wrap gap-2', 'mt-4' => $status === \App\Enums\DesignRequestStatus::Approval])>
+                <div @class(['flex flex-wrap gap-2', 'mt-4' => $status === \App\Enums\ContentRequestStatus::Approval])>
                     @foreach($statusOptions as $value => $label)
-                        @if($value === \App\Enums\DesignRequestStatus::Rejected->value)
+                        @if($value === \App\Enums\ContentRequestStatus::Rejected->value)
                             <button type="button" wire:click="transitionTo('{{ $value }}')" wire:loading.attr="disabled" class="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900 dark:hover:bg-red-950/30">{{ $label }}</button>
                         @else
                             <button type="button" wire:click="transitionTo('{{ $value }}')" wire:loading.attr="disabled" class="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 dark:border-blue-900 dark:bg-gray-900 dark:hover:bg-blue-950/30">{{ $label }}</button>
@@ -66,18 +68,17 @@
 
     @php
         $historyByStatus = $record->statusHistories->keyBy(fn ($history) => $history->to_status->value);
-        $isRejected = $historyByStatus->has(\App\Enums\DesignRequestStatus::Rejected->value);
+        $isRejected = $historyByStatus->has(\App\Enums\ContentRequestStatus::Rejected->value);
         $timelineSteps = [
-            ['status' => \App\Enums\DesignRequestStatus::DesignRequest, 'icon' => 'heroicon-o-paper-airplane'],
-            ['status' => \App\Enums\DesignRequestStatus::InProgress, 'icon' => 'heroicon-o-paint-brush'],
-            ['status' => $isRejected ? \App\Enums\DesignRequestStatus::Rejected : \App\Enums\DesignRequestStatus::Approval, 'icon' => $isRejected ? 'heroicon-o-x-mark' : 'heroicon-o-check'],
-            ['status' => \App\Enums\DesignRequestStatus::PrintingProcess, 'icon' => 'heroicon-o-printer'],
-            ['status' => \App\Enums\DesignRequestStatus::Completed, 'icon' => 'heroicon-o-check-badge'],
+            ['status' => \App\Enums\ContentRequestStatus::Submitted, 'icon' => 'heroicon-o-paper-airplane'],
+            ['status' => \App\Enums\ContentRequestStatus::InProgress, 'icon' => 'heroicon-o-video-camera'],
+            ['status' => $isRejected ? \App\Enums\ContentRequestStatus::Rejected : \App\Enums\ContentRequestStatus::Approval, 'icon' => $isRejected ? 'heroicon-o-x-mark' : 'heroicon-o-check'],
+            ['status' => \App\Enums\ContentRequestStatus::Completed, 'icon' => 'heroicon-o-check-badge'],
         ];
     @endphp
     <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
         <div class="overflow-x-auto pb-1">
-            <div class="flex min-w-[900px] items-start">
+            <div class="flex min-w-[760px] items-start">
                 @foreach($timelineSteps as $step)
                     @php
                         $stepStatus = $step['status'];
@@ -89,9 +90,9 @@
                             <div @class([
                                 'mx-auto flex h-9 w-9 items-center justify-center rounded-full border',
                                 'border-gray-200 bg-gray-50 text-gray-400 dark:border-gray-700 dark:bg-gray-800' => ! $isReached,
-                                'border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300' => $isReached && in_array($stepStatus, [\App\Enums\DesignRequestStatus::DesignRequest, \App\Enums\DesignRequestStatus::InProgress, \App\Enums\DesignRequestStatus::PrintingProcess], true),
-                                'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300' => $isReached && in_array($stepStatus, [\App\Enums\DesignRequestStatus::Approval, \App\Enums\DesignRequestStatus::Completed], true),
-                                'border-red-200 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300' => $isReached && $stepStatus === \App\Enums\DesignRequestStatus::Rejected,
+                                'border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300' => $isReached && in_array($stepStatus, [\App\Enums\ContentRequestStatus::Submitted, \App\Enums\ContentRequestStatus::InProgress], true),
+                                'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300' => $isReached && in_array($stepStatus, [\App\Enums\ContentRequestStatus::Approval, \App\Enums\ContentRequestStatus::Completed], true),
+                                'border-red-200 bg-red-50 text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300' => $isReached && $stepStatus === \App\Enums\ContentRequestStatus::Rejected,
                             ])>
                                 <x-dynamic-component :component="$step['icon']" class="h-4 w-4" />
                             </div>

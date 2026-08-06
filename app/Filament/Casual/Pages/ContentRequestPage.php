@@ -2,19 +2,17 @@
 
 namespace App\Filament\Casual\Pages;
 
-use App\Enums\DesignRequestStatus;
-use App\Models\DesignCategory;
-use App\Models\DesignRequest;
+use App\Enums\ContentRequestStatus;
+use App\Models\ContentRequest;
 use App\Services\WhatsappCtaBuilder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Collection;
 use Livewire\Attributes\Validate;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
-class DesignRequestPage extends Page
+class ContentRequestPage extends Page
 {
     use WithFileUploads;
 
@@ -22,13 +20,17 @@ class DesignRequestPage extends Page
 
     protected static string $layout = 'filament.casual.layouts.bare';
 
-    protected string $view = 'filament.casual.pages.design-request-page';
+    protected string $view = 'filament.casual.pages.content-request-page';
 
-    public string $judulPermintaan = '';
+    public string $judulKonten = '';
 
-    public string $designCategoryId = '';
+    public string $jenisKonten = '';
 
-    public string $ringkasanBrief = '';
+    public string $platformTujuan = '';
+
+    public string $tujuanKonten = '';
+
+    public string $linkContohKonten = '';
 
     /** @var array<int, TemporaryUploadedFile> */
     #[Validate(['attachments.*' => 'file|max:10240'])]
@@ -42,7 +44,7 @@ class DesignRequestPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return 'Request Design';
+        return 'Request Konten';
     }
 
     public function getBreadcrumbs(): array
@@ -55,10 +57,17 @@ class DesignRequestPage extends Page
         return [];
     }
 
-    /** @return DesignCategory[] */
-    public function getCategories(): Collection
+    /** @return array<string, string> */
+    public function getPlatforms(): array
     {
-        return DesignCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
+        return [
+            'Instagram' => 'Instagram',
+            'TikTok' => 'TikTok',
+            'YouTube' => 'YouTube',
+            'Facebook' => 'Facebook',
+            'Website' => 'Website',
+            'Lainnya' => 'Lainnya',
+        ];
     }
 
     public function removeAttachment(int $index): void
@@ -78,45 +87,48 @@ class DesignRequestPage extends Page
         }
 
         $this->validate([
-            'judulPermintaan' => ['required', 'string', 'max:255'],
-            'designCategoryId' => ['required', 'exists:design_categories,id'],
-            'ringkasanBrief' => ['required', 'string'],
+            'judulKonten' => ['required', 'string', 'max:255'],
+            'jenisKonten' => ['required', 'in:photo,video'],
+            'platformTujuan' => ['required', 'string', 'max:255'],
+            'tujuanKonten' => ['required', 'string'],
+            'linkContohKonten' => ['nullable', 'url', 'max:500'],
             'attachments.*' => ['file', 'max:10240'],
         ]);
 
         $paths = [];
         foreach ($this->attachments as $file) {
-            $paths[] = $file->store('design-requests', 'b2');
+            $paths[] = $file->store('content-requests', 'b2');
         }
 
-        $category = DesignCategory::find($this->designCategoryId);
-
-        $request = DesignRequest::create([
+        $request = ContentRequest::create([
             'requester_id' => $user->id,
             'branch_id' => $user->branch_id,
-            'design_category_id' => $this->designCategoryId,
-            'judul_permintaan' => $this->judulPermintaan,
-            'ringkasan_brief' => $this->ringkasanBrief,
+            'judul_konten' => $this->judulKonten,
+            'jenis_konten' => $this->jenisKonten,
+            'platform_tujuan' => $this->platformTujuan,
+            'tujuan_konten' => $this->tujuanKonten,
+            'link_contoh_konten' => $this->linkContohKonten ?: null,
             'attachments' => $paths ?: null,
-            'status' => DesignRequestStatus::DesignRequest,
+            'status' => ContentRequestStatus::Submitted,
         ]);
 
-        $this->whatsappUrl = $whatsappCtaBuilder->build('design_request', [
+        $this->whatsappUrl = $whatsappCtaBuilder->build('content_request', [
             'cabang' => $user->branch?->name ?? 'Tanpa Cabang',
             'requester' => $user->name,
             'kode' => $request->code,
-            'judul' => $this->judulPermintaan,
-            'kategori' => $category?->name ?? '-',
-            'brief' => $this->ringkasanBrief,
-            'link' => route('filament.helpdesk.resources.design-requests.view', $request),
+            'judul' => $this->judulKonten,
+            'jenis' => $this->jenisKonten === 'video' ? 'Video' : 'Foto',
+            'platform' => $this->platformTujuan,
+            'tujuan' => $this->tujuanKonten,
+            'link' => route('filament.helpdesk.resources.content-requests.view', $request),
         ]);
         $this->requestCode = $request->code;
         $this->submitted = true;
 
-        $this->reset(['judulPermintaan', 'designCategoryId', 'ringkasanBrief', 'attachments']);
+        $this->reset(['judulKonten', 'jenisKonten', 'platformTujuan', 'tujuanKonten', 'linkContohKonten', 'attachments']);
 
         Notification::make()
-            ->title('Permintaan design berhasil dikirim!')
+            ->title('Permintaan konten berhasil dikirim!')
             ->body("Kode permintaan {$request->code} berhasil dibuat. Tim design akan segera meninjau.")
             ->success()
             ->send();

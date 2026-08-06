@@ -38,6 +38,21 @@ class ServiceRequest extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::creating(function (self $request): void {
+            if ($request->code) {
+                return;
+            }
+
+            do {
+                $code = 'SR-'.str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            } while (self::where('code', $code)->exists());
+
+            $request->code = $code;
+        });
+    }
+
     public function technician(): BelongsTo
     {
         return $this->belongsTo(User::class, 'technician_id');

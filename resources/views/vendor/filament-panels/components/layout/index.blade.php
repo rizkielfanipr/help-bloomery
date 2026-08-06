@@ -35,11 +35,11 @@
     if (preg_match('/trip|vehicle|driver|fuel-type/', $path)) { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
-    if (str_contains($path, 'branches') || str_contains($path, 'brands')) { $initialOpen[] = 'master'; }
+    if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'whatsapp-settings')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report')) { $initialOpen[] = 'finance'; }
     if (str_contains($path, 'stock-card')) { $initialOpen[] = 'inventory'; }
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
-    if (str_contains($path, 'design-request') || str_contains($path, 'design-categor')) { $initialOpen[] = 'brand-marketing'; }
+    if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
@@ -152,8 +152,9 @@
             'label' => 'Brand Marketing',
             'icon'  => 'megaphone',
             'items' => [
-                ['label' => 'Permintaan Design', 'icon' => 'palette', 'perm' => 'view design requests',   'href' => $r('filament.helpdesk.resources.design-requests.index'),   'active' => $active($r('filament.helpdesk.resources.design-requests.index'))],
-                ['label' => 'Kategori Design',   'icon' => 'tag',     'perm' => 'view design categories', 'href' => $r('filament.helpdesk.resources.design-categories.index'), 'active' => $active($r('filament.helpdesk.resources.design-categories.index'))],
+                ['label' => 'Permintaan Design', 'icon' => 'palette', 'perm' => 'view design requests',    'href' => $r('filament.helpdesk.resources.design-requests.index'),   'active' => $active($r('filament.helpdesk.resources.design-requests.index'))],
+                ['label' => 'Kategori Design',   'icon' => 'tag',     'perm' => 'view design categories',  'href' => $r('filament.helpdesk.resources.design-categories.index'), 'active' => $active($r('filament.helpdesk.resources.design-categories.index'))],
+                ['label' => 'Permintaan Konten', 'icon' => 'video',   'perm' => 'view content requests',   'href' => $r('filament.helpdesk.resources.content-requests.index'),  'active' => $active($r('filament.helpdesk.resources.content-requests.index'))],
             ],
         ],
         [
@@ -173,6 +174,7 @@
                 ['label' => 'Brand',  'icon' => 'tag',        'perm' => 'view brands',   'href' => $r('filament.helpdesk.resources.brands.index'),    'active' => $active($r('filament.helpdesk.resources.brands.index'))],
                 ['label' => 'Branch', 'icon' => 'building-2', 'perm' => 'view branches', 'href' => $r('filament.helpdesk.resources.branches.index'),  'active' => $active($r('filament.helpdesk.resources.branches.index'))],
                 ['label' => 'Employee', 'icon' => 'users', 'perm' => 'view employees', 'href' => $r('filament.helpdesk.resources.employees.index'), 'active' => $active($r('filament.helpdesk.resources.employees.index'))],
+                ['label' => 'WhatsApp', 'icon' => 'message-circle', 'perm' => 'edit whatsapp settings', 'href' => $r('filament.helpdesk.pages.whatsapp-settings'), 'active' => $active($r('filament.helpdesk.pages.whatsapp-settings'))],
             ],
         ],
     ];

@@ -103,6 +103,7 @@ class ServiceRequestResource extends Resource
     {
         return $schema->components([
             Section::make('Detail Permintaan')->schema([
+                TextEntry::make('code')->label('Kode')->badge()->color('info'),
                 TextEntry::make('status')->label('Status')->badge(),
                 Grid::make(2)->schema([
                     TextEntry::make('scheduledBy.name')->label('Dijadwalkan Oleh'),
@@ -189,6 +190,7 @@ class ServiceRequestResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('code')->label('Kode')->searchable()->copyable()->weight('semibold'),
                 TextColumn::make('scheduled_date')->label('Tanggal')->date('d M Y')->sortable(),
                 TextColumn::make('scheduledBy.name')->label('Pemohon')->searchable(),
                 TextColumn::make('technician.name')->label('Teknisi')->placeholder('Belum ditugaskan')->searchable()->sortable(),

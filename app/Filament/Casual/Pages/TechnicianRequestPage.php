@@ -4,6 +4,7 @@ namespace App\Filament\Casual\Pages;
 
 use App\Enums\ServiceRequestStatus;
 use App\Models\ServiceRequest;
+use App\Services\WhatsappCtaBuilder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -29,6 +30,12 @@ class TechnicianRequestPage extends Page
     #[Validate(['attachments.*' => 'file|image|max:5120'])]
     public array $attachments = [];
 
+    public bool $submitted = false;
+
+    public ?string $whatsappUrl = null;
+
+    public ?string $requestCode = null;
+
     public function getTitle(): string|Htmlable
     {
         return 'Request Teknisi';
@@ -50,7 +57,7 @@ class TechnicianRequestPage extends Page
         $this->attachments = array_values($this->attachments);
     }
 
-    public function submit(): void
+    public function submit(WhatsappCtaBuilder $whatsappCtaBuilder): void
     {
         $user = auth()->user();
 
@@ -72,7 +79,7 @@ class TechnicianRequestPage extends Page
             $paths[] = $file->store('service-request-attachments', 'b2');
         }
 
-        ServiceRequest::create([
+        $request = ServiceRequest::create([
             'scheduled_by' => $user->id,
             'branch_id' => $user->branch_id,
             'technician_id' => null,
@@ -82,13 +89,30 @@ class TechnicianRequestPage extends Page
             'status' => ServiceRequestStatus::Submitted->value,
         ]);
 
+        $this->whatsappUrl = $whatsappCtaBuilder->build('service_request', [
+            'cabang' => $user->branch?->name ?? 'Tanpa Cabang',
+            'requester' => $user->name,
+            'kode' => $request->code,
+            'tanggal' => $this->scheduledDate,
+            'deskripsi' => $this->requestorNotes,
+            'link' => route('filament.helpdesk.resources.service-requests.view', $request),
+        ]);
+        $this->requestCode = $request->code;
+        $this->submitted = true;
+
         $this->reset(['scheduledDate', 'requestorNotes', 'attachments']);
 
         Notification::make()
             ->title('Permintaan teknisi berhasil dikirim')
+            ->body("Kode permintaan {$request->code} berhasil dibuat.")
             ->success()
             ->send();
+    }
 
-        $this->redirect(TechnicianRequestHistoryPage::getUrl());
+    public function startNewRequest(): void
+    {
+        $this->submitted = false;
+        $this->whatsappUrl = null;
+        $this->requestCode = null;
     }
 }

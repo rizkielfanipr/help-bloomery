@@ -6,6 +6,7 @@ use App\Enums\ItRequestStatus;
 use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
 use App\Models\ItRequestType;
+use App\Services\WhatsappCtaBuilder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -33,6 +34,12 @@ class ErpRequestPage extends Page
     /** @var array<int, TemporaryUploadedFile> */
     #[Validate(['attachments.*' => 'file|max:10240'])]
     public array $attachments = [];
+
+    public bool $submitted = false;
+
+    public ?string $whatsappUrl = null;
+
+    public ?string $requestCode = null;
 
     public function getTitle(): string|Htmlable
     {
@@ -67,7 +74,7 @@ class ErpRequestPage extends Page
         $this->attachments = array_values($this->attachments);
     }
 
-    public function submit(): void
+    public function submit(WhatsappCtaBuilder $whatsappCtaBuilder): void
     {
         $user = auth()->user();
 
@@ -90,6 +97,7 @@ class ErpRequestPage extends Page
         }
 
         $requestType = ItRequestType::findOrFail($this->requestTypeId);
+        $module = ErpModule::find($this->erpModuleId);
 
         $request = ErpRepairRequest::create([
             'requester_id' => $user->id,
@@ -109,6 +117,18 @@ class ErpRequestPage extends Page
             'notes' => 'Request submitted by user.',
         ]);
 
+        $this->whatsappUrl = $whatsappCtaBuilder->build('erp_request', [
+            'cabang' => $user->branch?->name ?? 'Tanpa Cabang',
+            'requester' => $user->name,
+            'kode' => $request->ticket_number,
+            'modul' => $module?->name ?? '-',
+            'request_type' => $requestType->name,
+            'keterangan' => $this->keterangan,
+            'link' => route('filament.helpdesk.resources.erp-repair-requests.view', $request),
+        ]);
+        $this->requestCode = $request->ticket_number;
+        $this->submitted = true;
+
         $this->reset(['erpModuleId', 'requestTypeId', 'keterangan', 'attachments']);
 
         Notification::make()
@@ -116,5 +136,12 @@ class ErpRequestPage extends Page
             ->body("Ticket {$request->ticket_number} berhasil dibuat. Tim IT akan segera meninjau.")
             ->success()
             ->send();
+    }
+
+    public function startNewRequest(): void
+    {
+        $this->submitted = false;
+        $this->whatsappUrl = null;
+        $this->requestCode = null;
     }
 }

@@ -2,7 +2,7 @@
 @php
     $status = $record->status;
     $typeLabel = $record->purchase_type?->getLabel() ?? '-';
-    $code = $record->purchase_request_number ?: 'PR-'.str_pad((string) $record->id, 6, '0', STR_PAD_LEFT);
+    $code = $record->purchase_request_number ?: $record->code;
     $statusOptions = $this->statusOptions();
 @endphp
 

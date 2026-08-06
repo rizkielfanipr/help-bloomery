@@ -37,10 +37,10 @@ class PurchaseRequestsTable
                 TextColumn::make('request_code')
                     ->label('KODE')
                     ->getStateUsing(fn (PurchaseRequest $record): string => $record->purchase_request_number
-                        ?: 'PR-'.str_pad((string) $record->id, 6, '0', STR_PAD_LEFT))
+                        ?: $record->code)
                     ->sortable(query: fn (Builder $query, string $direction): Builder => $query
                         ->orderBy('purchase_request_number', $direction)
-                        ->orderBy('id', $direction))
+                        ->orderBy('code', $direction))
                     ->copyable()
                     ->weight('semibold'),
 
@@ -94,7 +94,7 @@ class PurchaseRequestsTable
                             return $query->where(function (Builder $query) use ($search): void {
                                 $query
                                     ->where('purchase_request_number', 'like', "%{$search}%")
-                                    ->orWhere('id', ltrim(str_ireplace('PR-', '', $search), '0') ?: 0);
+                                    ->orWhere('code', 'like', "%{$search}%");
                             });
                         })),
 

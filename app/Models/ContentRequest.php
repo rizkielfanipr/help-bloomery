@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use App\Enums\DesignRequestStatus;
-use Database\Factories\DesignRequestFactory;
+use App\Enums\ContentRequestStatus;
+use Database\Factories\ContentRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,17 +12,19 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
-class DesignRequest extends Model
+class ContentRequest extends Model
 {
-    /** @use HasFactory<DesignRequestFactory> */
+    /** @use HasFactory<ContentRequestFactory> */
     use HasFactory, LogsActivity, SoftDeletes;
 
     protected $fillable = [
         'requester_id',
         'branch_id',
-        'design_category_id',
-        'judul_permintaan',
-        'ringkasan_brief',
+        'judul_konten',
+        'jenis_konten',
+        'platform_tujuan',
+        'tujuan_konten',
+        'link_contoh_konten',
         'attachments',
         'status',
         'admin_notes',
@@ -33,7 +35,7 @@ class DesignRequest extends Model
     {
         return [
             'attachments' => 'array',
-            'status' => DesignRequestStatus::class,
+            'status' => ContentRequestStatus::class,
             'resolved_at' => 'datetime',
         ];
     }
@@ -46,13 +48,13 @@ class DesignRequest extends Model
             }
 
             do {
-                $code = 'DS-'.str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $code = 'CR-'.str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
             } while (self::withTrashed()->where('code', $code)->exists());
 
             $request->code = $code;
         });
 
-        static::created(function (DesignRequest $request): void {
+        static::created(function (ContentRequest $request): void {
             $request->statusHistories()->create([
                 'from_status' => null,
                 'to_status' => $request->status->value,
@@ -60,7 +62,7 @@ class DesignRequest extends Model
             ]);
         });
 
-        static::updated(function (DesignRequest $request): void {
+        static::updated(function (ContentRequest $request): void {
             if (! $request->wasChanged('status')) {
                 return;
             }
@@ -76,7 +78,7 @@ class DesignRequest extends Model
 
     public function statusHistories(): HasMany
     {
-        return $this->hasMany(DesignRequestStatusHistory::class);
+        return $this->hasMany(ContentRequestStatusHistory::class);
     }
 
     public function requester(): BelongsTo
@@ -87,11 +89,6 @@ class DesignRequest extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
-    }
-
-    public function category(): BelongsTo
-    {
-        return $this->belongsTo(DesignCategory::class, 'design_category_id');
     }
 
     public function getActivitylogOptions(): LogOptions

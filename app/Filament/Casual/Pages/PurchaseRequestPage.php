@@ -6,6 +6,7 @@ use App\Enums\PurchaseRequestStatus;
 use App\Enums\PurchaseType;
 use App\Models\AppSetting;
 use App\Models\PurchaseRequest;
+use App\Services\WhatsappCtaBuilder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -40,6 +41,12 @@ class PurchaseRequestPage extends Page
     /** @var array<int, TemporaryUploadedFile> */
     #[Validate(['attachments.*' => 'file|image|max:5120'])]
     public array $attachments = [];
+
+    public bool $submitted = false;
+
+    public ?string $whatsappUrl = null;
+
+    public ?string $requestCode = null;
 
     public function getTitle(): string|Htmlable
     {
@@ -79,7 +86,7 @@ class PurchaseRequestPage extends Page
         return AppSetting::get('purchase_request_close_reason');
     }
 
-    public function submit(): void
+    public function submit(WhatsappCtaBuilder $whatsappCtaBuilder): void
     {
         $user = auth()->user();
 
@@ -112,7 +119,7 @@ class PurchaseRequestPage extends Page
             $paths[] = $file->store('purchase-requests', 'b2');
         }
 
-        PurchaseRequest::create([
+        $request = PurchaseRequest::create([
             'user_id' => $user->id,
             'branch_id' => $user->branch_id,
             'division' => $user->branch->name,
@@ -127,12 +134,32 @@ class PurchaseRequestPage extends Page
             'status' => PurchaseRequestStatus::Submitted->value,
         ]);
 
+        $this->whatsappUrl = $whatsappCtaBuilder->build('purchase_request', [
+            'cabang' => $user->branch?->name ?? 'Tanpa Cabang',
+            'requester' => $user->name,
+            'kode' => $request->code,
+            'nama_barang' => $this->itemName,
+            'jumlah' => (string) $this->quantity,
+            'alasan' => $this->purchaseReason,
+            'link' => route('filament.helpdesk.resources.purchase-requests.view', $request),
+        ]);
+        $this->requestCode = $request->code;
+        $this->submitted = true;
+
         $this->reset(['itemName', 'quantity', 'purchaseReason', 'purchaseType',
             'journalItemNumber', 'purchaseRequestNumber', 'ecommerceLink', 'attachments']);
 
         Notification::make()
             ->title('Pengajuan berhasil dikirim')
+            ->body("Kode permintaan {$request->code} berhasil dibuat.")
             ->success()
             ->send();
+    }
+
+    public function startNewRequest(): void
+    {
+        $this->submitted = false;
+        $this->whatsappUrl = null;
+        $this->requestCode = null;
     }
 }

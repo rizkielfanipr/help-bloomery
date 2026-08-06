@@ -15,6 +15,7 @@ class ServiceRequestExporter extends Exporter
     {
         return [
             ExportColumn::make('id')->label('ID'),
+            ExportColumn::make('code')->label('Kode'),
             ExportColumn::make('scheduledBy.name')->label('Pemohon'),
             ExportColumn::make('technician.name')->label('Teknisi'),
             ExportColumn::make('branch.name')->label('Cabang'),

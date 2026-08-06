@@ -15,6 +15,7 @@ return [
         'Stock Card' => ['access employee app stock card'],
         'Purchasing' => ['access employee app purchasing'],
         'Desain' => ['access employee app design'],
+        'Konten' => ['access employee app content'],
         'ERP' => ['access employee app erp'],
     ],
 
@@ -65,6 +66,7 @@ return [
     'Brand Marketing' => [
         'Permintaan Design' => ['view design requests', 'create design requests', 'edit design requests', 'delete design requests'],
         'Kategori Design' => ['view design categories', 'create design categories', 'edit design categories', 'delete design categories'],
+        'Permintaan Konten' => ['view content requests', 'create content requests', 'edit content requests', 'delete content requests'],
     ],
 
     'Information Technology' => [
@@ -106,6 +108,7 @@ return [
         'Employee' => ['view employees', 'create employees', 'edit employees', 'delete employees'],
         'Brand' => ['view brands', 'create brands', 'edit brands', 'delete brands'],
         'Cabang' => ['view branches', 'create branches', 'edit branches', 'delete branches'],
+        'WhatsApp' => ['edit whatsapp settings'],
     ],
 
 ];

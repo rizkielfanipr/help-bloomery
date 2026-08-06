@@ -43,6 +43,18 @@ class PurchaseRequest extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (self $request): void {
+            if ($request->code) {
+                return;
+            }
+
+            do {
+                $code = 'PR-'.str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            } while (self::where('code', $code)->exists());
+
+            $request->code = $code;
+        });
+
         static::created(function (PurchaseRequest $request): void {
             $request->statusHistories()->create([
                 'from_status' => null,

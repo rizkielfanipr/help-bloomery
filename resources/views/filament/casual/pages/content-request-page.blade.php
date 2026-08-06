@@ -2,7 +2,7 @@
     $user       = auth()->user();
     $hasBranch  = (bool) $user->branch_id;
     $branch     = $user->branch?->name ?? null;
-    $categories = $this->getCategories();
+    $platforms  = $this->getPlatforms();
 @endphp
 
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
@@ -20,10 +20,10 @@
             </a>
             <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/>
                 </svg>
             </div>
-            <span class="text-base font-semibold text-white">Request Design</span>
+            <span class="text-base font-semibold text-white">Request Konten</span>
         </div>
 
         <p class="text-blue-200">{{ $branch ?? 'Tanpa Cabang' }}</p>
@@ -42,7 +42,7 @@
         @if($submitted)
 
             <x-casual.whatsapp-success-card
-                title="Permintaan design berhasil dikirim!"
+                title="Permintaan konten berhasil dikirim!"
                 subtitle="Supaya lebih cepat diproses, konfirmasikan juga ke tim design lewat WhatsApp."
                 :whatsapp-url="$whatsappUrl"
                 :code="$requestCode"
@@ -72,40 +72,49 @@
                 @endif
             </div>
 
-            {{-- Info Lead Time --}}
-            <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30">
-                <div class="flex items-start gap-2">
-                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
-                    </svg>
-                    <p class="text-xs leading-relaxed text-blue-700 dark:text-blue-300">
-                        <span class="font-semibold">Lead time pengerjaan design adalah 7 hari</span> setelah tanggal request diajukan. Mohon ajukan permintaan lebih awal jika ada tenggat waktu tertentu.
-                    </p>
-                </div>
-            </div>
-
-            {{-- Judul Permintaan Design --}}
+            {{-- Judul Konten --}}
             <div>
-                <label for="judulPermintaan" class="{{ $labelClass }}">
-                    Judul Permintaan Design <span class="text-red-400">*</span>
+                <label for="judulKonten" class="{{ $labelClass }}">
+                    Judul Konten <span class="text-red-400">*</span>
                 </label>
-                <input id="judulPermintaan" type="text" wire:model="judulPermintaan"
-                       placeholder="Contoh: Banner Promo Lebaran 2025..."
+                <input id="judulKonten" type="text" wire:model="judulKonten"
+                       placeholder="Contoh: Video Promo Menu Baru..."
                        class="{{ $fieldClass }}">
-                @error('judulPermintaan') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+                @error('judulKonten') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
             </div>
 
-            {{-- Kategori Design --}}
+            {{-- Jenis Konten --}}
             <div>
-                <label for="designCategoryId" class="{{ $labelClass }}">
-                    Kategori Design <span class="text-red-400">*</span>
+                <label for="jenisKonten" class="{{ $labelClass }}">
+                    Jenis Konten <span class="text-red-400">*</span>
                 </label>
                 <div class="relative">
-                    <select id="designCategoryId" wire:model="designCategoryId"
+                    <select id="jenisKonten" wire:model="jenisKonten"
                             class="{{ $fieldClass }} appearance-none pr-10">
-                        <option value="">-- Pilih kategori design --</option>
-                        @foreach($categories as $category)
-                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        <option value="">-- Pilih jenis konten --</option>
+                        <option value="photo">Konten Foto</option>
+                        <option value="video">Konten Video</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                        <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/>
+                        </svg>
+                    </div>
+                </div>
+                @error('jenisKonten') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+            </div>
+
+            {{-- Platform Tujuan --}}
+            <div>
+                <label for="platformTujuan" class="{{ $labelClass }}">
+                    Platform Tujuan <span class="text-red-400">*</span>
+                </label>
+                <div class="relative">
+                    <select id="platformTujuan" wire:model="platformTujuan"
+                            class="{{ $fieldClass }} appearance-none pr-10">
+                        <option value="">-- Pilih platform --</option>
+                        @foreach($platforms as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
                     </select>
                     <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
@@ -114,18 +123,30 @@
                         </svg>
                     </div>
                 </div>
-                @error('designCategoryId') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+                @error('platformTujuan') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
             </div>
 
-            {{-- Brief Design --}}
+            {{-- Tujuan Konten --}}
             <div>
-                <label for="ringkasanBrief" class="{{ $labelClass }}">
-                    Brief Design <span class="text-red-400">*</span>
+                <label for="tujuanKonten" class="{{ $labelClass }}">
+                    Tujuan Konten <span class="text-red-400">*</span>
                 </label>
-                <textarea id="ringkasanBrief" wire:model="ringkasanBrief" rows="5"
-                          placeholder="Deskripsikan kebutuhan design Anda: tujuan, target audience, warna, referensi, ukuran, deadline, dll..."
+                <textarea id="tujuanKonten" wire:model="tujuanKonten" rows="5"
+                          placeholder="Deskripsikan tujuan konten Anda: pesan yang ingin disampaikan, target audience, gaya/mood, deadline, dll..."
                           class="{{ $fieldClass }} resize-none leading-relaxed"></textarea>
-                @error('ringkasanBrief') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+                @error('tujuanKonten') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+            </div>
+
+            {{-- Link Contoh Konten --}}
+            <div>
+                <label for="linkContohKonten" class="{{ $labelClass }}">
+                    Link Contoh Konten
+                    <span class="ml-1 font-normal normal-case text-slate-400">(opsional)</span>
+                </label>
+                <input id="linkContohKonten" type="url" wire:model="linkContohKonten"
+                       placeholder="https://instagram.com/reel/..."
+                       class="{{ $fieldClass }}">
+                @error('linkContohKonten') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
             </div>
 
             {{-- Lampiran --}}
@@ -171,7 +192,7 @@
             <button type="button" wire:click="submit" wire:loading.attr="disabled"
                     @disabled(!$hasBranch)
                     class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60">
-                <span wire:loading.remove wire:target="submit">Kirim Permintaan Design</span>
+                <span wire:loading.remove wire:target="submit">Kirim Permintaan Konten</span>
                 <span wire:loading wire:target="submit">Mengirim...</span>
             </button>
 
@@ -179,7 +200,7 @@
         </div>
     </div>
 
-    <x-design-request.bottom-nav active="form" />
+    <x-content-request.bottom-nav active="form" />
 
     <x-filament-actions::modals />
 </div>

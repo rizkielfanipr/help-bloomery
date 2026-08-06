@@ -41,6 +41,7 @@ class PermissionSynchronizer
         'create payment methods',
         'edit payment methods',
         'delete payment methods',
+        'edit design whatsapp settings',
     ];
 
     /** @return Collection<int, string> */

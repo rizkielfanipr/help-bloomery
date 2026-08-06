@@ -38,6 +38,22 @@
         @php $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600'; @endphp
 
         <div class="flex flex-col gap-4 px-5">
+        @if($submitted)
+
+            <x-casual.whatsapp-success-card
+                title="Permintaan teknisi berhasil dikirim!"
+                subtitle="Supaya lebih cepat diproses, konfirmasikan juga ke tim teknisi lewat WhatsApp."
+                :whatsapp-url="$whatsappUrl"
+                :code="$requestCode"
+                cta-label="Kirim ke WhatsApp Teknisi"
+            >
+                <a href="{{ route('filament.casual.pages.technician-request-history-page') }}"
+                   class="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                    Lihat Riwayat
+                </a>
+            </x-casual.whatsapp-success-card>
+
+        @else
             <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
 
             {{-- Branch / Divisi (read-only) --}}
@@ -121,6 +137,7 @@
                 <span wire:loading wire:target="submit">Mengirim...</span>
             </button>
 
+        @endif
         </div>
     </div>
 

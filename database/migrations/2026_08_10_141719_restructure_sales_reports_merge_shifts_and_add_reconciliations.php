@@ -70,19 +70,40 @@ return new class extends Migration
             }
         });
 
-        $this->mergeShiftReports();
-        $this->backfillReconciliationsFromEntries();
-
-        // Add the new composite unique (also anchored on sales_report_id) before
-        // dropping the old one, since MySQL needs an index covering
-        // sales_report_id to remain at all times to satisfy the entries→reports
-        // foreign key.
+        // mergeShiftReports() below re-points a whole shift's entries onto the
+        // canonical report via a bulk `sales_report_id = X` update. The OLD
+        // unique(sales_report_id, payment_method_name) constraint would reject
+        // that update outright, since every shift naturally repeats the same
+        // payment method names (CASH, QRIS, ...) — so it must be swapped for
+        // the shift-aware constraint BEFORE the merge runs, not after. Add the
+        // new one first so an index covering sales_report_id (required by the
+        // entries→reports foreign key) is never momentarily absent.
         Schema::table('sales_report_entries', function (Blueprint $table): void {
             $table->unique(['sales_report_id', 'shift_number', 'payment_method_name'], 'sre_report_shift_method_unique');
         });
 
         Schema::table('sales_report_entries', function (Blueprint $table): void {
             $table->dropUnique(['sales_report_id', 'payment_method_name']);
+        });
+
+        // sales_report_esb_transactions has its own unique(sales_report_id,
+        // sales_num) that the same bulk re-point could collide on in theory.
+        // This table is no longer written to by the new flow, so the
+        // constraint is dropped outright rather than replaced — but a plain
+        // index on sales_report_id must be added first, since that unique
+        // index is currently the only thing satisfying its FK to sales_reports.
+        Schema::table('sales_report_esb_transactions', function (Blueprint $table): void {
+            $table->index('sales_report_id', 'sret_report_id_index');
+        });
+
+        Schema::table('sales_report_esb_transactions', function (Blueprint $table): void {
+            $table->dropUnique(['sales_report_id', 'sales_num']);
+        });
+
+        $this->mergeShiftReports();
+        $this->backfillReconciliationsFromEntries();
+
+        Schema::table('sales_report_entries', function (Blueprint $table): void {
             $table->dropColumn([
                 'sales_system_amount', 'original_sales_store_amount', 'original_notes',
                 'settlement_amount', 'mdr_percentage', 'mdr_amount',
@@ -284,6 +305,11 @@ return new class extends Migration
         Schema::table('sales_report_entries', function (Blueprint $table): void {
             $table->dropUnique('sre_report_shift_method_unique');
             $table->dropColumn('shift_number');
+        });
+
+        Schema::table('sales_report_esb_transactions', function (Blueprint $table): void {
+            $table->unique(['sales_report_id', 'sales_num']);
+            $table->dropIndex('sret_report_id_index');
         });
 
         Schema::table('sales_reports', function (Blueprint $table): void {

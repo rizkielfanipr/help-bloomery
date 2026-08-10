@@ -36,6 +36,7 @@ return [
 
     'tokens' => [
         'BLO7' => env('ESB_TOKEN_BLO7', ''),
+        'BLO3' => env('ESB_TOKEN_BLO3', ''),
         'BLO6' => env('ESB_TOKEN_BLO6', ''),
         'BLO18' => env('ESB_TOKEN_BLO18', ''),
         'BLO16' => env('ESB_TOKEN_BLO16', ''),

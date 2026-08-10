@@ -11,6 +11,8 @@ use App\Models\Employee;
 use App\Models\SalesReport;
 use App\Models\SalesReportEmployee;
 use App\Models\SalesReportEntry;
+use App\Models\SalesReportReconciliation;
+use App\Models\SalesReportShiftSubmission;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -35,13 +37,19 @@ beforeEach(function () {
 
     $this->report = SalesReport::create([
         'branch_id' => $this->branch->id,
-        'submitted_by' => $this->submitter->id,
         'report_date' => today(),
         'submitted_at' => now(),
         'status' => SalesReportStatus::PendingSupervisor->value,
     ]);
+    SalesReportShiftSubmission::create([
+        'sales_report_id' => $this->report->id,
+        'shift_number' => 1,
+        'submitted_by' => $this->submitter->id,
+        'submitted_at' => now(),
+    ]);
     SalesReportEmployee::create([
         'sales_report_id' => $this->report->id,
+        'shift_number' => 1,
         'employee_id' => $this->employee->id,
         'employee_code' => $this->employee->employee_code,
         'employee_name' => $this->employee->name,
@@ -49,9 +57,17 @@ beforeEach(function () {
     ]);
     $this->entry = SalesReportEntry::create([
         'sales_report_id' => $this->report->id,
+        'shift_number' => 1,
         'payment_method_name' => 'QRIS',
-        'sales_system_amount' => 1_000_000,
         'sales_store_amount' => 1_000_000,
+    ]);
+    $this->reconciliation = SalesReportReconciliation::create([
+        'sales_report_id' => $this->report->id,
+        'payment_method_name' => 'QRIS',
+        'reported_store_amount' => 1_000_000,
+        'store_amount' => 1_000_000,
+        'system_amount' => 1_000_000,
+        'system_fetched_at' => now(),
     ]);
 });
 
@@ -70,7 +86,6 @@ it('only allows an active employee from the submitter branch', function () {
         ->set('esbFetched', true)
         ->set('rows', [[
             'name' => 'QRIS',
-            'sales_system' => 1_000_000,
             'sales_store' => '1000000',
             'notes' => '',
         ]])
@@ -95,7 +110,6 @@ it('allows selecting multiple staff for a single sales report submission', funct
         ->set('esbFetched', true)
         ->set('rows', [[
             'name' => 'QRIS',
-            'sales_system' => 1_000_000,
             'sales_store' => '1000000',
             'notes' => '',
         ]])
@@ -107,11 +121,12 @@ it('allows selecting multiple staff for a single sales report submission', funct
 
     $report = SalesReport::where('branch_id', $this->branch->id)
         ->whereDate('report_date', today())
-        ->where('shift_number', 1)
         ->firstOrFail();
 
-    expect($report->employees()->count())->toBe(2)
-        ->and($report->employees()->pluck('employee_code')->sort()->values()->all())
+    $shiftOneEmployees = $report->employees()->where('shift_number', 1)->get();
+
+    expect($shiftOneEmployees)->toHaveCount(2)
+        ->and($shiftOneEmployees->pluck('employee_code')->sort()->values()->all())
         ->toBe(['EMP-STORE-001', 'EMP-STORE-002']);
 });
 
@@ -144,29 +159,17 @@ it('hides the delete action on the index without delete sales reports permission
         ->assertTableActionHidden('delete', $this->report);
 });
 
-it('keeps the app locked after submission even when finance returns the report', function () {
-    $this->report->update([
-        'status' => SalesReportStatus::PendingSupervisor->value,
-        'rejection_reason' => 'Settlement bank belum sesuai.',
-    ]);
-    $this->entry->update([
-        'sales_store_amount' => 900_000,
-        'original_sales_store_amount' => 900_000,
-        'original_notes' => 'Initial store shortage.',
-    ]);
-
+it('keeps the app locked after submission and rejects re-save attempts', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     $this->actingAs($this->submitter);
 
     Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
         ->assertSet('isSubmitted', true)
-        ->assertSee('Data sudah dikunci')
-        ->assertDontSee('Sales System')
-        ->set('rows.0.sales_store', '1000000')
+        ->assertSee('sudah dikirim')
+        ->set('rows.0.sales_store', '500000')
         ->call('save');
 
-    expect((float) $this->entry->refresh()->sales_store_amount)->toBe(900000.0)
-        ->and((float) $this->entry->original_sales_store_amount)->toBe(900000.0);
+    expect((float) $this->entry->refresh()->sales_store_amount)->toBe(1000000.0);
 });
 
 it('moves a report from supervisor approval through finance reconciliation', function () {
@@ -190,25 +193,25 @@ it('moves a report from supervisor approval through finance reconciliation', fun
     $this->actingAs($finance);
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->set("settlementRows.{$this->entry->id}.settlement", '993000')
+        ->set("settlementRows.{$this->reconciliation->id}.settlement", '993000')
         ->call('approveFinance')
         ->assertHasNoErrors();
 
     $this->report->refresh();
-    $this->entry->refresh();
+    $this->reconciliation->refresh();
 
     expect($this->report->status)->toBe(SalesReportStatus::Completed)
         ->and($this->report->finance_reviewed_by)->toBe($finance->id)
-        ->and((float) $this->entry->mdr_amount)->toBe(7000.0)
-        ->and((float) $this->entry->mdr_percentage)->toBe(0.7)
-        ->and((float) $this->entry->expected_settlement_amount)->toBe(993000.0)
-        ->and((float) $this->entry->settlement_difference)->toBe(0.0)
-        ->and($this->entry->reconciliation_status)->toBe('matched')
+        ->and((float) $this->reconciliation->mdr_amount)->toBe(7000.0)
+        ->and((float) $this->reconciliation->mdr_percentage)->toBe(0.7)
+        ->and((float) $this->reconciliation->expected_settlement_amount)->toBe(993000.0)
+        ->and((float) $this->reconciliation->settlement_difference)->toBe(0.0)
+        ->and($this->reconciliation->reconciliation_status)->toBe('matched')
         ->and($this->report->approvals()->count())->toBe(2);
 });
 
 it('requires supervisor notes while corrected store and system sales still differ', function () {
-    $this->entry->update(['sales_store_amount' => 990_000]);
+    $this->reconciliation->update(['store_amount' => 990_000]);
     $supervisor = User::factory()->create([
         'branch_id' => $this->branch->id,
         'is_active' => true,
@@ -218,7 +221,7 @@ it('requires supervisor notes while corrected store and system sales still diffe
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
         ->call('approveSupervisor')
-        ->assertHasErrors(["supervisorRows.{$this->entry->id}.notes"]);
+        ->assertHasErrors(["supervisorRows.{$this->reconciliation->id}.notes"]);
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingSupervisor);
 });
@@ -235,7 +238,6 @@ it('returns a finance rejection to the supervisor with an audit trail', function
         ->assertHasNoErrors();
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingSupervisor)
-        ->and($this->report->rejection_reason)->toBe('Settlement bank belum sesuai.')
         ->and($this->report->approvals()->where('action', 'rejected')->exists())->toBeTrue();
 });
 
@@ -252,14 +254,9 @@ it('prevents supervisors from other branches from reviewing the report', functio
 });
 
 it('preserves first input while the supervisor corrects the working values', function () {
-    $this->report->update([
-        'status' => SalesReportStatus::PendingSupervisor->value,
-    ]);
-    $this->entry->update([
-        'sales_store_amount' => 900_000,
-        'notes' => 'Store reported a shortage.',
-        'original_sales_store_amount' => 900_000,
-        'original_notes' => 'Store reported a shortage.',
+    $this->reconciliation->update([
+        'reported_store_amount' => 900_000,
+        'store_amount' => 900_000,
     ]);
 
     $supervisor = User::factory()->create([
@@ -270,19 +267,18 @@ it('preserves first input while the supervisor corrects the working values', fun
     $this->actingAs($supervisor);
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->set("supervisorRows.{$this->entry->id}.sales_store", '1000000')
-        ->set("supervisorRows.{$this->entry->id}.notes", 'Shortage reconciled by supervisor.')
+        ->set("supervisorRows.{$this->reconciliation->id}.store_amount", '1000000')
+        ->set("supervisorRows.{$this->reconciliation->id}.notes", 'Shortage reconciled by supervisor.')
         ->call('approveSupervisor')
         ->assertHasNoErrors();
 
     $this->report->refresh();
-    $this->entry->refresh();
+    $this->reconciliation->refresh();
 
     expect($this->report->status)->toBe(SalesReportStatus::PendingFinance)
-        ->and((float) $this->entry->original_sales_store_amount)->toBe(900000.0)
-        ->and($this->entry->original_notes)->toBe('Store reported a shortage.')
-        ->and((float) $this->entry->sales_store_amount)->toBe(1000000.0)
-        ->and($this->entry->notes)->toBe('Shortage reconciled by supervisor.');
+        ->and((float) $this->reconciliation->reported_store_amount)->toBe(900000.0)
+        ->and((float) $this->reconciliation->store_amount)->toBe(1000000.0)
+        ->and($this->reconciliation->supervisor_notes)->toBe('Shortage reconciled by supervisor.');
 });
 
 it('calculates mdr percentage automatically from settlement', function () {
@@ -292,13 +288,13 @@ it('calculates mdr percentage automatically from settlement', function () {
     $this->actingAs($finance);
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->set("settlementRows.{$this->entry->id}.settlement", '900000')
+        ->set("settlementRows.{$this->reconciliation->id}.settlement", '900000')
         ->call('approveFinance')
         ->assertHasNoErrors();
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
-        ->and((float) $this->entry->refresh()->mdr_amount)->toBe(100000.0)
-        ->and((float) $this->entry->mdr_percentage)->toBe(10.0);
+        ->and((float) $this->reconciliation->refresh()->mdr_amount)->toBe(100000.0)
+        ->and((float) $this->reconciliation->mdr_percentage)->toBe(10.0);
 });
 
 it('shows the workflow status in the finance sales report list', function () {
@@ -314,9 +310,7 @@ it('shows the workflow status in the finance sales report list', function () {
 it('uses concise English labels throughout the sales report workflow', function () {
     expect(SalesReportStatus::Draft->getLabel())->toBe('Draft')
         ->and(SalesReportStatus::PendingSupervisor->getLabel())->toBe('Supervisor Review')
-        ->and(SalesReportStatus::RejectedBySupervisor->getLabel())->toBe('Rejected by Supervisor')
         ->and(SalesReportStatus::PendingFinance->getLabel())->toBe('Finance Review')
-        ->and(SalesReportStatus::RejectedByFinance->getLabel())->toBe('Rejected by Finance')
         ->and(SalesReportStatus::Completed->getLabel())->toBe('Completed');
 });
 
@@ -375,14 +369,14 @@ it('allows a superadmin to test both supervisor and finance approval stages', fu
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingFinance);
 
-    $page->set("settlementRows.{$this->entry->id}.settlement", '995000')
+    $page->set("settlementRows.{$this->reconciliation->id}.settlement", '995000')
         ->call('approveFinance')
         ->assertHasNoErrors();
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
         ->and($this->report->supervisor_reviewed_by)->toBe($superadmin->id)
         ->and($this->report->finance_reviewed_by)->toBe($superadmin->id)
-        ->and($this->entry->refresh()->reconciliation_status)->toBe('matched');
+        ->and($this->reconciliation->refresh()->reconciliation_status)->toBe('matched');
 });
 
 it('allows a superadmin to approve a report they submitted for testing', function () {
@@ -392,7 +386,6 @@ it('allows a superadmin to approve a report they submitted for testing', functio
         'access_all_branches' => true,
     ]);
     $superadmin->assignRole('SUPERADMIN');
-    $this->report->update(['submitted_by' => $superadmin->id]);
     $this->actingAs($superadmin);
 
     $page = Livewire::test(ViewSalesReport::class, ['record' => $this->report])
@@ -401,7 +394,7 @@ it('allows a superadmin to approve a report they submitted for testing', functio
         ->assertHasNoErrors()
         ->assertSee('Set as Completed');
 
-    $page->set("settlementRows.{$this->entry->id}.settlement", '995000')
+    $page->set("settlementRows.{$this->reconciliation->id}.settlement", '995000')
         ->call('approveFinance')
         ->assertHasNoErrors();
 
@@ -410,6 +403,7 @@ it('allows a superadmin to approve a report they submitted for testing', functio
 
 it('allows finance to input settlement for cash payment methods', function () {
     $this->entry->update(['payment_method_name' => 'Cash']);
+    $this->reconciliation->update(['payment_method_name' => 'Cash']);
     $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
     $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
@@ -417,12 +411,12 @@ it('allows finance to input settlement for cash payment methods', function () {
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
         ->assertDontSee('N/A')
-        ->set("settlementRows.{$this->entry->id}.settlement", '1000000')
+        ->set("settlementRows.{$this->reconciliation->id}.settlement", '1000000')
         ->call('approveFinance')
         ->assertHasNoErrors();
 
-    expect($this->entry->refresh()->settlement_amount)->not->toBeNull()
-        ->and($this->entry->reconciliation_status)->toBe('matched');
+    expect($this->reconciliation->refresh()->settlement_amount)->not->toBeNull()
+        ->and($this->reconciliation->reconciliation_status)->toBe('matched');
 });
 
 it('locks shift two until shift one has been submitted', function () {
@@ -435,9 +429,10 @@ it('locks shift two until shift one has been submitted', function () {
         'shiftNumber' => 2,
     ])->assertRedirect();
 
-    expect(SalesReport::query()
-        ->where('branch_id', $this->branch->id)
-        ->whereDate('report_date', today())
+    expect(SalesReportShiftSubmission::query()
+        ->whereHas('salesReport', fn ($query) => $query
+            ->where('branch_id', $this->branch->id)
+            ->whereDate('report_date', today()))
         ->where('shift_number', 2)
         ->exists())->toBeFalse();
 });

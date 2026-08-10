@@ -25,12 +25,11 @@
         <p class="text-xl font-semibold text-white">
             {{ \Carbon\Carbon::parse($reportDate)->locale('id')->isoFormat('dddd, D MMMM Y') }}
         </p>
-        <p class="mt-1 text-sm font-medium text-blue-100">{{ $shiftStart }}–{{ $shiftEnd }} · berdasarkan waktu transaksi selesai</p>
     </div>
 
     {{-- WHITE CONTENT CARD --}}
-    <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-10 pt-6 dark:bg-gray-950">
-        <div class="flex flex-col gap-4 px-4">
+    <div class="flex-1 rounded-t-3xl bg-gray-50 pt-6 dark:bg-gray-950">
+        <div class="flex flex-col gap-4 px-4 pb-6">
 
             {{-- Submitted banner --}}
             @if($isSubmitted)
@@ -41,9 +40,9 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-green-700 dark:text-green-400">Data sudah dikunci</p>
+                        <p class="text-sm font-semibold text-green-700 dark:text-green-400">Shift {{ $shiftNumber }} sudah dikirim</p>
                         <p class="text-xs text-green-600 dark:text-green-500">
-                            {{ \App\Enums\SalesReportStatus::from($currentStatus)->getLabel() }}. Koreksi selanjutnya dilakukan Supervisor melalui back office.
+                            {{ \App\Enums\SalesReportStatus::from($currentStatus)->getLabel() }}. Input hanya dapat dilakukan satu kali; koreksi selanjutnya dilakukan Supervisor melalui back office.
                         </p>
                     </div>
                 </div>
@@ -111,10 +110,10 @@
                     <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
                             <p class="text-sm font-semibold {{ $esbFetched ? 'text-green-800 dark:text-green-300' : 'text-blue-800 dark:text-blue-300' }}">
-                                {{ $esbFetched ? 'Data ESB sudah dimuat' : 'Fetch Data dari ESB' }}
+                                {{ $esbFetched ? 'Daftar payment method sudah dimuat' : 'Muat Daftar Payment Method' }}
                             </p>
                             <p class="mt-0.5 text-xs {{ $esbFetched ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400' }}">
-                                {{ $esbFetched ? 'Isi kolom Sales Store untuk setiap metode.' : 'Wajib fetch ESB sebelum bisa menyimpan.' }}
+                                {{ $esbFetched ? 'Isi kolom Sales Store untuk setiap metode.' : 'Wajib dimuat sebelum bisa menyimpan.' }}
                             </p>
                         </div>
                         <button wire:click="fetchFromEsb" wire:loading.attr="disabled"
@@ -127,7 +126,7 @@
                             <svg wire:loading.remove wire:target="fetchFromEsb" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
                             </svg>
-                            <span wire:loading.remove wire:target="fetchFromEsb">{{ $esbFetched ? 'Refresh' : 'Fetch ESB' }}</span>
+                            <span wire:loading.remove wire:target="fetchFromEsb">{{ $esbFetched ? 'Refresh' : 'Muat Daftar' }}</span>
                             <span wire:loading wire:target="fetchFromEsb">Mengambil...</span>
                         </button>
                     </div>
@@ -146,24 +145,9 @@
 
                     {{-- Rows --}}
                     @foreach($rows as $idx => $row)
-                        @php
-                            $hasDifference = abs($this->getSelisih($idx)) > 0.009;
-                            $hasError = $errors->has("rows.{$idx}.notes");
-                        @endphp
-
-                        <div class="border-b border-gray-100 dark:border-gray-800 last:border-0">
-                            <div class="grid grid-cols-[1fr_140px] items-center gap-3 px-4 py-3">
-                                <div class="min-w-0">
-                                    <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['name'] }}</p>
-                                    @if($showDiscrepancies && $hasDifference)
-                                        <span class="mt-1 inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                                            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
-                                            </svg>
-                                            Difference detected
-                                        </span>
-                                    @endif
-                                </div>
+                        <div class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
+                            <div class="grid grid-cols-[1fr_140px] items-center gap-3">
+                                <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['name'] }}</p>
 
                                 @if($isSubmitted)
                                     <div class="text-right text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
@@ -171,43 +155,23 @@
                                     </div>
                                 @else
                                     <input type="number"
+                                           inputmode="decimal"
                                            wire:model.live="rows.{{ $idx }}.sales_store"
                                            min="0" step="1000" placeholder="0"
-                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-right text-xs font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-right text-base font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
                                 @endif
                             </div>
 
-                            {{-- Notes become visible only after backend detects a difference. --}}
-                            @if(($showDiscrepancies && $hasDifference) || ! empty($row['notes']))
-                                <div class="px-4 pb-3">
-                                    @if($isSubmitted)
-                                        @if(! empty($row['notes']))
-                                            <div class="flex items-start gap-1.5 rounded-lg bg-red-50 px-3 py-2 dark:bg-red-900/20">
-                                                <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
-                                                </svg>
-                                                <p class="text-xs text-red-600 dark:text-red-400">{{ $row['notes'] }}</p>
-                                            </div>
-                                        @endif
-                                    @else
-                                        <div class="flex items-center gap-1.5 mb-1">
-                                            <svg class="h-3 w-3 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
-                                            </svg>
-                                            <span class="text-[10px] font-semibold text-red-500">Notes are required for this payment method</span>
-                                        </div>
-                                        <input type="text"
-                                               wire:model.live="rows.{{ $idx }}.notes"
-                                               placeholder="Explain the sales difference..."
-                                               class="w-full rounded-lg border bg-gray-50 px-3 py-2 text-xs text-slate-600 placeholder-slate-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-slate-300
-                                                      {{ $hasError ? 'border-red-400 focus:border-red-400 dark:border-red-500' : 'border-gray-200 focus:border-blue-400 dark:border-gray-700' }}">
-                                        @error("rows.{$idx}.notes")
-                                            <p class="mt-1 text-[10px] text-red-500">{{ $message }}</p>
-                                        @enderror
-                                    @endif
-                                </div>
+                            @if($isSubmitted)
+                                @if(! empty($row['notes']))
+                                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ $row['notes'] }}</p>
+                                @endif
+                            @else
+                                <input type="text"
+                                       wire:model.live="rows.{{ $idx }}.notes"
+                                       placeholder="Catatan (opsional)"
+                                       class="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base text-slate-600 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300">
                             @endif
-
                         </div>
                     @endforeach
 
@@ -223,11 +187,14 @@
                 </div>
             @endif
 
-            {{-- Submit / Confirm area --}}
-            @if(! $isSubmitted)
+        </div>
+
+        {{-- Submit / Confirm area — sticks to the bottom of the screen so it's reachable without scrolling past a long payment list --}}
+        @if(! $isSubmitted)
+            <div class="sticky bottom-0 border-t border-gray-100 bg-gray-50 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 dark:border-gray-800 dark:bg-gray-950">
                 @if($showConfirm)
-                    <p class="text-center text-xs text-slate-400 dark:text-slate-500">
-                        Data dikunci selama proses approval
+                    <p class="mb-3 text-center text-xs text-slate-400 dark:text-slate-500">
+                        Input hanya bisa dilakukan sekali. Pastikan data sudah benar sebelum mengirim.
                     </p>
                     <div class="flex gap-3">
                         <button wire:click="cancelConfirm"
@@ -239,7 +206,7 @@
                             <svg wire:loading.remove wire:target="save" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                             </svg>
-                            <span wire:loading.remove wire:target="save">Ya, Submit</span>
+                            <span wire:loading.remove wire:target="save">Ya, Kirim</span>
                             <span wire:loading wire:target="save">Menyimpan...</span>
                         </button>
                     </div>
@@ -248,14 +215,13 @@
                             class="w-full rounded-2xl py-4 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60
                                    {{ $esbFetched ? 'bg-blue-600 active:bg-blue-700' : 'cursor-not-allowed bg-slate-400' }}">
                         <span wire:loading.remove wire:target="requestConfirm">
-                            {{ $esbFetched ? ($rejectionReason ? 'Submit Ulang Laporan' : 'Submit Laporan') : 'Fetch ESB Dulu Sebelum Submit' }}
+                            {{ $esbFetched ? 'Submit Laporan Shift '.$shiftNumber : 'Muat Daftar Payment Method Dulu' }}
                         </span>
                         <span wire:loading wire:target="requestConfirm">Memvalidasi...</span>
                     </button>
                 @endif
-            @endif
-
-        </div>
+            </div>
+        @endif
     </div>
 
 </div>

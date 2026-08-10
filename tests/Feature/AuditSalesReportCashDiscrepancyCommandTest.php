@@ -4,7 +4,7 @@ use App\Enums\SalesReportStatus;
 use App\Models\Branch;
 use App\Models\SalesReport;
 use App\Models\SalesReportEntry;
-use App\Models\User;
+use App\Models\SalesReportReconciliation;
 use Illuminate\Support\Facades\Http;
 
 it('flags submitted reports whose stored CASH total no longer matches ESB, without changing any data', function () {
@@ -15,23 +15,25 @@ it('flags submitted reports whose stored CASH total no longer matches ESB, witho
         'esb_branch_code' => 'BPL',
         'esb_comcode' => 'TESTCO',
     ]);
-    $submitter = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
     $report = SalesReport::create([
         'branch_id' => $branch->id,
-        'submitted_by' => $submitter->id,
         'report_date' => '2026-08-04',
-        'shift_number' => 1,
-        'shift_started_at' => '2026-08-04 09:00:00',
-        'shift_ended_at' => '2026-08-04 15:00:00',
         'submitted_at' => now(),
         'status' => SalesReportStatus::PendingSupervisor->value,
     ]);
-    $entry = SalesReportEntry::create([
+    SalesReportEntry::create([
+        'sales_report_id' => $report->id,
+        'shift_number' => 1,
+        'payment_method_name' => 'CASH',
+        'sales_store_amount' => 100_000,
+    ]);
+    $reconciliation = SalesReportReconciliation::create([
         'sales_report_id' => $report->id,
         'payment_method_name' => 'CASH',
-        'sales_system_amount' => 100_000,
-        'sales_store_amount' => 100_000,
+        'reported_store_amount' => 100_000,
+        'store_amount' => 100_000,
+        'system_amount' => 100_000,
     ]);
 
     Http::fake(['*' => Http::response([[
@@ -62,7 +64,7 @@ it('flags submitted reports whose stored CASH total no longer matches ESB, witho
         ->expectsOutputToContain('terindikasi terdampak')
         ->assertSuccessful();
 
-    expect($entry->fresh()->sales_system_amount)->toEqual(100_000);
+    expect($reconciliation->fresh()->system_amount)->toEqual(100_000);
 });
 
 it('reports no discrepancy when the stored CASH total already matches ESB', function () {
@@ -72,23 +74,25 @@ it('reports no discrepancy when the stored CASH total already matches ESB', func
         'esb_branch_code' => 'BPL',
         'esb_comcode' => 'TESTCO',
     ]);
-    $submitter = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
     $report = SalesReport::create([
         'branch_id' => $branch->id,
-        'submitted_by' => $submitter->id,
         'report_date' => '2026-08-04',
-        'shift_number' => 1,
-        'shift_started_at' => '2026-08-04 09:00:00',
-        'shift_ended_at' => '2026-08-04 15:00:00',
         'submitted_at' => now(),
         'status' => SalesReportStatus::PendingSupervisor->value,
     ]);
     SalesReportEntry::create([
         'sales_report_id' => $report->id,
+        'shift_number' => 1,
         'payment_method_name' => 'CASH',
-        'sales_system_amount' => 35_000,
         'sales_store_amount' => 35_000,
+    ]);
+    SalesReportReconciliation::create([
+        'sales_report_id' => $report->id,
+        'payment_method_name' => 'CASH',
+        'reported_store_amount' => 35_000,
+        'store_amount' => 35_000,
+        'system_amount' => 35_000,
     ]);
 
     Http::fake(['*' => Http::response([[
@@ -110,7 +114,7 @@ it('reports no discrepancy when the stored CASH total already matches ESB', func
         ->assertSuccessful();
 });
 
-it('applies the correction to sales_system_amount and records a note when --apply is passed', function () {
+it('applies the correction to system_amount and records a note when --apply is passed', function () {
     config()->set(['esb.tokens.TESTCO' => 'branch-token']);
 
     $branch = Branch::factory()->create([
@@ -118,25 +122,27 @@ it('applies the correction to sales_system_amount and records a note when --appl
         'esb_branch_code' => 'BPL',
         'esb_comcode' => 'TESTCO',
     ]);
-    $submitter = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
     $report = SalesReport::create([
         'branch_id' => $branch->id,
-        'submitted_by' => $submitter->id,
         'report_date' => '2026-08-04',
-        'shift_number' => 1,
-        'shift_started_at' => '2026-08-04 09:00:00',
-        'shift_ended_at' => '2026-08-04 15:00:00',
         'submitted_at' => now(),
         'status' => SalesReportStatus::PendingSupervisor->value,
     ]);
     $entry = SalesReportEntry::create([
         'sales_report_id' => $report->id,
+        'shift_number' => 1,
         'payment_method_name' => 'CASH',
-        'sales_system_amount' => 100_000,
         // What staff actually counted in the drawer — untouched by the correction,
         // so the real (small) discrepancy against the corrected system total stays visible.
         'sales_store_amount' => 74_500,
+    ]);
+    $reconciliation = SalesReportReconciliation::create([
+        'sales_report_id' => $report->id,
+        'payment_method_name' => 'CASH',
+        'reported_store_amount' => 74_500,
+        'store_amount' => 74_500,
+        'system_amount' => 100_000,
     ]);
 
     Http::fake(['*' => Http::response([[
@@ -166,10 +172,10 @@ it('applies the correction to sales_system_amount and records a note when --appl
         ->expectsOutputToContain('berhasil dikoreksi')
         ->assertSuccessful();
 
-    $fresh = $entry->fresh();
-    expect((float) $fresh->sales_system_amount)->toBe(74_000.0)
-        ->and((float) $fresh->sales_store_amount)->toBe(74_500.0)
-        ->and($fresh->notes)->toContain('Koreksi otomatis')
-        ->and($fresh->notes)->toContain('Rp100.000')
-        ->and($fresh->notes)->toContain('Rp74.000');
+    $fresh = $reconciliation->fresh();
+    expect((float) $fresh->system_amount)->toBe(74_000.0)
+        ->and((float) $entry->fresh()->sales_store_amount)->toBe(74_500.0)
+        ->and($fresh->supervisor_notes)->toContain('Koreksi otomatis')
+        ->and($fresh->supervisor_notes)->toContain('Rp100.000')
+        ->and($fresh->supervisor_notes)->toContain('Rp74.000');
 });

@@ -57,7 +57,7 @@ class SalesReportHistoryPage extends Page
 
         return SalesReport::where('branch_id', $branchId)
             ->where('report_date', '>=', $since)
-            ->with(['entries', 'submittedBy', 'employees'])
+            ->with(['entries', 'employees', 'shiftSubmissions.submittedBy', 'reconciliations'])
             ->orderBy('report_date', 'desc')
             ->get();
     }

@@ -16,11 +16,7 @@ class SalesReport extends Model
 
     protected $fillable = [
         'branch_id',
-        'submitted_by',
         'report_date',
-        'shift_number',
-        'shift_started_at',
-        'shift_ended_at',
         'submitted_at',
         'status',
         'supervisor_reviewed_by',
@@ -29,15 +25,11 @@ class SalesReport extends Model
         'finance_reviewed_by',
         'finance_reviewed_at',
         'finance_note',
-        'rejection_reason',
         'revision_number',
     ];
 
     protected $casts = [
         'report_date' => 'date',
-        'shift_number' => 'integer',
-        'shift_started_at' => 'datetime',
-        'shift_ended_at' => 'datetime',
         'submitted_at' => 'datetime',
         'status' => SalesReportStatus::class,
         'supervisor_reviewed_at' => 'datetime',
@@ -49,11 +41,6 @@ class SalesReport extends Model
         return $this->belongsTo(Branch::class);
     }
 
-    public function submittedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'submitted_by');
-    }
-
     public function employees(): HasMany
     {
         return $this->hasMany(SalesReportEmployee::class);
@@ -62,6 +49,16 @@ class SalesReport extends Model
     public function entries(): HasMany
     {
         return $this->hasMany(SalesReportEntry::class);
+    }
+
+    public function shiftSubmissions(): HasMany
+    {
+        return $this->hasMany(SalesReportShiftSubmission::class);
+    }
+
+    public function reconciliations(): HasMany
+    {
+        return $this->hasMany(SalesReportReconciliation::class);
     }
 
     public function approvals(): HasMany
@@ -84,9 +81,20 @@ class SalesReport extends Model
         return $this->belongsTo(User::class, 'finance_reviewed_by');
     }
 
-    public function getTotalSystemAttribute(): float
+    public function isShiftSubmitted(int $shiftNumber): bool
     {
-        return (float) $this->entries->sum('sales_system_amount');
+        return $this->shiftSubmissions->contains(fn (SalesReportShiftSubmission $s): bool => $s->shift_number === $shiftNumber);
+    }
+
+    public function allShiftsSubmitted(int $shiftCount): bool
+    {
+        for ($shift = 1; $shift <= $shiftCount; $shift++) {
+            if (! $this->isShiftSubmitted($shift)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function getTotalStoreAttribute(): float
@@ -94,8 +102,13 @@ class SalesReport extends Model
         return (float) $this->entries->sum('sales_store_amount');
     }
 
+    public function getTotalSystemAttribute(): float
+    {
+        return (float) $this->reconciliations->sum('system_amount');
+    }
+
     public function getTotalSettlementAttribute(): float
     {
-        return (float) $this->entries->sum('settlement_amount');
+        return (float) $this->reconciliations->sum('settlement_amount');
     }
 }

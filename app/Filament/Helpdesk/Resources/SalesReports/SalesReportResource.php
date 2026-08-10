@@ -63,22 +63,20 @@ class SalesReportResource extends Resource
                     ->sortable()
                     ->searchable(),
 
-                TextColumn::make('shift_number')
-                    ->label('Shift')
-                    ->badge()
-                    ->formatStateUsing(fn (int $state): string => 'Shift '.$state)
-                    ->sortable(),
+                TextColumn::make('shift_submissions')
+                    ->label('Shift Terkirim')
+                    ->state(fn (SalesReport $record): string => $record->shiftSubmissions
+                        ->sortBy('shift_number')
+                        ->map(fn ($submission) => 'Shift '.$submission->shift_number)
+                        ->join(', ') ?: '-'),
 
-                TextColumn::make('shift_started_at')
-                    ->label('Jam Shift')
-                    ->state(fn (SalesReport $record): string => $record->shift_started_at && $record->shift_ended_at
-                        ? $record->shift_started_at->format('H:i').'–'.$record->shift_ended_at->format('H:i')
-                        : '-'),
-
-                TextColumn::make('submittedBy.name')
+                TextColumn::make('submitted_by')
                     ->label('Disubmit oleh')
-                    ->sortable()
-                    ->searchable(),
+                    ->state(fn (SalesReport $record): string => $record->shiftSubmissions
+                        ->pluck('submittedBy.name')
+                        ->filter()
+                        ->unique()
+                        ->join(', ') ?: '-'),
 
                 TextColumn::make('employees.employee_name')
                     ->label('Staff Pengisi')
@@ -129,10 +127,6 @@ class SalesReportResource extends Resource
                     ->label('Status')
                     ->options(SalesReportStatus::class),
 
-                SelectFilter::make('shift_number')
-                    ->label('Shift')
-                    ->options([1 => 'Shift 1', 2 => 'Shift 2']),
-
                 Filter::make('report_date')
                     ->form([
                         DatePicker::make('from')->label('Dari'),
@@ -181,7 +175,7 @@ class SalesReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'submittedBy', 'employees']);
+        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'employees', 'reconciliations', 'shiftSubmissions.submittedBy']);
         $user = auth()->user();
 
         if ($user && ! $user->canAccessAllBranches()) {

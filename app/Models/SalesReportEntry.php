@@ -14,39 +14,19 @@ class SalesReportEntry extends Model
 
     protected $fillable = [
         'sales_report_id',
+        'shift_number',
         'payment_method_name',
-        'sales_system_amount',
         'sales_store_amount',
-        'original_sales_store_amount',
-        'settlement_amount',
-        'mdr_percentage',
-        'mdr_amount',
-        'expected_settlement_amount',
-        'settlement_difference',
-        'reconciliation_status',
-        'finance_note',
         'notes',
-        'original_notes',
     ];
 
     protected $casts = [
-        'sales_system_amount' => 'decimal:2',
+        'shift_number' => 'integer',
         'sales_store_amount' => 'decimal:2',
-        'original_sales_store_amount' => 'decimal:2',
-        'settlement_amount' => 'decimal:2',
-        'mdr_percentage' => 'decimal:4',
-        'mdr_amount' => 'decimal:2',
-        'expected_settlement_amount' => 'decimal:2',
-        'settlement_difference' => 'decimal:2',
     ];
 
     public function salesReport(): BelongsTo
     {
         return $this->belongsTo(SalesReport::class);
-    }
-
-    public function getSelisihAttribute(): float
-    {
-        return (float) $this->sales_system_amount - (float) $this->sales_store_amount;
     }
 }

@@ -17,11 +17,29 @@ class SalesReportExporter extends Exporter
             ExportColumn::make('id')->label('ID'),
             ExportColumn::make('branch.name')->label('Cabang'),
             ExportColumn::make('report_date')->label('Tanggal'),
-            ExportColumn::make('shift_number')->label('Shift'),
-            ExportColumn::make('shift_started_at')->label('Shift Mulai'),
-            ExportColumn::make('shift_ended_at')->label('Shift Selesai'),
+            ExportColumn::make('shift_submissions')
+                ->label('Shift Terkirim')
+                ->state(fn (SalesReport $record): string => $record->shiftSubmissions
+                    ->sortBy('shift_number')
+                    ->map(fn ($submission) => 'Shift '.$submission->shift_number)
+                    ->join(', ')),
             ExportColumn::make('submitted_at')->label('Waktu Submit'),
-            ExportColumn::make('submittedBy.name')->label('Disubmit Oleh'),
+            ExportColumn::make('submitted_by')
+                ->label('Disubmit Oleh')
+                ->state(fn (SalesReport $record): string => $record->shiftSubmissions
+                    ->pluck('submittedBy.name')
+                    ->filter()
+                    ->unique()
+                    ->join(', ')),
+            ExportColumn::make('total_system')
+                ->label('Sales System')
+                ->state(fn (SalesReport $record): float => $record->total_system),
+            ExportColumn::make('total_store')
+                ->label('Sales Store')
+                ->state(fn (SalesReport $record): float => $record->total_store),
+            ExportColumn::make('total_settlement')
+                ->label('Settlement')
+                ->state(fn (SalesReport $record): float => $record->total_settlement),
             ExportColumn::make('employee_codes')
                 ->label('ID Employee')
                 ->state(fn (SalesReport $record): string => $record->employees->pluck('employee_code')->filter()->join(', ')),
@@ -38,7 +56,6 @@ class SalesReportExporter extends Exporter
             ExportColumn::make('financeReviewer.name')->label('Reviewer Finance'),
             ExportColumn::make('finance_reviewed_at')->label('Waktu Approval Finance'),
             ExportColumn::make('finance_note')->label('Catatan Finance'),
-            ExportColumn::make('rejection_reason')->label('Alasan Penolakan'),
             ExportColumn::make('created_at')->label('Dibuat'),
         ];
     }

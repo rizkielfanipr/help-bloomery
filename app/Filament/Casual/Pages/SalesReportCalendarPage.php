@@ -68,7 +68,7 @@ class SalesReportCalendarPage extends Page
         $reports = $branchId
             ? SalesReport::where('branch_id', $branchId)
                 ->whereBetween('report_date', [$start, $end])
-                ->with(['submittedBy'])
+                ->with(['shiftSubmissions.submittedBy'])
                 ->get()
                 ->keyBy(fn (SalesReport $r) => $r->report_date->toDateString())
             : collect();
@@ -94,7 +94,11 @@ class SalesReportCalendarPage extends Page
                 'isToday' => $current->isToday(),
                 'isFuture' => ! $isPast,
                 'isSubmitted' => $isSubmitted,
-                'submittedBy' => $report?->submittedBy?->name,
+                'submittedBy' => $report?->shiftSubmissions
+                    ->pluck('submittedBy.name')
+                    ->filter()
+                    ->unique()
+                    ->join(', '),
             ];
 
             $current->addDay();

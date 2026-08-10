@@ -9,9 +9,7 @@ enum SalesReportStatus: string implements HasColor, HasLabel
 {
     case Draft = 'draft';
     case PendingSupervisor = 'pending_supervisor';
-    case RejectedBySupervisor = 'rejected_by_supervisor';
     case PendingFinance = 'pending_finance';
-    case RejectedByFinance = 'rejected_by_finance';
     case Completed = 'completed';
 
     public function getLabel(): string
@@ -19,9 +17,7 @@ enum SalesReportStatus: string implements HasColor, HasLabel
         return match ($this) {
             self::Draft => 'Draft',
             self::PendingSupervisor => 'Supervisor Review',
-            self::RejectedBySupervisor => 'Rejected by Supervisor',
             self::PendingFinance => 'Finance Review',
-            self::RejectedByFinance => 'Rejected by Finance',
             self::Completed => 'Completed',
         };
     }
@@ -31,7 +27,6 @@ enum SalesReportStatus: string implements HasColor, HasLabel
         return match ($this) {
             self::Draft => 'gray',
             self::PendingSupervisor, self::PendingFinance => 'warning',
-            self::RejectedBySupervisor, self::RejectedByFinance => 'danger',
             self::Completed => 'success',
         };
     }

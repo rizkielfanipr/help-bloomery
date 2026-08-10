@@ -3,6 +3,7 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Models\SalesReport;
+use App\Models\SalesReportShiftSubmission;
 use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -63,11 +64,16 @@ class SalesReportPage extends Page
 
         $defaults = array_fill_keys($this->getShiftNumbers(), null);
 
-        return SalesReport::where('branch_id', $user->branch_id)
+        $report = SalesReport::where('branch_id', $user->branch_id)
             ->whereDate('report_date', $this->reportDate ?: now()->toDateString())
-            ->get()
-            ->keyBy('shift_number')
-            ->mapWithKeys(fn (SalesReport $report) => [$report->shift_number => $report->submitted_at])
+            ->first();
+
+        if (! $report) {
+            return $defaults;
+        }
+
+        return $report->shiftSubmissions
+            ->mapWithKeys(fn (SalesReportShiftSubmission $submission) => [$submission->shift_number => $submission->submitted_at])
             ->union($defaults)
             ->sortKeys()
             ->all();

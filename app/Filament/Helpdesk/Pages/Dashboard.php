@@ -334,11 +334,11 @@ class Dashboard extends BaseDashboard
             ]);
         });
 
-        SalesReport::with('branch', 'submittedBy')->latest()->limit(4)->get()->each(function ($r) use ($items) {
+        SalesReport::with('branch', 'shiftSubmissions.submittedBy')->latest()->limit(4)->get()->each(function ($r) use ($items) {
             $items->push([
                 'type' => 'Sales',
                 'label' => 'Sales '.($r->branch?->name ?? '-'),
-                'sub' => $r->submittedBy?->name ?? '-',
+                'sub' => $r->shiftSubmissions->pluck('submittedBy.name')->filter()->unique()->join(', ') ?: '-',
                 'status_label' => 'Submitted',
                 'status_color' => 'success',
                 'href' => route('filament.helpdesk.resources.sales-reports.view', $r->id),

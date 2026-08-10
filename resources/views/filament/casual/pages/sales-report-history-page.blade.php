@@ -63,6 +63,7 @@
                         @php
                             $totalStore  = (float) $report->entries->sum('sales_store_amount');
                             $isExpanded  = $expandedReportId === $report->id;
+                            $submittedShiftNumbers = $report->shiftSubmissions->pluck('shift_number')->sort()->values();
                         @endphp
 
                         <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
@@ -87,10 +88,10 @@
                                         Rp {{ number_format($totalStore, 0, ',', '.') }}
                                     </p>
                                     <p class="mt-0.5 text-xs text-gray-400">
-                                        Shift {{ $report->shift_number }} · {{ $report->shift_started_at?->format('H:i') ?? '-' }}–{{ $report->shift_ended_at?->format('H:i') ?? '-' }}
+                                        {{ $submittedShiftNumbers->map(fn ($n) => 'Shift '.$n)->join(', ') ?: 'Belum ada shift terkirim' }}
                                     </p>
                                     <p class="mt-0.5 text-xs text-gray-400">
-                                        {{ $report->entries->count() }} metode pembayaran
+                                        {{ $report->entries->pluck('payment_method_name')->unique()->count() }} metode pembayaran
                                     </p>
                                     @if($report->employees->isNotEmpty())
                                         <p class="mt-0.5 truncate text-[11px] text-gray-500">
@@ -100,12 +101,14 @@
                                     <span @class([
                                         'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
                                         'bg-emerald-100 text-emerald-700' => $report->status === \App\Enums\SalesReportStatus::Completed,
-                                        'bg-red-100 text-red-700' => in_array($report->status, [\App\Enums\SalesReportStatus::RejectedBySupervisor, \App\Enums\SalesReportStatus::RejectedByFinance], true),
                                         'bg-amber-100 text-amber-700' => in_array($report->status, [\App\Enums\SalesReportStatus::PendingSupervisor, \App\Enums\SalesReportStatus::PendingFinance], true),
                                         'bg-gray-100 text-gray-600' => $report->status === \App\Enums\SalesReportStatus::Draft,
                                     ])>{{ $report->status->getLabel() }}</span>
-                                    @if($report->submittedBy)
-                                        <p class="mt-0.5 text-[11px] text-gray-400">{{ $report->submittedBy->name }}</p>
+                                    @php
+                                        $submitterNames = $report->shiftSubmissions->pluck('submittedBy.name')->filter()->unique()->join(', ');
+                                    @endphp
+                                    @if($submitterNames)
+                                        <p class="mt-0.5 truncate text-[11px] text-gray-400">{{ $submitterNames }}</p>
                                     @endif
                                 </div>
 
@@ -118,35 +121,63 @@
 
                             {{-- Expanded detail --}}
                             @if($isExpanded)
+                                @php
+                                    $entriesByMethod = $report->entries->groupBy('payment_method_name');
+                                    $reconciliationsByMethod = $report->reconciliations->keyBy('payment_method_name');
+                                    $paymentMethods = $entriesByMethod->keys()->merge($reconciliationsByMethod->keys())->unique()->sort();
+                                    $totalSystem = (float) $report->reconciliations->sum('system_amount');
+                                    $totalSelisih = $totalSystem - $totalStore;
+                                @endphp
                                 <div class="border-t border-gray-100 dark:border-gray-800">
 
-                                    {{-- Entries --}}
-                                    @foreach($report->entries->sortBy('payment_method_name') as $entry)
-                                        @php $selisih = (float)$entry->sales_system_amount - (float)$entry->sales_store_amount; @endphp
-                                        <div class="grid grid-cols-[1fr_80px_80px] border-b border-gray-100 px-4 py-2 last:border-0 dark:border-gray-800">
-                                            <span class="text-xs text-gray-600 dark:text-gray-400">{{ $entry->payment_method_name }}</span>
-                                            <span class="text-right text-xs font-mono text-gray-700 dark:text-gray-300">
-                                                {{ number_format($entry->sales_store_amount, 0, ',', '.') }}
-                                            </span>
-                                            <span class="text-right text-xs font-mono font-semibold
-                                                {{ $selisih < 0 ? 'text-red-500' : ($selisih == 0 ? 'text-gray-400' : 'text-emerald-600') }}">
-                                                {{ $selisih < 0 ? '-' : '' }}{{ number_format(abs($selisih), 0, ',', '.') }}
-                                            </span>
+                                    {{-- Entries — stacked per method so numbers stay readable on narrow screens --}}
+                                    @foreach($paymentMethods as $method)
+                                        @php
+                                            $methodEntries = $entriesByMethod->get($method, collect());
+                                            $shift1 = (float) ($methodEntries->firstWhere('shift_number', 1)?->sales_store_amount ?? 0);
+                                            $shift2 = (float) ($methodEntries->firstWhere('shift_number', 2)?->sales_store_amount ?? 0);
+                                            $methodTotal = $shift1 + $shift2;
+                                            $methodSystem = $reconciliationsByMethod->get($method)?->system_amount;
+                                        @endphp
+                                        <div class="border-b border-gray-100 px-4 py-2.5 last:border-0 dark:border-gray-800">
+                                            <div class="flex items-center justify-between gap-2">
+                                                <span class="truncate text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $method }}</span>
+                                                <span class="shrink-0 text-right text-xs font-mono font-semibold text-gray-800 dark:text-gray-100">
+                                                    {{ number_format($methodTotal, 0, ',', '.') }}
+                                                </span>
+                                            </div>
+                                            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-gray-400">
+                                                <span>Shift 1: {{ number_format($shift1, 0, ',', '.') }}</span>
+                                                <span>Shift 2: {{ number_format($shift2, 0, ',', '.') }}</span>
+                                                <span>Sistem: {{ $methodSystem === null ? '-' : number_format((float) $methodSystem, 0, ',', '.') }}</span>
+                                            </div>
                                         </div>
                                     @endforeach
 
                                     {{-- Total row --}}
-                                    @php $totalSystem = (float) $report->entries->sum('sales_system_amount'); $totalSelisih = $totalSystem - $totalStore; @endphp
-                                    <div class="grid grid-cols-[1fr_80px_80px] border-t-2 border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800/50">
-                                        <span class="text-[10px] font-bold uppercase text-gray-500">Total Toko</span>
-                                        <span class="text-right text-xs font-bold text-blue-700 dark:text-blue-300">
-                                            Rp {{ number_format($totalStore, 0, ',', '.') }}
-                                        </span>
-                                        <span class="text-right text-xs font-bold
-                                            {{ $totalSelisih < 0 ? 'text-red-500' : ($totalSelisih == 0 ? 'text-gray-400' : 'text-emerald-600') }}">
-                                            {{ $totalSelisih < 0 ? '-' : '' }}Rp {{ number_format(abs($totalSelisih), 0, ',', '.') }}
-                                        </span>
+                                    <div class="border-t-2 border-gray-200 bg-gray-50 px-4 py-2.5 dark:border-gray-700 dark:bg-gray-800/50">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span class="text-[10px] font-bold uppercase text-gray-500">Total Toko</span>
+                                            <span class="text-sm font-mono font-bold text-blue-700 dark:text-blue-300">
+                                                Rp {{ number_format($totalStore, 0, ',', '.') }}
+                                            </span>
+                                        </div>
+                                        <div class="mt-1 flex items-center justify-between gap-2">
+                                            <span class="text-[10px] font-bold uppercase text-gray-500">Total Sistem</span>
+                                            <span class="text-xs font-mono font-semibold text-gray-600 dark:text-gray-300">
+                                                Rp {{ number_format($totalSystem, 0, ',', '.') }}
+                                            </span>
+                                        </div>
                                     </div>
+
+                                    @if($report->reconciliations->isNotEmpty())
+                                        <div class="flex items-center justify-between px-4 py-2">
+                                            <span class="text-[10px] font-bold uppercase text-gray-500">Selisih (Sistem − Toko)</span>
+                                            <span class="text-xs font-bold {{ $totalSelisih < 0 ? 'text-red-500' : ($totalSelisih == 0 ? 'text-gray-400' : 'text-emerald-600') }}">
+                                                {{ $totalSelisih < 0 ? '-' : '' }}Rp {{ number_format(abs($totalSelisih), 0, ',', '.') }}
+                                            </span>
+                                        </div>
+                                    @endif
                                 </div>
                             @endif
 

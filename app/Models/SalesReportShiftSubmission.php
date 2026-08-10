@@ -5,21 +5,20 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SalesReportEmployee extends Model
+class SalesReportShiftSubmission extends Model
 {
     protected $fillable = [
         'sales_report_id',
         'shift_number',
-        'employee_id',
-        'employee_code',
-        'employee_name',
-        'employee_position',
+        'submitted_by',
+        'submitted_at',
     ];
 
     protected function casts(): array
     {
         return [
             'shift_number' => 'integer',
+            'submitted_at' => 'datetime',
         ];
     }
 
@@ -28,8 +27,8 @@ class SalesReportEmployee extends Model
         return $this->belongsTo(SalesReport::class);
     }
 
-    public function employee(): BelongsTo
+    public function submittedBy(): BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(User::class, 'submitted_by');
     }
 }

@@ -19,12 +19,10 @@ use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Alignment;
@@ -111,32 +109,15 @@ class BranchResource extends Resource
                     ->columns(1),
 
                 Section::make('Jadwal Shift Sales Report')
-                    ->description('Transaksi ESB dikelompokkan berdasarkan salesDateOut. Jam akhir tidak ikut shift sebelumnya agar tidak terhitung dua kali.')
+                    ->description('Jumlah shift Sales Report yang diisi staff untuk branch ini.')
                     ->schema([
                         Select::make('sales_shift_count')
                             ->label('Jumlah Shift')
                             ->options([1 => '1 Shift', 2 => '2 Shift'])
                             ->required()
                             ->default(2)
-                            ->live()
                             ->columnSpanFull(),
-
-                        TimePicker::make('sales_shift_1_start')->label('Shift 1 Mulai')->seconds(false)->required()->default('09:00'),
-                        TimePicker::make('sales_shift_1_end')->label('Shift 1 Selesai')->seconds(false)->required()->default('15:00'),
-                        TimePicker::make('sales_shift_2_start')
-                            ->label('Shift 2 Mulai')
-                            ->seconds(false)
-                            ->visible(fn (Get $get): bool => (int) $get('sales_shift_count') === 2)
-                            ->required(fn (Get $get): bool => (int) $get('sales_shift_count') === 2)
-                            ->default('15:00'),
-                        TimePicker::make('sales_shift_2_end')
-                            ->label('Shift 2 Selesai')
-                            ->seconds(false)
-                            ->visible(fn (Get $get): bool => (int) $get('sales_shift_count') === 2)
-                            ->required(fn (Get $get): bool => (int) $get('sales_shift_count') === 2)
-                            ->default('21:00'),
-                    ])
-                    ->columns(2),
+                    ]),
             ]);
     }
 

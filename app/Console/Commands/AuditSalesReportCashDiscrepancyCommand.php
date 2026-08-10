@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\SalesReport;
-use App\Models\SalesReportEntry;
+use App\Models\SalesReportReconciliation;
 use App\Services\EsbService;
 use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
 use Throwable;
 
 #[Signature('sales-reports:audit-cash-discrepancy {--from=} {--to=} {--branch=} {--report=} {--apply}')]
-#[Description('Recompute ESB CASH totals for submitted Sales Reports and flag any affected by the change-given-back bug. Read-only by default; pass --apply to write the corrected sales_system_amount.')]
+#[Description('Recompute ESB CASH totals for submitted Sales Reports and flag any affected by the change-given-back bug. Read-only by default; pass --apply to write the corrected system_amount.')]
 class AuditSalesReportCashDiscrepancyCommand extends Command
 {
     public function handle(EsbService $esb): int
@@ -20,7 +20,7 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
         $reportId = $this->option('report');
         $apply = (bool) $this->option('apply');
 
-        $query = SalesReport::query()->whereNotNull('submitted_at')->with(['branch', 'entries']);
+        $query = SalesReport::query()->whereNotNull('submitted_at')->with(['branch', 'reconciliations']);
 
         if ($reportId) {
             $query->where('id', $reportId);
@@ -43,28 +43,26 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
         }
 
         $rows = [];
-        /** @var array<int, array{entry: SalesReportEntry, stored: float, recalculated: float}> */
+        /** @var array<int, array{reconciliation: SalesReportReconciliation, stored: float, recalculated: float}> */
         $discrepancies = [];
         $skipped = 0;
 
         foreach ($reports as $report) {
             $branch = $report->branch;
-            $cashEntry = $report->entries->first(
-                fn ($entry) => mb_strtoupper(trim((string) $entry->payment_method_name)) === 'CASH',
+            $cashReconciliation = $report->reconciliations->first(
+                fn ($reconciliation) => mb_strtoupper(trim((string) $reconciliation->payment_method_name)) === 'CASH',
             );
 
-            if (! $branch?->esb_branch_code || ! $branch->esb_token || ! $cashEntry) {
+            if (! $branch?->esb_branch_code || ! $branch->esb_token || ! $cashReconciliation) {
                 $skipped++;
 
                 continue;
             }
 
             try {
-                $summary = $esb->getShiftPaymentSummary(
+                $esbRows = $esb->getPaymentSummary(
                     $branch->esb_branch_code,
                     $report->report_date->toDateString(),
-                    $report->shift_started_at?->format('H:i') ?? '00:00',
-                    $report->shift_ended_at?->format('H:i') ?? '23:59',
                     $branch->esb_token,
                 );
             } catch (Throwable $exception) {
@@ -74,8 +72,8 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
                 continue;
             }
 
-            $recalculated = (float) (collect($summary['rows'])->firstWhere('name', 'CASH')['total'] ?? 0.0);
-            $stored = (float) $cashEntry->sales_system_amount;
+            $recalculated = (float) (collect($esbRows)->firstWhere('name', 'CASH')['total'] ?? 0.0);
+            $stored = (float) $cashReconciliation->system_amount;
             $diff = round($stored - $recalculated, 2);
 
             if (abs($diff) < 0.01) {
@@ -86,22 +84,21 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
                 $report->id,
                 $branch->name,
                 $report->report_date->toDateString(),
-                $report->shift_number,
                 number_format($stored, 0, ',', '.'),
                 number_format($recalculated, 0, ',', '.'),
                 number_format($diff, 0, ',', '.'),
             ];
-            $discrepancies[] = ['entry' => $cashEntry, 'stored' => $stored, 'recalculated' => $recalculated];
+            $discrepancies[] = ['reconciliation' => $cashReconciliation, 'stored' => $stored, 'recalculated' => $recalculated];
         }
 
         if ($rows === []) {
-            $this->info("Tidak ditemukan selisih CASH pada {$reports->count()} laporan yang dicek ({$skipped} dilewati karena tidak punya branch/token/entry CASH).");
+            $this->info("Tidak ditemukan selisih CASH pada {$reports->count()} laporan yang dicek ({$skipped} dilewati karena tidak punya branch/token/reconciliation CASH).");
 
             return self::SUCCESS;
         }
 
         $this->table(
-            ['Report ID', 'Branch', 'Tanggal', 'Shift', 'Tersimpan (lama)', 'Hasil Hitung Ulang', 'Selisih'],
+            ['Report ID', 'Branch', 'Tanggal', 'Tersimpan (lama)', 'Hasil Hitung Ulang', 'Selisih'],
             $rows,
         );
 
@@ -112,21 +109,21 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
         }
 
         foreach ($discrepancies as $item) {
-            $entry = $item['entry'];
+            $reconciliation = $item['reconciliation'];
             $note = sprintf(
-                '[Koreksi otomatis %s] sales_system_amount CASH diubah dari Rp%s ke Rp%s (bug: paymentAmount ESB termasuk kembalian tunai).',
+                '[Koreksi otomatis %s] system_amount CASH diubah dari Rp%s ke Rp%s (bug: paymentAmount ESB termasuk kembalian tunai).',
                 now()->toDateTimeString(),
                 number_format($item['stored'], 0, ',', '.'),
                 number_format($item['recalculated'], 0, ',', '.'),
             );
 
-            $entry->update([
-                'sales_system_amount' => $item['recalculated'],
-                'notes' => trim(($entry->notes ? $entry->notes."\n" : '').$note),
+            $reconciliation->update([
+                'system_amount' => $item['recalculated'],
+                'supervisor_notes' => trim(($reconciliation->supervisor_notes ? $reconciliation->supervisor_notes."\n" : '').$note),
             ]);
         }
 
-        $this->info(count($discrepancies).' entry sales_system_amount berhasil dikoreksi ke nilai hasil hitung ulang.');
+        $this->info(count($discrepancies).' reconciliation system_amount berhasil dikoreksi ke nilai hasil hitung ulang.');
 
         return self::SUCCESS;
     }

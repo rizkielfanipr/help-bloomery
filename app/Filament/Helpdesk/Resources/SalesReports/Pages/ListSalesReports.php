@@ -27,11 +27,6 @@ class ListSalesReports extends ListRecords
             'pending_finance' => Tab::make('Finance Review')
                 ->badge(fn (): int => $this->statusCount(SalesReportStatus::PendingFinance))
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::PendingFinance->value)),
-            'rejected' => Tab::make('Rejected')
-                ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('status', [
-                    SalesReportStatus::RejectedBySupervisor->value,
-                    SalesReportStatus::RejectedByFinance->value,
-                ])),
             'completed' => Tab::make('Completed')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::Completed->value)),
         ];

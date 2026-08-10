@@ -43,7 +43,6 @@
                 $submittedAt = $shiftStatuses[$shiftNumber] ?? null;
                 $isDone = (bool) $submittedAt;
                 $isLocked = $shiftNumber > 1 && ! ($shiftStatuses[$shiftNumber - 1] ?? null);
-                $schedule = auth()->user()->branch?->salesShiftSchedule($shiftNumber);
             @endphp
             <a href="{{ route('filament.casual.pages.sales-report-shift-page') }}?date={{ $date }}&shift={{ $shiftNumber }}"
                wire:navigate
@@ -75,7 +74,7 @@
                         @elseif($isLocked)
                             Terkunci · Submit Shift {{ $shiftNumber - 1 }} terlebih dahulu
                         @else
-                            {{ substr((string) ($schedule['start'] ?? ''), 0, 5) }}–{{ substr((string) ($schedule['end'] ?? ''), 0, 5) }} · Belum diisi
+                            Belum diisi
                         @endif
                     </p>
                 </div>

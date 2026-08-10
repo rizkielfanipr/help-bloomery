@@ -8,6 +8,7 @@ use App\Filament\Helpdesk\Resources\Branches\Pages\EditBranch;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
+use App\Models\SalesReportShiftSubmission;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -32,7 +33,7 @@ it('reports shift availability from the branch model helpers', function () {
         ->and($twoShift->salesShiftNumbers())->toBe([1, 2]);
 });
 
-it('creates a branch with a single sales shift without requiring shift 2 times', function () {
+it('creates a branch with a single sales shift', function () {
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
     $this->actingAs($this->admin);
 
@@ -40,31 +41,12 @@ it('creates a branch with a single sales shift without requiring shift 2 times',
         ->fillForm([
             'name' => 'Branch Satu Shift',
             'sales_shift_count' => 1,
-            'sales_shift_1_start' => '08:00',
-            'sales_shift_1_end' => '17:00',
         ])
         ->call('create')
         ->assertHasNoFormErrors();
 
     $branch = Branch::query()->where('name', 'Branch Satu Shift')->firstOrFail();
     expect($branch->sales_shift_count)->toBe(1);
-});
-
-it('requires shift 2 times on the branch form when two shifts are selected', function () {
-    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
-    $this->actingAs($this->admin);
-
-    Livewire::test(CreateBranch::class)
-        ->fillForm([
-            'name' => 'Branch Dua Shift',
-            'sales_shift_count' => 2,
-            'sales_shift_1_start' => '08:00',
-            'sales_shift_1_end' => '15:00',
-            'sales_shift_2_start' => null,
-            'sales_shift_2_end' => null,
-        ])
-        ->call('create')
-        ->assertHasFormErrors(['sales_shift_2_start', 'sales_shift_2_end']);
 });
 
 it('lets an existing branch be edited down to a single shift', function () {
@@ -122,13 +104,17 @@ it('still locks shift 2 behind shift 1 submission for a two-shift branch', funct
         'reportDate' => today()->toDateString(),
     ]));
 
-    SalesReport::create([
+    $report = SalesReport::create([
         'branch_id' => $branch->id,
-        'submitted_by' => $staff->id,
         'report_date' => today(),
+        'status' => SalesReportStatus::Draft->value,
+    ]);
+
+    SalesReportShiftSubmission::create([
+        'sales_report_id' => $report->id,
         'shift_number' => 1,
+        'submitted_by' => $staff->id,
         'submitted_at' => now(),
-        'status' => SalesReportStatus::PendingSupervisor->value,
     ]);
 
     Livewire::test(SalesReportShiftPage::class, [

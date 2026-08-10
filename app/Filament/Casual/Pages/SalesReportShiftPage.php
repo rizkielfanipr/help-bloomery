@@ -5,11 +5,12 @@ namespace App\Filament\Casual\Pages;
 use App\Enums\SalesReportStatus;
 use App\Models\Employee;
 use App\Models\SalesReport;
-use App\Models\SalesReportApproval;
 use App\Models\SalesReportEmployee;
 use App\Models\SalesReportEntry;
+use App\Models\SalesReportShiftSubmission;
+use App\Models\User;
 use App\Services\EsbService;
-use Carbon\CarbonImmutable;
+use App\Services\SalesReportReconciliationService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -32,21 +33,13 @@ class SalesReportShiftPage extends Page
     #[Url(as: 'shift')]
     public int $shiftNumber = 1;
 
-    public string $shiftStart = '';
-
-    public string $shiftEnd = '';
-
     public bool $isSubmitted = false;
-
-    public bool $showConfirm = false;
-
-    public bool $esbFetched = false;
-
-    public bool $showDiscrepancies = false;
 
     public string $currentStatus = 'draft';
 
-    public ?string $rejectionReason = null;
+    public bool $esbFetched = false;
+
+    public bool $showConfirm = false;
 
     /** @var array<int, int> */
     public array $employeeIds = [];
@@ -54,11 +47,8 @@ class SalesReportShiftPage extends Page
     /** @var array<int, array{code: ?string, name: ?string, position: ?string}> */
     public array $submittedEmployees = [];
 
-    /** @var array<int, array{name: string, sales_system: float, sales_store: string, notes: string}> */
+    /** @var array<int, array{name: string, sales_store: string, notes: string}> */
     public array $rows = [];
-
-    /** @var array<int, array{sales_num: string, sales_date_out: string, payment_total: float}> */
-    public array $esbTransactions = [];
 
     public function mount(): void
     {
@@ -97,10 +87,6 @@ class SalesReportShiftPage extends Page
             return;
         }
 
-        $schedule = auth()->user()->branch?->salesShiftSchedule($this->shiftNumber);
-        $this->shiftStart = substr((string) ($schedule['start'] ?? ''), 0, 5);
-        $this->shiftEnd = substr((string) ($schedule['end'] ?? ''), 0, 5);
-
         $this->loadData();
     }
 
@@ -128,54 +114,40 @@ class SalesReportShiftPage extends Page
             return;
         }
 
-        $report = SalesReport::with(['entries', 'esbTransactions', 'employees'])
+        $report = SalesReport::with(['shiftSubmissions'])
             ->where('branch_id', $branchId)
             ->whereDate('report_date', $this->reportDate)
-            ->where('shift_number', $this->shiftNumber)
             ->first();
 
         if (! $report) {
             return;
         }
 
-        $status = $report->status ?? SalesReportStatus::Draft;
-        $this->isSubmitted = ! $status->canBeEditedBySubmitter();
-        $this->currentStatus = $status->value;
-        $this->rejectionReason = $report->rejection_reason;
-        $this->employeeIds = $report->employees->pluck('employee_id')->filter()->values()->all();
+        $this->currentStatus = $report->status->value;
+
+        if (! $report->isShiftSubmitted($this->shiftNumber)) {
+            return;
+        }
+
+        $this->isSubmitted = true;
+
+        $report->load(['entries' => fn ($q) => $q->where('shift_number', $this->shiftNumber), 'employees' => fn ($q) => $q->where('shift_number', $this->shiftNumber)]);
+
+        $this->rows = $report->entries->map(fn (SalesReportEntry $entry) => [
+            'name' => $entry->payment_method_name,
+            'sales_store' => (string) $entry->sales_store_amount,
+            'notes' => $entry->notes ?? '',
+        ])->values()->all();
+
         $this->submittedEmployees = $report->employees->map(fn (SalesReportEmployee $e): array => [
             'code' => $e->employee_code,
             'name' => $e->employee_name,
             'position' => $e->employee_position,
         ])->all();
-        $this->shiftStart = $report->shift_started_at?->format('H:i') ?? $this->shiftStart;
-        $this->shiftEnd = $report->shift_ended_at?->format('H:i') ?? $this->shiftEnd;
-
-        $this->rows = $report->entries->map(fn ($entry) => [
-            'name' => $entry->payment_method_name,
-            'sales_system' => (float) $entry->sales_system_amount,
-            'sales_store' => $entry->sales_store_amount > 0 ? (string) $entry->sales_store_amount : '',
-            'notes' => $entry->notes ?? '',
-        ])->values()->all();
-        $this->esbTransactions = $report->esbTransactions->map(fn ($transaction) => [
-            'sales_num' => $transaction->sales_num,
-            'sales_date_out' => $transaction->sales_date_out->format('Y-m-d H:i:s'),
-            'payment_total' => (float) $transaction->payment_total,
-        ])->values()->all();
-
-        if (! empty($this->rows)) {
-            $this->esbFetched = true;
-        }
     }
 
     public function fetchFromEsb(): void
     {
-        if (! $this->shiftIsUnlocked()) {
-            Notification::make()->title('Submit Shift '.($this->shiftNumber - 1).' terlebih dahulu')->warning()->send();
-
-            return;
-        }
-
         $user = auth()->user();
         $branch = $user->branch;
 
@@ -194,14 +166,11 @@ class SalesReportShiftPage extends Page
         }
 
         try {
-            $summary = (new EsbService)->getShiftPaymentSummary(
+            $esbRows = app(EsbService::class)->getPaymentSummary(
                 $branch->esb_branch_code,
                 $this->reportDate,
-                $this->shiftStart,
-                $this->shiftEnd,
                 $esbToken,
             );
-            $esbRows = $summary['rows'];
 
             if (empty($esbRows)) {
                 Notification::make()->title('Tidak ada data penjualan ESB untuk tanggal ini')->info()->send();
@@ -209,17 +178,15 @@ class SalesReportShiftPage extends Page
                 return;
             }
 
-            $this->rows = array_map(fn ($row) => [
+            $this->rows = array_map(fn (array $row): array => [
                 'name' => $row['name'],
-                'sales_system' => $row['total'],
                 'sales_store' => '',
                 'notes' => '',
             ], $esbRows);
-            $this->esbTransactions = $summary['transactions'];
 
             $this->esbFetched = true;
 
-            Notification::make()->title('Data ESB berhasil dimuat')->success()->send();
+            Notification::make()->title('Daftar payment method berhasil dimuat')->success()->send();
         } catch (\RuntimeException $e) {
             Notification::make()
                 ->title('Gagal mengambil data ESB')
@@ -229,41 +196,14 @@ class SalesReportShiftPage extends Page
         }
     }
 
-    public function totalSystem(): float
-    {
-        return collect($this->rows)->sum(fn ($r) => (float) $r['sales_system']);
-    }
-
     public function totalStore(): float
     {
         return collect($this->rows)->sum(fn ($r) => (float) ($r['sales_store'] ?? 0));
     }
 
-    public function getSelisih(int $idx): float
-    {
-        $row = $this->rows[$idx] ?? null;
-        if (! $row) {
-            return 0.0;
-        }
-
-        return (float) $row['sales_system'] - (float) ($row['sales_store'] ?? 0);
-    }
-
     public function requestConfirm(): void
     {
-        if (! $this->shiftIsUnlocked()) {
-            Notification::make()->title('Submit Shift '.($this->shiftNumber - 1).' terlebih dahulu')->warning()->send();
-
-            return;
-        }
-
-        if ($this->isSubmitted) {
-            return;
-        }
-
-        if (! $this->esbFetched || empty($this->rows)) {
-            Notification::make()->title('Fetch data ESB terlebih dahulu sebelum menyimpan')->warning()->send();
-
+        if (! $this->shiftIsUnlocked() || $this->isSubmitted) {
             return;
         }
 
@@ -275,44 +215,13 @@ class SalesReportShiftPage extends Page
             return;
         }
 
-        $this->resetValidation();
-        $this->validate([
-            'reportDate' => ['required', 'date'],
-            'employeeIds' => ['required', 'array', 'min:1'],
-            'employeeIds.*' => [
-                'integer',
-                Rule::exists('employees', 'id')->where(fn ($query) => $query
-                    ->where('branch_id', $user->branch_id)
-                    ->where('is_active', true)),
-            ],
-            'rows.*.sales_store' => ['nullable', 'numeric', 'min:0'],
-        ], [
-            'employeeIds.required' => 'Pilih minimal satu staff yang mengisi Sales Report.',
-            'employeeIds.min' => 'Pilih minimal satu staff yang mengisi Sales Report.',
-            'employeeIds.*.exists' => 'Staff tidak aktif atau tidak terdaftar pada branch ini.',
-        ]);
+        if (! $this->esbFetched || empty($this->rows)) {
+            Notification::make()->title('Muat daftar payment method terlebih dahulu sebelum menyimpan')->warning()->send();
 
-        $hasMissingDifferenceNotes = false;
-        foreach ($this->rows as $idx => $row) {
-            $difference = (float) $row['sales_system'] - (float) ($row['sales_store'] ?? 0);
-            if (abs($difference) > 0.009 && empty(trim($row['notes'] ?? ''))) {
-                $this->addError("rows.{$idx}.notes", 'Notes wajib diisi karena terdapat selisih pada payment method ini.');
-                $hasMissingDifferenceNotes = true;
-            }
-        }
-
-        if ($hasMissingDifferenceNotes) {
-            $this->showDiscrepancies = true;
-            Notification::make()
-                ->title('Sales difference detected')
-                ->body('Terdapat selisih pada Sales Report. Isi notes pada payment method yang ditandai, lalu submit ulang.')
-                ->warning()
-                ->send();
-        }
-
-        if ($this->getErrorBag()->isNotEmpty()) {
             return;
         }
+
+        $this->validateRows($user);
 
         $this->showConfirm = true;
     }
@@ -322,19 +231,30 @@ class SalesReportShiftPage extends Page
         $this->showConfirm = false;
     }
 
-    public function save(): void
+    private function validateRows(User $user): void
     {
-        if (! $this->shiftIsUnlocked()) {
-            Notification::make()->title('Submit Shift '.($this->shiftNumber - 1).' terlebih dahulu')->warning()->send();
+        $this->validate([
+            'employeeIds' => ['required', 'array', 'min:1'],
+            'employeeIds.*' => [
+                'integer',
+                Rule::exists('employees', 'id')->where(fn ($query) => $query
+                    ->where('branch_id', $user->branch_id)
+                    ->where('is_active', true)),
+            ],
+            'rows.*.sales_store' => ['nullable', 'numeric', 'min:0'],
+            'rows.*.notes' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'employeeIds.required' => 'Pilih minimal satu staff yang mengisi Sales Report.',
+            'employeeIds.min' => 'Pilih minimal satu staff yang mengisi Sales Report.',
+            'employeeIds.*.exists' => 'Staff tidak aktif atau tidak terdaftar pada branch ini.',
+        ]);
+    }
 
+    public function save(SalesReportReconciliationService $reconciliationService): void
+    {
+        if (! $this->showConfirm || ! $this->shiftIsUnlocked() || $this->isSubmitted) {
             return;
         }
-
-        if ($this->isSubmitted) {
-            return;
-        }
-
-        $this->showConfirm = false;
 
         $user = auth()->user();
 
@@ -344,123 +264,85 @@ class SalesReportShiftPage extends Page
             return;
         }
 
-        $this->validate([
-            'employeeIds' => ['required', 'array', 'min:1'],
-            'employeeIds.*' => [
-                'integer',
-                Rule::exists('employees', 'id')->where(fn ($query) => $query
-                    ->where('branch_id', $user->branch_id)
-                    ->where('is_active', true)),
-            ],
-        ], [
-            'employeeIds.required' => 'Pilih minimal satu staff yang mengisi Sales Report.',
-            'employeeIds.min' => 'Pilih minimal satu staff yang mengisi Sales Report.',
-            'employeeIds.*.exists' => 'Staff tidak aktif atau tidak terdaftar pada branch ini.',
-        ]);
+        $this->validateRows($user);
 
         $employees = Employee::query()->whereIn('id', $this->employeeIds)->get();
+        $branch = $user->branch;
 
-        DB::transaction(function () use ($user, $employees): void {
+        $becameFullySubmitted = false;
+        $report = null;
+
+        DB::transaction(function () use ($user, $employees, $branch, &$becameFullySubmitted, &$report): void {
             $report = SalesReport::query()
                 ->where('branch_id', $user->branch_id)
                 ->whereDate('report_date', $this->reportDate)
-                ->where('shift_number', $this->shiftNumber)
+                ->lockForUpdate()
                 ->first()
-                ?? new SalesReport([
+                ?? SalesReport::create([
                     'branch_id' => $user->branch_id,
                     'report_date' => $this->reportDate,
-                    'shift_number' => $this->shiftNumber,
+                    'status' => SalesReportStatus::Draft->value,
                 ]);
-            $report->fill([
-                'submitted_by' => $user->id,
-                'submitted_at' => now(),
-                'status' => SalesReportStatus::PendingSupervisor->value,
-                'rejection_reason' => null,
-                'supervisor_reviewed_by' => null,
-                'supervisor_reviewed_at' => null,
-                'supervisor_note' => null,
-                'finance_reviewed_by' => null,
-                'finance_reviewed_at' => null,
-                'finance_note' => null,
-                'revision_number' => $report->revision_number ?? 0,
-                'shift_started_at' => $this->shiftBoundary($this->shiftStart),
-                'shift_ended_at' => $this->shiftBoundary($this->shiftEnd, true),
-            ])->save();
+
+            abort_if($report->isShiftSubmitted($this->shiftNumber), 409);
 
             foreach ($this->rows as $row) {
-                $entry = SalesReportEntry::firstOrNew([
+                SalesReportEntry::create([
                     'sales_report_id' => $report->id,
+                    'shift_number' => $this->shiftNumber,
                     'payment_method_name' => $row['name'],
+                    'sales_store_amount' => (float) ($row['sales_store'] ?? 0),
+                    'notes' => trim($row['notes'] ?? '') ?: null,
                 ]);
-                $storeAmount = (float) ($row['sales_store'] ?? 0);
-                $notes = trim($row['notes'] ?? '') ?: null;
-
-                $entry->fill([
-                    'sales_system_amount' => (float) $row['sales_system'],
-                    'sales_store_amount' => $storeAmount,
-                    'notes' => $notes,
-                    'settlement_amount' => null,
-                    'mdr_percentage' => null,
-                    'mdr_amount' => null,
-                    'expected_settlement_amount' => null,
-                    'settlement_difference' => null,
-                    'reconciliation_status' => null,
-                    'finance_note' => null,
-                ]);
-
-                if (! $entry->exists) {
-                    $entry->original_sales_store_amount = $storeAmount;
-                    $entry->original_notes = $notes;
-                }
-
-                $entry->save();
             }
 
-            $report->esbTransactions()->delete();
-            if ($this->esbTransactions !== []) {
-                $report->esbTransactions()->createMany($this->esbTransactions);
-            }
+            SalesReportShiftSubmission::create([
+                'sales_report_id' => $report->id,
+                'shift_number' => $this->shiftNumber,
+                'submitted_by' => $user->id,
+                'submitted_at' => now(),
+            ]);
 
-            $report->employees()->delete();
+            $report->employees()->where('shift_number', $this->shiftNumber)->delete();
             $report->employees()->createMany($employees->map(fn (Employee $employee): array => [
+                'shift_number' => $this->shiftNumber,
                 'employee_id' => $employee->id,
                 'employee_code' => $employee->employee_code,
                 'employee_name' => $employee->name,
                 'employee_position' => $employee->position,
             ])->all());
 
-            SalesReportApproval::create([
-                'sales_report_id' => $report->id,
-                'stage' => 'submitter',
-                'action' => 'submitted',
-                'actor_id' => $user->id,
-                'revision_number' => $report->revision_number,
-            ]);
+            $report->refresh()->load('shiftSubmissions');
+            $becameFullySubmitted = $report->allShiftsSubmitted($branch->sales_shift_count);
+
+            if ($becameFullySubmitted) {
+                $report->update([
+                    'status' => SalesReportStatus::PendingSupervisor->value,
+                    'submitted_at' => now(),
+                ]);
+            }
         });
 
-        $this->isSubmitted = true;
-        $this->currentStatus = SalesReportStatus::PendingSupervisor->value;
-        $this->rejectionReason = null;
-
-        Notification::make()
-            ->title('Laporan Shift '.$this->shiftNumber.' berhasil disimpan')
-            ->body('Data sudah dikunci dan menunggu pemeriksaan Supervisor Store.')
-            ->success()
-            ->send();
-    }
-
-    private function shiftBoundary(string $time, bool $isEnd = false): CarbonImmutable
-    {
-        $boundary = CarbonImmutable::parse($this->reportDate.' '.$time, config('app.timezone'));
-
-        if ($isEnd) {
-            $start = CarbonImmutable::parse($this->reportDate.' '.$this->shiftStart, config('app.timezone'));
-            if ($boundary->lessThanOrEqualTo($start)) {
-                $boundary = $boundary->addDay();
+        if ($becameFullySubmitted && $report) {
+            try {
+                $reconciliationService->reconcile($report->fresh());
+            } catch (\Throwable) {
+                // Best-effort: staff's submission already succeeded. A Supervisor
+                // can retry the ESB pull manually from the review page.
             }
         }
 
-        return $boundary;
+        $this->isSubmitted = true;
+        $this->showConfirm = false;
+        $this->currentStatus = $becameFullySubmitted ? SalesReportStatus::PendingSupervisor->value : SalesReportStatus::Draft->value;
+
+        Notification::make()
+            ->title('Laporan Shift '.$this->shiftNumber.' berhasil disimpan')
+            ->body($becameFullySubmitted
+                ? 'Semua shift sudah lengkap, laporan menunggu pemeriksaan Supervisor Store.'
+                : 'Menunggu Shift berikutnya sebelum diperiksa Supervisor Store.')
+            ->success()
+            ->send();
     }
 
     #[Computed]
@@ -486,11 +368,11 @@ class SalesReportShiftPage extends Page
             return false;
         }
 
-        return SalesReport::query()
+        $report = SalesReport::with('shiftSubmissions')
             ->where('branch_id', $branchId)
             ->whereDate('report_date', $this->reportDate)
-            ->where('shift_number', $this->shiftNumber - 1)
-            ->whereNotNull('submitted_at')
-            ->exists();
+            ->first();
+
+        return $report?->isShiftSubmitted($this->shiftNumber - 1) ?? false;
     }
 }

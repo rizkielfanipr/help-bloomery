@@ -6,6 +6,8 @@ use App\Enums\SalesReportStatus;
 use App\Filament\Helpdesk\Resources\SalesReports\SalesReportResource;
 use App\Models\SalesReport;
 use App\Models\SalesReportApproval;
+use App\Models\SalesReportReconciliation;
+use App\Services\SalesReportReconciliationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +28,7 @@ class ViewSalesReport extends Page
     /** @var array<int, array{settlement: string, note: string}> */
     public array $settlementRows = [];
 
-    /** @var array<int, array{sales_store: string, notes: string}> */
+    /** @var array<int, array{store_amount: string, notes: string}> */
     public array $supervisorRows = [];
 
     private const SETTLEMENT_TOLERANCE = 100.0;
@@ -35,10 +37,7 @@ class ViewSalesReport extends Page
     {
         abort_unless(SalesReportResource::canView($record), 403);
 
-        $this->record = $record->load([
-            'branch', 'submittedBy', 'entries', 'supervisorReviewer',
-            'financeReviewer', 'approvals.actor',
-        ]);
+        $this->record = $this->loadRecord($record);
         $this->loadSettlementRows();
         $this->loadSupervisorRows();
     }
@@ -48,7 +47,6 @@ class ViewSalesReport extends Page
         return collect([
             'Sales Report',
             $this->record->branch->name,
-            'Shift '.$this->record->shift_number,
             $this->record->report_date->isoFormat('D MMMM Y'),
         ])->join(' · ');
     }
@@ -59,7 +57,7 @@ class ViewSalesReport extends Page
 
         return $this->record->status === SalesReportStatus::PendingSupervisor
             && $user?->can('review sales reports as supervisor')
-            && ($user->canAccessAllBranches() || $user->id !== $this->record->submitted_by)
+            && ($user->canAccessAllBranches() || ! $this->record->shiftSubmissions->contains('submitted_by', $user->id))
             && ($user->canAccessAllBranches() || $user->canAccessBranch($this->record->branch_id));
     }
 
@@ -70,26 +68,48 @@ class ViewSalesReport extends Page
         return $this->record->status === SalesReportStatus::PendingFinance
             && $user?->can('review sales reports as finance')
             && $user->can('input sales settlements')
-            && ($user->canAccessAllBranches() || $user->id !== $this->record->submitted_by);
+            && ($user->canAccessAllBranches() || ! $this->record->shiftSubmissions->contains('submitted_by', $user->id));
+    }
+
+    public function canRefetchEsb(): bool
+    {
+        return in_array($this->record->status, [SalesReportStatus::PendingSupervisor, SalesReportStatus::PendingFinance], true)
+            && ($this->canReviewAsSupervisor() || $this->canReviewAsFinance());
+    }
+
+    public function refetchEsb(SalesReportReconciliationService $reconciliationService): void
+    {
+        abort_unless($this->canRefetchEsb(), 403);
+
+        $fetchedOk = $reconciliationService->reconcile($this->record);
+
+        $this->refreshRecord();
+
+        if ($fetchedOk) {
+            Notification::make()->title('Data sistem berhasil diperbarui dari ESB')->success()->send();
+        } else {
+            Notification::make()->title('Gagal mengambil data dari ESB')->danger()->send();
+        }
     }
 
     public function approveSupervisor(): void
     {
         abort_unless($this->canReviewAsSupervisor(), 403);
 
-        foreach ($this->record->entries as $entry) {
+        foreach ($this->record->reconciliations as $reconciliation) {
             $this->validate([
-                "supervisorRows.{$entry->id}.sales_store" => ['required', 'numeric', 'min:0'],
-                "supervisorRows.{$entry->id}.notes" => ['nullable', 'string', 'max:2000'],
+                "supervisorRows.{$reconciliation->id}.store_amount" => ['required', 'numeric', 'min:0'],
+                "supervisorRows.{$reconciliation->id}.notes" => ['nullable', 'string', 'max:2000'],
             ]);
 
-            $row = $this->supervisorRows[$entry->id];
+            $row = $this->supervisorRows[$reconciliation->id];
             if (
-                abs((float) $row['sales_store'] - (float) $entry->sales_system_amount) > 0.009
+                $reconciliation->system_amount !== null
+                && abs((float) $row['store_amount'] - (float) $reconciliation->system_amount) > 0.009
                 && trim($row['notes']) === ''
             ) {
                 throw ValidationException::withMessages([
-                    "supervisorRows.{$entry->id}.notes" => 'Supervisor notes are required while System Sales and corrected Store Sales differ.',
+                    "supervisorRows.{$reconciliation->id}.notes" => 'Supervisor notes are required while System Sales and corrected Store Sales differ.',
                 ]);
             }
         }
@@ -98,11 +118,11 @@ class ViewSalesReport extends Page
             $report = SalesReport::query()->lockForUpdate()->findOrFail($this->record->id);
             abort_unless($report->status === SalesReportStatus::PendingSupervisor, 409);
 
-            foreach ($report->entries as $entry) {
-                $row = $this->supervisorRows[$entry->id];
-                $entry->update([
-                    'sales_store_amount' => (float) $row['sales_store'],
-                    'notes' => trim($row['notes']) ?: null,
+            foreach ($report->reconciliations as $reconciliation) {
+                $row = $this->supervisorRows[$reconciliation->id];
+                $reconciliation->update([
+                    'store_amount' => (float) $row['store_amount'],
+                    'supervisor_notes' => trim($row['notes']) ?: null,
                     'settlement_amount' => null,
                     'mdr_percentage' => null,
                     'mdr_amount' => null,
@@ -118,7 +138,6 @@ class ViewSalesReport extends Page
                 'supervisor_reviewed_by' => auth()->id(),
                 'supervisor_reviewed_at' => now(),
                 'supervisor_note' => trim($this->reviewNote) ?: null,
-                'rejection_reason' => null,
             ]);
             $this->recordApproval($report, 'supervisor', 'approved', trim($this->reviewNote) ?: null);
         });
@@ -133,20 +152,21 @@ class ViewSalesReport extends Page
     {
         abort_unless($this->canReviewAsFinance(), 403);
 
-        foreach ($this->record->entries as $entry) {
+        foreach ($this->record->reconciliations as $reconciliation) {
             $this->validate([
-                "settlementRows.{$entry->id}.settlement" => ['required', 'numeric', 'min:0'],
-                "settlementRows.{$entry->id}.note" => ['nullable', 'string', 'max:2000'],
+                "settlementRows.{$reconciliation->id}.settlement" => ['required', 'numeric', 'min:0'],
+                "settlementRows.{$reconciliation->id}.note" => ['nullable', 'string', 'max:2000'],
             ]);
 
-            $row = $this->settlementRows[$entry->id];
-            $mdrAmount = max(0, round((float) $entry->sales_system_amount - (float) $row['settlement'], 2));
-            $expected = round((float) $entry->sales_system_amount - $mdrAmount, 2);
+            $row = $this->settlementRows[$reconciliation->id];
+            $system = (float) $reconciliation->system_amount;
+            $mdrAmount = max(0, round($system - (float) $row['settlement'], 2));
+            $expected = round($system - $mdrAmount, 2);
             $difference = round((float) $row['settlement'] - $expected, 2);
 
             if (abs($difference) > self::SETTLEMENT_TOLERANCE && trim($row['note']) === '') {
                 throw ValidationException::withMessages([
-                    "settlementRows.{$entry->id}.note" => 'Finance notes are required when the settlement difference exceeds Rp100.',
+                    "settlementRows.{$reconciliation->id}.note" => 'Finance notes are required when the settlement difference exceeds Rp100.',
                 ]);
             }
         }
@@ -155,13 +175,13 @@ class ViewSalesReport extends Page
             $report = SalesReport::query()->lockForUpdate()->findOrFail($this->record->id);
             abort_unless($report->status === SalesReportStatus::PendingFinance, 409);
 
-            foreach ($report->entries as $entry) {
-                $row = $this->settlementRows[$entry->id];
+            foreach ($report->reconciliations as $reconciliation) {
+                $row = $this->settlementRows[$reconciliation->id];
                 $settlement = (float) $row['settlement'];
-                $system = (float) $entry->sales_system_amount;
+                $system = (float) $reconciliation->system_amount;
                 $mdrAmount = max(0, round($system - $settlement, 2));
                 $mdr = $system > 0 ? round(($mdrAmount / $system) * 100, 4) : 0;
-                $expected = round((float) $entry->sales_system_amount - $mdrAmount, 2);
+                $expected = round($system - $mdrAmount, 2);
                 $difference = round($settlement - $expected, 2);
                 $status = match (true) {
                     abs($difference) <= self::SETTLEMENT_TOLERANCE => 'matched',
@@ -169,7 +189,7 @@ class ViewSalesReport extends Page
                     default => 'over',
                 };
 
-                $entry->update([
+                $reconciliation->update([
                     'settlement_amount' => $settlement,
                     'mdr_percentage' => $mdr,
                     'mdr_amount' => $mdrAmount,
@@ -185,7 +205,6 @@ class ViewSalesReport extends Page
                 'finance_reviewed_by' => auth()->id(),
                 'finance_reviewed_at' => now(),
                 'finance_note' => trim($this->reviewNote) ?: null,
-                'rejection_reason' => null,
             ]);
             $this->recordApproval($report, 'finance', 'approved', trim($this->reviewNote) ?: null);
         });
@@ -208,18 +227,17 @@ class ViewSalesReport extends Page
             values: [
                 'finance_reviewed_by' => auth()->id(),
                 'finance_reviewed_at' => now(),
-                'rejection_reason' => trim($this->rejectionReason),
             ],
         );
 
         Notification::make()->title('Report returned to Supervisor Review')->warning()->send();
     }
 
-    public function settlementPreview(int $entryId): array
+    public function settlementPreview(int $reconciliationId): array
     {
-        $entry = $this->record->entries->firstWhere('id', $entryId);
-        $row = $this->settlementRows[$entryId] ?? ['settlement' => ''];
-        $system = (float) $entry?->sales_system_amount;
+        $reconciliation = $this->record->reconciliations->firstWhere('id', $reconciliationId);
+        $row = $this->settlementRows[$reconciliationId] ?? ['settlement' => ''];
+        $system = (float) $reconciliation?->system_amount;
         $mdrAmount = $row['settlement'] === '' ? null : max(0, round($system - (float) $row['settlement'], 2));
         $mdrPercentage = $mdrAmount !== null && $system > 0 ? round(($mdrAmount / $system) * 100, 4) : null;
         $expected = $mdrAmount === null ? null : round($system - $mdrAmount, 2);
@@ -261,30 +279,36 @@ class ViewSalesReport extends Page
 
     private function loadSettlementRows(): void
     {
-        $this->settlementRows = $this->record->entries->mapWithKeys(fn ($entry): array => [
-            $entry->id => [
-                'settlement' => $entry->settlement_amount !== null ? (string) $entry->settlement_amount : '',
-                'note' => $entry->finance_note ?? '',
+        $this->settlementRows = $this->record->reconciliations->mapWithKeys(fn (SalesReportReconciliation $reconciliation): array => [
+            $reconciliation->id => [
+                'settlement' => $reconciliation->settlement_amount !== null ? (string) $reconciliation->settlement_amount : '',
+                'note' => $reconciliation->finance_note ?? '',
             ],
         ])->all();
     }
 
     private function loadSupervisorRows(): void
     {
-        $this->supervisorRows = $this->record->entries->mapWithKeys(fn ($entry): array => [
-            $entry->id => [
-                'sales_store' => (string) $entry->sales_store_amount,
-                'notes' => $entry->notes ?? '',
+        $this->supervisorRows = $this->record->reconciliations->mapWithKeys(fn (SalesReportReconciliation $reconciliation): array => [
+            $reconciliation->id => [
+                'store_amount' => (string) $reconciliation->store_amount,
+                'notes' => $reconciliation->supervisor_notes ?? '',
             ],
         ])->all();
     }
 
+    private function loadRecord(SalesReport $record): SalesReport
+    {
+        return $record->load([
+            'branch', 'entries', 'employees', 'reconciliations',
+            'shiftSubmissions.submittedBy', 'supervisorReviewer', 'financeReviewer',
+            'approvals.actor',
+        ]);
+    }
+
     private function refreshRecord(): void
     {
-        $this->record = $this->record->fresh([
-            'branch', 'submittedBy', 'entries', 'supervisorReviewer',
-            'financeReviewer', 'approvals.actor',
-        ]);
+        $this->record = $this->loadRecord($this->record->fresh());
         $this->loadSettlementRows();
         $this->loadSupervisorRows();
     }

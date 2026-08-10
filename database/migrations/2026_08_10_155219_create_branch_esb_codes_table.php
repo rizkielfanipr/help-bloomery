@@ -41,7 +41,7 @@ return new class extends Migration
                     'branch_id' => $branch->id,
                     'esb_branch_code' => $branch->esb_branch_code,
                     'esb_comcode' => $branch->esb_comcode,
-                    'label' => 'Utama',
+                    'label' => 'NO LABEL',
                     'is_active' => true,
                     'created_at' => now(),
                     'updated_at' => now(),

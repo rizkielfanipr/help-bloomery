@@ -156,8 +156,8 @@ it('allows adding multiple ESB code pairs to a branch through the admin form', f
             'name' => 'Branch Multi ESB',
             'sales_shift_count' => 2,
             'esbCodes' => [
-                ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO16', 'label' => 'Utama', 'is_active' => true],
-                ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO3', 'label' => 'BLO3', 'is_active' => true],
+                ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO16', 'label' => 'NO LABEL', 'is_active' => true],
+                ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO3', 'label' => 'DINE IN', 'is_active' => true],
             ],
         ])
         ->call('create')
@@ -172,13 +172,13 @@ it('allows adding multiple ESB code pairs to a branch through the admin form', f
 it('lets an existing branch have an ESB code pair added via edit', function () {
     $this->actingAs($this->admin);
     $branch = Branch::factory()->create();
-    $branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO16', 'label' => 'Utama']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO16', 'label' => 'NO LABEL']);
 
     Livewire::test(EditBranch::class, ['record' => $branch->id])
         ->fillForm([
             'esbCodes' => [
-                ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO16', 'label' => 'Utama', 'is_active' => true],
-                ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO3', 'label' => 'BLO3', 'is_active' => true],
+                ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO16', 'label' => 'NO LABEL', 'is_active' => true],
+                ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO3', 'label' => 'TAKEAWAY', 'is_active' => true],
             ],
         ])
         ->call('save')

@@ -22,7 +22,7 @@ class BranchEsbCodeFactory extends Factory
             'branch_id' => Branch::factory(),
             'esb_branch_code' => mb_strtoupper(fake()->unique()->lexify('???')),
             'esb_comcode' => mb_strtoupper(fake()->lexify('????')),
-            'label' => 'Utama',
+            'label' => 'NO LABEL',
             'is_active' => true,
         ];
     }

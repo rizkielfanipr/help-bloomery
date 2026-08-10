@@ -66,7 +66,7 @@ class BranchSeeder extends Seeder
 
                 $record->esbCodes()->updateOrCreate(
                     ['esb_branch_code' => $branch['code'], 'esb_comcode' => $comcode],
-                    ['label' => 'Utama', 'is_active' => true]
+                    ['label' => 'NO LABEL', 'is_active' => true]
                 );
 
                 $this->command->info("{$branch['code']} ({$comcode}): {$branch['name']}");

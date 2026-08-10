@@ -104,10 +104,15 @@ class BranchResource extends Resource
                                     ->maxLength(50)
                                     ->placeholder('mis. BLO16'),
 
-                                TextInput::make('label')
+                                Select::make('label')
                                     ->label('Label')
-                                    ->maxLength(255)
-                                    ->placeholder('mis. Utama, BLO3'),
+                                    ->options([
+                                        'DINE IN' => 'DINE IN',
+                                        'TAKEAWAY' => 'TAKEAWAY',
+                                        'NO LABEL' => 'NO LABEL',
+                                    ])
+                                    ->default('NO LABEL')
+                                    ->required(),
 
                                 Toggle::make('is_active')
                                     ->label('Aktif')

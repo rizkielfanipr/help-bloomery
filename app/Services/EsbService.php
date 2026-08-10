@@ -485,6 +485,65 @@ class EsbService
     }
 
     /**
+     * Same as getPaymentSummaryForBranch(), but grouped by the ESB code
+     * pair's label instead of merged into one flat total — used by Sales
+     * Report, where DINE IN and TAKEAWAY are reconciled separately. Pairs
+     * labelled anything other than "DINE IN"/"TAKEAWAY" (e.g. "NO LABEL")
+     * are excluded entirely, by design. Groups are returned ordered DINE IN
+     * first, then TAKEAWAY.
+     *
+     * @return array<string, array{rows: array<int, array{name: string, type: string, total: float}>, ok: bool}>
+     */
+    public function getPaymentSummaryByLabelForBranch(Branch $branch, string $date): array
+    {
+        $pairsByLabel = $branch->activeEsbCodes()
+            ->whereIn('label', ['DINE IN', 'TAKEAWAY'])
+            ->groupBy('label');
+
+        $groups = [];
+
+        foreach ($pairsByLabel as $label => $pairs) {
+            $totals = [];
+            $ok = true;
+
+            foreach ($pairs as $pair) {
+                if (! $pair->esb_token) {
+                    $ok = false;
+
+                    continue;
+                }
+
+                try {
+                    $rows = $this->getPaymentSummary($pair->esb_branch_code, $date, $pair->esb_token);
+                } catch (\RuntimeException) {
+                    $ok = false;
+
+                    continue;
+                }
+
+                foreach ($rows as $row) {
+                    $name = $row['name'];
+
+                    if (! isset($totals[$name])) {
+                        $totals[$name] = ['name' => $name, 'type' => $row['type'], 'total' => 0.0];
+                    }
+                    $totals[$name]['total'] += $row['total'];
+                }
+            }
+
+            $rows = array_values($totals);
+            usort($rows, fn ($a, $b) => [$a['type'], $a['name']] <=> [$b['type'], $b['name']]);
+
+            $groups[$label] = ['rows' => $rows, 'ok' => $ok];
+        }
+
+        $order = ['DINE IN' => 0, 'TAKEAWAY' => 1];
+        uksort($groups, fn ($a, $b) => ($order[$a] ?? 99) <=> ($order[$b] ?? 99));
+
+        return $groups;
+    }
+
+    /**
      * CASH payments in ESB record the cash physically tendered by the customer,
      * which can exceed the bill when change is given back (e.g. paying a Rp35.000
      * bill with a Rp50.000 note records paymentAmount=50.000, not the Rp35.000

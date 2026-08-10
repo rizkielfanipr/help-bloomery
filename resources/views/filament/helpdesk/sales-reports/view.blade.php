@@ -1,7 +1,9 @@
 <x-filament-panels::page>
 @php
-    $reconciliations = $record->reconciliations->sortBy('payment_method_name');
-    $entriesByMethod = $record->entries->groupBy('payment_method_name');
+    $labelOrder = ['DINE IN' => 0, 'TAKEAWAY' => 1];
+    $reconciliations = $record->reconciliations->sortBy(fn ($r) => sprintf('%02d|%s', $labelOrder[$r->label] ?? 99, $r->payment_method_name));
+    $reconciliationsByLabel = $reconciliations->groupBy('label');
+    $entriesByKey = $record->entries->groupBy(fn ($e) => $e->label.'|'.$e->payment_method_name);
     $employeesByShift = $record->employees->groupBy('shift_number');
     $totalSystem = (float) $reconciliations->sum('system_amount');
     $totalReportedStore = (float) $reconciliations->sum('reported_store_amount');
@@ -107,58 +109,63 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach($reconciliations as $reconciliation)
-                        @php
-                            $methodEntries = $entriesByMethod->get($reconciliation->payment_method_name, collect());
-                            $shift1Amount = $methodEntries->firstWhere('shift_number', 1)?->sales_store_amount;
-                            $shift2Amount = $methodEntries->firstWhere('shift_number', 2)?->sales_store_amount;
-                            $storeDifference = (float) $reconciliation->store_amount - (float) $reconciliation->system_amount;
-                            $preview = $this->settlementPreview($reconciliation->id);
-                            $isSupervisorInput = $this->canReviewAsSupervisor();
-                            $isFinanceInput = $this->canReviewAsFinance();
-                            $recon = $reconciliationLabels[$reconciliation->reconciliation_status] ?? null;
-                            $expectedSettlement = $isFinanceInput ? $preview['expected'] : $reconciliation->expected_settlement_amount;
-                            $settlementDifference = $isFinanceInput ? $preview['difference'] : $reconciliation->settlement_difference;
-                        @endphp
-                        <tr class="align-top">
-                            <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{{ $reconciliation->payment_method_name }}</td>
-                            <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $shift1Amount === null ? '-' : $fmt($shift1Amount) }}</td>
-                            <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $shift2Amount === null ? '-' : $fmt($shift2Amount) }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ $reconciliation->system_amount === null ? '-' : $fmt($reconciliation->system_amount) }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ $fmt($reconciliation->reported_store_amount) }}</td>
-                            <td class="px-4 py-3 text-right">
-                                @if($isSupervisorInput)
-                                    <input type="number" min="0" step="0.01" wire:model="supervisorRows.{{ $reconciliation->id }}.store_amount" class="w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-right text-sm dark:border-gray-700 dark:bg-gray-900">
-                                    @error("supervisorRows.{$reconciliation->id}.store_amount") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                @else
-                                    <span class="font-mono">{{ $fmt($reconciliation->store_amount) }}</span>
-                                @endif
-                            </td>
-                            <td @class(['px-4 py-3 text-right font-mono font-semibold', 'text-emerald-600' => abs($storeDifference) < .01, 'text-red-600' => abs($storeDifference) >= .01])>{{ $storeDifference > 0 ? '+' : '' }}{{ $fmt($storeDifference) }}</td>
-                            <td class="px-4 py-3 text-right">
-                                @if($isFinanceInput)
-                                    <input type="number" min="0" step="0.01" wire:model.live.debounce.400ms="settlementRows.{{ $reconciliation->id }}.settlement" class="w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-right text-sm dark:border-gray-700 dark:bg-gray-900">
-                                    @error("settlementRows.{$reconciliation->id}.settlement") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                @else
-                                    <span class="font-mono">{{ $reconciliation->settlement_amount !== null ? $fmt($reconciliation->settlement_amount) : '-' }}</span>
-                                @endif
-                            </td>
-                            <td class="px-4 py-3 text-right font-mono">{{ $isFinanceInput ? ($preview['mdrPercentage'] === null ? '-' : number_format($preview['mdrPercentage'], 4, ',', '.').'%') : ($reconciliation->mdr_percentage !== null ? number_format((float) $reconciliation->mdr_percentage, 4, ',', '.').'%' : '-') }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ $expectedSettlement === null ? '-' : $fmt($expectedSettlement) }}</td>
-                            <td class="px-4 py-3 text-right font-mono font-semibold"><span @class(['text-red-600' => $settlementDifference !== null && abs((float) $settlementDifference) > 100, 'text-emerald-600' => $settlementDifference === null || abs((float) $settlementDifference) <= 100])>{{ $settlementDifference === null ? '-' : (((float) $settlementDifference > 0 ? '+' : '').$fmt($settlementDifference)) }}</span></td>
-                            <td class="px-4 py-3">@if($recon)<span class="rounded-md border px-2 py-1 text-xs {{ $recon[1] }}">{{ $recon[0] }}</span>@elseif($isFinanceInput)<span class="text-xs text-gray-400">Automatic</span>@else<span class="text-gray-400">-</span>@endif</td>
-                            <td class="px-4 py-3">
-                                @if($isSupervisorInput)
-                                    <textarea rows="2" wire:model="supervisorRows.{{ $reconciliation->id }}.notes" class="w-52 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Supervisor notes"></textarea>
-                                    @error("supervisorRows.{$reconciliation->id}.notes") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                @elseif($isFinanceInput)
-                                    <textarea rows="2" wire:model="settlementRows.{{ $reconciliation->id }}.note" class="w-52 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Finance notes"></textarea>
-                                    @error("settlementRows.{$reconciliation->id}.note") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                @else
-                                    <p class="max-w-52 text-gray-500">{{ $reconciliation->finance_note ?? $reconciliation->supervisor_notes ?? '-' }}</p>
-                                @endif
-                            </td>
+                    @foreach($reconciliationsByLabel as $label => $group)
+                        <tr class="bg-gray-50 dark:bg-gray-800/60">
+                            <td colspan="13" class="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">{{ $label }}</td>
                         </tr>
+                        @foreach($group as $reconciliation)
+                            @php
+                                $methodEntries = $entriesByKey->get($reconciliation->label.'|'.$reconciliation->payment_method_name, collect());
+                                $shift1Amount = $methodEntries->firstWhere('shift_number', 1)?->sales_store_amount;
+                                $shift2Amount = $methodEntries->firstWhere('shift_number', 2)?->sales_store_amount;
+                                $storeDifference = (float) $reconciliation->store_amount - (float) $reconciliation->system_amount;
+                                $preview = $this->settlementPreview($reconciliation->id);
+                                $isSupervisorInput = $this->canReviewAsSupervisor();
+                                $isFinanceInput = $this->canReviewAsFinance();
+                                $recon = $reconciliationLabels[$reconciliation->reconciliation_status] ?? null;
+                                $expectedSettlement = $isFinanceInput ? $preview['expected'] : $reconciliation->expected_settlement_amount;
+                                $settlementDifference = $isFinanceInput ? $preview['difference'] : $reconciliation->settlement_difference;
+                            @endphp
+                            <tr class="align-top">
+                                <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{{ $reconciliation->payment_method_name }}</td>
+                                <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $shift1Amount === null ? '-' : $fmt($shift1Amount) }}</td>
+                                <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $shift2Amount === null ? '-' : $fmt($shift2Amount) }}</td>
+                                <td class="px-4 py-3 text-right font-mono">{{ $reconciliation->system_amount === null ? '-' : $fmt($reconciliation->system_amount) }}</td>
+                                <td class="px-4 py-3 text-right font-mono">{{ $fmt($reconciliation->reported_store_amount) }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    @if($isSupervisorInput)
+                                        <input type="number" min="0" step="0.01" wire:model="supervisorRows.{{ $reconciliation->id }}.store_amount" class="w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-right text-sm dark:border-gray-700 dark:bg-gray-900">
+                                        @error("supervisorRows.{$reconciliation->id}.store_amount") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    @else
+                                        <span class="font-mono">{{ $fmt($reconciliation->store_amount) }}</span>
+                                    @endif
+                                </td>
+                                <td @class(['px-4 py-3 text-right font-mono font-semibold', 'text-emerald-600' => abs($storeDifference) < .01, 'text-red-600' => abs($storeDifference) >= .01])>{{ $storeDifference > 0 ? '+' : '' }}{{ $fmt($storeDifference) }}</td>
+                                <td class="px-4 py-3 text-right">
+                                    @if($isFinanceInput)
+                                        <input type="number" min="0" step="0.01" wire:model.live.debounce.400ms="settlementRows.{{ $reconciliation->id }}.settlement" class="w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-right text-sm dark:border-gray-700 dark:bg-gray-900">
+                                        @error("settlementRows.{$reconciliation->id}.settlement") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    @else
+                                        <span class="font-mono">{{ $reconciliation->settlement_amount !== null ? $fmt($reconciliation->settlement_amount) : '-' }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 text-right font-mono">{{ $isFinanceInput ? ($preview['mdrPercentage'] === null ? '-' : number_format($preview['mdrPercentage'], 4, ',', '.').'%') : ($reconciliation->mdr_percentage !== null ? number_format((float) $reconciliation->mdr_percentage, 4, ',', '.').'%' : '-') }}</td>
+                                <td class="px-4 py-3 text-right font-mono">{{ $expectedSettlement === null ? '-' : $fmt($expectedSettlement) }}</td>
+                                <td class="px-4 py-3 text-right font-mono font-semibold"><span @class(['text-red-600' => $settlementDifference !== null && abs((float) $settlementDifference) > 100, 'text-emerald-600' => $settlementDifference === null || abs((float) $settlementDifference) <= 100])>{{ $settlementDifference === null ? '-' : (((float) $settlementDifference > 0 ? '+' : '').$fmt($settlementDifference)) }}</span></td>
+                                <td class="px-4 py-3">@if($recon)<span class="rounded-md border px-2 py-1 text-xs {{ $recon[1] }}">{{ $recon[0] }}</span>@elseif($isFinanceInput)<span class="text-xs text-gray-400">Automatic</span>@else<span class="text-gray-400">-</span>@endif</td>
+                                <td class="px-4 py-3">
+                                    @if($isSupervisorInput)
+                                        <textarea rows="2" wire:model="supervisorRows.{{ $reconciliation->id }}.notes" class="w-52 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Supervisor notes"></textarea>
+                                        @error("supervisorRows.{$reconciliation->id}.notes") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    @elseif($isFinanceInput)
+                                        <textarea rows="2" wire:model="settlementRows.{{ $reconciliation->id }}.note" class="w-52 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Finance notes"></textarea>
+                                        @error("settlementRows.{$reconciliation->id}.note") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    @else
+                                        <p class="max-w-52 text-gray-500">{{ $reconciliation->finance_note ?? $reconciliation->supervisor_notes ?? '-' }}</p>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
                     @endforeach
                 </tbody>
             </table>

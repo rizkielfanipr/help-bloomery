@@ -48,42 +48,47 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
 
         foreach ($reports as $report) {
             $branch = $report->branch;
-            $cashReconciliation = $report->reconciliations->first(
+            $cashReconciliations = $report->reconciliations->filter(
                 fn ($reconciliation) => mb_strtoupper(trim((string) $reconciliation->payment_method_name)) === 'CASH',
             );
 
-            if (! $branch?->hasEsbIntegration() || ! $cashReconciliation) {
+            if (! $branch?->hasEsbIntegration() || $cashReconciliations->isEmpty()) {
                 $skipped++;
 
                 continue;
             }
 
-            $result = $esb->getPaymentSummaryForBranch($branch, $report->report_date->toDateString());
+            $groups = $esb->getPaymentSummaryByLabelForBranch($branch, $report->report_date->toDateString());
+            $allOk = ! empty($groups) && collect($groups)->every(fn (array $group): bool => $group['ok']);
 
-            if (! $result['ok']) {
+            if (! $allOk) {
                 $this->warn("Gagal fetch ESB untuk report #{$report->id} (salah satu atau lebih pasangan kode ESB gagal).");
                 $skipped++;
 
                 continue;
             }
 
-            $recalculated = (float) (collect($result['rows'])->firstWhere('name', 'CASH')['total'] ?? 0.0);
-            $stored = (float) $cashReconciliation->system_amount;
-            $diff = round($stored - $recalculated, 2);
+            foreach ($cashReconciliations as $cashReconciliation) {
+                $labelRows = $groups[$cashReconciliation->label]['rows'] ?? [];
+                $recalculated = (float) (collect($labelRows)->firstWhere('name', 'CASH')['total'] ?? 0.0);
+                $stored = (float) $cashReconciliation->system_amount;
+                $diff = round($stored - $recalculated, 2);
 
-            if (abs($diff) < 0.01) {
-                continue;
+                if (abs($diff) < 0.01) {
+                    continue;
+                }
+
+                $rows[] = [
+                    $report->id,
+                    $branch->name,
+                    $report->report_date->toDateString(),
+                    $cashReconciliation->label,
+                    number_format($stored, 0, ',', '.'),
+                    number_format($recalculated, 0, ',', '.'),
+                    number_format($diff, 0, ',', '.'),
+                ];
+                $discrepancies[] = ['reconciliation' => $cashReconciliation, 'stored' => $stored, 'recalculated' => $recalculated];
             }
-
-            $rows[] = [
-                $report->id,
-                $branch->name,
-                $report->report_date->toDateString(),
-                number_format($stored, 0, ',', '.'),
-                number_format($recalculated, 0, ',', '.'),
-                number_format($diff, 0, ',', '.'),
-            ];
-            $discrepancies[] = ['reconciliation' => $cashReconciliation, 'stored' => $stored, 'recalculated' => $recalculated];
         }
 
         if ($rows === []) {
@@ -93,7 +98,7 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
         }
 
         $this->table(
-            ['Report ID', 'Branch', 'Tanggal', 'Tersimpan (lama)', 'Hasil Hitung Ulang', 'Selisih'],
+            ['Report ID', 'Branch', 'Tanggal', 'Label', 'Tersimpan (lama)', 'Hasil Hitung Ulang', 'Selisih'],
             $rows,
         );
 

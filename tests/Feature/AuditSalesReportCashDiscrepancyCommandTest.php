@@ -13,7 +13,7 @@ it('flags submitted reports whose stored CASH total no longer matches ESB, witho
     $branch = Branch::factory()->create([
         'name' => 'Bloomery Pabelan',
     ]);
-    $branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'TESTCO']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'TESTCO', 'label' => 'TAKEAWAY']);
 
     $report = SalesReport::create([
         'branch_id' => $branch->id,
@@ -70,7 +70,7 @@ it('reports no discrepancy when the stored CASH total already matches ESB', func
     config()->set(['esb.tokens.TESTCO' => 'branch-token']);
 
     $branch = Branch::factory()->create();
-    $branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'TESTCO']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'TESTCO', 'label' => 'TAKEAWAY']);
 
     $report = SalesReport::create([
         'branch_id' => $branch->id,
@@ -117,7 +117,7 @@ it('applies the correction to system_amount and records a note when --apply is p
     $branch = Branch::factory()->create([
         'name' => 'Bloomery Pabelan',
     ]);
-    $branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'TESTCO']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'TESTCO', 'label' => 'TAKEAWAY']);
 
     $report = SalesReport::create([
         'branch_id' => $branch->id,

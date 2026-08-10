@@ -122,36 +122,47 @@
                             {{-- Expanded detail --}}
                             @if($isExpanded)
                                 @php
-                                    $entriesByMethod = $report->entries->groupBy('payment_method_name');
-                                    $reconciliationsByMethod = $report->reconciliations->keyBy('payment_method_name');
-                                    $paymentMethods = $entriesByMethod->keys()->merge($reconciliationsByMethod->keys())->unique()->sort();
+                                    $entriesByKey = $report->entries->groupBy(fn ($e) => $e->label.'|'.$e->payment_method_name);
+                                    $reconciliationsByKey = $report->reconciliations->keyBy(fn ($r) => $r->label.'|'.$r->payment_method_name);
+                                    $labelOrder = ['DINE IN' => 0, 'TAKEAWAY' => 1];
+                                    $methodsByLabel = $entriesByKey->keys()->merge($reconciliationsByKey->keys())->unique()
+                                        ->map(fn ($key) => explode('|', $key, 2))
+                                        ->groupBy(fn ($parts) => $parts[0])
+                                        ->map(fn ($parts) => $parts->pluck(1)->sort()->values())
+                                        ->sortBy(fn ($_, $label) => $labelOrder[$label] ?? 99);
                                     $totalSystem = (float) $report->reconciliations->sum('system_amount');
                                     $totalSelisih = $totalSystem - $totalStore;
                                 @endphp
                                 <div class="border-t border-gray-100 dark:border-gray-800">
 
-                                    {{-- Entries — stacked per method so numbers stay readable on narrow screens --}}
-                                    @foreach($paymentMethods as $method)
-                                        @php
-                                            $methodEntries = $entriesByMethod->get($method, collect());
-                                            $shift1 = (float) ($methodEntries->firstWhere('shift_number', 1)?->sales_store_amount ?? 0);
-                                            $shift2 = (float) ($methodEntries->firstWhere('shift_number', 2)?->sales_store_amount ?? 0);
-                                            $methodTotal = $shift1 + $shift2;
-                                            $methodSystem = $reconciliationsByMethod->get($method)?->system_amount;
-                                        @endphp
-                                        <div class="border-b border-gray-100 px-4 py-2.5 last:border-0 dark:border-gray-800">
-                                            <div class="flex items-center justify-between gap-2">
-                                                <span class="truncate text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $method }}</span>
-                                                <span class="shrink-0 text-right text-xs font-mono font-semibold text-gray-800 dark:text-gray-100">
-                                                    {{ number_format($methodTotal, 0, ',', '.') }}
-                                                </span>
-                                            </div>
-                                            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-gray-400">
-                                                <span>Shift 1: {{ number_format($shift1, 0, ',', '.') }}</span>
-                                                <span>Shift 2: {{ number_format($shift2, 0, ',', '.') }}</span>
-                                                <span>Sistem: {{ $methodSystem === null ? '-' : number_format((float) $methodSystem, 0, ',', '.') }}</span>
-                                            </div>
+                                    {{-- Entries — grouped by Dine In / Takeaway, stacked per method so numbers stay readable on narrow screens --}}
+                                    @foreach($methodsByLabel as $label => $methods)
+                                        <div class="bg-gray-50 px-4 py-1.5 dark:bg-gray-800/50">
+                                            <span class="text-[10px] font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">{{ $label }}</span>
                                         </div>
+                                        @foreach($methods as $method)
+                                            @php
+                                                $key = $label.'|'.$method;
+                                                $methodEntries = $entriesByKey->get($key, collect());
+                                                $shift1 = (float) ($methodEntries->firstWhere('shift_number', 1)?->sales_store_amount ?? 0);
+                                                $shift2 = (float) ($methodEntries->firstWhere('shift_number', 2)?->sales_store_amount ?? 0);
+                                                $methodTotal = $shift1 + $shift2;
+                                                $methodSystem = $reconciliationsByKey->get($key)?->system_amount;
+                                            @endphp
+                                            <div class="border-b border-gray-100 px-4 py-2.5 last:border-0 dark:border-gray-800">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="truncate text-xs font-semibold text-gray-700 dark:text-gray-300">{{ $method }}</span>
+                                                    <span class="shrink-0 text-right text-xs font-mono font-semibold text-gray-800 dark:text-gray-100">
+                                                        {{ number_format($methodTotal, 0, ',', '.') }}
+                                                    </span>
+                                                </div>
+                                                <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-gray-400">
+                                                    <span>Shift 1: {{ number_format($shift1, 0, ',', '.') }}</span>
+                                                    <span>Shift 2: {{ number_format($shift2, 0, ',', '.') }}</span>
+                                                    <span>Sistem: {{ $methodSystem === null ? '-' : number_format((float) $methodSystem, 0, ',', '.') }}</span>
+                                                </div>
+                                            </div>
+                                        @endforeach
                                     @endforeach
 
                                     {{-- Total row --}}

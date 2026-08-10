@@ -47,7 +47,7 @@ class SalesReportShiftPage extends Page
     /** @var array<int, array{code: ?string, name: ?string, position: ?string}> */
     public array $submittedEmployees = [];
 
-    /** @var array<int, array{name: string, sales_store: string, notes: string}> */
+    /** @var array<int, array{label: string, name: string, sales_store: string, notes: string}> */
     public array $rows = [];
 
     public function mount(): void
@@ -134,6 +134,7 @@ class SalesReportShiftPage extends Page
         $report->load(['entries' => fn ($q) => $q->where('shift_number', $this->shiftNumber), 'employees' => fn ($q) => $q->where('shift_number', $this->shiftNumber)]);
 
         $this->rows = $report->entries->map(fn (SalesReportEntry $entry) => [
+            'label' => $entry->label,
             'name' => $entry->payment_method_name,
             'sales_store' => (string) $entry->sales_store_amount,
             'notes' => $entry->notes ?? '',
@@ -158,23 +159,39 @@ class SalesReportShiftPage extends Page
         }
 
         try {
-            $result = app(EsbService::class)->getPaymentSummaryForBranch($branch, $this->reportDate);
+            $groups = app(EsbService::class)->getPaymentSummaryByLabelForBranch($branch, $this->reportDate);
 
-            if (empty($result['rows'])) {
+            if (empty($groups)) {
+                Notification::make()
+                    ->title('Branch belum memiliki kode ESB berlabel Dine In / Takeaway')
+                    ->body('Hubungi back office untuk melengkapi label kode ESB branch ini.')
+                    ->warning()
+                    ->send();
+
+                return;
+            }
+
+            $rows = [];
+            $allOk = true;
+            foreach ($groups as $label => $group) {
+                if (! $group['ok']) {
+                    $allOk = false;
+                }
+                foreach ($group['rows'] as $row) {
+                    $rows[] = ['label' => $label, 'name' => $row['name'], 'sales_store' => '', 'notes' => ''];
+                }
+            }
+
+            if (empty($rows)) {
                 Notification::make()->title('Tidak ada data penjualan ESB untuk tanggal ini')->info()->send();
 
                 return;
             }
 
-            $this->rows = array_map(fn (array $row): array => [
-                'name' => $row['name'],
-                'sales_store' => '',
-                'notes' => '',
-            ], $result['rows']);
-
+            $this->rows = $rows;
             $this->esbFetched = true;
 
-            if ($result['ok']) {
+            if ($allOk) {
                 Notification::make()->title('Daftar payment method berhasil dimuat')->success()->send();
             } else {
                 Notification::make()
@@ -195,6 +212,13 @@ class SalesReportShiftPage extends Page
     public function totalStore(): float
     {
         return collect($this->rows)->sum(fn ($r) => (float) ($r['sales_store'] ?? 0));
+    }
+
+    public function totalStoreForLabel(string $label): float
+    {
+        return collect($this->rows)
+            ->where('label', $label)
+            ->sum(fn ($r) => (float) ($r['sales_store'] ?? 0));
     }
 
     public function requestConfirm(): void
@@ -287,6 +311,7 @@ class SalesReportShiftPage extends Page
                     'sales_report_id' => $report->id,
                     'shift_number' => $this->shiftNumber,
                     'payment_method_name' => $row['name'],
+                    'label' => $row['label'],
                     'sales_store_amount' => (float) ($row['sales_store'] ?? 0),
                     'notes' => trim($row['notes'] ?? '') ?: null,
                 ]);

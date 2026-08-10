@@ -10,6 +10,7 @@ class SalesReportReconciliation extends Model
     protected $fillable = [
         'sales_report_id',
         'payment_method_name',
+        'label',
         'reported_store_amount',
         'store_amount',
         'system_amount',

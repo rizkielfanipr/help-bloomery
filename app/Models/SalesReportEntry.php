@@ -16,6 +16,7 @@ class SalesReportEntry extends Model
         'sales_report_id',
         'shift_number',
         'payment_method_name',
+        'label',
         'sales_store_amount',
         'notes',
     ];

@@ -85,6 +85,7 @@ it('only allows an active employee from the submitter branch', function () {
         ->assertDontSee($otherEmployee->employee_code)
         ->set('esbFetched', true)
         ->set('rows', [[
+            'label' => 'TAKEAWAY',
             'name' => 'QRIS',
             'sales_store' => '1000000',
             'notes' => '',
@@ -109,6 +110,7 @@ it('allows selecting multiple staff for a single sales report submission', funct
     Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
         ->set('esbFetched', true)
         ->set('rows', [[
+            'label' => 'TAKEAWAY',
             'name' => 'QRIS',
             'sales_store' => '1000000',
             'notes' => '',

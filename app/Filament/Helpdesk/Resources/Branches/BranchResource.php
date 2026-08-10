@@ -136,17 +136,6 @@ class BranchResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->columns(1),
-
-                Section::make('Jadwal Shift Sales Report')
-                    ->description('Jumlah shift Sales Report yang diisi staff untuk branch ini.')
-                    ->schema([
-                        Select::make('sales_shift_count')
-                            ->label('Jumlah Shift')
-                            ->options([1 => '1 Shift', 2 => '2 Shift'])
-                            ->required()
-                            ->default(2)
-                            ->columnSpanFull(),
-                    ]),
             ]);
     }
 

@@ -3,8 +3,6 @@
 use App\Enums\SalesReportStatus;
 use App\Filament\Casual\Pages\SalesReportPage;
 use App\Filament\Casual\Pages\SalesReportShiftPage;
-use App\Filament\Helpdesk\Resources\Branches\Pages\CreateBranch;
-use App\Filament\Helpdesk\Resources\Branches\Pages\EditBranch;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
@@ -16,9 +14,6 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
-
-    $this->admin = User::factory()->create(['is_active' => true]);
-    $this->admin->assignRole('SUPERADMIN');
 });
 
 it('reports shift availability from the branch model helpers', function () {
@@ -31,35 +26,6 @@ it('reports shift availability from the branch model helpers', function () {
         ->and($twoShift->hasSalesShift(1))->toBeTrue()
         ->and($twoShift->hasSalesShift(2))->toBeTrue()
         ->and($twoShift->salesShiftNumbers())->toBe([1, 2]);
-});
-
-it('creates a branch with a single sales shift', function () {
-    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
-    $this->actingAs($this->admin);
-
-    Livewire::test(CreateBranch::class)
-        ->fillForm([
-            'name' => 'Branch Satu Shift',
-            'sales_shift_count' => 1,
-        ])
-        ->call('create')
-        ->assertHasNoFormErrors();
-
-    $branch = Branch::query()->where('name', 'Branch Satu Shift')->firstOrFail();
-    expect($branch->sales_shift_count)->toBe(1);
-});
-
-it('lets an existing branch be edited down to a single shift', function () {
-    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
-    $this->actingAs($this->admin);
-    $branch = Branch::factory()->create(['sales_shift_count' => 2]);
-
-    Livewire::test(EditBranch::class, ['record' => $branch->id])
-        ->fillForm(['sales_shift_count' => 1])
-        ->call('save')
-        ->assertHasNoFormErrors();
-
-    expect($branch->fresh()->sales_shift_count)->toBe(1);
 });
 
 it('only shows the shift tiles a branch actually has on the mobile sales report page', function () {

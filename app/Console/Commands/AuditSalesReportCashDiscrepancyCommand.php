@@ -9,7 +9,6 @@ use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Throwable;
 
 #[Signature('sales-reports:audit-cash-discrepancy {--from=} {--to=} {--branch=} {--report=} {--apply}')]
 #[Description('Recompute ESB CASH totals for submitted Sales Reports and flag any affected by the change-given-back bug. Read-only by default; pass --apply to write the corrected system_amount.')]
@@ -20,7 +19,7 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
         $reportId = $this->option('report');
         $apply = (bool) $this->option('apply');
 
-        $query = SalesReport::query()->whereNotNull('submitted_at')->with(['branch', 'reconciliations']);
+        $query = SalesReport::query()->whereNotNull('submitted_at')->with(['branch.esbCodes', 'reconciliations']);
 
         if ($reportId) {
             $query->where('id', $reportId);
@@ -53,26 +52,22 @@ class AuditSalesReportCashDiscrepancyCommand extends Command
                 fn ($reconciliation) => mb_strtoupper(trim((string) $reconciliation->payment_method_name)) === 'CASH',
             );
 
-            if (! $branch?->esb_branch_code || ! $branch->esb_token || ! $cashReconciliation) {
+            if (! $branch?->hasEsbIntegration() || ! $cashReconciliation) {
                 $skipped++;
 
                 continue;
             }
 
-            try {
-                $esbRows = $esb->getPaymentSummary(
-                    $branch->esb_branch_code,
-                    $report->report_date->toDateString(),
-                    $branch->esb_token,
-                );
-            } catch (Throwable $exception) {
-                $this->warn("Gagal fetch ESB untuk report #{$report->id}: {$exception->getMessage()}");
+            $result = $esb->getPaymentSummaryForBranch($branch, $report->report_date->toDateString());
+
+            if (! $result['ok']) {
+                $this->warn("Gagal fetch ESB untuk report #{$report->id} (salah satu atau lebih pasangan kode ESB gagal).");
                 $skipped++;
 
                 continue;
             }
 
-            $recalculated = (float) (collect($esbRows)->firstWhere('name', 'CASH')['total'] ?? 0.0);
+            $recalculated = (float) (collect($result['rows'])->firstWhere('name', 'CASH')['total'] ?? 0.0);
             $stored = (float) $cashReconciliation->system_amount;
             $diff = round($stored - $recalculated, 2);
 

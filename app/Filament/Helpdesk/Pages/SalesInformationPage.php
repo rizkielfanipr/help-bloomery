@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\Branch;
+use App\Models\BranchEsbCode;
 use App\Models\Brand;
 use App\Models\EsbPaymentMethodCache;
 use App\Services\EsbService;
@@ -51,13 +52,15 @@ class SalesInformationPage extends Page
 
     public bool $fetched = false;
 
-    // Paged-fetch progress state
+    // Paged-fetch progress state — flattened across every active (branch,
+    // ESB code pair) combination, so a branch with multiple ESB pairs is
+    // fetched pair-by-pair just like separate branches used to be.
     public bool $isFetching = false;
 
     /** @var list<int> */
-    public array $fetchBranchIds = [];
+    public array $fetchPairIds = [];
 
-    public int $fetchBranchIndex = 0;
+    public int $fetchPairIndex = 0;
 
     public int $fetchCurrentPage = 0;
 
@@ -176,8 +179,8 @@ class SalesInformationPage extends Page
     /** @return list<Branch> */
     public function getBranches(): array
     {
-        return Branch::whereNotNull('esb_branch_code')
-            ->whereNotNull('esb_comcode')
+        return Branch::with('esbCodes')
+            ->whereHas('esbCodes', fn ($query) => $query->where('is_active', true))
             ->when($this->selectedBrandIds, fn ($q) => $q->whereIn('brand_id', $this->selectedBrandIds))
             ->orderBy('name')
             ->get()
@@ -254,31 +257,26 @@ class SalesInformationPage extends Page
         $this->validate($rules);
 
         if (! empty($this->selectedBranchIds)) {
-            $branchIds = Branch::whereIn('id', $this->selectedBranchIds)
-                ->whereNotNull('esb_branch_code')
-                ->get()
-                ->filter(fn (Branch $b) => ! empty($b->esb_token))
-                ->pluck('id')
-                ->values()
-                ->all();
+            $branches = Branch::with('esbCodes')->whereIn('id', $this->selectedBranchIds)->get();
         } else {
-            $branchIds = collect($this->getBranches())
-                ->filter(fn (Branch $b) => ! empty($b->esb_token))
-                ->pluck('id')
-                ->values()
-                ->all();
+            $branches = collect($this->getBranches());
         }
 
-        if (empty($branchIds)) {
-            Notification::make()->title('Tidak ada branch dengan token ESB yang dikonfigurasi')->warning()->send();
+        $pairIds = $branches
+            ->flatMap(fn (Branch $b) => $b->activeEsbCodes()->pluck('id'))
+            ->values()
+            ->all();
+
+        if (empty($pairIds)) {
+            Notification::make()->title('Tidak ada branch dengan kode ESB yang dikonfigurasi')->warning()->send();
 
             return;
         }
 
         $this->fetched = false;
         $this->isFetching = true;
-        $this->fetchBranchIds = $branchIds;
-        $this->fetchBranchIndex = 0;
+        $this->fetchPairIds = $pairIds;
+        $this->fetchPairIndex = 0;
         $this->fetchCurrentPage = 0;
         $this->fetchTotalPages = 0;
         $this->fetchPeriodIndex = 0;
@@ -314,17 +312,17 @@ class SalesInformationPage extends Page
             return;
         }
 
-        $branchId = $this->fetchBranchIds[$this->fetchBranchIndex] ?? null;
+        $pairId = $this->fetchPairIds[$this->fetchPairIndex] ?? null;
 
-        if (! $branchId) {
+        if (! $pairId) {
             $this->finishFetch();
 
             return;
         }
 
-        $branch = Branch::find($branchId);
+        $pair = BranchEsbCode::find($pairId);
 
-        if (! $branch || ! $branch->esb_token) {
+        if (! $pair || ! $pair->esb_token) {
             $this->advanceBranch();
 
             return;
@@ -341,7 +339,7 @@ class SalesInformationPage extends Page
 
         try {
             ['data' => $rows, 'pageCount' => $pageCount] = (new EsbService)->getSalesPage(
-                $branch->esb_branch_code, $dateFrom, $dateTo, $branch->esb_token, $this->fetchCurrentPage + 1
+                $pair->esb_branch_code, $dateFrom, $dateTo, $pair->esb_token, $this->fetchCurrentPage + 1
             );
 
             $this->fetchTotalPages = $pageCount;
@@ -372,11 +370,11 @@ class SalesInformationPage extends Page
 
     private function advanceBranch(): void
     {
-        $this->fetchBranchIndex++;
+        $this->fetchPairIndex++;
         $this->fetchCurrentPage = 0;
         $this->fetchTotalPages = 0;
 
-        if ($this->fetchBranchIndex < count($this->fetchBranchIds)) {
+        if ($this->fetchPairIndex < count($this->fetchPairIds)) {
             $this->dispatch('fetch-next-page');
         } else {
             $this->finishPeriodFetch();
@@ -391,7 +389,7 @@ class SalesInformationPage extends Page
 
         if ($this->fetchPeriodIndex + 1 < count($this->fetchPeriods)) {
             $this->fetchPeriodIndex++;
-            $this->fetchBranchIndex = 0;
+            $this->fetchPairIndex = 0;
             $this->fetchCurrentPage = 0;
             $this->fetchTotalPages = 0;
             $this->fetchAcc = $this->newPeriodAcc();

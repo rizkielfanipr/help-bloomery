@@ -36,11 +36,8 @@ it('fetches both periods and calculates KPI and branch growth', function () {
         'esb.tokens.TESTCO' => 'branch-token',
     ]);
 
-    $branch = Branch::factory()->create([
-        'name' => 'Bloomery Test',
-        'esb_branch_code' => 'BTST',
-        'esb_comcode' => 'TESTCO',
-    ]);
+    $branch = Branch::factory()->create(['name' => 'Bloomery Test']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BTST', 'esb_comcode' => 'TESTCO']);
 
     Http::fake(function (Request $request) {
         $from = $request->data()['salesDateFrom'] ?? null;
@@ -94,11 +91,8 @@ it('excludes CASH change given back from total revenue and the payment method br
         'esb.tokens.TESTCO' => 'branch-token',
     ]);
 
-    $branch = Branch::factory()->create([
-        'name' => 'Bloomery Test',
-        'esb_branch_code' => 'BTST',
-        'esb_comcode' => 'TESTCO',
-    ]);
+    $branch = Branch::factory()->create(['name' => 'Bloomery Test']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BTST', 'esb_comcode' => 'TESTCO']);
 
     Http::fake(fn () => Http::response([[
         'salesDate' => '2026-06-01',

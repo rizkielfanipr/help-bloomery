@@ -17,6 +17,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -67,18 +68,6 @@ class BranchResource extends Resource
                             ->required()
                             ->maxLength(255),
 
-                        TextInput::make('esb_branch_code')
-                            ->label('ESB Branch Code')
-                            ->nullable()
-                            ->maxLength(50)
-                            ->helperText('Kode cabang di ESB OMS, contoh: BMS, BPL'),
-
-                        TextInput::make('esb_comcode')
-                            ->label('ESB Comcode')
-                            ->nullable()
-                            ->maxLength(50)
-                            ->helperText('Kode perusahaan ESB, contoh: BLO16, BLMN'),
-
                         TextInput::make('address')
                             ->label('Alamat')
                             ->nullable()
@@ -95,6 +84,41 @@ class BranchResource extends Resource
                             ->default(false),
                     ])
                     ->columns(2),
+
+                Section::make('Kode ESB')
+                    ->description('Branch bisa punya lebih dari satu pasangan Branch Code + Comcode (mis. tercatat di beberapa company ESB). Data yang di-fetch akan dijumlahkan dari semua pasangan yang aktif.')
+                    ->schema([
+                        Repeater::make('esbCodes')
+                            ->relationship()
+                            ->hiddenLabel()
+                            ->schema([
+                                TextInput::make('esb_branch_code')
+                                    ->label('ESB Branch Code')
+                                    ->required()
+                                    ->maxLength(50)
+                                    ->placeholder('mis. BPL'),
+
+                                TextInput::make('esb_comcode')
+                                    ->label('ESB Comcode')
+                                    ->required()
+                                    ->maxLength(50)
+                                    ->placeholder('mis. BLO16'),
+
+                                TextInput::make('label')
+                                    ->label('Label')
+                                    ->maxLength(255)
+                                    ->placeholder('mis. Utama, BLO3'),
+
+                                Toggle::make('is_active')
+                                    ->label('Aktif')
+                                    ->default(true),
+                            ])
+                            ->columns(4)
+                            ->defaultItems(0)
+                            ->addActionLabel('Tambah Kode ESB')
+                            ->reorderable(false)
+                            ->columnSpanFull(),
+                    ]),
 
                 Section::make('Titik Lokasi Absen')
                     ->description('Tentukan koordinat dan radius titik absen untuk branch ini. Kosongkan jika tidak perlu validasi lokasi.')

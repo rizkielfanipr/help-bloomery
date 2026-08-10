@@ -90,8 +90,8 @@ class StockInformationPage extends Page
     /** @return list<Branch> */
     public function getAllBranches(): array
     {
-        return Branch::whereNotNull('esb_branch_code')
-            ->whereNotNull('esb_comcode')
+        return Branch::with('esbCodes')
+            ->whereHas('esbCodes', fn ($query) => $query->where('is_active', true))
             ->orderBy('name')
             ->get()
             ->all();
@@ -111,16 +111,16 @@ class StockInformationPage extends Page
         $this->validate(['dateTo' => ['required', 'date']]);
 
         if (! empty($this->selectedBranchIds)) {
-            $branchIds = Branch::whereIn('id', $this->selectedBranchIds)
-                ->whereNotNull('esb_branch_code')
+            $branchIds = Branch::with('esbCodes')
+                ->whereIn('id', $this->selectedBranchIds)
                 ->get()
-                ->filter(fn (Branch $b) => ! empty($b->esb_token))
+                ->filter(fn (Branch $b) => $b->hasEsbIntegration())
                 ->pluck('id')
                 ->values()
                 ->all();
         } else {
             $branchIds = collect($this->getAllBranches())
-                ->filter(fn (Branch $b) => ! empty($b->esb_token))
+                ->filter(fn (Branch $b) => $b->hasEsbIntegration())
                 ->pluck('id')
                 ->values()
                 ->all();
@@ -155,15 +155,15 @@ class StockInformationPage extends Page
             return;
         }
 
-        $branch = Branch::find($branchId);
+        $branch = Branch::with('esbCodes')->find($branchId);
 
-        if (! $branch || ! $branch->esb_token) {
+        if (! $branch || ! $branch->hasEsbIntegration()) {
             $this->advanceBranch();
 
             return;
         }
 
-        $this->fetchCurrentBranchCode = $branch->esb_branch_code ?? $branch->name;
+        $this->fetchCurrentBranchCode = $branch->activeEsbCodes()->pluck('esb_branch_code')->join(', ') ?: $branch->name;
 
         $dateFrom = $this->dateFrom ?? today()->toDateString();
         $dateTo = $this->dateTo;
@@ -172,18 +172,10 @@ class StockInformationPage extends Page
         $acc = $this->fetchAcc;
 
         foreach (CarbonPeriod::create($dateFrom, $dateTo) as $day) {
-            try {
-                $rows = $esb->getDailySalesMaterialUsage(
-                    $branch->esb_branch_code,
-                    $day->toDateString(),
-                    'stockUnit',
-                    $branch->esb_token,
-                );
-                foreach ($rows as $row) {
-                    $this->accumulateRow($acc, $row, $branch->name, $day->toDateString());
-                }
-            } catch (\RuntimeException) {
-                // skip failed dates
+            $result = $esb->getDailySalesMaterialUsageForBranch($branch, $day->toDateString(), 'stockUnit');
+
+            foreach ($result['rows'] as $row) {
+                $this->accumulateRow($acc, $row, $branch->name, $day->toDateString());
             }
         }
 

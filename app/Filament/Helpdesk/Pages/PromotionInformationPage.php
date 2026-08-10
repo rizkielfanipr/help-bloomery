@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\Branch;
+use App\Models\BranchEsbCode;
 use App\Models\Brand;
 use App\Services\EsbService;
 use BackedEnum;
@@ -44,13 +45,15 @@ class PromotionInformationPage extends Page
 
     public string $selectedPromoType = '';
 
-    // Paged-fetch state
+    // Paged-fetch state — flattened across every active (branch, ESB code
+    // pair) combination, so a branch with multiple ESB pairs is fetched
+    // pair-by-pair just like separate branches used to be.
     public bool $isFetching = false;
 
     /** @var list<int> */
-    public array $fetchBranchIds = [];
+    public array $fetchPairIds = [];
 
-    public int $fetchBranchIndex = 0;
+    public int $fetchPairIndex = 0;
 
     public int $fetchCurrentPage = 0;
 
@@ -140,8 +143,8 @@ class PromotionInformationPage extends Page
     /** @return list<Branch> */
     public function getBranches(): array
     {
-        return Branch::whereNotNull('esb_branch_code')
-            ->whereNotNull('esb_comcode')
+        return Branch::with('esbCodes')
+            ->whereHas('esbCodes', fn ($query) => $query->where('is_active', true))
             ->when($this->selectedBrandIds, fn ($q) => $q->whereIn('brand_id', $this->selectedBrandIds))
             ->orderBy('name')
             ->get()
@@ -162,37 +165,31 @@ class PromotionInformationPage extends Page
         $this->validate(['dateTo' => ['required', 'date']]);
 
         if (! empty($this->selectedBranchIds)) {
-            $branchIds = Branch::whereIn('id', $this->selectedBranchIds)
-                ->whereNotNull('esb_branch_code')
-                ->get()
-                ->filter(fn (Branch $b) => ! empty($b->esb_token))
-                ->pluck('id')
-                ->values()
-                ->all();
+            $branches = Branch::with('esbCodes')->whereIn('id', $this->selectedBranchIds)->get();
         } else {
-            $branchIds = collect($this->getBranches())
-                ->filter(fn (Branch $b) => ! empty($b->esb_token))
-                ->pluck('id')
-                ->values()
-                ->all();
+            $branches = collect($this->getBranches());
         }
 
-        if (empty($branchIds)) {
-            Notification::make()->title('Tidak ada branch dengan token ESB yang dikonfigurasi')->warning()->send();
+        $pairIds = $branches
+            ->flatMap(fn (Branch $b) => $b->activeEsbCodes()->pluck('id'))
+            ->values()
+            ->all();
+
+        if (empty($pairIds)) {
+            Notification::make()->title('Tidak ada branch dengan kode ESB yang dikonfigurasi')->warning()->send();
 
             return;
         }
 
-        // Fetch promotion catalog (fast, single call per branch)
+        // Fetch promotion catalog (fast, single call per ESB code pair)
         $this->promotionCatalog = [];
         $esb = new EsbService;
-        foreach ($branchIds as $branchId) {
-            $b = Branch::find($branchId);
-            if (! $b?->esb_branch_code) {
+        foreach (BranchEsbCode::whereIn('id', $pairIds)->get() as $pair) {
+            if (! $pair->esb_token) {
                 continue;
             }
             try {
-                $promos = $esb->getPromotionList($b->esb_branch_code, $b->esb_token);
+                $promos = $esb->getPromotionList($pair->esb_branch_code, $pair->esb_token);
                 foreach ($promos as $promo) {
                     $id = (int) ($promo['promotionID'] ?? 0);
                     if ($id && ! isset($this->promotionCatalog[$id])) {
@@ -207,8 +204,8 @@ class PromotionInformationPage extends Page
         $this->fetched = false;
         $this->selectedPromoType = '';
         $this->isFetching = true;
-        $this->fetchBranchIds = $branchIds;
-        $this->fetchBranchIndex = 0;
+        $this->fetchPairIds = $pairIds;
+        $this->fetchPairIndex = 0;
         $this->fetchCurrentPage = 0;
         $this->fetchTotalPages = 0;
         $this->fetchAcc = $this->initAcc();
@@ -222,18 +219,18 @@ class PromotionInformationPage extends Page
             return;
         }
 
-        $branchId = $this->fetchBranchIds[$this->fetchBranchIndex] ?? null;
+        $pairId = $this->fetchPairIds[$this->fetchPairIndex] ?? null;
 
-        if (! $branchId) {
+        if (! $pairId) {
             $this->finishFetch();
 
             return;
         }
 
-        $branch = Branch::find($branchId);
+        $pair = BranchEsbCode::find($pairId);
 
-        if (! $branch || ! $branch->esb_token) {
-            $this->advanceBranch();
+        if (! $pair || ! $pair->esb_token) {
+            $this->advancePair();
 
             return;
         }
@@ -242,7 +239,7 @@ class PromotionInformationPage extends Page
 
         try {
             ['data' => $rows, 'pageCount' => $pageCount] = (new EsbService)->getSalesPage(
-                $branch->esb_branch_code, $dateFrom, $dateTo, $branch->esb_token, $this->fetchCurrentPage + 1
+                $pair->esb_branch_code, $dateFrom, $dateTo, $pair->esb_token, $this->fetchCurrentPage + 1
             );
 
             $this->fetchTotalPages = $pageCount;
@@ -260,7 +257,7 @@ class PromotionInformationPage extends Page
                 return;
             }
 
-            $this->advanceBranch();
+            $this->advancePair();
         } catch (\RuntimeException $e) {
             $this->stopFetch();
             Notification::make()
@@ -271,13 +268,13 @@ class PromotionInformationPage extends Page
         }
     }
 
-    private function advanceBranch(): void
+    private function advancePair(): void
     {
-        $this->fetchBranchIndex++;
+        $this->fetchPairIndex++;
         $this->fetchCurrentPage = 0;
         $this->fetchTotalPages = 0;
 
-        if ($this->fetchBranchIndex < count($this->fetchBranchIds)) {
+        if ($this->fetchPairIndex < count($this->fetchPairIds)) {
             $this->dispatch('fetch-next-page');
         } else {
             $this->finishFetch();

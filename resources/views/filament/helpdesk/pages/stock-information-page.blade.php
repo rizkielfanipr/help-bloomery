@@ -200,7 +200,7 @@
                         <div x-show="search === '' || '{{ strtolower($branch->name) }}'.includes(search.toLowerCase())"
                              wire:click="toggleBranchId({{ $branch->id }})"
                              class="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-gray-700">
-                            {{ $branch->name }} <span class="text-xs text-gray-400">({{ $branch->esb_branch_code }})</span>
+                            {{ $branch->name }} <span class="text-xs text-gray-400">({{ $branch->activeEsbCodes()->pluck('esb_branch_code')->join(', ') }})</span>
                         </div>
                     @endforeach
                 </div>

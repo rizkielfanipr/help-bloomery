@@ -17,10 +17,8 @@ use function Pest\Laravel\actingAs;
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
 
-    $this->branch = Branch::factory()->create([
-        'esb_branch_code' => 'TST01',
-        'esb_comcode' => 'COM01',
-    ]);
+    $this->branch = Branch::factory()->create();
+    $this->branch->esbCodes()->create(['esb_branch_code' => 'TST01', 'esb_comcode' => 'COM01']);
 
     $this->storeUser = User::factory()->create([
         'branch_id' => $this->branch->id,

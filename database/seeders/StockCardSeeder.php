@@ -55,12 +55,10 @@ class StockCardSeeder extends Seeder
         $esb = app(EsbService::class);
         $useEsb = $esb->isConfigured();
 
-        $branches = Branch::whereNotNull('esb_branch_code')
-            ->whereNotNull('esb_comcode')
-            ->get();
+        $branches = Branch::with('esbCodes')->get()->filter(fn (Branch $b) => $b->hasEsbIntegration());
 
         if ($branches->isEmpty()) {
-            $this->command->warn('No branches with esb_branch_code found, skipping.');
+            $this->command->warn('No branches with an active ESB code pair found, skipping.');
 
             return;
         }
@@ -73,7 +71,7 @@ class StockCardSeeder extends Seeder
         }
 
         foreach ($branches as $branch) {
-            $this->command->info("Seeding branch: {$branch->name} ({$branch->esb_branch_code})");
+            $this->command->info("Seeding branch: {$branch->name}");
 
             foreach ($dates as $date) {
                 $materials = $this->fetchMaterials($esb, $useEsb, $branch, $date);
@@ -128,23 +126,21 @@ class StockCardSeeder extends Seeder
 
     private function fetchMaterials(EsbService $esb, bool $useEsb, Branch $branch, string $date): array
     {
-        if ($useEsb && $branch->esb_token) {
-            try {
-                $rows = $esb->getDailySalesMaterialUsage($branch->esb_branch_code, $date, 'stockUnit', $branch->esb_token);
+        if ($useEsb && $branch->hasEsbIntegration()) {
+            $result = $esb->getDailySalesMaterialUsageForBranch($branch, $date, 'stockUnit');
 
+            if ($result['ok'] && ! empty($result['rows'])) {
                 return array_map(fn ($r) => [
                     'code' => $r['productCode'] ?? '',
                     'name' => $r['productName'] ?? '',
                     'qty' => (float) ($r['totalQty'] ?? 0),
                     'unit' => $r['unit'] ?? 'PCS',
-                ], $rows);
-            } catch (\RuntimeException) {
-                // fall through to fake data
+                ], $result['rows']);
             }
         }
 
         // Fake data: randomise qty slightly per date/branch so each day looks different
-        $seed = crc32($branch->esb_branch_code.$date);
+        $seed = crc32($branch->name.$date);
         mt_srand($seed);
 
         return array_map(fn ($mat) => [

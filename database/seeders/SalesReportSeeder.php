@@ -30,13 +30,12 @@ class SalesReportSeeder extends Seeder
             return;
         }
 
-        $branches = Branch::whereNotNull('esb_branch_code')
-            ->whereNotNull('esb_comcode')
+        $branches = Branch::with('esbCodes')
             ->get()
-            ->filter(fn (Branch $b) => $b->esb_token !== '');
+            ->filter(fn (Branch $b) => $b->hasEsbIntegration());
 
         if ($branches->isEmpty()) {
-            $this->command->warn('No branches with esb_branch_code + configured ESB token found.');
+            $this->command->warn('No branches with an active ESB code pair found.');
 
             return;
         }
@@ -49,16 +48,15 @@ class SalesReportSeeder extends Seeder
         }
 
         foreach ($branches as $branch) {
-            $this->command->info("Seeding branch: {$branch->name} ({$branch->esb_branch_code})");
+            $this->command->info("Seeding branch: {$branch->name}");
             $shiftNumbers = $branch->salesShiftNumbers();
 
             foreach ($dates as $date) {
-                try {
-                    $rows = $esb->getPaymentSummary($branch->esb_branch_code, $date, $branch->esb_token);
-                } catch (\RuntimeException $e) {
-                    $this->command->warn("  [$date] ESB error: {$e->getMessage()}");
+                $result = $esb->getPaymentSummaryForBranch($branch, $date);
+                $rows = $result['rows'];
 
-                    continue;
+                if (! $result['ok']) {
+                    $this->command->warn("  [$date] ESB error on at least one code pair.");
                 }
 
                 if (empty($rows)) {

@@ -13,7 +13,7 @@
                         class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
                     <option value="">-- Pilih Branch --</option>
                     @foreach($this->getBranches() as $branch)
-                        <option value="{{ $branch->id }}">{{ $branch->name }} ({{ $branch->esb_branch_code }})</option>
+                        <option value="{{ $branch->id }}">{{ $branch->name }} ({{ $branch->activeEsbCodes()->pluck('esb_branch_code')->join(', ') }})</option>
                     @endforeach
                 </select>
                 @error('selectedBranchId') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror

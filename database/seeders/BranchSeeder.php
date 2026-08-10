@@ -60,14 +60,14 @@ class BranchSeeder extends Seeder
         foreach ($this->data as $comcode => $branches) {
             foreach ($branches as $branch) {
                 $record = Branch::firstOrCreate(
-                    ['esb_branch_code' => $branch['code']],
-                    ['name' => $branch['name'], 'is_active' => true]
+                    ['name' => $branch['name']],
+                    ['is_active' => true]
                 );
 
-                $record->update([
-                    'name' => $branch['name'],
-                    'esb_comcode' => $comcode,
-                ]);
+                $record->esbCodes()->updateOrCreate(
+                    ['esb_branch_code' => $branch['code'], 'esb_comcode' => $comcode],
+                    ['label' => 'Utama', 'is_active' => true]
+                );
 
                 $this->command->info("{$branch['code']} ({$comcode}): {$branch['name']}");
             }

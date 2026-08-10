@@ -688,7 +688,7 @@
                         <div x-show="search === '' || '{{ strtolower($branch->name) }}'.includes(search.toLowerCase())"
                              wire:click="toggleBranchId({{ $branch->id }})"
                              class="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-gray-700">
-                            {{ $branch->name }} <span class="text-xs text-gray-400">({{ $branch->esb_branch_code }})</span>
+                            {{ $branch->name }} <span class="text-xs text-gray-400">({{ $branch->activeEsbCodes()->pluck('esb_branch_code')->join(', ') }})</span>
                         </div>
                     @endforeach
                 </div>
@@ -707,8 +707,8 @@
     {{-- Progress bar --}}
     @if($isFetching)
     @php
-        $totalBranches = count($fetchBranchIds);
-        $branchDone    = $totalBranches > 0 ? $fetchBranchIndex / $totalBranches : 0;
+        $totalBranches = count($fetchPairIds);
+        $branchDone    = $totalBranches > 0 ? $fetchPairIndex / $totalBranches : 0;
         $pageSlice     = ($totalBranches > 0 && $fetchTotalPages > 0)
             ? ($fetchCurrentPage / $fetchTotalPages) / $totalBranches : 0;
         $periodCount = max(1, count($fetchPeriods));
@@ -729,7 +729,7 @@
             </div>
             <span class="text-xs text-gray-500 dark:text-gray-400">
                 @if($totalBranches > 1)
-                    Cabang {{ $fetchBranchIndex + 1 }}/{{ $totalBranches }}
+                    Cabang {{ $fetchPairIndex + 1 }}/{{ $totalBranches }}
                     @if($fetchTotalPages > 0) &mdash; Halaman {{ $fetchCurrentPage }}/{{ $fetchTotalPages }} @endif
                 @elseif($fetchTotalPages > 0)
                     Halaman {{ $fetchCurrentPage }}/{{ $fetchTotalPages }}

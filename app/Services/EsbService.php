@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Branch;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\RequestException;
@@ -438,6 +439,52 @@ class EsbService
     }
 
     /**
+     * Same as getPaymentSummary(), but for a branch with multiple ESB
+     * (branch code, comcode) pairs: fetches every active pair and sums
+     * totals per payment-method name across all of them. `ok` is true only
+     * if every active pair fetched successfully — a partial failure still
+     * returns whatever rows did succeed, but callers should treat the
+     * merged totals as incomplete when `ok` is false.
+     *
+     * @return array{rows: array<int, array{name: string, type: string, total: float}>, ok: bool}
+     */
+    public function getPaymentSummaryForBranch(Branch $branch, string $date): array
+    {
+        $totals = [];
+        $ok = true;
+
+        foreach ($branch->activeEsbCodes() as $pair) {
+            if (! $pair->esb_token) {
+                $ok = false;
+
+                continue;
+            }
+
+            try {
+                $rows = $this->getPaymentSummary($pair->esb_branch_code, $date, $pair->esb_token);
+            } catch (\RuntimeException) {
+                $ok = false;
+
+                continue;
+            }
+
+            foreach ($rows as $row) {
+                $name = $row['name'];
+
+                if (! isset($totals[$name])) {
+                    $totals[$name] = ['name' => $name, 'type' => $row['type'], 'total' => 0.0];
+                }
+                $totals[$name]['total'] += $row['total'];
+            }
+        }
+
+        $rows = array_values($totals);
+        usort($rows, fn ($a, $b) => [$a['type'], $a['name']] <=> [$b['type'], $b['name']]);
+
+        return ['rows' => $rows, 'ok' => $ok];
+    }
+
+    /**
      * CASH payments in ESB record the cash physically tendered by the customer,
      * which can exceed the bill when change is given back (e.g. paying a Rp35.000
      * bill with a Rp50.000 note records paymentAmount=50.000, not the Rp35.000
@@ -689,6 +736,53 @@ class EsbService
         }
 
         return $response->json() ?? [];
+    }
+
+    /**
+     * Same as getDailySalesMaterialUsage(), but for a branch with multiple
+     * ESB (branch code, comcode) pairs: fetches every active pair and sums
+     * totalQty/totalConversionQty per product across all of them (matched by
+     * productCode, falling back to productName when a row has no code).
+     * `ok` is true only if every active pair fetched successfully.
+     *
+     * @return array{rows: array<int, array{branchCode: string, branch: string, salesDate: string, productCode: string, productName: string, totalQty: float, unit: string, totalConversionQty: float, unitConversion: string}>, ok: bool}
+     */
+    public function getDailySalesMaterialUsageForBranch(Branch $branch, string $date, string $flagUnit): array
+    {
+        $totals = [];
+        $ok = true;
+
+        foreach ($branch->activeEsbCodes() as $pair) {
+            if (! $pair->esb_token) {
+                $ok = false;
+
+                continue;
+            }
+
+            try {
+                $rows = $this->getDailySalesMaterialUsage($pair->esb_branch_code, $date, $flagUnit, $pair->esb_token);
+            } catch (\RuntimeException) {
+                $ok = false;
+
+                continue;
+            }
+
+            foreach ($rows as $row) {
+                $code = $row['productCode'] ?? '';
+                $key = $code !== '' ? $code : 'name:'.($row['productName'] ?? '');
+
+                if (! isset($totals[$key])) {
+                    $totals[$key] = $row;
+                    $totals[$key]['totalQty'] = (float) ($row['totalQty'] ?? 0);
+                    $totals[$key]['totalConversionQty'] = (float) ($row['totalConversionQty'] ?? 0);
+                } else {
+                    $totals[$key]['totalQty'] += (float) ($row['totalQty'] ?? 0);
+                    $totals[$key]['totalConversionQty'] += (float) ($row['totalConversionQty'] ?? 0);
+                }
+            }
+        }
+
+        return ['rows' => array_values($totals), 'ok' => $ok];
     }
 
     public function isConfigured(): bool

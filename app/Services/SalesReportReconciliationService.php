@@ -22,7 +22,7 @@ class SalesReportReconciliationService
      */
     public function reconcile(SalesReport $report): bool
     {
-        $report->loadMissing(['branch', 'entries']);
+        $report->loadMissing(['branch.esbCodes', 'entries']);
         $branch = $report->branch;
 
         $reportedTotals = $report->entries
@@ -32,18 +32,10 @@ class SalesReportReconciliationService
         $systemTotals = collect();
         $fetchedOk = false;
 
-        if ($branch?->esb_branch_code && $branch->esb_token) {
-            try {
-                $rows = $this->esb->getPaymentSummary(
-                    $branch->esb_branch_code,
-                    $report->report_date->toDateString(),
-                    $branch->esb_token,
-                );
-                $systemTotals = collect($rows)->pluck('total', 'name')->map(fn ($v) => (float) $v);
-                $fetchedOk = true;
-            } catch (\RuntimeException) {
-                $fetchedOk = false;
-            }
+        if ($branch?->hasEsbIntegration()) {
+            $result = $this->esb->getPaymentSummaryForBranch($branch, $report->report_date->toDateString());
+            $systemTotals = collect($result['rows'])->pluck('total', 'name')->map(fn ($v) => (float) $v);
+            $fetchedOk = $result['ok'];
         }
 
         $names = $reportedTotals->keys()->merge($systemTotals->keys())->unique();

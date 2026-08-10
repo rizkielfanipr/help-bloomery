@@ -104,60 +104,50 @@ class StockCardEntryPage extends Page
         $user = auth()->user();
         $branch = $user->branch;
 
-        if (! $branch?->esb_branch_code) {
-            Notification::make()->title('Branch belum memiliki ESB Branch Code')->warning()->send();
+        if (! $branch?->hasEsbIntegration()) {
+            Notification::make()->title('Branch belum memiliki konfigurasi ESB')->warning()->send();
 
             return;
         }
 
-        $esbToken = $branch->esb_token;
+        $result = (new EsbService)->getDailySalesMaterialUsageForBranch($branch, $this->reportDate, $this->flagUnit);
+        $items = $result['rows'];
 
-        if (! $esbToken) {
-            Notification::make()->title('Token ESB untuk branch ini belum dikonfigurasi')->warning()->send();
+        if (empty($items)) {
+            Notification::make()->title('Tidak ada data material untuk tanggal ini')->info()->send();
 
             return;
         }
 
-        try {
-            $items = (new EsbService)->getDailySalesMaterialUsage(
-                $branch->esb_branch_code, $this->reportDate, $this->flagUnit, $esbToken
-            );
+        $existingByCode = collect($this->rows)->keyBy('product_code');
 
-            if (empty($items)) {
-                Notification::make()->title('Tidak ada data material untuk tanggal ini')->info()->send();
+        $this->rows = array_map(function ($item) use ($existingByCode) {
+            $code = (string) ($item['productCode'] ?? '');
+            $existing = $existingByCode->get($code);
 
-                return;
-            }
+            return [
+                'product_code' => $code,
+                'product_name' => (string) ($item['productName'] ?? 'Unknown'),
+                'system_qty' => (float) ($item['totalQty'] ?? 0),
+                'system_unit' => (string) ($item['unit'] ?? ''),
+                'actual_qty' => $existing['actual_qty'] ?? '',
+                'notes' => $existing['notes'] ?? '',
+            ];
+        }, $items);
 
-            $existingByCode = collect($this->rows)->keyBy('product_code');
+        $this->esbFetched = true;
 
-            $this->rows = array_map(function ($item) use ($existingByCode) {
-                $code = (string) ($item['productCode'] ?? '');
-                $existing = $existingByCode->get($code);
-
-                return [
-                    'product_code' => $code,
-                    'product_name' => (string) ($item['productName'] ?? 'Unknown'),
-                    'system_qty' => (float) ($item['totalQty'] ?? 0),
-                    'system_unit' => (string) ($item['unit'] ?? ''),
-                    'actual_qty' => $existing['actual_qty'] ?? '',
-                    'notes' => $existing['notes'] ?? '',
-                ];
-            }, $items);
-
-            $this->esbFetched = true;
-
+        if ($result['ok']) {
             Notification::make()
                 ->title('Data ESB berhasil dimuat')
                 ->body(count($this->rows).' item material ditemukan')
                 ->success()
                 ->send();
-
-        } catch (\RuntimeException $e) {
+        } else {
             Notification::make()
-                ->title('Gagal mengambil data ESB')
-                ->body($e->getMessage())
-                ->danger()
+                ->title('Data ESB dimuat sebagian')
+                ->body('Salah satu atau lebih pasangan kode ESB branch ini gagal diambil.')
+                ->warning()
                 ->send();
         }
     }

@@ -46,8 +46,8 @@ class EsbSalesPage extends Page
     /** @return array<int, Branch> */
     public function getBranches(): array
     {
-        return Branch::whereNotNull('esb_branch_code')
-            ->where('esb_branch_code', '!=', '')
+        return Branch::with('esbCodes')
+            ->whereHas('esbCodes', fn ($query) => $query->where('is_active', true))
             ->orderBy('name')
             ->get()
             ->all();
@@ -63,35 +63,26 @@ class EsbSalesPage extends Page
             'selectedDate.required' => 'Pilih tanggal terlebih dahulu.',
         ]);
 
-        $branch = Branch::find($this->selectedBranchId);
+        $branch = Branch::with('esbCodes')->find($this->selectedBranchId);
 
-        if (! $branch || ! $branch->esb_branch_code) {
-            Notification::make()->title('Branch ini belum memiliki ESB Branch Code')->warning()->send();
-
-            return;
-        }
-
-        $esbToken = $branch->esb_token;
-
-        if (! $esbToken) {
-            Notification::make()->title('Token ESB untuk branch ini belum dikonfigurasi')->warning()->send();
+        if (! $branch || ! $branch->hasEsbIntegration()) {
+            Notification::make()->title('Branch ini belum memiliki konfigurasi ESB')->warning()->send();
 
             return;
         }
 
-        try {
-            $service = new EsbService;
-            $this->esbRows = $service->getPaymentSummary($branch->esb_branch_code, $this->selectedDate, $esbToken);
-            $this->fetched = true;
+        $service = new EsbService;
+        $result = $service->getPaymentSummaryForBranch($branch, $this->selectedDate);
+        $this->esbRows = $result['rows'];
+        $this->fetched = true;
 
-            if (empty($this->esbRows)) {
-                Notification::make()->title('Tidak ada data penjualan pada tanggal tersebut')->info()->send();
-            }
-        } catch (\RuntimeException $e) {
+        if (empty($this->esbRows)) {
+            Notification::make()->title('Tidak ada data penjualan pada tanggal tersebut')->info()->send();
+        } elseif (! $result['ok']) {
             Notification::make()
-                ->title('Gagal mengambil data ESB')
-                ->body($e->getMessage())
-                ->danger()
+                ->title('Data dimuat sebagian')
+                ->body('Salah satu atau lebih pasangan kode ESB branch ini gagal diambil.')
+                ->warning()
                 ->send();
         }
     }

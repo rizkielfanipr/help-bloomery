@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class Branch extends Model
 {
@@ -15,8 +16,6 @@ class Branch extends Model
     protected $fillable = [
         'brand_id',
         'name',
-        'esb_branch_code',
-        'esb_comcode',
         'address',
         'lat',
         'lng',
@@ -37,9 +36,20 @@ class Branch extends Model
         ];
     }
 
-    public function getEsbTokenAttribute(): string
+    public function esbCodes(): HasMany
     {
-        return config('esb.tokens.'.$this->esb_comcode, '');
+        return $this->hasMany(BranchEsbCode::class);
+    }
+
+    /** @return Collection<int, BranchEsbCode> */
+    public function activeEsbCodes()
+    {
+        return $this->esbCodes->where('is_active', true)->values();
+    }
+
+    public function hasEsbIntegration(): bool
+    {
+        return $this->activeEsbCodes()->isNotEmpty();
     }
 
     public function brand(): BelongsTo

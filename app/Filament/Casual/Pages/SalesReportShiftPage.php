@@ -151,28 +151,16 @@ class SalesReportShiftPage extends Page
         $user = auth()->user();
         $branch = $user->branch;
 
-        if (! $branch?->esb_branch_code) {
-            Notification::make()->title('Branch belum memiliki ESB Branch Code')->warning()->send();
-
-            return;
-        }
-
-        $esbToken = $branch->esb_token;
-
-        if (! $esbToken) {
-            Notification::make()->title('Token ESB untuk branch ini belum dikonfigurasi')->warning()->send();
+        if (! $branch?->hasEsbIntegration()) {
+            Notification::make()->title('Branch belum memiliki konfigurasi ESB')->warning()->send();
 
             return;
         }
 
         try {
-            $esbRows = app(EsbService::class)->getPaymentSummary(
-                $branch->esb_branch_code,
-                $this->reportDate,
-                $esbToken,
-            );
+            $result = app(EsbService::class)->getPaymentSummaryForBranch($branch, $this->reportDate);
 
-            if (empty($esbRows)) {
+            if (empty($result['rows'])) {
                 Notification::make()->title('Tidak ada data penjualan ESB untuk tanggal ini')->info()->send();
 
                 return;
@@ -182,11 +170,19 @@ class SalesReportShiftPage extends Page
                 'name' => $row['name'],
                 'sales_store' => '',
                 'notes' => '',
-            ], $esbRows);
+            ], $result['rows']);
 
             $this->esbFetched = true;
 
-            Notification::make()->title('Daftar payment method berhasil dimuat')->success()->send();
+            if ($result['ok']) {
+                Notification::make()->title('Daftar payment method berhasil dimuat')->success()->send();
+            } else {
+                Notification::make()
+                    ->title('Daftar payment method dimuat sebagian')
+                    ->body('Salah satu atau lebih pasangan kode ESB branch ini gagal diambil.')
+                    ->warning()
+                    ->send();
+            }
         } catch (\RuntimeException $e) {
             Notification::make()
                 ->title('Gagal mengambil data ESB')

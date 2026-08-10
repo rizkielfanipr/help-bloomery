@@ -49,7 +49,17 @@
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Report Period</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->report_date->isoFormat('D MMMM Y') }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Shift</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">Shift {{ $record->shift_number }} · {{ $record->shift_started_at?->format('H:i') ?? '-' }}–{{ $record->shift_ended_at?->format('H:i') ?? '-' }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Submitted By</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->submittedBy->name }}</p></div>
-            <div class="sm:col-span-2"><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Report Staff</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->employee_name ?? '-' }}</p><p class="mt-0.5 text-xs text-gray-400">{{ collect([$record->employee_code, $record->employee_position])->filter()->join(' · ') ?: '-' }}</p></div>
+            <div class="sm:col-span-2">
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Report Staff</p>
+                @forelse($record->employees as $emp)
+                    <p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        {{ $emp->employee_name ?? '-' }}
+                        <span class="font-normal text-gray-400">{{ collect([$emp->employee_code, $emp->employee_position])->filter()->isNotEmpty() ? '· '.collect([$emp->employee_code, $emp->employee_position])->filter()->join(' · ') : '' }}</span>
+                    </p>
+                @empty
+                    <p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">-</p>
+                @endforelse
+            </div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Last Updated</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->updated_at->isoFormat('D MMM Y, HH:mm') }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Revision</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->revision_number }}</p></div>
         </div>

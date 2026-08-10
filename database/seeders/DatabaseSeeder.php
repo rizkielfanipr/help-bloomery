@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             DesignRequestSeeder::class,
             ErpRepairRequestSeeder::class,
             PurchasingRequestSeeder::class,
+            EmployeeSeeder::class,
             SalesReportSeeder::class,
             ServiceRequestSeeder::class,
             TripSeeder::class,

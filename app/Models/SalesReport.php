@@ -17,10 +17,6 @@ class SalesReport extends Model
     protected $fillable = [
         'branch_id',
         'submitted_by',
-        'employee_id',
-        'employee_code',
-        'employee_name',
-        'employee_position',
         'report_date',
         'shift_number',
         'shift_started_at',
@@ -58,9 +54,9 @@ class SalesReport extends Model
         return $this->belongsTo(User::class, 'submitted_by');
     }
 
-    public function employee(): BelongsTo
+    public function employees(): HasMany
     {
-        return $this->belongsTo(Employee::class);
+        return $this->hasMany(SalesReportEmployee::class);
     }
 
     public function entries(): HasMany

@@ -6,7 +6,7 @@ use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Employee extends Model
 {
@@ -33,8 +33,15 @@ class Employee extends Model
         return $this->belongsTo(Branch::class);
     }
 
-    public function salesReports(): HasMany
+    public function salesReports(): HasManyThrough
     {
-        return $this->hasMany(SalesReport::class);
+        return $this->hasManyThrough(
+            SalesReport::class,
+            SalesReportEmployee::class,
+            'employee_id',
+            'id',
+            'id',
+            'sales_report_id',
+        );
     }
 }

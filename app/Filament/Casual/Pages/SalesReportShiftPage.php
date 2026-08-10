@@ -6,6 +6,7 @@ use App\Enums\SalesReportStatus;
 use App\Models\Employee;
 use App\Models\SalesReport;
 use App\Models\SalesReportApproval;
+use App\Models\SalesReportEmployee;
 use App\Models\SalesReportEntry;
 use App\Services\EsbService;
 use Carbon\CarbonImmutable;
@@ -47,13 +48,11 @@ class SalesReportShiftPage extends Page
 
     public ?string $rejectionReason = null;
 
-    public ?int $employeeId = null;
+    /** @var array<int, int> */
+    public array $employeeIds = [];
 
-    public ?string $employeeCode = null;
-
-    public ?string $employeeName = null;
-
-    public ?string $employeePosition = null;
+    /** @var array<int, array{code: ?string, name: ?string, position: ?string}> */
+    public array $submittedEmployees = [];
 
     /** @var array<int, array{name: string, sales_system: float, sales_store: string, notes: string}> */
     public array $rows = [];
@@ -129,7 +128,7 @@ class SalesReportShiftPage extends Page
             return;
         }
 
-        $report = SalesReport::with(['entries', 'esbTransactions'])
+        $report = SalesReport::with(['entries', 'esbTransactions', 'employees'])
             ->where('branch_id', $branchId)
             ->whereDate('report_date', $this->reportDate)
             ->where('shift_number', $this->shiftNumber)
@@ -143,10 +142,12 @@ class SalesReportShiftPage extends Page
         $this->isSubmitted = ! $status->canBeEditedBySubmitter();
         $this->currentStatus = $status->value;
         $this->rejectionReason = $report->rejection_reason;
-        $this->employeeId = $report->employee_id;
-        $this->employeeCode = $report->employee_code;
-        $this->employeeName = $report->employee_name;
-        $this->employeePosition = $report->employee_position;
+        $this->employeeIds = $report->employees->pluck('employee_id')->filter()->values()->all();
+        $this->submittedEmployees = $report->employees->map(fn (SalesReportEmployee $e): array => [
+            'code' => $e->employee_code,
+            'name' => $e->employee_name,
+            'position' => $e->employee_position,
+        ])->all();
         $this->shiftStart = $report->shift_started_at?->format('H:i') ?? $this->shiftStart;
         $this->shiftEnd = $report->shift_ended_at?->format('H:i') ?? $this->shiftEnd;
 
@@ -277,8 +278,8 @@ class SalesReportShiftPage extends Page
         $this->resetValidation();
         $this->validate([
             'reportDate' => ['required', 'date'],
-            'employeeId' => [
-                'required',
+            'employeeIds' => ['required', 'array', 'min:1'],
+            'employeeIds.*' => [
                 'integer',
                 Rule::exists('employees', 'id')->where(fn ($query) => $query
                     ->where('branch_id', $user->branch_id)
@@ -286,8 +287,9 @@ class SalesReportShiftPage extends Page
             ],
             'rows.*.sales_store' => ['nullable', 'numeric', 'min:0'],
         ], [
-            'employeeId.required' => 'Pilih staff yang mengisi Sales Report.',
-            'employeeId.exists' => 'Staff tidak aktif atau tidak terdaftar pada branch ini.',
+            'employeeIds.required' => 'Pilih minimal satu staff yang mengisi Sales Report.',
+            'employeeIds.min' => 'Pilih minimal satu staff yang mengisi Sales Report.',
+            'employeeIds.*.exists' => 'Staff tidak aktif atau tidak terdaftar pada branch ini.',
         ]);
 
         $hasMissingDifferenceNotes = false;
@@ -343,18 +345,22 @@ class SalesReportShiftPage extends Page
         }
 
         $this->validate([
-            'employeeId' => [
-                'required',
+            'employeeIds' => ['required', 'array', 'min:1'],
+            'employeeIds.*' => [
                 'integer',
                 Rule::exists('employees', 'id')->where(fn ($query) => $query
                     ->where('branch_id', $user->branch_id)
                     ->where('is_active', true)),
             ],
+        ], [
+            'employeeIds.required' => 'Pilih minimal satu staff yang mengisi Sales Report.',
+            'employeeIds.min' => 'Pilih minimal satu staff yang mengisi Sales Report.',
+            'employeeIds.*.exists' => 'Staff tidak aktif atau tidak terdaftar pada branch ini.',
         ]);
 
-        $employee = Employee::query()->findOrFail($this->employeeId);
+        $employees = Employee::query()->whereIn('id', $this->employeeIds)->get();
 
-        DB::transaction(function () use ($user, $employee): void {
+        DB::transaction(function () use ($user, $employees): void {
             $report = SalesReport::query()
                 ->where('branch_id', $user->branch_id)
                 ->whereDate('report_date', $this->reportDate)
@@ -367,10 +373,6 @@ class SalesReportShiftPage extends Page
                 ]);
             $report->fill([
                 'submitted_by' => $user->id,
-                'employee_id' => $employee->id,
-                'employee_code' => $employee->employee_code,
-                'employee_name' => $employee->name,
-                'employee_position' => $employee->position,
                 'submitted_at' => now(),
                 'status' => SalesReportStatus::PendingSupervisor->value,
                 'rejection_reason' => null,
@@ -418,6 +420,14 @@ class SalesReportShiftPage extends Page
             if ($this->esbTransactions !== []) {
                 $report->esbTransactions()->createMany($this->esbTransactions);
             }
+
+            $report->employees()->delete();
+            $report->employees()->createMany($employees->map(fn (Employee $employee): array => [
+                'employee_id' => $employee->id,
+                'employee_code' => $employee->employee_code,
+                'employee_name' => $employee->name,
+                'employee_position' => $employee->position,
+            ])->all());
 
             SalesReportApproval::create([
                 'sales_report_id' => $report->id,

@@ -9,6 +9,7 @@ use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
+use App\Models\SalesReportEmployee;
 use App\Models\SalesReportEntry;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -35,13 +36,16 @@ beforeEach(function () {
     $this->report = SalesReport::create([
         'branch_id' => $this->branch->id,
         'submitted_by' => $this->submitter->id,
+        'report_date' => today(),
+        'submitted_at' => now(),
+        'status' => SalesReportStatus::PendingSupervisor->value,
+    ]);
+    SalesReportEmployee::create([
+        'sales_report_id' => $this->report->id,
         'employee_id' => $this->employee->id,
         'employee_code' => $this->employee->employee_code,
         'employee_name' => $this->employee->name,
         'employee_position' => $this->employee->position,
-        'report_date' => today(),
-        'submitted_at' => now(),
-        'status' => SalesReportStatus::PendingSupervisor->value,
     ]);
     $this->entry = SalesReportEntry::create([
         'sales_report_id' => $this->report->id,
@@ -70,9 +74,45 @@ it('only allows an active employee from the submitter branch', function () {
             'sales_store' => '1000000',
             'notes' => '',
         ]])
-        ->set('employeeId', $otherEmployee->id)
+        ->set('employeeIds', [$otherEmployee->id])
         ->call('requestConfirm')
-        ->assertHasErrors(['employeeId']);
+        ->assertHasErrors(['employeeIds.0']);
+});
+
+it('allows selecting multiple staff for a single sales report submission', function () {
+    $this->report->delete();
+    $secondEmployee = Employee::factory()->create([
+        'branch_id' => $this->branch->id,
+        'employee_code' => 'EMP-STORE-002',
+        'name' => 'Staff Kasir Kedua',
+        'position' => 'Cashier',
+    ]);
+
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->submitter);
+
+    Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
+        ->set('esbFetched', true)
+        ->set('rows', [[
+            'name' => 'QRIS',
+            'sales_system' => 1_000_000,
+            'sales_store' => '1000000',
+            'notes' => '',
+        ]])
+        ->set('employeeIds', [$this->employee->id, $secondEmployee->id])
+        ->call('requestConfirm')
+        ->assertHasNoErrors()
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $report = SalesReport::where('branch_id', $this->branch->id)
+        ->whereDate('report_date', today())
+        ->where('shift_number', 1)
+        ->firstOrFail();
+
+    expect($report->employees()->count())->toBe(2)
+        ->and($report->employees()->pluck('employee_code')->sort()->values()->all())
+        ->toBe(['EMP-STORE-001', 'EMP-STORE-002']);
 });
 
 it('shows the delete action on the index and deletes related report data for permitted users', function () {

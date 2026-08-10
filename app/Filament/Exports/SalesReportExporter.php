@@ -22,9 +22,15 @@ class SalesReportExporter extends Exporter
             ExportColumn::make('shift_ended_at')->label('Shift Selesai'),
             ExportColumn::make('submitted_at')->label('Waktu Submit'),
             ExportColumn::make('submittedBy.name')->label('Disubmit Oleh'),
-            ExportColumn::make('employee_code')->label('ID Employee'),
-            ExportColumn::make('employee_name')->label('Staff Pengisi'),
-            ExportColumn::make('employee_position')->label('Posisi Employee'),
+            ExportColumn::make('employee_codes')
+                ->label('ID Employee')
+                ->state(fn (SalesReport $record): string => $record->employees->pluck('employee_code')->filter()->join(', ')),
+            ExportColumn::make('employee_names')
+                ->label('Staff Pengisi')
+                ->state(fn (SalesReport $record): string => $record->employees->pluck('employee_name')->filter()->join(', ')),
+            ExportColumn::make('employee_positions')
+                ->label('Posisi Employee')
+                ->state(fn (SalesReport $record): string => $record->employees->pluck('employee_position')->filter()->join(', ')),
             ExportColumn::make('status')->label('Status'),
             ExportColumn::make('supervisorReviewer.name')->label('Reviewer SPV'),
             ExportColumn::make('supervisor_reviewed_at')->label('Waktu Approval SPV'),

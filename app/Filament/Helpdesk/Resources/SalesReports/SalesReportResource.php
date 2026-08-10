@@ -80,13 +80,11 @@ class SalesReportResource extends Resource
                     ->sortable()
                     ->searchable(),
 
-                TextColumn::make('employee_name')
+                TextColumn::make('employees.employee_name')
                     ->label('Staff Pengisi')
-                    ->description(fn (SalesReport $record): ?string => collect([
-                        $record->employee_code,
-                        $record->employee_position,
-                    ])->filter()->join(' · ') ?: null)
-                    ->searchable(['employee_name', 'employee_code', 'employee_position'])
+                    ->listWithLineBreaks()
+                    ->limitList(3)
+                    ->expandableLimitedList()
                     ->placeholder('-'),
 
                 TextColumn::make('submitted_at')
@@ -183,7 +181,7 @@ class SalesReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'submittedBy', 'employee']);
+        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'submittedBy', 'employees']);
         $user = auth()->user();
 
         if ($user && ! $user->canAccessAllBranches()) {

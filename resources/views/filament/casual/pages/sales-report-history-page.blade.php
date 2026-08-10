@@ -92,9 +92,9 @@
                                     <p class="mt-0.5 text-xs text-gray-400">
                                         {{ $report->entries->count() }} metode pembayaran
                                     </p>
-                                    @if($report->employee_name)
+                                    @if($report->employees->isNotEmpty())
                                         <p class="mt-0.5 truncate text-[11px] text-gray-500">
-                                            {{ $report->employee_code }} · {{ $report->employee_name }} · {{ $report->employee_position }}
+                                            {{ $report->employees->pluck('employee_name')->filter()->join(', ') }}
                                         </p>
                                     @endif
                                     <span @class([

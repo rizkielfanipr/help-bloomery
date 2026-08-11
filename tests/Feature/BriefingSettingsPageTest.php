@@ -35,7 +35,9 @@ it('defaults the form to the current 3-day setting', function () {
     actingAs($user);
 
     Livewire::test(BriefingSettingsPage::class)
-        ->assertSet('data.auto_reject_after_days', 3);
+        ->assertSet('data.auto_reject_after_days', 3)
+        ->assertSet('data.auto_reject_reason', 'Tidak ada approval dalam :days hari setelah poin diselesaikan.')
+        ->assertSet('data.deadline_reject_reason', 'Tidak ada input sebelum deadline.');
 });
 
 it('saves an updated auto-reject window', function () {
@@ -49,6 +51,24 @@ it('saves an updated auto-reject window', function () {
         ->assertHasNoFormErrors();
 
     expect(BriefingSettings::instance()->auto_reject_after_days)->toBe(5);
+});
+
+it('saves updated reject reasons', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('edit briefing settings');
+    actingAs($user);
+
+    Livewire::test(BriefingSettingsPage::class)
+        ->fillForm([
+            'auto_reject_reason' => 'Poin ditolak otomatis setelah :days hari tanpa approval.',
+            'deadline_reject_reason' => 'Poin tidak diisi sebelum batas waktu.',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $settings = BriefingSettings::instance();
+    expect($settings->auto_reject_reason)->toBe('Poin ditolak otomatis setelah :days hari tanpa approval.')
+        ->and($settings->deadline_reject_reason)->toBe('Poin tidak diisi sebelum batas waktu.');
 });
 
 it('renders the Pengaturan link under Daily Briefing in the custom helpdesk sidebar', function () {

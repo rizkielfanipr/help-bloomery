@@ -4,6 +4,7 @@ namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\BriefingSettings;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
@@ -57,6 +58,23 @@ class BriefingSettingsPage extends Page
                                 14 => '14 hari',
                             ])
                             ->required()
+                            ->columnSpanFull(),
+
+                        TextInput::make('auto_reject_reason')
+                            ->label('Alasan Reject (Belum Di-approve)')
+                            ->helperText('Gunakan :days untuk menampilkan jumlah hari yang dikonfigurasi di atas.')
+                            ->required()
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+                    ]),
+
+                Section::make('Auto-Reject Poin Melewati Deadline')
+                    ->description('Alasan yang ditampilkan ketika poin briefing tidak diisi sama sekali sebelum deadline task.')
+                    ->schema([
+                        TextInput::make('deadline_reject_reason')
+                            ->label('Alasan Reject (Melewati Deadline)')
+                            ->required()
+                            ->maxLength(255)
                             ->columnSpanFull(),
                     ]),
             ])

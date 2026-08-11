@@ -18,7 +18,9 @@ class BriefingAutoRejectCommand extends Command
 {
     public function handle(): int
     {
-        $rejectedCount = $this->rejectExpiredPendingReviews();
+        $settings = BriefingSettings::instance();
+
+        $rejectedCount = $this->rejectExpiredPendingReviews($settings);
 
         $tasks = BriefingTask::where('deadline_enabled', true)
             ->where('is_active', true)
@@ -69,7 +71,7 @@ class BriefingAutoRejectCommand extends Command
                     'is_completed' => false,
                     'completed_at' => null,
                     'review_status' => BriefingReviewStatus::Rejected->value,
-                    'rejection_reason' => 'Tidak ada input sebelum deadline.',
+                    'rejection_reason' => $settings->deadline_reject_reason,
                     'reviewed_by' => null,
                     'reviewed_at' => now(),
                 ])->save();
@@ -83,10 +85,11 @@ class BriefingAutoRejectCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function rejectExpiredPendingReviews(): int
+    private function rejectExpiredPendingReviews(BriefingSettings $settings): int
     {
         $rejectedCount = 0;
-        $days = BriefingSettings::instance()->auto_reject_after_days;
+        $days = $settings->auto_reject_after_days;
+        $reason = $settings->formattedAutoRejectReason($days);
 
         BriefingItem::query()
             ->whereIn('review_status', [
@@ -96,11 +99,11 @@ class BriefingAutoRejectCommand extends Command
             ->where('is_completed', true)
             ->whereNotNull('completed_at')
             ->where('completed_at', '<=', now()->subDays($days))
-            ->chunkById(100, function ($items) use (&$rejectedCount, $days): void {
+            ->chunkById(100, function ($items) use (&$rejectedCount, $reason): void {
                 foreach ($items as $item) {
                     $item->update([
                         'review_status' => BriefingReviewStatus::Rejected->value,
-                        'rejection_reason' => "Tidak ada approval dalam {$days} hari setelah poin diselesaikan.",
+                        'rejection_reason' => $reason,
                         'reviewed_by' => null,
                         'reviewed_at' => now(),
                     ]);

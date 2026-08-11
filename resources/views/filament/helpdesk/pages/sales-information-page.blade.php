@@ -23,6 +23,12 @@
         pct(v, t)       { return t > 0 ? (v / t * 100).toFixed(1) + '%' : '0%'; },
         dlBtn(wb, name) { XLSX.writeFile(wb, name); },
         sheet(headers, rows) { return XLSX.utils.aoa_to_sheet([headers, ...rows]); },
+        sheetWithPeriod(dateFrom, dateTo, headers, rows) {
+            const periodRow = (dateFrom && dateTo) ? [`Periode: ${dateFrom} s/d ${dateTo}`] : [];
+            const aoa = periodRow.length ? [periodRow, [], headers, ...rows] : [headers, ...rows];
+
+            return XLSX.utils.aoa_to_sheet(aoa);
+        },
 
         // ── Export All ────────────────────────────────────────────────────
         exportAllXlsx() {
@@ -140,7 +146,7 @@
             // Tujuan Kunjungan
             if (d.visitPurpose?.labels?.length) {
                 const tot = d.visitPurpose.data.reduce((a, b) => a + b, 0);
-                XLSX.utils.book_append_sheet(wb, this.sheet(
+                XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
                     ['Tujuan Kunjungan', 'Jumlah Transaksi', '% dari Total', 'Nominal (Rp)'],
                     d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], pct(d.visitPurpose.data[i], tot), d.visitPurpose.revenue?.[i] ?? 0])
                 ), 'Tujuan Kunjungan');
@@ -237,11 +243,12 @@
             if (!d?.visitPurpose?.labels?.length) return;
             const tot = d.visitPurpose.data.reduce((a, b) => a + b, 0);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, this.sheet(
+            XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
                 ['Tujuan Kunjungan', 'Jumlah Transaksi', '% dari Total', 'Nominal (Rp)'],
                 d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], this.pct(d.visitPurpose.data[i], tot), d.visitPurpose.revenue?.[i] ?? 0])
             ), 'Tujuan Kunjungan');
-            XLSX.writeFile(wb, 'tujuan-kunjungan.xlsx');
+            const period = (d.dateFrom && d.dateTo) ? `_${d.dateFrom}_sd_${d.dateTo}` : '';
+            XLSX.writeFile(wb, `tujuan-kunjungan${period}.xlsx`);
         },
 
         exportCategoriesXlsx() {

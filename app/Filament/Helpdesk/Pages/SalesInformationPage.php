@@ -126,6 +126,9 @@ class SalesInformationPage extends Page
     /** @var array{labels: list<string>, data: list<int>, revenue: list<float>} */
     public array $chartVisitPurpose = ['labels' => [], 'data' => [], 'revenue' => []];
 
+    /** @var list<array{date: string, purpose: string, count: int, revenue: float}> */
+    public array $visitPurposeByDate = [];
+
     // ── Tables ────────────────────────────────────────────────────────────
     /** @var list<array{name: string, type: string, total: float}> */
     public array $paymentTable = [];
@@ -426,6 +429,7 @@ class SalesInformationPage extends Page
             categories: $this->chartCategories,
             subCategories: $this->chartSubCategories,
             visitPurpose: $this->chartVisitPurpose,
+            visitPurposeByDate: $this->visitPurposeByDate,
             branchTable: $this->branchTable,
             categoryDetailMap: $this->categoryDetailMap,
             promoTable: $this->promoTable,
@@ -475,6 +479,7 @@ class SalesInformationPage extends Page
             'subCategoryRevenue' => [],
             'visitPurpose' => [],
             'visitPurposeRevenue' => [],
+            'visitPurposeByDate' => [],
             'branches' => [],
             'promos' => [],
             'categoryDetailMap' => [],
@@ -520,6 +525,12 @@ class SalesInformationPage extends Page
         $purpose = $sale['visitPurposeName'] ?: 'Lainnya';
         $acc['visitPurpose'][$purpose] = ($acc['visitPurpose'][$purpose] ?? 0) + 1;
         $acc['visitPurposeRevenue'][$purpose] = ($acc['visitPurposeRevenue'][$purpose] ?? 0.0) + $netRevenue;
+
+        if (! isset($acc['visitPurposeByDate'][$date][$purpose])) {
+            $acc['visitPurposeByDate'][$date][$purpose] = ['count' => 0, 'revenue' => 0.0];
+        }
+        $acc['visitPurposeByDate'][$date][$purpose]['count']++;
+        $acc['visitPurposeByDate'][$date][$purpose]['revenue'] += $netRevenue;
 
         // Per-branch accumulation
         $branchCode = $sale['branchCode'] ?? 'Unknown';
@@ -748,5 +759,21 @@ class SalesInformationPage extends Page
                 array_keys($acc['visitPurpose']),
             ),
         ];
+
+        // Per-date breakdown, sorted chronologically then by purpose label.
+        ksort($acc['visitPurposeByDate']);
+        $rows = [];
+        foreach ($acc['visitPurposeByDate'] as $date => $purposes) {
+            ksort($purposes);
+            foreach ($purposes as $purpose => $stats) {
+                $rows[] = [
+                    'date' => $date,
+                    'purpose' => $purpose,
+                    'count' => $stats['count'],
+                    'revenue' => $stats['revenue'],
+                ];
+            }
+        }
+        $this->visitPurposeByDate = $rows;
     }
 }

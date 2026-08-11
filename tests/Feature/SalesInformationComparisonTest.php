@@ -192,3 +192,55 @@ it('accumulates revenue per visit purpose alongside the transaction count', func
         ->and($chart['data'])->toBe([1, 1])
         ->and($chart['revenue'])->toEqual([100000.0, 60000.0]);
 });
+
+it('breaks visit purpose down per date across the selected period', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.TESTCO' => 'branch-token',
+    ]);
+
+    $branch = Branch::factory()->create(['name' => 'Bloomery Test']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BTST', 'esb_comcode' => 'TESTCO']);
+
+    $sale = fn (string $date, string $purpose, float $amount) => [
+        'salesDate' => $date,
+        'salesDateIn' => "{$date}T10:00:00+07:00",
+        'grandTotal' => $amount,
+        'paxTotal' => 1,
+        'discountTotal' => 0,
+        'menuDiscountTotal' => 0,
+        'voucherDiscountTotal' => 0,
+        'visitPurposeName' => $purpose,
+        'branchCode' => 'BTST',
+        'branchName' => 'Bloomery Test',
+        'salesMenus' => [],
+        'salesPayments' => [[
+            'paymentMethodName' => 'QRIS',
+            'paymentMethodTypeName' => 'QRIS',
+            'paymentAmount' => $amount,
+            'paymentMethodID' => 2,
+        ]],
+    ];
+
+    Http::fake(fn () => Http::response([
+        $sale('2026-06-01', 'Dine In', 100000),
+        $sale('2026-06-01', 'Takeaway', 40000),
+        $sale('2026-06-02', 'Dine In', 70000),
+    ], 200, ['X-Pagination-Page-Count' => '1']));
+
+    $page = Livewire::test(SalesInformationPage::class)
+        ->set('selectedBranchIds', [$branch->id])
+        ->set('dateFrom', '2026-06-01')
+        ->set('dateTo', '2026-06-30')
+        ->call('fetch')
+        ->call('fetchNextPage')
+        ->assertSet('fetched', true);
+
+    $rows = $page->get('visitPurposeByDate');
+
+    expect($rows)->toEqual([
+        ['date' => '2026-06-01', 'purpose' => 'Dine In', 'count' => 1, 'revenue' => 100000.0],
+        ['date' => '2026-06-01', 'purpose' => 'Takeaway', 'count' => 1, 'revenue' => 40000.0],
+        ['date' => '2026-06-02', 'purpose' => 'Dine In', 'count' => 1, 'revenue' => 70000.0],
+    ]);
+});

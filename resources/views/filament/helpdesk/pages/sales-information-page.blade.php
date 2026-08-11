@@ -148,8 +148,14 @@
                 const tot = d.visitPurpose.data.reduce((a, b) => a + b, 0);
                 XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
                     ['Tujuan Kunjungan', 'Jumlah Transaksi', '% dari Total', 'Nominal (Rp)'],
-                    d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], pct(d.visitPurpose.data[i], tot), d.visitPurpose.revenue?.[i] ?? 0])
+                    d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], pct(d.visitPurpose.data[i], tot), Math.round(d.visitPurpose.revenue?.[i] ?? 0)])
                 ), 'Tujuan Kunjungan');
+            }
+            if (d.visitPurposeByDate?.length) {
+                XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
+                    ['Tanggal', 'Tujuan Kunjungan', 'Jumlah Transaksi', 'Nominal (Rp)'],
+                    d.visitPurposeByDate.map(r => [r.date, r.purpose, r.count, Math.round(r.revenue)])
+                ), 'Tujuan Kunjungan per Tanggal');
             }
 
             // Per Kategori
@@ -245,8 +251,14 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
                 ['Tujuan Kunjungan', 'Jumlah Transaksi', '% dari Total', 'Nominal (Rp)'],
-                d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], this.pct(d.visitPurpose.data[i], tot), d.visitPurpose.revenue?.[i] ?? 0])
+                d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], this.pct(d.visitPurpose.data[i], tot), Math.round(d.visitPurpose.revenue?.[i] ?? 0)])
             ), 'Tujuan Kunjungan');
+            if (d.visitPurposeByDate?.length) {
+                XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
+                    ['Tanggal', 'Tujuan Kunjungan', 'Jumlah Transaksi', 'Nominal (Rp)'],
+                    d.visitPurposeByDate.map(r => [r.date, r.purpose, r.count, Math.round(r.revenue)])
+                ), 'Tujuan Kunjungan per Tanggal');
+            }
             const period = (d.dateFrom && d.dateTo) ? `_${d.dateFrom}_sd_${d.dateTo}` : '';
             XLSX.writeFile(wb, `tujuan-kunjungan${period}.xlsx`);
         },

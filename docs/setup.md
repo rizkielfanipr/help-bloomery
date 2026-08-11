@@ -124,7 +124,9 @@ Tambahkan cron berikut ke server production:
 
 | Command | Jadwal | Fungsi |
 |---------|--------|--------|
-| `AutoCompleteWarrantyCommand` | Harian | Auto-complete service request yang masa garansinya telah berakhir |
+| `AutoCompleteWarrantyCommand` (`service-requests:complete-warranty`) | Harian | Auto-complete service request yang masa garansinya telah berakhir |
+| `BriefingAutoRejectCommand` (`briefing:auto-reject`) | Tiap menit | Auto-reject poin briefing yang belum di-approve Supervisor melewati jendela waktu di menu Pengaturan Briefing (default 3 hari), dan poin yang tidak diisi sebelum deadline task |
+| `BriefingComputeScoresCommand` (`briefing:compute-scores`) | Tanggal 1 tiap bulan, 02:00 | Hitung ulang skor briefing bulanan |
 
 ## Seeder & User Default
 

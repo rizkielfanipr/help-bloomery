@@ -286,22 +286,22 @@ it('does not auto-reject completed items still within the approval window', func
     expect($item->review_status)->toBe(BriefingReviewStatus::SupervisorReview);
 });
 
-it('auto-rejects completed items pending approval for seven days', function () {
+it('auto-rejects completed items pending approval past the configured window (default 3 days)', function () {
     $user = User::factory()->create(['is_active' => true]);
     $user->assignRole('CASUAL_STAFF');
 
     $record = BriefingRecord::create([
         'user_id' => $user->id,
         'period' => 'daily',
-        'record_date' => today()->subWeek(),
-        'submitted_at' => now()->subWeek(),
+        'record_date' => today()->subDays(3),
+        'submitted_at' => now()->subDays(3),
     ]);
 
     $item = BriefingItem::create([
         'briefing_record_id' => $record->id,
         'task_key' => 'daily_selfie_pagi',
         'is_completed' => true,
-        'completed_at' => now()->subWeek()->subSecond(),
+        'completed_at' => now()->subDays(3)->subSecond(),
         'review_status' => BriefingReviewStatus::SupervisorReview->value,
     ]);
 
@@ -310,7 +310,7 @@ it('auto-rejects completed items pending approval for seven days', function () {
     $item->refresh();
 
     expect($item->review_status)->toBe(BriefingReviewStatus::Rejected)
-        ->and($item->rejection_reason)->toBe('Tidak ada approval dalam 7 hari setelah poin diselesaikan.')
+        ->and($item->rejection_reason)->toBe('Tidak ada approval dalam 3 hari setelah poin diselesaikan.')
         ->and($item->reviewed_at)->not->toBeNull()
         ->and($item->reviewed_by)->toBeNull();
 });

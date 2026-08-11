@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\BriefingReviewStatus;
 use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
+use App\Models\BriefingSettings;
 use App\Models\BriefingTask;
 use App\Models\User;
 use Illuminate\Console\Attributes\Description;
@@ -12,7 +13,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('briefing:auto-reject')]
-#[Description('Auto-reject overdue briefing submissions and items pending review for seven days')]
+#[Description('Auto-reject overdue briefing submissions and items pending review past the configured window (see Pengaturan Briefing)')]
 class BriefingAutoRejectCommand extends Command
 {
     public function handle(): int
@@ -85,6 +86,7 @@ class BriefingAutoRejectCommand extends Command
     private function rejectExpiredPendingReviews(): int
     {
         $rejectedCount = 0;
+        $days = BriefingSettings::instance()->auto_reject_after_days;
 
         BriefingItem::query()
             ->whereIn('review_status', [
@@ -93,12 +95,12 @@ class BriefingAutoRejectCommand extends Command
             ])
             ->where('is_completed', true)
             ->whereNotNull('completed_at')
-            ->where('completed_at', '<=', now()->subWeek())
-            ->chunkById(100, function ($items) use (&$rejectedCount): void {
+            ->where('completed_at', '<=', now()->subDays($days))
+            ->chunkById(100, function ($items) use (&$rejectedCount, $days): void {
                 foreach ($items as $item) {
                     $item->update([
                         'review_status' => BriefingReviewStatus::Rejected->value,
-                        'rejection_reason' => 'Tidak ada approval dalam 7 hari setelah poin diselesaikan.',
+                        'rejection_reason' => "Tidak ada approval dalam {$days} hari setelah poin diselesaikan.",
                         'reviewed_by' => null,
                         'reviewed_at' => now(),
                     ]);

@@ -36,6 +36,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view briefing records', 'create briefing records', 'edit briefing records', 'delete briefing records',
                 'view briefing items', 'create briefing items', 'edit briefing items', 'delete briefing items',
                 'view briefing scores', 'create briefing scores', 'edit briefing scores', 'delete briefing scores',
+                'edit briefing settings',
                 'view sales reports',
                 'view stock cards',
                 'view purchase requests', 'create purchase requests', 'edit purchase requests',

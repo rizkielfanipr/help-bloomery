@@ -123,8 +123,8 @@ class SalesInformationPage extends Page
     /** @var array<string, array<string, array<string, array{qty: int, revenue: float}>>> */
     public array $categoryDetailMap = [];
 
-    /** @var array{labels: list<string>, data: list<int>} */
-    public array $chartVisitPurpose = ['labels' => [], 'data' => []];
+    /** @var array{labels: list<string>, data: list<int>, revenue: list<float>} */
+    public array $chartVisitPurpose = ['labels' => [], 'data' => [], 'revenue' => []];
 
     // ── Tables ────────────────────────────────────────────────────────────
     /** @var list<array{name: string, type: string, total: float}> */
@@ -474,6 +474,7 @@ class SalesInformationPage extends Page
             'categoryRevenue' => [],
             'subCategoryRevenue' => [],
             'visitPurpose' => [],
+            'visitPurposeRevenue' => [],
             'branches' => [],
             'promos' => [],
             'categoryDetailMap' => [],
@@ -518,6 +519,7 @@ class SalesInformationPage extends Page
 
         $purpose = $sale['visitPurposeName'] ?: 'Lainnya';
         $acc['visitPurpose'][$purpose] = ($acc['visitPurpose'][$purpose] ?? 0) + 1;
+        $acc['visitPurposeRevenue'][$purpose] = ($acc['visitPurposeRevenue'][$purpose] ?? 0.0) + $netRevenue;
 
         // Per-branch accumulation
         $branchCode = $sale['branchCode'] ?? 'Unknown';
@@ -738,6 +740,13 @@ class SalesInformationPage extends Page
         ];
         $this->chartCategories = ['labels' => array_keys($acc['categoryRevenue']), 'data' => array_values($acc['categoryRevenue'])];
         $this->chartSubCategories = ['labels' => array_keys($top15SubCats), 'data' => array_values($top15SubCats)];
-        $this->chartVisitPurpose = ['labels' => array_keys($acc['visitPurpose']), 'data' => array_values($acc['visitPurpose'])];
+        $this->chartVisitPurpose = [
+            'labels' => array_keys($acc['visitPurpose']),
+            'data' => array_values($acc['visitPurpose']),
+            'revenue' => array_map(
+                fn (string $purpose): float => $acc['visitPurposeRevenue'][$purpose] ?? 0.0,
+                array_keys($acc['visitPurpose']),
+            ),
+        ];
     }
 }

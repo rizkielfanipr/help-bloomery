@@ -141,8 +141,8 @@
             if (d.visitPurpose?.labels?.length) {
                 const tot = d.visitPurpose.data.reduce((a, b) => a + b, 0);
                 XLSX.utils.book_append_sheet(wb, this.sheet(
-                    ['Tujuan Kunjungan', 'Jumlah Transaksi', '% dari Total'],
-                    d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], pct(d.visitPurpose.data[i], tot)])
+                    ['Tujuan Kunjungan', 'Jumlah Transaksi', '% dari Total', 'Nominal (Rp)'],
+                    d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], pct(d.visitPurpose.data[i], tot), d.visitPurpose.revenue?.[i] ?? 0])
                 ), 'Tujuan Kunjungan');
             }
 
@@ -238,8 +238,8 @@
             const tot = d.visitPurpose.data.reduce((a, b) => a + b, 0);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, this.sheet(
-                ['Tujuan Kunjungan', 'Jumlah Transaksi', '% dari Total'],
-                d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], this.pct(d.visitPurpose.data[i], tot)])
+                ['Tujuan Kunjungan', 'Jumlah Transaksi', '% dari Total', 'Nominal (Rp)'],
+                d.visitPurpose.labels.map((l, i) => [l, d.visitPurpose.data[i], this.pct(d.visitPurpose.data[i], tot), d.visitPurpose.revenue?.[i] ?? 0])
             ), 'Tujuan Kunjungan');
             XLSX.writeFile(wb, 'tujuan-kunjungan.xlsx');
         },
@@ -559,6 +559,7 @@
             const purposeEl = document.getElementById('chartVisitPurpose');
             if (purposeEl && d.visitPurpose) {
                 const totalPurpose = d.visitPurpose.data.reduce((a, b) => a + b, 0);
+                const purposeRevenue = d.visitPurpose.revenue || [];
                 this.charts.visitPurpose = new Chart(purposeEl.getContext('2d'), {
                     type: 'doughnut',
                     data: { labels: d.visitPurpose.labels, datasets: [{ data: d.visitPurpose.data, backgroundColor: palette, borderWidth: 0, hoverOffset: 6 }] },
@@ -572,14 +573,14 @@
                                     generateLabels: (chart) => {
                                         const ds = chart.data.datasets[0];
                                         return chart.data.labels.map((label, i) => ({
-                                            text: `${label}  ${pct(ds.data[i], totalPurpose)}`,
+                                            text: `${label}  ${pct(ds.data[i], totalPurpose)} · ${rupiah(purposeRevenue[i] ?? 0)}`,
                                             fillStyle: ds.backgroundColor[i],
                                             hidden: false, index: i,
                                         }));
                                     },
                                 },
                             },
-                            tooltip: { ...tooltipBase, callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} Transaksi (${pct(ctx.parsed, totalPurpose)})` } },
+                            tooltip: { ...tooltipBase, callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} Transaksi (${pct(ctx.parsed, totalPurpose)}) — ${rupiah(purposeRevenue[ctx.dataIndex] ?? 0)}` } },
                             datalabels: {
                                 display: (ctx) => ctx.dataset.data[ctx.dataIndex] / totalPurpose > 0.04,
                                 color: '#fff',

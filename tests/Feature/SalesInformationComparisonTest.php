@@ -127,3 +127,68 @@ it('excludes CASH change given back from total revenue and the payment method br
     expect($cashRow)->not->toBeNull()
         ->and((float) $cashRow['total'])->toBe(35000.0);
 });
+
+it('accumulates revenue per visit purpose alongside the transaction count', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.TESTCO' => 'branch-token',
+    ]);
+
+    $branch = Branch::factory()->create(['name' => 'Bloomery Test']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BTST', 'esb_comcode' => 'TESTCO']);
+
+    Http::fake(fn () => Http::response([
+        [
+            'salesDate' => '2026-06-01',
+            'salesDateIn' => '2026-06-01T10:00:00+07:00',
+            'grandTotal' => 100000,
+            'paxTotal' => 2,
+            'discountTotal' => 0,
+            'menuDiscountTotal' => 0,
+            'voucherDiscountTotal' => 0,
+            'visitPurposeName' => 'Dine In',
+            'branchCode' => 'BTST',
+            'branchName' => 'Bloomery Test',
+            'salesMenus' => [],
+            'salesPayments' => [[
+                'paymentMethodName' => 'QRIS',
+                'paymentMethodTypeName' => 'QRIS',
+                'paymentAmount' => 100000,
+                'paymentMethodID' => 2,
+            ]],
+        ],
+        [
+            'salesDate' => '2026-06-01',
+            'salesDateIn' => '2026-06-01T11:00:00+07:00',
+            'grandTotal' => 60000,
+            'paxTotal' => 1,
+            'discountTotal' => 0,
+            'menuDiscountTotal' => 0,
+            'voucherDiscountTotal' => 0,
+            'visitPurposeName' => 'Takeaway',
+            'branchCode' => 'BTST',
+            'branchName' => 'Bloomery Test',
+            'salesMenus' => [],
+            'salesPayments' => [[
+                'paymentMethodName' => 'QRIS',
+                'paymentMethodTypeName' => 'QRIS',
+                'paymentAmount' => 60000,
+                'paymentMethodID' => 2,
+            ]],
+        ],
+    ], 200, ['X-Pagination-Page-Count' => '1']));
+
+    $page = Livewire::test(SalesInformationPage::class)
+        ->set('selectedBranchIds', [$branch->id])
+        ->set('dateFrom', '2026-06-01')
+        ->set('dateTo', '2026-06-30')
+        ->call('fetch')
+        ->call('fetchNextPage')
+        ->assertSet('fetched', true);
+
+    $chart = $page->get('chartVisitPurpose');
+
+    expect($chart['labels'])->toBe(['Dine In', 'Takeaway'])
+        ->and($chart['data'])->toBe([1, 1])
+        ->and($chart['revenue'])->toEqual([100000.0, 60000.0]);
+});

@@ -80,10 +80,11 @@
                 @else
                     <div class="space-y-2">
                         @foreach($this->employees as $employee)
-                            <label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition
+                            <label style="-webkit-tap-highlight-color: transparent;"
+                                   class="flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 outline-none transition focus:outline-none focus-within:outline-none
                                           {{ in_array($employee->id, $employeeIds) ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800' }}">
                                 <input type="checkbox" wire:model="employeeIds" value="{{ $employee->id }}"
-                                       class="h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600">
+                                       class="h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 outline-none focus:outline-none focus:ring-1 focus:ring-blue-400 dark:border-gray-600">
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{{ $employee->name }}</p>
                                     <p class="text-xs text-slate-500 dark:text-slate-400">{{ $employee->employee_code }} · {{ $employee->position }}</p>

@@ -72,6 +72,7 @@ Panel utama yang digunakan staff helpdesk untuk mengelola semua operasional. Men
 - `Dashboard`
 - `DriverTripSettingsPage`
 - `TechnicianSettingsPage`
+- `BriefingSettingsPage`
 
 ---
 

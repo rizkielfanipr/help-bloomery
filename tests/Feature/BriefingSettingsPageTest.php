@@ -50,3 +50,15 @@ it('saves an updated auto-reject window', function () {
 
     expect(BriefingSettings::instance()->auto_reject_after_days)->toBe(5);
 });
+
+it('renders the Pengaturan link under Daily Briefing in the custom helpdesk sidebar', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('HRD_STAFF');
+    actingAs($user);
+
+    $response = $this->get(route('filament.helpdesk.pages.briefing-settings-page'));
+
+    $response->assertOk()
+        ->assertSee('Daily Briefing')
+        ->assertSee(route('filament.helpdesk.pages.briefing-settings-page'), false);
+});

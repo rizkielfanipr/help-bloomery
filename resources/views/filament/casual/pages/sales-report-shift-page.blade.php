@@ -63,7 +63,7 @@
 
             {{-- Staff pengisi --}}
             <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                <label class="{{ $labelClass }}">Staff Pengisi <span class="text-red-500">*</span></label>
+                <label class="{{ $labelClass }}">Staff In Charge <span class="text-red-500">*</span></label>
                 @if($isSubmitted)
                     <div class="space-y-2">
                         @forelse($submittedEmployees as $emp)

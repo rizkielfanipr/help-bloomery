@@ -79,7 +79,7 @@ class SalesReportResource extends Resource
                         ->join(', ') ?: '-'),
 
                 TextColumn::make('employees.employee_name')
-                    ->label('Staff Pengisi')
+                    ->label('Staff In Charge')
                     ->listWithLineBreaks()
                     ->limitList(3)
                     ->expandableLimitedList()

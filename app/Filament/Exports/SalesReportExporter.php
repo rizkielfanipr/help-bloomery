@@ -44,7 +44,7 @@ class SalesReportExporter extends Exporter
                 ->label('ID Employee')
                 ->state(fn (SalesReport $record): string => $record->employees->pluck('employee_code')->filter()->join(', ')),
             ExportColumn::make('employee_names')
-                ->label('Staff Pengisi')
+                ->label('Staff In Charge')
                 ->state(fn (SalesReport $record): string => $record->employees->pluck('employee_name')->filter()->join(', ')),
             ExportColumn::make('employee_positions')
                 ->label('Posisi Employee')

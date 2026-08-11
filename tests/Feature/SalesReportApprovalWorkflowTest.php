@@ -243,6 +243,24 @@ it('returns a finance rejection to the supervisor with an audit trail', function
         ->and($this->report->approvals()->where('action', 'rejected')->exists())->toBeTrue();
 });
 
+it('shows an informative empty state for a label with no reconciliation data', function () {
+    // beforeEach only creates a TAKEAWAY entry/reconciliation, so DINE IN
+    // has zero rows for this report — it should still render with a
+    // message instead of disappearing entirely.
+    $supervisor = User::factory()->create([
+        'branch_id' => $this->branch->id,
+        'is_active' => true,
+    ]);
+    $supervisor->assignRole('SUPERVISOR_STORE');
+    $this->actingAs($supervisor);
+
+    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+        ->assertSee('DINE IN')
+        ->assertSee('Tidak ada data DINE IN untuk laporan ini.')
+        ->assertSee('TAKEAWAY')
+        ->assertDontSee('Tidak ada data TAKEAWAY untuk laporan ini.');
+});
+
 it('prevents supervisors from other branches from reviewing the report', function () {
     $supervisor = User::factory()->create([
         'branch_id' => Branch::factory()->create()->id,

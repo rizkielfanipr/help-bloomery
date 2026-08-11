@@ -139,15 +139,25 @@
                 </div>
             @endif
 
-            {{-- Payment rows, grouped by Dine In / Takeaway --}}
-            @if(! empty($rows))
-                {{-- preserveKeys=true is required here: groupBy() re-indexes each
-                     group from 0 by default, which would make DINE IN's first row
-                     and TAKEAWAY's first row both resolve to rows.0 and collide on
-                     the same wire:model path below. --}}
-                @php $groupedRows = collect($rows)->groupBy('label', true); @endphp
+            {{-- Payment rows, grouped by Dine In / Takeaway. Always show both,
+                 even when one has no data, so staff sees why it's missing
+                 rather than the section silently disappearing. --}}
+            @if($esbFetched || $isSubmitted)
+                @php
+                    // preserveKeys=true is required here: groupBy() re-indexes each
+                    // group from 0 by default, which would make DINE IN's first row
+                    // and TAKEAWAY's first row both resolve to rows.0 and collide on
+                    // the same wire:model path below.
+                    $groupedRows = collect($rows)->groupBy('label', true);
+                    $emptyLabelInfo = [
+                        'not_configured' => ['icon' => 'heroicon-o-link-slash', 'message' => 'Cabang belum memiliki konfigurasi ESB untuk kategori ini.'],
+                        'failed' => ['icon' => 'heroicon-o-exclamation-triangle', 'message' => 'Gagal memuat data ESB untuk kategori ini. Coba tekan Refresh.'],
+                        'no_transactions' => ['icon' => 'heroicon-o-inbox', 'message' => 'Tidak ada transaksi untuk kategori ini pada tanggal ini.'],
+                    ];
+                @endphp
 
-                @foreach($groupedRows as $label => $group)
+                @foreach(['DINE IN', 'TAKEAWAY'] as $label)
+                    @php $group = $groupedRows->get($label, collect()); @endphp
                     <div wire:key="group-{{ $label }}" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
                         {{-- Group header --}}
@@ -156,47 +166,58 @@
                             <span class="text-right text-[10px] font-bold uppercase tracking-wide text-slate-400">Sales Store</span>
                         </div>
 
-                        {{-- Rows --}}
-                        @foreach($group as $idx => $row)
-                            <div wire:key="row-{{ $idx }}" class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
-                                <div class="grid grid-cols-[1fr_140px] items-center gap-3">
-                                    <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['name'] }}</p>
+                        @if($group->isEmpty())
+                            {{-- Empty state — icon + explanation, instead of just vanishing --}}
+                            @php $info = $emptyLabelInfo[$labelStatus[$label] ?? 'no_transactions'] ?? $emptyLabelInfo['no_transactions']; @endphp
+                            <div class="flex flex-col items-center gap-3 px-6 pb-11 pt-8 text-center">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-800">
+                                    <x-dynamic-component :component="$info['icon']" class="h-5 w-5 text-slate-300 dark:text-slate-500" />
+                                </div>
+                                <span class="max-w-[260px] text-xs leading-relaxed text-slate-400 dark:text-slate-500">{{ $info['message'] }}</span>
+                            </div>
+                        @else
+                            {{-- Rows --}}
+                            @foreach($group as $idx => $row)
+                                <div wire:key="row-{{ $idx }}" class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
+                                    <div class="grid grid-cols-[1fr_140px] items-center gap-3">
+                                        <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['name'] }}</p>
+
+                                        @if($isSubmitted)
+                                            <div class="text-right text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
+                                                {{ number_format((float) ($row['sales_store'] ?? 0), 0, ',', '.') }}
+                                            </div>
+                                        @else
+                                            <input type="number"
+                                                   inputmode="decimal"
+                                                   wire:model.live="rows.{{ $idx }}.sales_store"
+                                                   min="0" step="1000" placeholder="0"
+                                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-right text-base font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                        @endif
+                                    </div>
 
                                     @if($isSubmitted)
-                                        <div class="text-right text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
-                                            {{ number_format((float) ($row['sales_store'] ?? 0), 0, ',', '.') }}
-                                        </div>
+                                        @if(! empty($row['notes']))
+                                            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ $row['notes'] }}</p>
+                                        @endif
                                     @else
-                                        <input type="number"
-                                               inputmode="decimal"
-                                               wire:model.live="rows.{{ $idx }}.sales_store"
-                                               min="0" step="1000" placeholder="0"
-                                               class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-right text-base font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                        <input type="text"
+                                               wire:model.live="rows.{{ $idx }}.notes"
+                                               placeholder="Catatan (opsional)"
+                                               class="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base text-slate-600 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300">
                                     @endif
                                 </div>
+                            @endforeach
 
-                                @if($isSubmitted)
-                                    @if(! empty($row['notes']))
-                                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ $row['notes'] }}</p>
-                                    @endif
-                                @else
-                                    <input type="text"
-                                           wire:model.live="rows.{{ $idx }}.notes"
-                                           placeholder="Catatan (opsional)"
-                                           class="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base text-slate-600 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300">
-                                @endif
+                            {{-- Subtotal row --}}
+                            <div class="border-t-2 border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total {{ $label }}</span>
+                                    <span class="text-sm font-mono font-bold text-blue-600 dark:text-blue-400">
+                                        Rp {{ number_format($this->totalStoreForLabel($label), 0, ',', '.') }}
+                                    </span>
+                                </div>
                             </div>
-                        @endforeach
-
-                        {{-- Subtotal row --}}
-                        <div class="border-t-2 border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
-                            <div class="flex items-center justify-between gap-3">
-                                <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total {{ $label }}</span>
-                                <span class="text-sm font-mono font-bold text-blue-600 dark:text-blue-400">
-                                    Rp {{ number_format($this->totalStoreForLabel($label), 0, ',', '.') }}
-                                </span>
-                            </div>
-                        </div>
+                        @endif
                     </div>
                 @endforeach
 

@@ -3,6 +3,11 @@
     $labelOrder = ['DINE IN' => 0, 'TAKEAWAY' => 1];
     $reconciliations = $record->reconciliations->sortBy(fn ($r) => sprintf('%02d|%s', $labelOrder[$r->label] ?? 99, $r->payment_method_name));
     $reconciliationsByLabel = $reconciliations->groupBy('label');
+    // Always show DINE IN / TAKEAWAY, even when the branch has no ESB
+    // data for that label at all, so the reviewer sees why it's missing
+    // rather than the section silently disappearing.
+    $allLabels = collect(array_keys($labelOrder))->merge($reconciliationsByLabel->keys())->unique()
+        ->sortBy(fn ($label) => $labelOrder[$label] ?? 99);
     $entriesByKey = $record->entries->groupBy(fn ($e) => $e->label.'|'.$e->payment_method_name);
     $employeesByShift = $record->employees->groupBy('shift_number');
     $totalSystem = (float) $reconciliations->sum('system_amount');
@@ -109,10 +114,23 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach($reconciliationsByLabel as $label => $group)
+                    @foreach($allLabels as $label)
+                        @php $group = $reconciliationsByLabel->get($label, collect()); @endphp
                         <tr wire:key="label-{{ $label }}" class="bg-gray-50 dark:bg-gray-800/60">
                             <td colspan="13" class="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">{{ $label }}</td>
                         </tr>
+                        @if($group->isEmpty())
+                            <tr wire:key="empty-{{ $label }}">
+                                <td colspan="13" class="px-4 py-6">
+                                    <div class="flex flex-col items-center gap-2 text-center text-xs text-gray-400 dark:text-gray-500">
+                                        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50 dark:bg-gray-800">
+                                            <x-heroicon-o-inbox class="h-4 w-4 text-gray-300 dark:text-gray-500" />
+                                        </div>
+                                        <span>Tidak ada data {{ $label }} untuk laporan ini.</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endif
                         @foreach($group as $reconciliation)
                             @php
                                 $methodEntries = $entriesByKey->get($reconciliation->label.'|'.$reconciliation->payment_method_name, collect());

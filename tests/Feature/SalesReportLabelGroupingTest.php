@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\SalesReportStatus;
+use App\Filament\Casual\Pages\SalesReportHistoryPage;
 use App\Filament\Casual\Pages\SalesReportShiftPage;
 use App\Models\Branch;
 use App\Models\Employee;
@@ -178,6 +179,39 @@ it('builds shift input rows grouped by label, DINE IN before TAKEAWAY', function
         ->and($rows[1]['label'])->toBe('TAKEAWAY');
 });
 
+it('shows an informative empty state on the shift page for a label with no ESB configuration', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.TAKEAWAY_CODE' => 'token-takeaway',
+    ]);
+
+    // Only TAKEAWAY is configured for this branch — DINE IN is absent entirely.
+    $this->branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'TAKEAWAY_CODE', 'label' => 'TAKEAWAY']);
+
+    Http::fake(fn () => Http::response([[
+        'salesNum' => 'A1',
+        'salesDateOut' => '2026-08-01 10:00:00',
+        'grandTotal' => 70000,
+        'salesPayments' => [[
+            'paymentMethodName' => 'CASH',
+            'paymentMethodTypeName' => 'Cash',
+            'paymentAmount' => 70000,
+        ]],
+    ]], 200, ['X-Pagination-Page-Count' => '1']));
+
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->staff);
+
+    Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
+        ->call('fetchFromEsb')
+        ->assertSet('esbFetched', true)
+        ->assertSet('labelStatus.DINE IN', 'not_configured')
+        ->assertSee('DINE IN')
+        ->assertSee('Cabang belum memiliki konfigurasi ESB untuk kategori ini.')
+        ->assertSee('TAKEAWAY')
+        ->assertSee('CASH');
+});
+
 it('warns and does not load rows when the branch only has a NO LABEL ESB pair', function () {
     config()->set(['esb.tokens.NOLABEL_CODE' => 'token-nolabel']);
     $this->branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'NOLABEL_CODE', 'label' => 'NO LABEL']);
@@ -214,4 +248,30 @@ it('persists each row with its own label when a shift is submitted', function ()
     expect($report->entries)->toHaveCount(2)
         ->and($report->entries->firstWhere('label', 'DINE IN')?->sales_store_amount)->toEqual(30000)
         ->and($report->entries->firstWhere('label', 'TAKEAWAY')?->sales_store_amount)->toEqual(70000);
+});
+
+it('shows an informative empty state on the history page for a label with no data', function () {
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->staff);
+
+    $report = SalesReport::create([
+        'branch_id' => $this->branch->id,
+        'report_date' => today(),
+        'submitted_at' => now(),
+        'status' => SalesReportStatus::PendingSupervisor->value,
+    ]);
+    SalesReportEntry::create([
+        'sales_report_id' => $report->id,
+        'shift_number' => 1,
+        'label' => 'TAKEAWAY',
+        'payment_method_name' => 'CASH',
+        'sales_store_amount' => 70000,
+    ]);
+
+    Livewire::test(SalesReportHistoryPage::class)
+        ->call('toggleReport', $report->id)
+        ->assertSee('DINE IN')
+        ->assertSee('Tidak ada data DINE IN untuk laporan ini.')
+        ->assertSee('TAKEAWAY')
+        ->assertDontSee('Tidak ada data TAKEAWAY untuk laporan ini.');
 });

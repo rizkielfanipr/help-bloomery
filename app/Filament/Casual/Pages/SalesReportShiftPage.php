@@ -21,6 +21,9 @@ use Livewire\Attributes\Url;
 
 class SalesReportShiftPage extends Page
 {
+    /** Order-type labels always shown after fetching, even with no data. */
+    private const LABELS = ['DINE IN', 'TAKEAWAY'];
+
     protected static bool $shouldRegisterNavigation = false;
 
     protected static string $layout = 'filament.casual.layouts.bare';
@@ -49,6 +52,16 @@ class SalesReportShiftPage extends Page
 
     /** @var array<int, array{label: string, name: string, sales_store: string, notes: string}> */
     public array $rows = [];
+
+    /**
+     * Per-label reason to show when a label has no rows after fetching:
+     * 'not_configured' (no active ESB pair for that label), 'failed'
+     * (pair configured but the ESB call errored), or 'no_transactions'
+     * (fetched fine, just genuinely zero sales for the day).
+     *
+     * @var array<string, string>
+     */
+    public array $labelStatus = [];
 
     public function mount(): void
     {
@@ -172,14 +185,31 @@ class SalesReportShiftPage extends Page
             }
 
             $rows = [];
+            $labelStatus = [];
             $allOk = true;
-            foreach ($groups as $label => $group) {
+
+            foreach (self::LABELS as $label) {
+                if (! isset($groups[$label])) {
+                    $labelStatus[$label] = 'not_configured';
+
+                    continue;
+                }
+
+                $group = $groups[$label];
+
                 if (! $group['ok']) {
                     $allOk = false;
                 }
+
                 foreach ($group['rows'] as $row) {
                     $rows[] = ['label' => $label, 'name' => $row['name'], 'sales_store' => '', 'notes' => ''];
                 }
+
+                $labelStatus[$label] = match (true) {
+                    ! $group['ok'] => 'failed',
+                    empty($group['rows']) => 'no_transactions',
+                    default => 'ok',
+                };
             }
 
             if (empty($rows)) {
@@ -189,6 +219,7 @@ class SalesReportShiftPage extends Page
             }
 
             $this->rows = $rows;
+            $this->labelStatus = $labelStatus;
             $this->esbFetched = true;
 
             if ($allOk) {

@@ -110,7 +110,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @foreach($reconciliationsByLabel as $label => $group)
-                        <tr class="bg-gray-50 dark:bg-gray-800/60">
+                        <tr wire:key="label-{{ $label }}" class="bg-gray-50 dark:bg-gray-800/60">
                             <td colspan="13" class="px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">{{ $label }}</td>
                         </tr>
                         @foreach($group as $reconciliation)
@@ -126,7 +126,7 @@
                                 $expectedSettlement = $isFinanceInput ? $preview['expected'] : $reconciliation->expected_settlement_amount;
                                 $settlementDifference = $isFinanceInput ? $preview['difference'] : $reconciliation->settlement_difference;
                             @endphp
-                            <tr class="align-top">
+                            <tr wire:key="reconciliation-{{ $reconciliation->id }}" class="align-top">
                                 <td class="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{{ $reconciliation->payment_method_name }}</td>
                                 <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $shift1Amount === null ? '-' : $fmt($shift1Amount) }}</td>
                                 <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $shift2Amount === null ? '-' : $fmt($shift2Amount) }}</td>

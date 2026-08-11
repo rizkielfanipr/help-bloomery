@@ -138,7 +138,7 @@
                 @php $groupedRows = collect($rows)->groupBy('label'); @endphp
 
                 @foreach($groupedRows as $label => $group)
-                    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <div wire:key="group-{{ $label }}" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
                         {{-- Group header --}}
                         <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
@@ -148,7 +148,7 @@
 
                         {{-- Rows --}}
                         @foreach($group as $idx => $row)
-                            <div class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
+                            <div wire:key="row-{{ $idx }}" class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
                                 <div class="grid grid-cols-[1fr_140px] items-center gap-3">
                                     <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['name'] }}</p>
 

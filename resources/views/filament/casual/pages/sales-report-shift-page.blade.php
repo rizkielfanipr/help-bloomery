@@ -80,9 +80,13 @@
                 @else
                     <div class="space-y-2">
                         @foreach($this->employees as $employee)
-                            <label style="-webkit-tap-highlight-color: transparent; outline: none !important; box-shadow: none !important;"
+                            @php
+                                $isChecked = in_array($employee->id, $employeeIds);
+                                $borderColor = $isChecked ? '#60a5fa' : '#e5e7eb';
+                            @endphp
+                            <label style="-webkit-tap-highlight-color: transparent; outline: none !important; box-shadow: none !important; border-color: {{ $borderColor }} !important;"
                                    class="flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition
-                                          {{ in_array($employee->id, $employeeIds) ? 'border-blue-400 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30' : 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800' }}">
+                                          {{ $isChecked ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-gray-50 dark:bg-gray-800' }}">
                                 <input type="checkbox" wire:model="employeeIds" value="{{ $employee->id }}"
                                        style="outline: none !important; box-shadow: none !important;"
                                        class="h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 dark:border-gray-600">

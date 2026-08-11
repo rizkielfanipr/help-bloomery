@@ -20,7 +20,7 @@ class BriefingTaskExporter extends Exporter
             ExportColumn::make('period')->label('Periode'),
             ExportColumn::make('submission_type')->label('Jenis Input'),
             ExportColumn::make('group_label')->label('Grup'),
-            ExportColumn::make('weight')->label('Bobot'),
+            ExportColumn::make('include_in_score')->label('Ikut Penilaian'),
             ExportColumn::make('deadline_time')->label('Jam Batas'),
             ExportColumn::make('is_active')->label('Aktif'),
         ];

@@ -4,12 +4,14 @@ namespace App\Console\Commands;
 
 use App\Enums\BriefingPeriod;
 use App\Models\Branch;
+use App\Models\BriefingPeriodWeight;
 use App\Models\BriefingRecord;
 use App\Models\BriefingScore;
 use App\Models\BriefingTask;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 
 class BriefingComputeScoresCommand extends Command
 {
@@ -19,6 +21,8 @@ class BriefingComputeScoresCommand extends Command
                             {--branch= : Branch ID tertentu (optional)}';
 
     protected $description = 'Hitung nilai briefing per branch per bulan';
+
+    private const PERIOD_LABELS = ['daily' => 'Harian', 'weekly' => 'Mingguan', 'monthly' => 'Bulanan'];
 
     public function handle(): void
     {
@@ -51,8 +55,8 @@ class BriefingComputeScoresCommand extends Command
         // Tasks yang berlaku untuk branch ini: global (branch_id null) + spesifik branch ini
         $tasks = BriefingTask::cached()
             ->where('is_active', true)
-            ->filter(fn (BriefingTask $t) => $t->branch_id === null || $t->branch_id === $branch->id)
-            ->filter(fn (BriefingTask $t) => $t->weight !== null && $t->weight > 0);
+            ->where('include_in_score', true)
+            ->filter(fn (BriefingTask $t) => $t->branch_id === null || $t->branch_id === $branch->id);
 
         if ($tasks->isEmpty()) {
             return;
@@ -83,26 +87,62 @@ class BriefingComputeScoresCommand extends Command
 
         $monthlyRecords = $records->where('period', BriefingPeriod::Monthly->value);
 
+        // Rate (0..1) per task, grouped by period
+        $tasksByPeriod = ['daily' => [], 'weekly' => [], 'monthly' => []];
+
+        foreach ($tasks as $task) {
+            [$approved, $expected, $rate] = match ($task->period) {
+                BriefingPeriod::Daily => $this->rateDailyTask($task, $dailyByDate, $year, $month, $daysInMonth),
+                BriefingPeriod::Weekly => $this->rateWeeklyTask($task, $weeklyByDate, $year, $month, $weeksInMonth),
+                BriefingPeriod::Monthly => $this->rateMonthlyTask($task, $monthlyRecords),
+            };
+
+            $tasksByPeriod[$task->period->value][] = [
+                'key' => $task->key,
+                'label' => $task->label,
+                'approved' => $approved,
+                'expected' => $expected,
+                'rate' => round($rate * 100, 2),
+            ];
+        }
+
+        $configuredWeights = BriefingPeriodWeight::forBranch($branch->id);
+
+        // Only periods with at least one scoreable task actually count — a
+        // period's weight is proportionally redistributed among the periods
+        // that do apply, so a branch without e.g. any Weekly tasks isn't
+        // penalized for a period that simply doesn't exist for it.
+        $periodsWithTasks = collect(['daily', 'weekly', 'monthly'])
+            ->filter(fn (string $period) => ! empty($tasksByPeriod[$period]))
+            ->values();
+
+        if ($periodsWithTasks->isEmpty()) {
+            return;
+        }
+
+        $activeWeightSum = $periodsWithTasks->sum(fn (string $period) => $configuredWeights[$period]);
+
         $breakdown = [];
         $totalScore = 0.0;
 
-        foreach ($tasks as $task) {
-            [$approved, $expected, $taskScore] = match ($task->period) {
-                BriefingPeriod::Daily => $this->scoreDailyTask($task, $dailyByDate, $year, $month, $daysInMonth),
-                BriefingPeriod::Weekly => $this->scoreWeeklyTask($task, $weeklyByDate, $year, $month, $weeksInMonth),
-                BriefingPeriod::Monthly => $this->scoreMonthlyTask($task, $monthlyRecords),
-            };
+        foreach ($periodsWithTasks as $period) {
+            $taskDetails = $tasksByPeriod[$period];
+            $periodRate = collect($taskDetails)->avg('rate') / 100;
 
-            $totalScore += $taskScore;
+            $effectiveWeight = $activeWeightSum > 0
+                ? ($configuredWeights[$period] / $activeWeightSum) * 100
+                : 100 / $periodsWithTasks->count();
 
-            $breakdown[] = [
-                'key' => $task->key,
-                'label' => $task->label,
-                'period' => $task->period->value,
-                'weight' => $task->weight,
-                'approved' => $approved,
-                'expected' => $expected,
-                'score' => round($taskScore, 2),
+            $periodScore = $periodRate * $effectiveWeight;
+            $totalScore += $periodScore;
+
+            $breakdown[$period] = [
+                'label' => self::PERIOD_LABELS[$period],
+                'configured_weight' => $configuredWeights[$period],
+                'effective_weight' => round($effectiveWeight, 2),
+                'rate' => round($periodRate * 100, 2),
+                'score' => round($periodScore, 2),
+                'tasks' => $taskDetails,
             ];
         }
 
@@ -122,7 +162,7 @@ class BriefingComputeScoresCommand extends Command
      *
      * @return array{int, int, float}
      */
-    private function scoreDailyTask(BriefingTask $task, $recordsByDate, int $year, int $month, int $daysInMonth): array
+    private function rateDailyTask(BriefingTask $task, Collection $recordsByDate, int $year, int $month, int $daysInMonth): array
     {
         $approved = 0;
 
@@ -139,9 +179,9 @@ class BriefingComputeScoresCommand extends Command
             }
         }
 
-        $score = $daysInMonth > 0 ? ($approved / $daysInMonth) * $task->weight : 0;
+        $rate = $daysInMonth > 0 ? $approved / $daysInMonth : 0.0;
 
-        return [$approved, $daysInMonth, $score];
+        return [$approved, $daysInMonth, $rate];
     }
 
     /**
@@ -150,7 +190,7 @@ class BriefingComputeScoresCommand extends Command
      *
      * @return array{int, int, float}
      */
-    private function scoreWeeklyTask(BriefingTask $task, $recordsByDate, int $year, int $month, int $weeksInMonth): array
+    private function rateWeeklyTask(BriefingTask $task, Collection $recordsByDate, int $year, int $month, int $weeksInMonth): array
     {
         $approved = 0;
         $current = Carbon::create($year, $month, 1);
@@ -172,18 +212,18 @@ class BriefingComputeScoresCommand extends Command
             $current->addWeek();
         }
 
-        $score = $weeksInMonth > 0 ? ($approved / $weeksInMonth) * $task->weight : 0;
+        $rate = $weeksInMonth > 0 ? $approved / $weeksInMonth : 0.0;
 
-        return [$approved, $weeksInMonth, $score];
+        return [$approved, $weeksInMonth, $rate];
     }
 
     /** @return array{int, int, float} */
-    private function scoreMonthlyTask(BriefingTask $task, $records): array
+    private function rateMonthlyTask(BriefingTask $task, Collection $records): array
     {
         foreach ($records as $record) {
             $item = $record->items->firstWhere('task_key', $task->key);
             if ($item && $item->review_status?->value === 'approved') {
-                return [1, 1, (float) $task->weight];
+                return [1, 1, 1.0];
             }
         }
 

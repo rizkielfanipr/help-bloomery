@@ -6,18 +6,18 @@ use App\Enums\BriefingPeriod;
 use App\Enums\BriefingSubmissionType;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class BriefingTask extends Model
 {
     protected $fillable = [
         'branch_id', 'key', 'label', 'period', 'submission_type', 'note_type',
         'group', 'group_label', 'sort_order', 'is_active',
-        'deadline_time', 'deadline_day', 'deadline_enabled', 'weight',
+        'deadline_time', 'deadline_day', 'deadline_enabled', 'include_in_score',
     ];
 
     protected function casts(): array
@@ -30,7 +30,7 @@ class BriefingTask extends Model
             'deadline_enabled' => 'boolean',
             'sort_order' => 'integer',
             'deadline_day' => 'integer',
-            'weight' => 'float',
+            'include_in_score' => 'boolean',
         ];
     }
 

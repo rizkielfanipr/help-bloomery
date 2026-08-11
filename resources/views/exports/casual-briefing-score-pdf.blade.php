@@ -50,27 +50,33 @@
         <thead>
             <tr>
                 <th>Poin</th>
-                <th>Periode</th>
                 <th>Terpenuhi</th>
-                <th>Bobot</th>
-                <th style="text-align:right">Nilai</th>
+                <th>Rate</th>
+                <th style="text-align:right">Nilai Periode</th>
             </tr>
         </thead>
         <tbody>
             @php
-                $periodLabels = ['daily' => 'Harian', 'weekly' => 'Mingguan', 'monthly' => 'Bulanan'];
+                $periodOrder = ['daily', 'weekly', 'monthly'];
             @endphp
-            @foreach($score->breakdown ?? [] as $item)
-                <tr>
-                    <td>{{ $item['label'] }}</td>
-                    <td>{{ $periodLabels[$item['period']] ?? $item['period'] }}</td>
-                    <td>{{ $item['approved'] }}/{{ $item['expected'] }}</td>
-                    <td>{{ $item['weight'] }}%</td>
-                    <td class="score-val {{ $item['score'] > 0 ? 'has' : 'none' }}">{{ number_format($item['score'], 2) }}%</td>
+            @foreach($periodOrder as $period)
+                @continue(! isset($score->breakdown[$period]))
+                @php $info = $score->breakdown[$period]; @endphp
+                <tr class="total-row">
+                    <td colspan="3">{{ $info['label'] }} (Bobot {{ number_format($info['effective_weight'], 2) }}%)</td>
+                    <td class="score-val {{ $info['score'] > 0 ? 'has' : 'none' }}">{{ number_format($info['score'], 2) }}%</td>
                 </tr>
+                @foreach($info['tasks'] as $task)
+                    <tr>
+                        <td>{{ $task['label'] }}</td>
+                        <td>{{ $task['approved'] }}/{{ $task['expected'] }}</td>
+                        <td>{{ number_format($task['rate'], 2) }}%</td>
+                        <td></td>
+                    </tr>
+                @endforeach
             @endforeach
             <tr class="total-row">
-                <td colspan="4">Total</td>
+                <td colspan="3">Total</td>
                 <td class="score-val {{ $score->isPassing() ? 'has' : 'none' }}">{{ number_format($score->score, 2) }}%</td>
             </tr>
         </tbody>

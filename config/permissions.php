@@ -28,6 +28,7 @@ return [
         'Monitoring Poin' => ['view briefing items', 'create briefing items', 'edit briefing items', 'delete briefing items'],
         'Nilai Briefing' => ['view briefing scores', 'create briefing scores', 'edit briefing scores', 'delete briefing scores'],
         'Pengaturan Briefing' => ['edit briefing settings'],
+        'Bobot Penilaian Briefing' => ['edit briefing period weights'],
     ],
 
     'Driver' => [

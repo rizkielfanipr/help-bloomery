@@ -140,15 +140,10 @@ class BriefingTaskResource extends Resource
                         ->label('Aktif')
                         ->default(true),
 
-                    TextInput::make('weight')
-                        ->label('Bobot Penilaian (%)')
-                        ->numeric()
-                        ->minValue(0)
-                        ->maxValue(100)
-                        ->step(0.01)
-                        ->nullable()
-                        ->placeholder('Kosongkan jika tidak dinilai')
-                        ->helperText('Persentase kontribusi poin ini terhadap total nilai (0–100).'),
+                    Toggle::make('include_in_score')
+                        ->label('Ikut Penilaian')
+                        ->default(false)
+                        ->helperText('Kalau aktif, tingkat penyelesaian poin ini ikut dihitung ke rata-rata periodenya (lihat Bobot Penilaian per Cabang).'),
                 ]),
             ]),
 

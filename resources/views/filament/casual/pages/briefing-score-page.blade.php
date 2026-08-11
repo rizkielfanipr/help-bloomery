@@ -1,7 +1,7 @@
 @php
     $latest = $this->latestScore;
     $scores = $this->scores;
-    $periodLabels = ['daily' => 'Harian', 'weekly' => 'Mingguan', 'monthly' => 'Bulanan'];
+    $periodOrder = ['daily', 'weekly', 'monthly'];
 @endphp
 
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
@@ -95,16 +95,25 @@
                                 </button>
 
                                 <div x-show="open" x-collapse class="border-t border-gray-100 dark:border-white/[0.06]">
-                                    <div class="space-y-1.5 px-4 py-3">
-                                        @foreach($score->breakdown ?? [] as $item)
-                                            <div class="flex items-center justify-between gap-2">
-                                                <div class="min-w-0 flex-1">
-                                                    <p class="truncate text-xs font-medium text-gray-700 dark:text-gray-300">{{ $item['label'] }}</p>
-                                                    <p class="text-[10px] text-gray-400">{{ $periodLabels[$item['period']] ?? $item['period'] }} · {{ $item['approved'] }}/{{ $item['expected'] }} · Bobot {{ $item['weight'] }}%</p>
+                                    <div class="space-y-3 px-4 py-3">
+                                        @foreach($periodOrder as $period)
+                                            @continue(! isset($score->breakdown[$period]))
+                                            @php $info = $score->breakdown[$period]; @endphp
+                                            <div>
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $info['label'] }} · Bobot {{ number_format($info['effective_weight'], 0) }}%</span>
+                                                    <span class="shrink-0 text-xs font-bold {{ $info['score'] > 0 ? 'text-emerald-600' : 'text-red-500' }}">
+                                                        {{ number_format($info['score'], 1) }}%
+                                                    </span>
                                                 </div>
-                                                <span class="shrink-0 text-xs font-bold {{ $item['score'] > 0 ? 'text-emerald-600' : 'text-red-500' }}">
-                                                    {{ number_format($item['score'], 1) }}%
-                                                </span>
+                                                <div class="mt-1 space-y-1">
+                                                    @foreach($info['tasks'] as $task)
+                                                        <div class="flex items-center justify-between gap-2 pl-2">
+                                                            <p class="truncate text-xs font-medium text-gray-700 dark:text-gray-300">{{ $task['label'] }}</p>
+                                                            <span class="shrink-0 text-[10px] text-gray-400">{{ $task['approved'] }}/{{ $task['expected'] }} · {{ number_format($task['rate'], 0) }}%</span>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
                                             </div>
                                         @endforeach
                                         <div class="mt-2 flex justify-between border-t border-gray-100 pt-2 dark:border-white/[0.06]">

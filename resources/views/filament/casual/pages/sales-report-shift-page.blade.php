@@ -135,7 +135,11 @@
 
             {{-- Payment rows, grouped by Dine In / Takeaway --}}
             @if(! empty($rows))
-                @php $groupedRows = collect($rows)->groupBy('label'); @endphp
+                {{-- preserveKeys=true is required here: groupBy() re-indexes each
+                     group from 0 by default, which would make DINE IN's first row
+                     and TAKEAWAY's first row both resolve to rows.0 and collide on
+                     the same wire:model path below. --}}
+                @php $groupedRows = collect($rows)->groupBy('label', true); @endphp
 
                 @foreach($groupedRows as $label => $group)
                     <div wire:key="group-{{ $label }}" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">

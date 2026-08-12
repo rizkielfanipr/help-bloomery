@@ -33,6 +33,22 @@ class RndProductBomPdfController extends Controller
             'PIN diperlukan untuk mengunduh dokumen resep.',
         );
 
+        $data = $this->buildExportData($projectRecord, $productRecord, $exportScope);
+
+        $pdf = Pdf::loadView('exports.rnd-product-bom-pdf', $data)->setPaper('a4', 'portrait');
+
+        $scopeLabel = match ($exportScope) {
+            'kitchen' => 'KITCHEN-',
+            'store' => 'STORE-',
+            default => '',
+        };
+        $filename = 'BOM-'.$scopeLabel.str($productRecord->product_code ?: $productRecord->name)->slug()->upper().'.pdf';
+
+        return $pdf->download($filename);
+    }
+
+    public function buildExportData(RndProject $projectRecord, $productRecord, string $exportScope): array
+    {
         $esb = app(EsbCoreService::class);
         $exportBoms = $productRecord->boms->filter(fn ($bom): bool => match ($exportScope) {
             'kitchen' => $bom->pivot->usage_type !== 'menu',
@@ -78,7 +94,7 @@ class RndProductBomPdfController extends Controller
             ->values();
         $documentNumber = sprintf('RND/%03d/%03d/%s', $projectRecord->id, $productRecord->id, now()->format('Y'));
 
-        $pdf = Pdf::loadView('exports.rnd-product-bom-pdf', compact(
+        return compact(
             'projectRecord',
             'productRecord',
             'details',
@@ -94,16 +110,7 @@ class RndProductBomPdfController extends Controller
             'documentNumber',
             'exportScope',
             'exportBoms',
-        ))->setPaper('a4', 'portrait');
-
-        $scopeLabel = match ($exportScope) {
-            'kitchen' => 'KITCHEN-',
-            'store' => 'STORE-',
-            default => '',
-        };
-        $filename = 'BOM-'.$scopeLabel.str($productRecord->product_code ?: $productRecord->name)->slug()->upper().'.pdf';
-
-        return $pdf->download($filename);
+        );
     }
 
     public static function sessionKey(int $userId, int $projectId, int $productId): string

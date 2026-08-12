@@ -3,6 +3,7 @@
         $project = $this->record;
         $status = today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active');
         $canManage = \App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project);
+        $canExportBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('view bill of materials');
         $input = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
         $label = 'mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200';
     @endphp
@@ -42,12 +43,21 @@
                         <h3 class="text-lg font-bold text-gray-900 dark:text-white">Product Release</h3>
                         <p class="text-sm text-gray-500">Daftar produk yang dikembangkan dan akan dirilis dalam project ini.</p>
                     </div>
-                    @if($canManage)
-                        <button type="button" wire:click="openCreateProduct" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
-                            <x-heroicon-o-plus class="h-4 w-4" />
-                            Tambah Product
-                        </button>
-                    @endif
+                    <div class="flex flex-wrap gap-2">
+                        @if($canExportBom)
+                            <button type="button" wire:click="openProjectBomExport('kitchen')" class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100">
+                                <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Kitchen PDF
+                            </button>
+                            <button type="button" wire:click="openProjectBomExport('store')" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100">
+                                <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Store PDF
+                            </button>
+                        @endif
+                        @if($canManage)
+                            <button type="button" wire:click="openCreateProduct" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
+                                <x-heroicon-o-plus class="h-4 w-4" /> Tambah Product
+                            </button>
+                        @endif
+                    </div>
                 </div>
 
                 <div class="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
@@ -248,6 +258,27 @@
                 </div>
             </div>
         </template>
+
+        @if($projectExportPinModalOpen)
+            <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/55" wire:click="closeProjectBomExport"></button>
+                <div class="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
+                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><x-heroicon-o-lock-closed class="h-7 w-7" /></div>
+                    <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">Export {{ ucfirst($projectExportScope) }} Project</h3>
+                    <p class="mt-2 text-sm leading-6 text-gray-500">Semua product dengan BOM {{ ucfirst($projectExportScope) }} akan digabung dalam satu dokumen PDF.</p>
+                    <form wire:submit="exportProjectBomPdf" class="mt-5">
+                        <input wire:model="projectExportPin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Masukkan PIN" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-center text-lg font-bold tracking-[0.3em] dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                        @error('projectExportPin')<p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>@enderror
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                            <button type="button" wire:click="closeProjectBomExport" class="rounded-xl border border-gray-300 px-4 py-3 text-sm font-bold text-gray-700 dark:border-gray-600 dark:text-gray-200">Batal</button>
+                            <button type="submit" wire:loading.attr="disabled" wire:target="exportProjectBomPdf" class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+                                <span wire:loading.remove wire:target="exportProjectBomPdf">Download PDF</span><span wire:loading wire:target="exportProjectBomPdf">Menyiapkan...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endif
 
     </div>
 </x-filament-panels::page>

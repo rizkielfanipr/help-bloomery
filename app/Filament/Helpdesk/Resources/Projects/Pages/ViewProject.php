@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
 use Carbon\Carbon;
@@ -12,6 +13,7 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Livewire\WithFileUploads;
 use Throwable;
@@ -49,6 +51,12 @@ class ViewProject extends ViewRecord
     public $productPhoto = null;
 
     public string $productImagePath = '';
+
+    public bool $projectExportPinModalOpen = false;
+
+    public string $projectExportPin = '';
+
+    public string $projectExportScope = 'kitchen';
 
     public function mount(int|string $record): void
     {
@@ -223,6 +231,56 @@ class ViewProject extends ViewRecord
         }
         $this->reloadProject();
         Notification::make()->title('Product berhasil dihapus')->success()->send();
+    }
+
+    public function openProjectBomExport(string $scope): void
+    {
+        abort_unless(auth()->user()?->can('view bill of materials'), 403);
+        abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
+        $this->projectExportScope = $scope;
+        $this->projectExportPin = '';
+        $this->resetValidation('projectExportPin');
+        $this->projectExportPinModalOpen = true;
+    }
+
+    public function closeProjectBomExport(): void
+    {
+        $this->projectExportPinModalOpen = false;
+        $this->projectExportPin = '';
+        $this->resetValidation('projectExportPin');
+    }
+
+    public function exportProjectBomPdf(): mixed
+    {
+        abort_unless(auth()->user()?->can('view bill of materials'), 403);
+        $this->validate(['projectExportPin' => ['required', 'string', 'max:20']]);
+        $rateKey = 'rnd-project-bom-export-pin:'.auth()->id().':'.request()->ip();
+
+        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
+            $this->addError('projectExportPin', 'Terlalu banyak percobaan. Coba kembali dalam '.RateLimiter::availableIn($rateKey).' detik.');
+
+            return null;
+        }
+
+        $configuredPin = (string) config('rnd.bom_pin');
+        if ($configuredPin === '' || ! hash_equals($configuredPin, $this->projectExportPin)) {
+            RateLimiter::hit($rateKey, 60);
+            $this->reset('projectExportPin');
+            $this->addError('projectExportPin', $configuredPin === '' ? 'PIN resep belum dikonfigurasi.' : 'PIN yang dimasukkan tidak sesuai.');
+
+            return null;
+        }
+
+        RateLimiter::clear($rateKey);
+        session()->put(
+            RndProjectBomPdfController::sessionKey(auth()->id(), $this->record->id),
+            now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
+        );
+
+        return $this->redirect(route('helpdesk.rnd-projects.bom-pdf', [
+            'project' => $this->record->id,
+            'scope' => $this->projectExportScope,
+        ]), navigate: false);
     }
 
     private function resetProductForm(): void

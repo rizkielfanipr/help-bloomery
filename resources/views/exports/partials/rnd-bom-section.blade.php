@@ -68,7 +68,7 @@
             <tr>
                 <th class="center number-column">NO</th>
                 <th style="width:70px">KODE</th>
-                <th>NAMA BAHAN</th>
+                <th colspan="2">NAMA BAHAN</th>
                 <th style="width:55px" class="center">UNIT</th>
                 <th style="width:55px" class="center">QTY</th>
             </tr>
@@ -78,22 +78,22 @@
                 <tr>
                     <td class="center num number-column">{{ $index + 1 }}</td>
                     <td>{{ $item['productCode'] ?? '-' }}</td>
-                    <td>{{ $item['productName'] ?? '-' }}</td>
+                    <td colspan="2">{{ $item['productName'] ?? '-' }}</td>
                     <td class="center"><span class="unit-badge">{{ $item['uomName'] ?? '-' }}</span></td>
                     <td class="center">{{ rtrim(rtrim(number_format((float) ($item['qty'] ?? 0), 4, '.', ''), '0'), '.') }}</td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5" class="no-bom">Belum ada bahan penyusun.</td>
+                    <td colspan="6" class="no-bom">Belum ada bahan penyusun.</td>
                 </tr>
             @endforelse
         </tbody>
         <tbody class="additional-info-section">
             <tr>
-                <th colspan="5">INFORMASI TAMBAHAN</th>
+                <th colspan="6">INFORMASI TAMBAHAN</th>
             </tr>
             <tr>
-                <td class="additional-info-content" colspan="5">
+                <td class="additional-info-content" colspan="6">
                     @include('exports.partials.rnd-bom-instruction-cell', ['instruction' => $instruction, 'hasInstruction' => $hasInstruction])
                 </td>
             </tr>

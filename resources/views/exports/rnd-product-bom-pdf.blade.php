@@ -212,13 +212,14 @@
     @endforelse
     @endif
 
+    @if($showFooter ?? true)
     @php
         $footerScope = match($exportScope) {
             'store' => 'STORE-',
             'kitchen' => 'KITCHEN-',
             default => '',
         };
-        $footerDocument = 'BOM-'.$footerScope.str($productRecord->product_code ?: $productRecord->name)->slug()->upper();
+        $resolvedFooterDocument = $footerDocument ?? ('BOM-'.$footerScope.str($productRecord->product_code ?: $productRecord->name)->slug()->upper());
         $generatedAt = now()->timezone('Asia/Jakarta')->translatedFormat('d M Y · H:i').' WIB';
     @endphp
     <div class="footer">
@@ -230,7 +231,7 @@
                 </td>
                 <td>
                     <div class="footer-label">Document</div>
-                    <div class="footer-value">{{ $footerDocument }}</div>
+                    <div class="footer-value">{{ $resolvedFooterDocument }}</div>
                 </td>
                 <td>
                     <div class="footer-label">Generated At</div>
@@ -243,6 +244,7 @@
             dan tidak memerlukan tanda tangan manual.
         </div>
     </div>
+    @endif
 
 </div>
 </body>

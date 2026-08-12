@@ -36,9 +36,14 @@ class RndProjectBomPdfController extends Controller
         abort_if($products->isEmpty(), 422, 'Tidak ada Bill of Material '.ucfirst($scope).' pada project ini.');
 
         $renderer = app(RndProductBomPdfController::class);
-        $renderedDocuments = $products->map(fn ($product): string =>
-            view('exports.rnd-product-bom-pdf', $renderer->buildExportData($projectRecord, $product, $scope))->render()
-        )->values();
+        $projectDocumentNumber = 'BOM-'.strtoupper($scope).'-PROJECT-'.str($projectRecord->name)->slug()->upper();
+        $renderedDocuments = $products->values()->map(function ($product, int $index) use ($renderer, $projectRecord, $scope, $products, $projectDocumentNumber): string {
+            $data = $renderer->buildExportData($projectRecord, $product, $scope);
+            $data['showFooter'] = $index === $products->count() - 1;
+            $data['footerDocument'] = $projectDocumentNumber;
+
+            return view('exports.rnd-product-bom-pdf', $data)->render();
+        });
         $documents = $renderedDocuments->map(function (string $rendered): string {
             preg_match('/<body>(.*)<\/body>/s', $rendered, $body);
 
@@ -52,7 +57,7 @@ class RndProjectBomPdfController extends Controller
         )->implode('');
         $html = '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><style>'.($style[1] ?? '').'.page-break{page-break-after:always;}</style></head><body>'.$pages.'</body></html>';
 
-        $filename = 'BOM-'.strtoupper($scope).'-PROJECT-'.str($projectRecord->name)->slug()->upper().'.pdf';
+        $filename = $projectDocumentNumber.'.pdf';
 
         return Pdf::loadHTML($html)->setPaper('a4', 'portrait')->download($filename);
     }

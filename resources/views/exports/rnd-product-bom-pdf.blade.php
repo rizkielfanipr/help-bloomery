@@ -86,7 +86,8 @@
         .no-bom { text-align: center; color: #94a3b8; padding: 12px; }
 
         /* ─── INFORMASI TAMBAHAN ─── */
-        .additional-cell { width: 220px; vertical-align: top; padding: 8px; border-left: 1px solid #cbd5e1; }
+        .additional-info-section th { padding: 5px 8px !important; background: #f8fafc; color: #1e293b; font-size: 8pt; font-weight: 700; text-align: left; text-transform: uppercase; }
+        .additional-info-content { min-height: 36px; padding: 8px 10px !important; vertical-align: top; }
         .instruction-content { font-size: 8.5pt; line-height: 1.5; color: #1e293b; }
         .instruction-content p { margin: 0 0 4px; }
         .instruction-content h1 { font-size: 11pt; font-weight: bold; margin: 0 0 4px; }

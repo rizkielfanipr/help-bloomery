@@ -10,6 +10,9 @@ use App\Models\Branch;
 use App\Models\StockCard;
 use BackedEnum;
 use Carbon\Carbon;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
@@ -133,7 +136,25 @@ class StockCardResource extends Resource
                     }),
             ])
             ->recordActions([
-                ViewAction::make(),
+                ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Lihat'),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->tooltip('Hapus')
+                    ->visible(fn (StockCard $record): bool => static::canDelete($record))
+                    ->requiresConfirmation()
+                    ->modalHeading('Hapus Stock Card')
+                    ->modalDescription('Stock card beserta detail terkait akan dihapus secara permanen.'),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->visible(fn (): bool => static::canDeleteAny())
+                        ->requiresConfirmation()
+                        ->modalHeading('Hapus Stock Card Terpilih')
+                        ->modalDescription('Semua stock card terpilih beserta detail terkait akan dihapus secara permanen.'),
+                ]),
             ])
             ->defaultSort('report_date', 'desc');
     }

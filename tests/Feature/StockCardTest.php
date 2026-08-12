@@ -319,6 +319,38 @@ it('allows admin to list stock cards', function () {
     Livewire::test(ListStockCards::class)->assertOk();
 });
 
+it('shows the delete action on the index and deletes related stock card data for permitted users', function () {
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+
+    $admin = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $admin->givePermissionTo(['view stock cards', 'delete stock cards']);
+    actingAs($admin);
+
+    $card = StockCard::factory()->submitted()->create(['branch_id' => $this->branch->id]);
+    $entry = StockCardEntry::factory()->create(['stock_card_id' => $card->id]);
+
+    Livewire::test(ListStockCards::class)
+        ->assertTableActionVisible('delete', $card)
+        ->callTableAction('delete', $card)
+        ->assertHasNoActionErrors();
+
+    expect(StockCard::find($card->id))->toBeNull()
+        ->and(StockCardEntry::find($entry->id))->toBeNull();
+});
+
+it('hides the delete action on the index without delete stock cards permission', function () {
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+
+    $viewer = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $viewer->givePermissionTo('view stock cards');
+    actingAs($viewer);
+
+    $card = StockCard::factory()->submitted()->create(['branch_id' => $this->branch->id]);
+
+    Livewire::test(ListStockCards::class)
+        ->assertTableActionHidden('delete', $card);
+});
+
 it('allows admin to view stock card detail with entries', function () {
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 

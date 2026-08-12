@@ -44,6 +44,8 @@ class RndProductBomPdfController extends Controller
         };
         $filename = 'BOM-'.$scopeLabel.str($productRecord->product_code ?: $productRecord->name)->slug()->upper().'.pdf';
 
+        $this->addPageNumbers($pdf);
+
         return $pdf->download($filename);
     }
 
@@ -116,6 +118,14 @@ class RndProductBomPdfController extends Controller
     public static function sessionKey(int $userId, int $projectId, int $productId): string
     {
         return "rnd.bom.export.$userId.$projectId.$productId";
+    }
+
+    private function addPageNumbers($pdf): void
+    {
+        $pdf->render();
+        $domPdf = $pdf->getDomPDF();
+        $font = $domPdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $domPdf->getCanvas()->page_text(470, 817, 'Halaman {PAGE_NUM} / {PAGE_COUNT}', $font, 7, [0.58, 0.64, 0.72]);
     }
 
     private function productPhotoDataUri(?string $path): ?string

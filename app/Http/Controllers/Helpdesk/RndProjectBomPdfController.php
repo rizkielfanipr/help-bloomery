@@ -52,18 +52,29 @@ class RndProjectBomPdfController extends Controller
 
         preg_match('/<style>(.*)<\/style>/s', $renderedDocuments->first(), $style);
 
-        $pages = $documents->map(fn (string $body, int $index): string =>
-            '<section class="project-product-document'.($index < $documents->count() - 1 ? ' page-break' : '').'">'.$body.'</section>'
+        $pages = $documents->map(fn (string $body): string =>
+            '<section class="project-product-document">'.$body.'</section>'
         )->implode('');
-        $html = '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><style>'.($style[1] ?? '').'.page-break{page-break-after:always;}</style></head><body>'.$pages.'</body></html>';
+        $html = '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><style>'.($style[1] ?? '').'.project-product-document+.project-product-document{margin-top:14px;}</style></head><body>'.$pages.'</body></html>';
 
         $filename = $projectDocumentNumber.'.pdf';
 
-        return Pdf::loadHTML($html)->setPaper('a4', 'portrait')->download($filename);
+        $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait');
+        $this->addPageNumbers($pdf);
+
+        return $pdf->download($filename);
     }
 
     public static function sessionKey(int $userId, int $projectId): string
     {
         return "rnd.project-bom.export.$userId.$projectId";
+    }
+
+    private function addPageNumbers($pdf): void
+    {
+        $pdf->render();
+        $domPdf = $pdf->getDomPDF();
+        $font = $domPdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
+        $domPdf->getCanvas()->page_text(470, 817, 'Halaman {PAGE_NUM} / {PAGE_COUNT}', $font, 7, [0.58, 0.64, 0.72]);
     }
 }

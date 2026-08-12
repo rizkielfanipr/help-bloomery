@@ -39,6 +39,7 @@ class RndProjectBomPdfController extends Controller
         $projectDocumentNumber = 'BOM-'.strtoupper($scope).'-PROJECT-'.str($projectRecord->name)->slug()->upper();
         $renderedDocuments = $products->values()->map(function ($product, int $index) use ($renderer, $projectRecord, $scope, $products, $projectDocumentNumber): string {
             $data = $renderer->buildExportData($projectRecord, $product, $scope);
+            $data['showHeader'] = $index === 0;
             $data['showFooter'] = $index === $products->count() - 1;
             $data['footerDocument'] = $projectDocumentNumber;
 

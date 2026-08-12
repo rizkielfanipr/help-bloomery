@@ -123,6 +123,7 @@
 <body>
 <div class="page-wrapper">
 
+    @if($showHeader ?? true)
     <div class="kop">
         <div class="kop-logo"><img src="{{ $logo }}" alt="Bloomery"></div>
         <div class="kop-center">
@@ -145,6 +146,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     @php
         $groupLabels = [

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Enums\StockCardStatus;
 use App\Models\StockCard;
 use Carbon\Carbon;
 use Filament\Pages\Page;
@@ -57,7 +58,8 @@ class StockCardHistoryPage extends Page
 
         return StockCard::where('branch_id', $branchId)
             ->where('report_date', '>=', $since)
-            ->with(['entries', 'submittedBy'])
+            ->where('status', '!=', StockCardStatus::Draft->value)
+            ->with(['entries', 'submittedBy', 'employees', 'approvals.actor'])
             ->orderBy('report_date', 'desc')
             ->get();
     }

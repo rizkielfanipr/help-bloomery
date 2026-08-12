@@ -3,7 +3,6 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Models\StockCard;
-use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\Url;
@@ -46,7 +45,7 @@ class StockCardPage extends Page
         // triggers reactive re-render for status badge
     }
 
-    public function getDailyStatus(): ?Carbon
+    public function getDailyStatus(): ?StockCard
     {
         $user = auth()->user();
 
@@ -54,10 +53,8 @@ class StockCardPage extends Page
             return null;
         }
 
-        $card = StockCard::where('branch_id', $user->branch_id)
+        return StockCard::where('branch_id', $user->branch_id)
             ->whereDate('report_date', $this->reportDate ?: now()->toDateString())
             ->first();
-
-        return $card?->submitted_at;
     }
 }

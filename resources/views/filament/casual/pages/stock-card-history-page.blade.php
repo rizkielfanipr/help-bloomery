@@ -2,6 +2,14 @@
     $cards    = $this->stockCards();
     $dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
     $monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+    $statusColorMap = [
+        'gray' => 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+        'warning' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+        'success' => 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    ];
+    $approvalStageLabels = ['submitter' => 'Submitter', 'supervisor' => 'Supervisor', 'finance' => 'Finance'];
+    $approvalActionLabels = ['submitted' => 'Submitted', 'approved' => 'Approved', 'rejected' => 'Rejected'];
+    $fmtQty = fn ($v) => $v === null ? '—' : rtrim(rtrim(number_format((float) $v, 4, '.', ''), '0'), '.');
 @endphp
 
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
@@ -60,15 +68,22 @@
                         @php
                             $isExpanded  = $expandedCardId === $card->id;
                             $totalItems  = $card->entries->count();
-                            $deficitCount = $card->entries->filter(fn ($e) => $e->actual_qty !== null && (float)$e->actual_qty < (float)$e->system_qty)->count();
-                            $surplusCount = $card->entries->filter(fn ($e) => $e->actual_qty !== null && (float)$e->actual_qty > (float)$e->system_qty)->count();
+                            $deficitCount = $card->entries->filter(fn ($e) => $e->variance !== null && $e->variance < 0)->count();
+                            $surplusCount = $card->entries->filter(fn ($e) => $e->variance !== null && $e->variance > 0)->count();
+                            $statusBadgeClass = $statusColorMap[$card->status->getColor()] ?? $statusColorMap['gray'];
+                            $statusLabel = $card->status->getLabel();
+                            $staffNames = $card->employees->pluck('employee_name')->filter()->join(', ');
+                            $varianceSummary = collect([
+                                $deficitCount > 0 ? "{$deficitCount} defisit" : null,
+                                $surplusCount > 0 ? "{$surplusCount} surplus" : null,
+                            ])->filter()->join(' · ');
                         @endphp
 
                         <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
 
                             {{-- Card header --}}
                             <button wire:click="toggleCard({{ $card->id }})"
-                                    class="flex w-full items-center gap-3 px-4 py-3.5 text-left transition active:bg-gray-50 dark:active:bg-gray-800">
+                                    class="flex w-full items-start gap-3 px-4 py-3.5 text-left transition active:bg-gray-50 dark:active:bg-gray-800">
 
                                 {{-- Date badge --}}
                                 <div class="flex w-11 flex-shrink-0 flex-col items-center rounded-xl bg-blue-50 py-2 dark:bg-blue-900/30">
@@ -81,34 +96,28 @@
                                 </div>
 
                                 {{-- Info --}}
-                                <div class="min-w-0 flex-1">
-                                    <div class="flex items-center gap-2">
-                                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                                            {{ $totalItems }} material
+                                <div class="min-w-0 flex-1 pt-0.5">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <p class="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                            {{ $totalItems }} produk
                                         </p>
-                                        @if($deficitCount > 0)
-                                            <span class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                                                {{ $deficitCount }} defisit
-                                            </span>
-                                        @endif
-                                        @if($surplusCount > 0)
-                                            <span class="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-bold text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                                {{ $surplusCount }} surplus
-                                            </span>
-                                        @endif
+                                        <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold {{ $statusBadgeClass }}">{{ $statusLabel }}</span>
                                     </div>
-                                    @if($card->submittedBy)
-                                        <p class="mt-0.5 text-[11px] text-gray-400">{{ $card->submittedBy->name }}</p>
-                                    @endif
-                                    @if($card->submitted_at)
-                                        <p class="mt-0.5 text-[11px] text-gray-400">
-                                            {{ $card->submitted_at->locale('id')->isoFormat('HH:mm') }}
+                                    <p class="mt-1 truncate text-[11px] text-gray-400">
+                                        {{ $card->submittedBy?->name ?? '-' }}
+                                        @if($card->submitted_at)
+                                            &middot; {{ $card->submitted_at->locale('id')->isoFormat('HH:mm') }}
+                                        @endif
+                                    </p>
+                                    @if($varianceSummary !== '')
+                                        <p class="mt-1 text-[11px] font-medium {{ $deficitCount > 0 ? 'text-red-500' : 'text-yellow-600' }}">
+                                            {{ $varianceSummary }}
                                         </p>
                                     @endif
                                 </div>
 
                                 {{-- Chevron --}}
-                                <svg class="h-4 w-4 flex-shrink-0 text-gray-300 transition-transform {{ $isExpanded ? 'rotate-90' : '' }}"
+                                <svg class="mt-1 h-4 w-4 flex-shrink-0 text-gray-300 transition-transform {{ $isExpanded ? 'rotate-90' : '' }}"
                                      fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/>
                                 </svg>
@@ -118,51 +127,111 @@
                             @if($isExpanded)
                                 <div class="border-t border-gray-100 dark:border-gray-800">
 
-                                    {{-- Column header --}}
-                                    <div class="grid grid-cols-[1fr_64px_64px_64px] border-b border-gray-100 bg-gray-50 px-4 py-1.5 dark:border-gray-800 dark:bg-gray-800/50">
-                                        <span class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Material</span>
-                                        <span class="text-right text-[10px] font-bold uppercase tracking-wide text-gray-400">Sistem</span>
-                                        <span class="text-right text-[10px] font-bold uppercase tracking-wide text-gray-400">Aktual</span>
-                                        <span class="text-right text-[10px] font-bold uppercase tracking-wide text-gray-400">Selisih</span>
+                                    {{-- Summary info --}}
+                                    <div class="space-y-2 border-b border-gray-100 bg-gray-50/70 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/40">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Staff In Charge</p>
+                                            <p class="text-right text-xs text-gray-700 dark:text-gray-300">{{ $staffNames ?: '-' }}</p>
+                                        </div>
+                                        <div class="flex items-start justify-between gap-3">
+                                            <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">System Data</p>
+                                            <p class="text-right text-xs text-gray-700 dark:text-gray-300">
+                                                {{ $card->system_fetched_at?->locale('id')->isoFormat('D MMM, HH:mm') ?? 'Belum diambil' }}
+                                            </p>
+                                        </div>
+                                        @if($card->revision_number > 0)
+                                            <div class="flex items-start justify-between gap-3">
+                                                <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Revisi</p>
+                                                <p class="text-right text-xs text-gray-700 dark:text-gray-300">Rev. {{ $card->revision_number }}</p>
+                                            </div>
+                                        @endif
                                     </div>
 
-                                    @foreach($card->entries->sortBy('product_name') as $entry)
-                                        @php
-                                            $variance = $entry->actual_qty !== null
-                                                ? (float)$entry->actual_qty - (float)$entry->system_qty
-                                                : null;
-                                            $varColor = $variance === null
-                                                ? 'text-gray-400'
-                                                : ($variance < 0 ? 'text-red-500' : ($variance == 0 ? 'text-gray-400' : 'text-yellow-600'));
-                                            $varLabel = $variance === null
-                                                ? '—'
-                                                : ($variance == 0
-                                                    ? '0'
-                                                    : ($variance > 0 ? '+' : '') . rtrim(rtrim(number_format($variance, 4, '.', ''), '0'), '.'));
-                                        @endphp
-                                        <div class="border-b border-gray-100 px-4 py-2 last:border-0 dark:border-gray-800">
-                                            <div class="grid grid-cols-[1fr_64px_64px_64px]">
-                                                <div class="min-w-0 pr-2">
-                                                    <p class="truncate text-xs text-gray-700 dark:text-gray-300">{{ $entry->product_name }}</p>
-                                                    @if($entry->product_code)
-                                                        <p class="text-[10px] text-gray-400">{{ $entry->product_code }}</p>
-                                                    @endif
-                                                </div>
-                                                <span class="text-right text-xs font-mono text-gray-500">
-                                                    {{ rtrim(rtrim(number_format((float)$entry->system_qty, 4, '.', ''), '0'), '.') }}
-                                                </span>
-                                                <span class="text-right text-xs font-mono text-gray-700 dark:text-gray-300">
-                                                    {{ $entry->actual_qty !== null ? rtrim(rtrim(number_format((float)$entry->actual_qty, 4, '.', ''), '0'), '.') : '—' }}
-                                                </span>
-                                                <span class="text-right text-xs font-mono font-semibold {{ $varColor }}">
-                                                    {{ $varLabel }}
-                                                </span>
+                                    {{-- Product list --}}
+                                    <div class="overflow-x-auto">
+                                        <table class="w-full min-w-full text-[10px]">
+                                            <thead>
+                                                <tr class="border-b border-gray-100 text-gray-400 dark:border-gray-800">
+                                                    <th class="px-3 py-1.5 text-left font-bold uppercase tracking-wide">Produk</th>
+                                                    <th class="px-1 py-1.5 text-right font-bold uppercase tracking-wide">Lapor</th>
+                                                    <th class="px-1 py-1.5 text-right font-bold uppercase tracking-wide">Sistem</th>
+                                                    <th class="px-1 py-1.5 text-right font-bold uppercase tracking-wide">SPV</th>
+                                                    <th class="px-3 py-1.5 text-right font-bold uppercase tracking-wide">Selisih</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                                @foreach($card->entries->sortBy('product_name') as $entry)
+                                                    @php
+                                                        $variance = $entry->variance;
+                                                        $varColor = $variance === null
+                                                            ? 'text-gray-400'
+                                                            : ($variance < 0 ? 'text-red-500' : ($variance == 0 ? 'text-gray-400' : 'text-yellow-600'));
+                                                        $varLabel = $variance === null
+                                                            ? '—'
+                                                            : ($variance == 0
+                                                                ? '0'
+                                                                : ($variance > 0 ? '+' : '') . $fmtQty($variance));
+                                                    @endphp
+                                                    <tr>
+                                                        <td class="max-w-[120px] px-3 py-2 align-top">
+                                                            <p class="truncate font-medium text-gray-700 dark:text-gray-300">{{ $entry->product_name }}</p>
+                                                            @if($entry->product_code)
+                                                                <p class="truncate text-[9px] text-gray-400">{{ $entry->product_code }}</p>
+                                                            @endif
+                                                            @if($entry->notes)
+                                                                <p class="mt-1 text-[9px] italic leading-tight text-gray-400 dark:text-gray-500">Staff: {{ $entry->notes }}</p>
+                                                            @endif
+                                                            @if($entry->supervisor_notes)
+                                                                <p class="mt-0.5 text-[9px] italic leading-tight text-blue-500 dark:text-blue-400">SPV: {{ $entry->supervisor_notes }}</p>
+                                                            @endif
+                                                        </td>
+                                                        <td class="px-1 py-2 text-right align-top font-mono text-gray-500">{{ $fmtQty($entry->reported_qty) }}</td>
+                                                        <td class="px-1 py-2 text-right align-top font-mono text-gray-500">{{ $fmtQty($entry->system_qty) }}</td>
+                                                        <td class="px-1 py-2 text-right align-top font-mono text-gray-700 dark:text-gray-300">{{ $fmtQty($entry->actual_qty) }}</td>
+                                                        <td class="px-3 py-2 text-right align-top font-mono font-semibold {{ $varColor }}">{{ $varLabel }}</td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {{-- Review history --}}
+                                    @if($card->approvals->isNotEmpty())
+                                        <div class="border-t border-gray-100 px-4 py-3 dark:border-gray-800">
+                                            <p class="mb-2 text-[10px] font-bold uppercase tracking-wide text-gray-400">Riwayat Review</p>
+                                            <div class="space-y-2">
+                                                @foreach($card->approvals->sortBy('created_at') as $approval)
+                                                    <div class="flex items-start gap-2">
+                                                        <div @class([
+                                                            'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full',
+                                                            'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' => $approval->action === 'rejected',
+                                                            'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' => $approval->action === 'approved',
+                                                            'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' => ! in_array($approval->action, ['rejected', 'approved'], true),
+                                                        ])>
+                                                            @if($approval->action === 'rejected')
+                                                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                                            @elseif($approval->action === 'approved')
+                                                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                                                            @else
+                                                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
+                                                            @endif
+                                                        </div>
+                                                        <div class="min-w-0 flex-1">
+                                                            <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                                                {{ $approvalStageLabels[$approval->stage] ?? ucfirst($approval->stage) }} · {{ $approvalActionLabels[$approval->action] ?? ucfirst($approval->action) }}
+                                                            </p>
+                                                            <p class="text-[10px] text-gray-400">
+                                                                {{ $approval->actor?->name ?? 'System' }} &middot; {{ $approval->created_at->locale('id')->isoFormat('D MMM, HH:mm') }}
+                                                            </p>
+                                                            @if($approval->notes)
+                                                                <p class="mt-0.5 text-[10px] text-gray-500 dark:text-gray-400">{{ $approval->notes }}</p>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                @endforeach
                                             </div>
-                                            @if($entry->notes)
-                                                <p class="mt-1 text-[10px] italic text-gray-400 dark:text-gray-500">{{ $entry->notes }}</p>
-                                            @endif
                                         </div>
-                                    @endforeach
+                                    @endif
 
                                 </div>
                             @endif

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\StockCards;
 
+use App\Enums\StockCardStatus;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\StockCards\Pages\ListStockCards;
 use App\Filament\Helpdesk\Resources\StockCards\Pages\ViewStockCard;
@@ -57,15 +58,34 @@ class StockCardResource extends Resource
                     ->sortable()
                     ->searchable(),
 
-                TextColumn::make('flag_unit')
-                    ->label('Unit')
+                TextColumn::make('status')
+                    ->label('Status')
                     ->badge()
-                    ->color('gray'),
+                    ->sortable(),
 
                 TextColumn::make('entries_count')
                     ->label('Item')
                     ->counts('entries')
                     ->sortable(),
+
+                TextColumn::make('total_variance_items')
+                    ->label('Selisih')
+                    ->state(fn (StockCard $record): int => $record->total_variance_items)
+                    ->badge()
+                    ->color(fn (int $state): string => $state > 0 ? 'warning' : 'gray'),
+
+                TextColumn::make('submittedBy.name')
+                    ->label('Disubmit Oleh')
+                    ->sortable()
+                    ->searchable()
+                    ->placeholder('-'),
+
+                TextColumn::make('employees.employee_name')
+                    ->label('Staff In Charge')
+                    ->listWithLineBreaks()
+                    ->limitList(3)
+                    ->expandableLimitedList()
+                    ->placeholder('-'),
 
                 TextColumn::make('submitted_at')
                     ->label('Disubmit')
@@ -73,11 +93,13 @@ class StockCardResource extends Resource
                     ->sortable()
                     ->placeholder('Belum disubmit'),
 
-                TextColumn::make('submittedBy.name')
-                    ->label('Oleh')
-                    ->sortable()
-                    ->searchable()
-                    ->placeholder('-'),
+                TextColumn::make('revision_number')
+                    ->label('Revisi')
+                    ->badge()
+                    ->color('gray')
+                    ->formatStateUsing(fn (int $state): ?string => $state > 0 ? "Rev. {$state}" : null)
+                    ->placeholder('-')
+                    ->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('branch_id')
@@ -85,9 +107,9 @@ class StockCardResource extends Resource
                     ->options(Branch::orderBy('name')->pluck('name', 'id'))
                     ->searchable(),
 
-                Filter::make('submitted')
-                    ->label('Sudah Disubmit')
-                    ->query(fn (Builder $q) => $q->whereNotNull('submitted_at')),
+                SelectFilter::make('status')
+                    ->label('Status')
+                    ->options(StockCardStatus::class),
 
                 Filter::make('report_date')
                     ->form([
@@ -126,7 +148,7 @@ class StockCardResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['branch', 'submittedBy']);
+        $query = parent::getEloquentQuery()->with(['branch', 'submittedBy', 'supervisorReviewer', 'financeReviewer', 'entries', 'employees']);
         $user = auth()->user();
 
         if ($user && ! $user->canAccessAllBranches()) {

@@ -22,10 +22,13 @@ class StockCardEntryFactory extends Factory
             'stock_card_id' => StockCard::factory(),
             'product_code' => strtoupper(fake()->lexify('MAT-????')),
             'product_name' => fake()->words(3, true),
-            'system_qty' => fake()->randomFloat(4, 1, 100),
+            'system_qty' => null,
             'system_unit' => fake()->randomElement(['PCS', 'KG', 'Ekor', 'Liter']),
+            'is_manual' => true,
             'actual_qty' => null,
+            'reported_qty' => null,
             'notes' => null,
+            'supervisor_notes' => null,
         ];
     }
 }

@@ -40,8 +40,32 @@
     <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
         <div class="flex flex-col gap-4 px-4">
 
-            {{-- Submitted banner --}}
-            @if($isSubmitted)
+            {{-- Status banner --}}
+            @if($status === \App\Enums\StockCardStatus::PendingSupervisor)
+                <div class="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+                        <svg class="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-amber-700 dark:text-amber-400">{{ \App\Enums\StockCardStatus::PendingSupervisor->getLabel() }}</p>
+                        <p class="text-xs text-amber-600 dark:text-amber-500">Data terkunci. Kalau ada koreksi, akan dilakukan Supervisor/Finance di back office.</p>
+                    </div>
+                </div>
+            @elseif($status === \App\Enums\StockCardStatus::PendingFinance)
+                <div class="flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+                        <svg class="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-amber-700 dark:text-amber-400">{{ \App\Enums\StockCardStatus::PendingFinance->getLabel() }}</p>
+                        <p class="text-xs text-amber-600 dark:text-amber-500">Sudah disetujui Supervisor, menunggu review Finance.</p>
+                    </div>
+                </div>
+            @elseif($status === \App\Enums\StockCardStatus::Completed)
                 <div class="flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
                     <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
                         <svg class="h-5 w-5 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -49,8 +73,8 @@
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-green-700 dark:text-green-400">Data sudah terkunci</p>
-                        <p class="text-xs text-green-600 dark:text-green-500">Stock card tidak dapat diubah kembali.</p>
+                        <p class="text-sm font-semibold text-green-700 dark:text-green-400">{{ \App\Enums\StockCardStatus::Completed->getLabel() }}</p>
+                        <p class="text-xs text-green-600 dark:text-green-500">Stock card sudah final dan tidak dapat diubah kembali.</p>
                     </div>
                 </div>
             @endif
@@ -68,73 +92,104 @@
                 </div>
             </div>
 
-            {{-- ESB Fetch card --}}
-            @if(! $isSubmitted)
-                <div class="rounded-2xl border p-4
-                    {{ $esbFetched ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20' : 'border-blue-100 bg-blue-50 dark:border-blue-900 dark:bg-blue-900/20' }}">
-
-                    {{-- Flag unit selector --}}
-                    <div class="mb-3">
-                        <label class="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Unit Konversi</label>
-                        <select wire:model="flagUnit"
-                                class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-blue-400 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
-                            @foreach(\App\Filament\Casual\Pages\StockCardEntryPage::FLAG_UNITS as $value => $label)
-                                <option value="{{ $value }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
+            {{-- Staff In Charge --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                <label class="{{ $labelClass }}">Staff In Charge <span class="text-red-500">*</span></label>
+                @if($isSubmitted)
+                    <div class="space-y-2">
+                        @forelse($submittedEmployees as $emp)
+                            <div class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800">
+                                <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ $emp['name'] ?? 'Data employee tersimpan' }}</p>
+                                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                    {{ collect([$emp['code'] ?? null, $emp['position'] ?? null])->filter()->join(' · ') ?: '-' }}
+                                </p>
+                            </div>
+                        @empty
+                            <p class="text-sm text-slate-400">-</p>
+                        @endforelse
                     </div>
+                @else
+                    <div class="space-y-2">
+                        @foreach($this->employees as $employee)
+                            @php
+                                $isChecked = in_array($employee->id, $employeeIds);
+                                $borderColor = $isChecked ? '#60a5fa' : '#e5e7eb';
+                            @endphp
+                            <label style="-webkit-tap-highlight-color: transparent; outline: none !important; box-shadow: none !important; border-color: {{ $borderColor }} !important;"
+                                   class="flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition
+                                          {{ $isChecked ? 'bg-blue-50 dark:bg-blue-950/30' : 'bg-gray-50 dark:bg-gray-800' }}">
+                                <input type="checkbox" wire:model="employeeIds" value="{{ $employee->id }}"
+                                       style="outline: none !important; box-shadow: none !important;"
+                                       class="h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 dark:border-gray-600">
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{{ $employee->name }}</p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">{{ $employee->employee_code }} · {{ $employee->position }}</p>
+                                </div>
+                            </label>
+                        @endforeach
+                    </div>
+                    @if($this->employees->isEmpty())
+                        <p class="mt-1.5 text-xs text-amber-600">Belum ada employee aktif pada branch ini. Tambahkan melalui Master › Employee.</p>
+                    @endif
+                    @error('employeeIds')
+                        <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>
+                    @enderror
+                    @error('employeeIds.*')
+                        <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>
+                    @enderror
+                @endif
+            </div>
 
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold {{ $esbFetched ? 'text-green-800 dark:text-green-300' : 'text-blue-800 dark:text-blue-300' }}">
-                                {{ $esbFetched ? 'Data ESB sudah dimuat' : 'Fetch Data dari ESB' }}
-                            </p>
-                            <p class="mt-0.5 text-xs {{ $esbFetched ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400' }}">
-                                {{ $esbFetched ? 'Isi kolom Qty Aktual untuk setiap material.' : 'Wajib fetch ESB sebelum bisa menyimpan.' }}
-                            </p>
+            {{-- Tambah Produk --}}
+            @if(! $isSubmitted)
+                <div x-data="{ open: @entangle('showProductSearch') }" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <button type="button" @click="open = !open"
+                            class="flex w-full items-center justify-between px-4 py-3 text-left">
+                        <div class="flex items-center gap-2">
+                            <div class="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Tambah Produk</span>
                         </div>
-                        <button wire:click="fetchFromEsb" wire:loading.attr="disabled"
-                                class="flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60
-                                       {{ $esbFetched ? 'bg-green-600 active:bg-green-700' : 'bg-blue-600 active:bg-blue-700' }}">
-                            <svg wire:loading wire:target="fetchFromEsb" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <svg class="h-4 w-4 text-slate-400 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+                    </button>
+                    <div x-show="open" x-collapse class="border-t border-gray-100 px-4 pb-4 pt-3 dark:border-gray-800">
+                        <input type="search" wire:model.live.debounce.400ms="productSearch" placeholder="Cari nama atau kode produk..."
+                               class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:border-blue-400 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+
+                        <div wire:loading wire:target="productSearch" class="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+                            <svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                             </svg>
-                            <svg wire:loading.remove wire:target="fetchFromEsb" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
-                            </svg>
-                            <span wire:loading.remove wire:target="fetchFromEsb">{{ $esbFetched ? 'Refresh' : 'Fetch ESB' }}</span>
-                            <span wire:loading wire:target="fetchFromEsb">Mengambil...</span>
-                        </button>
+                            <span>Mencari...</span>
+                        </div>
+
+                        @if(! empty($productSearchResults))
+                            <div class="mt-2 max-h-64 space-y-1.5 overflow-y-auto" wire:loading.class="opacity-40" wire:target="productSearch">
+                                @foreach($productSearchResults as $result)
+                                    <button type="button"
+                                            wire:click="addProduct('{{ addslashes($result['product_code']) }}', '{{ addslashes($result['product_name']) }}', '{{ addslashes($result['unit']) }}')"
+                                            class="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-left transition active:bg-gray-100 dark:border-gray-800 dark:bg-gray-800/50 dark:active:bg-gray-800">
+                                        <div class="min-w-0">
+                                            <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $result['product_name'] }}</p>
+                                            <p class="text-[10px] text-slate-400">{{ $result['product_code'] }} &middot; {{ $result['unit'] }}</p>
+                                        </div>
+                                        <svg class="h-4 w-4 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @elseif(trim($productSearch) !== '')
+                            <p class="mt-2 text-center text-xs text-slate-400" wire:loading.remove wire:target="productSearch">Produk tidak ditemukan.</p>
+                        @endif
                     </div>
                 </div>
             @endif
 
-            {{-- Material rows --}}
+            {{-- Product rows --}}
             @if(! empty($rows))
 
-                @php
-                    $filledCount = collect($rows)->filter(fn ($r) => $r['actual_qty'] !== '')->count();
-                    $okCount      = collect($rows)->filter(fn ($r) => $r['actual_qty'] !== '' && (float)$r['actual_qty'] === (float)$r['system_qty'])->count();
-                    $surplusCount = collect($rows)->filter(fn ($r) => $r['actual_qty'] !== '' && (float)$r['actual_qty'] > (float)$r['system_qty'])->count();
-                    $deficitCount = collect($rows)->filter(fn ($r) => $r['actual_qty'] !== '' && (float)$r['actual_qty'] < (float)$r['system_qty'])->count();
-                @endphp
-
-                {{-- Summary bar --}}
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="flex flex-col items-center rounded-2xl border border-green-100 bg-green-50 py-3 dark:border-green-900/40 dark:bg-green-900/20">
-                        <span class="text-lg font-bold text-green-600 dark:text-green-400">{{ $okCount }}</span>
-                        <span class="text-[10px] font-semibold uppercase tracking-wide text-green-500 dark:text-green-600">Sesuai</span>
-                    </div>
-                    <div class="flex flex-col items-center rounded-2xl border border-yellow-100 bg-yellow-50 py-3 dark:border-yellow-900/40 dark:bg-yellow-900/20">
-                        <span class="text-lg font-bold text-yellow-600 dark:text-yellow-400">{{ $surplusCount }}</span>
-                        <span class="text-[10px] font-semibold uppercase tracking-wide text-yellow-500 dark:text-yellow-600">Surplus</span>
-                    </div>
-                    <div class="flex flex-col items-center rounded-2xl border border-red-100 bg-red-50 py-3 dark:border-red-900/40 dark:bg-red-900/20">
-                        <span class="text-lg font-bold text-red-600 dark:text-red-400">{{ $deficitCount }}</span>
-                        <span class="text-[10px] font-semibold uppercase tracking-wide text-red-500 dark:text-red-600">Defisit</span>
-                    </div>
-                </div>
+                @php $filledCount = collect($rows)->filter(fn ($r) => $r['actual_qty'] !== '')->count(); @endphp
 
                 {{-- Search bar --}}
                 <div class="relative">
@@ -147,103 +202,50 @@
 
                 <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
-                    {{-- Column header --}}
-                    <div class="grid grid-cols-[1fr_auto_auto] border-b border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
-                        <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Material</span>
-                        <span class="px-2 text-right text-[10px] font-bold uppercase tracking-wide text-slate-400">Sistem</span>
-                        <span class="w-24 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Aktual</span>
-                    </div>
-
                     {{-- Rows --}}
                     @foreach($rows as $idx => $row)
-                        @php
-                            $variance = $this->getVariance($idx);
-                            $hasVariance = $variance !== null && $variance != 0;
-                            $isDeficit = $variance !== null && $variance < 0;
-                            $isSurplus = $variance !== null && $variance > 0;
+                        <div wire:key="row-{{ $idx }}"
+                             x-show="matchesSearch('{{ addslashes($row['product_name']) }}', '{{ addslashes($row['product_code']) }}')"
+                             class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
 
-                            if ($variance === null) {
-                                $varBadgeClass = 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500';
-                                $varLabel = '—';
-                            } elseif ($variance == 0) {
-                                $varBadgeClass = 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400';
-                                $varLabel = 'OK';
-                            } elseif ($isSurplus) {
-                                $varBadgeClass = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-400';
-                                $varLabel = '+' . rtrim(rtrim(number_format(abs($variance), 4, '.', ''), '0'), '.');
-                            } else {
-                                $varBadgeClass = 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400';
-                                $varLabel = '-' . rtrim(rtrim(number_format(abs($variance), 4, '.', ''), '0'), '.');
-                            }
-
-                            $hasError = $hasVariance && empty(trim($row['notes']));
-                        @endphp
-
-                        <div x-show="matchesSearch('{{ addslashes($row['product_name']) }}', '{{ addslashes($row['product_code']) }}')"
-                             class="border-b border-gray-100 dark:border-gray-800 last:border-0">
-
-                            {{-- Product name + variance badge --}}
-                            <div class="flex items-start justify-between gap-2 px-4 pb-1.5 pt-3">
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-xs font-semibold leading-snug text-slate-700 dark:text-slate-200">{{ $row['product_name'] }}</p>
-                                    @if($row['product_code'])
-                                        <p class="text-[10px] text-slate-400 dark:text-slate-500">{{ $row['product_code'] }}</p>
-                                    @endif
-                                </div>
-                                <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold {{ $varBadgeClass }}">
-                                    {{ $varLabel }}
-                                </span>
-                            </div>
-
-                            {{-- 3 columns: Sistem | (spacer) | Aktual input --}}
-                            <div class="flex items-center gap-2 px-4 pb-3">
-                                <div class="flex-1 text-xs text-slate-500 dark:text-slate-400">
-                                    <span class="font-mono">{{ rtrim(rtrim(number_format((float)$row['system_qty'], 4, '.', ''), '0'), '.') }}</span>
-                                    <span class="ml-1 text-slate-400">{{ $row['system_unit'] }}</span>
+                            <div class="grid grid-cols-[1fr_140px] items-center gap-3">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['product_name'] }}</p>
+                                        @if(! $isSubmitted && $row['actual_qty'] === '')
+                                            <button type="button" wire:click="removeProduct('{{ addslashes($row['product_code']) }}')"
+                                                    class="shrink-0 text-slate-300 transition hover:text-red-500">
+                                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                                            </button>
+                                        @endif
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 dark:text-slate-500">
+                                        {{ $row['product_code'] }}@if($row['system_unit']) &middot; {{ $row['system_unit'] }}@endif
+                                    </p>
                                 </div>
 
                                 @if($isSubmitted)
-                                    <div class="w-24 text-center text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
+                                    <div class="text-right text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
                                         {{ $row['actual_qty'] !== '' ? rtrim(rtrim(number_format((float)$row['actual_qty'], 4, '.', ''), '0'), '.') : '—' }}
                                     </div>
                                 @else
                                     <input type="number"
-                                           wire:model.live="rows.{{ $idx }}.actual_qty"
+                                           inputmode="decimal"
+                                           wire:model.live.debounce.600ms="rows.{{ $idx }}.actual_qty"
                                            min="0" step="0.0001" placeholder="0"
-                                           class="w-24 rounded-lg border bg-gray-50 px-2 py-1.5 text-center text-xs font-mono text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-slate-200
-                                                  {{ $hasError ? 'border-red-400 focus:border-red-400 dark:border-red-500' : 'border-gray-200 focus:border-blue-400 dark:border-gray-700' }}">
+                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-right text-base font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
                                 @endif
                             </div>
 
-                            {{-- Notes field (when variance exists) --}}
-                            @if($hasVariance || ! empty($row['notes']))
-                                <div class="px-4 pb-3">
-                                    @if($isSubmitted)
-                                        @if(! empty($row['notes']))
-                                            <div class="flex items-start gap-1.5 rounded-lg px-3 py-2
-                                                {{ $isDeficit ? 'bg-red-50 dark:bg-red-900/20' : 'bg-yellow-50 dark:bg-yellow-900/20' }}">
-                                                <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 {{ $isDeficit ? 'text-red-400' : 'text-yellow-400' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
-                                                </svg>
-                                                <p class="text-xs {{ $isDeficit ? 'text-red-600 dark:text-red-400' : 'text-yellow-700 dark:text-yellow-400' }}">{{ $row['notes'] }}</p>
-                                            </div>
-                                        @endif
-                                    @else
-                                        <div class="flex items-center gap-1 mb-1">
-                                            <svg class="h-3 w-3 shrink-0 {{ $isDeficit ? 'text-red-400' : 'text-yellow-400' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
-                                            </svg>
-                                            <span class="text-[10px] font-semibold {{ $isDeficit ? 'text-red-500' : 'text-yellow-600' }}">
-                                                Catatan {{ $isDeficit ? 'defisit' : 'surplus' }} wajib diisi
-                                            </span>
-                                        </div>
-                                        <input type="text"
-                                               wire:model.live="rows.{{ $idx }}.notes"
-                                               placeholder="Tulis keterangan selisih..."
-                                               class="w-full rounded-lg border bg-gray-50 px-3 py-2 text-xs text-slate-600 placeholder-slate-400 focus:outline-none focus:ring-0 dark:bg-gray-800 dark:text-slate-300
-                                                      {{ ($hasError && empty(trim($row['notes']))) ? 'border-red-400 focus:border-red-400 dark:border-red-500' : 'border-gray-200 focus:border-blue-400 dark:border-gray-700' }}">
-                                    @endif
-                                </div>
+                            @if($isSubmitted)
+                                @if(! empty($row['notes']))
+                                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ $row['notes'] }}</p>
+                                @endif
+                            @else
+                                <input type="text"
+                                       wire:model.live.debounce.600ms="rows.{{ $idx }}.notes"
+                                       placeholder="Catatan (opsional)"
+                                       class="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base text-slate-600 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300">
                             @endif
 
                         </div>
@@ -252,10 +254,14 @@
                     {{-- Progress footer --}}
                     <div class="border-t border-gray-100 bg-gray-50 px-4 py-2.5 dark:border-gray-800 dark:bg-gray-800/50">
                         <p class="text-[11px] text-slate-400 dark:text-slate-500">
-                            {{ $filledCount }} / {{ count($rows) }} item sudah diisi · unit: {{ \App\Filament\Casual\Pages\StockCardEntryPage::FLAG_UNITS[$flagUnit] ?? $flagUnit }}
+                            {{ $filledCount }} / {{ count($rows) }} item sudah diisi
                         </p>
                     </div>
 
+                </div>
+            @elseif(! $isSubmitted)
+                <div class="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-8 text-center dark:border-gray-700 dark:bg-gray-900">
+                    <p class="text-sm text-slate-400 dark:text-slate-500">Belum ada produk. Tambah produk di atas untuk mulai menghitung stok.</p>
                 </div>
             @endif
 
@@ -281,11 +287,8 @@
                     </div>
                 @else
                     <button wire:click="requestConfirm" wire:loading.attr="disabled"
-                            class="w-full rounded-2xl py-4 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60
-                                   {{ $esbFetched ? 'bg-blue-600 active:bg-blue-700' : 'cursor-not-allowed bg-slate-400' }}">
-                        <span wire:loading.remove wire:target="requestConfirm">
-                            {{ $esbFetched ? 'Simpan Stock Card' : 'Fetch ESB Dulu Sebelum Simpan' }}
-                        </span>
+                            class="w-full rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700 disabled:opacity-60">
+                        <span wire:loading.remove wire:target="requestConfirm">Simpan Stock Card</span>
                         <span wire:loading wire:target="requestConfirm">Memvalidasi...</span>
                     </button>
                 @endif

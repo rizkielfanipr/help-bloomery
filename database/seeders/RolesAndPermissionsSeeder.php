@@ -103,6 +103,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'access backoffice', 'access employee app briefing', 'access employee app sales report',
                 'view briefing items', 'edit briefing items',
                 'view sales reports', 'review sales reports as supervisor',
+                'view stock cards', 'review stock cards as supervisor',
                 'view employees', 'create employees', 'edit employees', 'delete employees',
             ]);
 
@@ -111,6 +112,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'access backoffice',
                 'view sales reports', 'review sales reports as finance',
                 'input sales settlements',
+                'view stock cards', 'review stock cards as finance',
             ]);
 
         $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, IT_STAFF, RND_STAFF, SUPERVISOR_STORE, FINANCE_STAFF');

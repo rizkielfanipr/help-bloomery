@@ -1,6 +1,7 @@
 @php
-    $submittedAt = $this->getDailyStatus();
-    $isDone = (bool) $submittedAt;
+    $card = $this->getDailyStatus();
+    $status = $card?->status;
+    $isDone = $status !== null && $status !== \App\Enums\StockCardStatus::Draft;
     $date = $reportDate ?: now()->toDateString();
 @endphp
 
@@ -64,7 +65,7 @@
                     </p>
                     <p class="text-xs {{ $isDone ? 'text-green-600 dark:text-green-500' : 'text-slate-400' }}">
                         @if($isDone)
-                            Sudah disubmit · {{ \Carbon\Carbon::parse($submittedAt)->locale('id')->isoFormat('HH:mm') }}
+                            {{ $status->getLabel() }}
                         @else
                             Belum diisi
                         @endif

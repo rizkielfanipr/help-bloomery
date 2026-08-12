@@ -18,13 +18,18 @@ class StockCardEntry extends Model
         'product_name',
         'system_qty',
         'system_unit',
+        'is_manual',
         'actual_qty',
+        'reported_qty',
         'notes',
+        'supervisor_notes',
     ];
 
     protected $casts = [
         'system_qty' => 'decimal:4',
         'actual_qty' => 'decimal:4',
+        'reported_qty' => 'decimal:4',
+        'is_manual' => 'boolean',
     ];
 
     public function stockCard(): BelongsTo
@@ -32,9 +37,10 @@ class StockCardEntry extends Model
         return $this->belongsTo(StockCard::class);
     }
 
+    /** Difference between the working qty (staff's report, or the Supervisor's correction) and ESB's system qty. */
     public function getVarianceAttribute(): ?float
     {
-        if ($this->actual_qty === null) {
+        if ($this->actual_qty === null || $this->system_qty === null) {
             return null;
         }
 

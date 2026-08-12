@@ -2,6 +2,7 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Enums\StockCardStatus;
 use App\Models\StockCard;
 use Carbon\Carbon;
 use Filament\Pages\Page;
@@ -82,7 +83,7 @@ class StockCardCalendarPage extends Page
             $dateKey = $current->toDateString();
             $isPast = $current->lte($today);
             $card = $cards->get($dateKey);
-            $isSubmitted = $card !== null;
+            $isSubmitted = $card !== null && $card->status !== StockCardStatus::Draft;
 
             if ($isPast) {
                 $isSubmitted ? $submittedCount++ : $missedCount++;

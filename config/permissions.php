@@ -50,7 +50,7 @@ return [
     ],
 
     'Inventory' => [
-        'Stock Card' => ['view stock cards', 'create stock cards', 'edit stock cards', 'delete stock cards'],
+        'Stock Card' => ['view stock cards', 'create stock cards', 'edit stock cards', 'delete stock cards', 'review stock cards as supervisor', 'review stock cards as finance'],
     ],
 
     'Finance' => [

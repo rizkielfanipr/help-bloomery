@@ -88,15 +88,11 @@
                 </tr>
             @endforelse
         </tbody>
-        <tbody class="additional-info-section">
-            <tr>
-                <th colspan="6">INFORMASI TAMBAHAN</th>
-            </tr>
-            <tr>
-                <td class="additional-info-content" colspan="6">
-                    @include('exports.partials.rnd-bom-instruction-cell', ['instruction' => $instruction, 'hasInstruction' => $hasInstruction])
-                </td>
-            </tr>
-        </tbody>
     </table>
+    <div class="additional-info-section">
+        <div class="additional-info-heading">INFORMASI TAMBAHAN</div>
+        <div class="additional-info-content">
+            @include('exports.partials.rnd-bom-instruction-cell', ['instruction' => $instruction, 'hasInstruction' => $hasInstruction])
+        </div>
+    </div>
 </div>

@@ -59,7 +59,7 @@
         .section-divider:first-child { margin-top: 0; }
 
         /* ─── BOM SECTION ─── */
-        .bom-section { margin-top: 10px; margin-bottom: 14px; page-break-inside: avoid; }
+        .bom-section { margin-top: 10px; margin-bottom: 14px; page-break-inside: auto; }
         .bom-table { border: 1.2px solid #111827; }
         .bom-table td,
         .bom-table th { border: 1px solid #cbd5e1 !important; }
@@ -86,8 +86,9 @@
         .no-bom { text-align: center; color: #94a3b8; padding: 12px; }
 
         /* ─── INFORMASI TAMBAHAN ─── */
-        .additional-info-section th { padding: 5px 8px !important; background: #f8fafc; color: #1e293b; font-size: 8pt; font-weight: 700; text-align: left; text-transform: uppercase; }
-        .additional-info-content { min-height: 36px; padding: 8px 10px !important; vertical-align: top; }
+        .additional-info-section { border-right: 1.2px solid #111827; border-bottom: 1.2px solid #111827; border-left: 1.2px solid #111827; page-break-inside: auto; }
+        .additional-info-heading { padding: 5px 8px; border-bottom: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; font-size: 8pt; font-weight: 700; text-align: left; text-transform: uppercase; page-break-after: avoid; }
+        .additional-info-content { min-height: 36px; padding: 8px 10px; vertical-align: top; page-break-inside: auto; }
         .instruction-content { font-size: 8.5pt; line-height: 1.5; color: #1e293b; }
         .instruction-content p { margin: 0 0 4px; }
         .instruction-content h1 { font-size: 11pt; font-weight: bold; margin: 0 0 4px; }

@@ -332,7 +332,7 @@ class SalesInformationPage extends Page
             return;
         }
 
-        $pair = BranchEsbCode::find($pairId);
+        $pair = BranchEsbCode::with('branch')->find($pairId);
 
         if (! $pair || ! $pair->esb_token) {
             $this->advanceBranch();
@@ -359,7 +359,7 @@ class SalesInformationPage extends Page
 
             $acc = $this->fetchAcc;
             foreach ($rows as $sale) {
-                $this->accumulateSale($acc, $sale);
+                $this->accumulateSale($acc, $sale, $pair);
             }
             $this->fetchAcc = $acc;
 
@@ -501,7 +501,7 @@ class SalesInformationPage extends Page
     }
 
     /** @param array<string, mixed> $acc */
-    private function accumulateSale(array &$acc, array $sale): void
+    private function accumulateSale(array &$acc, array $sale, BranchEsbCode $pair): void
     {
         $acc['hasData'] = true;
         $grandTotal = (float) ($sale['grandTotal'] ?? 0);
@@ -524,7 +524,8 @@ class SalesInformationPage extends Page
 
         $salesNumber = (string) ($sale['salesNum'] ?? '');
         $salesDate = (string) ($sale['salesDateOut'] ?? $sale['salesDateIn'] ?? $sale['salesDate'] ?? '');
-        $branchName = (string) ($sale['branchName'] ?? $sale['branchCode'] ?? 'Unknown');
+        $sourceBranchCode = (string) ($sale['branchCode'] ?? $pair->esb_branch_code);
+        $branchName = (string) ($pair->branch?->name ?? $sale['branchName'] ?? $sourceBranchCode);
         $transactionItemCount = (int) array_sum(array_map(
             fn (array $menu): int => (int) ($menu['qty'] ?? 0),
             $sale['salesMenus'] ?? [],
@@ -573,11 +574,10 @@ class SalesInformationPage extends Page
         $acc['visitPurposeByDate'][$date][$purpose]['revenue'] += $netRevenue;
 
         // Per-branch accumulation
-        $branchCode = $sale['branchCode'] ?? 'Unknown';
-        $branchName = $sale['branchName'] ?? $branchCode;
-        if (! isset($acc['branches'][$branchCode])) {
-            $acc['branches'][$branchCode] = [
-                'code' => $branchCode,
+        $branchKey = 'branch:'.$pair->branch_id;
+        if (! isset($acc['branches'][$branchKey])) {
+            $acc['branches'][$branchKey] = [
+                'codes' => [],
                 'name' => $branchName,
                 'revenue' => 0.0,
                 'transactions' => 0,
@@ -585,10 +585,11 @@ class SalesInformationPage extends Page
                 'discountTotal' => 0.0,
             ];
         }
-        $acc['branches'][$branchCode]['revenue'] += $netRevenue;
-        $acc['branches'][$branchCode]['transactions']++;
-        $acc['branches'][$branchCode]['pax'] += $pax;
-        $acc['branches'][$branchCode]['discountTotal'] += (float) ($sale['discountTotal'] ?? 0);
+        $acc['branches'][$branchKey]['codes'][$sourceBranchCode] = true;
+        $acc['branches'][$branchKey]['revenue'] += $netRevenue;
+        $acc['branches'][$branchKey]['transactions']++;
+        $acc['branches'][$branchKey]['pax'] += $pax;
+        $acc['branches'][$branchKey]['discountTotal'] += (float) ($sale['discountTotal'] ?? 0);
 
         // Promo accumulation
         $promoName = $sale['promotionName'] ?? null;
@@ -642,7 +643,7 @@ class SalesInformationPage extends Page
 
             // Populate cache with discovered payment methods
             if ($esbId) {
-                EsbPaymentMethodCache::upsertFromEsb($payment, $branchCode, $branchName);
+                EsbPaymentMethodCache::upsertFromEsb($payment, $sourceBranchCode, $branchName);
             }
 
             if (! isset($acc['paymentRows'][$method])) {
@@ -693,18 +694,22 @@ class SalesInformationPage extends Page
 
         $primaryBranches = $primary['branches'] ?? [];
         $comparisonBranches = $comparison['branches'] ?? [];
-        $branchCodes = collect(array_keys($primaryBranches))
+        $branchKeys = collect(array_keys($primaryBranches))
             ->merge(array_keys($comparisonBranches))
             ->unique();
-        $branchRows = $branchCodes->map(function (string $code) use ($primaryBranches, $comparisonBranches): array {
-            $current = $primaryBranches[$code] ?? [];
-            $previous = $comparisonBranches[$code] ?? [];
+        $branchRows = $branchKeys->map(function (string $branchKey) use ($primaryBranches, $comparisonBranches): array {
+            $current = $primaryBranches[$branchKey] ?? [];
+            $previous = $comparisonBranches[$branchKey] ?? [];
             $currentRevenue = (float) ($current['revenue'] ?? 0);
             $previousRevenue = (float) ($previous['revenue'] ?? 0);
+            $codes = array_unique(array_merge(
+                array_keys($current['codes'] ?? []),
+                array_keys($previous['codes'] ?? []),
+            ));
 
             return [
-                'code' => $code,
-                'name' => $current['name'] ?? $previous['name'] ?? $code,
+                'code' => implode(', ', $codes),
+                'name' => $current['name'] ?? $previous['name'] ?? $branchKey,
                 'currentRevenue' => $currentRevenue,
                 'comparisonRevenue' => $previousRevenue,
                 'revenueChange' => $previousRevenue != 0
@@ -763,7 +768,7 @@ class SalesInformationPage extends Page
 
         // Branch table
         $this->branchTable = array_values(array_map(fn ($b) => [
-            'code' => $b['code'],
+            'code' => implode(', ', array_keys($b['codes'])),
             'name' => $b['name'],
             'revenue' => $b['revenue'],
             'transactions' => $b['transactions'],

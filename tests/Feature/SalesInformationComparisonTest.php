@@ -353,3 +353,72 @@ it('prepares a complete menu ranking and transaction detail for xlsx export', fu
             'quantity' => 2,
         ]);
 });
+
+it('groups sales from three comcodes under their configured branch', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.COM_A' => 'token-a',
+        'esb.tokens.COM_B' => 'token-b',
+        'esb.tokens.COM_C' => 'token-c',
+    ]);
+
+    $branch = Branch::factory()->create(['name' => 'Bloomery Patisserie Tamansiswa']);
+    $branch->esbCodes()->createMany([
+        ['esb_branch_code' => 'ESB-A', 'esb_comcode' => 'COM_A'],
+        ['esb_branch_code' => 'ESB-B', 'esb_comcode' => 'COM_B'],
+        ['esb_branch_code' => 'ESB-C', 'esb_comcode' => 'COM_C'],
+    ]);
+
+    Http::fake(function (Request $request) {
+        $branchCode = $request->data()['branchCode'];
+        $amounts = ['ESB-A' => 100000, 'ESB-B' => 200000, 'ESB-C' => 300000];
+        $pax = ['ESB-A' => 1, 'ESB-B' => 2, 'ESB-C' => 3];
+
+        return Http::response([[
+            'salesNum' => 'SALE-'.$branchCode,
+            'salesDate' => '2026-06-01',
+            'salesDateOut' => '2026-06-01 10:00:00',
+            'grandTotal' => $amounts[$branchCode],
+            'paxTotal' => $pax[$branchCode],
+            'discountTotal' => 1000,
+            'menuDiscountTotal' => 1000,
+            'voucherDiscountTotal' => 0,
+            'visitPurposeName' => 'Dine In',
+            'branchCode' => $branchCode,
+            'branchName' => 'Different ESB Name '.$branchCode,
+            'salesMenus' => [],
+            'salesPayments' => [[
+                'paymentMethodName' => 'QRIS',
+                'paymentMethodTypeName' => 'QRIS',
+                'paymentAmount' => $amounts[$branchCode],
+                'paymentMethodID' => 2,
+            ]],
+        ]], 200, ['X-Pagination-Page-Count' => '1']);
+    });
+
+    $page = Livewire::test(SalesInformationPage::class)
+        ->set('selectedBranchIds', [$branch->id])
+        ->set('dateFrom', '2026-06-01')
+        ->set('dateTo', '2026-06-30')
+        ->call('fetch')
+        ->call('fetchNextPage')
+        ->call('fetchNextPage')
+        ->assertSet('fetched', true);
+
+    $branches = $page->get('branchTable');
+    $transactions = $page->get('salesTransactions');
+
+    expect($branches)->toHaveCount(1)
+        ->and($branches[0])->toMatchArray([
+            'code' => 'ESB-A, ESB-B, ESB-C',
+            'name' => 'Bloomery Patisserie Tamansiswa',
+            'revenue' => 600000.0,
+            'transactions' => 3,
+            'pax' => 6,
+            'avgPerTransaction' => 200000.0,
+            'avgPerPax' => 100000.0,
+            'discountTotal' => 3000.0,
+        ])
+        ->and(collect($transactions)->pluck('branch')->unique()->values()->all())
+        ->toBe(['Bloomery Patisserie Tamansiswa']);
+});

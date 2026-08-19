@@ -52,7 +52,7 @@ class BriefingSettingsPage extends Page
                             ->label('Mulai Penilaian Briefing')
                             ->required()
                             ->native(false)
-                            ->helperText('Khusus Juli 2026 diatur mulai 20 Juli 2026.')
+                            ->helperText('Khusus Juli 2026 diatur mulai 22 Juli 2026.')
                             ->columnSpanFull(),
                     ]),
 

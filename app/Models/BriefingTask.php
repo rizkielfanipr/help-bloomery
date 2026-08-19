@@ -112,25 +112,15 @@ class BriefingTask extends Model
     }
 
     /** @return Collection<int, self> */
-    public static function scoreableForBranch(int $branchId): Collection
+    public static function forScoringBranch(int $branchId): Collection
     {
-        $tasks = static::cached()->where('is_active', true);
-        $globalScoreableTasks = $tasks
-            ->whereNull('branch_id')
-            ->where('include_in_score', true);
-        $branchTasks = $tasks->where('branch_id', $branchId);
-
-        $resolvedTasks = $globalScoreableTasks->map(function (self $globalTask) use ($branchTasks): self {
-            return $branchTasks->first(fn (self $branchTask): bool => $branchTask->period === $globalTask->period
-                && $branchTask->sort_order === $globalTask->sort_order)
-                ?? $globalTask;
-        });
-
-        return $resolvedTasks
-            ->merge($branchTasks->where('include_in_score', true))
+        $tasks = collect(BriefingPeriod::cases())
+            ->flatMap(fn (BriefingPeriod $period): Collection => static::forPeriod($period, $branchId))
             ->unique('key')
             ->sortBy([['period', 'asc'], ['sort_order', 'asc']])
             ->values();
+
+        return new Collection($tasks->all());
     }
 
     /** @return Collection<int, self> */

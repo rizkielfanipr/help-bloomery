@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('briefing_settings', function (Blueprint $table) {
             $table->date('scoring_started_at')
-                ->default('2026-07-20')
+                ->default('2026-07-22')
                 ->after('auto_reject_after_days');
         });
     }

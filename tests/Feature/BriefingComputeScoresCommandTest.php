@@ -140,7 +140,7 @@ it('uses a branch-specific period weight override instead of the global default'
         ->and($score->score)->toBe(100.0);
 });
 
-it('excludes tasks that are not marked include_in_score', function () {
+it('includes every active point shown for the branch regardless of include_in_score', function () {
     $branch = Branch::factory()->create(['is_active' => true]);
     $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
@@ -153,6 +153,15 @@ it('excludes tasks that are not marked include_in_score', function () {
 
     for ($d = 1; $d <= $daysInMonth; $d++) {
         createDailyBriefingApproval($user, Carbon::create($year, $month, $d), 'scored');
+        BriefingItem::create([
+            'briefing_record_id' => BriefingRecord::where('user_id', $user->id)
+                ->whereDate('record_date', Carbon::create($year, $month, $d))
+                ->value('id'),
+            'task_key' => 'not_scored',
+            'is_completed' => true,
+            'completed_at' => Carbon::create($year, $month, $d),
+            'review_status' => BriefingReviewStatus::Approved->value,
+        ]);
     }
 
     $this->artisan('briefing:compute-scores', ['--year' => $year, '--month' => $month, '--branch' => $branch->id])
@@ -163,7 +172,8 @@ it('excludes tasks that are not marked include_in_score', function () {
     $taskKeys = collect($score->breakdown['daily']['tasks'])->pluck('key');
 
     expect($taskKeys)->toContain('scored')
-        ->and($taskKeys)->not->toContain('not_scored');
+        ->and($taskKeys)->toContain('not_scored')
+        ->and($score->score)->toBe(100.0);
 });
 
 it('scores the branch task that replaces a scoreable global task', function () {
@@ -216,10 +226,10 @@ it('starts the first scoring month from the configured launch date', function ()
     $branch = Branch::factory()->create(['is_active' => true]);
     $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
-    BriefingSettings::instance()->update(['scoring_started_at' => '2026-07-20']);
+    BriefingSettings::instance()->update(['scoring_started_at' => '2026-07-22']);
     BriefingTask::create(['key' => 'daily_launch', 'label' => 'Daily Launch', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
 
-    foreach (range(20, 31) as $day) {
+    foreach (range(22, 31) as $day) {
         createDailyBriefingApproval($user, Carbon::create(2026, 7, $day), 'daily_launch');
     }
 
@@ -230,10 +240,10 @@ it('starts the first scoring month from the configured launch date', function ()
     $daily = $score->breakdown['daily'];
 
     expect($score->score)->toBe(100.0)
-        ->and($daily['period_start'])->toBe('2026-07-20')
+        ->and($daily['period_start'])->toBe('2026-07-22')
         ->and($daily['period_end'])->toBe('2026-07-31')
-        ->and($daily['tasks'][0]['expected'])->toBe(12)
-        ->and($daily['tasks'][0]['approved'])->toBe(12);
+        ->and($daily['tasks'][0]['expected'])->toBe(10)
+        ->and($daily['tasks'][0]['approved'])->toBe(10);
 });
 
 it('does nothing for a branch with no scoreable tasks', function () {

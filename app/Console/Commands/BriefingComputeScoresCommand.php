@@ -63,7 +63,7 @@ class BriefingComputeScoresCommand extends Command
 
     private function computeForBranch(Branch $branch, int $year, int $month, Carbon $periodStart, Carbon $periodEnd): void
     {
-        $tasks = BriefingTask::scoreableForBranch($branch->id);
+        $tasks = BriefingTask::forScoringBranch($branch->id);
 
         if ($tasks->isEmpty()) {
             return;

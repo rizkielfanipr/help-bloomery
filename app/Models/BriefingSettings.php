@@ -30,7 +30,7 @@ class BriefingSettings extends Model
             'auto_reject_after_days' => 3,
             'auto_reject_reason' => 'Tidak ada approval dalam :days hari setelah poin diselesaikan.',
             'deadline_reject_reason' => 'Tidak ada input sebelum deadline.',
-            'scoring_started_at' => '2026-07-20',
+            'scoring_started_at' => '2026-07-22',
         ]);
     }
 

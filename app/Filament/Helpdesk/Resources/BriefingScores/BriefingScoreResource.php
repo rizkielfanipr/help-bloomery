@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -111,6 +112,9 @@ class BriefingScoreResource extends Resource
                     ->icon('heroicon-o-magnifying-glass')
                     ->iconButton()
                     ->tooltip('Lihat Detail Penilaian')
+                    ->modalWidth(Width::FiveExtraLarge)
+                    ->stickyModalHeader()
+                    ->stickyModalFooter()
                     ->modalHeading(fn (BriefingScore $record): string => 'Detail Nilai — '.$record->branch->name.' ('.$record->monthLabel().')')
                     ->modalContent(fn (BriefingScore $record) => view('filament.helpdesk.briefing-scores.breakdown-modal', ['record' => $record]))
                     ->modalSubmitAction(false)

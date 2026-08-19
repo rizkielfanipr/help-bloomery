@@ -16,6 +16,7 @@ class StockCardEntry extends Model
         'stock_card_id',
         'product_code',
         'product_name',
+        'product_category',
         'system_qty',
         'system_unit',
         'is_manual',

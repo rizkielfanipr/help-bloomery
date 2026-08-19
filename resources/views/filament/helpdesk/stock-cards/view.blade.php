@@ -33,7 +33,7 @@
             </div>
         </div>
 
-        <div class="grid gap-x-8 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="grid gap-x-8 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-6">
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Branch</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->branch->name }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Report Date</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->report_date->isoFormat('D MMMM Y') }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Submitted By</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->submittedBy?->name ?? '-' }}</p></div>
@@ -49,6 +49,11 @@
                     {{ $record->system_fetched_at?->isoFormat('D MMM Y, HH:mm') ?? 'Belum diambil' }}
                 </p>
             </div>
+            <div>
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Product Source</p>
+                <p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">Daily Usage 1 Bulan</p>
+                <p class="text-xs text-gray-400">{{ $record->report_date->copy()->subMonthNoOverflow()->format('d M Y') }}–{{ $record->report_date->format('d M Y') }}</p>
+            </div>
         </div>
 
         @if($record->status === \App\Enums\StockCardStatus::PendingSupervisor && ! $record->system_fetched_at)
@@ -62,7 +67,7 @@
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Stock Opname Reconciliation</h2>
-            <p class="mt-1 text-xs text-gray-400">Qty yang dilaporkan staff dibandingkan dengan data sistem ESB. Supervisor correction diproses di sini.</p>
+            <p class="mt-1 text-xs text-gray-400">Daftar produk berasal dari Daily Usage satu bulan terakhir: semua Barang WIP dan 30 produk kategori lain yang paling aktif. Qty harian tetap dibandingkan dengan data ESB tanggal laporan.</p>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-sm">
@@ -86,7 +91,7 @@
                         <tr wire:key="entry-{{ $entry->id }}" class="align-top">
                             <td class="px-4 py-3">
                                 <p class="font-medium text-gray-800 dark:text-gray-200">{{ $entry->product_name }}</p>
-                                <p class="text-xs text-gray-400">{{ $entry->product_code }} &middot; {{ $entry->system_unit }}</p>
+                                <p class="text-xs text-gray-400">{{ $entry->product_code }} &middot; {{ $entry->product_category ?: 'Tanpa Kategori' }} &middot; {{ $entry->system_unit }}</p>
                             </td>
                             <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $fmtQty($entry->reported_qty) }}</td>
                             <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $entry->system_qty === null ? '-' : $fmtQty($entry->system_qty) }}</td>

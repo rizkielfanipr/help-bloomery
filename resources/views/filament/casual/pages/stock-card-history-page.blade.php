@@ -139,6 +139,12 @@
                                                 {{ $card->system_fetched_at?->locale('id')->isoFormat('D MMM, HH:mm') ?? 'Belum diambil' }}
                                             </p>
                                         </div>
+                                        <div class="flex items-start justify-between gap-3">
+                                            <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Sumber Produk</p>
+                                            <p class="text-right text-xs text-gray-700 dark:text-gray-300">
+                                                Daily Usage {{ $card->report_date->copy()->subMonthNoOverflow()->format('d M') }}–{{ $card->report_date->format('d M Y') }}
+                                            </p>
+                                        </div>
                                         @if($card->revision_number > 0)
                                             <div class="flex items-start justify-between gap-3">
                                                 <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Revisi</p>
@@ -176,7 +182,7 @@
                                                         <td class="max-w-[120px] px-3 py-2 align-top">
                                                             <p class="truncate font-medium text-gray-700 dark:text-gray-300">{{ $entry->product_name }}</p>
                                                             @if($entry->product_code)
-                                                                <p class="truncate text-[9px] text-gray-400">{{ $entry->product_code }}</p>
+                                                                <p class="truncate text-[9px] text-gray-400">{{ $entry->product_code }} · {{ $entry->product_category ?: 'Tanpa Kategori' }}</p>
                                                             @endif
                                                             @if($entry->notes)
                                                                 <p class="mt-1 text-[9px] italic leading-tight text-gray-400 dark:text-gray-500">Staff: {{ $entry->notes }}</p>

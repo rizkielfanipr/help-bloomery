@@ -11,8 +11,10 @@ use App\Models\Employee;
 use App\Models\StockCard;
 use App\Models\StockCardEntry;
 use App\Models\User;
+use App\Services\EsbService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -78,7 +80,14 @@ it('persists progress as a draft so a refresh does not lose it', function () {
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
-        ->call('addProduct', 'MAT-001', 'Ayam', 'KG')
+        ->set('rows', [[
+            'product_code' => 'MAT-001',
+            'product_name' => 'Ayam',
+            'product_category' => 'Barang WIP',
+            'system_unit' => 'KG',
+            'actual_qty' => '',
+            'notes' => '',
+        ]])
         ->set('rows.0.actual_qty', '5')
         ->set('rows.0.notes', 'Catatan uji')
         ->set('employeeIds', [$this->employee->id]);
@@ -87,20 +96,20 @@ it('persists progress as a draft so a refresh does not lose it', function () {
     Livewire::test(StockCardEntryPage::class)
         ->assertSet('isSubmitted', false)
         ->assertSet('rows', [
-            ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => 'Catatan uji'],
+            ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'product_category' => 'Barang WIP', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => 'Catatan uji'],
         ])
         ->assertSet('employeeIds', [$this->employee->id]);
 });
 
-it('removes the draft entry from the database when the product is removed before it is filled', function () {
+it('does not expose manual product add or remove actions', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
-    Livewire::test(StockCardEntryPage::class)
-        ->call('addProduct', 'MAT-001', 'Ayam', 'KG')
-        ->call('removeProduct', 'MAT-001');
+    $page = Livewire::test(StockCardEntryPage::class);
 
-    expect(StockCardEntry::where('product_code', 'MAT-001')->exists())->toBeFalse();
+    expect(method_exists($page->instance(), 'addProduct'))->toBeFalse()
+        ->and(method_exists($page->instance(), 'removeProduct'))->toBeFalse()
+        ->and(method_exists($page->instance(), 'searchProducts'))->toBeFalse();
 });
 
 it('blocks requestConfirm when no product has been added', function () {
@@ -108,6 +117,7 @@ it('blocks requestConfirm when no product has been added', function () {
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
+        ->set('catalogLoaded', true)
         ->call('requestConfirm')
         ->assertNotified();
 });
@@ -120,6 +130,7 @@ it('blocks save when a row has empty actual_qty', function () {
         ->set('rows', [
             ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '', 'notes' => ''],
         ])
+        ->set('catalogLoaded', true)
         ->call('requestConfirm')
         ->assertNotified();
 });
@@ -134,6 +145,7 @@ it('saves stock card with entries and marks as submitted', function () {
             ['product_code' => 'MAT-002', 'product_name' => 'Beras', 'system_unit' => 'KG', 'actual_qty' => '9', 'notes' => 'Tercecer saat pindah'],
         ])
         ->set('employeeIds', [$this->employee->id])
+        ->set('catalogLoaded', true)
         ->call('requestConfirm')
         ->call('save')
         ->assertSet('isSubmitted', true);
@@ -161,6 +173,7 @@ it('requires at least one staff in charge before confirming submission', functio
             ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
         ])
         ->set('employeeIds', [])
+        ->set('catalogLoaded', true)
         ->call('requestConfirm')
         ->assertHasErrors(['employeeIds']);
 });
@@ -176,15 +189,47 @@ it('rejects an employee id that does not belong to an active employee on the bra
             ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
         ])
         ->set('employeeIds', [$otherBranchEmployee->id])
+        ->set('catalogLoaded', true)
         ->call('requestConfirm')
         ->assertHasErrors(['employeeIds.0']);
 });
 
-it('searches master products via the Core login-based API and excludes ones already in the list', function () {
+it('loads the rolling Daily Usage catalog into the stock card application', function () {
     config()->set([
-        'esb.core.base_url' => 'https://core-esb.test',
-        'esb.core.username' => 'integration-user',
-        'esb.core.password' => 'integration-password',
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.COM01' => 'branch-token',
+        'esb.master_product.base_url' => 'https://master-product.test',
+        'esb.master_product.token' => 'static-token',
+    ]);
+
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    actingAs($this->storeUser);
+
+    (new EsbService)->cacheStockCardCatalog($this->branch, now(), 'stockUnit', [
+        'products' => [[
+            'product_code' => 'WIP-001',
+            'product_name' => 'Adonan Croissant',
+            'category' => 'Barang WIP',
+            'unit' => 'KG',
+            'usage_days' => 1,
+            'total_qty' => 2.0,
+        ]],
+        'period_from' => now()->subMonthNoOverflow()->toDateString(),
+        'period_to' => now()->toDateString(),
+        'failed_requests' => 0,
+    ]);
+
+    Livewire::test(StockCardEntryPage::class)
+        ->call('loadProductCatalog')
+        ->assertSet('catalogLoaded', true)
+        ->assertSet('rows.0.product_code', 'WIP-001')
+        ->assertSet('rows.0.product_category', 'Barang WIP');
+});
+
+it('loads Daily Usage progressively and exposes its progress to the application', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.COM01' => 'branch-token',
         'esb.master_product.base_url' => 'https://master-product.test',
         'esb.master_product.token' => 'static-token',
     ]);
@@ -193,70 +238,134 @@ it('searches master products via the Core login-based API and excludes ones alre
     actingAs($this->storeUser);
 
     Http::fake([
-        'https://core-esb.test/auth/login' => Http::response([
-            'status' => 'ok',
-            'result' => ['accessToken' => 'access-token'],
-        ]),
-        'https://core-esb.test/product/list*' => Http::response([
-            'status' => 'ok',
-            'result' => [
-                'page' => 1,
-                'limit' => 20,
-                'count' => 1,
-                'data' => [['productID' => 1, 'productCode' => 'MAT-001', 'productName' => 'Ayam Fillet']],
-                'prev' => '',
-                'next' => '',
-            ],
-        ]),
+        'https://sales-esb.test/corev1/sales/get-daily-sales-material-usage*' => Http::response([[
+            'productCode' => 'WIP-001',
+            'productName' => 'Adonan Croissant',
+            'totalQty' => 2,
+            'unit' => 'KG',
+        ]]),
         'https://master-product.test/corev1/master/product*' => Http::response([
             'status' => 'ok',
             'result' => [
                 'page' => 1,
                 'data' => [[
                     'productID' => 1,
-                    'productCode' => 'MAT-001',
-                    'productName' => 'Ayam Fillet',
-                    'productDetails' => [['productDetailID' => 101, 'unit' => 'KG', 'conversionFactor' => 1, 'basePrice' => 50000]],
+                    'productCode' => 'WIP-001',
+                    'productName' => 'Adonan Croissant',
+                    'categoryName' => 'Barang WIP',
+                    'productDetails' => [],
                 ]],
                 'next' => '',
             ],
         ]),
     ]);
 
-    Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [
-            ['product_code' => 'MAT-001', 'product_name' => 'Sudah Ada', 'system_unit' => 'KG', 'actual_qty' => '', 'notes' => ''],
-        ])
-        ->set('productSearch', 'Ayam')
-        ->assertSet('productSearchResults', []);
-});
-
-it('adds a product and removes it while unfilled', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
-    actingAs($this->storeUser);
-
+    $pairId = $this->branch->esbCodes()->value('id');
     $page = Livewire::test(StockCardEntryPage::class)
-        ->call('addProduct', 'MAN-001', 'Gula', 'KG')
-        ->assertSet('rows', [
-            ['product_code' => 'MAN-001', 'product_name' => 'Gula', 'system_unit' => 'KG', 'actual_qty' => '', 'notes' => ''],
-        ]);
+        ->call('loadProductCatalog')
+        ->assertSet('catalogLoading', true)
+        ->assertSet('catalogTaskIndex', 0);
 
-    $page->call('removeProduct', 'MAN-001')
-        ->assertSet('rows', []);
+    $page
+        ->set('catalogPairIds', [$pairId])
+        ->set('catalogDates', [now()->toDateString()])
+        ->set('catalogTaskTotal', 1)
+        ->call('fetchNextCatalogUsage')
+        ->assertSet('catalogLoading', true)
+        ->assertSet('catalogPhase', 'category')
+        ->assertSet('catalogCategoryTotal', 1)
+        ->call('fetchNextCatalogUsage')
+        ->assertSet('catalogLoading', false)
+        ->assertSet('catalogLoaded', true)
+        ->assertSet('catalogTaskIndex', 1)
+        ->assertSet('rows.0.product_code', 'WIP-001');
+
+    expect(Cache::has($page->get('catalogFetchKey') ?? 'missing'))->toBeFalse();
 });
 
-it('does not remove a product once its actual qty has been filled in', function () {
+it('uses a moving one month window and keeps all WIP plus 30 other products', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.COM01' => 'branch-token',
+        'esb.master_product.base_url' => 'https://master-product.test',
+        'esb.master_product.token' => 'static-token',
+    ]);
+
+    $usageRows = collect(range(1, 39))->map(fn (int $number): array => [
+        'productCode' => 'PRD-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT),
+        'productName' => 'Product '.$number,
+        'totalQty' => $number,
+        'unit' => 'PCS',
+    ])->all();
+    $masterProducts = collect($usageRows)->map(function (array $row, int $index): array {
+        $number = $index + 1;
+
+        return [
+            'productID' => $number,
+            'productCode' => $row['productCode'],
+            'productName' => $row['productName'],
+            'categoryName' => $number <= 4 ? 'Barang WIP' : 'Bahan Baku',
+            'productDetails' => [[
+                'productDetailID' => $number,
+                'unit' => 'PCS',
+                'conversionFactor' => 1,
+                'basePrice' => 1000,
+            ]],
+        ];
+    })->all();
+
+    Http::fake([
+        'https://sales-esb.test/corev1/sales/get-daily-sales-material-usage*' => Http::response($usageRows),
+        'https://master-product.test/corev1/master/product*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1,
+                'limit' => 100,
+                'count' => count($masterProducts),
+                'data' => $masterProducts,
+                'next' => '',
+            ],
+        ]),
+    ]);
+
+    $catalog = (new EsbService)->getRollingStockCardProductsForBranch(
+        $this->branch,
+        '2026-08-10',
+    );
+
+    $products = collect($catalog['products']);
+
+    expect($catalog['period_from'])->toBe('2026-07-10')
+        ->and($catalog['period_to'])->toBe('2026-08-10')
+        ->and($products)->toHaveCount(34)
+        ->and($products->where('category', 'Barang WIP'))->toHaveCount(4)
+        ->and($products->where('category', 'Bahan Baku'))->toHaveCount(30)
+        ->and($products->pluck('product_code')->unique())->toHaveCount(34)
+        ->and($products->pluck('product_code'))->toContain('PRD-039')
+        ->and($products->pluck('product_code'))->not->toContain('PRD-005');
+});
+
+it('preserves filled draft rows that are no longer returned by the rolling catalog', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
-        ->call('addProduct', 'MAN-001', 'Gula', 'KG')
-        ->set('rows.0.actual_qty', '3')
-        ->call('removeProduct', 'MAN-001')
-        ->assertSet('rows.0.product_code', 'MAN-001');
+        ->set('rows', [[
+            'product_code' => 'OLD-001',
+            'product_name' => 'Draft Lama',
+            'product_category' => 'Bahan Baku',
+            'system_unit' => 'KG',
+            'actual_qty' => '3',
+            'notes' => '',
+        ]])
+        ->set('employeeIds', [$this->employee->id]);
+
+    Livewire::test(StockCardEntryPage::class)
+        ->assertSet('rows.0.product_code', 'OLD-001')
+        ->assertSet('rows.0.actual_qty', '3');
 });
 
-it('always marks entries as manual since there is no ESB usage baseline at entry time', function () {
+it('marks rolling Daily Usage entries as automatic products', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
@@ -265,13 +374,14 @@ it('always marks entries as manual since there is no ESB usage baseline at entry
             ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
         ])
         ->set('employeeIds', [$this->employee->id])
+        ->set('catalogLoaded', true)
         ->call('requestConfirm')
         ->call('save')
         ->assertSet('isSubmitted', true);
 
     $entry = StockCardEntry::where('product_code', 'MAT-001')->first();
 
-    expect($entry->is_manual)->toBeTrue()
+    expect($entry->is_manual)->toBeFalse()
         ->and($entry->system_qty)->toBeNull();
 });
 
@@ -377,6 +487,7 @@ it('shows the staff in charge in the back office list and detail view', function
             ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
         ])
         ->set('employeeIds', [$this->employee->id])
+        ->set('catalogLoaded', true)
         ->call('requestConfirm')
         ->call('save')
         ->assertSet('isSubmitted', true);

@@ -4,9 +4,11 @@ namespace App\Services;
 
 use App\Models\Branch;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -853,6 +855,192 @@ class EsbService
         }
 
         return ['rows' => array_values($totals), 'ok' => $ok];
+    }
+
+    /**
+     * Build the rolling product catalog used by the Stock Card application.
+     *
+     * @return array{products: list<array{product_code: string, product_name: string, category: string, unit: string, usage_days: int, total_qty: float}>, period_from: string, period_to: string, failed_requests: int}
+     */
+    public function getRollingStockCardProductsForBranch(
+        Branch $branch,
+        CarbonInterface|string $reportDate,
+        string $flagUnit = 'stockUnit',
+    ): array {
+        $periodTo = CarbonImmutable::parse($reportDate)->startOfDay();
+        $periodFrom = $periodTo->subMonthNoOverflow();
+        $cacheKey = $this->stockCardCatalogCacheKey($branch, $periodTo, $flagUnit);
+
+        return Cache::remember($cacheKey, now()->addHours(12), function () use ($branch, $periodFrom, $periodTo, $flagUnit): array {
+            $pairs = $branch->activeEsbCodes()->filter(fn ($pair): bool => filled($pair->esb_token))->values();
+
+            if ($pairs->isEmpty()) {
+                throw new \RuntimeException('Branch belum memiliki konfigurasi ESB aktif.');
+            }
+
+            $requests = [];
+            for ($date = $periodFrom; $date->lte($periodTo); $date = $date->addDay()) {
+                foreach ($pairs as $pair) {
+                    $requests[] = ['date' => $date->toDateString(), 'pair' => $pair];
+                }
+            }
+
+            $products = [];
+            $successfulRequests = 0;
+            $failedRequests = 0;
+
+            foreach (array_chunk($requests, 8) as $requestChunk) {
+                $responses = Http::pool(fn (Pool $pool): array => array_map(
+                    fn (array $request) => $pool
+                        ->withHeaders([
+                            'Authorization' => 'Bearer '.$request['pair']->esb_token,
+                            'Content-Type' => 'application/json',
+                        ])
+                        ->connectTimeout(5)
+                        ->timeout(15)
+                        ->get($this->baseUrl.'/corev1/sales/get-daily-sales-material-usage', [
+                            'branchCode' => $request['pair']->esb_branch_code,
+                            'salesDate' => $request['date'],
+                            'flagUnit' => $flagUnit,
+                        ]),
+                    $requestChunk,
+                ));
+
+                foreach ($responses as $index => $response) {
+                    $request = $requestChunk[$index];
+                    if (! $response instanceof Response || $response->failed()) {
+                        $failedRequests++;
+
+                        continue;
+                    }
+
+                    $successfulRequests++;
+                    foreach ($response->json() ?? [] as $row) {
+                        $productCode = trim((string) ($row['productCode'] ?? ''));
+                        $productName = trim((string) ($row['productName'] ?? ''));
+                        if ($productCode === '' || $productName === '') {
+                            continue;
+                        }
+
+                        if (! isset($products[$productCode])) {
+                            $products[$productCode] = [
+                                'product_code' => $productCode,
+                                'product_name' => $productName,
+                                'category' => trim((string) ($row['categoryName'] ?? $row['productCategoryName'] ?? '')),
+                                'unit' => (string) ($row['unit'] ?? $row['unitConversion'] ?? ''),
+                                'usage_dates' => [],
+                                'total_qty' => 0.0,
+                            ];
+                        }
+
+                        $products[$productCode]['usage_dates'][$request['date']] = true;
+                        $products[$productCode]['total_qty'] += (float) ($row['totalQty'] ?? 0);
+                    }
+                }
+            }
+
+            if ($successfulRequests === 0) {
+                throw new \RuntimeException('Riwayat Daily Usage ESB tidak dapat diambil. Silakan coba kembali.');
+            }
+
+            return $this->buildStockCardProductCatalog(
+                $products,
+                $periodFrom->toDateString(),
+                $periodTo->toDateString(),
+                $failedRequests,
+            );
+        });
+    }
+
+    public function stockCardCatalogCacheKey(Branch $branch, CarbonInterface|string $reportDate, string $flagUnit = 'stockUnit'): string
+    {
+        $periodTo = CarbonImmutable::parse($reportDate)->startOfDay();
+
+        return implode(':', [
+            'stock-card-catalog-v1',
+            $branch->id,
+            $periodTo->subMonthNoOverflow()->toDateString(),
+            $periodTo->toDateString(),
+            $flagUnit,
+        ]);
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getCachedStockCardCatalog(Branch $branch, CarbonInterface|string $reportDate, string $flagUnit = 'stockUnit'): ?array
+    {
+        return Cache::get($this->stockCardCatalogCacheKey($branch, $reportDate, $flagUnit));
+    }
+
+    /** @param array<string, mixed> $catalog */
+    public function cacheStockCardCatalog(Branch $branch, CarbonInterface|string $reportDate, string $flagUnit, array $catalog): void
+    {
+        Cache::put($this->stockCardCatalogCacheKey($branch, $reportDate, $flagUnit), $catalog, now()->addHours(12));
+    }
+
+    /**
+     * @param  array<string, array{product_code: string, product_name: string, category: string, unit: string, usage_dates: array<string, bool>, total_qty: float}>  $products
+     * @return array{products: list<array{product_code: string, product_name: string, category: string, unit: string, usage_days: int, total_qty: float}>, period_from: string, period_to: string, failed_requests: int}
+     */
+    public function buildStockCardProductCatalog(
+        array $products,
+        string $periodFrom,
+        string $periodTo,
+        int $failedRequests = 0,
+        bool $enrichCategories = true,
+    ): array {
+        if ($enrichCategories) {
+            try {
+                $details = Cache::remember(
+                    'stock-card-master-product-details-v1',
+                    now()->addHours(6),
+                    fn (): array => $this->getActiveProductDetails(),
+                );
+                $categoriesByCode = collect($details)
+                    ->filter(fn (array $detail): bool => filled($detail['productCode'] ?? null))
+                    ->mapWithKeys(fn (array $detail): array => [
+                        (string) $detail['productCode'] => (string) ($detail['categoryName'] ?? ''),
+                    ]);
+
+                foreach ($products as $productCode => &$product) {
+                    $product['category'] = $categoriesByCode->get($productCode, $product['category']);
+                }
+                unset($product);
+            } catch (\Throwable $exception) {
+                throw new \RuntimeException(
+                    'Kategori produk dari Master Product ESB tidak dapat diambil. Silakan coba kembali.',
+                    0,
+                    $exception,
+                );
+            }
+        }
+
+        $catalog = collect($products)->map(fn (array $product): array => [
+            'product_code' => $product['product_code'],
+            'product_name' => $product['product_name'],
+            'category' => $product['category'] !== '' ? $product['category'] : 'Tanpa Kategori',
+            'unit' => $product['unit'],
+            'usage_days' => count($product['usage_dates']),
+            'total_qty' => $product['total_qty'],
+        ]);
+
+        $wipProducts = $catalog
+            ->filter(fn (array $product): bool => mb_strtolower(trim($product['category'])) === 'barang wip')
+            ->sortBy('product_name', SORT_NATURAL | SORT_FLAG_CASE);
+        $otherProducts = $catalog
+            ->reject(fn (array $product): bool => mb_strtolower(trim($product['category'])) === 'barang wip')
+            ->sortBy([
+                ['usage_days', 'desc'],
+                ['total_qty', 'desc'],
+                ['product_name', 'asc'],
+            ])
+            ->take(30);
+
+        return [
+            'products' => $wipProducts->concat($otherProducts)->values()->all(),
+            'period_from' => $periodFrom,
+            'period_to' => $periodTo,
+            'failed_requests' => $failedRequests,
+        ];
     }
 
     public function isConfigured(): bool

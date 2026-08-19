@@ -115,6 +115,9 @@ class BriefingScoreResource extends Resource
                     ->modalWidth(Width::FiveExtraLarge)
                     ->stickyModalHeader()
                     ->stickyModalFooter()
+                    ->extraModalWindowAttributes([
+                        'style' => 'max-height: calc(100dvh - 2rem); overflow: hidden;',
+                    ])
                     ->modalHeading(fn (BriefingScore $record): string => 'Detail Nilai — '.$record->branch->name.' ('.$record->monthLabel().')')
                     ->modalContent(fn (BriefingScore $record) => view('filament.helpdesk.briefing-scores.breakdown-modal', ['record' => $record]))
                     ->modalSubmitAction(false)

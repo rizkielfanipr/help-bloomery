@@ -3,7 +3,10 @@
     $periodOrder = ['daily', 'weekly', 'monthly'];
 @endphp
 
-<div class="max-h-[70vh] space-y-4 overflow-y-auto overscroll-contain py-2 pr-1">
+<div
+    class="space-y-4 py-2 pr-1"
+    style="max-height: calc(100dvh - 14rem); overflow-y: auto; overscroll-behavior: contain;"
+>
 
     {{-- Score summary --}}
     <div class="flex items-center gap-4 rounded-xl p-4 {{ $record->isPassing() ? 'bg-emerald-50 dark:bg-emerald-500/10' : 'bg-red-50 dark:bg-red-500/10' }}">

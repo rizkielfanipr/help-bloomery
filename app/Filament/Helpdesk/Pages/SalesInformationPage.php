@@ -108,6 +108,15 @@ class SalesInformationPage extends Page
     /** @var array{labels: list<string>, data: list<int>} */
     public array $chartTopMenus = ['labels' => [], 'data' => []];
 
+    /** @var list<array{rank: int, name: string, quantity: int, percentage: float}> */
+    public array $menuRanking = [];
+
+    /** @var list<array{salesNumber: string, salesDate: string, branch: string, visitPurpose: string, pax: int, totalItems: int, grandTotal: float, discountTotal: float, paymentTotal: float, paymentMethods: string}> */
+    public array $salesTransactions = [];
+
+    /** @var list<array{salesNumber: string, salesDate: string, branch: string, menu: string, category: string, subCategory: string, quantity: int, total: float}> */
+    public array $salesTransactionMenus = [];
+
     /** @var array{labels: list<string>, data: list<float>} */
     public array $chartPaymentMix = ['labels' => [], 'data' => []];
 
@@ -424,6 +433,9 @@ class SalesInformationPage extends Page
         $this->dispatch('sales-loaded',
             revenueTrend: $this->chartRevenueTrend,
             topMenus: $this->chartTopMenus,
+            menuRanking: $this->menuRanking,
+            salesTransactions: $this->salesTransactions,
+            salesTransactionMenus: $this->salesTransactionMenus,
             paymentMix: $this->chartPaymentMix,
             peakHours: $this->chartPeakHours,
             categories: $this->chartCategories,
@@ -483,6 +495,8 @@ class SalesInformationPage extends Page
             'branches' => [],
             'promos' => [],
             'categoryDetailMap' => [],
+            'salesTransactions' => [],
+            'salesTransactionMenus' => [],
         ];
     }
 
@@ -507,6 +521,32 @@ class SalesInformationPage extends Page
             $sale['salesPayments'] ?? [],
         ));
         $netRevenue = $paymentTotal > 0 ? $paymentTotal : $grandTotal;
+
+        $salesNumber = (string) ($sale['salesNum'] ?? '');
+        $salesDate = (string) ($sale['salesDateOut'] ?? $sale['salesDateIn'] ?? $sale['salesDate'] ?? '');
+        $branchName = (string) ($sale['branchName'] ?? $sale['branchCode'] ?? 'Unknown');
+        $transactionItemCount = (int) array_sum(array_map(
+            fn (array $menu): int => (int) ($menu['qty'] ?? 0),
+            $sale['salesMenus'] ?? [],
+        ));
+        $paymentMethods = collect($sale['salesPayments'] ?? [])
+            ->pluck('paymentMethodName')
+            ->filter()
+            ->unique()
+            ->implode(', ');
+
+        $acc['salesTransactions'][] = [
+            'salesNumber' => $salesNumber,
+            'salesDate' => $salesDate,
+            'branch' => $branchName,
+            'visitPurpose' => (string) ($sale['visitPurposeName'] ?: 'Lainnya'),
+            'pax' => $pax,
+            'totalItems' => $transactionItemCount,
+            'grandTotal' => $grandTotal,
+            'discountTotal' => (float) ($sale['discountTotal'] ?? 0),
+            'paymentTotal' => $netRevenue,
+            'paymentMethods' => $paymentMethods,
+        ];
 
         $acc['revenue'] += $netRevenue;
         $acc['transactions']++;
@@ -579,6 +619,17 @@ class SalesInformationPage extends Page
             }
             $acc['categoryDetailMap'][$cat][$subCat][$menuName]['qty'] += $qty;
             $acc['categoryDetailMap'][$cat][$subCat][$menuName]['revenue'] += (float) ($menu['total'] ?? 0);
+
+            $acc['salesTransactionMenus'][] = [
+                'salesNumber' => $salesNumber,
+                'salesDate' => $salesDate,
+                'branch' => $branchName,
+                'menu' => $menuName,
+                'category' => $cat,
+                'subCategory' => $subCat,
+                'quantity' => $qty,
+                'total' => (float) ($menu['total'] ?? 0),
+            ];
         }
 
         foreach ($sale['salesPayments'] ?? [] as $payment) {
@@ -727,6 +778,18 @@ class SalesInformationPage extends Page
 
         // Charts
         $top10 = array_slice($acc['menuQty'], 0, 10, true);
+        $totalMenuQuantity = array_sum($acc['menuQty']);
+        $this->menuRanking = [];
+        foreach ($acc['menuQty'] as $menuName => $quantity) {
+            $this->menuRanking[] = [
+                'rank' => count($this->menuRanking) + 1,
+                'name' => $menuName,
+                'quantity' => $quantity,
+                'percentage' => $totalMenuQuantity > 0 ? ($quantity / $totalMenuQuantity) * 100 : 0.0,
+            ];
+        }
+        $this->salesTransactions = $acc['salesTransactions'];
+        $this->salesTransactionMenus = $acc['salesTransactionMenus'];
         $top15SubCats = array_slice($acc['subCategoryRevenue'], 0, 15, true);
 
         ksort($acc['categoryDetailMap']);

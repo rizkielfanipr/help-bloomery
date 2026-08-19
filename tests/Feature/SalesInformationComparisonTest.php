@@ -184,7 +184,9 @@ it('accumulates revenue per visit purpose alongside the transaction count', func
         ->set('dateTo', '2026-06-30')
         ->call('fetch')
         ->call('fetchNextPage')
-        ->assertSet('fetched', true);
+        ->assertSet('fetched', true)
+        ->assertSee('Seluruh Transaksi')
+        ->assertSee('Detail Menu Transaksi');
 
     $chart = $page->get('chartVisitPurpose');
 
@@ -243,4 +245,111 @@ it('breaks visit purpose down per date across the selected period', function () 
         ['date' => '2026-06-01', 'purpose' => 'Takeaway', 'count' => 1, 'revenue' => 40000.0],
         ['date' => '2026-06-02', 'purpose' => 'Dine In', 'count' => 1, 'revenue' => 70000.0],
     ]);
+});
+
+it('prepares a complete menu ranking and transaction detail for xlsx export', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.TESTCO' => 'branch-token',
+    ]);
+
+    $branch = Branch::factory()->create(['name' => 'Bloomery Test']);
+    $branch->esbCodes()->create(['esb_branch_code' => 'BTST', 'esb_comcode' => 'TESTCO']);
+
+    $menus = collect(range(1, 12))->map(fn (int $number): array => [
+        'qty' => 13 - $number,
+        'menuName' => 'Menu '.str_pad((string) $number, 2, '0', STR_PAD_LEFT),
+        'menuCategoryName' => 'Food',
+        'menuCategoryDetailName' => 'Main Course',
+        'total' => (13 - $number) * 10000,
+    ])->all();
+
+    Http::fake(fn () => Http::response([
+        [
+            'salesNum' => 'SALE-001',
+            'salesDate' => '2026-06-01',
+            'salesDateOut' => '2026-06-01 10:15:00',
+            'grandTotal' => 780000,
+            'paxTotal' => 3,
+            'discountTotal' => 20000,
+            'menuDiscountTotal' => 20000,
+            'voucherDiscountTotal' => 0,
+            'visitPurposeName' => 'Dine In',
+            'branchCode' => 'BTST',
+            'branchName' => 'Bloomery Test',
+            'salesMenus' => $menus,
+            'salesPayments' => [
+                [
+                    'paymentMethodName' => 'CASH',
+                    'paymentMethodTypeName' => 'Cash',
+                    'paymentAmount' => 400000,
+                    'paymentMethodID' => 1,
+                ],
+                [
+                    'paymentMethodName' => 'QRIS',
+                    'paymentMethodTypeName' => 'QRIS',
+                    'paymentAmount' => 380000,
+                    'paymentMethodID' => 2,
+                ],
+            ],
+        ],
+        [
+            'salesNum' => 'SALE-002',
+            'salesDate' => '2026-06-02',
+            'salesDateOut' => '2026-06-02 11:30:00',
+            'grandTotal' => 20000,
+            'paxTotal' => 1,
+            'discountTotal' => 0,
+            'menuDiscountTotal' => 0,
+            'voucherDiscountTotal' => 0,
+            'visitPurposeName' => 'Takeaway',
+            'branchCode' => 'BTST',
+            'branchName' => 'Bloomery Test',
+            'salesMenus' => [[
+                'qty' => 2,
+                'menuName' => 'Menu 12',
+                'menuCategoryName' => 'Food',
+                'menuCategoryDetailName' => 'Main Course',
+                'total' => 20000,
+            ]],
+            'salesPayments' => [[
+                'paymentMethodName' => 'QRIS',
+                'paymentMethodTypeName' => 'QRIS',
+                'paymentAmount' => 20000,
+                'paymentMethodID' => 2,
+            ]],
+        ],
+    ], 200, ['X-Pagination-Page-Count' => '1']));
+
+    $page = Livewire::test(SalesInformationPage::class)
+        ->set('selectedBranchIds', [$branch->id])
+        ->set('dateFrom', '2026-06-01')
+        ->set('dateTo', '2026-06-30')
+        ->call('fetch')
+        ->call('fetchNextPage')
+        ->assertSet('fetched', true);
+
+    $ranking = $page->get('menuRanking');
+    $transactions = $page->get('salesTransactions');
+    $transactionMenus = $page->get('salesTransactionMenus');
+
+    expect($ranking)->toHaveCount(12)
+        ->and($ranking[0])->toMatchArray(['rank' => 1, 'name' => 'Menu 01', 'quantity' => 12])
+        ->and($ranking[10])->toMatchArray(['rank' => 11, 'name' => 'Menu 12', 'quantity' => 3])
+        ->and($ranking[11])->toMatchArray(['rank' => 12, 'name' => 'Menu 11', 'quantity' => 2])
+        ->and($page->get('chartTopMenus.labels'))->toHaveCount(10)
+        ->and($transactions)->toHaveCount(2)
+        ->and($transactions[0])->toMatchArray([
+            'salesNumber' => 'SALE-001',
+            'salesDate' => '2026-06-01 10:15:00',
+            'totalItems' => 78,
+            'paymentTotal' => 780000.0,
+            'paymentMethods' => 'CASH, QRIS',
+        ])
+        ->and($transactionMenus)->toHaveCount(13)
+        ->and($transactionMenus[12])->toMatchArray([
+            'salesNumber' => 'SALE-002',
+            'menu' => 'Menu 12',
+            'quantity' => 2,
+        ]);
 });

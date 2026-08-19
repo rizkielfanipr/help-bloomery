@@ -109,12 +109,45 @@
             }
 
             // Top Menu
-            if (d.topMenus?.labels?.length) {
-                const tot = d.topMenus.data.reduce((a, b) => a + b, 0);
-                XLSX.utils.book_append_sheet(wb, this.sheet(
-                    ['Menu', 'Qty Terjual', '% dari Total'],
-                    d.topMenus.labels.map((l, i) => [l, d.topMenus.data[i], pct(d.topMenus.data[i], tot)])
-                ), 'Top Menu');
+            if (d.menuRanking?.length) {
+                XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
+                    ['Rank', 'Menu', 'Qty Terjual', '% dari Total'],
+                    d.menuRanking.map(menu => [menu.rank, menu.name, menu.quantity, `${menu.percentage.toFixed(1)}%`])
+                ), 'Ranking Menu');
+            }
+
+            if (d.salesTransactions?.length) {
+                XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
+                    ['Sales Number', 'Tanggal Transaksi', 'Cabang', 'Tujuan Kunjungan', 'Pax', 'Total Item', 'Grand Total (Rp)', 'Total Diskon (Rp)', 'Total Pembayaran (Rp)', 'Metode Pembayaran'],
+                    d.salesTransactions.map(transaction => [
+                        transaction.salesNumber,
+                        transaction.salesDate,
+                        transaction.branch,
+                        transaction.visitPurpose,
+                        transaction.pax,
+                        transaction.totalItems,
+                        transaction.grandTotal,
+                        transaction.discountTotal,
+                        transaction.paymentTotal,
+                        transaction.paymentMethods,
+                    ])
+                ), 'Seluruh Transaksi');
+            }
+
+            if (d.salesTransactionMenus?.length) {
+                XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
+                    ['Sales Number', 'Tanggal Transaksi', 'Cabang', 'Menu', 'Kategori', 'Sub-Kategori', 'Qty', 'Total (Rp)'],
+                    d.salesTransactionMenus.map(item => [
+                        item.salesNumber,
+                        item.salesDate,
+                        item.branch,
+                        item.menu,
+                        item.category,
+                        item.subCategory,
+                        item.quantity,
+                        item.total,
+                    ])
+                ), 'Detail Menu Transaksi');
             }
 
             // Metode Pembayaran (chart)
@@ -210,14 +243,45 @@
 
         exportTopMenusXlsx() {
             const d = this.rawData;
-            if (!d?.topMenus?.labels?.length) return;
-            const tot = d.topMenus.data.reduce((a, b) => a + b, 0);
+            if (!d?.menuRanking?.length) return;
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, this.sheet(
-                ['Menu', 'Qty Terjual', '% dari Total'],
-                d.topMenus.labels.map((l, i) => [l, d.topMenus.data[i], this.pct(d.topMenus.data[i], tot)])
-            ), 'Top Menu');
-            XLSX.writeFile(wb, 'top-menu.xlsx');
+            XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
+                ['Rank', 'Menu', 'Qty Terjual', '% dari Total'],
+                d.menuRanking.map(menu => [menu.rank, menu.name, menu.quantity, `${menu.percentage.toFixed(1)}%`])
+            ), 'Ranking Menu');
+
+            XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
+                ['Sales Number', 'Tanggal Transaksi', 'Cabang', 'Tujuan Kunjungan', 'Pax', 'Total Item', 'Grand Total (Rp)', 'Total Diskon (Rp)', 'Total Pembayaran (Rp)', 'Metode Pembayaran'],
+                (d.salesTransactions ?? []).map(transaction => [
+                    transaction.salesNumber,
+                    transaction.salesDate,
+                    transaction.branch,
+                    transaction.visitPurpose,
+                    transaction.pax,
+                    transaction.totalItems,
+                    transaction.grandTotal,
+                    transaction.discountTotal,
+                    transaction.paymentTotal,
+                    transaction.paymentMethods,
+                ])
+            ), 'Seluruh Transaksi');
+
+            XLSX.utils.book_append_sheet(wb, this.sheetWithPeriod(d.dateFrom, d.dateTo,
+                ['Sales Number', 'Tanggal Transaksi', 'Cabang', 'Menu', 'Kategori', 'Sub-Kategori', 'Qty', 'Total (Rp)'],
+                (d.salesTransactionMenus ?? []).map(item => [
+                    item.salesNumber,
+                    item.salesDate,
+                    item.branch,
+                    item.menu,
+                    item.category,
+                    item.subCategory,
+                    item.quantity,
+                    item.total,
+                ])
+            ), 'Detail Menu Transaksi');
+
+            const period = (d.dateFrom && d.dateTo) ? `_${d.dateFrom}_sd_${d.dateTo}` : '';
+            XLSX.writeFile(wb, `analisis-menu${period}.xlsx`);
         },
 
         exportPaymentMixXlsx() {

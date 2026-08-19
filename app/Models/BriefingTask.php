@@ -100,11 +100,36 @@ class BriefingTask extends Model
     /** @return Collection<int, self> */
     public static function forPeriod(BriefingPeriod $period, ?int $branchId = null): Collection
     {
-        return static::cached()
+        $tasks = static::cached()
             ->where('period', $period)
-            ->where('is_active', true)
-            ->filter(fn (self $t) => $t->branch_id === $branchId)
+            ->where('is_active', true);
+
+        $branchTasks = $tasks->filter(fn (self $task): bool => $task->branch_id === $branchId);
+
+        return ($branchId !== null && $branchTasks->isNotEmpty() ? $branchTasks : $tasks->whereNull('branch_id'))
             ->sortBy('sort_order')
+            ->values();
+    }
+
+    /** @return Collection<int, self> */
+    public static function scoreableForBranch(int $branchId): Collection
+    {
+        $tasks = static::cached()->where('is_active', true);
+        $globalScoreableTasks = $tasks
+            ->whereNull('branch_id')
+            ->where('include_in_score', true);
+        $branchTasks = $tasks->where('branch_id', $branchId);
+
+        $resolvedTasks = $globalScoreableTasks->map(function (self $globalTask) use ($branchTasks): self {
+            return $branchTasks->first(fn (self $branchTask): bool => $branchTask->period === $globalTask->period
+                && $branchTask->sort_order === $globalTask->sort_order)
+                ?? $globalTask;
+        });
+
+        return $resolvedTasks
+            ->merge($branchTasks->where('include_in_score', true))
+            ->unique('key')
+            ->sortBy([['period', 'asc'], ['sort_order', 'asc']])
             ->values();
     }
 

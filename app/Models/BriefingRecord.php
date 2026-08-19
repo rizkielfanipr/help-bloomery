@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BriefingRecord extends Model
 {
-    protected $fillable = ['user_id', 'period', 'record_date', 'submitted_at'];
+    protected $fillable = ['user_id', 'branch_id', 'period', 'record_date', 'submitted_at'];
 
     protected $casts = [
         'period' => BriefingPeriod::class,
@@ -20,6 +20,20 @@ class BriefingRecord extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $record): void {
+            if ($record->branch_id === null) {
+                $record->branch_id = User::query()->find($record->user_id)?->branch_id;
+            }
+        });
     }
 
     public function items(): HasMany

@@ -8,7 +8,6 @@ use App\Models\BriefingPeriodWeight;
 use App\Models\BriefingRecord;
 use App\Models\BriefingScore;
 use App\Models\BriefingTask;
-use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -52,27 +51,20 @@ class BriefingComputeScoresCommand extends Command
 
     private function computeForBranch(Branch $branch, int $year, int $month, int $daysInMonth, int $weeksInMonth): void
     {
-        // Tasks yang berlaku untuk branch ini: global (branch_id null) + spesifik branch ini
-        $tasks = BriefingTask::cached()
-            ->where('is_active', true)
-            ->where('include_in_score', true)
-            ->filter(fn (BriefingTask $t) => $t->branch_id === null || $t->branch_id === $branch->id);
+        $tasks = BriefingTask::scoreableForBranch($branch->id);
 
         if ($tasks->isEmpty()) {
             return;
         }
 
-        // Ambil semua user yang aktif di branch ini
-        $userIds = User::where('branch_id', $branch->id)
-            ->where('is_active', true)
-            ->pluck('id');
-
-        if ($userIds->isEmpty()) {
-            return;
-        }
-
-        // Ambil semua briefing records dari user branch ini untuk bulan ini
-        $records = BriefingRecord::whereIn('user_id', $userIds)
+        $records = BriefingRecord::query()
+            ->where(function ($query) use ($branch): void {
+                $query->where('branch_id', $branch->id)
+                    ->orWhere(function ($legacyQuery) use ($branch): void {
+                        $legacyQuery->whereNull('branch_id')
+                            ->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branch->id));
+                    });
+            })
             ->whereYear('record_date', $year)
             ->whereMonth('record_date', $month)
             ->with('items')

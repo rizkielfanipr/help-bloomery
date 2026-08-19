@@ -76,6 +76,7 @@ it('fetches both periods and calculates KPI and branch growth', function () {
         ->set('dateTo', '2026-06-30')
         ->set('comparisonType', 'yoy')
         ->call('fetch')
+        ->call('fetchNextPage')
         ->assertSet('fetchPeriodIndex', 1)
         ->call('fetchNextPage')
         ->assertSet('fetched', true)
@@ -235,6 +236,7 @@ it('breaks visit purpose down per date across the selected period', function () 
         ->set('dateFrom', '2026-06-01')
         ->set('dateTo', '2026-06-30')
         ->call('fetch')
+        ->call('fetchNextPage')
         ->assertSet('fetched', true);
 
     $rows = $page->get('visitPurposeByDate');
@@ -325,6 +327,7 @@ it('prepares a complete menu ranking and transaction detail for xlsx export', fu
         ->set('dateFrom', '2026-06-01')
         ->set('dateTo', '2026-06-30')
         ->call('fetch')
+        ->call('fetchNextPage')
         ->assertSet('fetched', true);
 
     $exportData = [];
@@ -408,6 +411,7 @@ it('groups sales from three comcodes under their configured branch', function ()
         ->call('fetch')
         ->call('fetchNextPage')
         ->call('fetchNextPage')
+        ->call('fetchNextPage')
         ->assertSet('fetched', true);
 
     $exportData = [];
@@ -433,4 +437,57 @@ it('groups sales from three comcodes under their configured branch', function ()
         ])
         ->and(collect($transactions)->pluck('branch')->unique()->values()->all())
         ->toBe(['Bloomery Patisserie Tamansiswa']);
+});
+
+it('skips a timed out branch without keeping partial data and continues other branches', function () {
+    config()->set([
+        'esb.base_url' => 'https://sales-esb.test',
+        'esb.tokens.COM_FAIL' => 'token-fail',
+        'esb.tokens.COM_OK' => 'token-ok',
+    ]);
+
+    $failedBranch = Branch::factory()->create(['name' => 'Bloomery Timeout']);
+    $failedBranch->esbCodes()->create(['esb_branch_code' => 'FAIL', 'esb_comcode' => 'COM_FAIL']);
+
+    $successfulBranch = Branch::factory()->create(['name' => 'Bloomery Berhasil']);
+    $successfulBranch->esbCodes()->create(['esb_branch_code' => 'OK', 'esb_comcode' => 'COM_OK']);
+
+    Http::fakeSequence()
+        ->pushFailedConnection('Operation timed out')
+        ->pushFailedConnection('Operation timed out')
+        ->push([[
+            'salesNum' => 'SALE-OK',
+            'salesDate' => '2026-08-19',
+            'salesDateOut' => '2026-08-19 10:00:00',
+            'grandTotal' => 125000,
+            'paxTotal' => 2,
+            'discountTotal' => 0,
+            'menuDiscountTotal' => 0,
+            'voucherDiscountTotal' => 0,
+            'visitPurposeName' => 'Dine In',
+            'branchCode' => 'OK',
+            'salesMenus' => [],
+            'salesPayments' => [[
+                'paymentMethodName' => 'QRIS',
+                'paymentMethodTypeName' => 'QRIS',
+                'paymentAmount' => 125000,
+                'paymentMethodID' => 2,
+            ]],
+        ]], 200, ['X-Pagination-Page-Count' => '1']);
+
+    Livewire::test(SalesInformationPage::class)
+        ->set('selectedBranchIds', [$failedBranch->id, $successfulBranch->id])
+        ->set('dateFrom', '2026-08-19')
+        ->set('dateTo', '2026-08-19')
+        ->call('fetch')
+        ->assertSet('isFetching', true)
+        ->call('fetchNextPage')
+        ->assertSet('failedFetches.0.code', 'FAIL')
+        ->call('fetchNextPage')
+        ->assertSet('fetched', true)
+        ->assertSet('totalRevenue', 125000.0)
+        ->assertSee('1 sumber ESB gagal diambil')
+        ->assertSee('Bloomery Timeout (FAIL)');
+
+    Http::assertSentCount(3);
 });

@@ -75,6 +75,9 @@ class SalesInformationPage extends Page
 
     public int $fetchPeriodIndex = 0;
 
+    /** @var list<array{period: string, branch: string, code: string, page: int, message: string}> */
+    public array $failedFetches = [];
+
     /** @var array<string, mixed> */
     public array $comparisonSummary = [];
 
@@ -290,6 +293,7 @@ class SalesInformationPage extends Page
         $this->fetchCurrentPage = 0;
         $this->fetchTotalPages = 0;
         $this->fetchPeriodIndex = 0;
+        $this->failedFetches = [];
         $this->comparisonSummary = [];
         $this->fetchPeriods = [[
             'key' => 'primary',
@@ -309,7 +313,7 @@ class SalesInformationPage extends Page
         $this->fetchCacheKey = (string) Str::uuid();
         $this->putFetchAccumulator('current', $this->newPeriodAcc());
 
-        $this->fetchNextPage();
+        $this->dispatch('fetch-next-page');
     }
 
     private function newPeriodAcc(): array
@@ -349,6 +353,10 @@ class SalesInformationPage extends Page
         $dateTo = $period['to'];
 
         try {
+            if ($this->fetchCurrentPage === 0) {
+                $this->putFetchAccumulator('pair-checkpoint', $this->getFetchAccumulator('current'));
+            }
+
             ['data' => $rows, 'pageCount' => $pageCount] = (new EsbService)->getSalesPage(
                 $pair->esb_branch_code, $dateFrom, $dateTo, $pair->esb_token, $this->fetchCurrentPage + 1
             );
@@ -370,12 +378,25 @@ class SalesInformationPage extends Page
 
             $this->advanceBranch();
         } catch (\RuntimeException $e) {
-            $this->stopFetch();
+            $this->putFetchAccumulator(
+                'current',
+                $this->getFetchAccumulator('pair-checkpoint', $this->newPeriodAcc()),
+            );
+            $this->failedFetches[] = [
+                'period' => $period['label'],
+                'branch' => $pair->branch?->name ?? $pair->esb_branch_code,
+                'code' => $pair->esb_branch_code,
+                'page' => $this->fetchCurrentPage + 1,
+                'message' => $e->getMessage(),
+            ];
+
             Notification::make()
-                ->title('Gagal mengambil data ESB')
-                ->body($e->getMessage())
-                ->danger()
+                ->title('Satu branch dilewati')
+                ->body(($pair->branch?->name ?? $pair->esb_branch_code).' gagal dihubungi. Pengambilan branch lain tetap dilanjutkan.')
+                ->warning()
                 ->send();
+
+            $this->advanceBranch();
         }
     }
 
@@ -453,6 +474,7 @@ class SalesInformationPage extends Page
             promoTable: $this->promoTable,
             paymentTable: $this->paymentTable,
             comparison: $this->comparisonSummary,
+            failedFetches: $this->failedFetches,
             dateFrom: $this->dateFrom,
             dateTo: $this->dateTo,
             kpi: [
@@ -505,6 +527,7 @@ class SalesInformationPage extends Page
 
         Cache::forget($this->fetchAccumulatorCacheKey('current'));
         Cache::forget($this->fetchAccumulatorCacheKey('primary'));
+        Cache::forget($this->fetchAccumulatorCacheKey('pair-checkpoint'));
     }
 
     private function fetchAccumulatorCacheKey(string $name): string

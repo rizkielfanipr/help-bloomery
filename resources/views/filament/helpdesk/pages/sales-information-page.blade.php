@@ -827,6 +827,29 @@
     </div>
     @endif
 
+    @if(count($failedFetches) > 0)
+    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+        <div class="flex items-start gap-3">
+            <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.73 0-2.813-1.874-1.948-3.374L10.052 3.38c.865-1.5 3.03-1.5 3.896 0l7.355 12.746ZM12 15.75h.008v.008H12v-.008Z" />
+            </svg>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                    {{ count($failedFetches) }} sumber ESB gagal diambil
+                </p>
+                <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                    Data dari branch berikut tidak dimasukkan agar laporan tidak berisi transaksi parsial. Klik Tarik Data kembali untuk mencoba ulang.
+                </p>
+                <ul class="mt-2 space-y-1 text-xs text-amber-800 dark:text-amber-200">
+                    @foreach($failedFetches as $failure)
+                        <li>• {{ $failure['branch'] }} ({{ $failure['code'] }}) — {{ $failure['period'] }}, halaman {{ $failure['page'] }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        </div>
+    </div>
+    @endif
+
     @if($fetched)
 
     {{-- ── Export All ──────────────────────────────────────────────────── --}}

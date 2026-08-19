@@ -61,7 +61,6 @@ it('converts a persistent ESB connection timeout into a readable error', functio
 
     Http::fakeSequence()
         ->pushFailedConnection('Operation timed out')
-        ->pushFailedConnection('Operation timed out')
         ->pushFailedConnection('Operation timed out');
 
     expect(fn () => (new EsbService)->getSalesPage(
@@ -72,5 +71,5 @@ it('converts a persistent ESB connection timeout into a readable error', functio
         page: 2,
     ))->toThrow(RuntimeException::class, 'ESB tidak dapat dihubungi untuk branch EGG halaman 2');
 
-    Http::assertSentCount(3);
+    Http::assertSentCount(2);
 });

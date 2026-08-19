@@ -685,9 +685,10 @@ class EsbService
                 'Authorization' => 'Bearer '.$token,
                 'Content-Type' => 'application/json',
             ])
-                ->timeout(60)
+                ->connectTimeout(5)
+                ->timeout(12)
                 ->retry(
-                    times: 3,
+                    times: 2,
                     sleepMilliseconds: fn (int $attempt): int => $attempt * 500,
                     when: fn (\Throwable $exception): bool => $exception instanceof ConnectionException
                         || ($exception instanceof RequestException

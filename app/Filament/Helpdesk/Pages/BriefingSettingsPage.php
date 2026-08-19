@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\BriefingSettings;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -44,6 +45,17 @@ class BriefingSettingsPage extends Page
     {
         return $schema
             ->components([
+                Section::make('Periode Awal Penilaian')
+                    ->description('Pada bulan pertama, nilai hanya dihitung mulai tanggal ini. Bulan berikutnya tetap dihitung dari tanggal 1 sampai akhir bulan.')
+                    ->schema([
+                        DatePicker::make('scoring_started_at')
+                            ->label('Mulai Penilaian Briefing')
+                            ->required()
+                            ->native(false)
+                            ->helperText('Khusus Juli 2026 diatur mulai 20 Juli 2026.')
+                            ->columnSpanFull(),
+                    ]),
+
                 Section::make('Auto-Reject Poin Briefing')
                     ->description('Poin briefing yang sudah diisi staff tapi belum di-approve/reject Supervisor dalam jangka waktu ini akan otomatis ter-reject oleh sistem.')
                     ->schema([

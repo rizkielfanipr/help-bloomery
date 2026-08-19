@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\BriefingPeriodWeight;
 use App\Models\BriefingRecord;
 use App\Models\BriefingScore;
+use App\Models\BriefingSettings;
 use App\Models\BriefingTask;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -33,14 +34,25 @@ class BriefingComputeScoresCommand extends Command
 
         $branches = Branch::when($branchId, fn ($q) => $q->where('id', $branchId))->get();
 
-        $daysInMonth = Carbon::create($year, $month)->daysInMonth;
-        $weeksInMonth = $this->countWeeksInMonth($year, $month);
+        $periodStart = Carbon::create($year, $month)->startOfMonth();
+        $periodEnd = $periodStart->copy()->endOfMonth();
+        $scoringStartedAt = BriefingSettings::instance()->scoring_started_at;
+
+        if ($scoringStartedAt !== null && $scoringStartedAt->betweenIncluded($periodStart, $periodEnd)) {
+            $periodStart = $scoringStartedAt->copy()->startOfDay();
+        }
+
+        if ($scoringStartedAt !== null && $scoringStartedAt->isAfter($periodEnd)) {
+            $this->warn('Periode ini berada sebelum tanggal mulai penilaian briefing.');
+
+            return;
+        }
 
         $bar = $this->output->createProgressBar($branches->count());
         $bar->start();
 
         foreach ($branches as $branch) {
-            $this->computeForBranch($branch, $year, $month, $daysInMonth, $weeksInMonth);
+            $this->computeForBranch($branch, $year, $month, $periodStart, $periodEnd);
             $bar->advance();
         }
 
@@ -49,7 +61,7 @@ class BriefingComputeScoresCommand extends Command
         $this->info('Selesai.');
     }
 
-    private function computeForBranch(Branch $branch, int $year, int $month, int $daysInMonth, int $weeksInMonth): void
+    private function computeForBranch(Branch $branch, int $year, int $month, Carbon $periodStart, Carbon $periodEnd): void
     {
         $tasks = BriefingTask::scoreableForBranch($branch->id);
 
@@ -84,8 +96,8 @@ class BriefingComputeScoresCommand extends Command
 
         foreach ($tasks as $task) {
             [$approved, $expected, $rate] = match ($task->period) {
-                BriefingPeriod::Daily => $this->rateDailyTask($task, $dailyByDate, $year, $month, $daysInMonth),
-                BriefingPeriod::Weekly => $this->rateWeeklyTask($task, $weeklyByDate, $year, $month, $weeksInMonth),
+                BriefingPeriod::Daily => $this->rateDailyTask($task, $dailyByDate, $periodStart, $periodEnd),
+                BriefingPeriod::Weekly => $this->rateWeeklyTask($task, $weeklyByDate, $periodStart, $periodEnd),
                 BriefingPeriod::Monthly => $this->rateMonthlyTask($task, $monthlyRecords),
             };
 
@@ -135,6 +147,8 @@ class BriefingComputeScoresCommand extends Command
                 'rate' => round($periodRate * 100, 2),
                 'score' => round($periodScore, 2),
                 'tasks' => $taskDetails,
+                'period_start' => $periodStart->toDateString(),
+                'period_end' => $periodEnd->toDateString(),
             ];
         }
 
@@ -154,12 +168,14 @@ class BriefingComputeScoresCommand extends Command
      *
      * @return array{int, int, float}
      */
-    private function rateDailyTask(BriefingTask $task, Collection $recordsByDate, int $year, int $month, int $daysInMonth): array
+    private function rateDailyTask(BriefingTask $task, Collection $recordsByDate, Carbon $periodStart, Carbon $periodEnd): array
     {
         $approved = 0;
+        $expected = 0;
 
-        for ($d = 1; $d <= $daysInMonth; $d++) {
-            $dateKey = Carbon::create($year, $month, $d)->toDateString();
+        for ($date = $periodStart->copy(); $date->lte($periodEnd); $date->addDay()) {
+            $expected++;
+            $dateKey = $date->toDateString();
             $dayRecords = $recordsByDate->get($dateKey, collect());
 
             foreach ($dayRecords as $record) {
@@ -171,9 +187,9 @@ class BriefingComputeScoresCommand extends Command
             }
         }
 
-        $rate = $daysInMonth > 0 ? $approved / $daysInMonth : 0.0;
+        $rate = $expected > 0 ? $approved / $expected : 0.0;
 
-        return [$approved, $daysInMonth, $rate];
+        return [$approved, $expected, $rate];
     }
 
     /**
@@ -182,15 +198,17 @@ class BriefingComputeScoresCommand extends Command
      *
      * @return array{int, int, float}
      */
-    private function rateWeeklyTask(BriefingTask $task, Collection $recordsByDate, int $year, int $month, int $weeksInMonth): array
+    private function rateWeeklyTask(BriefingTask $task, Collection $recordsByDate, Carbon $periodStart, Carbon $periodEnd): array
     {
         $approved = 0;
-        $current = Carbon::create($year, $month, 1);
+        $expected = 0;
+        $current = $periodStart->copy();
         if (! $current->isMonday()) {
             $current->next(Carbon::MONDAY);
         }
 
-        while ($current->month === $month) {
+        while ($current->lte($periodEnd)) {
+            $expected++;
             $dayRecords = $recordsByDate->get($current->toDateString(), collect());
 
             foreach ($dayRecords as $record) {
@@ -204,9 +222,9 @@ class BriefingComputeScoresCommand extends Command
             $current->addWeek();
         }
 
-        $rate = $weeksInMonth > 0 ? $approved / $weeksInMonth : 0.0;
+        $rate = $expected > 0 ? $approved / $expected : 0.0;
 
-        return [$approved, $weeksInMonth, $rate];
+        return [$approved, $expected, $rate];
     }
 
     /** @return array{int, int, float} */
@@ -220,20 +238,5 @@ class BriefingComputeScoresCommand extends Command
         }
 
         return [0, 1, 0.0];
-    }
-
-    private function countWeeksInMonth(int $year, int $month): int
-    {
-        $current = Carbon::create($year, $month, 1);
-        if (! $current->isMonday()) {
-            $current->next(Carbon::MONDAY);
-        }
-        $count = 0;
-        while ($current->month === $month) {
-            $count++;
-            $current->addWeek();
-        }
-
-        return $count;
     }
 }

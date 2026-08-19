@@ -6,6 +6,7 @@ use App\Models\BriefingItem;
 use App\Models\BriefingPeriodWeight;
 use App\Models\BriefingRecord;
 use App\Models\BriefingScore;
+use App\Models\BriefingSettings;
 use App\Models\BriefingTask;
 use App\Models\User;
 use Carbon\Carbon;
@@ -60,6 +61,10 @@ function mondaysIn(int $year, int $month): array
 
     return $mondays;
 }
+
+beforeEach(function () {
+    BriefingSettings::instance()->update(['scoring_started_at' => '2024-01-01']);
+});
 
 it('computes a weighted score using the global default period weights, redistributing weight away from a period with no scoreable tasks', function () {
     $branch = Branch::factory()->create(['is_active' => true]);
@@ -205,6 +210,30 @@ it('uses the recorded branch and includes historical records from inactive or tr
 
     expect($score->breakdown['daily']['tasks'][0]['approved'])->toBe(1)
         ->and($score->score)->toBe(3.23);
+});
+
+it('starts the first scoring month from the configured launch date', function () {
+    $branch = Branch::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
+
+    BriefingSettings::instance()->update(['scoring_started_at' => '2026-07-20']);
+    BriefingTask::create(['key' => 'daily_launch', 'label' => 'Daily Launch', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
+
+    foreach (range(20, 31) as $day) {
+        createDailyBriefingApproval($user, Carbon::create(2026, 7, $day), 'daily_launch');
+    }
+
+    $this->artisan('briefing:compute-scores', ['--year' => 2026, '--month' => 7, '--branch' => $branch->id])
+        ->assertSuccessful();
+
+    $score = BriefingScore::where('branch_id', $branch->id)->where('year', 2026)->where('month', 7)->firstOrFail();
+    $daily = $score->breakdown['daily'];
+
+    expect($score->score)->toBe(100.0)
+        ->and($daily['period_start'])->toBe('2026-07-20')
+        ->and($daily['period_end'])->toBe('2026-07-31')
+        ->and($daily['tasks'][0]['expected'])->toBe(12)
+        ->and($daily['tasks'][0]['approved'])->toBe(12);
 });
 
 it('does nothing for a branch with no scoreable tasks', function () {

@@ -17,6 +17,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -24,6 +25,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -78,11 +80,6 @@ class TripRouteResource extends Resource
                             ->prefix('Rp')
                             ->helperText('Kosongkan jika tidak ada uang makan untuk rute ini'),
 
-                        Toggle::make('requires_waypoint_attachment')
-                            ->label('Wajib Upload Bukti per Titik')
-                            ->helperText('Jika aktif, driver wajib upload foto/dokumen di setiap titik perjalanan')
-                            ->default(false),
-
                         Toggle::make('is_active')
                             ->label('Aktif')
                             ->default(true),
@@ -112,6 +109,11 @@ class TripRouteResource extends Resource
                                     ->label('Keterangan')
                                     ->nullable()
                                     ->rows(1),
+
+                                Hidden::make('latitude'),
+                                Hidden::make('longitude'),
+                                Hidden::make('radius_meters')->default(100),
+                                View::make('filament.schemas.components.waypoint-location-picker')->columnSpanFull(),
                             ])
                             ->columns(3)
                             ->orderColumn('urutan')
@@ -138,10 +140,6 @@ class TripRouteResource extends Resource
                     ->label('Jml Titik')
                     ->counts('waypoints')
                     ->sortable(),
-
-                IconColumn::make('requires_waypoint_attachment')
-                    ->label('Wajib Bukti')
-                    ->boolean(),
 
                 IconColumn::make('is_active')
                     ->label('Aktif')
@@ -202,12 +200,15 @@ class TripRouteResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withoutGlobalScopes([SoftDeletingScope::class]);
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes([SoftDeletingScope::class])
+            ->where('is_custom', false);
     }
 
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([SoftDeletingScope::class]);
+            ->withoutGlobalScopes([SoftDeletingScope::class])
+            ->where('is_custom', false);
     }
 }

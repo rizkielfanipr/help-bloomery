@@ -107,7 +107,7 @@ class Trip extends Model
      */
     public function allWaypointsCompleted(): bool
     {
-        $requiresAttachment = $this->tripRoute->requires_waypoint_attachment;
+        $requiresAttachment = DriverTripSettings::instance()->require_checkin_photo;
         $waypointIds = $this->tripRoute->waypoints->pluck('id');
 
         foreach ($waypointIds as $waypointId) {

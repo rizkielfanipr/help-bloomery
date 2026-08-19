@@ -84,7 +84,7 @@ class ActiveTrip extends Page
 
     public function checkinForm(Schema $schema): Schema
     {
-        $requiresAttachment = $this->tripModel->tripRoute->requires_waypoint_attachment;
+        $requiresAttachment = $this->settings->require_checkin_photo;
 
         return $schema
             ->components([

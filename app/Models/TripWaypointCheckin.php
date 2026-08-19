@@ -14,12 +14,19 @@ class TripWaypointCheckin extends Model
         'attachment_path',
         'latitude',
         'longitude',
+        'location_accuracy',
+        'photo_source',
+        'device_captured_at',
     ];
 
     protected function casts(): array
     {
         return [
             'checked_in_at' => 'datetime',
+            'latitude' => 'float',
+            'longitude' => 'float',
+            'location_accuracy' => 'float',
+            'device_captured_at' => 'datetime',
         ];
     }
 

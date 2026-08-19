@@ -3,11 +3,13 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Enums\TripStatus;
+use App\Models\DriverTripSettings;
 use App\Models\Trip;
 use App\Models\TripWaypointCheckin;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\WithFileUploads;
 
@@ -42,6 +44,12 @@ class ActiveTrip extends Page
 
     public ?float $checkinLng = null;
 
+    public ?float $checkinAccuracy = null;
+
+    public ?string $checkinPhotoSource = null;
+
+    public ?string $checkinCapturedAt = null;
+
     /** Odometer */
     public $odoStartPhoto = null;
 
@@ -72,6 +80,12 @@ class ActiveTrip extends Page
         ])
             ->where('driver_id', auth()->id())
             ->findOrFail($this->trip);
+    }
+
+    #[Computed]
+    public function settings(): DriverTripSettings
+    {
+        return DriverTripSettings::instance();
     }
 
     public function saveOdoStart(int $km): void
@@ -133,6 +147,84 @@ class ActiveTrip extends Page
 
         abort_unless($checkin->trip_id === $this->trip, 403);
 
+        $settings = $this->settings;
+        $trip = $this->tripModel;
+        $requiresPhoto = $settings->require_checkin_photo;
+        $requiresLocationValidation = ! $trip->tripRoute->is_custom;
+
+        if ($checkin->checked_in_at && ! $settings->allow_checkin_retake) {
+            throw ValidationException::withMessages(['checkinPhoto' => 'Check-in ulang tidak diizinkan.']);
+        }
+
+        if ($settings->require_sequential_checkin) {
+            $previousWaypointIds = $trip->tripRoute->waypoints
+                ->where('urutan', '<', $checkin->waypoint->urutan)
+                ->pluck('id');
+            $completedPrevious = $trip->waypointCheckins
+                ->whereIn('trip_route_waypoint_id', $previousWaypointIds)
+                ->whereNotNull('checked_in_at')
+                ->count();
+
+            if ($completedPrevious !== $previousWaypointIds->count()) {
+                throw ValidationException::withMessages(['activeCheckinId' => 'Selesaikan titik sebelumnya terlebih dahulu.']);
+            }
+        }
+
+        if ($requiresPhoto && ! $this->checkinPhoto && ! $checkin->attachment_path) {
+            throw ValidationException::withMessages(['checkinPhoto' => 'Foto check-in wajib diisi.']);
+        }
+
+        if ($requiresLocationValidation && $settings->require_checkin_location && ($this->checkinLat === null || $this->checkinLng === null)) {
+            throw ValidationException::withMessages(['checkinLat' => 'Lokasi GPS wajib terdeteksi.']);
+        }
+
+        if ($requiresLocationValidation
+            && $settings->checkin_max_location_accuracy !== null
+            && ($this->checkinAccuracy === null || $this->checkinAccuracy > $settings->checkin_max_location_accuracy)) {
+            throw ValidationException::withMessages(['checkinAccuracy' => 'Akurasi GPS belum memenuhi batas yang ditentukan.']);
+        }
+
+        if ($requiresLocationValidation && $settings->require_waypoint_radius) {
+            $waypoint = $checkin->waypoint;
+
+            if ($this->checkinLat === null || $this->checkinLng === null) {
+                Notification::make()
+                    ->title('Lokasi GPS belum terdeteksi')
+                    ->body('Aktifkan izin lokasi dan tunggu sampai posisi GPS ditemukan sebelum melakukan check-in.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
+
+                throw ValidationException::withMessages(['checkinLat' => 'Lokasi GPS wajib terdeteksi untuk memeriksa radius titik tujuan.']);
+            }
+
+            if ($waypoint->latitude === null || $waypoint->longitude === null) {
+                throw ValidationException::withMessages(['checkinLat' => 'Pin lokasi titik perjalanan belum diatur.']);
+            }
+
+            $distance = $this->distanceInMeters(
+                $this->checkinLat,
+                $this->checkinLng,
+                $waypoint->latitude,
+                $waypoint->longitude,
+            );
+
+            if ($distance > $waypoint->radius_meters) {
+                $distanceLabel = number_format($distance, 0, ',', '.');
+
+                Notification::make()
+                    ->title('Anda berada di luar radius tujuan')
+                    ->body("Jarak Anda {$distanceLabel} meter dari {$waypoint->name}. Check-in hanya dapat dilakukan dalam radius {$waypoint->radius_meters} meter.")
+                    ->danger()
+                    ->persistent()
+                    ->send();
+
+                throw ValidationException::withMessages([
+                    'checkinLat' => 'Anda berada '.$distanceLabel.' meter dari titik tujuan. Maksimal '.$waypoint->radius_meters.' meter.',
+                ]);
+            }
+        }
+
         $attachmentPath = $checkin->attachment_path;
 
         if ($this->checkinPhoto) {
@@ -144,11 +236,17 @@ class ActiveTrip extends Page
             'attachment_path' => $attachmentPath,
             'latitude' => $this->checkinLat,
             'longitude' => $this->checkinLng,
+            'location_accuracy' => $this->checkinAccuracy,
+            'photo_source' => $this->checkinPhotoSource,
+            'device_captured_at' => $this->checkinCapturedAt,
         ]);
 
         $this->checkinPhoto = null;
         $this->checkinLat = null;
         $this->checkinLng = null;
+        $this->checkinAccuracy = null;
+        $this->checkinPhotoSource = null;
+        $this->checkinCapturedAt = null;
         $this->activeCheckinId = null;
 
         unset($this->tripModel);
@@ -174,6 +272,17 @@ class ActiveTrip extends Page
         }
 
         $this->dispatch('open-modal', id: 'fuel-confirm');
+    }
+
+    private function distanceInMeters(float $fromLatitude, float $fromLongitude, float $toLatitude, float $toLongitude): float
+    {
+        $earthRadius = 6371000;
+        $latitudeDelta = deg2rad($toLatitude - $fromLatitude);
+        $longitudeDelta = deg2rad($toLongitude - $fromLongitude);
+        $value = sin($latitudeDelta / 2) ** 2
+            + cos(deg2rad($fromLatitude)) * cos(deg2rad($toLatitude)) * sin($longitudeDelta / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($value), sqrt(1 - $value));
     }
 
     public function confirmNoFuel(): void

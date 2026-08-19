@@ -3,6 +3,18 @@
          checkinId: @entangle('activeCheckinId'),
          lat:       @entangle('checkinLat'),
          lng:       @entangle('checkinLng'),
+         accuracy:  @entangle('checkinAccuracy'),
+         photoSource: @entangle('checkinPhotoSource'),
+         capturedAt: @entangle('checkinCapturedAt'),
+         settings: @js($this->settings->only([
+             'checkin_photo_source', 'require_checkin_location', 'stamp_checkin_timestamp',
+             'stamp_checkin_coordinates', 'stamp_checkin_driver_name', 'stamp_checkin_waypoint_name',
+             'stamp_checkin_route_name', 'checkin_photo_quality', 'checkin_photo_max_dimension',
+             'checkin_max_location_accuracy',
+         ])),
+         driverName: @js(auth()->user()->name),
+         routeName: @js($this->tripModel->tripRoute->name),
+         waypointNames: @js($this->tripModel->waypointCheckins->mapWithKeys(fn ($checkin) => [$checkin->id => $checkin->waypoint->name])->all()),
          mode:      'idle',
          source:    null,
          photo:     null,
@@ -209,6 +221,7 @@
              this.checkinId = null;
              this.lat       = null;
              this.lng       = null;
+             this.accuracy  = null;
              this.locStatus = 'idle';
          },
 
@@ -225,6 +238,44 @@
              this.$nextTick(() => this.$refs.fileInput.click());
          },
 
+         resize(width, height) {
+             const max = Number(this.settings.checkin_photo_max_dimension || 1600);
+             const ratio = Math.min(1, max / Math.max(width, height));
+             return [Math.round(width * ratio), Math.round(height * ratio)];
+         },
+
+         stampPhoto(ctx, canvas) {
+             const now = new Date();
+             const pad = n => n.toString().padStart(2, '0');
+             this.capturedAt = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate())
+                 + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+             const lines = [];
+             if (this.settings.stamp_checkin_driver_name) lines.push('Driver: ' + this.driverName);
+             if (this.settings.stamp_checkin_route_name) lines.push('Rute: ' + this.routeName);
+             if (this.settings.stamp_checkin_waypoint_name) lines.push('Titik: ' + (this.waypointNames[this.checkinId] || '-'));
+             if (this.settings.stamp_checkin_timestamp) {
+                 lines.push(pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + now.getFullYear()
+                     + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + ' WIB');
+             }
+             if (this.settings.stamp_checkin_coordinates) {
+                 lines.push(this.lat !== null && this.lng !== null
+                     ? Number(this.lat).toFixed(6) + ', ' + Number(this.lng).toFixed(6) + ' · ±' + Math.round(this.accuracy || 0) + ' m'
+                     : 'Lokasi tidak tersedia');
+             }
+             if (!lines.length) return;
+             const fontSize = Math.max(16, Math.round(canvas.width / 55));
+             const padding = fontSize;
+             const lineHeight = Math.round(fontSize * 1.35);
+             const height = lines.length * lineHeight + padding * 1.5;
+             ctx.fillStyle = 'rgba(0,0,0,0.68)';
+             ctx.fillRect(0, canvas.height - height, canvas.width, height);
+             ctx.fillStyle = '#fff';
+             ctx.font = '600 ' + fontSize + 'px sans-serif';
+             ctx.textAlign = 'left';
+             ctx.textBaseline = 'middle';
+             lines.forEach((line, index) => ctx.fillText(line, padding, canvas.height - height + padding + index * lineHeight));
+         },
+
          async onFilePicked(event) {
              const file = event.target.files[0];
              if (!file) return;
@@ -236,31 +287,21 @@
              const url = URL.createObjectURL(file);
              const img = new Image();
              img.onload = () => {
-                 c.width  = img.naturalWidth;
-                 c.height = img.naturalHeight;
+                 [c.width, c.height] = this.resize(img.naturalWidth, img.naturalHeight);
                  const ctx = c.getContext('2d');
-                 ctx.drawImage(img, 0, 0);
+                 ctx.drawImage(img, 0, 0, c.width, c.height);
                  URL.revokeObjectURL(url);
-                 const now = new Date();
-                 const pad = (n) => n.toString().padStart(2,'0');
-                 const ts  = pad(now.getDate()) + '/' + pad(now.getMonth()+1) + '/' + now.getFullYear()
-                           + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-                 const bh  = 52;
-                 ctx.fillStyle = 'rgba(0,0,0,0.60)';
-                 ctx.fillRect(0, c.height - bh, c.width, bh);
-                 ctx.fillStyle    = '#fff';
-                 ctx.font         = 'bold 22px monospace';
-                 ctx.textAlign    = 'center';
-                 ctx.textBaseline = 'middle';
-                 ctx.fillText(ts, c.width / 2, c.height - bh / 2);
-                 this.photo = c.toDataURL('image/jpeg', 0.85);
+                 this.stampPhoto(ctx, c);
+                 this.photoSource = 'gallery';
+                 const quality = Number(this.settings.checkin_photo_quality || 75) / 100;
+                 this.photo = c.toDataURL('image/jpeg', quality);
                  c.toBlob((blob) => {
                      const stamped = new File([blob], 'checkin.jpg', { type: 'image/jpeg' });
                      this.$wire.upload('checkinPhoto', stamped,
                          () => { this.uploading = false; },
                          () => { this.uploading = false; }
                      );
-                 }, 'image/jpeg', 0.85);
+                 }, 'image/jpeg', quality);
              };
              img.src = url;
              event.target.value = '';
@@ -288,23 +329,13 @@
          shoot() {
              const v = this.$refs.video, c = this.$refs.canvas;
              if (!v || !c) return;
-             c.width  = v.videoWidth  || 1280;
-             c.height = v.videoHeight || 960;
+             [c.width, c.height] = this.resize(v.videoWidth || 1280, v.videoHeight || 960);
              const ctx = c.getContext('2d');
              ctx.drawImage(v, 0, 0, c.width, c.height);
-             const now = new Date();
-             const pad = (n) => n.toString().padStart(2,'0');
-             const ts  = pad(now.getDate()) + '/' + pad(now.getMonth()+1) + '/' + now.getFullYear()
-                       + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
-             const bh  = 52;
-             ctx.fillStyle = 'rgba(0,0,0,0.60)';
-             ctx.fillRect(0, c.height - bh, c.width, bh);
-             ctx.fillStyle    = '#fff';
-             ctx.font         = 'bold 22px monospace';
-             ctx.textAlign    = 'center';
-             ctx.textBaseline = 'middle';
-             ctx.fillText(ts, c.width / 2, c.height - bh / 2);
-             this.photo = c.toDataURL('image/jpeg', 0.85);
+             this.stampPhoto(ctx, c);
+             this.photoSource = 'camera';
+             const quality = Number(this.settings.checkin_photo_quality || 75) / 100;
+             this.photo = c.toDataURL('image/jpeg', quality);
              this.stopStream();
              c.toBlob((blob) => {
                  const file = new File([blob], 'checkin.jpg', { type: 'image/jpeg' });
@@ -313,7 +344,7 @@
                      () => { this.uploading = false; },
                      () => { this.uploading = false; this.camError = 'Gagal mengunggah foto.'; }
                  );
-             }, 'image/jpeg', 0.85);
+             }, 'image/jpeg', quality);
          },
 
          retake() {
@@ -349,6 +380,7 @@
                  (pos) => {
                      this.lat       = pos.coords.latitude;
                      this.lng       = pos.coords.longitude;
+                     this.accuracy  = pos.coords.accuracy;
                      this.locStatus = 'detected';
                  },
                  () => { this.locStatus = 'error'; },
@@ -371,7 +403,7 @@
     $route     = $trip->tripRoute;
     $waypoints = $route->waypoints;
     $checkins  = $trip->waypointCheckins->keyBy('trip_route_waypoint_id');
-    $requiresAttachment = $route->requires_waypoint_attachment;
+    $requiresAttachment = $this->settings->require_checkin_photo;
     $completedCount = $checkins->filter(fn($c) => $c->checked_in_at)->count();
     $totalCount     = $waypoints->count();
     $progress       = $totalCount > 0 ? round($completedCount / $totalCount * 100) : 0;
@@ -814,7 +846,7 @@
         </button>
 
         {{-- Gallery --}}
-        <button @click="chooseGallery()"
+        <button x-show="settings.checkin_photo_source === 'camera_gallery'" @click="chooseGallery()"
                 class="flex w-full items-center gap-4 rounded-2xl bg-gray-50 px-4 py-3.5 text-left transition active:bg-gray-100 dark:bg-gray-800 dark:active:bg-gray-700">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-800 dark:bg-gray-700">
                 <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -947,6 +979,8 @@
             </div>
             <div class="flex justify-center">
                 <button @click="shoot()"
+                        :disabled="settings.require_checkin_location && locStatus !== 'detected'"
+                        :class="settings.require_checkin_location && locStatus !== 'detected' ? 'opacity-40 cursor-not-allowed' : ''"
                         class="relative flex h-20 w-20 items-center justify-center rounded-full ring-4 ring-white/30 transition active:scale-90">
                     <div class="h-[3.75rem] w-[3.75rem] rounded-full bg-white"></div>
                 </button>
@@ -973,6 +1007,8 @@
                     Ulang
                 </button>
                 <button @click="confirm()"
+                        :disabled="settings.require_checkin_location && locStatus !== 'detected'"
+                        :class="settings.require_checkin_location && locStatus !== 'detected' ? 'opacity-40 cursor-not-allowed' : ''"
                         class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>

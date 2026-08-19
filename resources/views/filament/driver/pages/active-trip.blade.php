@@ -4,7 +4,7 @@
     $route     = $trip->tripRoute;
     $waypoints = $route->waypoints;
     $checkins  = $trip->waypointCheckins->keyBy('trip_route_waypoint_id');
-    $requiresAttachment = $route->requires_waypoint_attachment;
+    $requiresAttachment = $this->settings->require_checkin_photo;
     $completedCount = $checkins->filter(fn($c) => $c->checked_in_at)->count();
     $totalCount     = $waypoints->count();
     $progress       = $totalCount > 0 ? round($completedCount / $totalCount * 100) : 0;

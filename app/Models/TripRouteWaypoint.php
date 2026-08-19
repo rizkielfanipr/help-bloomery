@@ -13,12 +13,18 @@ class TripRouteWaypoint extends Model
         'urutan',
         'name',
         'description',
+        'latitude',
+        'longitude',
+        'radius_meters',
     ];
 
     protected function casts(): array
     {
         return [
             'urutan' => 'integer',
+            'latitude' => 'float',
+            'longitude' => 'float',
+            'radius_meters' => 'integer',
         ];
     }
 

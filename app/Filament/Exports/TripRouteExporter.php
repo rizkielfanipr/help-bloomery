@@ -18,7 +18,6 @@ class TripRouteExporter extends Exporter
             ExportColumn::make('name')->label('Nama Rute'),
             ExportColumn::make('description')->label('Deskripsi'),
             ExportColumn::make('meal_allowance_amount')->label('Uang Makan'),
-            ExportColumn::make('requires_waypoint_attachment')->label('Wajib Bukti'),
             ExportColumn::make('is_active')->label('Aktif'),
         ];
     }

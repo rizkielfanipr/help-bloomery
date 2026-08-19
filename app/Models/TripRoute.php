@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\TripRouteFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -18,6 +19,8 @@ class TripRoute extends Model
         'description',
         'meal_allowance_amount',
         'requires_waypoint_attachment',
+        'is_custom',
+        'created_by_driver_id',
         'is_active',
     ];
 
@@ -26,6 +29,7 @@ class TripRoute extends Model
         return [
             'meal_allowance_amount' => 'decimal:2',
             'requires_waypoint_attachment' => 'boolean',
+            'is_custom' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
@@ -38,5 +42,10 @@ class TripRoute extends Model
     public function trips(): HasMany
     {
         return $this->hasMany(Trip::class);
+    }
+
+    public function createdByDriver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by_driver_id');
     }
 }

@@ -3,14 +3,22 @@
 namespace App\Filament\Driver\Pages;
 
 use App\Enums\TripStatus;
+use App\Models\DriverTripSettings;
 use App\Models\Trip;
 use App\Models\TripRoute;
 use App\Models\Vehicle;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
 
@@ -54,16 +62,58 @@ class StartTrip extends Page
                     ->schema([
                         Select::make('trip_route_id')
                             ->label('Rute Perjalanan')
-                            ->options(
-                                TripRoute::where('is_active', true)
-                                    ->withCount('waypoints')
-                                    ->get()
-                                    ->mapWithKeys(fn ($route) => [
-                                        $route->id => $route->name.' ('.$route->waypoints_count.' titik)',
-                                    ])
-                            )
+                            ->options(fn (): array => TripRoute::query()
+                                ->where('is_active', true)
+                                ->where('is_custom', false)
+                                ->withCount('waypoints')
+                                ->get()
+                                ->mapWithKeys(fn ($route) => [
+                                    $route->id => $route->name.' ('.$route->waypoints_count.' titik)',
+                                ])
+                                ->put('custom', 'Rute Lain')
+                                ->all())
                             ->required()
+                            ->live()
+                            ->afterStateUpdated(function (mixed $state, Set $set): void {
+                                $set('custom_waypoints', $state === 'custom'
+                                    ? [['name' => '', 'description' => null, 'radius_meters' => DriverTripSettings::instance()->default_waypoint_radius]]
+                                    : []);
+                            })
                             ->searchable(),
+
+                        TextInput::make('custom_route_name')
+                            ->label('Nama Rute / Tujuan')
+                            ->placeholder('Contoh: Pengiriman tambahan area Sleman')
+                            ->maxLength(255)
+                            ->required(fn (Get $get): bool => $get('trip_route_id') === 'custom')
+                            ->visible(fn (Get $get): bool => $get('trip_route_id') === 'custom'),
+
+                        Repeater::make('custom_waypoints')
+                            ->label('Titik Perjalanan')
+                            ->schema([
+                                TextInput::make('name')
+                                    ->label('Nama Titik')
+                                    ->placeholder('Contoh: Bloomery Kaliurang')
+                                    ->required()
+                                    ->maxLength(255),
+
+                                Textarea::make('description')
+                                    ->label('Keterangan')
+                                    ->placeholder('Opsional')
+                                    ->rows(2),
+
+                                Hidden::make('latitude'),
+                                Hidden::make('longitude'),
+                                Hidden::make('radius_meters')->default(fn (): int => DriverTripSettings::instance()->default_waypoint_radius),
+                                View::make('filament.schemas.components.waypoint-location-picker')->columnSpanFull(),
+                            ])
+                            ->addActionLabel('Tambah Titik')
+                            ->defaultItems(1)
+                            ->minItems(1)
+                            ->required(fn (Get $get): bool => $get('trip_route_id') === 'custom')
+                            ->visible(fn (Get $get): bool => $get('trip_route_id') === 'custom')
+                            ->reorderable()
+                            ->collapsible(),
 
                         DatePicker::make('trip_date')
                             ->label('Tanggal Perjalanan')
@@ -108,12 +158,41 @@ class StartTrip extends Page
         }
 
         DB::transaction(function () use ($data) {
-            $route = TripRoute::with('waypoints')->findOrFail($data['trip_route_id']);
+            if ($data['trip_route_id'] === 'custom') {
+                $route = TripRoute::create([
+                    'name' => $data['custom_route_name'],
+                    'description' => 'Rute dinamis yang dibuat oleh driver.',
+                    'meal_allowance_amount' => DriverTripSettings::instance()->custom_route_meal_allowance_amount,
+                    'requires_waypoint_attachment' => false,
+                    'is_custom' => true,
+                    'created_by_driver_id' => auth()->id(),
+                    'is_active' => false,
+                ]);
+
+                foreach (array_values($data['custom_waypoints']) as $index => $waypoint) {
+                    $route->waypoints()->create([
+                        'urutan' => $index + 1,
+                        'name' => $waypoint['name'],
+                        'description' => $waypoint['description'] ?? null,
+                        'latitude' => $waypoint['latitude'] ?? null,
+                        'longitude' => $waypoint['longitude'] ?? null,
+                        'radius_meters' => $waypoint['radius_meters'] ?? DriverTripSettings::instance()->default_waypoint_radius,
+                    ]);
+                }
+
+                $route->load('waypoints');
+            } else {
+                $route = TripRoute::query()
+                    ->where('is_active', true)
+                    ->where('is_custom', false)
+                    ->with('waypoints')
+                    ->findOrFail($data['trip_route_id']);
+            }
 
             $trip = Trip::create([
                 'driver_id' => auth()->id(),
                 'vehicle_id' => $data['vehicle_id'],
-                'trip_route_id' => $data['trip_route_id'],
+                'trip_route_id' => $route->id,
                 'trip_date' => $data['trip_date'],
                 'status' => TripStatus::InProgress,
                 'started_at' => now(),

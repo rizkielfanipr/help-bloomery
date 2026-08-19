@@ -4,6 +4,7 @@ namespace App\Filament\Helpdesk\Pages;
 
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\PrefixCategory;
+use App\Models\PrefixName;
 use App\Models\RndBomInstruction;
 use App\Models\RndProductEsbMaterial;
 use App\Models\RndProductEsbMaterialUnit;
@@ -125,6 +126,8 @@ class ViewProjectProductPage extends Page
     public array $esbSubCategoryOptions = [];
 
     public array $prefixCategoryOptions = [];
+
+    public array $prefixNameOptions = [];
 
     public array $bomComponentDetails = [];
 
@@ -1502,6 +1505,7 @@ class ViewProjectProductPage extends Page
         $this->resetValidation();
         $this->loadEsbTaxonomy();
         $this->loadPrefixCategoryOptions();
+        $this->loadPrefixNameOptions();
         $this->materialDraftId = $materialId;
 
         if ($materialId) {
@@ -1748,13 +1752,7 @@ class ViewProjectProductPage extends Page
 
     public function esbMaterialNamePrefixOptions(): array
     {
-        return [
-            'WIP |' => 'Kitchen - WIP |',
-            'JYM |' => 'Joy-Mart - JYM |',
-            'ATL |' => 'Atelier - ATL |',
-            'EGG |' => 'Eggish - EGG |',
-            'Central |' => 'Patisserie - Central |',
-        ];
+        return $this->prefixNameOptions;
     }
 
     private function syncEsbMaterialProductName(): void
@@ -2034,6 +2032,16 @@ class ViewProjectProductPage extends Page
             ->orderBy('sort_order')
             ->orderBy('name')
             ->pluck('name', 'id')
+            ->all();
+    }
+
+    private function loadPrefixNameOptions(): void
+    {
+        $this->prefixNameOptions = PrefixName::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('code')
+            ->pluck('label', 'code')
             ->all();
     }
 

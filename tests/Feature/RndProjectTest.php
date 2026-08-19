@@ -296,6 +296,7 @@ it('combines prefix name, prefix category, and base name into the final ESB mate
         'product' => $product->id,
     ])->set('esbCategoryOptions', [77 => 'Barang WIP'])
         ->set('prefixCategoryOptions', [$prefixCategory->id => 'Whole Cake'])
+        ->set('prefixNameOptions', ['JYM |' => 'Joy-Mart - JYM |'])
         ->set('esbMaterialCategoryId', 77)
         ->set('esbMaterialSubCategoryId', 21)
         ->set('esbMaterialNamePrefix', 'JYM |')

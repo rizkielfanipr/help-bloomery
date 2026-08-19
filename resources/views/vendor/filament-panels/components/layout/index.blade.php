@@ -41,7 +41,7 @@
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types')) { $initialOpen[] = 'it'; }
-    if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories')) { $initialOpen[] = 'rnd'; }
+    if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
 
@@ -113,6 +113,7 @@
                 ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-projects.index'))],
                 ['label' => 'Product Price Index', 'icon' => 'chart-no-axes-combined', 'perm' => 'view product price index', 'href' => $r('filament.helpdesk.pages.product-price-index'), 'active' => $active($r('filament.helpdesk.pages.product-price-index'))],
                 ['label' => 'Prefix Category', 'icon' => 'tag', 'perm' => 'view prefix categories', 'href' => $r('filament.helpdesk.resources.prefix-categories.index'), 'active' => $active($r('filament.helpdesk.resources.prefix-categories.index'))],
+                ['label' => 'Prefix Name', 'icon' => 'tag', 'perm' => 'view prefix names', 'href' => $r('filament.helpdesk.resources.prefix-names.index'), 'active' => $active($r('filament.helpdesk.resources.prefix-names.index'))],
             ],
         ],
         [

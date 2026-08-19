@@ -674,6 +674,7 @@
                                         <option value="">Pilih Prefix Name</option>
                                         @foreach($this->esbMaterialNamePrefixOptions() as $prefix => $label)<option value="{{ $prefix }}">{{ $label }}</option>@endforeach
                                     </select>
+                                    <p class="mt-1 text-xs text-gray-500">Kelola daftar Prefix Name di menu Research & Development &gt; Prefix Name.</p>
                                     @error('esbMaterialNamePrefix')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
                                 <div>

@@ -11,6 +11,8 @@ use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class SalesInformationPage extends Page
@@ -66,16 +68,12 @@ class SalesInformationPage extends Page
 
     public int $fetchTotalPages = 0;
 
-    /** @var array<string, mixed> */
-    public array $fetchAcc = [];
+    public ?string $fetchCacheKey = null;
 
     /** @var list<array{key: string, label: string, from: string, to: string}> */
     public array $fetchPeriods = [];
 
     public int $fetchPeriodIndex = 0;
-
-    /** @var array<string, mixed> */
-    public array $primaryAcc = [];
 
     /** @var array<string, mixed> */
     public array $comparisonSummary = [];
@@ -292,7 +290,6 @@ class SalesInformationPage extends Page
         $this->fetchCurrentPage = 0;
         $this->fetchTotalPages = 0;
         $this->fetchPeriodIndex = 0;
-        $this->primaryAcc = [];
         $this->comparisonSummary = [];
         $this->fetchPeriods = [[
             'key' => 'primary',
@@ -308,7 +305,9 @@ class SalesInformationPage extends Page
                 'to' => (string) $this->comparisonDateTo,
             ];
         }
-        $this->fetchAcc = $this->newPeriodAcc();
+        $this->forgetFetchCache();
+        $this->fetchCacheKey = (string) Str::uuid();
+        $this->putFetchAccumulator('current', $this->newPeriodAcc());
 
         $this->fetchNextPage();
     }
@@ -357,11 +356,11 @@ class SalesInformationPage extends Page
             $this->fetchTotalPages = $pageCount;
             $this->fetchCurrentPage++;
 
-            $acc = $this->fetchAcc;
+            $acc = $this->getFetchAccumulator('current');
             foreach ($rows as $sale) {
                 $this->accumulateSale($acc, $sale, $pair);
             }
-            $this->fetchAcc = $acc;
+            $this->putFetchAccumulator('current', $acc);
 
             if ($this->fetchCurrentPage < $this->fetchTotalPages) {
                 $this->dispatch('fetch-next-page');
@@ -396,7 +395,7 @@ class SalesInformationPage extends Page
     private function finishPeriodFetch(): void
     {
         if ($this->fetchPeriodIndex === 0) {
-            $this->primaryAcc = $this->fetchAcc;
+            $this->putFetchAccumulator('primary', $this->getFetchAccumulator('current'));
         }
 
         if ($this->fetchPeriodIndex + 1 < count($this->fetchPeriods)) {
@@ -404,7 +403,7 @@ class SalesInformationPage extends Page
             $this->fetchPairIndex = 0;
             $this->fetchCurrentPage = 0;
             $this->fetchTotalPages = 0;
-            $this->fetchAcc = $this->newPeriodAcc();
+            $this->putFetchAccumulator('current', $this->newPeriodAcc());
             $this->dispatch('fetch-next-page');
 
             return;
@@ -415,7 +414,8 @@ class SalesInformationPage extends Page
 
     private function finishFetch(): void
     {
-        $primary = $this->primaryAcc ?: $this->fetchAcc;
+        $current = $this->getFetchAccumulator('current');
+        $primary = $this->getFetchAccumulator('primary', $current);
         if (! ($primary['hasData'] ?? false)) {
             Notification::make()->title('Tidak ada data penjualan pada periode ini')->info()->send();
             $this->stopFetch();
@@ -425,8 +425,14 @@ class SalesInformationPage extends Page
 
         $this->finalizeData($primary);
         if (count($this->fetchPeriods) > 1) {
-            $this->comparisonSummary = $this->buildComparisonSummary($primary, $this->fetchAcc);
+            $this->comparisonSummary = $this->buildComparisonSummary($primary, $current);
         }
+
+        $salesTransactions = $this->salesTransactions;
+        $salesTransactionMenus = $this->salesTransactionMenus;
+        $this->salesTransactions = [];
+        $this->salesTransactionMenus = [];
+
         $this->stopFetch();
         $this->fetched = true;
 
@@ -434,8 +440,8 @@ class SalesInformationPage extends Page
             revenueTrend: $this->chartRevenueTrend,
             topMenus: $this->chartTopMenus,
             menuRanking: $this->menuRanking,
-            salesTransactions: $this->salesTransactions,
-            salesTransactionMenus: $this->salesTransactionMenus,
+            salesTransactions: $salesTransactions,
+            salesTransactionMenus: $salesTransactionMenus,
             paymentMix: $this->chartPaymentMix,
             peakHours: $this->chartPeakHours,
             categories: $this->chartCategories,
@@ -467,8 +473,43 @@ class SalesInformationPage extends Page
     private function stopFetch(): void
     {
         $this->isFetching = false;
-        $this->fetchAcc = [];
-        $this->primaryAcc = [];
+        $this->forgetFetchCache();
+        $this->fetchCacheKey = null;
+    }
+
+    /** @return array<string, mixed> */
+    private function getFetchAccumulator(string $name, ?array $default = null): array
+    {
+        if (! $this->fetchCacheKey) {
+            return $default ?? $this->newPeriodAcc();
+        }
+
+        return Cache::get($this->fetchAccumulatorCacheKey($name), $default ?? $this->newPeriodAcc());
+    }
+
+    /** @param array<string, mixed> $accumulator */
+    private function putFetchAccumulator(string $name, array $accumulator): void
+    {
+        if (! $this->fetchCacheKey) {
+            return;
+        }
+
+        Cache::put($this->fetchAccumulatorCacheKey($name), $accumulator, now()->addHour());
+    }
+
+    private function forgetFetchCache(): void
+    {
+        if (! $this->fetchCacheKey) {
+            return;
+        }
+
+        Cache::forget($this->fetchAccumulatorCacheKey('current'));
+        Cache::forget($this->fetchAccumulatorCacheKey('primary'));
+    }
+
+    private function fetchAccumulatorCacheKey(string $name): string
+    {
+        return 'sales-information:'.auth()->id().':'.$this->fetchCacheKey.':'.$name;
     }
 
     /** @return array<string, mixed> */

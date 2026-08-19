@@ -235,7 +235,6 @@ it('breaks visit purpose down per date across the selected period', function () 
         ->set('dateFrom', '2026-06-01')
         ->set('dateTo', '2026-06-30')
         ->call('fetch')
-        ->call('fetchNextPage')
         ->assertSet('fetched', true);
 
     $rows = $page->get('visitPurposeByDate');
@@ -326,12 +325,18 @@ it('prepares a complete menu ranking and transaction detail for xlsx export', fu
         ->set('dateFrom', '2026-06-01')
         ->set('dateTo', '2026-06-30')
         ->call('fetch')
-        ->call('fetchNextPage')
         ->assertSet('fetched', true);
 
+    $exportData = [];
+    $page->assertDispatched('sales-loaded', function (string $event, array $params) use (&$exportData): bool {
+        $exportData = $params;
+
+        return true;
+    });
+
     $ranking = $page->get('menuRanking');
-    $transactions = $page->get('salesTransactions');
-    $transactionMenus = $page->get('salesTransactionMenus');
+    $transactions = $exportData['salesTransactions'];
+    $transactionMenus = $exportData['salesTransactionMenus'];
 
     expect($ranking)->toHaveCount(12)
         ->and($ranking[0])->toMatchArray(['rank' => 1, 'name' => 'Menu 01', 'quantity' => 12])
@@ -405,8 +410,15 @@ it('groups sales from three comcodes under their configured branch', function ()
         ->call('fetchNextPage')
         ->assertSet('fetched', true);
 
+    $exportData = [];
+    $page->assertDispatched('sales-loaded', function (string $event, array $params) use (&$exportData): bool {
+        $exportData = $params;
+
+        return true;
+    });
+
     $branches = $page->get('branchTable');
-    $transactions = $page->get('salesTransactions');
+    $transactions = $exportData['salesTransactions'];
 
     expect($branches)->toHaveCount(1)
         ->and($branches[0])->toMatchArray([

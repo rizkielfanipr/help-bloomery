@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Branch;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
@@ -679,25 +680,34 @@ class EsbService
      */
     public function getSalesPage(string $branchCode, string $dateFrom, string $dateTo, string $token, int $page): array
     {
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.$token,
-            'Content-Type' => 'application/json',
-        ])
-            ->timeout(60)
-            ->retry(
-                times: 3,
-                sleepMilliseconds: fn (int $attempt): int => $attempt * 500,
-                when: fn (\Throwable $exception): bool => $exception instanceof RequestException
-                    && ($exception->response->serverError() || $exception->response->status() === 429),
-                throw: false,
-            )
-            ->get($this->baseUrl.'/corev1/sales/sales-information', [
-                'salesDateFrom' => $dateFrom,
-                'salesDateTo' => $dateTo,
-                'branchCode' => $branchCode,
-                'statusName' => 'Finished',
-                'page' => $page,
-            ]);
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer '.$token,
+                'Content-Type' => 'application/json',
+            ])
+                ->timeout(60)
+                ->retry(
+                    times: 3,
+                    sleepMilliseconds: fn (int $attempt): int => $attempt * 500,
+                    when: fn (\Throwable $exception): bool => $exception instanceof ConnectionException
+                        || ($exception instanceof RequestException
+                            && ($exception->response->serverError() || $exception->response->status() === 429)),
+                    throw: false,
+                )
+                ->get($this->baseUrl.'/corev1/sales/sales-information', [
+                    'salesDateFrom' => $dateFrom,
+                    'salesDateTo' => $dateTo,
+                    'branchCode' => $branchCode,
+                    'statusName' => 'Finished',
+                    'page' => $page,
+                ]);
+        } catch (ConnectionException $exception) {
+            throw new \RuntimeException(
+                "ESB tidak dapat dihubungi untuk branch {$branchCode} halaman {$page}. Silakan coba kembali beberapa saat lagi.",
+                0,
+                $exception,
+            );
+        }
 
         if ($response->failed()) {
             throw new \RuntimeException('ESB API error: '.$response->status().' '.$response->body());

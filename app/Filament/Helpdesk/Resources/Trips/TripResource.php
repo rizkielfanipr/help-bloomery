@@ -295,7 +295,8 @@ class TripResource extends Resource
 
                 SelectFilter::make('status')
                     ->label('Status')
-                    ->options(TripStatus::class),
+                    ->options(TripStatus::class)
+                    ->multiple(),
 
                 SelectFilter::make('has_fuel_fillup')
                     ->label('BBM')

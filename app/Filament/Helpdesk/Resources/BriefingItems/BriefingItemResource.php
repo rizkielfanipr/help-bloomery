@@ -26,6 +26,7 @@ use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
@@ -155,6 +156,11 @@ class BriefingItemResource extends Resource
                     ->visible(fn (BriefingItem $record): bool => ! empty($record->photo_paths) || ! empty($record->notes)),
             ])
             ->filters([
+                SelectFilter::make('review_status')
+                    ->label('Status Review')
+                    ->options(BriefingReviewStatus::class)
+                    ->multiple(),
+
                 Filter::make('user_id')
                     ->label('Staff')
                     ->form([

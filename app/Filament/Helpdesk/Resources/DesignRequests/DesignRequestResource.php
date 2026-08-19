@@ -152,7 +152,8 @@ class DesignRequestResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->label('Status')
-                    ->options(collect(DesignRequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()])),
+                    ->options(collect(DesignRequestStatus::cases())->mapWithKeys(fn ($s) => [$s->value => $s->getLabel()]))
+                    ->multiple(),
 
                 SelectFilter::make('design_category_id')
                     ->label('Kategori')

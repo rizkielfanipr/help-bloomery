@@ -59,14 +59,14 @@
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ($moduleStats as $mod)
             @php $theme = $cardThemes[$mod['key']]; @endphp
-            <a href="{{ $mod['href'] }}"
+            <div
                class="group relative overflow-hidden rounded-2xl border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:bg-[#0F172A] dark:shadow-none {{ $theme['border'] }}">
 
                 <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
+                    <a href="{{ $mod['href'] }}" class="min-w-0">
                         <p class="truncate text-xs font-medium text-slate-500 dark:text-slate-400">{{ $mod['label'] }}</p>
                         <p class="mt-1.5 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">{{ number_format($mod['total']) }}</p>
-                    </div>
+                    </a>
                     <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl {{ $theme['icon_bg'] }}">
                         <svg class="h-5 w-5 {{ $theme['icon_color'] }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="{{ $mod['path'] }}"/>
@@ -75,14 +75,14 @@
                 </div>
 
                 <div class="mt-4 flex items-center gap-2">
-                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $theme['badge_bg'] }}">
+                    <a href="{{ $mod['pending_href'] }}" class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition hover:ring-2 hover:ring-current/20 {{ $theme['badge_bg'] }}">
                         <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>
                         {{ $mod['pending'] }} {{ $mod['pending_label'] ?? 'aktif' }}
-                    </span>
+                    </a>
                     <span class="text-[11px] text-slate-400 dark:text-slate-600">·</span>
-                    <span class="text-[11px] text-slate-400 dark:text-slate-500">{{ $mod['completed'] }} {{ $mod['completed_label'] ?? 'selesai' }}</span>
+                    <a href="{{ $mod['completed_href'] }}" class="text-[11px] text-slate-400 transition hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-200">{{ $mod['completed'] }} {{ $mod['completed_label'] ?? 'selesai' }}</a>
                 </div>
-            </a>
+            </div>
         @endforeach
     </div>
 

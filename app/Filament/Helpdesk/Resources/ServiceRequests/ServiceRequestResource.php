@@ -198,7 +198,7 @@ class ServiceRequestResource extends Resource
                 TextColumn::make('warranty_expires_at')->label('Garansi Hingga')->dateTime('d M Y')->placeholder('-'),
             ])
             ->filters([
-                SelectFilter::make('status')->label('Status')->options(ServiceRequestStatus::class),
+                SelectFilter::make('status')->label('Status')->options(ServiceRequestStatus::class)->multiple(),
                 SelectFilter::make('technician_id')->label('Teknisi')
                     ->options(User::role('technician')->pluck('name', 'id'))->searchable(),
             ])

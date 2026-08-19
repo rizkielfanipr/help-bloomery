@@ -33,9 +33,11 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class CasualClockRecordResource extends Resource
 {
@@ -305,6 +307,15 @@ class CasualClockRecordResource extends Resource
                     ->placeholder('-'),
             ])
             ->filters([
+                Filter::make('work_date')
+                    ->label('Tanggal Kerja')
+                    ->form([DatePicker::make('date')->label('Tanggal')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['date'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('date', $date)))
+                    ->indicateUsing(fn (array $data): ?string => filled($data['date'] ?? null)
+                        ? 'Tanggal: '.Carbon::parse($data['date'])->isoFormat('D MMM Y')
+                        : null),
+
                 SelectFilter::make('branch_id')
                     ->label('Cabang')
                     ->options(Branch::where('is_active', true)->pluck('name', 'id'))

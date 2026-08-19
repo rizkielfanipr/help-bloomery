@@ -235,7 +235,8 @@ class ErpRepairRequestResource extends Resource
 
                 SelectFilter::make('status')
                     ->label('STATUS')
-                    ->options(ItRequestStatus::class),
+                    ->options(ItRequestStatus::class)
+                    ->multiple(),
 
                 SelectFilter::make('branch_id')
                     ->label('CABANG')

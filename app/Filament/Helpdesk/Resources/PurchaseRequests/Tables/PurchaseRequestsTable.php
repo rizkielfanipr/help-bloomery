@@ -130,7 +130,8 @@ class PurchaseRequestsTable
                     ->label('STATUS')
                     ->options(collect(PurchaseRequestStatus::cases())->mapWithKeys(
                         fn (PurchaseRequestStatus $s) => [$s->value => $s->getLabel()]
-                    )),
+                    ))
+                    ->multiple(),
 
                 SelectFilter::make('branch_id')
                     ->label('CABANG')

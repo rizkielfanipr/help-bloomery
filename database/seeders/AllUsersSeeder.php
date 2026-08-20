@@ -138,6 +138,19 @@ class AllUsersSeeder extends Seeder
             ],
         )->syncRoles(['TECHNICIAN']);
 
+        // --- SUPERVISOR STORE ---
+        User::updateOrCreate(
+            ['email' => 'store-leader@bloomery.test'],
+            [
+                'name' => 'Store Leader Demo',
+                'username' => 'BLOSPV1',
+                'password' => Hash::make('password'),
+                'branch_id' => 1,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ],
+        )->syncRoles(['SUPERVISOR_STORE']);
+
         // --- QUALITY CONTROL ---
         User::updateOrCreate(
             ['email' => 'qc@bloomery.test'],

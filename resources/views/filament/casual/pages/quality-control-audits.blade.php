@@ -146,6 +146,11 @@
         {{-- Form body --}}
         <div class="px-5 pb-4 pt-2">
             {{ $this->startAuditForm }}
+
+            <div x-data="{ storeLeaderPresent: $wire.$entangle('startAuditData.store_leader_present') }"
+                 x-show="storeLeaderPresent" x-cloak class="mt-4">
+                {{ $this->storeLeaderForm }}
+            </div>
         </div>
 
         {{-- Action buttons --}}

@@ -5,11 +5,12 @@ namespace App\Filament\Casual\Pages;
 use App\Models\Branch;
 use App\Models\QualityControlAudit;
 use App\Models\QualityControlChecklistItem;
+use App\Models\User;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Collection;
@@ -73,20 +74,22 @@ class QualityControlAudits extends Page
                     ->label('Tanggal Audit')
                     ->default(today())
                     ->required(),
-                Select::make('audit_type')
-                    ->label('Jenis Audit')
-                    ->options([
-                        'routine' => 'Rutin',
-                        'follow_up' => 'Follow Up',
-                        'surprise' => 'Surprise Audit',
-                    ])
-                    ->default('routine')
-                    ->required(),
-                TextInput::make('store_leader_name')
-                    ->label('Store Leader')
-                    ->maxLength(255),
                 Toggle::make('store_leader_present')
                     ->label('Store Leader Hadir'),
+            ])
+            ->statePath('startAuditData');
+    }
+
+    public function storeLeaderForm(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Select::make('store_leader_name')
+                    ->label('Store Leader')
+                    ->options(fn (): array => User::role('SUPERVISOR_STORE')->orderBy('name')->pluck('name', 'name')->all())
+                    ->searchable()
+                    ->required(fn (Get $get): bool => (bool) $get('store_leader_present'))
+                    ->dehydrated(fn (Get $get): bool => (bool) $get('store_leader_present')),
             ])
             ->statePath('startAuditData');
     }
@@ -97,7 +100,6 @@ class QualityControlAudits extends Page
 
         $this->startAuditData = [
             'audit_date' => today()->toDateString(),
-            'audit_type' => 'routine',
             'store_leader_present' => false,
         ];
         $this->dispatch('open-start-audit-modal');
@@ -114,10 +116,13 @@ class QualityControlAudits extends Page
         abort_unless(auth()->user()?->can('create quality control audits'), 403);
 
         $data = $this->startAuditForm->getState();
+        $storeLeaderData = $this->storeLeaderForm->getState();
 
         $audit = QualityControlAudit::create([
             ...$data,
+            ...$storeLeaderData,
             'auditor_id' => auth()->id(),
+            'audit_type' => 'routine',
             'status' => 'draft',
         ]);
 

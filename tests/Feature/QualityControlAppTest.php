@@ -24,13 +24,15 @@ beforeEach(function () {
 
 it('starts an audit from the employee app and snapshots every active checklist point', function () {
     $branch = Branch::factory()->create(['is_active' => true]);
+    $supervisor = User::factory()->create(['is_active' => true]);
+    $supervisor->assignRole('SUPERVISOR_STORE');
 
     Livewire::test(QualityControlAudits::class)
         ->call('openStartAuditModal')
         ->set('startAuditData.branch_id', $branch->id)
         ->set('startAuditData.audit_date', '2026-08-19')
-        ->set('startAuditData.audit_type', 'routine')
         ->set('startAuditData.store_leader_present', true)
+        ->set('startAuditData.store_leader_name', $supervisor->name)
         ->call('submitStartAudit');
 
     $audit = QualityControlAudit::query()->sole();
@@ -38,8 +40,25 @@ it('starts an audit from the employee app and snapshots every active checklist p
     expect($audit->auditor_id)->toBe($this->auditor->id)
         ->and($audit->branch_id)->toBe($branch->id)
         ->and($audit->status)->toBe('draft')
+        ->and($audit->store_leader_present)->toBeTrue()
+        ->and($audit->store_leader_name)->toBe($supervisor->name)
         ->and($audit->items)->toHaveCount(36)
         ->and($audit->items->sum('maximum_points'))->toBe(180);
+});
+
+it('hides and clears the store leader field when store leader is not present', function () {
+    $branch = Branch::factory()->create(['is_active' => true]);
+
+    Livewire::test(QualityControlAudits::class)
+        ->call('openStartAuditModal')
+        ->set('startAuditData.branch_id', $branch->id)
+        ->set('startAuditData.audit_date', '2026-08-19')
+        ->call('submitStartAudit');
+
+    $audit = QualityControlAudit::query()->sole();
+
+    expect($audit->store_leader_present)->toBeFalse()
+        ->and($audit->store_leader_name)->toBeNull();
 });
 
 it('blocks starting an audit for a user without the app permission', function () {
@@ -57,7 +76,6 @@ it('fills an audit item from the app and recalculates the audit score', function
         ->call('openStartAuditModal')
         ->set('startAuditData.branch_id', $branch->id)
         ->set('startAuditData.audit_date', '2026-08-19')
-        ->set('startAuditData.audit_type', 'routine')
         ->call('submitStartAudit');
 
     $audit = QualityControlAudit::query()->sole();
@@ -84,7 +102,6 @@ it('captures a photo via the camera and attaches it to the item regardless of re
         ->call('openStartAuditModal')
         ->set('startAuditData.branch_id', $branch->id)
         ->set('startAuditData.audit_date', '2026-08-19')
-        ->set('startAuditData.audit_type', 'routine')
         ->call('submitStartAudit');
 
     $audit = QualityControlAudit::query()->sole();
@@ -114,7 +131,6 @@ it('blocks submitting an audit while points remain unanswered', function () {
         ->call('openStartAuditModal')
         ->set('startAuditData.branch_id', $branch->id)
         ->set('startAuditData.audit_date', '2026-08-19')
-        ->set('startAuditData.audit_type', 'routine')
         ->call('submitStartAudit');
 
     $audit = QualityControlAudit::query()->sole();
@@ -133,7 +149,6 @@ it('submits an audit once every point has been answered', function () {
         ->call('openStartAuditModal')
         ->set('startAuditData.branch_id', $branch->id)
         ->set('startAuditData.audit_date', '2026-08-19')
-        ->set('startAuditData.audit_type', 'routine')
         ->call('submitStartAudit');
 
     $audit = QualityControlAudit::query()->sole();

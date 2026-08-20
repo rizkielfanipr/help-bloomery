@@ -5,11 +5,12 @@ namespace App\Filament\Casual\Pages;
 use App\Models\QualityControlAudit;
 use App\Models\QualityControlAuditItem;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Storage;
@@ -35,6 +36,9 @@ class QualityControlAuditDetail extends Page
 
     public ?int $editingItemId = null;
 
+    /** Read-only details of the item currently open in the modal */
+    public ?array $activeItemInfo = null;
+
     /** @var string[] */
     public array $photoPaths = [];
 
@@ -58,6 +62,29 @@ class QualityControlAuditDetail extends Page
         QualityControlAudit::where('auditor_id', auth()->id())->findOrFail($record);
 
         $this->record = $record;
+        $this->itemData = $this->defaultItemData();
+        $this->summaryData = $this->defaultSummaryData();
+    }
+
+    /** @return array<string, mixed> */
+    protected function defaultItemData(): array
+    {
+        return [
+            'item_id' => null,
+            'maximum_points' => 0,
+            'earned_points' => null,
+            'notes' => null,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    protected function defaultSummaryData(): array
+    {
+        return [
+            'top_findings' => null,
+            'corrective_action_required' => null,
+            'overall_notes' => null,
+        ];
     }
 
     #[Computed]
@@ -73,14 +100,15 @@ class QualityControlAuditDetail extends Page
         return $schema
             ->components([
                 Hidden::make('item_id'),
-                Select::make('result')
-                    ->label('Hasil')
-                    ->options([
-                        'pass' => 'Sesuai',
-                        'fail' => 'Tidak Sesuai',
-                        'not_applicable' => 'Tidak Berlaku',
-                    ])
-                    ->required(),
+                Hidden::make('maximum_points'),
+                TextInput::make('earned_points')
+                    ->label('Poin')
+                    ->numeric()
+                    ->integer()
+                    ->minValue(0)
+                    ->maxValue(fn (Get $get): int => (int) $get('maximum_points'))
+                    ->required()
+                    ->helperText(fn (Get $get): string => 'Skor maksimal: '.$get('maximum_points').' poin'),
                 Textarea::make('notes')->label('Catatan')->rows(3),
             ])
             ->statePath('itemData');
@@ -103,8 +131,18 @@ class QualityControlAuditDetail extends Page
 
         $this->itemData = [
             'item_id' => $item->id,
-            'result' => $item->result,
+            'maximum_points' => $item->maximum_points,
+            'earned_points' => $item->result !== null ? $item->earned_points : null,
             'notes' => $item->notes,
+        ];
+
+        $this->activeItemInfo = [
+            'section_code' => $item->section_code,
+            'section_name' => $item->section_name,
+            'question' => $item->question,
+            'check_procedure' => $item->check_procedure,
+            'is_critical' => $item->is_critical,
+            'requires_photo' => $item->requires_photo,
         ];
 
         $this->photoPaths = $item->evidence_photos ?? [];
@@ -115,8 +153,9 @@ class QualityControlAuditDetail extends Page
 
     public function cancelItemModal(): void
     {
-        $this->itemData = [];
+        $this->itemData = $this->defaultItemData();
         $this->editingItemId = null;
+        $this->activeItemInfo = null;
         $this->photoPaths = [];
         $this->dispatch('close-item-modal');
     }
@@ -164,14 +203,16 @@ class QualityControlAuditDetail extends Page
         $item = QualityControlAuditItem::where('quality_control_audit_id', $this->record)->findOrFail($itemId);
 
         $item->update([
-            'result' => $data['result'],
+            'result' => 'scored',
+            'earned_points' => $data['earned_points'],
             'notes' => $data['notes'] ?? null,
             'evidence_photos' => $this->photoPaths,
         ]);
 
         $this->dispatch('close-item-modal');
-        $this->itemData = [];
+        $this->itemData = $this->defaultItemData();
         $this->editingItemId = null;
+        $this->activeItemInfo = null;
         $this->photoPaths = [];
 
         unset($this->auditModel);

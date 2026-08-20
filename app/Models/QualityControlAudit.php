@@ -58,7 +58,7 @@ class QualityControlAudit extends Model
 
     public function recalculateScore(): void
     {
-        $items = $this->items()->whereNotNull('result')->where('result', '!=', 'not_applicable')->get();
+        $items = $this->items()->whereNotNull('result')->get();
         $maximumPoints = $items->sum('maximum_points');
         $earnedPoints = $items->sum('earned_points');
         $score = $maximumPoints > 0 ? round(($earnedPoints / $maximumPoints) * 100, 2) : 0;

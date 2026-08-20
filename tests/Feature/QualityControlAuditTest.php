@@ -28,12 +28,14 @@ it('calculates audit score and traffic light rating from audit answers', functio
     QualityControlAuditItem::factory()->create([
         'quality_control_audit_id' => $audit->id,
         'maximum_points' => 85,
-        'result' => 'pass',
+        'result' => 'scored',
+        'earned_points' => 85,
     ]);
     QualityControlAuditItem::factory()->create([
         'quality_control_audit_id' => $audit->id,
         'maximum_points' => 15,
-        'result' => 'fail',
+        'result' => 'scored',
+        'earned_points' => 0,
     ]);
 
     $audit->refresh();
@@ -44,18 +46,14 @@ it('calculates audit score and traffic light rating from audit answers', functio
         ->and($audit->rating)->toBe('green');
 });
 
-it('excludes not applicable and unanswered points from the score denominator', function () {
+it('excludes unanswered points from the score denominator', function () {
     $audit = QualityControlAudit::factory()->create();
 
     QualityControlAuditItem::factory()->create([
         'quality_control_audit_id' => $audit->id,
         'maximum_points' => 10,
-        'result' => 'pass',
-    ]);
-    QualityControlAuditItem::factory()->create([
-        'quality_control_audit_id' => $audit->id,
-        'maximum_points' => 90,
-        'result' => 'not_applicable',
+        'result' => 'scored',
+        'earned_points' => 10,
     ]);
     QualityControlAuditItem::factory()->create([
         'quality_control_audit_id' => $audit->id,

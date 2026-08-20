@@ -2,17 +2,13 @@
 
 namespace App\Filament\Helpdesk\Resources\QualityControlAudits\RelationManagers;
 
-use App\Models\User;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\IconColumn;
@@ -48,55 +44,19 @@ class ItemsRelationManager extends RelationManager
                     ]),
                 ]),
                 Section::make('Hasil Audit')->schema([
-                    Select::make('result')
-                        ->label('Hasil')
-                        ->options([
-                            'pass' => 'Sesuai',
-                            'fail' => 'Tidak Sesuai',
-                            'not_applicable' => 'Tidak Berlaku',
-                        ])
-                        ->required()
-                        ->live(),
+                    Placeholder::make('earned_points')
+                        ->label('Skor')
+                        ->content(fn ($record): string => $record ? "{$record->earned_points}/{$record->maximum_points} poin" : '—'),
                     Textarea::make('notes')->label('Temuan/Catatan Auditor')->rows(3),
                     FileUpload::make('evidence_photos')
                         ->label('Foto Bukti')
                         ->image()
                         ->multiple()
                         ->maxFiles(5)
-                        ->disk('public')
+                        ->disk('b2')
                         ->directory('quality-control/audit-evidence')
-                        ->visibility('public')
-                        ->required(fn (Get $get): bool => $get('result') === 'fail' && (bool) $get('requires_photo')),
+                        ->visibility('public'),
                 ]),
-                Section::make('Corrective Action')
-                    ->visible(fn (Get $get): bool => $get('result') === 'fail')
-                    ->schema([
-                        Textarea::make('corrective_action')->label('Rencana Perbaikan')->rows(3),
-                        Grid::make(2)->schema([
-                            Select::make('action_pic_id')
-                                ->label('PIC')
-                                ->options(fn () => User::query()->where('is_active', true)->orderBy('name')->pluck('name', 'id'))
-                                ->searchable(),
-                            DatePicker::make('action_due_date')->label('Deadline'),
-                        ]),
-                        Select::make('action_status')
-                            ->label('Status Tindak Lanjut')
-                            ->options([
-                                'open' => 'Open',
-                                'in_progress' => 'In Progress',
-                                'waiting_verification' => 'Menunggu Verifikasi',
-                                'closed' => 'Closed',
-                            ])
-                            ->default('open'),
-                        FileUpload::make('action_evidence_photos')
-                            ->label('Bukti Perbaikan')
-                            ->image()
-                            ->multiple()
-                            ->maxFiles(5)
-                            ->disk('public')
-                            ->directory('quality-control/action-evidence')
-                            ->visibility('public'),
-                    ]),
             ]);
     }
 
@@ -107,45 +67,19 @@ class ItemsRelationManager extends RelationManager
             ->columns([
                 TextColumn::make('section_code')->label('Section')->badge()->sortable(),
                 TextColumn::make('question')->label('Poin Pemeriksaan')->searchable()->wrap(),
-                TextColumn::make('maximum_points')->label('Poin')->numeric(),
                 TextColumn::make('result')
-                    ->label('Hasil')
+                    ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'pass' => 'Sesuai', 'fail' => 'Tidak Sesuai',
-                        'not_applicable' => 'Tidak Berlaku', default => 'Belum Diisi',
-                    })
-                    ->color(fn (?string $state): string => match ($state) {
-                        'pass' => 'success', 'fail' => 'danger',
-                        'not_applicable' => 'gray', default => 'warning',
-                    }),
+                    ->formatStateUsing(fn (?string $state): string => $state !== null ? 'Sudah Dinilai' : 'Belum Dinilai')
+                    ->color(fn (?string $state): string => $state !== null ? 'success' : 'gray'),
                 TextColumn::make('earned_points')->label('Skor')->formatStateUsing(fn ($state, $record): string => $state.'/'.$record->maximum_points),
                 IconColumn::make('is_critical')->label('Critical')->boolean(),
-                TextColumn::make('action_status')
-                    ->label('Tindak Lanjut')
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state, $record): string => $record->result === 'fail' ? match ($state) {
-                        'in_progress' => 'In Progress',
-                        'waiting_verification' => 'Menunggu Verifikasi',
-                        'closed' => 'Closed',
-                        default => 'Open',
-                    } : '-')
-                    ->color(fn (?string $state, $record): string => $record->result === 'fail' ? match ($state) {
-                        'closed' => 'success',
-                        'waiting_verification' => 'info',
-                        'in_progress' => 'warning',
-                        default => 'danger',
-                    } : 'gray'),
             ])
             ->filters([
                 SelectFilter::make('section_code')
                     ->label('Section')
                     ->options(fn (): array => $this->getOwnerRecord()->items()
                         ->reorder('section_code')->distinct()->pluck('section_name', 'section_code')->all()),
-                SelectFilter::make('result')->label('Hasil')->options([
-                    'pass' => 'Sesuai', 'fail' => 'Tidak Sesuai',
-                    'not_applicable' => 'Tidak Berlaku',
-                ]),
             ])
             ->recordActions([
                 ViewAction::make()

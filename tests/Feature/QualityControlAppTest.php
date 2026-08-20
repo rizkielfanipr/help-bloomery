@@ -83,18 +83,39 @@ it('fills an audit item from the app and recalculates the audit score', function
 
     Livewire::test(QualityControlAuditDetail::class, ['record' => $audit->id])
         ->call('openItemModal', $item->id)
-        ->set('itemData.result', 'pass')
+        ->set('itemData.earned_points', $item->maximum_points)
         ->call('saveItem');
 
     $item->refresh();
     $audit->refresh();
 
-    expect($item->result)->toBe('pass')
+    expect($item->result)->toBe('scored')
         ->and($item->earned_points)->toBe($item->maximum_points)
         ->and($audit->earned_points)->toBe($item->maximum_points);
 });
 
-it('captures a photo via the camera and attaches it to the item regardless of result', function () {
+it('rejects a score higher than the item\'s maximum points', function () {
+    $branch = Branch::factory()->create(['is_active' => true]);
+
+    Livewire::test(QualityControlAudits::class)
+        ->call('openStartAuditModal')
+        ->set('startAuditData.branch_id', $branch->id)
+        ->set('startAuditData.audit_date', '2026-08-19')
+        ->call('submitStartAudit');
+
+    $audit = QualityControlAudit::query()->sole();
+    $item = $audit->items()->first();
+
+    Livewire::test(QualityControlAuditDetail::class, ['record' => $audit->id])
+        ->call('openItemModal', $item->id)
+        ->set('itemData.earned_points', $item->maximum_points + 5)
+        ->call('saveItem')
+        ->assertHasErrors(['itemData.earned_points']);
+
+    expect($item->refresh()->result)->toBeNull();
+});
+
+it('captures a photo via the camera and attaches it to the item', function () {
     Storage::fake('b2');
     $branch = Branch::factory()->create(['is_active' => true]);
 
@@ -111,7 +132,7 @@ it('captures a photo via the camera and attaches it to the item regardless of re
 
     $page = Livewire::test(QualityControlAuditDetail::class, ['record' => $audit->id])
         ->call('openItemModal', $item->id)
-        ->set('itemData.result', 'pass')
+        ->set('itemData.earned_points', $item->maximum_points)
         ->call('storeCameraPhoto', $tinyJpegBase64);
 
     $paths = $page->get('photoPaths');
@@ -153,7 +174,7 @@ it('submits an audit once every point has been answered', function () {
 
     $audit = QualityControlAudit::query()->sole();
     foreach ($audit->items as $item) {
-        $item->update(['result' => 'pass']);
+        $item->update(['result' => 'scored', 'earned_points' => $item->maximum_points]);
     }
 
     Livewire::test(QualityControlAuditDetail::class, ['record' => $audit->id])
@@ -164,6 +185,29 @@ it('submits an audit once every point has been answered', function () {
     expect($audit->status)->toBe('submitted')
         ->and($audit->submitted_at)->not->toBeNull()
         ->and($audit->score)->toBe(100.0);
+});
+
+it('shows the audit info card with branch, date, auditor and store leader details', function () {
+    $branch = Branch::factory()->create(['is_active' => true, 'name' => 'BLOOMERY SERVER']);
+    $supervisor = User::factory()->create(['is_active' => true, 'name' => 'Store Leader Demo']);
+    $supervisor->assignRole('SUPERVISOR_STORE');
+
+    Livewire::test(QualityControlAudits::class)
+        ->call('openStartAuditModal')
+        ->set('startAuditData.branch_id', $branch->id)
+        ->set('startAuditData.audit_date', '2026-08-19')
+        ->set('startAuditData.store_leader_present', true)
+        ->set('startAuditData.store_leader_name', $supervisor->name)
+        ->call('submitStartAudit');
+
+    $audit = QualityControlAudit::query()->sole();
+
+    Livewire::test(QualityControlAuditDetail::class, ['record' => $audit->id])
+        ->assertSee('Nomor Audit')
+        ->assertSee($audit->audit_number)
+        ->assertSee('BLOOMERY SERVER')
+        ->assertSee($this->auditor->name)
+        ->assertSee('Store Leader Demo');
 });
 
 it('prevents a quality control user from viewing another auditor\'s audit', function () {

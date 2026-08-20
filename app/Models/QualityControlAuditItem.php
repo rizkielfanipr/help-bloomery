@@ -37,10 +37,6 @@ class QualityControlAuditItem extends Model
 
     protected static function booted(): void
     {
-        static::saving(function (self $item): void {
-            $item->earned_points = $item->result === 'pass' ? $item->maximum_points : 0;
-        });
-
         static::saved(fn (self $item) => $item->audit?->recalculateScore());
         static::deleted(fn (self $item) => $item->audit?->recalculateScore());
     }

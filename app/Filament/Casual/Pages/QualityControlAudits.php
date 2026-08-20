@@ -40,6 +40,19 @@ class QualityControlAudits extends Page
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('view quality control audits'), 403);
+
+        $this->startAuditData = $this->defaultStartAuditData();
+    }
+
+    /** @return array<string, mixed> */
+    protected function defaultStartAuditData(): array
+    {
+        return [
+            'branch_id' => null,
+            'audit_date' => today()->toDateString(),
+            'store_leader_present' => false,
+            'store_leader_name' => null,
+        ];
     }
 
     #[Computed]
@@ -75,19 +88,13 @@ class QualityControlAudits extends Page
                     ->default(today())
                     ->required(),
                 Toggle::make('store_leader_present')
-                    ->label('Store Leader Hadir'),
-            ])
-            ->statePath('startAuditData');
-    }
-
-    public function storeLeaderForm(Schema $schema): Schema
-    {
-        return $schema
-            ->components([
+                    ->label('Store Leader Hadir')
+                    ->live(),
                 Select::make('store_leader_name')
                     ->label('Store Leader')
                     ->options(fn (): array => User::role('SUPERVISOR_STORE')->orderBy('name')->pluck('name', 'name')->all())
                     ->searchable()
+                    ->visible(fn (Get $get): bool => (bool) $get('store_leader_present'))
                     ->required(fn (Get $get): bool => (bool) $get('store_leader_present'))
                     ->dehydrated(fn (Get $get): bool => (bool) $get('store_leader_present')),
             ])
@@ -98,16 +105,13 @@ class QualityControlAudits extends Page
     {
         abort_unless(auth()->user()?->can('create quality control audits'), 403);
 
-        $this->startAuditData = [
-            'audit_date' => today()->toDateString(),
-            'store_leader_present' => false,
-        ];
+        $this->startAuditData = $this->defaultStartAuditData();
         $this->dispatch('open-start-audit-modal');
     }
 
     public function cancelStartAuditModal(): void
     {
-        $this->startAuditData = [];
+        $this->startAuditData = $this->defaultStartAuditData();
         $this->dispatch('close-start-audit-modal');
     }
 
@@ -116,11 +120,9 @@ class QualityControlAudits extends Page
         abort_unless(auth()->user()?->can('create quality control audits'), 403);
 
         $data = $this->startAuditForm->getState();
-        $storeLeaderData = $this->storeLeaderForm->getState();
 
         $audit = QualityControlAudit::create([
             ...$data,
-            ...$storeLeaderData,
             'auditor_id' => auth()->id(),
             'audit_type' => 'routine',
             'status' => 'draft',

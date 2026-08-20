@@ -5,7 +5,11 @@ namespace App\Providers;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Http\Middleware\EnsureRole;
+use App\Models\Location;
+use App\Models\ProductSetting;
 use App\Models\User;
+use App\Observers\LocationObserver;
+use App\Observers\ProductSettingObserver;
 use Filament\Support\Facades\FilamentView;
 use Filament\Tables\View\TablesRenderHook;
 use Illuminate\Support\Facades\Gate;
@@ -23,6 +27,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Route::aliasMiddleware('role', EnsureRole::class);
+
+        Location::observe(LocationObserver::class);
+        ProductSetting::observe(ProductSettingObserver::class);
 
         FilamentView::registerRenderHook(
             TablesRenderHook::HEADER_CELL,

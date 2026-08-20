@@ -52,6 +52,7 @@ return [
 
     'Inventory' => [
         'Stock Card' => ['view stock cards', 'create stock cards', 'edit stock cards', 'delete stock cards', 'review stock cards as supervisor', 'review stock cards as finance'],
+        'Product List' => ['view product list', 'edit product list'],
     ],
 
     'Finance' => [

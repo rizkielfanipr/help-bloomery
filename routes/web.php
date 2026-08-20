@@ -9,10 +9,12 @@ use App\Http\Controllers\Helpdesk\BriefingScoreExportController;
 use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
 use App\Http\Controllers\Helpdesk\CasualStaffExportController;
 use App\Http\Controllers\Helpdesk\DriverMealAllowanceExportController;
+use App\Http\Controllers\Helpdesk\LocationLabelPdfController;
+use App\Http\Controllers\Helpdesk\ProductLabelPdfController;
 use App\Http\Controllers\Helpdesk\RndBomInstructionImageController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
-use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
+use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Models\RndProjectBom;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +36,18 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/casual/exports/briefing-score-pdf', BriefingScorePdfController::class)
         ->name('casual.exports.briefing-score-pdf');
+
+    Route::get('/helpdesk/locations/{location}/label-pdf', [LocationLabelPdfController::class, 'single'])
+        ->name('helpdesk.locations.label-pdf');
+
+    Route::get('/helpdesk/locations/labels-pdf', [LocationLabelPdfController::class, 'bulk'])
+        ->name('helpdesk.locations.labels-pdf');
+
+    Route::get('/helpdesk/products/{code}/label-pdf', [ProductLabelPdfController::class, 'single'])
+        ->name('helpdesk.products.label-pdf');
+
+    Route::get('/helpdesk/products/labels-pdf', [ProductLabelPdfController::class, 'bulk'])
+        ->name('helpdesk.products.labels-pdf');
 
     Route::get('/rnd-projects/{project}/products/{product}/bom/export-pdf', RndProductBomPdfController::class)
         ->name('helpdesk.rnd-products.bom-pdf');

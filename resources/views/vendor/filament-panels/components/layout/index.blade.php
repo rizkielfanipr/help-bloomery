@@ -43,6 +43,7 @@
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
+    if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
 
     /* ── Navigation groups with real routes ───────────────────────*/
@@ -122,6 +123,15 @@
             'icon'  => 'shopping-cart',
             'items' => [
                 ['label' => 'Permintaan Pembelian', 'icon' => 'shopping-bag', 'perm' => 'view purchase requests', 'href' => $r('filament.helpdesk.resources.purchase-requests.index'), 'active' => $active($r('filament.helpdesk.resources.purchase-requests.index'))],
+            ],
+        ],
+        [
+            'id'    => 'quality_control',
+            'label' => 'Quality Control',
+            'icon'  => 'clipboard-check',
+            'items' => [
+                ['label' => 'Audit QC',   'icon' => 'clipboard-check', 'perm' => 'view quality control audits',     'href' => $r('filament.helpdesk.resources.quality-control-audits.index'),          'active' => $active($r('filament.helpdesk.resources.quality-control-audits.index'))],
+                ['label' => 'Checklist QC', 'icon' => 'list-checks',   'perm' => 'view quality control checklists', 'href' => $r('filament.helpdesk.resources.quality-control-checklist-items.index'), 'active' => $active($r('filament.helpdesk.resources.quality-control-checklist-items.index'))],
             ],
         ],
         [

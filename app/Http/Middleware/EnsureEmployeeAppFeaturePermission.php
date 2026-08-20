@@ -31,6 +31,7 @@ class EnsureEmployeeAppFeaturePermission
         'purchase-request-' => 'access employee app purchasing',
         'design-request-' => 'access employee app design',
         'erp-request-' => 'access employee app erp',
+        'quality-control-audit' => 'access employee app quality control',
     ];
 
     public function handle(Request $request, Closure $next): Response

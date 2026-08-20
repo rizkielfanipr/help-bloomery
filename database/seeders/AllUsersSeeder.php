@@ -138,6 +138,31 @@ class AllUsersSeeder extends Seeder
             ],
         )->syncRoles(['TECHNICIAN']);
 
+        // --- QUALITY CONTROL ---
+        User::updateOrCreate(
+            ['email' => 'qc@bloomery.test'],
+            [
+                'name' => 'QC Auditor',
+                'username' => 'BLOQC1',
+                'password' => Hash::make('password'),
+                'branch_id' => 1,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ],
+        )->syncRoles(['QUALITY_CONTROL']);
+
+        User::updateOrCreate(
+            ['email' => 'qc-supervisor@bloomery.test'],
+            [
+                'name' => 'QC Supervisor',
+                'username' => 'BLOQCSPV',
+                'password' => Hash::make('password'),
+                'branch_id' => 1,
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ],
+        )->syncRoles(['QUALITY_CONTROL_SUPERVISOR']);
+
         // --- CASUAL STAFF (demo — username bebas, tidak pakai prefix BLO) ---
         User::updateOrCreate(
             ['email' => 'casual@bloomery.test'],

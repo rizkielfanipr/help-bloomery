@@ -121,6 +121,14 @@ class LauncherPage extends Page
                 'href' => fn (): string => ErpRequestPage::getUrl(panel: 'casual'),
                 'permission' => 'access employee app erp',
             ],
+            [
+                'label' => 'Quality Control',
+                'iconBg' => 'bg-blue-50',
+                'iconColor' => 'text-blue-500',
+                'path' => 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+                'href' => fn (): string => QualityControlAudits::getUrl(panel: 'casual'),
+                'permission' => 'access employee app quality control',
+            ],
         ];
 
         return array_values(array_map(function (array $tile): array {

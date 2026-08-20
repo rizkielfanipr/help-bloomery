@@ -33,4 +33,5 @@ return [
     ],
     'FINANCE_STAFF' => ['access backoffice'],
     'PURCHASING_STAFF' => ['access backoffice'],
+    'QUALITY_CONTROL' => ['access employee app quality control'],
 ];

@@ -17,6 +17,7 @@ return [
         'Desain' => ['access employee app design'],
         'Konten' => ['access employee app content'],
         'ERP' => ['access employee app erp'],
+        'Quality Control' => ['access employee app quality control'],
     ],
 
     'Human Resources' => [

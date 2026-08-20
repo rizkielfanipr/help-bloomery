@@ -82,6 +82,11 @@ class Branch extends Model
         return $this->hasMany(BriefingTask::class);
     }
 
+    public function qualityControlAudits(): HasMany
+    {
+        return $this->hasMany(QualityControlAudit::class);
+    }
+
     public function salesReports(): HasMany
     {
         return $this->hasMany(SalesReport::class);

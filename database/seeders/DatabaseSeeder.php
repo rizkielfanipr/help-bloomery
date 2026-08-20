@@ -22,6 +22,8 @@ class DatabaseSeeder extends Seeder
             SalesReportSeeder::class,
             ServiceRequestSeeder::class,
             TripSeeder::class,
+            QualityControlChecklistSeeder::class,
+            QualityControlAuditSeeder::class,
         ]);
     }
 }

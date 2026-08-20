@@ -50,6 +50,16 @@ it('shows Teknisi tile for TECHNICIAN', function () {
         ->assertSee('Teknisi');
 });
 
+it('shows Quality Control tile for QUALITY_CONTROL', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('QUALITY_CONTROL');
+
+    actingAs($user);
+
+    Livewire::test(LauncherPage::class)
+        ->assertSee('Quality Control');
+});
+
 it('hides role-specific tiles from users without that role', function () {
     $user = User::factory()->create(['is_active' => true]);
     $user->assignRole('CASUAL_STAFF');

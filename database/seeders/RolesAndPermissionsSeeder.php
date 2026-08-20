@@ -115,6 +115,19 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view stock cards', 'review stock cards as finance',
             ]);
 
-        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, IT_STAFF, RND_STAFF, SUPERVISOR_STORE, FINANCE_STAFF');
+        Role::firstOrCreate(['name' => 'QUALITY_CONTROL', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'access employee app quality control',
+                'view quality control audits', 'create quality control audits', 'edit quality control audits',
+            ]);
+
+        Role::firstOrCreate(['name' => 'QUALITY_CONTROL_SUPERVISOR', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'access backoffice',
+                'view quality control audits',
+                'view quality control checklists', 'create quality control checklists', 'edit quality control checklists', 'delete quality control checklists',
+            ]);
+
+        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, IT_STAFF, RND_STAFF, SUPERVISOR_STORE, FINANCE_STAFF, QUALITY_CONTROL, QUALITY_CONTROL_SUPERVISOR');
     }
 }

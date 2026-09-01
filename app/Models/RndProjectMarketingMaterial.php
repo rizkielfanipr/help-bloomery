@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -17,6 +18,9 @@ class RndProjectMarketingMaterial extends Model
         'catalogue' => 'Katalog',
         'other' => 'Lainnya',
     ];
+
+    /** Types that need physical production (Purchasing order + Inventory receive). */
+    public const PHYSICAL_TYPES = ['packaging_design', 'sticker'];
 
     protected $fillable = [
         'rnd_project_product_id',
@@ -38,6 +42,11 @@ class RndProjectMarketingMaterial extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function fulfillment(): HasOne
+    {
+        return $this->hasOne(MarketingMaterialFulfillment::class);
     }
 
     public function fileUrl(): string

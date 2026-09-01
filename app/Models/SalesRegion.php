@@ -18,4 +18,9 @@ class SalesRegion extends Model
     {
         return $this->hasMany(RndProductRegionalPrice::class);
     }
+
+    public function productSalesProjections(): HasMany
+    {
+        return $this->hasMany(RndProductSalesProjection::class);
+    }
 }

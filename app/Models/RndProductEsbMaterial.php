@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MaterialSourcingStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -37,6 +38,14 @@ class RndProductEsbMaterial extends Model
         'sync_error',
         'synced_at',
         'created_by',
+        'sourcing_status',
+        'sourcing_selected_id',
+        'rnd_reviewed_by',
+        'rnd_reviewed_at',
+        'rnd_note',
+        'finance_reviewed_by',
+        'finance_reviewed_at',
+        'finance_note',
     ];
 
     protected function casts(): array
@@ -48,6 +57,9 @@ class RndProductEsbMaterial extends Model
             'last_payload' => 'array',
             'last_response' => 'array',
             'synced_at' => 'datetime',
+            'sourcing_status' => MaterialSourcingStatus::class,
+            'rnd_reviewed_at' => 'datetime',
+            'finance_reviewed_at' => 'datetime',
         ];
     }
 
@@ -66,6 +78,31 @@ class RndProductEsbMaterial extends Model
         return $this->hasMany(RndProductEsbMaterialUnit::class)
             ->orderByDesc('is_base')
             ->orderBy('id');
+    }
+
+    public function sourcings(): HasMany
+    {
+        return $this->hasMany(MaterialSourcing::class);
+    }
+
+    public function selectedSourcing(): BelongsTo
+    {
+        return $this->belongsTo(MaterialSourcing::class, 'sourcing_selected_id');
+    }
+
+    public function sourcingApprovals(): HasMany
+    {
+        return $this->hasMany(MaterialSourcingApproval::class)->latest();
+    }
+
+    public function rndReviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rnd_reviewed_by');
+    }
+
+    public function financeReviewer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'finance_reviewed_by');
     }
 
     public function toEsbPayload(): array

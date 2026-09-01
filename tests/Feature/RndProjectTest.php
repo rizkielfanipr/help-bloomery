@@ -1,11 +1,14 @@
 <?php
 
+use App\Enums\MarketingMaterialFulfillmentStatus;
+use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
 use App\Models\PrefixCategory;
 use App\Models\RndBomInstruction;
+use App\Models\RndProductEsbMaterial;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
 use App\Models\RndProjectProduct;
@@ -74,6 +77,7 @@ it('creates and updates a product release with online and offline prices', funct
             'offline_price' => (string) (32000 + ($index * 1000)),
             'online_price' => (string) (36000 + ($index * 1000)),
         ])->all();
+    $projectionRegion = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->firstOrFail();
 
     $page = Livewire::test(ViewProject::class, ['record' => $project->id])
         ->set('productName', 'Matcha Strawberry')
@@ -83,6 +87,21 @@ it('creates and updates a product release with online and offline prices', funct
         ->set('regionalPrices', $regionalPrices)
         ->set('releaseDate', '2026-09-01')
         ->set('productStatus', 'development')
+        ->set('shelfLifeValue', '6')
+        ->set('shelfLifeUnit', 'month')
+        ->set('storageCondition', 'chiller')
+        ->set('storageNotes', 'Simpan pada suhu 2–5°C.')
+        ->set('targetOutlets', '50')
+        ->set('salesProjections', [[
+            'id' => null,
+            'projection_month' => '2026-09',
+            'sales_region_id' => $projectionRegion->id,
+            'channel' => 'offline',
+            'target_quantity' => '5000',
+            'target_revenue' => '250000000',
+            'target_outlets' => '50',
+            'notes' => 'Projection peluncuran awal.',
+        ]])
         ->set('productPhoto', UploadedFile::fake()->image('matcha-product.jpg', 800, 800))
         ->call('saveProduct')
         ->assertHasNoErrors()
@@ -104,7 +123,15 @@ it('creates and updates a product release with online and offline prices', funct
     expect((float) $product->offline_price)->toBe(32000.0)
         ->and((float) $product->online_price)->toBe(37000.0)
         ->and($product->status)->toBe('trial')
+        ->and($product->shelf_life_value)->toBe(6)
+        ->and($product->shelf_life_unit)->toBe('month')
+        ->and($product->storage_condition)->toBe('chiller')
+        ->and($product->target_outlets)->toBe(50)
         ->and($product->image_path)->not->toBe($originalImagePath);
+    $projection = $product->salesProjections()->firstOrFail();
+    expect($projection->projection_month->toDateString())->toBe('2026-09-01')
+        ->and((float) $projection->target_quantity)->toBe(5000.0)
+        ->and((float) $projection->target_revenue)->toBe(250000000.0);
     Storage::disk('b2')->assertMissing($originalImagePath);
     Storage::disk('b2')->assertExists($product->image_path);
     $this->assertDatabaseHas('rnd_product_regional_prices', [
@@ -117,6 +144,73 @@ it('creates and updates a product release with online and offline prices', funct
         ->firstOrFail()
         ->effective_from
         ->toDateString())->toBe('2026-08-01');
+});
+
+it('requires shelf life and a sales projection before a product is ready', function () {
+    Storage::fake('b2');
+    $project = RndProject::query()->create([
+        'name' => 'Ready Validation Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $regionalPrices = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->get()
+        ->map(fn (SalesRegion $region): array => [
+            'region_id' => $region->id,
+            'region_name' => $region->name,
+            'region_code' => $region->code,
+            'offline_price' => '32000',
+            'online_price' => '36000',
+        ])->all();
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->set('productName', 'Ready Product')
+        ->set('priceEffectiveFrom', '2026-08-01')
+        ->set('regionalPrices', $regionalPrices)
+        ->set('releaseDate', '2026-09-01')
+        ->set('productStatus', 'ready')
+        ->call('saveProduct')
+        ->assertHasErrors(['shelfLifeValue', 'salesProjections']);
+
+    expect($project->products()->count())->toBe(0);
+});
+
+it('rejects duplicate sales projection periods for the same region and channel', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Projection Validation Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $regions = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->get();
+    $regionalPrices = $regions->map(fn (SalesRegion $region): array => [
+        'region_id' => $region->id,
+        'region_name' => $region->name,
+        'region_code' => $region->code,
+        'offline_price' => '32000',
+        'online_price' => '36000',
+    ])->all();
+    $duplicateProjection = [
+        'id' => null,
+        'projection_month' => '2026-09',
+        'sales_region_id' => $regions->firstOrFail()->id,
+        'channel' => 'online',
+        'target_quantity' => '100',
+        'target_revenue' => '3600000',
+        'target_outlets' => '5',
+        'notes' => '',
+    ];
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->set('productName', 'Duplicate Projection Product')
+        ->set('priceEffectiveFrom', '2026-08-01')
+        ->set('regionalPrices', $regionalPrices)
+        ->set('productStatus', 'development')
+        ->set('salesProjections', [$duplicateProjection, $duplicateProjection])
+        ->call('saveProduct')
+        ->assertHasErrors(['salesProjections']);
+
+    expect($project->products()->count())->toBe(0);
 });
 
 it('uploads and deletes product marketing materials on Cloudflare storage', function () {
@@ -158,6 +252,71 @@ it('uploads and deletes product marketing materials on Cloudflare storage', func
     $page->call('deleteMaterial', $material->id)->assertHasNoErrors();
     Storage::disk('b2')->assertMissing($material->file_path);
     $this->assertDatabaseMissing('rnd_project_marketing_materials', ['id' => $material->id]);
+});
+
+it('shows marketing fulfillment and approved supplier details on the product page', function () {
+    Storage::fake('b2');
+    $project = RndProject::query()->create([
+        'name' => 'Product Monitoring Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Monitoring Product',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $material = $product->marketingMaterials()->create([
+        'type' => 'packaging_design',
+        'title' => 'Packaging Box',
+        'file_path' => 'rnd/marketing-materials/packaging.pdf',
+        'original_name' => 'packaging.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 1024,
+        'created_by' => auth()->id(),
+    ]);
+    $material->fulfillment()->create([
+        'status' => MarketingMaterialFulfillmentStatus::Ordered,
+        'vendor_name' => 'CV Print Bloomery',
+        'order_date' => '2026-09-01',
+        'ordered_by' => auth()->id(),
+        'ordered_at' => now(),
+    ]);
+    $esbMaterial = RndProductEsbMaterial::query()->create([
+        'rnd_project_product_id' => $product->id,
+        'category_id' => 1,
+        'sub_category_id' => 1,
+        'uom_id' => 1,
+        'uom_name' => 'KG',
+        'product_code' => 'MAT-APPROVED',
+        'product_name' => 'Approved Flour',
+        'sku' => 'MAT-APPROVED-KG',
+        'status' => 'draft',
+        'sourcing_status' => MaterialSourcingStatus::Approved,
+    ]);
+    $supplier = $esbMaterial->sourcings()->create([
+        'supplier_name' => 'PT Supplier Terpilih',
+        'price' => 12500,
+        'moq' => '100 kg',
+        'lead_time_days' => 7,
+        'contact_name' => 'Budi',
+        'contact_phone' => '08123456789',
+        'notes' => 'Harga sudah termasuk pengiriman.',
+        'submitted_by' => auth()->id(),
+    ]);
+    $esbMaterial->update(['sourcing_selected_id' => $supplier->id]);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $project->id,
+        'product' => $product->id,
+    ])
+        ->assertSee('Sudah Dipesan')
+        ->assertSee('CV Print Bloomery')
+        ->assertSee('Disetujui')
+        ->assertSee('PT Supplier Terpilih')
+        ->assertSee('100 kg')
+        ->assertSee('08123456789');
 });
 
 it('stores a new material draft and creates its Master Product in ESB', function () {

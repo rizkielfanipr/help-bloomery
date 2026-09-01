@@ -19,6 +19,13 @@ return [
         'password' => env('ESB_CORE_PASSWORD'),
         'timeout' => (int) env('ESB_CORE_TIMEOUT', 60),
         'token_ttl' => (int) env('ESB_CORE_TOKEN_TTL', 3300),
+        'companies' => [
+            'BLSS' => ['username' => env('ESB_CORE_BLSS_USERNAME'), 'password' => env('ESB_CORE_BLSS_PASSWORD')],
+            'BLO6' => ['username' => env('ESB_CORE_BLO6_USERNAME'), 'password' => env('ESB_CORE_BLO6_PASSWORD')],
+            'BLO7' => ['username' => env('ESB_CORE_BLO7_USERNAME'), 'password' => env('ESB_CORE_BLO7_PASSWORD')],
+            'BLO10' => ['username' => env('ESB_CORE_BLO10_USERNAME'), 'password' => env('ESB_CORE_BLO10_PASSWORD')],
+            'BLMN' => ['username' => env('ESB_CORE_BLMN_USERNAME'), 'password' => env('ESB_CORE_BLMN_PASSWORD')],
+        ],
         'uoms' => [
             2 => 'PCS',
             5 => 'GR',

@@ -26,6 +26,8 @@
     /* ── Active check: true if current URL starts with the item's path ─*/
     $active = fn (string $href): bool => $href !== '#' &&
         str_starts_with('/'.request()->path(), parse_url($href, PHP_URL_PATH) ?? '~');
+    $activeExact = fn (string $href): bool => $href !== '#' &&
+        '/'.request()->path() === rtrim(parse_url($href, PHP_URL_PATH) ?? '~', '/');
 
     /* ── Auto-open the active group ──────────────────────────────── */
     $path = request()->path();
@@ -37,12 +39,12 @@
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'whatsapp-settings')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report')) { $initialOpen[] = 'finance'; }
-    if (str_contains($path, 'stock-card') || str_contains($path, 'location') || str_contains($path, 'product-list-page')) { $initialOpen[] = 'inventory'; }
+    if (str_contains($path, 'stock-card') || str_contains($path, 'location') || str_contains($path, 'product-list-page') || str_contains($path, 'marketing-material-fulfillments/diterima')) { $initialOpen[] = 'inventory'; }
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names')) { $initialOpen[] = 'rnd'; }
-    if (str_contains($path, 'purchase-request')) { $initialOpen[] = 'purchasing'; }
+    if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
 
@@ -103,6 +105,7 @@
                 ['label' => 'Permintaan ERP', 'icon' => 'server',      'perm' => 'view erp requests', 'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => $active($r('filament.helpdesk.resources.erp-repair-requests.index'))],
                 ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => $active($r('filament.helpdesk.resources.erp-modules.index'))],
                 ['label' => 'Request Types',  'icon' => 'tags',        'perm' => 'view it request types', 'href' => $r('filament.helpdesk.resources.it-request-types.index'),  'active' => $active($r('filament.helpdesk.resources.it-request-types.index'))],
+                ['label' => 'Bulk Data',      'icon' => 'cloud-upload', 'perm' => 'view bulk product submissions', 'href' => $r('filament.helpdesk.resources.bulk-product-submissions.index'), 'active' => $active($r('filament.helpdesk.resources.bulk-product-submissions.index'))],
             ],
         ],
         [
@@ -123,6 +126,8 @@
             'icon'  => 'shopping-cart',
             'items' => [
                 ['label' => 'Permintaan Pembelian', 'icon' => 'shopping-bag', 'perm' => 'view purchase requests', 'href' => $r('filament.helpdesk.resources.purchase-requests.index'), 'active' => $active($r('filament.helpdesk.resources.purchase-requests.index'))],
+                ['label' => 'Sourcing Bahan', 'icon' => 'truck', 'perm' => 'view material sourcings', 'href' => $r('filament.helpdesk.resources.material-sourcings.index'), 'active' => $active($r('filament.helpdesk.resources.material-sourcings.index'))],
+                ['label' => 'Material Marketing (Perlu Dipesan)', 'icon' => 'package', 'perm' => 'view marketing material fulfillments', 'href' => $r('filament.helpdesk.resources.marketing-material-fulfillments.index'), 'active' => $activeExact($r('filament.helpdesk.resources.marketing-material-fulfillments.index'))],
             ],
         ],
         [
@@ -143,6 +148,7 @@
                 ['label' => 'Lokasi', 'icon' => 'map', 'perm' => 'view locations', 'href' => $r('filament.helpdesk.resources.locations.index'), 'active' => $active($r('filament.helpdesk.resources.locations.index'))],
                 ['label' => 'Tipe Lokasi', 'icon' => 'tag', 'perm' => 'view location types', 'href' => $r('filament.helpdesk.resources.location-types.index'), 'active' => $active($r('filament.helpdesk.resources.location-types.index'))],
                 ['label' => 'Product List', 'icon' => 'box', 'perm' => 'view product list', 'href' => $r('filament.helpdesk.pages.product-list-page'), 'active' => $active($r('filament.helpdesk.pages.product-list-page'))],
+                ['label' => 'Material Marketing (Perlu Diterima)', 'icon' => 'package', 'perm' => 'view marketing material fulfillments', 'href' => $r('filament.helpdesk.resources.marketing-material-fulfillments.to-receive'), 'active' => $active($r('filament.helpdesk.resources.marketing-material-fulfillments.to-receive'))],
             ],
         ],
         [

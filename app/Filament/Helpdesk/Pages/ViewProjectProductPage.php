@@ -1435,7 +1435,7 @@ class ViewProjectProductPage extends Page
 
     public function openMaterialForm(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeMaterialManagement();
         $this->materialType = 'packaging_design';
         $this->materialTitle = '';
         $this->materialNotes = '';
@@ -1447,7 +1447,7 @@ class ViewProjectProductPage extends Page
 
     public function saveMaterial(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeMaterialManagement();
         $validated = $this->validate([
             'materialType' => ['required', Rule::in(array_keys(RndProjectMarketingMaterial::TYPES))],
             'materialTitle' => ['required', 'string', 'max:255'],
@@ -1490,7 +1490,7 @@ class ViewProjectProductPage extends Page
 
     public function deleteMaterial(int $materialId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeMaterialManagement();
         $material = $this->productRecord->marketingMaterials()->findOrFail($materialId);
         $path = $material->file_path;
         $material->delete();
@@ -2100,6 +2100,12 @@ class ViewProjectProductPage extends Page
         abort_unless($user?->can('edit rnd projects'), 403);
     }
 
+    private function authorizeMaterialManagement(): void
+    {
+        $user = auth()->user();
+        abort_unless($user?->can('edit rnd projects') || $user?->can('upload marketing materials'), 403);
+    }
+
     private function authorizeBomManagement(): void
     {
         $user = auth()->user();
@@ -2122,10 +2128,15 @@ class ViewProjectProductPage extends Page
     {
         $this->productRecord->refresh()->load([
             'boms',
-            'marketingMaterials',
-            'esbMaterials',
+            'marketingMaterials.fulfillment.location.branch',
+            'marketingMaterials.fulfillment.orderedBy',
+            'marketingMaterials.fulfillment.receivedBy',
+            'esbMaterials.selectedSourcing.submittedBy',
+            'esbMaterials.rndReviewer',
+            'esbMaterials.financeReviewer',
             'regionalPrices.region',
             'currentRegionalPrices.region',
+            'salesProjections.region',
         ]);
 
         foreach ($this->productRecord->boms as $bom) {

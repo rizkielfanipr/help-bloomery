@@ -98,7 +98,7 @@ it('SUPERADMIN role has all permissions', function () {
 });
 
 it('allows panel access from permission without hardcoded role names', function () {
-    $role = Role::create(['name' => 'PURCHASING_STAFF', 'guard_name' => 'web']);
+    $role = Role::create(['name' => 'WAREHOUSE_STAFF', 'guard_name' => 'web']);
     $role->givePermissionTo(['access backoffice', 'view purchase requests']);
 
     $user = User::factory()->create(['is_active' => true]);
@@ -162,11 +162,11 @@ it('never locks SUPERADMIN out when its stored permissions are stale', function 
 });
 
 it('keeps roles created dynamically when permissions are synchronized', function () {
-    Role::create(['name' => 'PURCHASING_STAFF', 'guard_name' => 'web']);
+    Role::create(['name' => 'WAREHOUSE_STAFF', 'guard_name' => 'web']);
 
     $this->seed(RolesAndPermissionsSeeder::class);
 
-    expect(Role::where('name', 'PURCHASING_STAFF')->exists())->toBeTrue();
+    expect(Role::where('name', 'WAREHOUSE_STAFF')->exists())->toBeTrue();
 });
 
 it('removes obsolete panel and tile permissions', function () {

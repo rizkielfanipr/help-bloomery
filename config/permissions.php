@@ -53,6 +53,7 @@ return [
     'Inventory' => [
         'Stock Card' => ['view stock cards', 'create stock cards', 'edit stock cards', 'delete stock cards', 'review stock cards as supervisor', 'review stock cards as finance'],
         'Product List' => ['view product list', 'edit product list'],
+        'Proses Material Marketing' => ['process marketing material as inventory'],
     ],
 
     'Finance' => [
@@ -61,22 +62,27 @@ return [
             'review sales reports as supervisor', 'review sales reports as finance',
             'input sales settlements',
         ],
+        'Sourcing Bahan' => ['review material sourcing as finance'],
     ],
 
     'Purchasing' => [
         'Permintaan Pembelian' => ['view purchase requests', 'create purchase requests', 'edit purchase requests', 'delete purchase requests'],
+        'Sourcing Bahan' => ['view material sourcings', 'submit material sourcing'],
+        'Proses Material Marketing' => ['view marketing material fulfillments', 'process marketing material as purchasing'],
     ],
 
     'Brand Marketing' => [
         'Permintaan Design' => ['view design requests', 'create design requests', 'edit design requests', 'delete design requests'],
         'Kategori Design' => ['view design categories', 'create design categories', 'edit design categories', 'delete design categories'],
         'Permintaan Konten' => ['view content requests', 'create content requests', 'edit content requests', 'delete content requests'],
+        'Marketing Material' => ['upload marketing materials'],
     ],
 
     'Information Technology' => [
         'Permintaan ERP' => ['view erp requests', 'create erp requests', 'edit erp requests', 'delete erp requests'],
         'Modul ERP' => ['view erp modules', 'create erp modules', 'edit erp modules', 'delete erp modules'],
         'Request Type' => ['view it request types', 'create it request types', 'edit it request types', 'delete it request types'],
+        'Bulk Data' => ['view bulk product submissions', 'create bulk product submissions', 'edit bulk product submissions'],
     ],
 
     'Research & Development' => [
@@ -95,6 +101,7 @@ return [
             'view product price index',
             'sync product price index',
         ],
+        'Sourcing Bahan' => ['review material sourcing as rnd'],
     ],
 
     'Management Access' => [

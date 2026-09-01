@@ -7,6 +7,7 @@
         $canUpdateBomInline = auth()->user()?->hasRole('SUPERADMIN') || (auth()->user()?->can('edit rnd projects') && auth()->user()?->can('edit bill of materials'));
         $canExportBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('view bill of materials');
         $canManageProject = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('edit rnd projects');
+        $canManageMaterials = $canManageProject || auth()->user()?->can('upload marketing materials');
         $statusStyle = match($product->status) {
             'released' => 'bg-emerald-100 text-emerald-700',
             'ready' => 'bg-blue-100 text-blue-700',
@@ -55,7 +56,40 @@
                         <p class="text-xs text-gray-400">Cakupan Harga</p>
                         <p class="mt-1 font-bold text-gray-900 dark:text-white">{{ $product->currentRegionalPrices->unique('sales_region_id')->count() }} Region Aktif</p>
                     </div>
+                    <div class="rounded-xl border border-blue-100 bg-white/80 p-3 dark:border-blue-900 dark:bg-gray-900/70">
+                        <p class="text-xs text-gray-400">Shelf Life & Projection</p>
+                        <p class="mt-1 font-bold text-gray-900 dark:text-white">{{ $product->shelf_life_value ? $product->shelf_life_value.' '.(\App\Models\RndProjectProduct::SHELF_LIFE_UNITS[$product->shelf_life_unit] ?? $product->shelf_life_unit) : 'Shelf life belum diatur' }}</p>
+                        <p class="mt-1 text-xs text-gray-500">{{ number_format((float) $product->salesProjections->sum('target_quantity'), 0, ',', '.') }} unit · Rp {{ number_format((float) $product->salesProjections->sum('target_revenue'), 0, ',', '.') }}</p>
+                    </div>
                 </div>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="border-b border-gray-200 p-5 dark:border-gray-700">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Sales Projection</h3>
+                <p class="text-sm text-gray-500">Target penjualan bulanan berdasarkan region dan channel.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[760px] text-sm">
+                    <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-800">
+                        <tr><th class="px-5 py-3 text-left">Periode</th><th class="px-5 py-3 text-left">Region</th><th class="px-5 py-3 text-left">Channel</th><th class="px-5 py-3 text-right">Quantity</th><th class="px-5 py-3 text-right">Revenue</th><th class="px-5 py-3 text-right">Outlet</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse($product->salesProjections as $projection)
+                            <tr>
+                                <td class="px-5 py-3 font-bold">{{ $projection->projection_month->format('M Y') }}</td>
+                                <td class="px-5 py-3">{{ $projection->region->name }}</td>
+                                <td class="px-5 py-3">{{ \App\Models\RndProductSalesProjection::CHANNELS[$projection->channel] ?? ucfirst($projection->channel) }}</td>
+                                <td class="px-5 py-3 text-right font-bold">{{ number_format((float) $projection->target_quantity, 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) $projection->target_revenue, 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right">{{ $projection->target_outlets ? number_format($projection->target_outlets, 0, ',', '.') : '—' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="px-5 py-10 text-center text-gray-500">Belum ada sales projection.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </section>
 
@@ -107,7 +141,7 @@
                 </div>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[1050px] text-sm">
+                <table class="w-full min-w-[1450px] text-sm">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-800">
                     <tr>
                         <th class="px-4 py-3 text-left">Kode & Nama</th>
@@ -115,6 +149,8 @@
                         <th class="px-4 py-3 text-left">Unit</th>
                         <th class="px-4 py-3 text-left">SKU</th>
                         <th class="px-4 py-3 text-left">Status ESB</th>
+                        <th class="px-4 py-3 text-left">Status Sourcing</th>
+                        <th class="px-4 py-3 text-left">Supplier Disetujui</th>
                         <th class="px-4 py-3 text-left">Keterangan</th>
                         <th class="px-4 py-3 text-right">Aksi</th>
                     </tr>
@@ -128,6 +164,15 @@
                                 'syncing' => 'bg-blue-50 text-blue-700',
                                 default => 'bg-gray-100 text-gray-700',
                             };
+                            $sourcingStatus = $esbMaterial->sourcing_status ?? \App\Enums\MaterialSourcingStatus::NotStarted;
+                            $sourcingStatusStyle = match($sourcingStatus) {
+                                \App\Enums\MaterialSourcingStatus::Approved => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+                                \App\Enums\MaterialSourcingStatus::PendingRndReview,
+                                \App\Enums\MaterialSourcingStatus::PendingFinanceReview => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+                                \App\Enums\MaterialSourcingStatus::Rejected => 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+                                default => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+                            };
+                            $selectedSupplier = $esbMaterial->selectedSourcing;
                         @endphp
                         <tr class="align-top">
                             <td class="px-4 py-3">
@@ -142,6 +187,34 @@
                             <td class="px-4 py-3"><p class="font-bold">{{ $esbMaterial->uom_name }}</p><p class="text-xs text-gray-400">ID {{ $esbMaterial->uom_id }} · Base {{ rtrim(rtrim($esbMaterial->conversion_factor, '0'), '.') }}</p></td>
                             <td class="px-4 py-3 font-mono text-xs">{{ $esbMaterial->sku }}</td>
                             <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $esbStatusStyle }}">{{ \App\Models\RndProductEsbMaterial::STATUSES[$esbMaterial->status] ?? ucfirst($esbMaterial->status) }}</span></td>
+                            <td class="px-4 py-3">
+                                <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $sourcingStatusStyle }}">{{ $sourcingStatus->getLabel() }}</span>
+                                @if($esbMaterial->rndReviewer)
+                                    <p class="mt-2 text-[11px] text-gray-500">RnD: {{ $esbMaterial->rndReviewer->name }}</p>
+                                @endif
+                                @if($esbMaterial->financeReviewer)
+                                    <p class="mt-1 text-[11px] text-gray-500">Finance: {{ $esbMaterial->financeReviewer->name }}</p>
+                                @endif
+                            </td>
+                            <td class="min-w-72 px-4 py-3">
+                                @if($selectedSupplier)
+                                    <p class="font-bold text-gray-900 dark:text-white">{{ $selectedSupplier->supplier_name }}</p>
+                                    <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500">
+                                        <span>Harga</span><span class="text-right font-bold text-gray-800 dark:text-gray-200">Rp {{ number_format((float) $selectedSupplier->price, 2, ',', '.') }}</span>
+                                        <span>MOQ</span><span class="text-right">{{ $selectedSupplier->moq ?: '—' }}</span>
+                                        <span>Lead Time</span><span class="text-right">{{ $selectedSupplier->lead_time_days !== null ? $selectedSupplier->lead_time_days.' hari' : '—' }}</span>
+                                    </div>
+                                    @if($selectedSupplier->contact_name || $selectedSupplier->contact_phone)
+                                        <p class="mt-2 text-xs text-gray-500">{{ $selectedSupplier->contact_name ?: 'Kontak' }}{{ $selectedSupplier->contact_phone ? ' · '.$selectedSupplier->contact_phone : '' }}</p>
+                                    @endif
+                                    @if($selectedSupplier->notes)<p class="mt-1 line-clamp-2 text-xs text-gray-500" title="{{ $selectedSupplier->notes }}">{{ $selectedSupplier->notes }}</p>@endif
+                                    @if($selectedSupplier->attachment_path)
+                                        <a href="{{ $selectedSupplier->attachmentUrl() }}" target="_blank" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline"><x-heroicon-o-paper-clip class="h-3.5 w-3.5" /> Dokumen Supplier</a>
+                                    @endif
+                                @else
+                                    <span class="text-xs text-gray-400">Belum ada supplier terpilih</span>
+                                @endif
+                            </td>
                             <td class="max-w-72 px-4 py-3 text-xs">
                                 @if($esbMaterial->sync_error)<p class="line-clamp-3 text-red-600" title="{{ $esbMaterial->sync_error }}">{{ $esbMaterial->sync_error }}</p>
                                 @else<p class="line-clamp-3 text-gray-500">{{ $esbMaterial->notes ?: '-' }}</p>@endif
@@ -163,7 +236,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="px-5 py-12 text-center"><x-heroicon-o-cube-transparent class="mx-auto h-10 w-10 text-gray-300" /><p class="mt-3 font-bold text-gray-700 dark:text-gray-200">Belum ada bahan baru</p><p class="mt-1 text-sm text-gray-500">Tambahkan daftar bahan yang perlu dibuat ke Master Product ESB.</p></td></tr>
+                        <tr><td colspan="9" class="px-5 py-12 text-center"><x-heroicon-o-cube-transparent class="mx-auto h-10 w-10 text-gray-300" /><p class="mt-3 font-bold text-gray-700 dark:text-gray-200">Belum ada bahan baru</p><p class="mt-1 text-sm text-gray-500">Tambahkan daftar bahan yang perlu dibuat ke Master Product ESB.</p></td></tr>
                     @endforelse
                     </tbody>
                 </table>
@@ -176,7 +249,7 @@
                     <h3 class="text-lg font-bold text-gray-900 dark:text-white">Marketing Materials</h3>
                     <p class="text-sm text-gray-500">Design packaging, sticker, foto produk, katalog, dan aset promosi lainnya.</p>
                 </div>
-                @if($canManageProject)
+                @if($canManageMaterials)
                     <button type="button" wire:click="openMaterialForm" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-blue-700">
                         <x-heroicon-o-arrow-up-tray class="h-4 w-4" /> Upload Material
                     </button>
@@ -184,6 +257,15 @@
             </div>
             <div class="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
                 @forelse($product->marketingMaterials as $material)
+                    @php
+                        $fulfillmentStatus = $material->fulfillment?->status ?? \App\Enums\MarketingMaterialFulfillmentStatus::NotStarted;
+                        $fulfillmentStyle = match($fulfillmentStatus) {
+                            \App\Enums\MarketingMaterialFulfillmentStatus::Received => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+                            \App\Enums\MarketingMaterialFulfillmentStatus::Ordered => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+                            default => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+                        };
+                        $requiresFulfillment = in_array($material->type, \App\Models\RndProjectMarketingMaterial::PHYSICAL_TYPES, true);
+                    @endphp
                     <article class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
                         @if($material->isImage())
                             <a href="{{ $material->fileUrl() }}" target="_blank"><img src="{{ $material->fileUrl() }}" alt="{{ $material->title }}" class="h-44 w-full object-cover"></a>
@@ -193,16 +275,29 @@
                             </a>
                         @endif
                         <div class="p-4">
-                            <span class="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">{{ \App\Models\RndProjectMarketingMaterial::TYPES[$material->type] ?? $material->type }}</span>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">{{ \App\Models\RndProjectMarketingMaterial::TYPES[$material->type] ?? $material->type }}</span>
+                                <span class="rounded-full px-2 py-1 text-[11px] font-bold {{ $requiresFulfillment ? $fulfillmentStyle : 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300' }}">
+                                    {{ $requiresFulfillment ? $fulfillmentStatus->getLabel() : 'File Digital' }}
+                                </span>
+                            </div>
                             <a href="{{ $material->fileUrl() }}" target="_blank" class="mt-2 block truncate font-bold text-gray-900 hover:text-blue-600 dark:text-white">{{ $material->title }}</a>
                             <p class="mt-1 truncate text-xs text-gray-500">{{ $material->original_name }} · {{ number_format($material->file_size / 1024, 0, ',', '.') }} KB</p>
                             @if($material->notes)<p class="mt-2 line-clamp-2 text-xs leading-5 text-gray-500">{{ $material->notes }}</p>@endif
+                            @if($requiresFulfillment && $material->fulfillment)
+                                <div class="mt-3 rounded-lg bg-gray-50 p-2.5 text-xs text-gray-500 dark:bg-gray-800/60">
+                                    @if($material->fulfillment->vendor_name)<p><span class="font-semibold text-gray-700 dark:text-gray-200">Vendor:</span> {{ $material->fulfillment->vendor_name }}</p>@endif
+                                    @if($material->fulfillment->order_date)<p class="mt-1">Dipesan {{ $material->fulfillment->order_date->format('d M Y') }}{{ $material->fulfillment->orderedBy ? ' oleh '.$material->fulfillment->orderedBy->name : '' }}</p>@endif
+                                    @if($material->fulfillment->received_date)<p class="mt-1">Diterima {{ $material->fulfillment->received_date->format('d M Y') }} · {{ number_format($material->fulfillment->received_quantity) }} pcs</p>@endif
+                                    @if($material->fulfillment->location)<p class="mt-1">Lokasi: {{ $material->fulfillment->location->branch?->name }} — {{ $material->fulfillment->location->name }}</p>@endif
+                                </div>
+                            @endif
                             <div class="mt-3 flex gap-2">
                                 <a href="{{ $material->fileUrl() }}" target="_blank" class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-center text-xs font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200">Lihat File</a>
                                 <a href="{{ $material->downloadUrl() }}" download="{{ $material->original_name }}" class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
                                     <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Download
                                 </a>
-                                @if($canManageProject)
+                                @if($canManageMaterials)
                                     <button wire:click="deleteMaterial({{ $material->id }})" wire:confirm="Hapus marketing material ini?" class="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 dark:border-red-900"><x-heroicon-o-trash class="h-4 w-4" /></button>
                                 @endif
                             </div>

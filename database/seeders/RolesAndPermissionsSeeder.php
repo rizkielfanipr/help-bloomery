@@ -88,6 +88,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view erp requests', 'create erp requests', 'edit erp requests',
                 'view erp modules',
                 'view it request types', 'create it request types', 'edit it request types',
+                'view bulk product submissions', 'create bulk product submissions', 'edit bulk product submissions',
             ]);
 
         Role::firstOrCreate(['name' => 'RND_STAFF', 'guard_name' => 'web'])
@@ -96,6 +97,27 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view bill of materials', 'create bill of materials', 'edit bill of materials',
                 'view rnd projects', 'create rnd projects', 'edit rnd projects', 'delete rnd projects',
                 'view product price index', 'sync product price index',
+                'view material sourcings', 'review material sourcing as rnd',
+            ]);
+
+        Role::firstOrCreate(['name' => 'PURCHASING_STAFF', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'access backoffice',
+                'view purchase requests', 'create purchase requests', 'edit purchase requests',
+                'view material sourcings', 'submit material sourcing',
+                'view marketing material fulfillments', 'process marketing material as purchasing',
+            ]);
+
+        Role::firstOrCreate(['name' => 'DESIGN_STAFF', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'access backoffice',
+                'view rnd projects', 'upload marketing materials',
+            ]);
+
+        Role::firstOrCreate(['name' => 'INVENTORY_STAFF', 'guard_name' => 'web'])
+            ->syncPermissions([
+                'access backoffice',
+                'view marketing material fulfillments', 'process marketing material as inventory',
             ]);
 
         Role::firstOrCreate(['name' => 'SUPERVISOR_STORE', 'guard_name' => 'web'])
@@ -113,6 +135,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view sales reports', 'review sales reports as finance',
                 'input sales settlements',
                 'view stock cards', 'review stock cards as finance',
+                'view material sourcings', 'review material sourcing as finance',
             ]);
 
         Role::firstOrCreate(['name' => 'QUALITY_CONTROL', 'guard_name' => 'web'])
@@ -128,6 +151,6 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view quality control checklists', 'create quality control checklists', 'edit quality control checklists', 'delete quality control checklists',
             ]);
 
-        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, IT_STAFF, RND_STAFF, SUPERVISOR_STORE, FINANCE_STAFF, QUALITY_CONTROL, QUALITY_CONTROL_SUPERVISOR');
+        $this->command->info('Roles seeded: SUPERADMIN, CASUAL_STAFF, HRD_STAFF, STORE_STAFF, DRIVER, TECHNICIAN, IT_STAFF, RND_STAFF, PURCHASING_STAFF, DESIGN_STAFF, INVENTORY_STAFF, SUPERVISOR_STORE, FINANCE_STAFF, QUALITY_CONTROL, QUALITY_CONTROL_SUPERVISOR');
     }
 }

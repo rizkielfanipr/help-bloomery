@@ -4,6 +4,7 @@ namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
+use App\Models\RndProductSalesProjection;
 use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
 use Carbon\Carbon;
@@ -11,9 +12,10 @@ use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\WithFileUploads;
 use Throwable;
@@ -48,6 +50,18 @@ class ViewProject extends ViewRecord
 
     public string $productStatus = 'draft';
 
+    public string $shelfLifeValue = '';
+
+    public string $shelfLifeUnit = 'month';
+
+    public string $storageCondition = 'ambient';
+
+    public string $storageNotes = '';
+
+    public string $targetOutlets = '';
+
+    public array $salesProjections = [];
+
     public $productPhoto = null;
 
     public string $productImagePath = '';
@@ -67,6 +81,11 @@ class ViewProject extends ViewRecord
     public function getTitle(): string
     {
         return $this->record->name;
+    }
+
+    public function getActiveSalesRegionsProperty(): Collection
+    {
+        return SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
     }
 
     protected function getHeaderActions(): array
@@ -99,6 +118,12 @@ class ViewProject extends ViewRecord
         $this->loadRegionalPriceForm($product);
         $this->releaseDate = $product->release_date?->toDateString() ?? '';
         $this->productStatus = $product->status;
+        $this->shelfLifeValue = (string) ($product->shelf_life_value ?? '');
+        $this->shelfLifeUnit = $product->shelf_life_unit ?? 'month';
+        $this->storageCondition = $product->storage_condition ?? 'ambient';
+        $this->storageNotes = $product->storage_notes ?? '';
+        $this->targetOutlets = (string) ($product->target_outlets ?? '');
+        $this->loadSalesProjectionForm($product);
         $this->productImagePath = $product->image_path ?? '';
         $this->productPhoto = null;
         $this->resetValidation();
@@ -127,6 +152,20 @@ class ViewProject extends ViewRecord
             'regionalPrices.*.online_price' => ['required', 'numeric', 'min:0'],
             'releaseDate' => ['nullable', 'date'],
             'productStatus' => ['required', Rule::in(array_keys(RndProjectProduct::STATUSES))],
+            'shelfLifeValue' => ['nullable', 'integer', 'min:1', 'max:9999'],
+            'shelfLifeUnit' => ['nullable', Rule::in(array_keys(RndProjectProduct::SHELF_LIFE_UNITS))],
+            'storageCondition' => ['nullable', Rule::in(array_keys(RndProjectProduct::STORAGE_CONDITIONS))],
+            'storageNotes' => ['nullable', 'string', 'max:2000'],
+            'targetOutlets' => ['nullable', 'integer', 'min:1'],
+            'salesProjections' => ['array'],
+            'salesProjections.*.id' => ['nullable', 'integer'],
+            'salesProjections.*.projection_month' => ['required', 'date_format:Y-m'],
+            'salesProjections.*.sales_region_id' => ['required', 'integer', 'exists:sales_regions,id'],
+            'salesProjections.*.channel' => ['required', Rule::in(array_keys(RndProductSalesProjection::CHANNELS))],
+            'salesProjections.*.target_quantity' => ['required', 'numeric', 'gt:0'],
+            'salesProjections.*.target_revenue' => ['required', 'numeric', 'min:0'],
+            'salesProjections.*.target_outlets' => ['nullable', 'integer', 'min:1'],
+            'salesProjections.*.notes' => ['nullable', 'string', 'max:1000'],
             'productPhoto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $activeRegionIds = SalesRegion::query()->where('is_active', true)->pluck('id')->sort()->values();
@@ -136,7 +175,32 @@ class ViewProject extends ViewRecord
 
             return;
         }
+        $projectionKeys = collect($validated['salesProjections'])->map(
+            fn (array $projection): string => implode('|', [
+                $projection['projection_month'],
+                $projection['sales_region_id'],
+                $projection['channel'],
+            ]),
+        );
+        if ($projectionKeys->unique()->count() !== $projectionKeys->count()) {
+            $this->addError('salesProjections', 'Periode, region, dan channel tidak boleh duplikat dalam satu product.');
+
+            return;
+        }
         if (in_array($validated['productStatus'], ['ready', 'released'], true)) {
+            $planningIsInvalid = false;
+            if (blank($validated['releaseDate']) || blank($validated['shelfLifeValue']) || blank($validated['storageCondition'])) {
+                $this->addError('shelfLifeValue', 'Shelf life, kondisi penyimpanan, dan tanggal rilis wajib sebelum produk Ready/Released.');
+                $planningIsInvalid = true;
+            }
+            if ($validated['salesProjections'] === []) {
+                $this->addError('salesProjections', 'Minimal satu sales projection wajib sebelum produk Ready/Released.');
+                $planningIsInvalid = true;
+            }
+
+            if ($planningIsInvalid) {
+                return;
+            }
             foreach ($validated['regionalPrices'] as $index => $price) {
                 if ((float) $price['offline_price'] <= 0 || (float) $price['online_price'] <= 0) {
                     $this->addError("regionalPrices.$index.offline_price", 'Harga online dan offline wajib diisi sebelum produk Ready/Released.');
@@ -169,6 +233,11 @@ class ViewProject extends ViewRecord
             'offline_price' => $minimumOffline,
             'online_price' => $minimumOnline,
             'release_date' => $validated['releaseDate'] ?: null,
+            'shelf_life_value' => $validated['shelfLifeValue'] ?: null,
+            'shelf_life_unit' => $validated['shelfLifeValue'] ? $validated['shelfLifeUnit'] : null,
+            'storage_condition' => $validated['shelfLifeValue'] ? $validated['storageCondition'] : null,
+            'storage_notes' => trim($validated['storageNotes']) ?: null,
+            'target_outlets' => $validated['targetOutlets'] ?: null,
             'status' => $validated['productStatus'],
         ];
         if ($newImagePath) {
@@ -186,6 +255,7 @@ class ViewProject extends ViewRecord
                     $message = 'Product berhasil ditambahkan';
                 }
                 $this->saveRegionalPrices($product, $validated['regionalPrices'], $validated['priceEffectiveFrom']);
+                $this->saveSalesProjections($product, $validated['salesProjections']);
             });
         } catch (Throwable $exception) {
             if ($newImagePath) {
@@ -295,6 +365,12 @@ class ViewProject extends ViewRecord
         $this->priceEffectiveFrom = today()->toDateString();
         $this->releaseDate = '';
         $this->productStatus = 'draft';
+        $this->shelfLifeValue = '';
+        $this->shelfLifeUnit = 'month';
+        $this->storageCondition = 'ambient';
+        $this->storageNotes = '';
+        $this->targetOutlets = '';
+        $this->salesProjections = [];
         $this->productPhoto = null;
         $this->productImagePath = '';
         $this->resetValidation();
@@ -361,6 +437,71 @@ class ViewProject extends ViewRecord
         }
     }
 
+    public function addSalesProjection(): void
+    {
+        $firstRegion = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->value('id');
+        $this->salesProjections[] = [
+            'id' => null,
+            'projection_month' => today()->startOfMonth()->format('Y-m'),
+            'sales_region_id' => $firstRegion,
+            'channel' => 'all',
+            'target_quantity' => '',
+            'target_revenue' => '',
+            'target_outlets' => $this->targetOutlets,
+            'notes' => '',
+        ];
+    }
+
+    public function removeSalesProjection(int $index): void
+    {
+        unset($this->salesProjections[$index]);
+        $this->salesProjections = array_values($this->salesProjections);
+    }
+
+    private function loadSalesProjectionForm(RndProjectProduct $product): void
+    {
+        $this->salesProjections = $product->salesProjections()->get()->map(fn (RndProductSalesProjection $projection): array => [
+            'id' => $projection->id,
+            'projection_month' => $projection->projection_month->format('Y-m'),
+            'sales_region_id' => $projection->sales_region_id,
+            'channel' => $projection->channel,
+            'target_quantity' => (string) $projection->target_quantity,
+            'target_revenue' => (string) $projection->target_revenue,
+            'target_outlets' => (string) ($projection->target_outlets ?? ''),
+            'notes' => $projection->notes ?? '',
+        ])->all();
+    }
+
+    private function saveSalesProjections(RndProjectProduct $product, array $projections): void
+    {
+        $keptIds = [];
+        foreach ($projections as $projection) {
+            $values = [
+                'sales_region_id' => $projection['sales_region_id'],
+                'projection_month' => Carbon::createFromFormat('Y-m', $projection['projection_month'])->startOfMonth(),
+                'channel' => $projection['channel'],
+                'target_quantity' => $projection['target_quantity'],
+                'target_revenue' => $projection['target_revenue'],
+                'target_outlets' => $projection['target_outlets'] ?: null,
+                'notes' => trim($projection['notes']) ?: null,
+            ];
+            $record = filled($projection['id'] ?? null)
+                ? $product->salesProjections()->findOrFail((int) $projection['id'])
+                : null;
+
+            if ($record) {
+                $record->update($values);
+            } else {
+                $record = $product->salesProjections()->create($values + ['created_by' => auth()->id()]);
+            }
+            $keptIds[] = $record->id;
+        }
+
+        $product->salesProjections()
+            ->when($keptIds !== [], fn ($query) => $query->whereNotIn('id', $keptIds))
+            ->delete();
+    }
+
     public function productImageUrl(): ?string
     {
         if (! $this->productImagePath) {
@@ -376,6 +517,10 @@ class ViewProject extends ViewRecord
 
     private function reloadProject(): void
     {
-        $this->record->refresh()->load(['products.boms', 'products.currentRegionalPrices.region']);
+        $this->record->refresh()->load([
+            'products.boms',
+            'products.currentRegionalPrices.region',
+            'products.salesProjections.region',
+        ]);
     }
 }

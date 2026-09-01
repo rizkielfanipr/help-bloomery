@@ -28,6 +28,19 @@ class RndProjectProduct extends Model
         'menu' => 'Menu',
     ];
 
+    public const SHELF_LIFE_UNITS = [
+        'day' => 'Hari',
+        'week' => 'Minggu',
+        'month' => 'Bulan',
+        'year' => 'Tahun',
+    ];
+
+    public const STORAGE_CONDITIONS = [
+        'ambient' => 'Ambient',
+        'chiller' => 'Chiller',
+        'frozen' => 'Frozen',
+    ];
+
     protected $fillable = [
         'rnd_project_id',
         'name',
@@ -37,6 +50,11 @@ class RndProjectProduct extends Model
         'offline_price',
         'online_price',
         'release_date',
+        'shelf_life_value',
+        'shelf_life_unit',
+        'storage_condition',
+        'storage_notes',
+        'target_outlets',
         'status',
         'created_by',
     ];
@@ -47,6 +65,8 @@ class RndProjectProduct extends Model
             'offline_price' => 'decimal:2',
             'online_price' => 'decimal:2',
             'release_date' => 'date',
+            'shelf_life_value' => 'integer',
+            'target_outlets' => 'integer',
         ];
     }
 
@@ -92,6 +112,13 @@ class RndProjectProduct extends Model
             ->whereDate('effective_from', '<=', today())
             ->where(fn ($query) => $query->whereNull('effective_to')->orWhereDate('effective_to', '>=', today()))
             ->latest('effective_from');
+    }
+
+    public function salesProjections(): HasMany
+    {
+        return $this->hasMany(RndProductSalesProjection::class)
+            ->orderBy('projection_month')
+            ->orderBy('sales_region_id');
     }
 
     public function imageUrl(): ?string

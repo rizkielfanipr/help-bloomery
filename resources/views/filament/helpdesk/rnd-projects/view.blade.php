@@ -77,6 +77,8 @@
                             $offlineMax = $activePrices->max('offline_price');
                             $onlineMin = $activePrices->min('online_price');
                             $onlineMax = $activePrices->max('online_price');
+                            $projectionQuantity = $product->salesProjections->sum('target_quantity');
+                            $projectionRevenue = $product->salesProjections->sum('target_revenue');
                         @endphp
                         <article class="flex flex-col rounded-xl border border-gray-200 p-4 transition hover:border-blue-300 dark:border-gray-700 dark:hover:border-blue-700">
                             <div class="flex items-start justify-between gap-3">
@@ -111,6 +113,20 @@
                                         @else Rp {{ number_format((float) $onlineMin, 0, ',', '.') }}–{{ number_format((float) $onlineMax, 0, ',', '.') }}
                                         @endif
                                     </p>
+                                </div>
+                            </div>
+
+                            <div class="mt-2 grid grid-cols-2 gap-2">
+                                <div class="rounded-lg bg-blue-50 p-2.5 dark:bg-blue-950/30">
+                                    <p class="text-[11px] text-blue-500">Shelf Life</p>
+                                    <p class="mt-0.5 text-sm font-bold text-blue-800 dark:text-blue-200">
+                                        {{ $product->shelf_life_value ? $product->shelf_life_value.' '.(\App\Models\RndProjectProduct::SHELF_LIFE_UNITS[$product->shelf_life_unit] ?? $product->shelf_life_unit) : 'Belum diatur' }}
+                                    </p>
+                                </div>
+                                <div class="rounded-lg bg-emerald-50 p-2.5 dark:bg-emerald-950/30">
+                                    <p class="text-[11px] text-emerald-500">Sales Projection</p>
+                                    <p class="mt-0.5 text-sm font-bold text-emerald-800 dark:text-emerald-200">{{ number_format((float) $projectionQuantity, 0, ',', '.') }} unit</p>
+                                    <p class="text-[10px] text-emerald-600">Rp {{ number_format((float) $projectionRevenue, 0, ',', '.') }}</p>
                                 </div>
                             </div>
 
@@ -210,6 +226,109 @@
                                 @error('productDescription')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                             </div>
                         </div>
+                        <section class="rounded-xl border border-gray-200 dark:border-gray-700">
+                            <div class="border-b border-gray-200 p-4 dark:border-gray-700">
+                                <h4 class="font-bold text-gray-900 dark:text-white">Shelf Life & Storage</h4>
+                                <p class="text-xs text-gray-500">Informasi ketahanan dan kondisi penyimpanan produk.</p>
+                            </div>
+                            <div class="grid gap-4 p-4 md:grid-cols-3">
+                                <div>
+                                    <label class="{{ $label }}">Shelf Life</label>
+                                    <input wire:model="shelfLifeValue" type="number" min="1" class="{{ $input }}" placeholder="Contoh: 6">
+                                    @error('shelfLifeValue')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $label }}">Satuan</label>
+                                    <select wire:model="shelfLifeUnit" class="{{ $input }}">
+                                        @foreach(\App\Models\RndProjectProduct::SHELF_LIFE_UNITS as $value => $unitLabel)
+                                            <option value="{{ $value }}">{{ $unitLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="{{ $label }}">Kondisi Penyimpanan</label>
+                                    <select wire:model="storageCondition" class="{{ $input }}">
+                                        @foreach(\App\Models\RndProjectProduct::STORAGE_CONDITIONS as $value => $conditionLabel)
+                                            <option value="{{ $value }}">{{ $conditionLabel }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="{{ $label }}">Target Outlet</label>
+                                    <input wire:model="targetOutlets" type="number" min="1" class="{{ $input }}" placeholder="Contoh: 50">
+                                    @error('targetOutlets')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="{{ $label }}">Catatan Penyimpanan</label>
+                                    <input wire:model="storageNotes" class="{{ $input }}" placeholder="Contoh: Simpan tertutup pada suhu 2–5°C">
+                                    @error('storageNotes')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        </section>
+                        <section class="rounded-xl border border-gray-200 dark:border-gray-700">
+                            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center">
+                                <div>
+                                    <h4 class="font-bold text-gray-900 dark:text-white">Sales Projection</h4>
+                                    <p class="text-xs text-gray-500">Target bulanan per region dan channel.</p>
+                                </div>
+                                <button type="button" wire:click="addSalesProjection" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">+ Tambah Projection</button>
+                            </div>
+                            <div class="space-y-3 p-4">
+                                @forelse($salesProjections as $index => $projection)
+                                    <div wire:key="sales-projection-{{ $projection['id'] ?? 'new-'.$index }}" class="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                                        <input wire:model="salesProjections.{{ $index }}.id" type="hidden">
+                                        <div class="grid gap-3 md:grid-cols-3">
+                                            <div>
+                                                <label class="{{ $label }}">Periode *</label>
+                                                <input wire:model="salesProjections.{{ $index }}.projection_month" type="month" class="{{ $input }}">
+                                            </div>
+                                            <div>
+                                                <label class="{{ $label }}">Region *</label>
+                                                <select wire:model="salesProjections.{{ $index }}.sales_region_id" class="{{ $input }}">
+                                                    @foreach($this->activeSalesRegions as $region)
+                                                        <option value="{{ $region->id }}">{{ $region->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="{{ $label }}">Channel *</label>
+                                                <select wire:model="salesProjections.{{ $index }}.channel" class="{{ $input }}">
+                                                    @foreach(\App\Models\RndProductSalesProjection::CHANNELS as $value => $channelLabel)
+                                                        <option value="{{ $value }}">{{ $channelLabel }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label class="{{ $label }}">Target Quantity *</label>
+                                                <input wire:model="salesProjections.{{ $index }}.target_quantity" type="number" min="0.01" step="0.01" class="{{ $input }}" placeholder="0">
+                                            </div>
+                                            <div>
+                                                <label class="{{ $label }}">Target Revenue *</label>
+                                                <input wire:model="salesProjections.{{ $index }}.target_revenue" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
+                                            </div>
+                                            <div>
+                                                <label class="{{ $label }}">Target Outlet</label>
+                                                <input wire:model="salesProjections.{{ $index }}.target_outlets" type="number" min="1" class="{{ $input }}" placeholder="Opsional">
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label class="{{ $label }}">Asumsi / Catatan</label>
+                                                <input wire:model="salesProjections.{{ $index }}.notes" class="{{ $input }}" placeholder="Dasar perhitungan projection">
+                                            </div>
+                                            <div class="flex items-end justify-end">
+                                                <button type="button" wire:click="removeSalesProjection({{ $index }})" class="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:border-red-900">Hapus</button>
+                                            </div>
+                                        </div>
+                                        @error("salesProjections.$index.projection_month")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                                        @error("salesProjections.$index.sales_region_id")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                                        @error("salesProjections.$index.target_quantity")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                                        @error("salesProjections.$index.target_revenue")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                @empty
+                                    <p class="py-6 text-center text-sm text-gray-500">Belum ada projection. Wajib diisi sebelum status Ready/Released.</p>
+                                @endforelse
+                                @error('salesProjections')<p class="text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        </section>
                         <section class="rounded-xl border border-gray-200 dark:border-gray-700">
                             <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center">
                                 <div>

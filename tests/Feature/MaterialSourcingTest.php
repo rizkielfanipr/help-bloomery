@@ -9,6 +9,7 @@ use App\Models\RndProjectProduct;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -54,16 +55,26 @@ function supplierRow(string $name, float $price): array
     ];
 }
 
-it('lets purchasing submit multiple supplier options and sends the material for rnd review', function () {
+it('opens the manage sourcing modal with one empty supplier row', function () {
     $this->actingAs($this->purchasing);
 
     Livewire::test(ListMaterialSourcings::class)
-        ->callTableAction('manage_sourcing', $this->material, data: [
-            'sourcings' => [
-                supplierRow('Supplier A', 10000),
-                supplierRow('Supplier B', 9500),
-            ],
-        ])
+        ->mountTableAction('manage_sourcing', $this->material)
+        ->assertTableActionDataSet(fn (array $data): bool => count($data['sourcings'] ?? []) === 1);
+});
+
+it('lets purchasing submit multiple supplier options and sends the material for rnd review', function () {
+    $this->actingAs($this->purchasing);
+
+    $page = Livewire::test(ListMaterialSourcings::class)
+        ->mountTableAction('manage_sourcing', $this->material);
+    $data = $page->get('mountedActions.0.data');
+    $firstRowKey = array_key_first($data['sourcings']);
+    $data['sourcings'][$firstRowKey] = supplierRow('Supplier A', 10000);
+    $data['sourcings'][(string) Str::uuid()] = supplierRow('Supplier B', 9500);
+
+    $page->set('mountedActions.0.data', $data)
+        ->callMountedTableAction()
         ->assertHasNoTableActionErrors();
 
     $this->material->refresh();
@@ -157,10 +168,14 @@ it('lets rnd reject a submission back to purchasing, who can resubmit', function
 
     $this->actingAs($this->purchasing);
 
-    Livewire::test(ListMaterialSourcings::class)
-        ->callTableAction('manage_sourcing', $this->material, data: [
-            'sourcings' => [supplierRow('Supplier C', 8000)],
-        ])
+    $page = Livewire::test(ListMaterialSourcings::class)
+        ->mountTableAction('manage_sourcing', $this->material);
+    $data = $page->get('mountedActions.0.data');
+    $firstRowKey = array_key_first($data['sourcings']);
+    $data['sourcings'][$firstRowKey] = supplierRow('Supplier C', 8000);
+
+    $page->set('mountedActions.0.data', $data)
+        ->callMountedTableAction()
         ->assertHasNoTableActionErrors();
 
     $this->material->refresh();

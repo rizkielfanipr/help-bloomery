@@ -94,10 +94,15 @@ class MaterialSourcingResource extends Resource
                     ->label('Kelola Sourcing')
                     ->icon('heroicon-o-truck')
                     ->modalWidth(Width::ThreeExtraLarge)
+                    ->stickyModalHeader()
+                    ->stickyModalFooter()
+                    ->extraModalWindowAttributes([
+                        'style' => 'max-height: calc(100dvh - 2rem); overflow: hidden;',
+                    ])
                     ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('submit material sourcing')
                         && in_array($record->sourcing_status, [MaterialSourcingStatus::NotStarted, MaterialSourcingStatus::Rejected], true))
-                    ->fillForm(fn (RndProductEsbMaterial $record): array => [
-                        'sourcings' => $record->sourcings->map(fn ($s): array => [
+                    ->fillForm(function (RndProductEsbMaterial $record): array {
+                        $sourcings = $record->sourcings->map(fn ($s): array => [
                             'supplier_name' => $s->supplier_name,
                             'price' => $s->price,
                             'moq' => $s->moq,
@@ -106,8 +111,10 @@ class MaterialSourcingResource extends Resource
                             'contact_phone' => $s->contact_phone,
                             'notes' => $s->notes,
                             'attachment_path' => $s->attachment_path,
-                        ])->all(),
-                    ])
+                        ])->all();
+
+                        return ['sourcings' => $sourcings ?: [[]]];
+                    })
                     ->form([
                         Repeater::make('sourcings')
                             ->label('Daftar Supplier')
@@ -126,6 +133,7 @@ class MaterialSourcingResource extends Resource
                                     ->columnSpanFull(),
                             ])
                             ->columns(2)
+                            ->defaultItems(1)
                             ->minItems(1)
                             ->addActionLabel('Tambah Supplier')
                             ->columnSpanFull(),

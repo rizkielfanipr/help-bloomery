@@ -447,6 +447,46 @@ body.fi-body {
     @apply bg-black/40 backdrop-blur-sm;
 }
 
+/* Keep sourcing actions visible while long supplier repeaters scroll. */
+.material-sourcing-modal {
+    display: flex;
+    width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 2rem);
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.material-sourcing-modal > .fi-modal-header,
+.material-sourcing-modal > .fi-modal-footer {
+    flex-shrink: 0;
+}
+
+.material-sourcing-modal > .fi-modal-content {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 639px) {
+    .material-sourcing-modal {
+        width: calc(100vw - 1rem);
+        max-height: calc(100dvh - 1rem);
+    }
+
+    .material-sourcing-modal .fi-modal-footer-actions {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .material-sourcing-modal .fi-modal-footer-actions .fi-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
 /* ════════════════════════════════════════════════════════════════
    DROPDOWN
 ════════════════════════════════════════════════════════════════ */

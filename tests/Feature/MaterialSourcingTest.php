@@ -63,6 +63,19 @@ it('opens the manage sourcing modal with one empty supplier row', function () {
         ->assertTableActionDataSet(fn (array $data): bool => count($data['sourcings'] ?? []) === 1);
 });
 
+it('uses the scrollable modal layout for manage and view supplier actions', function () {
+    $this->material->sourcings()->create(supplierRow('Supplier A', 10000));
+    $this->actingAs($this->purchasing);
+
+    Livewire::test(ListMaterialSourcings::class)
+        ->assertTableActionExists('manage_sourcing', function ($action): bool {
+            return str_contains((string) ($action->getExtraModalWindowAttributes()['class'] ?? ''), 'material-sourcing-modal');
+        }, $this->material)
+        ->assertTableActionExists('view_sourcing', function ($action): bool {
+            return str_contains((string) ($action->getExtraModalWindowAttributes()['class'] ?? ''), 'material-sourcing-modal');
+        }, $this->material);
+});
+
 it('lets purchasing submit multiple supplier options and sends the material for rnd review', function () {
     $this->actingAs($this->purchasing);
 

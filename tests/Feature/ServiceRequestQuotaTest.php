@@ -4,8 +4,10 @@ use App\Enums\ServiceRequestStatus;
 use App\Models\ServiceRequest;
 use App\Models\TechnicianSettings;
 use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
 
 beforeEach(function (): void {
+    $this->seed(RolesAndPermissionsSeeder::class);
     TechnicianSettings::truncate();
     ServiceRequest::truncate();
 });

@@ -2,9 +2,9 @@
 
 namespace App\Filament\Helpdesk\Resources\PurchaseRequests\Tables;
 
+use App\Actions\ExportPurchaseRequestsXlsxAction;
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\PurchaseType;
-use App\Filament\Exports\PurchaseRequestExporter;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Models\AppSetting;
 use App\Models\Branch;
@@ -13,8 +13,6 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ExportAction;
-use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
@@ -29,6 +27,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class PurchaseRequestsTable
 {
@@ -162,19 +161,27 @@ class PurchaseRequestsTable
             ->toolbarActions([
                 self::toggleFormAction(),
 
-                ExportAction::make()
+                Action::make('export_purchase_requests')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
                     ->iconButton()
                     ->tooltip('Export Excel berdasarkan rentang tanggal')
                     ->modalHeading('Export Permintaan Pembelian')
                     ->modalDescription('Kosongkan rentang tanggal untuk mengekspor seluruh data.')
-                    ->exporter(PurchaseRequestExporter::class)
-                    ->formats([ExportFormat::Xlsx])
-                    ->columnMapping(false)
-                    ->modifyQueryUsing(fn (Builder $query, array $options): Builder => PurchaseRequestExporter::applyDateRange(
+                    ->form([
+                        DatePicker::make('date_from')
+                            ->label('Tanggal Mulai')
+                            ->native(false),
+                        DatePicker::make('date_until')
+                            ->label('Tanggal Akhir')
+                            ->native(false)
+                            ->afterOrEqual('date_from'),
+                    ])
+                    ->modalSubmitActionLabel('Download Excel')
+                    ->action(fn (array $data): BinaryFileResponse => app(ExportPurchaseRequestsXlsxAction::class)->execute(
                         PurchaseRequestResource::getEloquentQuery(),
-                        $options,
+                        $data['date_from'] ?? null,
+                        $data['date_until'] ?? null,
                     )),
 
                 self::bulkTransitionAction(PurchaseRequestStatus::Approved, 'heroicon-o-check', 'success'),

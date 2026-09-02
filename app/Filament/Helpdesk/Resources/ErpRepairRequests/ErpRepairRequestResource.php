@@ -2,8 +2,8 @@
 
 namespace App\Filament\Helpdesk\Resources\ErpRepairRequests;
 
+use App\Actions\ExportErpRepairRequestsXlsxAction;
 use App\Enums\ItRequestStatus;
-use App\Filament\Exports\ErpRepairRequestExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\EditErpRepairRequest;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
@@ -13,9 +13,9 @@ use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
 use App\Models\ItRequestType;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -34,6 +34,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use UnitEnum;
 
 class ErpRepairRequestResource extends Resource
@@ -261,7 +262,28 @@ class ErpRepairRequestResource extends Resource
                 DeleteAction::make()->iconButton()->tooltip('Hapus'),
             ])
             ->toolbarActions([
-                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(ErpRepairRequestExporter::class),
+                Action::make('export_erp_repair_requests')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Export Excel berdasarkan rentang tanggal')
+                    ->modalHeading('Export Permintaan ERP')
+                    ->modalDescription('Kosongkan rentang tanggal untuk mengekspor seluruh data.')
+                    ->form([
+                        DatePicker::make('date_from')
+                            ->label('Tanggal Mulai')
+                            ->native(false),
+                        DatePicker::make('date_until')
+                            ->label('Tanggal Akhir')
+                            ->native(false)
+                            ->afterOrEqual('date_from'),
+                    ])
+                    ->modalSubmitActionLabel('Download Excel')
+                    ->action(fn (array $data): BinaryFileResponse => app(ExportErpRepairRequestsXlsxAction::class)->execute(
+                        ErpRepairRequestResource::getEloquentQuery(),
+                        $data['date_from'] ?? null,
+                        $data['date_until'] ?? null,
+                    )),
 
                 DeleteBulkAction::make()
                     ->iconButton()

@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+use App\Filament\Casual\Resources\ServiceRequests\Pages\ListServiceRequests as CasualListServiceRequests;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
+use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests as HelpdeskListServiceRequests;
+use App\Filament\Helpdesk\Resources\Trips\Pages\ListTrips;
+use App\Filament\Technician\Resources\ServiceRequests\Pages\ListServiceRequests as TechnicianListServiceRequests;
 use App\Http\Middleware\EnsureRole;
 use App\Models\Location;
 use App\Models\ProductSetting;
@@ -41,6 +45,22 @@ class AppServiceProvider extends ServiceProvider
             TablesRenderHook::HEADER_CELL,
             fn (array $data) => view('filament.helpdesk.erp-repair-requests.table-header-cell', $data),
             scopes: ListErpRepairRequests::class,
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.service-requests.table-header-cell', $data),
+            scopes: [
+                HelpdeskListServiceRequests::class,
+                TechnicianListServiceRequests::class,
+                CasualListServiceRequests::class,
+            ],
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.trips.table-header-cell', $data),
+            scopes: ListTrips::class,
         );
     }
 }

@@ -8,8 +8,12 @@ use App\Filament\Technician\Resources\ServiceRequests\Pages\ViewServiceRequest;
 use App\Models\ServiceRequest;
 use BackedEnum;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -40,31 +44,63 @@ class ServiceRequestResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('status')->label('Status')->badge()->sortable(),
+                TextColumn::make('code')
+                    ->label('KODE')
+                    ->searchable()
+                    ->copyable()
+                    ->weight('semibold'),
 
                 TextColumn::make('scheduled_date')
-                    ->label('Tanggal')
+                    ->label('TANGGAL')
                     ->date('d M Y')
                     ->sortable(),
 
                 TextColumn::make('technician.name')
-                    ->label('Teknisi')
-                    ->placeholder('Belum ditugaskan'),
+                    ->label('TEKNISI')
+                    ->placeholder('Belum ditugaskan')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('status')
+                    ->label('STATUS')
+                    ->badge()
+                    ->sortable()
+                    ->formatStateUsing(fn (ServiceRequestStatus $state) => $state->getLabel())
+                    ->color(fn (ServiceRequestStatus $state) => $state->getColor()),
 
                 TextColumn::make('warranty_expires_at')
-                    ->label('Garansi Hingga')
+                    ->label('GARANSI HINGGA')
                     ->dateTime('d M Y')
                     ->placeholder('-'),
             ])
             ->filters([
+                Filter::make('code')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('code', 'like', '%'.trim((string) $data['value']).'%'))),
+
+                Filter::make('scheduled_date')
+                    ->form([
+                        DatePicker::make('from'),
+                        DatePicker::make('until'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('scheduled_date', '>=', $date))
+                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('scheduled_date', '<=', $date))),
+
                 SelectFilter::make('status')
-                    ->label('Status')
-                    ->options(ServiceRequestStatus::class),
-            ])
+                    ->label('STATUS')
+                    ->options(ServiceRequestStatus::class)
+                    ->multiple(),
+            ], layout: FiltersLayout::AboveContent)
+            ->deferFilters(false)
             ->defaultSort('scheduled_date', 'asc')
             ->recordActions([
-                ViewAction::make()->label('Tindak Lanjut'),
-            ]);
+                ViewAction::make()->iconButton()->tooltip('Tindak Lanjut'),
+            ])
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50, 100]);
     }
 
     public static function getPages(): array

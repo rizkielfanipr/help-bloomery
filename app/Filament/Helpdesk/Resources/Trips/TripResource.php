@@ -2,19 +2,19 @@
 
 namespace App\Filament\Helpdesk\Resources\Trips;
 
+use App\Actions\ExportTripsXlsxAction;
 use App\Enums\TripStatus;
-use App\Filament\Exports\TripExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ListTrips;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ViewTrip;
 use App\Models\Trip;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -24,9 +24,12 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section as InfolistSection;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class TripResource extends Resource
 {
@@ -216,7 +219,7 @@ class TripResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('code')
-                    ->label('Kode')
+                    ->label('KODE')
                     ->searchable()
                     ->fontFamily('mono')
                     ->weight('bold')
@@ -227,14 +230,14 @@ class TripResource extends Resource
                     ->formatStateUsing(fn (?string $state, Trip $record): string => $state ?: 'TRIP-'.$record->id),
 
                 TextColumn::make('driver.name')
-                    ->label('Driver')
+                    ->label('DRIVER')
                     ->searchable()
                     ->icon('heroicon-o-user-circle')
                     ->description(fn (Trip $record): ?string => $record->driver?->username)
                     ->sortable(),
 
                 TextColumn::make('tripRoute.name')
-                    ->label('Rute')
+                    ->label('RUTE')
                     ->searchable()
                     ->weight('semibold')
                     ->description(fn (Trip $record): string => collect([
@@ -244,7 +247,7 @@ class TripResource extends Resource
                     ->wrap(),
 
                 TextColumn::make('trip_date')
-                    ->label('Tanggal')
+                    ->label('TANGGAL')
                     ->date('d M Y')
                     ->icon('heroicon-o-calendar-days')
                     ->description(fn (Trip $record): string => $record->started_at
@@ -253,7 +256,7 @@ class TripResource extends Resource
                     ->sortable(),
 
                 TextColumn::make('status')
-                    ->label('Status')
+                    ->label('STATUS')
                     ->badge()
                     ->sortable(),
 
@@ -281,20 +284,45 @@ class TripResource extends Resource
                     }),
 
                 TextColumn::make('meal_allowance_amount')
-                    ->label('Uang Makan')
+                    ->label('UANG MAKAN')
                     ->money('IDR')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('code')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('code', 'like', '%'.trim((string) $data['value']).'%'))),
+
                 SelectFilter::make('driver')
-                    ->label('Driver')
+                    ->label('DRIVER')
                     ->relationship('driver', 'name')
                     ->searchable()
                     ->preload(),
 
+                Filter::make('route_name')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where(fn (Builder $q) => $q
+                                ->whereHas('tripRoute', fn (Builder $sub) => $sub->where('name', 'like', '%'.trim((string) $data['value']).'%'))
+                                ->orWhereHas('vehicle', fn (Builder $sub) => $sub->where('license_plate', 'like', '%'.trim((string) $data['value']).'%')
+                                    ->orWhere('brand', 'like', '%'.trim((string) $data['value']).'%')
+                                    ->orWhere('model', 'like', '%'.trim((string) $data['value']).'%'))))),
+
+                Filter::make('trip_date')
+                    ->form([
+                        DatePicker::make('from'),
+                        DatePicker::make('until'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('trip_date', '>=', $date))
+                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('trip_date', '<=', $date))),
+
                 SelectFilter::make('status')
-                    ->label('Status')
+                    ->label('STATUS')
                     ->options(TripStatus::class)
                     ->multiple(),
 
@@ -304,20 +332,35 @@ class TripResource extends Resource
                         '1' => 'Ada Pengisian BBM',
                         '0' => 'Tidak Ada BBM',
                     ]),
-            ])
+            ], layout: FiltersLayout::AboveContent)
+            ->deferFilters(false)
             ->defaultSort('trip_date', 'desc')
             ->recordUrl(fn (Trip $record): string => static::getUrl('view', ['record' => $record]))
             ->recordActions([
-                ViewAction::make()->iconButton()->tooltip('Lihat')->color('info'),
+                ViewAction::make()->iconButton()->tooltip('Lihat Detail')->color('info'),
                 DeleteAction::make()
                     ->iconButton()
                     ->tooltip('Hapus Perjalanan')
                     ->color('danger')
                     ->requiresConfirmation()
                     ->modalHeading('Hapus Perjalanan?')
-                    ->modalDescription('Record perjalanan akan dihapus dari daftar. Tindakan ini hanya tersedia untuk user dengan permission Delete Perjalanan.'),
+                    ->modalDescription('Record perjalanan akan dihapus dari daftar.'),
             ])
             ->toolbarActions([
+                Action::make('create')
+                    ->label('Tambah Perjalanan')
+                    ->icon('heroicon-o-plus-circle')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Tambah Perjalanan')
+                    ->action(function (): void {
+                        Notification::make()
+                            ->title('Segera hadir')
+                            ->body('Fitur Tambah Perjalanan Manual belum tersedia.')
+                            ->info()
+                            ->send();
+                    }),
+
                 Action::make('import_excel')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('warning')
@@ -331,12 +374,36 @@ class TripResource extends Resource
                             ->send();
                     }),
 
-                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(TripExporter::class),
+                Action::make('export_trips')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Export Excel berdasarkan rentang tanggal')
+                    ->modalHeading('Export Monitoring Perjalanan')
+                    ->modalDescription('Kosongkan rentang tanggal untuk mengekspor seluruh data.')
+                    ->form([
+                        DatePicker::make('date_from')
+                            ->label('Tanggal Mulai')
+                            ->native(false),
+                        DatePicker::make('date_until')
+                            ->label('Tanggal Akhir')
+                            ->native(false)
+                            ->afterOrEqual('date_from'),
+                    ])
+                    ->modalSubmitActionLabel('Download Excel')
+                    ->action(fn (array $data): BinaryFileResponse => app(ExportTripsXlsxAction::class)->execute(
+                        TripResource::getEloquentQuery(),
+                        $data['date_from'] ?? null,
+                        $data['date_until'] ?? null,
+                    )),
 
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+                DeleteBulkAction::make()
+                    ->iconButton()
+                    ->tooltip('Hapus data terpilih')
+                    ->color('danger'),
+            ])
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50, 100]);
     }
 
     public static function getRelations(): array

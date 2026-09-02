@@ -28,7 +28,7 @@ class ServiceRequestResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->can('view service requests');
+        return auth()->user()?->can('view service requests') ?? false;
     }
 
     public static function canCreate(): bool

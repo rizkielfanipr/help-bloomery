@@ -2,8 +2,8 @@
 
 namespace App\Filament\Helpdesk\Resources\ServiceRequests;
 
+use App\Actions\ExportServiceRequestsXlsxAction;
 use App\Enums\ServiceRequestStatus;
-use App\Filament\Exports\ServiceRequestExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\CreateServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\EditServiceRequest;
@@ -15,15 +15,14 @@ use App\Models\TechnicianSettings;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -35,9 +34,12 @@ use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
 use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ServiceRequestResource extends Resource
 {
@@ -190,23 +192,84 @@ class ServiceRequestResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('code')->label('Kode')->searchable()->copyable()->weight('semibold'),
-                TextColumn::make('scheduled_date')->label('Tanggal')->date('d M Y')->sortable(),
-                TextColumn::make('scheduledBy.name')->label('Pemohon')->searchable(),
-                TextColumn::make('technician.name')->label('Teknisi')->placeholder('Belum ditugaskan')->searchable()->sortable(),
-                TextColumn::make('status')->label('Status')->badge()->sortable(),
-                TextColumn::make('warranty_expires_at')->label('Garansi Hingga')->dateTime('d M Y')->placeholder('-'),
+                TextColumn::make('code')
+                    ->label('KODE')
+                    ->searchable()
+                    ->copyable()
+                    ->weight('semibold'),
+
+                TextColumn::make('scheduled_date')
+                    ->label('TANGGAL')
+                    ->date('d M Y')
+                    ->sortable(),
+
+                TextColumn::make('scheduledBy.name')
+                    ->label('PEMOHON')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('technician.name')
+                    ->label('TEKNISI')
+                    ->placeholder('Belum ditugaskan')
+                    ->searchable()
+                    ->sortable(),
+
+                TextColumn::make('status')
+                    ->label('STATUS')
+                    ->badge()
+                    ->sortable()
+                    ->formatStateUsing(fn (ServiceRequestStatus $state) => $state->getLabel())
+                    ->color(fn (ServiceRequestStatus $state) => $state->getColor()),
+
+                TextColumn::make('warranty_expires_at')
+                    ->label('GARANSI HINGGA')
+                    ->dateTime('d M Y')
+                    ->placeholder('-'),
             ])
             ->filters([
-                SelectFilter::make('status')->label('Status')->options(ServiceRequestStatus::class)->multiple(),
-                SelectFilter::make('technician_id')->label('Teknisi')
-                    ->options(User::role('technician')->pluck('name', 'id'))->searchable(),
-            ])
-            ->defaultSort('scheduled_date', 'desc')
+                Filter::make('code')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('code', 'like', '%'.trim((string) $data['value']).'%'))),
+
+                Filter::make('scheduled_date')
+                    ->form([
+                        DatePicker::make('from'),
+                        DatePicker::make('until'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('scheduled_date', '>=', $date))
+                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('scheduled_date', '<=', $date))),
+
+                Filter::make('scheduled_by_name')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->whereHas('scheduledBy', fn (Builder $query) => $query
+                                ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
+
+                Filter::make('requestor_notes')
+                    ->form([TextInput::make('value')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('requestor_notes', 'like', '%'.trim((string) $data['value']).'%'))),
+
+                SelectFilter::make('status')
+                    ->label('STATUS')
+                    ->options(ServiceRequestStatus::class)
+                    ->multiple(),
+
+                SelectFilter::make('technician_id')
+                    ->label('TEKNISI')
+                    ->options(fn () => User::whereHas('roles', fn ($q) => $q->whereIn('name', ['TECHNICIAN', 'technician', 'Technician']))->pluck('name', 'id'))
+                    ->searchable(),
+            ], layout: FiltersLayout::AboveContent)
+            ->deferFilters(false)
             ->recordActions([
-                ViewAction::make()->iconButton()->tooltip('Lihat')->color('info'),
-                EditAction::make()->iconButton()->tooltip('Edit')->color('warning'),
-                DeleteAction::make()->iconButton()->tooltip('Hapus')->color('danger'),
+                ViewAction::make()->iconButton()->tooltip('Lihat Detail'),
+                EditAction::make()->iconButton()->tooltip('Edit'),
+                DeleteAction::make()->iconButton()->tooltip('Hapus'),
             ])
             ->toolbarActions([
                 Action::make('create')
@@ -230,12 +293,37 @@ class ServiceRequestResource extends Resource
                             ->send();
                     }),
 
-                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(ServiceRequestExporter::class),
+                Action::make('export_service_requests')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Export Excel berdasarkan rentang tanggal')
+                    ->modalHeading('Export Permintaan Service')
+                    ->modalDescription('Kosongkan rentang tanggal untuk mengekspor seluruh data.')
+                    ->form([
+                        DatePicker::make('date_from')
+                            ->label('Tanggal Mulai')
+                            ->native(false),
+                        DatePicker::make('date_until')
+                            ->label('Tanggal Akhir')
+                            ->native(false)
+                            ->afterOrEqual('date_from'),
+                    ])
+                    ->modalSubmitActionLabel('Download Excel')
+                    ->action(fn (array $data): BinaryFileResponse => app(ExportServiceRequestsXlsxAction::class)->execute(
+                        ServiceRequestResource::getEloquentQuery(),
+                        $data['date_from'] ?? null,
+                        $data['date_until'] ?? null,
+                    )),
 
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+                DeleteBulkAction::make()
+                    ->iconButton()
+                    ->tooltip('Hapus data terpilih')
+                    ->color('danger'),
+            ])
+            ->defaultSort('scheduled_date', 'desc')
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50, 100]);
     }
 
     public static function getPages(): array

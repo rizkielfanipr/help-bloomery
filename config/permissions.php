@@ -62,6 +62,7 @@ return [
             'review sales reports as supervisor', 'review sales reports as finance',
             'input sales settlements',
         ],
+        'Basket Size' => ['view basket sizes', 'recalculate basket sizes', 'export basket sizes'],
         'Sourcing Bahan' => ['review material sourcing as finance'],
     ],
 

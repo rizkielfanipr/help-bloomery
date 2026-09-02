@@ -92,6 +92,23 @@ class Branch extends Model
         return $this->hasMany(SalesReport::class);
     }
 
+    public function salesShifts(): HasMany
+    {
+        return $this->hasMany(BranchSalesShift::class)->orderBy('shift_number');
+    }
+
+    public function activeSalesShifts(): HasMany
+    {
+        return $this->hasMany(BranchSalesShift::class)
+            ->where('is_active', true)
+            ->orderBy('shift_number');
+    }
+
+    public function configuredSalesShift(int $shiftNumber): ?BranchSalesShift
+    {
+        return $this->activeSalesShifts->firstWhere('shift_number', $shiftNumber);
+    }
+
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class);
@@ -99,13 +116,17 @@ class Branch extends Model
 
     public function hasSalesShift(int $shiftNumber): bool
     {
-        return $shiftNumber >= 1 && $shiftNumber <= $this->sales_shift_count;
+        return $this->activeSalesShifts->isNotEmpty()
+            ? $this->activeSalesShifts->contains('shift_number', $shiftNumber)
+            : $shiftNumber >= 1 && $shiftNumber <= $this->sales_shift_count;
     }
 
     /** @return array<int, int> */
     public function salesShiftNumbers(): array
     {
-        return range(1, max(1, $this->sales_shift_count));
+        return $this->activeSalesShifts->isNotEmpty()
+            ? $this->activeSalesShifts->pluck('shift_number')->all()
+            : range(1, max(1, $this->sales_shift_count));
     }
 
     public function hasLocation(): bool

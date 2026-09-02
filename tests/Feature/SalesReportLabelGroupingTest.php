@@ -155,7 +155,7 @@ it('builds shift input rows grouped by label, DINE IN before TAKEAWAY', function
 
         return Http::response([[
             'salesNum' => 'A1',
-            'salesDateOut' => '2026-08-01 10:00:00',
+            'salesDateOut' => today()->setTime(10, 0)->format('Y-m-d H:i:s'),
             'grandTotal' => $amount,
             'salesPayments' => [[
                 'paymentMethodName' => 'CASH',
@@ -190,7 +190,7 @@ it('shows an informative empty state on the shift page for a label with no ESB c
 
     Http::fake(fn () => Http::response([[
         'salesNum' => 'A1',
-        'salesDateOut' => '2026-08-01 10:00:00',
+        'salesDateOut' => today()->setTime(10, 0)->format('Y-m-d H:i:s'),
         'grandTotal' => 70000,
         'salesPayments' => [[
             'paymentMethodName' => 'CASH',

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Actions\CalculateBasketSizeAction;
 use App\Enums\SalesReportStatus;
 use App\Models\Employee;
 use App\Models\SalesReport;
@@ -52,6 +53,9 @@ class SalesReportShiftPage extends Page
 
     /** @var array<int, array{label: string, name: string, sales_store: string, notes: string}> */
     public array $rows = [];
+
+    /** @var array<int, array<string, mixed>> */
+    public array $transactionSnapshots = [];
 
     /**
      * Per-label reason to show when a label has no rows after fetching:
@@ -172,7 +176,14 @@ class SalesReportShiftPage extends Page
         }
 
         try {
-            $groups = app(EsbService::class)->getPaymentSummaryByLabelForBranch($branch, $this->reportDate);
+            [$startTime, $endTime] = $this->shiftWindow($branch);
+            $shiftSummary = app(EsbService::class)->getShiftSummaryByLabelForBranch(
+                $branch,
+                $this->reportDate,
+                $startTime,
+                $endTime,
+            );
+            $groups = $shiftSummary['groups'];
 
             if (empty($groups)) {
                 Notification::make()
@@ -219,6 +230,7 @@ class SalesReportShiftPage extends Page
             }
 
             $this->rows = $rows;
+            $this->transactionSnapshots = $shiftSummary['transactions'];
             $this->labelStatus = $labelStatus;
             $this->esbFetched = true;
 
@@ -301,8 +313,10 @@ class SalesReportShiftPage extends Page
         ]);
     }
 
-    public function save(SalesReportReconciliationService $reconciliationService): void
-    {
+    public function save(
+        SalesReportReconciliationService $reconciliationService,
+        CalculateBasketSizeAction $calculateBasketSize,
+    ): void {
         if (! $this->showConfirm || ! $this->shiftIsUnlocked() || $this->isSubmitted) {
             return;
         }
@@ -323,7 +337,7 @@ class SalesReportShiftPage extends Page
         $becameFullySubmitted = false;
         $report = null;
 
-        DB::transaction(function () use ($user, $employees, $branch, &$becameFullySubmitted, &$report): void {
+        DB::transaction(function () use ($user, $employees, $branch, $calculateBasketSize, &$becameFullySubmitted, &$report): void {
             $report = SalesReport::query()
                 ->where('branch_id', $user->branch_id)
                 ->whereDate('report_date', $this->reportDate)
@@ -364,8 +378,22 @@ class SalesReportShiftPage extends Page
                 'employee_position' => $employee->position,
             ])->all());
 
+            $report->esbTransactions()->where('shift_number', $this->shiftNumber)->delete();
+            $report->esbTransactions()->createMany(collect($this->transactionSnapshots)->map(fn (array $transaction): array => [
+                'shift_number' => $this->shiftNumber,
+                'source_branch_code' => $transaction['source_branch_code'] ?? null,
+                'source_comcode' => $transaction['source_comcode'] ?? null,
+                'sales_num' => $transaction['sales_num'],
+                'sales_date_out' => $transaction['sales_date_out'],
+                'payment_total' => $transaction['payment_total'],
+                'pax_total' => $transaction['pax_total'] ?? 0,
+                'revenue_total' => $transaction['revenue_total'] ?? $transaction['payment_total'],
+            ])->all());
+
+            $calculateBasketSize->execute($report, $this->shiftNumber);
+
             $report->refresh()->load('shiftSubmissions');
-            $becameFullySubmitted = $report->allShiftsSubmitted($branch->sales_shift_count);
+            $becameFullySubmitted = $report->allShiftsSubmitted($branch->salesShiftNumbers());
 
             if ($becameFullySubmitted) {
                 $report->update([
@@ -397,6 +425,21 @@ class SalesReportShiftPage extends Page
             ->send();
     }
 
+    /** @return array{0:string,1:string} */
+    private function shiftWindow($branch): array
+    {
+        $shift = $branch->configuredSalesShift($this->shiftNumber);
+        if ($shift) {
+            return [$shift->start_time, $shift->end_time];
+        }
+
+        return match ($this->shiftNumber) {
+            1 => ['07:00:00', '15:00:00'],
+            2 => ['15:00:00', '23:00:00'],
+            default => ['00:00:00', '23:59:59'],
+        };
+    }
+
     #[Computed]
     public function employees()
     {
@@ -411,20 +454,26 @@ class SalesReportShiftPage extends Page
 
     private function shiftIsUnlocked(): bool
     {
-        if ($this->shiftNumber <= 1) {
+        $branch = auth()->user()?->branch;
+        if (! $branch) {
+            return false;
+        }
+
+        $shiftNumbers = $branch->salesShiftNumbers();
+        $shiftIndex = array_search($this->shiftNumber, $shiftNumbers, true);
+        if ($shiftIndex === 0) {
             return true;
         }
 
-        $branchId = auth()->user()?->branch_id;
-        if (! $branchId) {
+        if ($shiftIndex === false) {
             return false;
         }
 
         $report = SalesReport::with('shiftSubmissions')
-            ->where('branch_id', $branchId)
+            ->where('branch_id', $branch->id)
             ->whereDate('report_date', $this->reportDate)
             ->first();
 
-        return $report?->isShiftSubmitted($this->shiftNumber - 1) ?? false;
+        return $report?->isShiftSubmitted($shiftNumbers[$shiftIndex - 1]) ?? false;
     }
 }

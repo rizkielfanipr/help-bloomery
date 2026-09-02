@@ -129,6 +129,7 @@
             'icon'  => 'banknote',
             'items' => [
                 ['label' => 'Sales Report',      'icon' => 'bar-chart-2', 'perm' => 'view sales reports',   'href' => $r('filament.helpdesk.resources.sales-reports.index'),   'active' => request()->is('helpdesk/sales-reports*')],
+                ['label' => 'Basket Size', 'icon' => 'shopping-basket', 'perm' => 'view basket sizes', 'href' => $r('filament.helpdesk.pages.basket-size-page'), 'active' => request()->is('helpdesk/basket-size-page*')],
             ],
         ],
         [

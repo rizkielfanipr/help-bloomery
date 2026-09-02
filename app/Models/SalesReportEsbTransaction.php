@@ -9,9 +9,14 @@ class SalesReportEsbTransaction extends Model
 {
     protected $fillable = [
         'sales_report_id',
+        'shift_number',
+        'source_branch_code',
+        'source_comcode',
         'sales_num',
         'sales_date_out',
         'payment_total',
+        'pax_total',
+        'revenue_total',
     ];
 
     protected function casts(): array
@@ -19,6 +24,7 @@ class SalesReportEsbTransaction extends Model
         return [
             'sales_date_out' => 'datetime',
             'payment_total' => 'decimal:2',
+            'revenue_total' => 'decimal:2',
         ];
     }
 

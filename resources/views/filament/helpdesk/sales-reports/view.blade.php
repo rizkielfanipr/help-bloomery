@@ -103,6 +103,25 @@
 
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Basket Size per Shift</h2>
+            <p class="mt-1 text-xs text-gray-400">Revenue ÷ pax, lalu dibagi rata kepada staff in charge.</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[900px] text-sm">
+                <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-800"><tr><th class="px-5 py-3 text-left">Shift</th><th class="px-5 py-3 text-right">Revenue</th><th class="px-5 py-3 text-right">Pax</th><th class="px-5 py-3 text-right">Basket Size</th><th class="px-5 py-3 text-left">Staff Credit</th></tr></thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @forelse($record->basketSizeRecords->sortBy('shift_number') as $basket)
+                        <tr><td class="px-5 py-3"><p class="font-bold">{{ $basket->shift_name }}</p><p class="text-xs text-gray-400">{{ substr($basket->shift_start_time, 0, 5) }}–{{ substr($basket->shift_end_time, 0, 5) }}</p></td><td class="px-5 py-3 text-right">{{ $fmt($basket->revenue) }}</td><td class="px-5 py-3 text-right">{{ number_format($basket->total_pax) }}</td><td class="px-5 py-3 text-right font-bold">{{ $basket->basket_size !== null ? $fmt($basket->basket_size) : 'Pax 0' }}</td><td class="px-5 py-3">@foreach($basket->employeeRecords as $employee)<p>{{ $employee->employee_name }} <span class="font-bold text-blue-600">· {{ $employee->basket_size_credit !== null ? $fmt($employee->basket_size_credit) : '—' }}</span></p>@endforeach</td></tr>
+                    @empty
+                        <tr><td colspan="5" class="px-5 py-10 text-center text-gray-500">Basket Size belum dihitung.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Sales and Settlement Reconciliation</h2>
             <p class="mt-1 text-xs text-gray-400">Shift 1 dan Shift 2 dijumlahkan lalu dibandingkan dengan data sistem. Supervisor correction dan Finance settlement diproses di sini.</p>
         </div>

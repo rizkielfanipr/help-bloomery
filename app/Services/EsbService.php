@@ -570,7 +570,7 @@ class EsbService
      * Fetch and aggregate finished ESB transactions whose salesDateOut is within
      * the half-open shift interval [start, end).
      *
-     * @return array{rows: array<int, array{name: string, type: string, total: float}>, transactions: array<int, array{sales_num: string, sales_date_out: string, payment_total: float}>}
+     * @return array{rows: array<int, array{name: string, type: string, total: float}>, transactions: array<int, array{sales_num: string, sales_date_out: string, payment_total: float, pax_total: int, revenue_total: float}>}
      */
     public function getShiftPaymentSummary(
         string $branchCode,
@@ -626,6 +626,8 @@ class EsbService
                     'sales_num' => $salesNum,
                     'sales_date_out' => $completedAt->format('Y-m-d H:i:s'),
                     'payment_total' => $paymentTotal,
+                    'pax_total' => max(0, (int) ($sale['paxTotal'] ?? 0)),
+                    'revenue_total' => max(0, (float) ($sale['grandTotal'] ?? $paymentTotal)),
                 ];
             }
         }
@@ -634,6 +636,58 @@ class EsbService
         usort($rows, fn ($a, $b) => [$a['type'], $a['name']] <=> [$b['type'], $b['name']]);
 
         return ['rows' => $rows, 'transactions' => array_values($transactions)];
+    }
+
+    /**
+     * @return array{groups:array<string,array{rows:array,ok:bool}>,transactions:array<int,array>}
+     */
+    public function getShiftSummaryByLabelForBranch(
+        Branch $branch,
+        string $reportDate,
+        string $startTime,
+        string $endTime,
+    ): array {
+        $groups = [];
+        $transactions = [];
+        $pairs = $branch->activeEsbCodes()->whereIn('label', ['DINE IN', 'TAKEAWAY']);
+
+        foreach ($pairs as $pair) {
+            $label = $pair->label ?: 'NO LABEL';
+            $groups[$label] ??= ['rows' => [], 'ok' => true];
+
+            try {
+                $summary = $this->getShiftPaymentSummary(
+                    $pair->esb_branch_code,
+                    $reportDate,
+                    $startTime,
+                    $endTime,
+                    $pair->esb_token,
+                );
+            } catch (\RuntimeException) {
+                $groups[$label]['ok'] = false;
+
+                continue;
+            }
+
+            foreach ($summary['rows'] as $row) {
+                $key = $row['type'].'|'.$row['name'];
+                $groups[$label]['rows'][$key] ??= ['name' => $row['name'], 'type' => $row['type'], 'total' => 0.0];
+                $groups[$label]['rows'][$key]['total'] += $row['total'];
+            }
+
+            foreach ($summary['transactions'] as $transaction) {
+                $transactions[] = $transaction + [
+                    'source_branch_code' => $pair->esb_branch_code,
+                    'source_comcode' => $pair->esb_comcode,
+                ];
+            }
+        }
+
+        foreach ($groups as &$group) {
+            $group['rows'] = array_values($group['rows']);
+        }
+
+        return ['groups' => $groups, 'transactions' => $transactions];
     }
 
     /**

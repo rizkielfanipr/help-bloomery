@@ -71,6 +71,11 @@ class SalesReport extends Model
         return $this->hasMany(SalesReportEsbTransaction::class);
     }
 
+    public function basketSizeRecords(): HasMany
+    {
+        return $this->hasMany(BasketSizeRecord::class);
+    }
+
     public function supervisorReviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'supervisor_reviewed_by');
@@ -86,9 +91,12 @@ class SalesReport extends Model
         return $this->shiftSubmissions->contains(fn (SalesReportShiftSubmission $s): bool => $s->shift_number === $shiftNumber);
     }
 
-    public function allShiftsSubmitted(int $shiftCount): bool
+    /** @param int|array<int, int> $shifts */
+    public function allShiftsSubmitted(int|array $shifts): bool
     {
-        for ($shift = 1; $shift <= $shiftCount; $shift++) {
+        $shiftNumbers = is_int($shifts) ? range(1, $shifts) : $shifts;
+
+        foreach ($shiftNumbers as $shift) {
             if (! $this->isShiftSubmitted($shift)) {
                 return false;
             }

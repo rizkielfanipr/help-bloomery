@@ -134,6 +134,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'access backoffice',
                 'view sales reports', 'review sales reports as finance',
                 'input sales settlements',
+                'view basket sizes', 'recalculate basket sizes', 'export basket sizes',
                 'view stock cards', 'review stock cards as finance',
                 'view material sourcings', 'review material sourcing as finance',
             ]);

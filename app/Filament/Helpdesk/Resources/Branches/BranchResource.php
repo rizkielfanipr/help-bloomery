@@ -20,6 +20,7 @@ use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -121,6 +122,47 @@ class BranchResource extends Resource
                             ->columns(4)
                             ->defaultItems(0)
                             ->addActionLabel('Tambah Kode ESB')
+                            ->reorderable(false)
+                            ->columnSpanFull(),
+                    ]),
+
+                Section::make('Shift Sales Report')
+                    ->description('Atur beberapa shift untuk pembagian transaksi, pax, dan Basket Size. Shift yang melewati tengah malam didukung.')
+                    ->schema([
+                        Repeater::make('salesShifts')
+                            ->relationship()
+                            ->hiddenLabel()
+                            ->schema([
+                                TextInput::make('shift_number')
+                                    ->label('Urutan')
+                                    ->numeric()
+                                    ->integer()
+                                    ->distinct()
+                                    ->minValue(1)
+                                    ->required(),
+                                TextInput::make('name')
+                                    ->label('Nama Shift')
+                                    ->required()
+                                    ->maxLength(50),
+                                TimePicker::make('start_time')
+                                    ->label('Jam Mulai')
+                                    ->seconds(false)
+                                    ->required(),
+                                TimePicker::make('end_time')
+                                    ->label('Jam Selesai')
+                                    ->seconds(false)
+                                    ->required()
+                                    ->different('start_time'),
+                                Toggle::make('is_active')
+                                    ->label('Aktif')
+                                    ->default(true),
+                            ])
+                            ->columns(5)
+                            ->default([
+                                ['shift_number' => 1, 'name' => 'Shift 1', 'start_time' => '07:00', 'end_time' => '15:00', 'is_active' => true],
+                                ['shift_number' => 2, 'name' => 'Shift 2', 'start_time' => '15:00', 'end_time' => '23:00', 'is_active' => true],
+                            ])
+                            ->addActionLabel('Tambah Shift')
                             ->reorderable(false)
                             ->columnSpanFull(),
                     ]),

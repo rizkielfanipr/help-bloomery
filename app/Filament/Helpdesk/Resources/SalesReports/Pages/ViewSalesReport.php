@@ -303,6 +303,7 @@ class ViewSalesReport extends Page
             'branch', 'entries', 'employees', 'reconciliations',
             'shiftSubmissions.submittedBy', 'supervisorReviewer', 'financeReviewer',
             'approvals.actor',
+            'basketSizeRecords.employeeRecords',
         ]);
     }
 

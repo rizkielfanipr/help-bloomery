@@ -12,6 +12,16 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('basket_size_employee_records')) {
+            Schema::table('basket_size_employee_records', function (Blueprint $table) {
+                if (! Schema::hasIndex('basket_size_employee_records', ['basket_size_record_id', 'employee_id'], 'unique')) {
+                    $table->unique(['basket_size_record_id', 'employee_id'], 'basket_employee_unique');
+                }
+
+                if (! Schema::hasIndex('basket_size_employee_records', ['employee_id', 'basket_size_credit'])) {
+                    $table->index(['employee_id', 'basket_size_credit'], 'basket_employee_credit_idx');
+                }
+            });
+
             return;
         }
 
@@ -27,7 +37,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['basket_size_record_id', 'employee_id'], 'basket_employee_unique');
-            $table->index(['employee_id', 'basket_size_credit']);
+            $table->index(['employee_id', 'basket_size_credit'], 'basket_employee_credit_idx');
         });
     }
 

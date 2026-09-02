@@ -5,6 +5,7 @@ namespace App\Filament\Helpdesk\Resources\PurchaseRequests\Tables;
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\PurchaseType;
 use App\Filament\Exports\PurchaseRequestExporter;
+use App\Filament\Helpdesk\Resources\PurchaseRequests\PurchaseRequestResource;
 use App\Models\AppSetting;
 use App\Models\Branch;
 use App\Models\PurchaseRequest;
@@ -13,6 +14,7 @@ use Filament\Actions\BulkAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ExportAction;
+use Filament\Actions\Exports\Enums\ExportFormat;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
@@ -160,7 +162,20 @@ class PurchaseRequestsTable
             ->toolbarActions([
                 self::toggleFormAction(),
 
-                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(PurchaseRequestExporter::class),
+                ExportAction::make()
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Export Excel berdasarkan rentang tanggal')
+                    ->modalHeading('Export Permintaan Pembelian')
+                    ->modalDescription('Kosongkan rentang tanggal untuk mengekspor seluruh data.')
+                    ->exporter(PurchaseRequestExporter::class)
+                    ->formats([ExportFormat::Xlsx])
+                    ->columnMapping(false)
+                    ->modifyQueryUsing(fn (Builder $query, array $options): Builder => PurchaseRequestExporter::applyDateRange(
+                        PurchaseRequestResource::getEloquentQuery(),
+                        $options,
+                    )),
 
                 self::bulkTransitionAction(PurchaseRequestStatus::Approved, 'heroicon-o-check', 'success'),
                 self::bulkTransitionAction(PurchaseRequestStatus::Rejected, 'heroicon-o-x-mark', 'danger'),

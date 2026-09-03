@@ -385,7 +385,8 @@ it('stores a new material draft and creates its Master Product in ESB', function
     $material = $product->esbMaterials()->firstOrFail();
     expect($material->status)->toBe('draft')
         ->and($material->sku)->toBe('BBMK-MATCHA-01-GR');
-    expect($material->units()->count())->toBe(2);
+    expect($material->units()->count())->toBe(2)
+        ->and($material->units()->where('is_base', true)->value('is_sales'))->toBeTrue();
 
     $page->call('syncEsbMaterial', $material->id)->assertHasNoErrors();
 
@@ -404,6 +405,7 @@ it('stores a new material draft and creates its Master Product in ESB', function
             && data_get($request->data(), 'productDetails.0.uomID') === 5
             && data_get($request->data(), 'productDetails.0.sku') === 'BBMK-MATCHA-01-GR'
             && data_get($request->data(), 'productDetails.0.qty') === 1.0
+            && data_get($request->data(), 'productDetails.0.isSales') === true
             && data_get($request->data(), 'productDetails.1.uomID') === 16
             && data_get($request->data(), 'productDetails.1.sku') === 'BBMK-MATCHA-01-RESEP'
             && data_get($request->data(), 'productDetails.1.qty') === 300.0;
@@ -414,6 +416,44 @@ it('stores a new material draft and creates its Master Product in ESB', function
         'product' => $product->id,
         'format' => 'xlsx',
     ]))->assertOk();
+});
+
+it('allows a WIP material to use a direct product name without a prefix', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Non Prefix Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Direct WIP Product Release',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $project->id,
+        'product' => $product->id,
+    ])->set('esbCategoryOptions', [77 => 'Barang WIP'])
+        ->set('esbMaterialCategoryId', 77)
+        ->set('esbMaterialSubCategoryId', 21)
+        ->set('esbMaterialPrefixCategoryId', ViewProjectProductPage::NON_PREFIX_CATEGORY_ID)
+        ->set('esbMaterialProductName', 'Adonan Croissant Khusus')
+        ->set('esbMaterialProductCode', 'BBMK-WIP-01')
+        ->set('esbMaterialUnits', [[
+            'uom_id' => 5,
+            'uom_name' => 'GR',
+            'sku' => '',
+            'conversion_factor' => '1',
+            'base_price' => '100',
+            'is_base' => true,
+        ]])
+        ->call('saveEsbMaterial')
+        ->assertHasNoErrors();
+
+    $material = $product->esbMaterials()->firstOrFail();
+    expect($material->product_name)->toBe('Adonan Croissant Khusus')
+        ->and($material->units()->where('is_base', true)->value('is_sales'))->toBeTrue();
 });
 
 it('combines prefix name, prefix category, and base name into the final ESB material product name for WIP items', function () {

@@ -764,34 +764,43 @@
                             </div>
                             @if($this->isEsbMaterialWipCategory())
                                 <div>
-                                    <label class="mb-1.5 block text-sm font-semibold">Prefix Name *</label>
-                                    <select wire:model.live="esbMaterialNamePrefix" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800">
-                                        <option value="">Pilih Prefix Name</option>
-                                        @foreach($this->esbMaterialNamePrefixOptions() as $prefix => $label)<option value="{{ $prefix }}">{{ $label }}</option>@endforeach
-                                    </select>
-                                    <p class="mt-1 text-xs text-gray-500">Kelola daftar Prefix Name di menu Research & Development &gt; Prefix Name.</p>
-                                    @error('esbMaterialNamePrefix')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
-                                <div>
                                     <label class="mb-1.5 block text-sm font-semibold">Prefix Category *</label>
                                     <select wire:model.live="esbMaterialPrefixCategoryId" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800">
                                         <option value="">Pilih Prefix Category</option>
+                                        <option value="{{ \App\Filament\Helpdesk\Pages\ViewProjectProductPage::NON_PREFIX_CATEGORY_ID }}">Non Prefix</option>
                                         @foreach($prefixCategoryOptions as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
                                     </select>
-                                    <p class="mt-1 text-xs text-gray-500">Kelola daftar Prefix Category di menu Research & Development &gt; Prefix Category.</p>
+                                    <p class="mt-1 text-xs text-gray-500">Pilih Non Prefix untuk mengetik nama product secara langsung.</p>
                                     @error('esbMaterialPrefixCategoryId')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
-                                <div class="md:col-span-2">
-                                    <label class="mb-1.5 block text-sm font-semibold">Nama Dasar Product *</label>
-                                    <input wire:model.live.debounce.250ms="esbMaterialProductBaseName" maxlength="90" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Contoh: Adonan Croissant">
-                                    @error('esbMaterialProductBaseName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
-                                <div class="md:col-span-2">
-                                    <label class="mb-1.5 block text-sm font-semibold">Product Name Final *</label>
-                                    <input wire:model="esbMaterialProductName" readonly class="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200" placeholder="Prefix dan nama product akan digabung otomatis">
-                                    <p class="mt-1 text-xs text-gray-500">Nama ini yang akan dikirim ke Master Product ESB.</p>
-                                    @error('esbMaterialProductName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
+                                @if($this->usesEsbMaterialStructuredName())
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-semibold">Prefix Name *</label>
+                                        <select wire:model.live="esbMaterialNamePrefix" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800">
+                                            <option value="">Pilih Prefix Name</option>
+                                            @foreach($this->esbMaterialNamePrefixOptions() as $prefix => $label)<option value="{{ $prefix }}">{{ $label }}</option>@endforeach
+                                        </select>
+                                        <p class="mt-1 text-xs text-gray-500">Kelola daftar Prefix Name di menu Research & Development &gt; Prefix Name.</p>
+                                        @error('esbMaterialNamePrefix')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="mb-1.5 block text-sm font-semibold">Nama Dasar Product *</label>
+                                        <input wire:model.live.debounce.250ms="esbMaterialProductBaseName" maxlength="90" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Contoh: Adonan Croissant">
+                                        @error('esbMaterialProductBaseName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="mb-1.5 block text-sm font-semibold">Product Name Final *</label>
+                                        <input wire:model="esbMaterialProductName" readonly class="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200" placeholder="Prefix dan nama product akan digabung otomatis">
+                                        <p class="mt-1 text-xs text-gray-500">Nama ini yang akan dikirim ke Master Product ESB.</p>
+                                        @error('esbMaterialProductName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                @else
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-semibold">Product Name *</label>
+                                        <input wire:model="esbMaterialProductName" maxlength="100" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Ketik nama product langsung">
+                                        @error('esbMaterialProductName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                    </div>
+                                @endif
                             @else
                                 <div>
                                     <label class="mb-1.5 block text-sm font-semibold">Product Name *</label>

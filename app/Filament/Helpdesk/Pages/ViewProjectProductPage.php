@@ -27,6 +27,8 @@ use Throwable;
 
 class ViewProjectProductPage extends Page
 {
+    public const NON_PREFIX_CATEGORY_ID = 0;
+
     use WithFileUploads;
 
     protected static ?string $slug = 'rnd-projects/{project}/products/{product}';
@@ -1568,16 +1570,16 @@ class ViewProjectProductPage extends Page
         $validated = $this->validate([
             'esbMaterialProductName' => ['required', 'string', 'max:100'],
             'esbMaterialProductBaseName' => [
-                Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
+                Rule::requiredIf(fn (): bool => $this->usesEsbMaterialStructuredName()),
                 'nullable', 'string', 'max:90',
             ],
             'esbMaterialNamePrefix' => [
-                Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
+                Rule::requiredIf(fn (): bool => $this->usesEsbMaterialStructuredName()),
                 'nullable', Rule::in(array_keys($this->esbMaterialNamePrefixOptions())),
             ],
             'esbMaterialPrefixCategoryId' => [
                 Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
-                'nullable', Rule::in(array_keys($this->prefixCategoryOptions)),
+                'nullable', Rule::in([self::NON_PREFIX_CATEGORY_ID, ...array_keys($this->prefixCategoryOptions)]),
             ],
             'esbMaterialProductCode' => [
                 'required', 'string', 'max:50',
@@ -1657,7 +1659,7 @@ class ViewProjectProductPage extends Page
                 'is_stock' => $unit['is_base'],
                 'is_purchase' => $unit['is_base'],
                 'is_transfer' => $unit['is_base'],
-                'is_sales' => false,
+                'is_sales' => $unit['is_base'],
                 'flag_active' => true,
             ])->all());
 
@@ -1740,6 +1742,11 @@ class ViewProjectProductPage extends Page
 
     public function updatedEsbMaterialPrefixCategoryId(): void
     {
+        if ($this->esbMaterialPrefixCategoryId === self::NON_PREFIX_CATEGORY_ID) {
+            $this->esbMaterialNamePrefix = '';
+            $this->esbMaterialProductBaseName = '';
+        }
+
         $this->syncEsbMaterialProductName();
     }
 
@@ -1750,6 +1757,12 @@ class ViewProjectProductPage extends Page
         return mb_strtolower(trim((string) $name)) === 'barang wip';
     }
 
+    public function usesEsbMaterialStructuredName(): bool
+    {
+        return $this->isEsbMaterialWipCategory()
+            && $this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID;
+    }
+
     public function esbMaterialNamePrefixOptions(): array
     {
         return $this->prefixNameOptions;
@@ -1757,7 +1770,7 @@ class ViewProjectProductPage extends Page
 
     private function syncEsbMaterialProductName(): void
     {
-        if (! $this->isEsbMaterialWipCategory()) {
+        if (! $this->usesEsbMaterialStructuredName()) {
             return;
         }
 
@@ -1785,10 +1798,11 @@ class ViewProjectProductPage extends Page
         }
 
         $remainder = $this->stripEsbMaterialNamePrefix($productName);
-        $this->esbMaterialPrefixCategoryId = $this->matchPrefixCategoryId($remainder);
-        $this->esbMaterialProductBaseName = $this->esbMaterialPrefixCategoryId
+        $this->esbMaterialPrefixCategoryId = $this->matchPrefixCategoryId($remainder)
+            ?? self::NON_PREFIX_CATEGORY_ID;
+        $this->esbMaterialProductBaseName = $this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID
             ? $this->stripPrefixCategoryName($remainder, $this->esbMaterialPrefixCategoryId)
-            : $remainder;
+            : '';
         $this->syncEsbMaterialProductName();
     }
 

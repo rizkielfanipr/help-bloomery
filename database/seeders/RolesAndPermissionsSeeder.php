@@ -39,6 +39,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'edit briefing settings',
                 'edit briefing period weights',
                 'view sales reports',
+                'view compliment types', 'create compliment types', 'edit compliment types', 'delete compliment types',
                 'view stock cards',
                 'view purchase requests', 'create purchase requests', 'edit purchase requests',
                 'view design requests', 'edit design requests',
@@ -125,6 +126,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'access backoffice', 'access employee app briefing', 'access employee app sales report',
                 'view briefing items', 'edit briefing items',
                 'view sales reports', 'review sales reports as supervisor',
+                'view compliment types',
                 'view stock cards', 'review stock cards as supervisor',
                 'view employees', 'create employees', 'edit employees', 'delete employees',
             ]);
@@ -133,6 +135,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access backoffice',
                 'view sales reports', 'review sales reports as finance',
+                'view compliment types', 'create compliment types', 'edit compliment types', 'delete compliment types',
                 'input sales settlements',
                 'view basket sizes', 'recalculate basket sizes', 'export basket sizes',
                 'view stock cards', 'review stock cards as finance',

@@ -53,8 +53,7 @@ class RndProjectBomPdfController extends Controller
 
         preg_match('/<style>(.*)<\/style>/s', $renderedDocuments->first(), $style);
 
-        $pages = $documents->map(fn (string $body): string =>
-            '<section class="project-product-document">'.$body.'</section>'
+        $pages = $documents->map(fn (string $body): string => '<section class="project-product-document">'.$body.'</section>'
         )->implode('');
         $html = '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><style>'.($style[1] ?? '').'.project-product-document+.project-product-document{margin-top:14px;}</style></head><body>'.$pages.'</body></html>';
 

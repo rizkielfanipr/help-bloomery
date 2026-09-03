@@ -62,6 +62,7 @@ return [
             'review sales reports as supervisor', 'review sales reports as finance',
             'input sales settlements',
         ],
+        'Compliment Types' => ['view compliment types', 'create compliment types', 'edit compliment types', 'delete compliment types'],
         'Basket Size' => ['view basket sizes', 'recalculate basket sizes', 'export basket sizes'],
         'Sourcing Bahan' => ['review material sourcing as finance'],
     ],

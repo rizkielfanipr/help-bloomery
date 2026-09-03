@@ -175,7 +175,7 @@ class SalesReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'employees', 'reconciliations', 'shiftSubmissions.submittedBy']);
+        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'employees', 'reconciliations', 'shiftSubmissions.submittedBy', 'compliments.submittedBy']);
         $user = auth()->user();
 
         if ($user && ! $user->canAccessAllBranches()) {

@@ -304,6 +304,7 @@ class ViewSalesReport extends Page
             'shiftSubmissions.submittedBy', 'supervisorReviewer', 'financeReviewer',
             'approvals.actor',
             'basketSizeRecords.employeeRecords',
+            'compliments.submittedBy',
         ]);
     }
 

@@ -1,4 +1,5 @@
 @php
+    $fieldClass = 'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-slate-200';
     $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-400';
 @endphp
 
@@ -63,7 +64,7 @@
 
             {{-- Staff pengisi --}}
             <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                <label class="{{ $labelClass }}">Staff In Charge <span class="text-red-500">*</span></label>
+                <label class="{{ $labelClass }}">Staff In Charge <span class="text-red-400">*</span></label>
                 @if($isSubmitted)
                     <div class="space-y-2">
                         @forelse($submittedEmployees as $emp)
@@ -230,9 +231,191 @@
                 </div>
             @endif
 
+            {{-- Compliments per shift --}}
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Compliment Shift</p>
+                        <p class="mt-0.5 text-xs text-slate-400">Nota dan keterangan compliment pada shift ini.</p>
+                    </div>
+                    @if(! $isSubmitted)
+                        <button type="button" wire:click="addCompliment"
+                                class="flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-semibold text-blue-600 transition active:scale-95 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                            </svg>
+                            Tambah Compliment
+                        </button>
+                    @endif
+                </div>
+
+                @if(! $isSubmitted && count($compliments) > 0)
+                    {{-- ERP Style Information Box --}}
+                    <div class="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30">
+                        <div class="flex items-start gap-2">
+                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"/>
+                            </svg>
+                            <div class="text-xs leading-relaxed text-blue-700 dark:text-blue-300">
+                                <p class="font-semibold">Panduan Pengisian Compliment:</p>
+                                <p class="mt-0.5">Pilih jenis compliment, upload foto atau PDF nota transaksi/POS, dan berikan keterangan detail mengenai alasan atau pihak penerima compliment.</p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                @if($isSubmitted)
+                    <div class="mt-4 flex flex-col gap-3">
+                        @forelse($submittedCompliments as $compliment)
+                            <article class="rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/40">
+                                <div class="flex items-start justify-between gap-3">
+                                    <span class="inline-flex items-center rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                                        {{ $compliment['type'] }}
+                                    </span>
+                                </div>
+                                <p class="mt-2.5 whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-200">{{ $compliment['notes'] }}</p>
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    @foreach($compliment['attachments'] ?? [] as $attachment)
+                                        <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}"
+                                           target="_blank"
+                                           class="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 transition hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800 dark:text-blue-300">
+                                            <svg class="h-4 w-4 shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
+                                            </svg>
+                                            <span class="truncate max-w-[200px]">{{ basename($attachment) }}</span>
+                                        </a>
+                                    @endforeach
+                                </div>
+                            </article>
+                        @empty
+                            <p class="py-6 text-center text-xs text-slate-400">Tidak ada compliment yang dilaporkan pada shift ini.</p>
+                        @endforelse
+                    </div>
+                @else
+                    <div class="mt-4 flex flex-col gap-4">
+                        @forelse($compliments as $index => $compliment)
+                            <div wire:key="compliment-{{ $index }}" class="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/30">
+                                <div class="flex items-center justify-between border-b border-gray-200/60 pb-3 dark:border-gray-700/60">
+                                    <div class="flex items-center gap-2">
+                                        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 dark:bg-blue-900/50 dark:text-blue-300">
+                                            {{ $index + 1 }}
+                                        </span>
+                                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                                            Compliment #{{ $index + 1 }}
+                                        </span>
+                                    </div>
+                                    <button type="button" wire:click="removeCompliment({{ $index }})"
+                                            class="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-red-500 transition hover:bg-red-50 dark:hover:bg-red-950/30">
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                                        </svg>
+                                        Hapus
+                                    </button>
+                                </div>
+
+                                {{-- Jenis Compliment Dropdown (ERP style with chevron) --}}
+                                <div>
+                                    <label for="compliment_type_{{ $index }}" class="{{ $labelClass }}">
+                                        Jenis Compliment <span class="text-red-400">*</span>
+                                    </label>
+                                    <div class="relative">
+                                        <select id="compliment_type_{{ $index }}" wire:model="compliments.{{ $index }}.compliment_type_id"
+                                                class="{{ $fieldClass }} appearance-none pr-10">
+                                            <option value="">-- Pilih jenis compliment --</option>
+                                            @foreach($this->complimentTypes as $type)
+                                                <option value="{{ $type->id }}">{{ $type->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                                            <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    @error("compliments.{$index}.compliment_type_id")
+                                        <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                {{-- Keterangan Permintaan/Compliment --}}
+                                <div>
+                                    <label for="compliment_notes_{{ $index }}" class="{{ $labelClass }}">
+                                        Keterangan Compliment <span class="text-red-400">*</span>
+                                    </label>
+                                    <textarea id="compliment_notes_{{ $index }}" wire:model="compliments.{{ $index }}.notes" rows="4" maxlength="2000"
+                                              placeholder="Deskripsikan detail compliment (alasan compliment, nama tamu/keperluan, menu yang diberikan, dll)..."
+                                              class="{{ $fieldClass }} resize-none leading-relaxed"></textarea>
+                                    @error("compliments.{$index}.notes")
+                                        <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                {{-- Lampiran Nota (Styled exactly like ERP file upload list & trigger) --}}
+                                <div>
+                                    <label class="{{ $labelClass }}">
+                                        Lampiran Nota <span class="text-red-400">*</span> <span class="ml-1 font-normal normal-case text-slate-400">(foto/PDF · maks. 5 MB)</span>
+                                    </label>
+
+                                    @if(! empty($compliment['attachments']))
+                                        <div class="mb-2 space-y-2">
+                                            @foreach($compliment['attachments'] as $attIdx => $file)
+                                                <div class="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+                                                    <div class="flex min-w-0 items-center gap-2">
+                                                        <svg class="h-4 w-4 shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
+                                                        </svg>
+                                                        <span class="truncate text-xs text-slate-600 dark:text-slate-300">
+                                                            {{ is_object($file) && method_exists($file, 'getClientOriginalName') ? $file->getClientOriginalName() : (is_string($file) ? basename($file) : 'Lampiran Nota '.($attIdx + 1)) }}
+                                                        </span>
+                                                    </div>
+                                                    <button type="button" wire:click="removeComplimentAttachment({{ $index }}, {{ $attIdx }})"
+                                                            class="shrink-0 text-red-400 transition hover:text-red-600">
+                                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+
+                                    <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white py-3.5 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-blue-600 dark:hover:bg-blue-900/20">
+                                        <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+                                        </svg>
+                                        <span class="text-sm text-gray-400">Tambah Foto / PDF Nota</span>
+                                        <input type="file" wire:model="compliments.{{ $index }}.attachments" multiple accept="image/jpeg,image/png,image/webp,application/pdf" class="hidden">
+                                    </label>
+                                    <div wire:loading wire:target="compliments.{{ $index }}.attachments" class="mt-1.5 flex items-center gap-2 text-xs text-blue-500">
+                                        <svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        </svg>
+                                        <span>Mengunggah file lampiran nota…</span>
+                                    </div>
+                                    @error("compliments.{$index}.attachments") <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+                                    @error("compliments.{$index}.attachments.*") <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+                                </div>
+                            </div>
+                        @empty
+                            <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/50 py-8 text-center dark:border-gray-800 dark:bg-gray-800/20">
+                                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-500 dark:bg-blue-900/30">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z"/>
+                                    </svg>
+                                </div>
+                                <p class="mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">Belum ada compliment yang ditambahkan</p>
+                                <p class="mt-0.5 text-[11px] text-slate-400">Klik tombol "+ Tambah Compliment" jika terdapat compliment pada shift ini.</p>
+                            </div>
+                        @endforelse
+                    </div>
+                @endif
+            </section>
+
         </div>
 
-        {{-- Submit / Confirm area — sticks to the bottom of the screen so it's reachable without scrolling past a long payment list --}}
+        {{-- Submit / Confirm area --}}
         @if(! $isSubmitted)
             <div class="sticky bottom-0 border-t border-gray-100 bg-gray-50 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 dark:border-gray-800 dark:bg-gray-950">
                 @if($showConfirm)
@@ -241,21 +424,21 @@
                     </p>
                     <div class="flex gap-3">
                         <button wire:click="cancelConfirm"
-                                class="flex flex-1 items-center justify-center rounded-2xl bg-gray-100 py-4 text-sm font-semibold text-slate-600 transition active:bg-gray-200 dark:bg-gray-800 dark:text-slate-300">
+                                class="flex flex-1 items-center justify-center rounded-2xl bg-gray-100 py-3.5 text-sm font-semibold text-slate-600 transition active:scale-95 active:bg-gray-200 dark:bg-gray-800 dark:text-slate-300">
                             Batal
                         </button>
                         <button wire:click="save" wire:loading.attr="disabled"
-                                class="flex flex-[2] items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700 disabled:opacity-60">
+                                class="flex flex-[2] items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700 disabled:opacity-60">
                             <svg wire:loading.remove wire:target="save" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                             </svg>
-                            <span wire:loading.remove wire:target="save">Ya, Kirim</span>
+                            <span wire:loading.remove wire:target="save">Ya, Kirim Laporan</span>
                             <span wire:loading wire:target="save">Menyimpan...</span>
                         </button>
                     </div>
                 @else
                     <button wire:click="requestConfirm" wire:loading.attr="disabled"
-                            class="w-full rounded-2xl py-4 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60
+                            class="w-full rounded-2xl py-3.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60
                                    {{ $esbFetched ? 'bg-blue-600 active:bg-blue-700' : 'cursor-not-allowed bg-slate-400' }}">
                         <span wire:loading.remove wire:target="requestConfirm">
                             {{ $esbFetched ? 'Submit Laporan Shift '.$shiftNumber : 'Muat Daftar Payment Method Dulu' }}

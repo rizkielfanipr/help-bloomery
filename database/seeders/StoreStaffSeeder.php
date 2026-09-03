@@ -32,8 +32,8 @@ class StoreStaffSeeder extends Seeder
             $user = User::firstOrCreate(
                 ['username' => $store['username']],
                 [
-                    'name'     => $store['name'],
-                    'email'    => strtolower($store['username']).'@bloomery.internal',
+                    'name' => $store['name'],
+                    'email' => strtolower($store['username']).'@bloomery.internal',
                     'password' => Hash::make($store['password']),
                 ]
             );

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class SalesReport extends Model
 {
@@ -35,6 +36,20 @@ class SalesReport extends Model
         'supervisor_reviewed_at' => 'datetime',
         'finance_reviewed_at' => 'datetime',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (SalesReport $salesReport): void {
+            $paths = $salesReport->compliments()
+                ->get(['attachment_paths'])
+                ->flatMap(fn (SalesReportCompliment $compliment): array => $compliment->attachment_paths ?? [])
+                ->all();
+
+            if ($paths !== []) {
+                Storage::disk('b2')->delete($paths);
+            }
+        });
+    }
 
     public function branch(): BelongsTo
     {
@@ -74,6 +89,11 @@ class SalesReport extends Model
     public function basketSizeRecords(): HasMany
     {
         return $this->hasMany(BasketSizeRecord::class);
+    }
+
+    public function compliments(): HasMany
+    {
+        return $this->hasMany(SalesReportCompliment::class);
     }
 
     public function supervisorReviewer(): BelongsTo

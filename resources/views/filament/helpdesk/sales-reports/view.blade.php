@@ -10,6 +10,7 @@
         ->sortBy(fn ($label) => $labelOrder[$label] ?? 99);
     $entriesByKey = $record->entries->groupBy(fn ($e) => $e->label.'|'.$e->payment_method_name);
     $employeesByShift = $record->employees->groupBy('shift_number');
+    $complimentsByShift = $record->compliments->groupBy('shift_number')->sortKeys();
     $totalSystem = (float) $reconciliations->sum('system_amount');
     $totalReportedStore = (float) $reconciliations->sum('reported_store_amount');
     $totalStore = (float) $reconciliations->sum('store_amount');
@@ -99,6 +100,46 @@
                 <p class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ $record->status === \App\Enums\SalesReportStatus::Completed ? $fmt($totalSettlement) : '-' }}</p>
             </div>
         </div>
+    </section>
+
+    <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Compliment per Shift</h2>
+            <p class="mt-1 text-xs text-gray-400">Nota dan keterangan compliment yang dilaporkan oleh store.</p>
+        </div>
+
+        @if($complimentsByShift->isEmpty())
+            <p class="px-6 py-8 text-center text-sm text-gray-400">Tidak ada compliment pada laporan ini.</p>
+        @else
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                @foreach($complimentsByShift as $shiftNumber => $compliments)
+                    <div class="px-6 py-5">
+                        <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">Shift {{ $shiftNumber }}</h3>
+                        <div class="grid gap-3 md:grid-cols-2">
+                            @foreach($compliments as $compliment)
+                                <article class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $compliment->compliment_type_name }}</p>
+                                        <span class="text-[11px] text-gray-400">{{ $compliment->submittedBy?->name ?? '-' }}</span>
+                                    </div>
+                                    <p class="mt-2 whitespace-pre-line text-sm text-gray-600 dark:text-gray-300">{{ $compliment->notes }}</p>
+                                    <div class="mt-3 flex flex-wrap gap-2">
+                                        @foreach($compliment->attachment_paths ?? [] as $attachment)
+                                            <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}"
+                                               target="_blank"
+                                               class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 transition hover:bg-blue-50 dark:border-blue-900 dark:bg-gray-900 dark:text-blue-300">
+                                                <x-heroicon-o-paper-clip class="h-4 w-4" />
+                                                Lihat Nota {{ $loop->iteration }}
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                </article>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
     </section>
 
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">

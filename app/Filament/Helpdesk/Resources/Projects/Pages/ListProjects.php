@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Models\RndProject;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Collection;
@@ -19,7 +20,7 @@ class ListProjects extends ListRecords
 
     public function projects(): Collection
     {
-        return \App\Models\RndProject::query()
+        return RndProject::query()
             ->withCount('products')
             ->when($this->projectSearch !== '', fn ($query) => $query->where(function ($query): void {
                 $query

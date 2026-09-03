@@ -294,8 +294,8 @@
                 @else
                     <div class="mt-4 flex flex-col gap-4">
                         @forelse($compliments as $index => $compliment)
-                            <div wire:key="compliment-{{ $index }}" class="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-800/30">
-                                <div class="flex items-center justify-between border-b border-gray-200/60 pb-3 dark:border-gray-700/60">
+                            <div wire:key="compliment-{{ $index }}" class="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                                <div class="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
                                     <div class="flex items-center gap-2">
                                         <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 dark:bg-blue-900/50 dark:text-blue-300">
                                             {{ $index + 1 }}

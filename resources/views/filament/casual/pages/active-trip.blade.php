@@ -8,6 +8,7 @@
          capturedAt: @entangle('checkinCapturedAt'),
          settings: @js($this->settings->only([
              'checkin_photo_source', 'require_checkin_location', 'stamp_checkin_timestamp',
+             'require_waypoint_radius',
              'stamp_checkin_coordinates', 'stamp_checkin_driver_name', 'stamp_checkin_waypoint_name',
              'stamp_checkin_route_name', 'checkin_photo_quality', 'checkin_photo_max_dimension',
              'checkin_max_location_accuracy',
@@ -15,13 +16,28 @@
          driverName: @js(auth()->user()->name),
          routeName: @js($this->tripModel->tripRoute->name),
          waypointNames: @js($this->tripModel->waypointCheckins->mapWithKeys(fn ($checkin) => [$checkin->id => $checkin->waypoint->name])->all()),
+         waypointLocations: @js($this->tripModel->waypointCheckins->mapWithKeys(fn ($checkin) => [$checkin->id => [
+             'latitude' => $checkin->waypoint->latitude,
+             'longitude' => $checkin->waypoint->longitude,
+             'radius' => $checkin->waypoint->radius_meters,
+         ]])->all()),
+         isCustomRoute: @js($this->tripModel->tripRoute->is_custom),
          mode:      'idle',
          source:    null,
          photo:     null,
          stream:    null,
          uploading: false,
+         submitting: false,
+         submitError: null,
          camError:  null,
          locStatus: 'idle',
+         locError: null,
+         locDistance: null,
+         locInRadius: false,
+         locMap: null,
+         locTargetMarker: null,
+         locUserMarker: null,
+         locRadiusCircle: null,
          facingMode: 'environment',
 
          toggleCamera() {
@@ -39,6 +55,23 @@
 
          get hasPhoto()  { return !!this.photo; },
          get hasStream() { return !!this.stream; },
+         get requiresLocationGate() {
+             return !this.isCustomRoute && this.settings.require_waypoint_radius;
+         },
+         get currentWaypointLocation() { return this.waypointLocations[this.checkinId] || null; },
+         get waypointHasLocation() {
+             return this.currentWaypointLocation?.latitude !== null
+                 && this.currentWaypointLocation?.latitude !== undefined
+                 && this.currentWaypointLocation?.longitude !== null
+                 && this.currentWaypointLocation?.longitude !== undefined;
+         },
+         get locationIsAccurate() {
+             const maximum = Number(this.settings.checkin_max_location_accuracy || 0);
+             return maximum <= 0 || (this.accuracy !== null && Number(this.accuracy) <= maximum);
+         },
+         get canContinueToPhoto() {
+             return this.waypointHasLocation && this.locStatus === 'detected' && this.locInRadius && this.locationIsAccurate;
+         },
 
          openOdo(ctx) {
              this.odoCtx    = ctx;
@@ -208,13 +241,28 @@
              this.photo     = null;
              this.camError  = null;
              this.uploading = false;
+             this.submitting = false;
+             this.submitError = null;
+             this.$wire.$errors.clear();
              this.source    = null;
-             this.mode      = 'picker';
-             this.detectLocation();
+             if (this.requiresLocationGate) {
+                 this.mode = 'location';
+                 if (this.waypointHasLocation) {
+                     this.detectLocation();
+                     this.$nextTick(() => this.initCheckinLocationMap());
+                 } else {
+                     this.locStatus = 'error';
+                     this.locError = 'Pin lokasi titik perjalanan belum diatur oleh back office.';
+                 }
+             } else {
+                 this.mode = 'picker';
+                 this.detectLocation();
+             }
          },
 
          closeCheckin() {
              this.stopStream();
+             this.destroyCheckinLocationMap();
              this.$wire.set('checkinPhoto', null);
              this.photo     = null;
              this.mode      = 'idle';
@@ -223,6 +271,78 @@
              this.lng       = null;
              this.accuracy  = null;
              this.locStatus = 'idle';
+             this.locError = null;
+             this.locDistance = null;
+             this.locInRadius = false;
+         },
+
+         continueToPhoto() {
+             if (!this.canContinueToPhoto) return;
+             this.destroyCheckinLocationMap();
+             this.mode = 'picker';
+         },
+
+         initCheckinLocationMap() {
+             const target = this.currentWaypointLocation;
+             const element = this.$refs.checkinLocationMap;
+             if (!window.L || !this.waypointHasLocation || !element) return;
+
+             this.destroyCheckinLocationMap();
+             setTimeout(() => {
+                 if (this.mode !== 'location') return;
+                 this.locMap = L.map(element, { zoomControl: false }).setView([target.latitude, target.longitude], 16);
+                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                     attribution: '© OpenStreetMap'
+                 }).addTo(this.locMap);
+                 L.control.zoom({ position: 'bottomright' }).addTo(this.locMap);
+                 this.locRadiusCircle = L.circle([target.latitude, target.longitude], {
+                     radius: Number(target.radius || 100), color: '#2563eb', fillColor: '#3b82f6',
+                     fillOpacity: 0.14, weight: 2.5
+                 }).addTo(this.locMap);
+                 this.locTargetMarker = L.circleMarker([target.latitude, target.longitude], {
+                     radius: 8, color: 'white', weight: 3, fillColor: '#2563eb', fillOpacity: 1
+                 }).addTo(this.locMap).bindTooltip('Titik Tujuan', { direction: 'top' });
+                 this.updateCheckinLocationMap();
+                 setTimeout(() => this.locMap?.invalidateSize(), 300);
+             }, 250);
+         },
+
+         updateCheckinLocationMap() {
+             const target = this.currentWaypointLocation;
+             if (!target || this.lat === null || this.lng === null) return;
+             this.locDistance = Math.round(this.haversineDistance(this.lat, this.lng, target.latitude, target.longitude));
+             this.locInRadius = this.locDistance <= Number(target.radius || 100);
+             if (!this.locMap) return;
+
+             const fillColor = this.canContinueToPhoto ? '#10b981' : '#ef4444';
+             if (this.locUserMarker) {
+                 this.locUserMarker.setLatLng([this.lat, this.lng]).setStyle({ fillColor });
+             } else {
+                 this.locUserMarker = L.circleMarker([this.lat, this.lng], {
+                     radius: 10, color: 'white', weight: 3, fillColor, fillOpacity: 1
+                 }).addTo(this.locMap).bindTooltip('Posisi Anda', { direction: 'top' });
+             }
+             this.locMap.fitBounds([[target.latitude, target.longitude], [this.lat, this.lng]], {
+                 padding: [55, 55], maxZoom: 17
+             });
+         },
+
+         haversineDistance(lat1, lng1, lat2, lng2) {
+             const earthRadius = 6371000;
+             const latitudeDelta = (lat2 - lat1) * Math.PI / 180;
+             const longitudeDelta = (lng2 - lng1) * Math.PI / 180;
+             const value = Math.sin(latitudeDelta / 2) ** 2
+                 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+                 * Math.sin(longitudeDelta / 2) ** 2;
+             return earthRadius * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
+         },
+
+         destroyCheckinLocationMap() {
+             if (this.locMap) this.locMap.remove();
+             this.locMap = null;
+             this.locTargetMarker = null;
+             this.locUserMarker = null;
+             this.locRadiusCircle = null;
          },
 
          chooseCamera() {
@@ -299,7 +419,10 @@
                      const stamped = new File([blob], 'checkin.jpg', { type: 'image/jpeg' });
                      this.$wire.upload('checkinPhoto', stamped,
                          () => { this.uploading = false; },
-                         () => { this.uploading = false; }
+                         () => {
+                             this.uploading = false;
+                             this.submitError = 'Foto dari galeri gagal diunggah. Periksa koneksi internet, lalu coba lagi.';
+                         }
                      );
                  }, 'image/jpeg', quality);
              };
@@ -342,7 +465,10 @@
                  this.uploading = true;
                  this.$wire.upload('checkinPhoto', file,
                      () => { this.uploading = false; },
-                     () => { this.uploading = false; this.camError = 'Gagal mengunggah foto.'; }
+                     () => {
+                         this.uploading = false;
+                         this.submitError = 'Foto dari kamera gagal diunggah. Periksa koneksi internet, lalu coba lagi.';
+                     }
                  );
              }, 'image/jpeg', quality);
          },
@@ -351,6 +477,8 @@
              this.$wire.set('checkinPhoto', null);
              this.photo    = null;
              this.camError = null;
+             this.submitError = null;
+             this.$wire.$errors.clear();
              if (this.source === 'gallery') {
                  this.mode = 'picker';
              } else {
@@ -373,27 +501,66 @@
 
          detectLocation() {
              this.locStatus = 'detecting';
+             this.locError  = null;
              this.lat       = null;
              this.lng       = null;
-             if (!navigator.geolocation) { this.locStatus = 'error'; return; }
+             if (!navigator.geolocation) {
+                 this.locStatus = 'error';
+                 this.locError = 'Perangkat tidak mendukung deteksi lokasi.';
+                 return;
+             }
              navigator.geolocation.getCurrentPosition(
                  (pos) => {
                      this.lat       = pos.coords.latitude;
                      this.lng       = pos.coords.longitude;
                      this.accuracy  = pos.coords.accuracy;
                      this.locStatus = 'detected';
+                     this.updateCheckinLocationMap();
                  },
-                 () => { this.locStatus = 'error'; },
+                 (error) => {
+                     this.locStatus = 'error';
+                     this.locError = error.code === 1
+                         ? 'Izin lokasi ditolak. Aktifkan izin lokasi pada browser untuk melanjutkan.'
+                         : 'Lokasi belum dapat ditemukan. Pastikan GPS aktif, lalu coba lagi.';
+                 },
                  { enableHighAccuracy: true, timeout: 15000 }
              );
          },
 
-         confirm() {
-             this.$wire.saveCheckin();
-             this.stopStream();
-             this.mode      = 'idle';
-             this.photo     = null;
-             this.locStatus = 'idle';
+         firstCheckinError() {
+             for (const field of ['checkinPhoto', 'checkinLat', 'checkinAccuracy', 'activeCheckinId']) {
+                 if (this.$wire.$errors.has(field)) return this.$wire.$errors.first(field);
+             }
+
+             return null;
+         },
+
+         async confirm() {
+             if (this.uploading || this.submitting) return;
+
+             this.submitting = true;
+             this.submitError = null;
+             this.$wire.$errors.clear();
+
+             try {
+                 await this.$wire.saveCheckin();
+
+                 const validationError = this.firstCheckinError();
+                 if (validationError) {
+                     this.submitError = validationError;
+                     return;
+                 }
+
+                 this.stopStream();
+                 this.mode      = 'idle';
+                 this.photo     = null;
+                 this.locStatus = 'idle';
+             } catch (error) {
+                 this.submitError = this.firstCheckinError()
+                     || 'Check-in belum berhasil disimpan. Periksa koneksi internet, lalu coba lagi.';
+             } finally {
+                 this.submitting = false;
+             }
          }
      }"
      @keydown.escape.window="closeCheckin()">
@@ -769,7 +936,7 @@
 {{-- ════════════════════════════════════════════
      CHECKIN BACKDROP
 ════════════════════════════════════════════ --}}
-<div x-show="mode === 'picker' || mode === 'camera' || mode === 'odo-picker' || mode === 'odo-sheet' || mode === 'odo-camera'"
+<div x-show="mode === 'location' || mode === 'picker' || mode === 'camera' || mode === 'odo-picker' || mode === 'odo-sheet' || mode === 'odo-camera'"
      x-transition:enter="transition duration-200"
      x-transition:enter-start="opacity-0"
      x-transition:enter-end="opacity-100"
@@ -779,6 +946,54 @@
      class="fixed inset-0 z-40 bg-black/60"
      style="display:none"
      @click="mode === 'odo-picker' || mode === 'odo-sheet' ? closeOdo() : (mode === 'odo-camera' ? null : closeCheckin())">
+</div>
+
+{{-- Location validation before opening the check-in camera --}}
+<div x-show="mode === 'location'"
+     x-transition
+     class="fixed bottom-0 left-1/2 z-50 w-full max-w-[430px] -translate-x-1/2 overflow-hidden rounded-t-3xl bg-white dark:bg-gray-900"
+     style="display:none"
+     @click.stop>
+    <div class="flex justify-center pb-2 pt-3"><div class="h-1 w-10 rounded-full bg-gray-200 dark:bg-gray-700"></div></div>
+    <div class="flex items-center justify-between px-5 pb-4 pt-2">
+        <div>
+            <p class="font-semibold text-gray-900 dark:text-white">Validasi Lokasi</p>
+            <p class="mt-0.5 text-xs text-gray-400" x-text="waypointNames[checkinId] || 'Titik perjalanan'"></p>
+        </div>
+        <button @click="closeCheckin()" class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-gray-800">×</button>
+    </div>
+
+    <div x-ref="checkinLocationMap" class="h-64 w-full bg-gray-100 dark:bg-gray-800"></div>
+
+    <div class="space-y-3 px-5 py-5">
+        <div x-show="locStatus === 'detecting'" class="rounded-2xl bg-blue-50 p-4 text-center text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+            Mendeteksi posisi dan akurasi GPS…
+        </div>
+        <div x-show="locStatus === 'error'" class="rounded-2xl bg-red-50 p-4 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300" role="alert">
+            <p class="font-semibold">Lokasi tidak dapat divalidasi</p>
+            <p class="mt-1 text-xs" x-text="locError"></p>
+        </div>
+        <div x-show="locStatus === 'detected'"
+             class="rounded-2xl p-4"
+             :class="canContinueToPhoto ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'">
+            <p class="font-semibold" x-text="canContinueToPhoto ? 'Lokasi sesuai' : (!locInRadius ? 'Anda berada di luar radius' : 'Akurasi GPS belum mencukupi')"></p>
+            <p class="mt-1 text-xs">
+                Jarak <span class="font-semibold" x-text="locDistance === null ? '—' : locDistance + ' m'"></span>
+                · Radius <span class="font-semibold" x-text="(currentWaypointLocation?.radius || 100) + ' m'"></span>
+                · Akurasi <span class="font-semibold" x-text="accuracy === null ? '—' : '±' + Math.round(accuracy) + ' m'"></span>
+            </p>
+        </div>
+
+        <button x-show="!canContinueToPhoto && waypointHasLocation" @click="detectLocation()"
+                class="w-full rounded-2xl border border-blue-200 py-3.5 text-sm font-semibold text-blue-600 dark:border-blue-800 dark:text-blue-300">
+            Cek Lokasi Lagi
+        </button>
+        <button @click="continueToPhoto()" :disabled="!canContinueToPhoto"
+                :class="canContinueToPhoto ? 'bg-blue-600 text-white active:scale-95' : 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-800 dark:text-gray-600'"
+                class="w-full rounded-2xl py-4 text-sm font-bold transition">
+            Lanjut Ambil Foto
+        </button>
+    </div>
 </div>
 
 {{-- ════════════════════════════════════════════
@@ -990,6 +1205,13 @@
 
         {{-- Confirm / retake (preview) --}}
         <div x-show="hasPhoto && !uploading" class="space-y-3" style="display:none">
+            <div x-show="submitError"
+                 class="rounded-2xl border border-red-400/40 bg-red-500/20 px-4 py-3 text-center text-sm font-medium text-red-100"
+                 style="display:none"
+                 role="alert"
+                 x-text="submitError">
+            </div>
+
             {{-- Location status --}}
             <div class="flex items-center justify-center gap-1.5 text-xs"
                  :class="locStatus === 'detected' ? 'text-green-400' : 'text-white/40'">
@@ -1007,13 +1229,13 @@
                     Ulang
                 </button>
                 <button @click="confirm()"
-                        :disabled="settings.require_checkin_location && locStatus !== 'detected'"
-                        :class="settings.require_checkin_location && locStatus !== 'detected' ? 'opacity-40 cursor-not-allowed' : ''"
+                        :disabled="submitting || (settings.require_checkin_location && locStatus !== 'detected')"
+                        :class="submitting || (settings.require_checkin_location && locStatus !== 'detected') ? 'opacity-40 cursor-not-allowed' : ''"
                         class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
                     </svg>
-                    Simpan
+                    <span x-text="submitting ? 'Menyimpan...' : 'Simpan'"></span>
                 </button>
             </div>
         </div>

@@ -181,6 +181,73 @@ it('stores required checkin photo and location metadata', function () {
         ->and($checkin->device_captured_at?->format('Y-m-d H:i:s'))->toBe('2026-08-19 14:35:21');
 });
 
+it('renders clear upload and checkin failure feedback for drivers', function () {
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->driver);
+
+    $vehicle = Vehicle::create([
+        'license_plate' => 'B 1357 ERR',
+        'brand' => 'Toyota',
+        'model' => 'Avanza',
+        'year' => 2024,
+        'is_active' => true,
+    ]);
+    $route = TripRoute::factory()->create();
+    $waypoint = TripRouteWaypoint::create(['trip_route_id' => $route->id, 'urutan' => 1, 'name' => 'Toko A']);
+    $trip = Trip::factory()->inProgress()->create([
+        'driver_id' => $this->driver->id,
+        'vehicle_id' => $vehicle->id,
+        'trip_route_id' => $route->id,
+    ]);
+    $trip->waypointCheckins()->create(['trip_route_waypoint_id' => $waypoint->id]);
+
+    Livewire::test(ActiveTrip::class, ['trip' => $trip->id])
+        ->assertSee('Foto dari galeri gagal diunggah')
+        ->assertSee('Foto dari kamera gagal diunggah')
+        ->assertSee('Check-in belum berhasil disimpan')
+        ->assertSee('Menyimpan...');
+});
+
+it('renders the waypoint radius validation step before the checkin camera', function () {
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->driver);
+
+    DriverTripSettings::instance()->update([
+        'require_checkin_location' => false,
+        'require_waypoint_radius' => true,
+    ]);
+
+    $vehicle = Vehicle::create([
+        'license_plate' => 'B 8642 MAP',
+        'brand' => 'Toyota',
+        'model' => 'Avanza',
+        'year' => 2024,
+        'is_active' => true,
+    ]);
+    $route = TripRoute::factory()->create(['is_custom' => false]);
+    $waypoint = TripRouteWaypoint::create([
+        'trip_route_id' => $route->id,
+        'urutan' => 1,
+        'name' => 'Toko Radius',
+        'latitude' => -7.782931,
+        'longitude' => 110.367084,
+        'radius_meters' => 125,
+    ]);
+    $trip = Trip::factory()->inProgress()->create([
+        'driver_id' => $this->driver->id,
+        'vehicle_id' => $vehicle->id,
+        'trip_route_id' => $route->id,
+    ]);
+    $trip->waypointCheckins()->create(['trip_route_waypoint_id' => $waypoint->id]);
+
+    Livewire::test(ActiveTrip::class, ['trip' => $trip->id])
+        ->assertSee('Validasi Lokasi')
+        ->assertSee('Lanjut Ambil Foto')
+        ->assertSee('Cek Lokasi Lagi')
+        ->assertSee('return !this.isCustomRoute && this.settings.require_waypoint_radius', false)
+        ->assertSee('Toko Radius');
+});
+
 it('notifies the driver when attempting checkin outside the waypoint radius', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     $this->actingAs($this->driver);

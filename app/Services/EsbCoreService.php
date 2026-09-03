@@ -101,6 +101,30 @@ class EsbCoreService
         );
     }
 
+    /** @return array<int, array> */
+    public function getAllProducts(): array
+    {
+        $all = [];
+        $page = 1;
+
+        do {
+            $result = $this->getProducts(['page' => $page, 'limit' => 100]);
+            array_push($all, ...$result['data']);
+            $hasNext = filled($result['next'])
+                || (($result['page'] * $result['limit']) < $result['count']);
+            $page++;
+        } while ($hasNext && $page <= 500);
+
+        return $all;
+    }
+
+    public function findProductById(int $productId): ?array
+    {
+        return collect($this->getAllProducts())->first(
+            fn (array $product): bool => (int) ($product['productID'] ?? 0) === $productId
+        );
+    }
+
     public function getBillOfMaterial(int $bomId): array
     {
         $response = $this->request('get', '/product/bom/'.$bomId, []);

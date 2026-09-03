@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('service-requests:complete-warranty')->daily();
 Schedule::command('briefing:auto-reject')->everyMinute()->withoutOverlapping();
 Schedule::command('briefing:compute-scores')->monthlyOn(1, '02:00');
+Schedule::command('rnd:sync-esb-materials')->dailyAt('02:30')->withoutOverlapping(30);

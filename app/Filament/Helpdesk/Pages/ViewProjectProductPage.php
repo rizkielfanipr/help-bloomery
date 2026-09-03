@@ -15,6 +15,7 @@ use App\Models\RndProjectProduct;
 use App\Services\EsbCoreService;
 use App\Services\EsbService;
 use App\Services\ProductPriceIndexService;
+use App\Services\SyncRndEsbMaterialFromRemote;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -2074,6 +2075,22 @@ class ViewProjectProductPage extends Page
         $material->delete();
         $this->reloadProduct();
         Notification::make()->title('Draft bahan berhasil dihapus')->success()->send();
+    }
+
+    public function refreshEsbMaterial(int $materialId): void
+    {
+        $this->authorizeProjectManagement();
+        $material = $this->productRecord->esbMaterials()->findOrFail($materialId);
+
+        try {
+            app(SyncRndEsbMaterialFromRemote::class)->execute($material);
+            Notification::make()->title('Data terbaru berhasil ditarik dari ESB')->success()->send();
+        } catch (Throwable $exception) {
+            $material->update(['sync_error' => $exception->getMessage()]);
+            Notification::make()->title('Gagal menarik data dari ESB')->body($exception->getMessage())->danger()->send();
+        }
+
+        $this->reloadProduct();
     }
 
     private function loadEsbTaxonomy(): void

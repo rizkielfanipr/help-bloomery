@@ -3,7 +3,7 @@
 use App\Services\EsbService;
 use Illuminate\Support\Facades\Http;
 
-it('groups ESB payments by salesDateOut using half open shift boundaries', function () {
+it('filters transactions by salesDateOut using half open shift boundaries while including all date payment methods', function () {
     config()->set('esb.base_url', 'https://esb.test');
 
     Http::fake([
@@ -19,11 +19,34 @@ it('groups ESB payments by salesDateOut using half open shift boundaries', funct
     $shift2 = $service->getShiftPaymentSummary('BLOOM', '2026-07-23', '15:00', '21:00', 'secret');
 
     expect($shift1['rows'])->toHaveCount(1)
-        ->and($shift1['rows'][0]['total'])->toBe(1000.0)
+        ->and($shift1['rows'][0]['total'])->toBe(3100.0)
         ->and($shift1['transactions'])->toHaveCount(1)
         ->and($shift1['transactions'][0]['sales_num'])->toBe('SHIFT1')
-        ->and($shift2['rows'][0]['total'])->toBe(2000.0)
+        ->and($shift2['rows'])->toHaveCount(1)
+        ->and($shift2['rows'][0]['total'])->toBe(3100.0)
+        ->and($shift2['transactions'])->toHaveCount(1)
         ->and($shift2['transactions'][0]['sales_num'])->toBe('BOUNDARY');
+});
+
+it('includes payment methods used outside shift hours in rows but filters transactions for basket size', function () {
+    config()->set('esb.base_url', 'https://esb.test');
+
+    Http::fake([
+        'https://esb.test/*' => Http::response([
+            cashSale('MORNING_CASH', '2026-07-23 10:00:00', paymentAmount: 50_000, grandTotal: 50_000),
+            sale('EVENING_QRIS', '2026-07-23 18:00:00', 75_000),
+        ], 200, ['X-Pagination-Page-Count' => '1']),
+    ]);
+
+    $service = new EsbService;
+    $shift1 = $service->getShiftPaymentSummary('BLOOM', '2026-07-23', '07:00', '15:00', 'secret');
+
+    // Both CASH and QRIS are included in the payment method rows
+    $paymentNames = collect($shift1['rows'])->pluck('name')->all();
+    expect($paymentNames)->toContain('CASH', 'QRIS')
+        // But only the morning transaction is in Shift 1 transactions
+        ->and($shift1['transactions'])->toHaveCount(1)
+        ->and($shift1['transactions'][0]['sales_num'])->toBe('MORNING_CASH');
 });
 
 it('supports a shift that ends after midnight', function () {
@@ -39,7 +62,7 @@ it('supports a shift that ends after midnight', function () {
 
     $summary = (new EsbService)->getShiftPaymentSummary('BLOOM', '2026-07-23', '21:00', '02:00', 'secret');
 
-    expect($summary['rows'][0]['total'])->toBe(3000.0)
+    expect($summary['rows'][0]['total'])->toBe(7000.0)
         ->and(collect($summary['transactions'])->pluck('sales_num')->all())->toBe(['LATE', 'EARLY']);
 });
 

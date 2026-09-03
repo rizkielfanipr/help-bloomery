@@ -604,9 +604,6 @@ class EsbService
             }
 
             $completedAt = CarbonImmutable::parse($dateOut, $timezone);
-            if ($completedAt->lessThan($startedAt) || ! $completedAt->lessThan($endedAt)) {
-                continue;
-            }
 
             $paymentTotal = 0.0;
             foreach ($sale['salesPayments'] ?? [] as $payment) {
@@ -620,15 +617,17 @@ class EsbService
                 $paymentTotal += $amount;
             }
 
-            $salesNum = (string) ($sale['salesNum'] ?? '');
-            if ($salesNum !== '') {
-                $transactions[$salesNum] = [
-                    'sales_num' => $salesNum,
-                    'sales_date_out' => $completedAt->format('Y-m-d H:i:s'),
-                    'payment_total' => $paymentTotal,
-                    'pax_total' => max(0, (int) ($sale['paxTotal'] ?? 0)),
-                    'revenue_total' => max(0, (float) ($sale['grandTotal'] ?? $paymentTotal)),
-                ];
+            if (! $completedAt->lessThan($startedAt) && $completedAt->lessThan($endedAt)) {
+                $salesNum = (string) ($sale['salesNum'] ?? '');
+                if ($salesNum !== '') {
+                    $transactions[$salesNum] = [
+                        'sales_num' => $salesNum,
+                        'sales_date_out' => $completedAt->format('Y-m-d H:i:s'),
+                        'payment_total' => $paymentTotal,
+                        'pax_total' => max(0, (int) ($sale['paxTotal'] ?? 0)),
+                        'revenue_total' => max(0, (float) ($sale['grandTotal'] ?? $paymentTotal)),
+                    ];
+                }
             }
         }
 

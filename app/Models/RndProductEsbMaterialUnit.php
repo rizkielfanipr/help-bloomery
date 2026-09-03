@@ -11,6 +11,7 @@ class RndProductEsbMaterialUnit extends Model
         'rnd_product_esb_material_id',
         'uom_id',
         'uom_name',
+        'esb_product_detail_id',
         'sku',
         'conversion_factor',
         'base_price',
@@ -27,6 +28,7 @@ class RndProductEsbMaterialUnit extends Model
         return [
             'conversion_factor' => 'decimal:4',
             'base_price' => 'decimal:4',
+            'esb_product_detail_id' => 'integer',
             'is_base' => 'boolean',
             'is_stock' => 'boolean',
             'is_purchase' => 'boolean',

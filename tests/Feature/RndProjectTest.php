@@ -333,6 +333,10 @@ it('stores a new material draft and creates its Master Product in ESB', function
             'result' => ['productID' => 9150, 'isTemp' => false],
             'errors' => null,
         ]),
+        'https://services.esb.co.id/core/product/list*' => Http::response([
+            'status' => 'ok',
+            'result' => ['page' => 1, 'limit' => 100, 'count' => 0, 'data' => [], 'prev' => null, 'next' => null],
+        ]),
     ]);
 
     config()->set('esb.core.base_url', 'https://services.esb.co.id/core');
@@ -355,9 +359,9 @@ it('stores a new material draft and creates its Master Product in ESB', function
         'project' => $project->id,
         'product' => $product->id,
     ])->set('esbMaterialProductName', 'Matcha Powder Premium')
-        ->set('esbMaterialProductCode', 'BBMK-MATCHA-01')
         ->set('esbMaterialCategoryId', 11)
         ->set('esbMaterialSubCategoryId', 21)
+        ->set('esbMaterialProductCode', 'BBMK-MATCHA-01')
         ->set('esbMaterialUnits', [
             [
                 'uom_id' => 5,

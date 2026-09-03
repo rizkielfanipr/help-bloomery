@@ -19,6 +19,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -1512,7 +1513,6 @@ class ViewProjectProductPage extends Page
 
         if ($materialId) {
             $material = $this->productRecord->esbMaterials()->with('units')->findOrFail($materialId);
-            abort_if($material->status === 'synced', 422, 'Data yang sudah tersinkron tidak dapat diubah.');
             $this->esbMaterialProductName = $material->product_name;
             $this->hydrateEsbMaterialNaming($material->product_name);
             $this->esbMaterialProductCode = $material->product_code;
@@ -1565,7 +1565,7 @@ class ViewProjectProductPage extends Page
         $material = $this->materialDraftId
             ? $this->productRecord->esbMaterials()->findOrFail($this->materialDraftId)
             : null;
-        abort_if($material?->status === 'synced', 422);
+        $wasSynced = $material?->status === 'synced';
 
         $validated = $this->validate([
             'esbMaterialProductName' => ['required', 'string', 'max:100'],
@@ -1638,35 +1638,58 @@ class ViewProjectProductPage extends Page
             'conversion_factor' => 1,
             'base_price' => $baseUnit['base_price'],
             'notes' => trim($validated['esbMaterialNotes']) ?: null,
-            'status' => 'draft',
+            'status' => $wasSynced ? 'synced' : 'draft',
             'sync_error' => null,
         ];
 
-        if ($material) {
-            $material->update($values);
-        } else {
-            $material = $this->productRecord->esbMaterials()->create($values + ['created_by' => auth()->id()]);
+        try {
+            DB::transaction(function () use (&$material, $values, $validated, $wasSynced): void {
+                $existingDetailIds = $material?->units()->pluck('esb_product_detail_id', 'uom_id') ?? collect();
+
+                if ($material) {
+                    $material->update($values);
+                } else {
+                    $material = $this->productRecord->esbMaterials()->create($values + ['created_by' => auth()->id()]);
+                }
+                $material->units()->delete();
+                $material->units()->createMany(collect($validated['esbMaterialUnits'])
+                    ->map(fn (array $unit): array => [
+                        'uom_id' => $unit['uom_id'],
+                        'uom_name' => $unit['uom_name'],
+                        'esb_product_detail_id' => $existingDetailIds->get($unit['uom_id']),
+                        'sku' => $unit['sku'],
+                        'conversion_factor' => $unit['is_base'] ? 1 : $unit['conversion_factor'],
+                        'base_price' => $unit['base_price'],
+                        'is_base' => $unit['is_base'],
+                        'is_stock' => $unit['is_base'],
+                        'is_purchase' => $unit['is_base'],
+                        'is_transfer' => $unit['is_base'],
+                        'is_sales' => $unit['is_base'],
+                        'flag_active' => true,
+                    ])->all());
+
+                if ($wasSynced && $material->esb_product_id) {
+                    $payload = $material->fresh('units')->toEsbPayload();
+                    app(EsbCoreService::class)->updateProduct($material->esb_product_id, $payload);
+                    $material->update([
+                        'last_payload' => $payload,
+                        'last_response' => ['productID' => $material->esb_product_id, 'updated' => true],
+                        'sync_error' => null,
+                        'synced_at' => now(),
+                    ]);
+                }
+            });
+        } catch (Throwable $exception) {
+            $this->addError('esbMaterialProductName', $exception->getMessage());
+            Notification::make()->title('Perubahan gagal disinkronkan ke ESB')->body($exception->getMessage())->danger()->send();
+
+            return;
         }
-        $material->units()->delete();
-        $material->units()->createMany(collect($validated['esbMaterialUnits'])
-            ->map(fn (array $unit): array => [
-                'uom_id' => $unit['uom_id'],
-                'uom_name' => $unit['uom_name'],
-                'sku' => $unit['sku'],
-                'conversion_factor' => $unit['is_base'] ? 1 : $unit['conversion_factor'],
-                'base_price' => $unit['base_price'],
-                'is_base' => $unit['is_base'],
-                'is_stock' => $unit['is_base'],
-                'is_purchase' => $unit['is_base'],
-                'is_transfer' => $unit['is_base'],
-                'is_sales' => $unit['is_base'],
-                'flag_active' => true,
-            ])->all());
 
         $this->reloadProduct();
         $this->esbMaterialModalOpen = false;
         $this->dispatch('close-esb-material-form');
-        Notification::make()->title('Draft bahan berhasil disimpan')->success()->send();
+        Notification::make()->title($wasSynced ? 'Bahan dan Master Product ESB berhasil diperbarui' : 'Draft bahan berhasil disimpan')->success()->send();
     }
 
     public function updatedEsbMaterialUomId(): void
@@ -1988,7 +2011,13 @@ class ViewProjectProductPage extends Page
         ]);
 
         try {
-            $result = app(EsbCoreService::class)->createProduct($payload);
+            $esb = app(EsbCoreService::class);
+            $existingProduct = $esb->findProductByExactName($material->product_name);
+            $existingProductId = (int) ($existingProduct['productID'] ?? 0);
+            $result = $existingProductId > 0
+                ? ['productID' => $existingProductId, 'isTemp' => (bool) ($existingProduct['isTemp'] ?? false)]
+                : $esb->createProduct($payload);
+
             $material->update([
                 'status' => 'synced',
                 'esb_product_id' => $result['productID'],
@@ -1997,7 +2026,16 @@ class ViewProjectProductPage extends Page
                 'sync_error' => null,
                 'synced_at' => now(),
             ]);
-            Notification::make()->title('Bahan berhasil dibuat di ESB')->success()->send();
+            $this->syncEsbProductDetailIds(
+                $material,
+                $existingProductId > 0
+                    ? $existingProduct
+                    : $esb->findProductByExactName($material->product_name),
+            );
+            Notification::make()
+                ->title($existingProductId > 0 ? 'Bahan ditautkan ke Master Product ESB yang sudah ada' : 'Bahan berhasil dibuat di ESB')
+                ->success()
+                ->send();
         } catch (Throwable $exception) {
             $material->update([
                 'status' => 'failed',
@@ -2008,6 +2046,24 @@ class ViewProjectProductPage extends Page
         }
 
         $this->reloadProduct();
+    }
+
+    private function syncEsbProductDetailIds(RndProductEsbMaterial $material, ?array $esbProduct): void
+    {
+        if (! is_array($esbProduct)) {
+            return;
+        }
+
+        $details = collect($esbProduct['productDetails'] ?? []);
+        foreach ($material->units as $unit) {
+            $detail = $details->first(fn (array $candidate): bool => ((int) ($candidate['uomID'] ?? 0) > 0 && (int) $candidate['uomID'] === $unit->uom_id)
+                || mb_strtolower(trim((string) ($candidate['sku'] ?? ''))) === mb_strtolower($unit->sku)
+            );
+            $detailId = (int) ($detail['productDetailID'] ?? 0);
+            if ($detailId > 0) {
+                $unit->update(['esb_product_detail_id' => $detailId]);
+            }
+        }
     }
 
     public function deleteEsbMaterial(int $materialId): void

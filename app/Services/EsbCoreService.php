@@ -82,6 +82,25 @@ class EsbCoreService
         ];
     }
 
+    public function updateProduct(int $productId, array $payload): void
+    {
+        $response = $this->request('put', '/product/'.$productId, $payload);
+        $this->successfulResult($response, 'memperbarui Master Product');
+    }
+
+    public function findProductByExactName(string $productName): ?array
+    {
+        $products = $this->getProducts([
+            'limit' => 100,
+            'productName' => $productName,
+        ]);
+
+        return collect($products['data'])->first(
+            fn (array $product): bool => mb_strtolower(trim((string) ($product['productName'] ?? '')))
+                === mb_strtolower(trim($productName))
+        );
+    }
+
     public function getBillOfMaterial(int $bomId): array
     {
         $response = $this->request('get', '/product/bom/'.$bomId, []);

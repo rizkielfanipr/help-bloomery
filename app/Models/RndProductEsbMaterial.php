@@ -157,7 +157,7 @@ class RndProductEsbMaterial extends Model
         }
 
         return $units->map(fn (RndProductEsbMaterialUnit $unit): array => [
-            'productDetailID' => null,
+            'productDetailID' => $unit->esb_product_detail_id,
             'uomID' => $unit->uom_id,
             'basePrice' => (float) $unit->base_price,
             'sku' => $unit->sku,

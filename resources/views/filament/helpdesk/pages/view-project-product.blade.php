@@ -222,8 +222,8 @@
                             <td class="px-4 py-3">
                                 @if($canManageProject)
                                     <div class="flex justify-end gap-1.5">
+                                        <button type="button" wire:click="openEsbMaterialForm({{ $esbMaterial->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50" title="{{ $esbMaterial->status === 'synced' ? 'Edit dan sinkronkan ke ESB' : 'Edit' }}"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
                                         @if($esbMaterial->status !== 'synced')
-                                            <button type="button" wire:click="openEsbMaterialForm({{ $esbMaterial->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50" title="Edit"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
                                             <button type="button" wire:click="syncEsbMaterial({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="syncEsbMaterial({{ $esbMaterial->id }})" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
                                                 {{ $esbMaterial->status === 'failed' ? 'Retry' : 'Create to ESB' }}
                                             </button>

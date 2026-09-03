@@ -9,7 +9,6 @@ use App\Models\RndProductEsbMaterial;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -91,53 +90,12 @@ class MaterialSourcingResource extends Resource
                     ->stickyModalFooter()
                     ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
                     ->modalHeading(fn (RndProductEsbMaterial $record): string => 'Detail Supplier — '.$record->product_name)
-                    ->modalSubmitAction(fn (Action $action): Action|false => (auth()->user()?->can('submit material sourcing') ?? false) ? $action : false)
-                    ->modalSubmitActionLabel('Simpan Perubahan')
+                    ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Tutup')
                     ->visible(fn (RndProductEsbMaterial $record): bool => $record->sourcings_count > 0)
                     ->modalContent(fn (RndProductEsbMaterial $record) => view('filament.helpdesk.material-sourcings.view-sourcing', [
                         'record' => $record->load(['sourcings', 'selectedSourcing', 'rndReviewer', 'financeReviewer']),
-                    ]))
-                    ->fillForm(fn (RndProductEsbMaterial $record): array => [
-                        'sourcings' => $record->sourcings->map(fn ($sourcing): array => $sourcing->only([
-                            'id', 'supplier_name', 'brand', 'price', 'moq', 'lead_time_days',
-                            'contact_name', 'contact_phone', 'notes', 'attachment_path',
-                        ]))->all(),
-                    ])
-                    ->form([
-                        Repeater::make('sourcings')
-                            ->label('Edit Data Supplier')
-                            ->schema(self::supplierFormFields(includeId: true))
-                            ->columns(2)
-                            ->addable(false)
-                            ->deletable(false)
-                            ->reorderable(false)
-                            ->disabled(fn (): bool => ! (auth()->user()?->can('submit material sourcing') ?? false))
-                            ->columnSpanFull(),
-                    ])
-                    ->action(function (RndProductEsbMaterial $record, array $data): void {
-                        abort_unless(auth()->user()?->can('submit material sourcing'), 403);
-
-                        DB::transaction(function () use ($record, $data): void {
-                            foreach ($data['sourcings'] ?? [] as $row) {
-                                $sourcing = $record->sourcings()->findOrFail($row['id']);
-                                $sourcing->update(collect($row)->except('id')->all());
-                            }
-
-                            $record->update([
-                                'sourcing_status' => MaterialSourcingStatus::PendingRndReview,
-                                'sourcing_selected_id' => null,
-                                'rnd_reviewed_by' => null,
-                                'rnd_reviewed_at' => null,
-                                'rnd_note' => null,
-                                'finance_reviewed_by' => null,
-                                'finance_reviewed_at' => null,
-                                'finance_note' => null,
-                            ]);
-                        });
-
-                        Notification::make()->title('Data supplier diperbarui dan dikirim ulang untuk review RnD')->success()->send();
-                    }),
+                    ])),
 
                 Action::make('manage_sourcing')
                     ->label(fn (RndProductEsbMaterial $record): string => $record->sourcings_count > 0 ? 'Tambah Supplier' : 'Kelola Sourcing')
@@ -343,10 +301,9 @@ class MaterialSourcingResource extends Resource
     }
 
     /** @return array<int, Component> */
-    private static function supplierFormFields(bool $includeId = false): array
+    private static function supplierFormFields(): array
     {
         return [
-            ...($includeId ? [Hidden::make('id')->required()] : []),
             TextInput::make('supplier_name')->label('Nama Supplier')->required()->maxLength(255),
             TextInput::make('brand')->label('Merk')->maxLength(255),
             TextInput::make('price')->label('Harga')->numeric()->required(),

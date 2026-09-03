@@ -2,6 +2,7 @@
 
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
+use App\Livewire\MaterialSourcingSupplierCard;
 use App\Models\MaterialSourcingApproval;
 use App\Models\RndProductEsbMaterial;
 use App\Models\RndProject;
@@ -56,18 +57,19 @@ function supplierRow(string $name, float $price): array
     ];
 }
 
-it('shows the supplier brand in the view supplier modal', function () {
-    $this->material->sourcings()->create([
+it('shows the supplier brand and expandable edit button on each supplier card', function () {
+    $supplier = $this->material->sourcings()->create([
         ...supplierRow('Supplier A', 10000),
         'brand' => 'Cap Bunga',
     ]);
-    $this->material->loadCount('sourcings');
     $this->actingAs($this->purchasing);
 
-    Livewire::test(ListMaterialSourcings::class)
-        ->mountTableAction('view_sourcing', $this->material)
-        ->assertTableActionDataSet(fn (array $data): bool => collect($data['sourcings'] ?? [])
-            ->contains(fn (array $row): bool => ($row['brand'] ?? null) === 'Cap Bunga'));
+    Livewire::test(MaterialSourcingSupplierCard::class, ['sourcing' => $supplier])
+        ->assertSee('Cap Bunga')
+        ->assertSee('Edit')
+        ->assertDontSee('Simpan')
+        ->call('toggleEdit')
+        ->assertSee('Simpan');
 });
 
 it('lets purchasing edit suppliers from the view supplier modal', function () {
@@ -79,19 +81,15 @@ it('lets purchasing edit suppliers from the view supplier modal', function () {
         'sourcing_status' => MaterialSourcingStatus::Approved,
         'sourcing_selected_id' => $supplier->id,
     ]);
-    $this->material->loadCount('sourcings');
     $this->actingAs($this->purchasing);
 
-    $page = Livewire::test(ListMaterialSourcings::class)
-        ->mountTableAction('view_sourcing', $this->material);
-    $data = $page->get('mountedActions.0.data');
-    $firstRowKey = array_key_first($data['sourcings']);
-    $data['sourcings'][$firstRowKey]['brand'] = 'Merk Baru';
-    $data['sourcings'][$firstRowKey]['price'] = 12500;
-
-    $page->set('mountedActions.0.data', $data)
-        ->callMountedTableAction()
-        ->assertHasNoTableActionErrors();
+    Livewire::test(MaterialSourcingSupplierCard::class, ['sourcing' => $supplier])
+        ->call('toggleEdit')
+        ->set('brand', 'Merk Baru')
+        ->set('price', '12500')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertSet('editing', false);
 
     $this->material->refresh();
 

@@ -9,12 +9,14 @@ use App\Models\RndProductEsbMaterial;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
@@ -89,12 +91,53 @@ class MaterialSourcingResource extends Resource
                     ->stickyModalFooter()
                     ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
                     ->modalHeading(fn (RndProductEsbMaterial $record): string => 'Detail Supplier — '.$record->product_name)
-                    ->modalSubmitAction(false)
+                    ->modalSubmitAction(fn (Action $action): Action|false => (auth()->user()?->can('submit material sourcing') ?? false) ? $action : false)
+                    ->modalSubmitActionLabel('Simpan Perubahan')
                     ->modalCancelActionLabel('Tutup')
                     ->visible(fn (RndProductEsbMaterial $record): bool => $record->sourcings_count > 0)
                     ->modalContent(fn (RndProductEsbMaterial $record) => view('filament.helpdesk.material-sourcings.view-sourcing', [
                         'record' => $record->load(['sourcings', 'selectedSourcing', 'rndReviewer', 'financeReviewer']),
-                    ])),
+                    ]))
+                    ->fillForm(fn (RndProductEsbMaterial $record): array => [
+                        'sourcings' => $record->sourcings->map(fn ($sourcing): array => $sourcing->only([
+                            'id', 'supplier_name', 'brand', 'price', 'moq', 'lead_time_days',
+                            'contact_name', 'contact_phone', 'notes', 'attachment_path',
+                        ]))->all(),
+                    ])
+                    ->form([
+                        Repeater::make('sourcings')
+                            ->label('Edit Data Supplier')
+                            ->schema(self::supplierFormFields(includeId: true))
+                            ->columns(2)
+                            ->addable(false)
+                            ->deletable(false)
+                            ->reorderable(false)
+                            ->disabled(fn (): bool => ! (auth()->user()?->can('submit material sourcing') ?? false))
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (RndProductEsbMaterial $record, array $data): void {
+                        abort_unless(auth()->user()?->can('submit material sourcing'), 403);
+
+                        DB::transaction(function () use ($record, $data): void {
+                            foreach ($data['sourcings'] ?? [] as $row) {
+                                $sourcing = $record->sourcings()->findOrFail($row['id']);
+                                $sourcing->update(collect($row)->except('id')->all());
+                            }
+
+                            $record->update([
+                                'sourcing_status' => MaterialSourcingStatus::PendingRndReview,
+                                'sourcing_selected_id' => null,
+                                'rnd_reviewed_by' => null,
+                                'rnd_reviewed_at' => null,
+                                'rnd_note' => null,
+                                'finance_reviewed_by' => null,
+                                'finance_reviewed_at' => null,
+                                'finance_note' => null,
+                            ]);
+                        });
+
+                        Notification::make()->title('Data supplier diperbarui dan dikirim ulang untuk review RnD')->success()->send();
+                    }),
 
                 Action::make('manage_sourcing')
                     ->label(fn (RndProductEsbMaterial $record): string => $record->sourcings_count > 0 ? 'Tambah Supplier' : 'Kelola Sourcing')
@@ -113,20 +156,7 @@ class MaterialSourcingResource extends Resource
                     ->form([
                         Repeater::make('sourcings')
                             ->label('Daftar Supplier')
-                            ->schema([
-                                TextInput::make('supplier_name')->label('Nama Supplier')->required(),
-                                TextInput::make('price')->label('Harga')->numeric()->required(),
-                                TextInput::make('moq')->label('MOQ')->placeholder('mis. 100 kg'),
-                                TextInput::make('lead_time_days')->label('Lead Time (hari)')->numeric()->integer(),
-                                TextInput::make('contact_name')->label('Nama Kontak'),
-                                TextInput::make('contact_phone')->label('Telepon Kontak'),
-                                Textarea::make('notes')->label('Catatan')->columnSpanFull(),
-                                FileUpload::make('attachment_path')
-                                    ->label('Lampiran Penawaran')
-                                    ->disk('b2')
-                                    ->directory('material-sourcing')
-                                    ->columnSpanFull(),
-                            ])
+                            ->schema(self::supplierFormFields())
                             ->columns(2)
                             ->defaultItems(1)
                             ->minItems(1)
@@ -310,6 +340,27 @@ class MaterialSourcingResource extends Resource
         return parent::getEloquentQuery()
             ->with(['product.project'])
             ->withCount('sourcings');
+    }
+
+    /** @return array<int, Component> */
+    private static function supplierFormFields(bool $includeId = false): array
+    {
+        return [
+            ...($includeId ? [Hidden::make('id')->required()] : []),
+            TextInput::make('supplier_name')->label('Nama Supplier')->required()->maxLength(255),
+            TextInput::make('brand')->label('Merk')->maxLength(255),
+            TextInput::make('price')->label('Harga')->numeric()->required(),
+            TextInput::make('moq')->label('MOQ')->placeholder('mis. 100 kg'),
+            TextInput::make('lead_time_days')->label('Lead Time (hari)')->numeric()->integer(),
+            TextInput::make('contact_name')->label('Nama Kontak'),
+            TextInput::make('contact_phone')->label('Telepon Kontak'),
+            Textarea::make('notes')->label('Catatan')->columnSpanFull(),
+            FileUpload::make('attachment_path')
+                ->label('Lampiran Penawaran')
+                ->disk('b2')
+                ->directory('material-sourcing')
+                ->columnSpanFull(),
+        ];
     }
 
     public static function getPages(): array

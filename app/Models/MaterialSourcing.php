@@ -17,6 +17,7 @@ class MaterialSourcing extends Model
     protected $fillable = [
         'rnd_product_esb_material_id',
         'supplier_name',
+        'brand',
         'price',
         'moq',
         'lead_time_days',

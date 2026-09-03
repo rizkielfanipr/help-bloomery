@@ -45,6 +45,7 @@ function supplierRow(string $name, float $price): array
 {
     return [
         'supplier_name' => $name,
+        'brand' => null,
         'price' => $price,
         'moq' => '100 kg',
         'lead_time_days' => 7,
@@ -54,6 +55,51 @@ function supplierRow(string $name, float $price): array
         'attachment_path' => null,
     ];
 }
+
+it('shows the supplier brand in the view supplier modal', function () {
+    $this->material->sourcings()->create([
+        ...supplierRow('Supplier A', 10000),
+        'brand' => 'Cap Bunga',
+    ]);
+    $this->material->loadCount('sourcings');
+    $this->actingAs($this->purchasing);
+
+    Livewire::test(ListMaterialSourcings::class)
+        ->mountTableAction('view_sourcing', $this->material)
+        ->assertTableActionDataSet(fn (array $data): bool => collect($data['sourcings'] ?? [])
+            ->contains(fn (array $row): bool => ($row['brand'] ?? null) === 'Cap Bunga'));
+});
+
+it('lets purchasing edit suppliers from the view supplier modal', function () {
+    $supplier = $this->material->sourcings()->create([
+        ...supplierRow('Supplier A', 10000),
+        'brand' => 'Merk Lama',
+    ]);
+    $this->material->update([
+        'sourcing_status' => MaterialSourcingStatus::Approved,
+        'sourcing_selected_id' => $supplier->id,
+    ]);
+    $this->material->loadCount('sourcings');
+    $this->actingAs($this->purchasing);
+
+    $page = Livewire::test(ListMaterialSourcings::class)
+        ->mountTableAction('view_sourcing', $this->material);
+    $data = $page->get('mountedActions.0.data');
+    $firstRowKey = array_key_first($data['sourcings']);
+    $data['sourcings'][$firstRowKey]['brand'] = 'Merk Baru';
+    $data['sourcings'][$firstRowKey]['price'] = 12500;
+
+    $page->set('mountedActions.0.data', $data)
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors();
+
+    $this->material->refresh();
+
+    expect($supplier->fresh()->brand)->toBe('Merk Baru')
+        ->and((float) $supplier->fresh()->price)->toBe(12500.0)
+        ->and($this->material->sourcing_status)->toBe(MaterialSourcingStatus::PendingRndReview)
+        ->and($this->material->sourcing_selected_id)->toBeNull();
+});
 
 it('opens the manage sourcing modal with one empty supplier row', function () {
     $this->actingAs($this->purchasing);

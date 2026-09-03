@@ -28,7 +28,8 @@
                     </p>
                 </div>
 
-                <dl class="mt-3 grid grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300 sm:grid-cols-4">
+                <dl class="mt-3 grid grid-cols-2 gap-3 text-xs text-gray-600 dark:text-gray-300 sm:grid-cols-5">
+                    <div class="rounded-lg bg-gray-50 p-2 dark:bg-white/5"><dt class="text-gray-400">Merk</dt><dd class="mt-0.5 font-medium">{{ $sourcing->brand ?: '—' }}</dd></div>
                     <div class="rounded-lg bg-gray-50 p-2 dark:bg-white/5"><dt class="text-gray-400">MOQ</dt><dd class="mt-0.5 font-medium">{{ $sourcing->moq ?: '—' }}</dd></div>
                     <div class="rounded-lg bg-gray-50 p-2 dark:bg-white/5"><dt class="text-gray-400">Lead Time</dt><dd class="mt-0.5 font-medium">{{ $sourcing->lead_time_days ? $sourcing->lead_time_days.' hari' : '—' }}</dd></div>
                     <div class="rounded-lg bg-gray-50 p-2 dark:bg-white/5"><dt class="text-gray-400">Kontak</dt><dd class="mt-0.5 font-medium">{{ $sourcing->contact_name ?: '—' }}</dd></div>

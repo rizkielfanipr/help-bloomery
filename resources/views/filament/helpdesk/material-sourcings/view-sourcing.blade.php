@@ -9,7 +9,7 @@
         </x-filament::badge>
     </div>
 
-    <div class="space-y-3 pb-1">
+    <div class="max-h-[calc(100dvh-16rem)] space-y-3 overflow-y-auto overscroll-contain pb-1 pr-1 sm:max-h-[60dvh]">
         @forelse ($record->sourcings as $sourcing)
             <div @class([
                 'rounded-xl border p-4 shadow-sm',

@@ -76,6 +76,15 @@ it('uses the scrollable modal layout for manage and view supplier actions', func
         }, $this->material);
 });
 
+it('uses compact icon buttons for sourcing table actions', function () {
+    $this->material->sourcings()->create(supplierRow('Supplier A', 10000));
+    $this->actingAs($this->purchasing);
+
+    Livewire::test(ListMaterialSourcings::class)
+        ->assertTableActionExists('view_sourcing', fn ($action): bool => $action->isIconButton(), $this->material)
+        ->assertTableActionExists('manage_sourcing', fn ($action): bool => $action->isIconButton(), $this->material);
+});
+
 it('lets purchasing submit multiple supplier options and sends the material for rnd review', function () {
     $this->actingAs($this->purchasing);
 
@@ -198,14 +207,58 @@ it('lets rnd reject a submission back to purchasing, who can resubmit', function
         ->and($this->material->sourcings->first()->supplier_name)->toBe('Supplier C');
 });
 
-it('hides the manage sourcing action once a submission is pending review', function () {
+it('lets purchasing add another supplier after a submission is pending review', function () {
     $this->material->sourcings()->createMany([supplierRow('Supplier A', 10000)]);
     $this->material->update(['sourcing_status' => MaterialSourcingStatus::PendingRndReview]);
 
     $this->actingAs($this->purchasing);
 
-    Livewire::test(ListMaterialSourcings::class)
-        ->assertTableActionHidden('manage_sourcing', $this->material);
+    $page = Livewire::test(ListMaterialSourcings::class)
+        ->assertTableActionVisible('manage_sourcing', $this->material)
+        ->mountTableAction('manage_sourcing', $this->material);
+    $data = $page->get('mountedActions.0.data');
+    $firstRowKey = array_key_first($data['sourcings']);
+    $data['sourcings'][$firstRowKey] = supplierRow('Supplier B', 9000);
+
+    $page->set('mountedActions.0.data', $data)
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors();
+
+    expect($this->material->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::PendingRndReview)
+        ->and($this->material->sourcings()->pluck('supplier_name')->sort()->values()->all())
+        ->toBe(['Supplier A', 'Supplier B']);
+});
+
+it('reopens rnd review and clears the previous selection when adding a supplier after approval', function () {
+    $existingSupplier = $this->material->sourcings()->create(supplierRow('Supplier A', 10000));
+    $this->material->update([
+        'sourcing_status' => MaterialSourcingStatus::Approved,
+        'sourcing_selected_id' => $existingSupplier->id,
+        'rnd_reviewed_by' => $this->rnd->id,
+        'rnd_reviewed_at' => now(),
+        'finance_reviewed_by' => $this->finance->id,
+        'finance_reviewed_at' => now(),
+    ]);
+
+    $this->actingAs($this->purchasing);
+
+    $page = Livewire::test(ListMaterialSourcings::class)
+        ->mountTableAction('manage_sourcing', $this->material);
+    $data = $page->get('mountedActions.0.data');
+    $firstRowKey = array_key_first($data['sourcings']);
+    $data['sourcings'][$firstRowKey] = supplierRow('Supplier B', 9000);
+
+    $page->set('mountedActions.0.data', $data)
+        ->callMountedTableAction()
+        ->assertHasNoTableActionErrors();
+
+    $this->material->refresh();
+
+    expect($this->material->sourcing_status)->toBe(MaterialSourcingStatus::PendingRndReview)
+        ->and($this->material->sourcing_selected_id)->toBeNull()
+        ->and($this->material->rnd_reviewed_by)->toBeNull()
+        ->and($this->material->finance_reviewed_by)->toBeNull()
+        ->and($this->material->sourcings)->toHaveCount(2);
 });
 
 it('blocks a user without the purchasing permission from submitting sourcing', function () {
@@ -237,15 +290,19 @@ it('keeps the submitted supplier data visible after the sourcing moves past purc
         'sourcing_selected_id' => $winner->id,
     ]);
 
-    // Purchasing, RnD, and Finance should all still be able to see what was
-    // submitted, even though the material is fully approved and none of the
-    // action buttons that mutate it are visible anymore.
+    // Everyone can see the submitted data, while only Purchasing can add
+    // another supplier and reopen the review flow.
     foreach ([$this->purchasing, $this->rnd, $this->finance] as $user) {
         $this->actingAs($user);
 
-        Livewire::test(ListMaterialSourcings::class)
-            ->assertTableActionVisible('view_sourcing', $this->material)
-            ->assertTableActionHidden('manage_sourcing', $this->material);
+        $page = Livewire::test(ListMaterialSourcings::class)
+            ->assertTableActionVisible('view_sourcing', $this->material);
+
+        if ($user->is($this->purchasing)) {
+            $page->assertTableActionVisible('manage_sourcing', $this->material);
+        } else {
+            $page->assertTableActionHidden('manage_sourcing', $this->material);
+        }
     }
 });
 

@@ -81,9 +81,9 @@ class MaterialSourcingResource extends Resource
                 Action::make('view_sourcing')
                     ->label('Lihat Supplier')
                     ->icon('heroicon-o-eye')
+                    ->tooltip('Lihat Supplier')
                     ->color('info')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->modalWidth(Width::ThreeExtraLarge)
                     ->stickyModalHeader()
                     ->stickyModalFooter()
@@ -97,32 +97,19 @@ class MaterialSourcingResource extends Resource
                     ])),
 
                 Action::make('manage_sourcing')
-                    ->label('Kelola Sourcing')
-                    ->icon('heroicon-o-truck')
+                    ->label(fn (RndProductEsbMaterial $record): string => $record->sourcings_count > 0 ? 'Tambah Supplier' : 'Kelola Sourcing')
+                    ->icon('heroicon-o-plus-circle')
+                    ->tooltip(fn (RndProductEsbMaterial $record): string => $record->sourcings_count > 0 ? 'Tambah Supplier' : 'Kelola Sourcing')
                     ->color('primary')
-                    ->button()
+                    ->iconButton()
                     ->modalWidth(Width::ThreeExtraLarge)
                     ->stickyModalHeader()
                     ->stickyModalFooter()
                     ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
-                    ->modalHeading(fn (RndProductEsbMaterial $record): string => 'Kelola Supplier — '.$record->product_name)
+                    ->modalHeading(fn (RndProductEsbMaterial $record): string => ($record->sourcings_count > 0 ? 'Tambah Supplier — ' : 'Kelola Supplier — ').$record->product_name)
                     ->modalSubmitActionLabel('Kirim ke RnD')
-                    ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('submit material sourcing')
-                        && in_array($record->sourcing_status, [MaterialSourcingStatus::NotStarted, MaterialSourcingStatus::Rejected], true))
-                    ->fillForm(function (RndProductEsbMaterial $record): array {
-                        $sourcings = $record->sourcings->map(fn ($s): array => [
-                            'supplier_name' => $s->supplier_name,
-                            'price' => $s->price,
-                            'moq' => $s->moq,
-                            'lead_time_days' => $s->lead_time_days,
-                            'contact_name' => $s->contact_name,
-                            'contact_phone' => $s->contact_phone,
-                            'notes' => $s->notes,
-                            'attachment_path' => $s->attachment_path,
-                        ])->all();
-
-                        return ['sourcings' => $sourcings ?: [[]]];
-                    })
+                    ->visible(fn (): bool => auth()->user()?->can('submit material sourcing') ?? false)
+                    ->fillForm(fn (): array => ['sourcings' => [[]]])
                     ->form([
                         Repeater::make('sourcings')
                             ->label('Daftar Supplier')
@@ -148,8 +135,6 @@ class MaterialSourcingResource extends Resource
                     ])
                     ->action(function (RndProductEsbMaterial $record, array $data): void {
                         DB::transaction(function () use ($record, $data): void {
-                            $record->sourcings()->delete();
-
                             foreach ($data['sourcings'] as $row) {
                                 $record->sourcings()->create([
                                     ...$row,
@@ -157,7 +142,16 @@ class MaterialSourcingResource extends Resource
                                 ]);
                             }
 
-                            $record->update(['sourcing_status' => MaterialSourcingStatus::PendingRndReview]);
+                            $record->update([
+                                'sourcing_status' => MaterialSourcingStatus::PendingRndReview,
+                                'sourcing_selected_id' => null,
+                                'rnd_reviewed_by' => null,
+                                'rnd_reviewed_at' => null,
+                                'rnd_note' => null,
+                                'finance_reviewed_by' => null,
+                                'finance_reviewed_at' => null,
+                                'finance_note' => null,
+                            ]);
                         });
 
                         Notification::make()->title('Sourcing dikirim untuk review RnD')->success()->send();
@@ -166,8 +160,9 @@ class MaterialSourcingResource extends Resource
                 Action::make('approve_rnd')
                     ->label('Setujui (RnD)')
                     ->icon('heroicon-o-check-circle')
+                    ->tooltip('Setujui (RnD)')
                     ->color('success')
-                    ->button()
+                    ->iconButton()
                     ->modalHeading('Setujui Supplier Pilihan RnD')
                     ->modalSubmitActionLabel('Setujui & Kirim ke Finance')
                     ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('review material sourcing as rnd')
@@ -209,9 +204,9 @@ class MaterialSourcingResource extends Resource
                 Action::make('reject_rnd')
                     ->label('Tolak (RnD)')
                     ->icon('heroicon-o-x-circle')
+                    ->tooltip('Tolak (RnD)')
                     ->color('danger')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->modalHeading('Tolak Pengajuan Supplier')
                     ->modalSubmitActionLabel('Tolak & Kembalikan')
                     ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('review material sourcing as rnd')
@@ -242,8 +237,9 @@ class MaterialSourcingResource extends Resource
                 Action::make('approve_finance')
                     ->label('Setujui (Finance)')
                     ->icon('heroicon-o-check-circle')
+                    ->tooltip('Setujui (Finance)')
                     ->color('success')
-                    ->button()
+                    ->iconButton()
                     ->modalHeading('Persetujuan Supplier oleh Finance')
                     ->modalSubmitActionLabel('Setujui Supplier')
                     ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('review material sourcing as finance')
@@ -277,9 +273,9 @@ class MaterialSourcingResource extends Resource
                 Action::make('reject_finance')
                     ->label('Tolak (Finance)')
                     ->icon('heroicon-o-x-circle')
+                    ->tooltip('Tolak (Finance)')
                     ->color('danger')
-                    ->button()
-                    ->outlined()
+                    ->iconButton()
                     ->modalHeading('Kembalikan Pengajuan Supplier')
                     ->modalSubmitActionLabel('Tolak & Kembalikan ke RnD')
                     ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('review material sourcing as finance')

@@ -3,6 +3,7 @@
 @endpush
 
 @php
+    use App\Filament\Helpdesk\Resources\BulkProductSubmissions\BulkProductSubmissionResource;
     use Filament\Support\Enums\Width;
 
     $livewire ??= null;
@@ -42,7 +43,7 @@
     if (str_contains($path, 'stock-card') || str_contains($path, 'location') || str_contains($path, 'product-list-page') || str_contains($path, 'marketing-material-fulfillments/diterima')) { $initialOpen[] = 'inventory'; }
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
-    if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types')) { $initialOpen[] = 'it'; }
+    if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
@@ -105,7 +106,7 @@
                 ['label' => 'Permintaan ERP', 'icon' => 'server',      'perm' => 'view erp requests', 'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => $active($r('filament.helpdesk.resources.erp-repair-requests.index'))],
                 ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => $active($r('filament.helpdesk.resources.erp-modules.index'))],
                 ['label' => 'Request Types',  'icon' => 'tags',        'perm' => 'view it request types', 'href' => $r('filament.helpdesk.resources.it-request-types.index'),  'active' => $active($r('filament.helpdesk.resources.it-request-types.index'))],
-                ['label' => 'Bulk Data',      'icon' => 'cloud-upload', 'perm' => 'view bulk product submissions', 'href' => $r('filament.helpdesk.resources.bulk-product-submissions.index'), 'active' => $active($r('filament.helpdesk.resources.bulk-product-submissions.index'))],
+                ['label' => 'Bulk Data', 'icon' => 'cloud-upload', 'perm' => 'view bulk product submissions', 'href' => $r('filament.helpdesk.pages.bulk-data'), 'active' => $active($r('filament.helpdesk.pages.bulk-data')) || $active(BulkProductSubmissionResource::getUrl()) || $active($r('filament.helpdesk.pages.bulk-data.promotion'))],
             ],
         ],
         [

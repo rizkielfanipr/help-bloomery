@@ -46,11 +46,15 @@ class BulkProductSubmissionResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
-    protected static ?string $navigationLabel = 'Bulk Data';
+    protected static ?string $navigationLabel = 'Bulk Data Product';
 
     protected static ?string $modelLabel = 'Bulk Data Produk';
 
-    protected static ?string $pluralModelLabel = 'Bulk Data';
+    protected static ?string $pluralModelLabel = 'Bulk Data Product';
+
+    protected static ?string $slug = 'bulk-data/product';
+
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Schema $schema): Schema
     {

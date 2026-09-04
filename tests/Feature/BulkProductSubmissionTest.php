@@ -1,6 +1,9 @@
 <?php
 
 use App\Actions\SubmitBulkProductAction;
+use App\Filament\Helpdesk\Pages\BulkDataPage;
+use App\Filament\Helpdesk\Pages\BulkDataPromotionPage;
+use App\Filament\Helpdesk\Resources\BulkProductSubmissions\BulkProductSubmissionResource;
 use App\Filament\Helpdesk\Resources\BulkProductSubmissions\Pages\CreateBulkProductSubmission;
 use App\Models\BulkProductSubmission;
 use App\Models\User;
@@ -252,7 +255,7 @@ it('grants Bulk Data access to IT staff', function () {
         ->and($user->can('edit bulk product submissions'))->toBeTrue();
 });
 
-it('renders the Bulk Data list and create pages for IT staff', function () {
+it('renders the Bulk Data menu, product pages, and promotion page for IT staff', function () {
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'blss-token']]),
         'https://core-esb.test/product/list*' => Http::response(['status' => 'ok', 'result' => [
@@ -265,11 +268,34 @@ it('renders the Bulk Data list and create pages for IT staff', function () {
     $user->assignRole('IT_STAFF');
 
     $this->actingAs($user)
-        ->get(route('filament.helpdesk.resources.bulk-product-submissions.index'))
+        ->get(route('filament.helpdesk.pages.bulk-data'))
         ->assertOk()
-        ->assertSee('Bulk Data');
+        ->assertSee('Bulk Data Product')
+        ->assertSee('Bulk Data Promotion')
+        ->assertSee(BulkProductSubmissionResource::getUrl(), false)
+        ->assertSee(route('filament.helpdesk.pages.bulk-data.promotion'), false);
 
-    $this->get(route('filament.helpdesk.resources.bulk-product-submissions.create'))
+    $this->get(route('filament.helpdesk.pages.bulk-data.promotion'))
+        ->assertOk()
+        ->assertSee('Bulk Data Promotion')
+        ->assertSee('Kembali ke Bulk Data');
+
+    Livewire::test(BulkDataPage::class)
+        ->assertSee('Bulk Data Product')
+        ->assertSee('Bulk Data Promotion');
+
+    Livewire::test(BulkDataPromotionPage::class)
+        ->assertSee('Bulk Data Promotion')
+        ->assertSee('Kembali ke Bulk Data');
+
+    $this
+        ->get(BulkProductSubmissionResource::getUrl())
+        ->assertOk()
+        ->assertSee('Bulk Data Product');
+
+    expect(parse_url(BulkProductSubmissionResource::getUrl(), PHP_URL_PATH))->toBe('/bulk-data/product');
+
+    $this->get(BulkProductSubmissionResource::getUrl('create'))
         ->assertOk()
         ->assertSee('Target Comcode');
 
@@ -279,11 +305,11 @@ it('renders the Bulk Data list and create pages for IT staff', function () {
     $submission = BulkProductSubmission::factory()->create(['created_by' => $user->id, 'payload' => bulkProductPayload()]);
     $submission->items()->create(['comcode' => 'BLO7', 'status' => 'succeeded', 'remote_product_id' => 123]);
 
-    $this->get(route('filament.helpdesk.resources.bulk-product-submissions.index'))
+    $this->get(BulkProductSubmissionResource::getUrl())
         ->assertOk()
         ->assertSee('BLO7');
 
-    $this->get(route('filament.helpdesk.resources.bulk-product-submissions.view', $submission))
+    $this->get(BulkProductSubmissionResource::getUrl('view', ['record' => $submission]))
         ->assertOk()
         ->assertSee('BLO7')
         ->assertSee('123');

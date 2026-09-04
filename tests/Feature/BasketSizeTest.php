@@ -16,7 +16,7 @@ beforeEach(function () {
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 });
 
-it('calculates shift basket size and divides its credit between staff', function () {
+it('calculates shift basket size and gives every staff the full basket size credit', function () {
     $branch = Branch::factory()->create(['sales_shift_count' => 2]);
     $shift = $branch->salesShifts()->create([
         'shift_number' => 1,
@@ -58,7 +58,7 @@ it('calculates shift basket size and divides its credit between staff', function
         ->and((float) $record->basket_size)->toBe(40000.0)
         ->and($record->staff_count)->toBe(2)
         ->and($record->employeeRecords)->toHaveCount(2)
-        ->and($record->employeeRecords->every(fn ($row): bool => (float) $row->basket_size_credit === 20000.0))->toBeTrue();
+        ->and($record->employeeRecords->every(fn ($row): bool => (float) $row->basket_size_credit === 40000.0))->toBeTrue();
 });
 
 it('does not divide by zero when a shift has no pax', function () {

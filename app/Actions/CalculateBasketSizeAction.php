@@ -44,9 +44,7 @@ class CalculateBasketSizeAction
                     'employee_code' => $employee->employee_code,
                     'employee_name' => $employee->employee_name ?: 'Unknown Employee',
                     'employee_position' => $employee->employee_position,
-                    'basket_size_credit' => $basketSize !== null && $staffCount > 0
-                        ? $basketSize / $staffCount
-                        : null,
+                    'basket_size_credit' => $basketSize,
                 ],
             );
             $keptIds[] = $employeeRecord->id;

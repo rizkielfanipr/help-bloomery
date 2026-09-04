@@ -145,7 +145,7 @@
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Basket Size per Shift</h2>
-            <p class="mt-1 text-xs text-gray-400">Revenue ÷ pax, lalu dibagi rata kepada staff in charge.</p>
+            <p class="mt-1 text-xs text-gray-400">Revenue ÷ pax untuk setiap staff yang bertugas pada shift tersebut.</p>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full min-w-[900px] text-sm">

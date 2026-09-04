@@ -29,7 +29,7 @@
                             {{ $this->pickerTitle() }}
                         </h2>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Dipilih: {{ $this->selectedPickerCount() }} item. Data dipisahkan per comcode dan branch.
+                            Dipilih: {{ $this->selectedPickerCount() }} item. Menampilkan data aktif, dipisahkan per comcode dan branch.
                         </p>
                     </div>
 

@@ -48,6 +48,9 @@ class BulkDataPromotionPage extends Page
 
     public string $pickerSearch = '';
 
+    /** @var list<string> */
+    public array $pickerBranchIds = [];
+
     /** @var list<array{value:string,label:string,meta:string}> */
     public array $pickerRows = [];
 
@@ -215,7 +218,7 @@ class BulkDataPromotionPage extends Page
                             ->suffixAction(Action::make('pickMenuCategory')
                                 ->label('Pilih')
                                 ->icon('heroicon-m-list-bullet')
-                                ->action(fn (): null => $this->openPicker('category')))
+                                ->action(fn (Get $get): null => $this->openPicker('category', $get('branch_ids') ?? [])))
                             ->helperText('Pilih menu category yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
                             ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 1)
                             ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
@@ -226,7 +229,7 @@ class BulkDataPromotionPage extends Page
                             ->suffixAction(Action::make('pickMenuCategoryDetail')
                                 ->label('Pilih')
                                 ->icon('heroicon-m-list-bullet')
-                                ->action(fn (): null => $this->openPicker('category_detail')))
+                                ->action(fn (Get $get): null => $this->openPicker('category_detail', $get('branch_ids') ?? [])))
                             ->helperText('Pilih menu category detail yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
                             ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 2)
                             ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
@@ -237,7 +240,7 @@ class BulkDataPromotionPage extends Page
                             ->suffixAction(Action::make('pickMenu')
                                 ->label('Pilih')
                                 ->icon('heroicon-m-list-bullet')
-                                ->action(fn (): null => $this->openPicker('menu')))
+                                ->action(fn (Get $get): null => $this->openPicker('menu', $get('branch_ids') ?? [])))
                             ->helperText('Pilih menu yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
                             ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 3)
                             ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
@@ -384,9 +387,15 @@ class BulkDataPromotionPage extends Page
             ->send();
     }
 
-    public function openPicker(string $type): null
+    public function openPicker(string $type, mixed $branchIds = null): null
     {
-        if ($this->selectedEsbBranchPairs($this->data['branch_ids'] ?? [])->isEmpty()) {
+        $resolvedBranchIds = filled($branchIds)
+            ? $branchIds
+            : ($this->data['branch_ids'] ?? ($this->form->getState()['branch_ids'] ?? []));
+
+        $this->pickerBranchIds = $this->stringList($resolvedBranchIds);
+
+        if ($this->selectedEsbBranchPairs($this->pickerBranchIds)->isEmpty()) {
             Notification::make()
                 ->title('Pilih Branch terlebih dahulu')
                 ->body('Data category, category detail, dan menu diambil berdasarkan comcode + branch yang dipilih.')
@@ -441,7 +450,7 @@ class BulkDataPromotionPage extends Page
 
     public function loadPickerRows(): void
     {
-        $pairs = $this->selectedEsbBranchPairs($this->data['branch_ids'] ?? [])->all();
+        $pairs = $this->selectedEsbBranchPairs($this->pickerBranchIds ?: ($this->data['branch_ids'] ?? []))->all();
         $service = app(EsbPromotionService::class);
         $result = $this->pickerType === 'menu'
             ? $service->menuPage($pairs, $this->pickerPage, $this->pickerPerPage, $this->pickerSearch)
@@ -499,7 +508,7 @@ class BulkDataPromotionPage extends Page
             ->all();
     }
 
-    /** @return array<int, string> */
+    /** @return array<string, string> */
     private function branchOptions(mixed $comcodes): array
     {
         $selectedComcodes = $this->selectedComcodes($comcodes);
@@ -508,18 +517,34 @@ class BulkDataPromotionPage extends Page
             return $options;
         }
 
-        return Branch::query()
+        $branches = Branch::query()
             ->where('is_active', true)
+            ->with(['esbCodes' => function ($query) use ($selectedComcodes): void {
+                $query->where('is_active', true);
+                if (! in_array('ALL', $selectedComcodes, true)) {
+                    $query->whereIn('esb_comcode', $selectedComcodes);
+                }
+            }])
             ->whereHas('esbCodes', function ($query) use ($selectedComcodes): void {
                 $query->where('is_active', true);
-
                 if (! in_array('ALL', $selectedComcodes, true)) {
                     $query->whereIn('esb_comcode', $selectedComcodes);
                 }
             })
             ->orderBy('name')
-            ->pluck('name', 'id')
-            ->all();
+            ->get();
+
+        $fallback = [];
+        foreach ($branches as $branch) {
+            foreach ($branch->esbCodes as $code) {
+                $comcode = $code->esb_comcode;
+                $branchCode = $code->esb_branch_code;
+                $key = "{$comcode}|{$branchCode}";
+                $fallback[$key] = "{$comcode} - {$branch->name} ({$branchCode})";
+            }
+        }
+
+        return $fallback;
     }
 
     /** @return array<int, string> */
@@ -755,21 +780,42 @@ class BulkDataPromotionPage extends Page
 
     private function selectedEsbBranchPairs(mixed $values): Collection
     {
-        return collect($values)
-            ->map(function (mixed $value): ?array {
-                $parts = explode('|', (string) $value, 2);
-                if (count($parts) !== 2 || trim($parts[0]) === '' || trim($parts[1]) === '') {
-                    return null;
-                }
+        $rawValues = collect($values)->filter(fn ($v): bool => filled($v));
+        $pairs = collect();
 
-                return [
-                    'comcode' => trim($parts[0]),
-                    'branchCode' => trim($parts[1]),
-                    'branchName' => $this->branchLabel((string) $value),
-                ];
-            })
-            ->filter()
-            ->values();
+        foreach ($rawValues as $value) {
+            $valueStr = (string) $value;
+            if (str_contains($valueStr, '|')) {
+                $parts = explode('|', $valueStr, 2);
+                if (count($parts) === 2 && trim($parts[0]) !== '' && trim($parts[1]) !== '') {
+                    $pairs->push([
+                        'comcode' => trim($parts[0]),
+                        'branchCode' => trim($parts[1]),
+                        'branchName' => $this->branchLabel($valueStr),
+                    ]);
+                }
+            } elseif (is_numeric($valueStr) && (int) $valueStr > 0) {
+                $selectedComcodes = $this->selectedComcodes($this->data['target_comcodes'] ?? []);
+                $branch = Branch::with(['esbCodes' => function ($query) use ($selectedComcodes): void {
+                    $query->where('is_active', true);
+                    if (! in_array('ALL', $selectedComcodes, true)) {
+                        $query->whereIn('esb_comcode', $selectedComcodes);
+                    }
+                }])->find((int) $valueStr);
+
+                if ($branch) {
+                    foreach ($branch->esbCodes as $code) {
+                        $pairs->push([
+                            'comcode' => $code->esb_comcode,
+                            'branchCode' => $code->esb_branch_code,
+                            'branchName' => $branch->name,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        return $pairs->unique(fn (array $pair): string => $pair['comcode'].'|'.$pair['branchCode'])->values();
     }
 
     /** @return list<int> */
@@ -809,11 +855,31 @@ class BulkDataPromotionPage extends Page
     {
         $options = $this->branchOptions($this->data['target_comcodes'] ?? []);
         $label = (string) ($options[$value] ?? '');
-        if ($label === '') {
-            return '';
+        if ($label !== '') {
+            return trim((string) preg_replace('/\s*\([^)]*\)\s*$/', '', $label));
         }
 
-        return trim((string) preg_replace('/\s*\([^)]*\)\s*$/', '', $label));
+        if (str_contains($value, '|')) {
+            [$comcode, $branchCode] = explode('|', $value, 2);
+            $esbCode = BranchEsbCode::with('branch')
+                ->where('esb_comcode', $comcode)
+                ->where('esb_branch_code', $branchCode)
+                ->first();
+            if ($esbCode?->branch) {
+                return "{$comcode} - {$esbCode->branch->name}";
+            }
+
+            return "{$comcode} - {$branchCode}";
+        }
+
+        if (is_numeric($value)) {
+            $branch = Branch::find((int) $value);
+            if ($branch) {
+                return $branch->name;
+            }
+        }
+
+        return $value;
     }
 
     private function pickerField(): string

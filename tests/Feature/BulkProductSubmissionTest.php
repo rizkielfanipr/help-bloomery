@@ -5,6 +5,7 @@ use App\Filament\Helpdesk\Pages\BulkDataPage;
 use App\Filament\Helpdesk\Pages\BulkDataPromotionPage;
 use App\Filament\Helpdesk\Resources\BulkProductSubmissions\BulkProductSubmissionResource;
 use App\Filament\Helpdesk\Resources\BulkProductSubmissions\Pages\CreateBulkProductSubmission;
+use App\Models\Branch;
 use App\Models\BulkProductSubmission;
 use App\Models\User;
 use App\Services\EsbCompanyProductService;
@@ -577,4 +578,160 @@ it('selects promotion category from the paginated picker modal', function () {
             && $payload['menuCategoryDetailID'] === []
             && $payload['menuID'] === [];
     });
+});
+
+it('opens promotion picker successfully when branches are selected via database fallback or form action', function () {
+    config([
+        'esb.base_url' => 'https://promotion-esb.test',
+        'esb.tokens.BLSS' => 'blss-static-token',
+    ]);
+
+    Http::fake([
+        'https://promotion-esb.test/corev1/master/get-menu-category*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1,
+                'limit' => 10,
+                'count' => 1,
+                'data' => [[
+                    'menuCategoryID' => 16,
+                    'menuCategoryName' => 'Food-Int',
+                    'menuCategoryDetails' => [],
+                ]],
+            ],
+            'next' => null,
+        ]),
+    ]);
+
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('IT_STAFF');
+    $this->actingAs($user);
+
+    $branch = Branch::factory()->create(['is_active' => true, 'name' => 'Bloomery Test Branch']);
+    $branch->esbCodes()->create([
+        'esb_comcode' => 'BLSS',
+        'esb_branch_code' => 'LR00',
+        'is_active' => true,
+    ]);
+
+    Livewire::test(BulkDataPromotionPage::class)
+        ->fillForm([
+            'target_comcodes' => ['BLSS'],
+            'branch_ids' => [$branch->id],
+            'allCategories' => false,
+            'applyDiscountTo' => 1,
+        ])
+        ->call('openPicker', 'category')
+        ->assertSet('pickerOpen', true)
+        ->assertSet('pickerRows.0.label', 'Food-Int')
+        ->assertSet('pickerRows.0.value', 'BLSS|LR00|16')
+        ->assertSet('pickerRows.0.meta', 'BLSS - Bloomery Test Branch (#16)');
+});
+
+it('only displays active categories, category details, and menus in the promotion picker', function () {
+    config([
+        'esb.base_url' => 'https://promotion-esb.test',
+        'esb.tokens.BLSS' => 'blss-static-token',
+    ]);
+
+    Http::fake([
+        'https://promotion-esb.test/corev1/master/get-menu-category*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1,
+                'limit' => 10,
+                'count' => 2,
+                'data' => [
+                    [
+                        'menuCategoryID' => 10,
+                        'menuCategoryName' => 'Active Category',
+                        'flagActive' => 1,
+                        'menuCategoryDetails' => [
+                            ['menuCategoryDetailID' => 101, 'menuCategoryDetailName' => 'Active Detail', 'flagActive' => 1],
+                            ['menuCategoryDetailID' => 102, 'menuCategoryDetailName' => 'Inactive Detail', 'flagActive' => 0],
+                        ],
+                    ],
+                    [
+                        'menuCategoryID' => 20,
+                        'menuCategoryName' => 'Inactive Category',
+                        'flagActive' => 0,
+                        'menuCategoryDetails' => [
+                            ['menuCategoryDetailID' => 201, 'menuCategoryDetailName' => 'Detail of Inactive Category', 'flagActive' => 1],
+                        ],
+                    ],
+                ],
+            ],
+            'next' => null,
+        ]),
+        'https://promotion-esb.test/corev1/master/get-menu*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1,
+                'limit' => 10,
+                'count' => 2,
+                'data' => [
+                    ['menuID' => 301, 'menuName' => 'Active Coffee', 'menuCode' => 'AC01', 'flagActive' => 1],
+                    ['menuID' => 302, 'menuName' => 'Inactive Tea', 'menuCode' => 'IT02', 'flagActive' => 0],
+                ],
+            ],
+            'next' => null,
+        ]),
+    ]);
+
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('IT_STAFF');
+    $this->actingAs($user);
+
+    $branch = Branch::factory()->create(['is_active' => true, 'name' => 'Bloomery Active Branch']);
+    $branch->esbCodes()->create([
+        'esb_comcode' => 'BLSS',
+        'esb_branch_code' => 'LR00',
+        'is_active' => true,
+    ]);
+
+    // Test Category: only Active Category (ID 10) should be in pickerRows
+    $categoryTest = Livewire::test(BulkDataPromotionPage::class)
+        ->fillForm([
+            'target_comcodes' => ['BLSS'],
+            'branch_ids' => [$branch->id],
+            'allCategories' => false,
+            'applyDiscountTo' => 1,
+        ])
+        ->call('openPicker', 'category');
+
+    expect($categoryTest->get('pickerRows'))->toHaveCount(1)
+        ->and($categoryTest->get('pickerRows.0.value'))->toBe('BLSS|LR00|10')
+        ->and($categoryTest->get('pickerRows.0.label'))->toBe('Active Category');
+
+    // Test Category Detail: only Active Detail (ID 101) under Active Category should be in pickerRows
+    $detailTest = Livewire::test(BulkDataPromotionPage::class)
+        ->fillForm([
+            'target_comcodes' => ['BLSS'],
+            'branch_ids' => [$branch->id],
+            'allCategories' => false,
+            'applyDiscountTo' => 2,
+        ])
+        ->call('openPicker', 'category_detail');
+
+    expect($detailTest->get('pickerRows'))->toHaveCount(1)
+        ->and($detailTest->get('pickerRows.0.value'))->toBe('BLSS|LR00|101')
+        ->and($detailTest->get('pickerRows.0.label'))->toBe('Active Category / Active Detail');
+
+    // Test Menu: only Active Coffee (ID 301) should be in pickerRows
+    $menuTest = Livewire::test(BulkDataPromotionPage::class)
+        ->fillForm([
+            'target_comcodes' => ['BLSS'],
+            'branch_ids' => [$branch->id],
+            'allCategories' => false,
+            'applyDiscountTo' => 3,
+        ])
+        ->call('openPicker', 'menu');
+
+    expect($menuTest->get('pickerRows'))->toHaveCount(1)
+        ->and($menuTest->get('pickerRows.0.value'))->toBe('BLSS|LR00|301')
+        ->and($menuTest->get('pickerRows.0.label'))->toBe('Active Coffee (AC01)');
 });

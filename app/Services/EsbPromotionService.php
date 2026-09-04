@@ -91,6 +91,10 @@ class EsbPromotionService
         foreach ($pairs as $pair) {
             $categories = $this->menuCategories((string) $pair['comcode'], (string) $pair['branchCode']);
             foreach ($categories as $category) {
+                if (! is_array($category) || ! $this->isRecordActive($category)) {
+                    continue;
+                }
+
                 $id = (int) ($category['menuCategoryID'] ?? 0);
                 $name = trim((string) ($category['menuCategoryName'] ?? ''));
                 if ($id < 1 || $name === '') {
@@ -114,8 +118,12 @@ class EsbPromotionService
         foreach ($pairs as $pair) {
             $categories = $this->menuCategories((string) $pair['comcode'], (string) $pair['branchCode']);
             foreach ($categories as $category) {
+                if (! is_array($category) || ! $this->isRecordActive($category)) {
+                    continue;
+                }
+
                 foreach ($category['menuCategoryDetails'] ?? [] as $detail) {
-                    if (! is_array($detail)) {
+                    if (! is_array($detail) || ! $this->isRecordActive($detail)) {
                         continue;
                     }
 
@@ -145,7 +153,7 @@ class EsbPromotionService
         foreach ($pairs as $pair) {
             $menus = $this->pagedCatalog((string) $pair['comcode'], (string) $pair['branchCode'], '/corev1/master/get-menu', ['flagActive' => 1]);
             foreach ($menus as $menu) {
-                if (! is_array($menu)) {
+                if (! is_array($menu) || ! $this->isRecordActive($menu)) {
                     continue;
                 }
 
@@ -172,11 +180,23 @@ class EsbPromotionService
         $rows = [];
         $page = max(1, $page);
         $perPage = max(1, $perPage);
+        $hasNext = false;
 
         foreach ($pairs as $pair) {
-            $categories = $this->menuCategoriesPage((string) $pair['comcode'], (string) $pair['branchCode'], $page, $perPage)['data'];
+            $result = $this->menuCategoriesPage((string) $pair['comcode'], (string) $pair['branchCode'], $page, $perPage);
+            $categories = $result['data'];
+            $hasNext = $hasNext || ($result['hasNext'] ?? false);
+
             foreach ($categories as $category) {
+                if (! is_array($category)) {
+                    continue;
+                }
+
                 if ($type === 'category') {
+                    if (! $this->isRecordActive($category)) {
+                        continue;
+                    }
+
                     $id = (int) ($category['menuCategoryID'] ?? 0);
                     $name = trim((string) ($category['menuCategoryName'] ?? ''));
                     if ($id > 0 && $name !== '') {
@@ -186,8 +206,12 @@ class EsbPromotionService
                     continue;
                 }
 
+                if (! $this->isRecordActive($category)) {
+                    continue;
+                }
+
                 foreach ($category['menuCategoryDetails'] ?? [] as $detail) {
-                    if (! is_array($detail)) {
+                    if (! is_array($detail) || ! $this->isRecordActive($detail)) {
                         continue;
                     }
 
@@ -206,7 +230,7 @@ class EsbPromotionService
             'page' => $page,
             'total' => count($rows),
             'perPage' => $perPage,
-            'hasNext' => count($rows) >= $perPage,
+            'hasNext' => $hasNext || count($rows) >= $perPage,
         ];
     }
 
@@ -216,11 +240,14 @@ class EsbPromotionService
         $rows = [];
         $page = max(1, $page);
         $perPage = max(1, $perPage);
+        $hasNext = false;
 
         foreach ($pairs as $pair) {
             $result = $this->menuCatalogPage((string) $pair['comcode'], (string) $pair['branchCode'], $page, $perPage, $search);
+            $hasNext = $hasNext || ($result['hasNext'] ?? false);
+
             foreach ($result['data'] as $menu) {
-                if (! is_array($menu)) {
+                if (! is_array($menu) || ! $this->isRecordActive($menu)) {
                     continue;
                 }
 
@@ -238,7 +265,7 @@ class EsbPromotionService
             'page' => $page,
             'total' => count($rows),
             'perPage' => $perPage,
-            'hasNext' => count($rows) >= $perPage,
+            'hasNext' => $hasNext || count($rows) >= $perPage,
         ];
     }
 
@@ -348,13 +375,17 @@ class EsbPromotionService
     /** @return list<array<string, mixed>> */
     private function menuCategories(string $comcode, string $branchCode): array
     {
-        return $this->pagedCatalog($comcode, $branchCode, '/corev1/master/get-menu-category');
+        return $this->pagedCatalog($comcode, $branchCode, '/corev1/master/get-menu-category', [
+            'flagActive' => 1,
+        ]);
     }
 
     /** @return array{data:list<array<string, mixed>>,hasNext:bool} */
     private function menuCategoriesPage(string $comcode, string $branchCode, int $page, int $perPage): array
     {
-        return $this->singleCatalogPage($comcode, $branchCode, '/corev1/master/get-menu-category', $page, $perPage);
+        return $this->singleCatalogPage($comcode, $branchCode, '/corev1/master/get-menu-category', $page, $perPage, [
+            'flagActive' => 1,
+        ]);
     }
 
     /** @return array{data:list<array<string, mixed>>,hasNext:bool} */
@@ -471,6 +502,50 @@ class EsbPromotionService
             'label' => $label,
             'meta' => "{$pair['comcode']} - {$branch} (#{$id})",
         ];
+    }
+
+    private function isRecordActive(mixed $record): bool
+    {
+        if (! is_array($record)) {
+            return false;
+        }
+
+        foreach (['flagActive', 'statusActive'] as $key) {
+            if (array_key_exists($key, $record)) {
+                $value = $record[$key];
+                if (is_bool($value)) {
+                    return $value;
+                }
+                if (is_numeric($value)) {
+                    return (int) $value === 1;
+                }
+                if (is_string($value)) {
+                    $lower = strtolower(trim($value));
+
+                    return in_array($lower, ['1', 'yes', 'true', 'active'], true);
+                }
+            }
+        }
+
+        if (array_key_exists('status', $record) && is_string($record['status'])) {
+            $lower = strtolower(trim($record['status']));
+            if (in_array($lower, ['inactive', 'nonactive', 'non-active', '0', 'no', 'false'], true)) {
+                return false;
+            }
+            if (in_array($lower, ['active', '1', 'yes', 'true'], true)) {
+                return true;
+            }
+        }
+
+        if (array_key_exists('isActive', $record)) {
+            return (bool) $record['isActive'];
+        }
+
+        if (array_key_exists('is_active', $record)) {
+            return (bool) $record['is_active'];
+        }
+
+        return true;
     }
 
     private function firstFilled(array $row, array $keys): string

@@ -166,6 +166,82 @@ class EsbPromotionService
         return $options;
     }
 
+    /** @return array{rows:list<array{value:string,label:string,meta:string}>,page:int,total:int,perPage:int,hasNext:bool} */
+    public function menuCategoryPage(array $pairs, string $type, int $page = 1, int $perPage = 10): array
+    {
+        $rows = [];
+        $page = max(1, $page);
+        $perPage = max(1, $perPage);
+
+        foreach ($pairs as $pair) {
+            $categories = $this->menuCategoriesPage((string) $pair['comcode'], (string) $pair['branchCode'], $page, $perPage)['data'];
+            foreach ($categories as $category) {
+                if ($type === 'category') {
+                    $id = (int) ($category['menuCategoryID'] ?? 0);
+                    $name = trim((string) ($category['menuCategoryName'] ?? ''));
+                    if ($id > 0 && $name !== '') {
+                        $rows[] = $this->pickerRow($pair, $id, $name);
+                    }
+
+                    continue;
+                }
+
+                foreach ($category['menuCategoryDetails'] ?? [] as $detail) {
+                    if (! is_array($detail)) {
+                        continue;
+                    }
+
+                    $id = (int) ($detail['menuCategoryDetailID'] ?? 0);
+                    $name = trim((string) ($detail['menuCategoryDetailName'] ?? ''));
+                    $categoryName = trim((string) ($category['menuCategoryName'] ?? ''));
+                    if ($id > 0 && $name !== '') {
+                        $rows[] = $this->pickerRow($pair, $id, $categoryName !== '' ? "{$categoryName} / {$name}" : $name);
+                    }
+                }
+            }
+        }
+
+        return [
+            'rows' => $rows,
+            'page' => $page,
+            'total' => count($rows),
+            'perPage' => $perPage,
+            'hasNext' => count($rows) >= $perPage,
+        ];
+    }
+
+    /** @return array{rows:list<array{value:string,label:string,meta:string}>,page:int,total:int,perPage:int,hasNext:bool} */
+    public function menuPage(array $pairs, int $page = 1, int $perPage = 10, string $search = ''): array
+    {
+        $rows = [];
+        $page = max(1, $page);
+        $perPage = max(1, $perPage);
+
+        foreach ($pairs as $pair) {
+            $result = $this->menuCatalogPage((string) $pair['comcode'], (string) $pair['branchCode'], $page, $perPage, $search);
+            foreach ($result['data'] as $menu) {
+                if (! is_array($menu)) {
+                    continue;
+                }
+
+                $id = (int) ($menu['menuID'] ?? 0);
+                $name = trim((string) ($menu['menuName'] ?? ''));
+                $code = trim((string) ($menu['menuCode'] ?? ''));
+                if ($id > 0 && $name !== '') {
+                    $rows[] = $this->pickerRow($pair, $id, $code !== '' ? "{$name} ({$code})" : $name);
+                }
+            }
+        }
+
+        return [
+            'rows' => $rows,
+            'page' => $page,
+            'total' => count($rows),
+            'perPage' => $perPage,
+            'hasNext' => count($rows) >= $perPage,
+        ];
+    }
+
     /** @return array{promotionID:int|null,message:string} */
     public function createFreeItem(string $comcode, array $payload): array
     {
@@ -275,6 +351,56 @@ class EsbPromotionService
         return $this->pagedCatalog($comcode, $branchCode, '/corev1/master/get-menu-category');
     }
 
+    /** @return array{data:list<array<string, mixed>>,hasNext:bool} */
+    private function menuCategoriesPage(string $comcode, string $branchCode, int $page, int $perPage): array
+    {
+        return $this->singleCatalogPage($comcode, $branchCode, '/corev1/master/get-menu-category', $page, $perPage);
+    }
+
+    /** @return array{data:list<array<string, mixed>>,hasNext:bool} */
+    private function menuCatalogPage(string $comcode, string $branchCode, int $page, int $perPage, string $search): array
+    {
+        return $this->singleCatalogPage($comcode, $branchCode, '/corev1/master/get-menu', $page, $perPage, array_filter([
+            'menuCode' => trim($search),
+            'flagActive' => 1,
+        ], fn (string|int $value): bool => (string) $value !== ''));
+    }
+
+    /** @return array{data:list<array<string, mixed>>,hasNext:bool} */
+    private function singleCatalogPage(string $comcode, string $branchCode, string $path, int $page, int $perPage, array $params = []): array
+    {
+        $token = trim((string) config("esb.tokens.{$comcode}", ''));
+        if ($token === '') {
+            return ['data' => [], 'hasNext' => false];
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->asJson()
+                ->withToken($token)
+                ->connectTimeout(10)
+                ->timeout((int) config('esb.core.timeout', 60))
+                ->get($this->baseUrl().$path, ['page' => $page, 'limit' => $perPage, 'branchCode' => $branchCode, 'Boolean' => 1] + $params);
+
+            if ($response->failed()) {
+                return ['data' => [], 'hasNext' => false];
+            }
+
+            $body = $response->json();
+            $result = is_array($body) && is_array($body['result'] ?? null) ? $body['result'] : [];
+            $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+            $limit = max(1, (int) ($result['limit'] ?? $perPage));
+            $count = (int) ($result['count'] ?? count($data));
+
+            return [
+                'data' => $data,
+                'hasNext' => filled($body['next'] ?? null) || ($page * $limit) < $count,
+            ];
+        } catch (\Throwable) {
+            return ['data' => [], 'hasNext' => false];
+        }
+    }
+
     /** @return list<array<string, mixed>> */
     private function pagedCatalog(string $comcode, string $branchCode, string $path, array $params = []): array
     {
@@ -332,6 +458,19 @@ class EsbPromotionService
         $branch = $branchName !== '' ? $branchName : (string) $pair['branchCode'];
 
         return "{$pair['comcode']} - {$branch} - {$label} (#{$id})";
+    }
+
+    /** @return array{value:string,label:string,meta:string} */
+    private function pickerRow(array $pair, int $id, string $label): array
+    {
+        $branchName = trim((string) ($pair['branchName'] ?? ''));
+        $branch = $branchName !== '' ? $branchName : (string) $pair['branchCode'];
+
+        return [
+            'value' => $pair['comcode'].'|'.$pair['branchCode'].'|'.$id,
+            'label' => $label,
+            'meta' => "{$pair['comcode']} - {$branch} (#{$id})",
+        ];
     }
 
     private function firstFilled(array $row, array $keys): string

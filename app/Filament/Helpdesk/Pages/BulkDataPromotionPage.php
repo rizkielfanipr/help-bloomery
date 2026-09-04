@@ -6,7 +6,9 @@ use App\Models\Branch;
 use App\Models\BranchEsbCode;
 use App\Services\EsbPromotionService;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
@@ -36,6 +38,23 @@ class BulkDataPromotionPage extends Page
 
     public ?array $data = [];
 
+    public bool $pickerOpen = false;
+
+    public string $pickerType = 'category';
+
+    public int $pickerPage = 1;
+
+    public int $pickerPerPage = 10;
+
+    public string $pickerSearch = '';
+
+    /** @var list<array{value:string,label:string,meta:string}> */
+    public array $pickerRows = [];
+
+    public bool $pickerHasNext = false;
+
+    public int $pickerTotal = 0;
+
     public static function canAccess(): bool
     {
         return auth()->user()?->can('view bulk product submissions') ?? false;
@@ -60,6 +79,9 @@ class BulkDataPromotionPage extends Page
             'menuCategoryID' => [],
             'menuCategoryDetailID' => [],
             'menuID' => [],
+            'menuCategorySummary' => 'Belum ada yang dipilih',
+            'menuCategoryDetailSummary' => 'Belum ada yang dipilih',
+            'menuSummary' => 'Belum ada yang dipilih',
             'employeeGroupName' => [],
             'selfOrderPaymentMethodCode' => [],
             'visitPurposeDisplay' => 'All Visit Purpose',
@@ -186,42 +208,42 @@ class BulkDataPromotionPage extends Page
                             ->required(fn (Get $get): bool => ! (bool) $get('allCategories'))
                             ->live()
                             ->afterStateUpdated(fn (Set $set): null => $this->resetMenuSelections($set)),
-                        Select::make('menuCategoryID')
+                        TextInput::make('menuCategorySummary')
                             ->label('Menu Category')
-                            ->options(fn (Get $get): array => $this->menuCategoryOptions($get))
-                            ->multiple()
-                            ->searchable()
-                            ->preload()
-                            ->native(false)
-                            ->placeholder('Select Menu Category')
+                            ->readOnly()
+                            ->dehydrated(false)
+                            ->suffixAction(Action::make('pickMenuCategory')
+                                ->label('Pilih')
+                                ->icon('heroicon-m-list-bullet')
+                                ->action(fn (): null => $this->openPicker('category')))
                             ->helperText('Pilih menu category yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
                             ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 1)
-                            ->required(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 1)
                             ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
-                        Select::make('menuCategoryDetailID')
+                        TextInput::make('menuCategoryDetailSummary')
                             ->label('Menu Category Detail')
-                            ->options(fn (Get $get): array => $this->menuCategoryDetailOptions($get))
-                            ->multiple()
-                            ->searchable()
-                            ->preload()
-                            ->native(false)
-                            ->placeholder('Select Menu Category Detail')
+                            ->readOnly()
+                            ->dehydrated(false)
+                            ->suffixAction(Action::make('pickMenuCategoryDetail')
+                                ->label('Pilih')
+                                ->icon('heroicon-m-list-bullet')
+                                ->action(fn (): null => $this->openPicker('category_detail')))
                             ->helperText('Pilih menu category detail yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
                             ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 2)
-                            ->required(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 2)
                             ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
-                        Select::make('menuID')
+                        TextInput::make('menuSummary')
                             ->label('Menu')
-                            ->options(fn (Get $get): array => $this->menuOptions($get))
-                            ->multiple()
-                            ->searchable()
-                            ->preload()
-                            ->native(false)
-                            ->placeholder('Select Menu')
+                            ->readOnly()
+                            ->dehydrated(false)
+                            ->suffixAction(Action::make('pickMenu')
+                                ->label('Pilih')
+                                ->icon('heroicon-m-list-bullet')
+                                ->action(fn (): null => $this->openPicker('menu')))
                             ->helperText('Pilih menu yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
                             ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 3)
-                            ->required(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 3)
                             ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
+                        Hidden::make('menuCategoryID'),
+                        Hidden::make('menuCategoryDetailID'),
+                        Hidden::make('menuID'),
                         Select::make('applyTo')
                             ->label('Apply To')
                             ->options(self::applyToOptions())
@@ -335,6 +357,8 @@ class BulkDataPromotionPage extends Page
     public function submit(): void
     {
         $data = $this->form->getState();
+        $this->validatePickerSelection($data);
+
         $targets = $this->targetsForBranches($data['branch_ids'] ?? []);
         if ($targets === []) {
             throw ValidationException::withMessages(['branch_ids' => 'Branch belum memiliki comcode ESB aktif yang terdaftar.']);
@@ -358,6 +382,107 @@ class BulkDataPromotionPage extends Page
             ->body(implode("\n", $results))
             ->success()
             ->send();
+    }
+
+    public function openPicker(string $type): null
+    {
+        if ($this->selectedEsbBranchPairs($this->data['branch_ids'] ?? [])->isEmpty()) {
+            Notification::make()
+                ->title('Pilih Branch terlebih dahulu')
+                ->body('Data category, category detail, dan menu diambil berdasarkan comcode + branch yang dipilih.')
+                ->warning()
+                ->send();
+
+            return null;
+        }
+
+        $this->pickerType = in_array($type, ['category', 'category_detail', 'menu'], true) ? $type : 'category';
+        $this->pickerPage = 1;
+        $this->pickerSearch = '';
+        $this->pickerOpen = true;
+        $this->loadPickerRows();
+
+        return null;
+    }
+
+    public function closePicker(): void
+    {
+        $this->pickerOpen = false;
+    }
+
+    public function updatedPickerSearch(): void
+    {
+        $this->pickerPage = 1;
+        $this->loadPickerRows();
+    }
+
+    public function setPickerPerPage(mixed $perPage): void
+    {
+        $this->pickerPerPage = in_array((int) $perPage, [10, 20], true) ? (int) $perPage : 10;
+        $this->pickerPage = 1;
+        $this->loadPickerRows();
+    }
+
+    public function nextPickerPage(): void
+    {
+        if (! $this->pickerHasNext) {
+            return;
+        }
+
+        $this->pickerPage++;
+        $this->loadPickerRows();
+    }
+
+    public function previousPickerPage(): void
+    {
+        $this->pickerPage = max(1, $this->pickerPage - 1);
+        $this->loadPickerRows();
+    }
+
+    public function loadPickerRows(): void
+    {
+        $pairs = $this->selectedEsbBranchPairs($this->data['branch_ids'] ?? [])->all();
+        $service = app(EsbPromotionService::class);
+        $result = $this->pickerType === 'menu'
+            ? $service->menuPage($pairs, $this->pickerPage, $this->pickerPerPage, $this->pickerSearch)
+            : $service->menuCategoryPage($pairs, $this->pickerType, $this->pickerPage, $this->pickerPerPage);
+
+        $this->pickerRows = $result['rows'];
+        $this->pickerPage = $result['page'];
+        $this->pickerPerPage = $result['perPage'];
+        $this->pickerTotal = $result['total'];
+        $this->pickerHasNext = $result['hasNext'];
+    }
+
+    public function togglePickerValue(string $value): void
+    {
+        $field = $this->pickerField();
+        $selected = $this->stringList($this->data[$field] ?? []);
+
+        $this->data[$field] = in_array($value, $selected, true)
+            ? array_values(array_diff($selected, [$value]))
+            : [...$selected, $value];
+
+        $this->refreshMenuSummary($field);
+    }
+
+    public function isPickerValueSelected(string $value): bool
+    {
+        return in_array($value, $this->stringList($this->data[$this->pickerField()] ?? []), true);
+    }
+
+    public function selectedPickerCount(): int
+    {
+        return count($this->stringList($this->data[$this->pickerField()] ?? []));
+    }
+
+    public function pickerTitle(): string
+    {
+        return match ($this->pickerType) {
+            'category_detail' => 'Pilih Menu Category Detail',
+            'menu' => 'Pilih Menu',
+            default => 'Pilih Menu Category',
+        };
     }
 
     /** @return array<string, string> */
@@ -535,8 +660,34 @@ class BulkDataPromotionPage extends Page
         $set('menuCategoryID', []);
         $set('menuCategoryDetailID', []);
         $set('menuID', []);
+        $set('menuCategorySummary', 'Belum ada yang dipilih');
+        $set('menuCategoryDetailSummary', 'Belum ada yang dipilih');
+        $set('menuSummary', 'Belum ada yang dipilih');
 
         return null;
+    }
+
+    private function validatePickerSelection(array $data): void
+    {
+        if ((bool) ($data['allCategories'] ?? false)) {
+            return;
+        }
+
+        $applyDiscountTo = (int) ($data['applyDiscountTo'] ?? 0);
+        $field = match ($applyDiscountTo) {
+            1 => 'menuCategoryID',
+            2 => 'menuCategoryDetailID',
+            3 => 'menuID',
+            default => null,
+        };
+
+        if ($field === null || $this->stringList($data[$field] ?? []) !== []) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            $this->summaryField($field) => 'Pilih minimal satu '.$this->pickerLabelForField($field).'.',
+        ]);
     }
 
     /** @return list<string> */
@@ -588,30 +739,6 @@ class BulkDataPromotionPage extends Page
     private function selectedBranchCodes(Get $get): array
     {
         return $this->branchCodesForBranches($get('branch_ids') ?? []);
-    }
-
-    /** @return list<array{comcode:string,branchCode:string,branchName:string}> */
-    private function selectedBranchPairs(Get $get): array
-    {
-        return $this->selectedEsbBranchPairs($get('branch_ids') ?? [])->all();
-    }
-
-    /** @return array<string, string> */
-    private function menuCategoryOptions(Get $get): array
-    {
-        return app(EsbPromotionService::class)->menuCategoryOptions($this->selectedBranchPairs($get));
-    }
-
-    /** @return array<string, string> */
-    private function menuCategoryDetailOptions(Get $get): array
-    {
-        return app(EsbPromotionService::class)->menuCategoryDetailOptions($this->selectedBranchPairs($get));
-    }
-
-    /** @return array<string, string> */
-    private function menuOptions(Get $get): array
-    {
-        return app(EsbPromotionService::class)->menuOptions($this->selectedBranchPairs($get));
     }
 
     /** @return list<string> */
@@ -687,6 +814,41 @@ class BulkDataPromotionPage extends Page
         }
 
         return trim((string) preg_replace('/\s*\([^)]*\)\s*$/', '', $label));
+    }
+
+    private function pickerField(): string
+    {
+        return match ($this->pickerType) {
+            'category_detail' => 'menuCategoryDetailID',
+            'menu' => 'menuID',
+            default => 'menuCategoryID',
+        };
+    }
+
+    private function summaryField(string $field): string
+    {
+        return match ($field) {
+            'menuCategoryDetailID' => 'menuCategoryDetailSummary',
+            'menuID' => 'menuSummary',
+            default => 'menuCategorySummary',
+        };
+    }
+
+    private function refreshMenuSummary(string $field): void
+    {
+        $count = count($this->stringList($this->data[$field] ?? []));
+        $this->data[$this->summaryField($field)] = $count > 0
+            ? $count.' '.$this->pickerLabelForField($field).' dipilih'
+            : 'Belum ada yang dipilih';
+    }
+
+    private function pickerLabelForField(string $field): string
+    {
+        return match ($field) {
+            'menuCategoryDetailID' => 'Menu Category Detail',
+            'menuID' => 'Menu',
+            default => 'Menu Category',
+        };
     }
 
     private function yesNo(bool $state): string

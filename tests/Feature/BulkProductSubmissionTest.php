@@ -482,3 +482,99 @@ it('loads menu category options from ESB with comcode and branch labels', functi
 
     expect(Http::recorded()->filter(fn (array $record): bool => $record[0]->method() === 'GET')->count())->toBe(1);
 });
+
+it('selects promotion category from the paginated picker modal', function () {
+    config([
+        'esb.base_url' => 'https://promotion-esb.test',
+        'esb.tokens.BLSS' => 'blss-static-token',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if ($request->method() === 'GET' && $request->url() === 'https://promotion-esb.test/corev1/branch') {
+            return Http::response([
+                'code' => 200,
+                'data' => [
+                    ['branchCode' => 'LR00', 'branchName' => 'Bloomery Pusat'],
+                ],
+            ]);
+        }
+
+        if ($request->method() === 'GET' && $request->url() === 'https://promotion-esb.test/corev1/master/get-menu-category') {
+            return Http::response([
+                'status' => 'ok',
+                'result' => [
+                    'page' => 1,
+                    'limit' => 10,
+                    'count' => 1,
+                    'data' => [[
+                        'menuCategoryID' => 16,
+                        'menuCategoryName' => 'Food-Int',
+                        'menuCategoryDetails' => [],
+                    ]],
+                ],
+                'next' => null,
+            ]);
+        }
+
+        if ($request->method() === 'POST' && $request->url() === 'https://promotion-esb.test/corev1/promotion/') {
+            return Http::response([
+                'code' => 200,
+                'message' => 'Save Data Successfully',
+                'data' => ['promotionID' => 118],
+            ]);
+        }
+
+        return Http::response(['code' => 200, 'data' => []]);
+    });
+
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('IT_STAFF');
+    $this->actingAs($user);
+
+    $component = Livewire::test(BulkDataPromotionPage::class)
+        ->fillForm([
+            'target_comcodes' => ['BLSS'],
+            'promotionMasterCode' => 'F0002',
+            'promotionType' => 4,
+            'discountAccountNumber' => 'Refer to Account in Mapping',
+            'authorizationNeeded' => false,
+            'promotionDaysID' => [1, 2],
+            'startDate' => '2026-09-04 07:00:00',
+            'endDate' => '2026-09-04 23:00:00',
+            'selectPromotionTime' => 'all_days',
+            'applyToAllApplication' => false,
+            'applyToApplicationID' => ['pos'],
+            'allCategories' => false,
+            'applyDiscountTo' => 1,
+            'usedForLoyalty' => false,
+            'applyTo' => 'All Transaction',
+            'promotionDesc' => 'Free item category',
+            'voucherSourceName' => '',
+            'settingBinRequired' => false,
+        ])
+        ->set('data.target_comcodes', ['BLSS'])
+        ->set('data.branch_ids', ['BLSS|LR00'])
+        ->call('openPicker', 'category')
+        ->assertSet('pickerOpen', true)
+        ->call('togglePickerValue', 'BLSS|LR00|16')
+        ->assertSet('data.menuCategoryID', ['BLSS|LR00|16'])
+        ->assertSet('data.menuCategorySummary', '1 Menu Category dipilih');
+
+    $component
+        ->call('submit')
+        ->assertHasNoFormErrors();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        return $request->method() === 'POST'
+            && $request->url() === 'https://promotion-esb.test/corev1/promotion/'
+            && $payload['allCategories'] === 'No'
+            && $payload['applyDiscountTo'] === 1
+            && $payload['menuCategoryID'] === [16]
+            && $payload['menuCategoryDetailID'] === []
+            && $payload['menuID'] === [];
+    });
+});

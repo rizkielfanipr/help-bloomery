@@ -55,7 +55,7 @@ class EsbPromotionService
                 $branchCode = $this->firstFilled($row, ['branchCode', 'branch_code', 'code']);
                 $branchName = $this->firstFilled($row, ['branchName', 'branch_name', 'name']);
                 if ($branchCode !== '') {
-                    $options[$comcode.'|'.$branchCode] = $branchName !== '' ? "{$branchName} ({$branchCode})" : "{$comcode} - {$branchCode}";
+                    $options[$comcode.'|'.$branchCode] = $branchName !== '' ? "{$comcode} - {$branchName} ({$branchCode})" : "{$comcode} - {$branchCode}";
                 }
             }
         }
@@ -83,15 +83,87 @@ class EsbPromotionService
         ]);
     }
 
-    /** @return array<int, string> */
-    public function visitPurposeOptions(array $comcodes, array $branchCodes): array
+    /** @return array<string, string> */
+    public function menuCategoryOptions(array $pairs): array
     {
-        return collect($this->catalogOptions($comcodes, $branchCodes, '/corev1/visit-purpose', [
-            'id' => ['visitPurposeID', 'id'],
-            'label' => ['visitPurposeName', 'name'],
-        ]))
-            ->mapWithKeys(fn (string $label, string $id): array => [(int) $id => $label])
-            ->all();
+        $options = [];
+
+        foreach ($pairs as $pair) {
+            $categories = $this->menuCategories((string) $pair['comcode'], (string) $pair['branchCode']);
+            foreach ($categories as $category) {
+                $id = (int) ($category['menuCategoryID'] ?? 0);
+                $name = trim((string) ($category['menuCategoryName'] ?? ''));
+                if ($id < 1 || $name === '') {
+                    continue;
+                }
+
+                $options[$pair['comcode'].'|'.$pair['branchCode'].'|'.$id] = $this->optionLabel($pair, $name, $id);
+            }
+        }
+
+        asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $options;
+    }
+
+    /** @return array<string, string> */
+    public function menuCategoryDetailOptions(array $pairs): array
+    {
+        $options = [];
+
+        foreach ($pairs as $pair) {
+            $categories = $this->menuCategories((string) $pair['comcode'], (string) $pair['branchCode']);
+            foreach ($categories as $category) {
+                foreach ($category['menuCategoryDetails'] ?? [] as $detail) {
+                    if (! is_array($detail)) {
+                        continue;
+                    }
+
+                    $id = (int) ($detail['menuCategoryDetailID'] ?? 0);
+                    $name = trim((string) ($detail['menuCategoryDetailName'] ?? ''));
+                    if ($id < 1 || $name === '') {
+                        continue;
+                    }
+
+                    $categoryName = trim((string) ($category['menuCategoryName'] ?? ''));
+                    $label = $categoryName !== '' ? "{$categoryName} / {$name}" : $name;
+                    $options[$pair['comcode'].'|'.$pair['branchCode'].'|'.$id] = $this->optionLabel($pair, $label, $id);
+                }
+            }
+        }
+
+        asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $options;
+    }
+
+    /** @return array<string, string> */
+    public function menuOptions(array $pairs): array
+    {
+        $options = [];
+
+        foreach ($pairs as $pair) {
+            $menus = $this->pagedCatalog((string) $pair['comcode'], (string) $pair['branchCode'], '/corev1/master/get-menu', ['flagActive' => 1]);
+            foreach ($menus as $menu) {
+                if (! is_array($menu)) {
+                    continue;
+                }
+
+                $id = (int) ($menu['menuID'] ?? 0);
+                $name = trim((string) ($menu['menuName'] ?? ''));
+                if ($id < 1 || $name === '') {
+                    continue;
+                }
+
+                $code = trim((string) ($menu['menuCode'] ?? ''));
+                $label = $code !== '' ? "{$name} ({$code})" : $name;
+                $options[$pair['comcode'].'|'.$pair['branchCode'].'|'.$id] = $this->optionLabel($pair, $label, $id);
+            }
+        }
+
+        asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $options;
     }
 
     /** @return array{promotionID:int|null,message:string} */
@@ -195,6 +267,71 @@ class EsbPromotionService
         asort($options, SORT_NATURAL | SORT_FLAG_CASE);
 
         return $options;
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function menuCategories(string $comcode, string $branchCode): array
+    {
+        return $this->pagedCatalog($comcode, $branchCode, '/corev1/master/get-menu-category');
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function pagedCatalog(string $comcode, string $branchCode, string $path, array $params = []): array
+    {
+        $token = trim((string) config("esb.tokens.{$comcode}", ''));
+        if ($token === '') {
+            return [];
+        }
+
+        $cacheKey = 'esb.promotion.paged_catalog.'.md5($path.'|'.$comcode.'|'.$branchCode.'|'.json_encode($params));
+
+        return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($branchCode, $params, $path, $token): array {
+            $rows = [];
+            $page = 1;
+
+            do {
+                $hasNext = false;
+
+                try {
+                    $response = Http::acceptJson()
+                        ->asJson()
+                        ->withToken($token)
+                        ->connectTimeout(10)
+                        ->timeout((int) config('esb.core.timeout', 60))
+                        ->get($this->baseUrl().$path, ['page' => $page, 'branchCode' => $branchCode, 'Boolean' => 1] + $params);
+
+                    if ($response->failed()) {
+                        break;
+                    }
+
+                    $body = $response->json();
+                    if (! is_array($body)) {
+                        break;
+                    }
+
+                    $result = is_array($body['result'] ?? null) ? $body['result'] : [];
+                    $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+                    array_push($rows, ...$data);
+
+                    $limit = max(1, (int) ($result['limit'] ?? count($data) ?: 10));
+                    $count = (int) ($result['count'] ?? count($rows));
+                    $hasNext = filled($body['next'] ?? null) || ($page * $limit) < $count;
+                    $page++;
+                } catch (\Throwable) {
+                    break;
+                }
+            } while ($hasNext && $page <= 100);
+
+            return $rows;
+        });
+    }
+
+    private function optionLabel(array $pair, string $label, int $id): string
+    {
+        $branchName = trim((string) ($pair['branchName'] ?? ''));
+        $branch = $branchName !== '' ? $branchName : (string) $pair['branchCode'];
+
+        return "{$pair['comcode']} - {$branch} - {$label} (#{$id})";
     }
 
     private function firstFilled(array $row, array $keys): string

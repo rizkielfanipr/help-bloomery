@@ -8,6 +8,7 @@ use App\Filament\Helpdesk\Resources\BulkProductSubmissions\Pages\CreateBulkProdu
 use App\Models\BulkProductSubmission;
 use App\Models\User;
 use App\Services\EsbCompanyProductService;
+use App\Services\EsbPromotionService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;
@@ -278,7 +279,8 @@ it('renders the Bulk Data menu, product pages, and promotion page for IT staff',
     $this->get(route('filament.helpdesk.pages.bulk-data.promotion'))
         ->assertOk()
         ->assertSee('Bulk Data Promotion')
-        ->assertSee('Kembali ke Bulk Data');
+        ->assertSee('Kembali ke Bulk Data')
+        ->assertSee('All Visit Purpose');
 
     Livewire::test(BulkDataPage::class)
         ->assertSee('Bulk Data Product')
@@ -286,7 +288,8 @@ it('renders the Bulk Data menu, product pages, and promotion page for IT staff',
 
     Livewire::test(BulkDataPromotionPage::class)
         ->assertSee('Bulk Data Promotion')
-        ->assertSee('Kembali ke Bulk Data');
+        ->assertSee('Kembali ke Bulk Data')
+        ->assertFormSet(['visitPurposeDisplay' => 'All Visit Purpose']);
 
     $this
         ->get(BulkProductSubmissionResource::getUrl())
@@ -333,6 +336,26 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             ]);
         }
 
+        if ($request->method() === 'GET' && $request->url() === 'https://promotion-esb.test/corev1/master/get-menu-category') {
+            return Http::response([
+                'status' => 'ok',
+                'result' => [
+                    'page' => 1,
+                    'limit' => 10,
+                    'count' => 1,
+                    'data' => [[
+                        'menuCategoryID' => 16,
+                        'menuCategoryName' => 'Food-Int',
+                        'menuCategoryDetails' => [[
+                            'menuCategoryDetailID' => 34,
+                            'menuCategoryDetailName' => 'Main Course-Int',
+                        ]],
+                    ]],
+                ],
+                'next' => null,
+            ]);
+        }
+
         if ($request->method() === 'POST' && $request->url() === 'https://promotion-esb.test/corev1/promotion/') {
             return Http::response([
                 'code' => 200,
@@ -353,7 +376,7 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
     $user->assignRole('IT_STAFF');
     $this->actingAs($user);
 
-    Livewire::test(BulkDataPromotionPage::class)
+    $component = Livewire::test(BulkDataPromotionPage::class)
         ->fillForm([
             'target_comcodes' => ['ALL'],
             'branch_ids' => ['BLSS|LR00', 'BLO7|LR00'],
@@ -367,8 +390,7 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             'endDate' => '2026-09-04 23:00:00',
             'selectPromotionTime' => 'specific_time',
             'applyToAllApplication' => false,
-            'allCategories' => false,
-            'applyDiscountTo' => 1,
+            'allCategories' => true,
             'usedForLoyalty' => true,
             'applyTo' => 'Staff Only',
             'applyToApplicationID' => ['pos', 'eso'],
@@ -384,9 +406,10 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             'minSalesPrice' => 10000,
             'settingBinRequired' => true,
             'bankIdentificationNumbers' => ['123456'],
-            'visitPurposeID' => [1],
             'prefixPromotion' => '12345',
-        ])
+        ]);
+
+    $component
         ->call('submit')
         ->assertHasNoFormErrors();
 
@@ -399,8 +422,8 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             && $payload['branchCode'] === ['LR00']
             && $payload['promotionType'] === 4
             && $payload['discountAccountNumber'] === 'Refer to Account in Mapping'
-            && $payload['allCategories'] === 'No'
-            && $payload['applyDiscountTo'] === 1
+            && $payload['allCategories'] === 'Yes'
+            && $payload['applyDiscountTo'] === null
             && $payload['menuCategoryID'] === []
             && $payload['menuCategoryDetailID'] === []
             && $payload['menuID'] === []
@@ -414,8 +437,48 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             && $payload['voucherSourceName'] === 'Giftee'
             && $payload['minSalesPrice'] === 10000.0
             && $payload['prefixPromotion'] === '12345'
-            && $payload['visitPurposeID'] === [1]
+            && $payload['visitPurposeID'] === []
             && $payload['bankIdentificationNumbers'] === ['123456']
             && $payload['promotionTime'] === [['startTime' => '07:00:00', 'endTime' => '10:00:00']];
     });
+});
+
+it('loads menu category options from ESB with comcode and branch labels', function () {
+    config([
+        'esb.base_url' => 'https://promotion-esb.test',
+        'esb.tokens.BLSS' => 'blss-static-token',
+    ]);
+
+    Http::fake([
+        'https://promotion-esb.test/corev1/master/get-menu-category*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1,
+                'limit' => 10,
+                'count' => 1,
+                'data' => [[
+                    'menuCategoryID' => 16,
+                    'menuCategoryName' => 'Food-Int',
+                    'menuCategoryDetails' => [[
+                        'menuCategoryDetailID' => 34,
+                        'menuCategoryDetailName' => 'Main Course-Int',
+                    ]],
+                ]],
+            ],
+            'next' => null,
+        ]),
+    ]);
+
+    $pairs = [[
+        'comcode' => 'BLSS',
+        'branchCode' => 'LR00',
+        'branchName' => 'Bloomery Pusat',
+    ]];
+
+    expect(app(EsbPromotionService::class)->menuCategoryOptions($pairs))
+        ->toBe(['BLSS|LR00|16' => 'BLSS - Bloomery Pusat - Food-Int (#16)'])
+        ->and(app(EsbPromotionService::class)->menuCategoryDetailOptions($pairs))
+        ->toBe(['BLSS|LR00|34' => 'BLSS - Bloomery Pusat - Food-Int / Main Course-Int (#34)']);
+
+    expect(Http::recorded()->filter(fn (array $record): bool => $record[0]->method() === 'GET')->count())->toBe(1);
 });

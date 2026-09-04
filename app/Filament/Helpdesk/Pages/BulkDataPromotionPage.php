@@ -62,7 +62,7 @@ class BulkDataPromotionPage extends Page
             'menuID' => [],
             'employeeGroupName' => [],
             'selfOrderPaymentMethodCode' => [],
-            'visitPurposeID' => [],
+            'visitPurposeDisplay' => 'All Visit Purpose',
             'bankIdentificationNumbers' => [],
         ]);
     }
@@ -172,7 +172,8 @@ class BulkDataPromotionPage extends Page
                             ->boolean()
                             ->native(false)
                             ->live()
-                            ->required(),
+                            ->required()
+                            ->afterStateUpdated(fn (Set $set): null => $this->resetMenuSelections($set)),
                         Select::make('applyDiscountTo')
                             ->label('Apply Discount To')
                             ->options([
@@ -183,7 +184,44 @@ class BulkDataPromotionPage extends Page
                             ->native(false)
                             ->visible(fn (Get $get): bool => ! (bool) $get('allCategories'))
                             ->required(fn (Get $get): bool => ! (bool) $get('allCategories'))
-                            ->live(),
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set): null => $this->resetMenuSelections($set)),
+                        Select::make('menuCategoryID')
+                            ->label('Menu Category')
+                            ->options(fn (Get $get): array => $this->menuCategoryOptions($get))
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
+                            ->placeholder('Select Menu Category')
+                            ->helperText('Pilih menu category yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
+                            ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 1)
+                            ->required(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 1)
+                            ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
+                        Select::make('menuCategoryDetailID')
+                            ->label('Menu Category Detail')
+                            ->options(fn (Get $get): array => $this->menuCategoryDetailOptions($get))
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
+                            ->placeholder('Select Menu Category Detail')
+                            ->helperText('Pilih menu category detail yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
+                            ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 2)
+                            ->required(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 2)
+                            ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
+                        Select::make('menuID')
+                            ->label('Menu')
+                            ->options(fn (Get $get): array => $this->menuOptions($get))
+                            ->multiple()
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
+                            ->placeholder('Select Menu')
+                            ->helperText('Pilih menu yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
+                            ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 3)
+                            ->required(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 3)
+                            ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
                         Select::make('applyTo')
                             ->label('Apply To')
                             ->options(self::applyToOptions())
@@ -254,17 +292,11 @@ class BulkDataPromotionPage extends Page
                             ->native(false)
                             ->live()
                             ->required(),
-                        Select::make('visitPurposeID')
+                        TextInput::make('visitPurposeDisplay')
                             ->label('Visit Purpose')
-                            ->options(fn (Get $get): array => $this->visitPurposeOptions($get))
-                            ->multiple()
-                            ->searchable()
-                            ->preload()
-                            ->native(false)
-                            ->placeholder('All Visit Purpose')
-                            ->helperText(fn (Get $get): ?string => blank($get('branch_ids')) ? 'Please select Branch first' : null)
-                            ->disabled(fn (Get $get): bool => blank($get('branch_ids')))
-                            ->dehydrated(),
+                            ->default('All Visit Purpose')
+                            ->readOnly()
+                            ->dehydrated(false),
                         TagsInput::make('bankIdentificationNumbers')
                             ->label('Bank Identification Numbers')
                             ->placeholder('Ketik BIN lalu Enter')
@@ -313,7 +345,7 @@ class BulkDataPromotionPage extends Page
 
         foreach ($targets as $comcode) {
             try {
-                $response = app(EsbPromotionService::class)->createFreeItem($comcode, $payload);
+                $response = app(EsbPromotionService::class)->createFreeItem($comcode, $this->payloadForComcode($payload, $data, $comcode));
                 $results[] = $comcode.' sukses'.($response['promotionID'] ? ' (#'.$response['promotionID'].')' : '');
             } catch (Throwable $exception) {
                 report($exception);
@@ -419,19 +451,6 @@ class BulkDataPromotionPage extends Page
         ];
     }
 
-    /** @return array<int, string> */
-    private function visitPurposeOptions(Get $get): array
-    {
-        return app(EsbPromotionService::class)->visitPurposeOptions(
-            $this->selectedTargetComcodes($get),
-            $this->selectedBranchCodes($get),
-        ) ?: [
-            1 => 'Dine In',
-            2 => 'Take Away',
-            3 => 'Delivery',
-        ];
-    }
-
     private function payload(array $data): array
     {
         $allCategories = (bool) $data['allCategories'];
@@ -462,7 +481,7 @@ class BulkDataPromotionPage extends Page
             'selfOrderPaymentMethodCode' => in_array('eso', $applicationIds, true) ? $this->stringList($data['selfOrderPaymentMethodCode'] ?? []) : [],
             'maxUsage' => in_array('eso', $applicationIds, true) ? (int) $data['maxUsage'] : null,
             'maxUsageTotal' => in_array('eso', $applicationIds, true) ? (int) $data['maxUsageTotal'] : null,
-            'visitPurposeID' => $this->integerList($data['visitPurposeID'] ?? []),
+            'visitPurposeID' => [],
             'promotionTime' => $this->promotionTimes($data['promotionTime'] ?? []),
             'promotionCode' => (string) ($data['promotionCode'] ?? ''),
             'promotionDesc' => (string) $data['promotionDesc'],
@@ -473,6 +492,19 @@ class BulkDataPromotionPage extends Page
             'prefixPromotion' => $voucherSource === 'Giftee' ? (string) $data['prefixPromotion'] : '',
             'discountAccountNumber' => (string) ($data['discountAccountNumber'] ?? ''),
         ];
+    }
+
+    private function payloadForComcode(array $payload, array $data, string $comcode): array
+    {
+        $allCategories = (bool) $data['allCategories'];
+        $applyDiscountTo = (int) ($data['applyDiscountTo'] ?? 0);
+
+        $payload['branchCode'] = $this->branchCodesForComcode($data['branch_ids'] ?? [], $comcode);
+        $payload['menuCategoryID'] = (! $allCategories && $applyDiscountTo === 1) ? $this->selectedScopedIds($data['menuCategoryID'] ?? [], $comcode) : [];
+        $payload['menuCategoryDetailID'] = (! $allCategories && $applyDiscountTo === 2) ? $this->selectedScopedIds($data['menuCategoryDetailID'] ?? [], $comcode) : [];
+        $payload['menuID'] = (! $allCategories && $applyDiscountTo === 3) ? $this->selectedScopedIds($data['menuID'] ?? [], $comcode) : [];
+
+        return $payload;
     }
 
     private function usesEso(Get $get): bool
@@ -492,7 +524,17 @@ class BulkDataPromotionPage extends Page
     {
         $set('selfOrderPaymentMethodCode', []);
         $set('paymentMethodName', null);
-        $set('visitPurposeID', []);
+        $set('visitPurposeDisplay', 'All Visit Purpose');
+        $this->resetMenuSelections($set);
+
+        return null;
+    }
+
+    private function resetMenuSelections(Set $set): null
+    {
+        $set('menuCategoryID', []);
+        $set('menuCategoryDetailID', []);
+        $set('menuID', []);
 
         return null;
     }
@@ -548,6 +590,30 @@ class BulkDataPromotionPage extends Page
         return $this->branchCodesForBranches($get('branch_ids') ?? []);
     }
 
+    /** @return list<array{comcode:string,branchCode:string,branchName:string}> */
+    private function selectedBranchPairs(Get $get): array
+    {
+        return $this->selectedEsbBranchPairs($get('branch_ids') ?? [])->all();
+    }
+
+    /** @return array<string, string> */
+    private function menuCategoryOptions(Get $get): array
+    {
+        return app(EsbPromotionService::class)->menuCategoryOptions($this->selectedBranchPairs($get));
+    }
+
+    /** @return array<string, string> */
+    private function menuCategoryDetailOptions(Get $get): array
+    {
+        return app(EsbPromotionService::class)->menuCategoryDetailOptions($this->selectedBranchPairs($get));
+    }
+
+    /** @return array<string, string> */
+    private function menuOptions(Get $get): array
+    {
+        return app(EsbPromotionService::class)->menuOptions($this->selectedBranchPairs($get));
+    }
+
     /** @return list<string> */
     private function selectedComcodes(mixed $comcodes): array
     {
@@ -572,10 +638,55 @@ class BulkDataPromotionPage extends Page
                 return [
                     'comcode' => trim($parts[0]),
                     'branchCode' => trim($parts[1]),
+                    'branchName' => $this->branchLabel((string) $value),
                 ];
             })
             ->filter()
             ->values();
+    }
+
+    /** @return list<int> */
+    private function selectedScopedIds(mixed $values, string $comcode): array
+    {
+        return collect($values)
+            ->map(function (mixed $value) use ($comcode): ?int {
+                $parts = explode('|', (string) $value);
+                if (count($parts) === 3 && $parts[0] === $comcode) {
+                    return (int) $parts[2];
+                }
+
+                if (count($parts) === 1) {
+                    return (int) $parts[0];
+                }
+
+                return null;
+            })
+            ->filter(fn (?int $value): bool => $value !== null && $value > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** @return list<string> */
+    private function branchCodesForComcode(mixed $values, string $comcode): array
+    {
+        return $this->selectedEsbBranchPairs($values)
+            ->filter(fn (array $pair): bool => $pair['comcode'] === $comcode)
+            ->pluck('branchCode')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function branchLabel(string $value): string
+    {
+        $options = $this->branchOptions($this->data['target_comcodes'] ?? []);
+        $label = (string) ($options[$value] ?? '');
+        if ($label === '') {
+            return '';
+        }
+
+        return trim((string) preg_replace('/\s*\([^)]*\)\s*$/', '', $label));
     }
 
     private function yesNo(bool $state): string

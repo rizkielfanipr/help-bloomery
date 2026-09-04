@@ -314,3 +314,108 @@ it('renders the Bulk Data menu, product pages, and promotion page for IT staff',
         ->assertSee('BLO7')
         ->assertSee('123');
 });
+
+it('submits bulk promotion free item to selected comcodes with conditional payload', function () {
+    config([
+        'esb.base_url' => 'https://promotion-esb.test',
+        'esb.tokens.BLSS' => 'blss-static-token',
+        'esb.tokens.BLO7' => 'blo7-static-token',
+        'esb.tokens.BLO6' => '',
+    ]);
+
+    Http::fake(function (Request $request) {
+        if ($request->method() === 'GET' && $request->url() === 'https://promotion-esb.test/corev1/branch') {
+            return Http::response([
+                'code' => 200,
+                'data' => [
+                    ['branchCode' => 'LR00', 'branchName' => 'Bloomery Pusat'],
+                ],
+            ]);
+        }
+
+        if ($request->method() === 'POST' && $request->url() === 'https://promotion-esb.test/corev1/promotion/') {
+            return Http::response([
+                'code' => 200,
+                'message' => 'Save Data Successfully',
+                'data' => ['promotionID' => 117],
+            ]);
+        }
+
+        return Http::response([
+            'code' => 200,
+            'data' => [],
+        ]);
+    });
+
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('IT_STAFF');
+    $this->actingAs($user);
+
+    Livewire::test(BulkDataPromotionPage::class)
+        ->fillForm([
+            'target_comcodes' => ['ALL'],
+            'branch_ids' => ['BLSS|LR00', 'BLO7|LR00'],
+            'promotionMasterCode' => 'F0001',
+            'promotionType' => 4,
+            'discountAccountNumber' => 'Refer to Account in Mapping',
+            'notes' => 'Promo Free Item',
+            'authorizationNeeded' => false,
+            'promotionDaysID' => [1, 2],
+            'startDate' => '2026-09-04 07:00:00',
+            'endDate' => '2026-09-04 23:00:00',
+            'selectPromotionTime' => 'specific_time',
+            'applyToAllApplication' => false,
+            'allCategories' => false,
+            'applyDiscountTo' => 1,
+            'usedForLoyalty' => true,
+            'applyTo' => 'Staff Only',
+            'applyToApplicationID' => ['pos', 'eso'],
+            'selfOrderPaymentMethodCode' => ['cc88'],
+            'maxUsage' => 1,
+            'maxUsageTotal' => 11,
+            'promotionTime' => [
+                ['startTime' => '07:00:00', 'endTime' => '10:00:00'],
+            ],
+            'promotionCode' => '',
+            'promotionDesc' => 'Free item',
+            'voucherSourceName' => 'Giftee',
+            'minSalesPrice' => 10000,
+            'settingBinRequired' => true,
+            'bankIdentificationNumbers' => ['123456'],
+            'visitPurposeID' => [1],
+            'prefixPromotion' => '12345',
+        ])
+        ->call('submit')
+        ->assertHasNoFormErrors();
+
+    expect(Http::recorded()->filter(fn (array $record): bool => $record[0]->method() === 'POST')->count())->toBe(2);
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        return $request->url() === 'https://promotion-esb.test/corev1/promotion/'
+            && $request->hasHeader('Authorization', 'Bearer blss-static-token')
+            && $payload['branchCode'] === ['LR00']
+            && $payload['promotionType'] === 4
+            && $payload['discountAccountNumber'] === 'Refer to Account in Mapping'
+            && $payload['allCategories'] === 'No'
+            && $payload['applyDiscountTo'] === 1
+            && $payload['menuCategoryID'] === []
+            && $payload['menuCategoryDetailID'] === []
+            && $payload['menuID'] === []
+            && $payload['usedForLoyalty'] === 'Yes'
+            && $payload['applyTo'] === 'Staff Only'
+            && $payload['employeeGroupName'] === []
+            && $payload['applyToApplicationID'] === ['pos', 'eso']
+            && $payload['selfOrderPaymentMethodCode'] === ['cc88']
+            && $payload['maxUsage'] === 1
+            && $payload['maxUsageTotal'] === 11
+            && $payload['voucherSourceName'] === 'Giftee'
+            && $payload['minSalesPrice'] === 10000.0
+            && $payload['prefixPromotion'] === '12345'
+            && $payload['visitPurposeID'] === [1]
+            && $payload['bankIdentificationNumbers'] === ['123456']
+            && $payload['promotionTime'] === [['startTime' => '07:00:00', 'endTime' => '10:00:00']];
+    });
+});

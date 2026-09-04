@@ -267,7 +267,7 @@
                 </div>
                 <div class="mt-4 flex flex-wrap justify-end gap-2">
                     @if($this->canReviewAsFinance())
-                        <button type="button" wire:click="rejectFinance" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-arrow-uturn-left class="h-4 w-4" />Return to Supervisor</button>
+                        <button type="button" wire:click="rejectFinance" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-x-circle class="h-4 w-4" />Reject</button>
                     @endif
                     <button type="button" wire:click="{{ $this->canReviewAsSupervisor() ? 'approveSupervisor' : 'approveFinance' }}" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 dark:border-blue-900 dark:bg-gray-900"><x-heroicon-o-check class="h-4 w-4" />{{ $this->canReviewAsSupervisor() ? 'Set as Finance Review' : 'Set as Completed' }}</button>
                 </div>

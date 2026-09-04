@@ -228,7 +228,7 @@ it('requires supervisor notes while corrected store and system sales still diffe
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingSupervisor);
 });
 
-it('returns a finance rejection to the supervisor with an audit trail', function () {
+it('makes a finance rejection final with an audit trail', function () {
     $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
     $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
@@ -239,8 +239,30 @@ it('returns a finance rejection to the supervisor with an audit trail', function
         ->call('rejectFinance')
         ->assertHasNoErrors();
 
-    expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingSupervisor)
-        ->and($this->report->approvals()->where('action', 'rejected')->exists())->toBeTrue();
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Rejected)
+        ->and($this->report->approvals()->where('stage', 'finance')->where('action', 'rejected')->exists())->toBeTrue();
+
+    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+        ->assertDontSee('Set as Finance Review')
+        ->assertDontSee('Set as Completed')
+        ->assertDontSee('Return to Supervisor');
+});
+
+it('migrates a legacy finance rejection returned to supervisor into final rejected status', function () {
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $this->report->update(['status' => SalesReportStatus::PendingSupervisor->value]);
+    $this->report->approvals()->create([
+        'stage' => 'finance',
+        'action' => 'rejected',
+        'actor_id' => $finance->id,
+        'notes' => 'Legacy Finance rejection',
+        'revision_number' => $this->report->revision_number ?? 1,
+    ]);
+
+    $migration = require database_path('migrations/2026_09_04_090553_migrate_finance_rejected_sales_reports_to_final_rejected_status.php');
+    $migration->up();
+
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Rejected);
 });
 
 it('shows an informative empty state for a label with no reconciliation data', function () {
@@ -331,7 +353,8 @@ it('uses concise English labels throughout the sales report workflow', function 
     expect(SalesReportStatus::Draft->getLabel())->toBe('Draft')
         ->and(SalesReportStatus::PendingSupervisor->getLabel())->toBe('Supervisor Review')
         ->and(SalesReportStatus::PendingFinance->getLabel())->toBe('Finance Review')
-        ->and(SalesReportStatus::Completed->getLabel())->toBe('Completed');
+        ->and(SalesReportStatus::Completed->getLabel())->toBe('Completed')
+        ->and(SalesReportStatus::Rejected->getLabel())->toBe('Rejected');
 });
 
 it('grants supervisors full employee access without driver access', function () {

@@ -220,7 +220,7 @@ class ViewSalesReport extends Page
 
         $this->transitionReview(
             expected: SalesReportStatus::PendingFinance,
-            next: SalesReportStatus::PendingSupervisor,
+            next: SalesReportStatus::Rejected,
             stage: 'finance',
             action: 'rejected',
             notes: trim($this->rejectionReason),
@@ -230,7 +230,7 @@ class ViewSalesReport extends Page
             ],
         );
 
-        Notification::make()->title('Report returned to Supervisor Review')->warning()->send();
+        Notification::make()->title('Sales Report rejected')->danger()->send();
     }
 
     public function settlementPreview(int $reconciliationId): array

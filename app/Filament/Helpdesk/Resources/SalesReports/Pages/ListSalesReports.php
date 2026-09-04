@@ -29,6 +29,8 @@ class ListSalesReports extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::PendingFinance->value)),
             'completed' => Tab::make('Completed')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::Completed->value)),
+            'rejected' => Tab::make('Rejected')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::Rejected->value)),
         ];
     }
 

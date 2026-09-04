@@ -735,3 +735,85 @@ it('only displays active categories, category details, and menus in the promotio
         ->and($menuTest->get('pickerRows.0.value'))->toBe('BLSS|LR00|301')
         ->and($menuTest->get('pickerRows.0.label'))->toBe('Active Coffee (AC01)');
 });
+
+it('supports All Branch option in promotion page', function () {
+    config([
+        'esb.base_url' => 'https://promotion-esb.test',
+        'esb.tokens.BLSS' => 'blss-static-token',
+    ]);
+
+    Http::fake([
+        'https://promotion-esb.test/corev1/master/get-menu-category*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1,
+                'limit' => 10,
+                'count' => 1,
+                'data' => [
+                    [
+                        'menuCategoryID' => 10,
+                        'menuCategoryName' => 'All Branch Category',
+                        'flagActive' => 1,
+                    ],
+                ],
+            ],
+            'next' => null,
+        ]),
+        'https://promotion-esb.test/corev1/promotion/' => Http::response([
+            'code' => 200,
+            'message' => 'Save Data Successfully',
+            'data' => ['promotionID' => 999],
+        ]),
+    ]);
+
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('IT_STAFF');
+    $this->actingAs($user);
+
+    $branch1 = Branch::factory()->create(['is_active' => true, 'name' => 'Branch One']);
+    $branch1->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'LR01', 'is_active' => true]);
+    $branch2 = Branch::factory()->create(['is_active' => true, 'name' => 'Branch Two']);
+    $branch2->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'LR02', 'is_active' => true]);
+
+    $component = Livewire::test(BulkDataPromotionPage::class)
+        ->fillForm([
+            'target_comcodes' => ['BLSS'],
+            'branch_ids' => ['ALL'],
+            'promotionMasterCode' => 'ALL-BR-01',
+            'promotionType' => 4,
+            'discountAccountNumber' => 'Refer to Account in Mapping',
+            'authorizationNeeded' => false,
+            'promotionDaysID' => [1, 2],
+            'startDate' => '2026-09-04 07:00:00',
+            'endDate' => '2026-09-04 23:00:00',
+            'selectPromotionTime' => 'all_days',
+            'applyToAllApplication' => false,
+            'applyToApplicationID' => ['pos'],
+            'allCategories' => true,
+            'usedForLoyalty' => false,
+            'applyTo' => 'All Transaction',
+            'promotionDesc' => 'All branch free item',
+            'voucherSourceName' => '',
+            'settingBinRequired' => false,
+        ]);
+
+    // Check that openPicker works when branch_ids is ALL
+    $component->call('openPicker', 'category')
+        ->assertSet('pickerOpen', true)
+        ->assertSet('pickerRows.0.label', 'All Branch Category');
+
+    // Submit and verify branchCode in payload contains both branch codes
+    $component->call('submit')
+        ->assertHasNoFormErrors();
+
+    Http::assertSent(function (Request $request): bool {
+        $payload = $request->data();
+
+        return $request->method() === 'POST'
+            && $request->url() === 'https://promotion-esb.test/corev1/promotion/'
+            && in_array('LR01', $payload['branchCode'] ?? [], true)
+            && in_array('LR02', $payload['branchCode'] ?? [], true);
+    });
+});

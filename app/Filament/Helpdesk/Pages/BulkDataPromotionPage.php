@@ -78,6 +78,7 @@ class BulkDataPromotionPage extends Page
             'applyTo' => 'All Transaction',
             'applyToApplicationID' => ['pos'],
             'promotionTime' => [],
+            'branch_ids' => [],
             'branchCode' => [],
             'menuCategoryID' => [],
             'menuCategoryDetailID' => [],
@@ -118,7 +119,14 @@ class BulkDataPromotionPage extends Page
                             ->afterStateUpdated(fn (Set $set): null => $this->resetDependentFields($set)),
                         Select::make('branch_ids')
                             ->label('Branch')
-                            ->options(fn (Get $get): array => $this->branchOptions($get('target_comcodes') ?? []))
+                            ->options(function (Get $get): array {
+                                $options = $this->branchOptions($get('target_comcodes') ?? []);
+                                if ($options === []) {
+                                    return [];
+                                }
+
+                                return ['ALL' => 'All Branch'] + $options;
+                            })
                             ->multiple()
                             ->searchable()
                             ->preload()
@@ -128,7 +136,18 @@ class BulkDataPromotionPage extends Page
                             ->placeholder('Select Branch')
                             ->helperText(fn (Get $get): ?string => blank($get('target_comcodes')) ? 'Please select Comcode first' : null)
                             ->disabled(fn (Get $get): bool => blank($get('target_comcodes')))
-                            ->afterStateUpdated(fn (Set $set): null => $this->resetBranchDependentFields($set)),
+                            ->afterStateUpdated(function (Set $set, ?array $state, ?array $old): null {
+                                $current = collect($state)->map(fn ($v) => (string) $v)->filter()->values()->all();
+                                $previous = collect($old)->map(fn ($v) => (string) $v)->filter()->values()->all();
+
+                                if (in_array('ALL', $current, true) && ! in_array('ALL', $previous, true)) {
+                                    $set('branch_ids', ['ALL']);
+                                } elseif (in_array('ALL', $current, true) && count($current) > 1) {
+                                    $set('branch_ids', array_values(array_diff($current, ['ALL'])));
+                                }
+
+                                return $this->resetBranchDependentFields($set);
+                            }),
                         TextInput::make('promotionMasterCode')
                             ->label('Promotion Master Code')
                             ->required()
@@ -716,16 +735,22 @@ class BulkDataPromotionPage extends Page
     }
 
     /** @return list<string> */
-    private function targetsForBranches(mixed $branchIds): array
+    private function targetsForBranches(mixed $branchIds, mixed $comcodes = null): array
     {
-        $selectedComcodes = $this->selectedComcodes($this->data['target_comcodes'] ?? []);
+        $rawComcodes = $comcodes ?? ($this->data['target_comcodes'] ?? ($this->form?->getState()['target_comcodes'] ?? ['ALL']));
+        $selectedBranchIds = $this->stringList($branchIds);
+        $selectedComcodes = $this->selectedComcodes($rawComcodes);
+
+        if (in_array('ALL', $selectedBranchIds, true)) {
+            $branchIds = array_keys($this->branchOptions($rawComcodes));
+        }
 
         return Branch::query()
             ->whereIn('id', $this->integerList($branchIds))
             ->with('esbCodes')
             ->get()
             ->flatMap(fn (Branch $branch) => $branch->esbCodes->where('is_active', true)->pluck('esb_comcode'))
-            ->merge($this->selectedEsbBranchPairs($branchIds)->pluck('comcode'))
+            ->merge($this->selectedEsbBranchPairs($branchIds, $rawComcodes)->pluck('comcode'))
             ->when(! in_array('ALL', $selectedComcodes, true), fn ($comcodes) => $comcodes->intersect($selectedComcodes))
             ->intersect(array_keys((array) config('esb.tokens', [])))
             ->filter()
@@ -735,9 +760,15 @@ class BulkDataPromotionPage extends Page
     }
 
     /** @return list<string> */
-    private function branchCodesForBranches(mixed $branchIds): array
+    private function branchCodesForBranches(mixed $branchIds, mixed $comcodes = null): array
     {
-        $selectedComcodes = $this->selectedComcodes($this->data['target_comcodes'] ?? []);
+        $rawComcodes = $comcodes ?? ($this->data['target_comcodes'] ?? ($this->form?->getState()['target_comcodes'] ?? ['ALL']));
+        $selectedBranchIds = $this->stringList($branchIds);
+        $selectedComcodes = $this->selectedComcodes($rawComcodes);
+
+        if (in_array('ALL', $selectedBranchIds, true)) {
+            $branchIds = array_keys($this->branchOptions($rawComcodes));
+        }
 
         return Branch::query()
             ->whereIn('id', $this->integerList($branchIds))
@@ -747,7 +778,7 @@ class BulkDataPromotionPage extends Page
                 ->where('is_active', true)
                 ->when(! in_array('ALL', $selectedComcodes, true), fn ($codes) => $codes->whereIn('esb_comcode', $selectedComcodes))
                 ->pluck('esb_branch_code'))
-            ->merge($this->selectedEsbBranchPairs($branchIds)->pluck('branchCode'))
+            ->merge($this->selectedEsbBranchPairs($branchIds, $rawComcodes)->pluck('branchCode'))
             ->filter()
             ->unique()
             ->values()
@@ -757,13 +788,13 @@ class BulkDataPromotionPage extends Page
     /** @return list<string> */
     private function selectedTargetComcodes(Get $get): array
     {
-        return $this->targetsForBranches($get('branch_ids') ?? []);
+        return $this->targetsForBranches($get('branch_ids') ?? [], $get('target_comcodes') ?? []);
     }
 
     /** @return list<string> */
     private function selectedBranchCodes(Get $get): array
     {
-        return $this->branchCodesForBranches($get('branch_ids') ?? []);
+        return $this->branchCodesForBranches($get('branch_ids') ?? [], $get('target_comcodes') ?? []);
     }
 
     /** @return list<string> */
@@ -778,9 +809,17 @@ class BulkDataPromotionPage extends Page
         return $selected;
     }
 
-    private function selectedEsbBranchPairs(mixed $values): Collection
+    private function selectedEsbBranchPairs(mixed $values, mixed $comcodes = null): Collection
     {
         $rawValues = collect($values)->filter(fn ($v): bool => filled($v));
+        $rawComcodes = $comcodes ?? ($this->data['target_comcodes'] ?? ($this->form?->getState()['target_comcodes'] ?? ['ALL']));
+
+        if ($rawValues->contains('ALL')) {
+            $allBranchKeys = array_keys($this->branchOptions($rawComcodes));
+
+            return $this->selectedEsbBranchPairs($allBranchKeys, $rawComcodes);
+        }
+
         $pairs = collect();
 
         foreach ($rawValues as $value) {
@@ -795,7 +834,7 @@ class BulkDataPromotionPage extends Page
                     ]);
                 }
             } elseif (is_numeric($valueStr) && (int) $valueStr > 0) {
-                $selectedComcodes = $this->selectedComcodes($this->data['target_comcodes'] ?? []);
+                $selectedComcodes = $this->selectedComcodes($rawComcodes);
                 $branch = Branch::with(['esbCodes' => function ($query) use ($selectedComcodes): void {
                     $query->where('is_active', true);
                     if (! in_array('ALL', $selectedComcodes, true)) {
@@ -853,6 +892,10 @@ class BulkDataPromotionPage extends Page
 
     private function branchLabel(string $value): string
     {
+        if ($value === 'ALL') {
+            return 'All Branch';
+        }
+
         $options = $this->branchOptions($this->data['target_comcodes'] ?? []);
         $label = (string) ($options[$value] ?? '');
         if ($label !== '') {

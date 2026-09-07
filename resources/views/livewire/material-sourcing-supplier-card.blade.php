@@ -80,6 +80,11 @@
         </a>
     @endif
 
+    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
+        <span>Dibuat: {{ $sourcing->created_at?->format('d M Y H:i') ?? '—' }}</span>
+        <span>Diupdate: {{ $sourcing->updated_at?->format('d M Y H:i') ?? '—' }}</span>
+    </div>
+
     @if ($editing)
         <div class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
             <div class="mb-3 flex items-center justify-between">

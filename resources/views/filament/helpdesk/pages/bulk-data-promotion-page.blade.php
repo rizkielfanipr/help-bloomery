@@ -3,6 +3,76 @@
         <form wire:submit="submit">
             {{ $this->form }}
 
+            @php
+                $applyDiscountTo = (int) ($data['applyDiscountTo'] ?? 0);
+                $pickerConfig = match ($applyDiscountTo) {
+                    1 => ['type' => 'category', 'field' => 'menuCategoryID', 'label' => 'Menu Category'],
+                    2 => ['type' => 'category_detail', 'field' => 'menuCategoryDetailID', 'label' => 'Menu Category Detail'],
+                    3 => ['type' => 'menu', 'field' => 'menuID', 'label' => 'Menu'],
+                    default => null,
+                };
+                $pickerGroups = $pickerConfig && ! (bool) ($data['allCategories'] ?? true)
+                    ? $this->pickerTargetGroups()
+                    : [];
+            @endphp
+
+            @if ($pickerConfig && ! (bool) ($data['allCategories'] ?? true))
+                <div class="mt-6 space-y-4">
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">
+                            Pilih {{ $pickerConfig['label'] }} per Comcode
+                        </h3>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Setiap comcode memiliki ID {{ strtolower($pickerConfig['label']) }} yang berbeda. Lengkapi pilihan untuk masing-masing comcode.
+                        </p>
+                    </div>
+
+                    @forelse ($pickerGroups as $group)
+                        @php
+                            $selectedCount = $this->pickerSelectionCountForComcode($pickerConfig['field'], $group['comcode']);
+                        @endphp
+
+                        <div
+                            wire:key="promotion-target-{{ $pickerConfig['type'] }}-{{ $group['comcode'] }}"
+                            class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                        >
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rounded-md bg-primary-50 px-2.5 py-1 text-sm font-semibold text-primary-700 dark:bg-primary-500/10 dark:text-primary-400">
+                                            {{ $group['comcode'] }}
+                                        </span>
+                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                            {{ $selectedCount > 0 ? $selectedCount.' dipilih' : 'Belum dipilih' }}
+                                        </span>
+                                    </div>
+                                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                        {{ implode(', ', $group['branches']) }}
+                                    </p>
+                                </div>
+
+                                <x-filament::button
+                                    type="button"
+                                    size="sm"
+                                    icon="heroicon-m-list-bullet"
+                                    wire:click="openPickerForComcode(@js($pickerConfig['type']), @js($group['comcode']))"
+                                >
+                                    Pilih {{ $pickerConfig['label'] }}
+                                </x-filament::button>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500 dark:border-white/10 dark:text-gray-400">
+                            Pilih branch terlebih dahulu agar input per comcode muncul.
+                        </div>
+                    @endforelse
+
+                    @error($pickerConfig['field'])
+                        <p class="text-sm text-danger-600 dark:text-danger-400">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
+
             <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                 <x-filament::button
                     tag="a"
@@ -29,7 +99,7 @@
                             {{ $this->pickerTitle() }}
                         </h2>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Dipilih: {{ $this->selectedPickerCount() }} item. Menampilkan data aktif, dipisahkan per comcode dan branch.
+                            Dipilih: {{ $this->selectedPickerCount() }} item untuk {{ $pickerComcode ?? 'semua comcode' }}.
                         </p>
                     </div>
 

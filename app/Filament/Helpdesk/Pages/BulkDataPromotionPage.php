@@ -6,7 +6,6 @@ use App\Models\Branch;
 use App\Models\BranchEsbCode;
 use App\Services\EsbPromotionService;
 use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -41,6 +40,8 @@ class BulkDataPromotionPage extends Page
     public bool $pickerOpen = false;
 
     public string $pickerType = 'category';
+
+    public ?string $pickerComcode = null;
 
     public int $pickerPage = 1;
 
@@ -82,9 +83,6 @@ class BulkDataPromotionPage extends Page
             'menuCategoryID' => [],
             'menuCategoryDetailID' => [],
             'menuID' => [],
-            'menuCategorySummary' => 'Belum ada yang dipilih',
-            'menuCategoryDetailSummary' => 'Belum ada yang dipilih',
-            'menuSummary' => 'Belum ada yang dipilih',
             'employeeGroupName' => [],
             'selfOrderPaymentMethodCode' => [],
             'visitPurposeDisplay' => 'All Visit Purpose',
@@ -223,39 +221,6 @@ class BulkDataPromotionPage extends Page
                             ->required(fn (Get $get): bool => ! (bool) $get('allCategories'))
                             ->live()
                             ->afterStateUpdated(fn (Set $set): null => $this->resetMenuSelections($set)),
-                        TextInput::make('menuCategorySummary')
-                            ->label('Menu Category')
-                            ->readOnly()
-                            ->dehydrated(false)
-                            ->suffixAction(Action::make('pickMenuCategory')
-                                ->label('Pilih')
-                                ->icon('heroicon-m-list-bullet')
-                                ->action(fn (Get $get): null => $this->openPicker('category', $get('branch_ids') ?? [])))
-                            ->helperText('Pilih menu category yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
-                            ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 1)
-                            ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
-                        TextInput::make('menuCategoryDetailSummary')
-                            ->label('Menu Category Detail')
-                            ->readOnly()
-                            ->dehydrated(false)
-                            ->suffixAction(Action::make('pickMenuCategoryDetail')
-                                ->label('Pilih')
-                                ->icon('heroicon-m-list-bullet')
-                                ->action(fn (Get $get): null => $this->openPicker('category_detail', $get('branch_ids') ?? [])))
-                            ->helperText('Pilih menu category detail yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
-                            ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 2)
-                            ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
-                        TextInput::make('menuSummary')
-                            ->label('Menu')
-                            ->readOnly()
-                            ->dehydrated(false)
-                            ->suffixAction(Action::make('pickMenu')
-                                ->label('Pilih')
-                                ->icon('heroicon-m-list-bullet')
-                                ->action(fn (Get $get): null => $this->openPicker('menu', $get('branch_ids') ?? [])))
-                            ->helperText('Pilih menu yang promotion-nya akan aktif. Label dibedakan per comcode dan branch.')
-                            ->visible(fn (Get $get): bool => ! (bool) $get('allCategories') && (int) $get('applyDiscountTo') === 3)
-                            ->disabled(fn (Get $get): bool => blank($get('branch_ids'))),
                         Hidden::make('menuCategoryID'),
                         Hidden::make('menuCategoryDetailID'),
                         Hidden::make('menuID'),
@@ -401,13 +366,14 @@ class BulkDataPromotionPage extends Page
             ->send();
     }
 
-    public function openPicker(string $type, mixed $branchIds = null): null
+    public function openPicker(string $type, mixed $branchIds = null, ?string $comcode = null): null
     {
         $resolvedBranchIds = filled($branchIds)
             ? $branchIds
             : ($this->data['branch_ids'] ?? ($this->form->getState()['branch_ids'] ?? []));
 
         $this->pickerBranchIds = $this->stringList($resolvedBranchIds);
+        $this->pickerComcode = $comcode;
 
         if ($this->selectedEsbBranchPairs($this->pickerBranchIds)->isEmpty()) {
             Notification::make()
@@ -426,6 +392,17 @@ class BulkDataPromotionPage extends Page
         $this->loadPickerRows();
 
         return null;
+    }
+
+    public function openPickerForComcode(string $type, string $comcode): null
+    {
+        $branchIds = $this->selectedEsbBranchPairs($this->data['branch_ids'] ?? [])
+            ->filter(fn (array $pair): bool => $pair['comcode'] === $comcode)
+            ->map(fn (array $pair): string => $pair['comcode'].'|'.$pair['branchCode'])
+            ->values()
+            ->all();
+
+        return $this->openPicker($type, $branchIds, $comcode);
     }
 
     public function closePicker(): void
@@ -486,7 +463,6 @@ class BulkDataPromotionPage extends Page
             ? array_values(array_diff($selected, [$value]))
             : [...$selected, $value];
 
-        $this->refreshMenuSummary($field);
     }
 
     public function isPickerValueSelected(string $value): bool
@@ -496,16 +472,44 @@ class BulkDataPromotionPage extends Page
 
     public function selectedPickerCount(): int
     {
-        return count($this->stringList($this->data[$this->pickerField()] ?? []));
+        $values = $this->stringList($this->data[$this->pickerField()] ?? []);
+
+        return $this->pickerComcode === null
+            ? count($values)
+            : count($this->selectedScopedIds($values, $this->pickerComcode));
     }
 
     public function pickerTitle(): string
     {
-        return match ($this->pickerType) {
+        $title = match ($this->pickerType) {
             'category_detail' => 'Pilih Menu Category Detail',
             'menu' => 'Pilih Menu',
             default => 'Pilih Menu Category',
         };
+
+        return $this->pickerComcode === null ? $title : $title.' - '.$this->pickerComcode;
+    }
+
+    /** @return list<array{comcode:string,branches:list<string>}> */
+    public function pickerTargetGroups(): array
+    {
+        return $this->selectedEsbBranchPairs($this->data['branch_ids'] ?? [])
+            ->groupBy('comcode')
+            ->map(fn (Collection $pairs, string $comcode): array => [
+                'comcode' => $comcode,
+                'branches' => $pairs
+                    ->map(fn (array $pair): string => $pair['branchName'].' ('.$pair['branchCode'].')')
+                    ->unique()
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    public function pickerSelectionCountForComcode(string $field, string $comcode): int
+    {
+        return count($this->selectedScopedIds($this->data[$field] ?? [], $comcode));
     }
 
     /** @return array<string, string> */
@@ -698,9 +702,6 @@ class BulkDataPromotionPage extends Page
         $set('menuCategoryID', []);
         $set('menuCategoryDetailID', []);
         $set('menuID', []);
-        $set('menuCategorySummary', 'Belum ada yang dipilih');
-        $set('menuCategoryDetailSummary', 'Belum ada yang dipilih');
-        $set('menuSummary', 'Belum ada yang dipilih');
 
         return null;
     }
@@ -719,12 +720,21 @@ class BulkDataPromotionPage extends Page
             default => null,
         };
 
-        if ($field === null || $this->stringList($data[$field] ?? []) !== []) {
+        if ($field === null) {
+            return;
+        }
+
+        $missingComcodes = collect($this->targetsForBranches($data['branch_ids'] ?? []))
+            ->filter(fn (string $comcode): bool => $this->selectedScopedIds($data[$field] ?? [], $comcode) === [])
+            ->values()
+            ->all();
+
+        if ($missingComcodes === []) {
             return;
         }
 
         throw ValidationException::withMessages([
-            $this->summaryField($field) => 'Pilih minimal satu '.$this->pickerLabelForField($field).'.',
+            $field => 'Pilih minimal satu '.$this->pickerLabelForField($field).' untuk comcode: '.implode(', ', $missingComcodes).'.',
         ]);
     }
 
@@ -926,23 +936,6 @@ class BulkDataPromotionPage extends Page
             'menu' => 'menuID',
             default => 'menuCategoryID',
         };
-    }
-
-    private function summaryField(string $field): string
-    {
-        return match ($field) {
-            'menuCategoryDetailID' => 'menuCategoryDetailSummary',
-            'menuID' => 'menuSummary',
-            default => 'menuCategorySummary',
-        };
-    }
-
-    private function refreshMenuSummary(string $field): void
-    {
-        $count = count($this->stringList($this->data[$field] ?? []));
-        $this->data[$this->summaryField($field)] = $count > 0
-            ? $count.' '.$this->pickerLabelForField($field).' dipilih'
-            : 'Belum ada yang dipilih';
     }
 
     private function pickerLabelForField(string $field): string

@@ -409,6 +409,14 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             'prefixPromotion' => '12345',
         ]);
 
+    expect(collect($component->instance()->pickerTargetGroups())->pluck('comcode')->all())
+        ->toBe(['BLSS', 'BLO7']);
+
+    $component
+        ->call('openPickerForComcode', 'category', 'BLSS')
+        ->assertSet('pickerComcode', 'BLSS')
+        ->assertSet('pickerBranchIds', ['BLSS|LR00']);
+
     $component
         ->call('submit')
         ->assertHasNoFormErrors();
@@ -562,8 +570,7 @@ it('selects promotion category from the paginated picker modal', function () {
         ->call('openPicker', 'category')
         ->assertSet('pickerOpen', true)
         ->call('togglePickerValue', 'BLSS|LR00|16')
-        ->assertSet('data.menuCategoryID', ['BLSS|LR00|16'])
-        ->assertSet('data.menuCategorySummary', '1 Menu Category dipilih');
+        ->assertSet('data.menuCategoryID', ['BLSS|LR00|16']);
 
     $component
         ->call('submit')

@@ -72,6 +72,26 @@ it('shows the supplier brand and expandable edit button on each supplier card', 
         ->assertSee('Simpan');
 });
 
+it('excludes Barang WIP materials from the sourcing list', function () {
+    $wipMaterial = RndProductEsbMaterial::create([
+        'rnd_project_product_id' => $this->material->rnd_project_product_id,
+        'category_id' => 20,
+        'category_name' => 'Barang WIP',
+        'sub_category_id' => 1,
+        'uom_id' => 1,
+        'uom_name' => 'KG',
+        'product_code' => 'WIP-001',
+        'product_name' => 'Produk WIP',
+        'sku' => 'SKU-WIP-001',
+        'status' => 'draft',
+    ]);
+    $this->actingAs($this->purchasing);
+
+    Livewire::test(ListMaterialSourcings::class)
+        ->assertCanSeeTableRecords([$this->material])
+        ->assertCanNotSeeTableRecords([$wipMaterial]);
+});
+
 it('lets purchasing edit suppliers from the view supplier modal', function () {
     $supplier = $this->material->sourcings()->create([
         ...supplierRow('Supplier A', 10000),

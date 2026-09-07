@@ -50,6 +50,10 @@ class MaterialSourcingResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->where(function (Builder $query): void {
+                $query->whereNull('category_name')
+                    ->orWhere('category_name', '!=', 'Barang WIP');
+            }))
             ->columns([
                 TextColumn::make('product.project.name')
                     ->label('Project')

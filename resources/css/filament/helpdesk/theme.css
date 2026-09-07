@@ -469,8 +469,34 @@ body.fi-body {
     -webkit-overflow-scrolling: touch;
 }
 
+.technician-maintenance-recap-modal {
+    display: flex;
+    width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 2rem);
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.technician-maintenance-recap-modal > .fi-modal-header,
+.technician-maintenance-recap-modal > .fi-modal-footer {
+    flex-shrink: 0;
+}
+
+.technician-maintenance-recap-modal > .fi-modal-content {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 639px) {
     .material-sourcing-modal {
+        width: calc(100vw - 1rem);
+        max-height: calc(100dvh - 1rem);
+    }
+
+    .technician-maintenance-recap-modal {
         width: calc(100vw - 1rem);
         max-height: calc(100dvh - 1rem);
     }

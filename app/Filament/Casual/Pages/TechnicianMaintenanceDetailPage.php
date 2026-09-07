@@ -37,7 +37,7 @@ class TechnicianMaintenanceDetailPage extends Page
     {
         abort_unless(auth()->user()?->can('view technician monthly maintenance'), 403);
         $maintenance = $this->maintenance();
-        $this->results = $maintenance->items->mapWithKeys(fn ($item): array => [$item->id => ['result' => $item->result, 'notes' => $item->notes]])->all();
+        $this->results = $maintenance->items->mapWithKeys(fn ($item): array => [$item->id => ['result' => $item->result ?? 'pass', 'notes' => $item->notes]])->all();
         $this->overallNotes = (string) $maintenance->overall_notes;
         $this->checkedAt = $maintenance->checked_at?->format('Y-m-d') ?? now()->format('Y-m-d');
     }
@@ -59,10 +59,9 @@ class TechnicianMaintenanceDetailPage extends Page
                 if (($result['photo'] ?? null) instanceof TemporaryUploadedFile) {
                     $photoPaths[] = $result['photo']->store('technician-maintenance/evidence', 'b2');
                 }
-                $item->update(['result' => $result['result'] ?? null, 'earned_points' => ($result['result'] ?? null) === 'pass' ? DB::raw('maximum_points') : 0, 'notes' => $result['notes'] ?? null, 'photo_paths' => $photoPaths]);
+                $item->update(['result' => $result['result'] ?? null, 'notes' => $result['notes'] ?? null, 'photo_paths' => $photoPaths]);
             }
             $maintenance->update(['checked_at' => $this->checkedAt ?: now()->toDateString(), 'overall_notes' => $this->overallNotes]);
-            $maintenance->recalculateScore();
         });
         Notification::make()->title('Draft tersimpan')->success()->send();
     }

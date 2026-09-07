@@ -55,12 +55,8 @@ class TechnicianMaintenancePage extends Page
         if ($maintenance->items()->doesntExist()) {
             TechnicianMaintenanceChecklist::query()->where('is_active', true)->orderBy('sort_order')->get()->each(fn (TechnicianMaintenanceChecklist $checklist) => $maintenance->items()->create([
                 'checklist_id' => $checklist->id,
-                'section_code' => $checklist->section_code,
-                'section_name' => $checklist->section_name,
                 'question' => $checklist->question,
                 'check_procedure' => $checklist->check_procedure,
-                'maximum_points' => $checklist->points,
-                'is_critical' => $checklist->is_critical,
                 'requires_photo' => $checklist->requires_photo,
                 'sort_order' => $checklist->sort_order,
             ]));

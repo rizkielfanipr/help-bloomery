@@ -4,38 +4,70 @@
     $items = $maintenance->items;
     $answered = $items->whereNotNull('result')->count();
     $total = $items->count();
-    $sections = $items->groupBy('section_code');
 @endphp
 
-<div class="flex min-h-[100dvh] flex-col bg-[#2161f5]">
-    <header class="flex-shrink-0 px-5 pb-8 pt-14 text-white">
-        <div class="mb-4 flex items-center gap-3">
+<div x-data="{ activeItemId: null }" class="technician-maintenance-detail-page flex min-h-[100dvh] flex-col bg-[#2161f5]">
+    <header class="flex-shrink-0 px-5 pb-6 pt-14 text-white">
+        <div class="mb-3 flex items-center gap-3">
             <a href="{{ \App\Filament\Casual\Pages\TechnicianMaintenancePage::getUrl(panel: 'casual') }}" aria-label="Kembali" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 19.5-7.5-7.5 7.5-7.5"/></svg></a>
-            <div><p class="text-xl text-blue-100">Detail Audit</p><h1 class="text-xl font-bold uppercase">{{ $maintenance->branch->name }}</h1></div>
+            <div class="min-w-0 flex-1"><p class="text-xs font-medium text-blue-200">Detail Maintenance</p><h1 class="truncate text-base font-semibold">{{ $maintenance->branch->name }}</h1></div>
         </div>
-        <p class="text-xl text-blue-100">{{ $maintenance->maintenance_number }} · {{ $maintenance->checked_at?->format('d M Y') }}</p>
-        <div class="mt-5 h-3 overflow-hidden rounded-full bg-white/25"><div class="h-full rounded-full bg-white" style="width: {{ $total ? round($answered / $total * 100) : 0 }}%"></div></div>
+        <p class="mb-2 text-xs text-blue-200">{{ $maintenance->maintenance_number }} · {{ $maintenance->checked_at?->format('d M Y') }}</p>
+        <div class="h-1.5 overflow-hidden rounded-full bg-white/20"><div class="h-1.5 rounded-full bg-white" style="width: {{ $total ? round($answered / $total * 100) : 0 }}%"></div></div>
     </header>
 
-    <main class="flex-1 overflow-y-auto rounded-t-[2rem] bg-gray-50 px-5 pb-32 pt-6 dark:bg-gray-950">
-        <div class="mb-7 overflow-hidden rounded-3xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
-            <div class="flex items-center gap-4 border-b border-gray-100 p-5 dark:border-gray-800"><div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-900/20"><svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18A2.25 2.25 0 0 0 20.25 17.5V6.108"/></svg></div><div class="min-w-0 flex-1"><p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Nomor Audit</p><p class="truncate text-lg font-bold text-gray-900 dark:text-white">{{ $maintenance->maintenance_number }}</p></div><span class="shrink-0 rounded-full bg-amber-100 px-3 py-2 text-xs font-semibold text-amber-700">{{ $isSubmitted ? 'Terkirim' : 'Sedang Berjalan' }}</span></div>
-            <div class="grid grid-cols-2 divide-x divide-gray-100 dark:divide-gray-800"><div class="p-5"><p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Skor</p><p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($maintenance->score, 1) }}%</p><p class="text-sm text-gray-400">Nilai maintenance</p></div><div class="p-5"><p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Progress</p><p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ $answered }}/{{ $total }} <span class="text-base font-medium">poin</span></p><p class="text-sm text-gray-400">{{ $total ? round($answered / $total * 100) : 0 }}% selesai</p></div></div>
-        </div>
+    <main class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 px-0 pb-32 pt-5 dark:bg-gray-950">
+        <div class="mx-5 mb-5 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+            <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3.5 dark:border-gray-800"><div class="flex min-w-0 items-center gap-3"><div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20"><svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18A2.25 2.25 0 0 0 20.25 17.5V6.108"/></svg></div><div class="min-w-0 flex-1"><p class="text-[10px] font-medium uppercase tracking-wide text-gray-400">Nomor Maintenance</p><p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $maintenance->maintenance_number }}</p></div></div><span class="flex shrink-0 items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700"><span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>{{ $isSubmitted ? 'Terkirim' : 'Sedang Berjalan' }}</span></div>
+        <form wire:submit="saveDraft">
+            <section class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+                @foreach($items as $item)
+                    @php
+                        $isAnswered = $item->result !== null;
+                        $itemStatus = match (true) {
+                            ! $isAnswered => ['icon' => 'dot', 'background' => 'bg-gray-100 dark:bg-gray-800', 'text' => 'text-gray-300 dark:text-gray-600'],
+                            $item->result === 'pass' => ['icon' => 'check', 'background' => 'bg-emerald-100 dark:bg-emerald-900/30', 'text' => 'text-emerald-600 dark:text-emerald-400'],
+                            $item->result === 'fail' => ['icon' => 'x', 'background' => 'bg-red-100 dark:bg-red-900/30', 'text' => 'text-red-600 dark:text-red-400'],
+                            default => ['icon' => 'dash', 'background' => 'bg-amber-100 dark:bg-amber-900/30', 'text' => 'text-amber-600 dark:text-amber-400'],
+                        };
+                    @endphp
+                    <button type="button" @click="activeItemId = {{ $item->id }}" class="flex w-full items-start gap-3 px-4 py-3.5 text-left active:bg-gray-50 dark:active:bg-gray-800/50">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full {{ $itemStatus['background'] }} {{ $itemStatus['text'] }}">
+                            @if($itemStatus['icon'] === 'check')
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/></svg>
+                            @elseif($itemStatus['icon'] === 'x')
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                            @elseif($itemStatus['icon'] === 'dash')
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14"/></svg>
+                            @else
+                                <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
+                            @endif
+                        </span>
+                        <span class="min-w-0 flex-1"><span class="block text-sm font-medium leading-5 text-gray-900 dark:text-white">{{ $item->question }}</span></span>
+                        <svg class="mt-1 h-4 w-4 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                    </button>
 
-        <form wire:submit="saveDraft" class="space-y-6">
-            @foreach($sections as $sectionItems)
-                @php $sectionAnswered = $sectionItems->whereNotNull('result')->count(); $sectionTotal = $sectionItems->count(); $sectionName = $sectionItems->first()->section_name; @endphp
-                <div><div class="mb-3 flex items-center gap-3"><div class="h-px flex-1 bg-blue-100"></div><span class="flex items-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600 ring-1 ring-blue-100"><span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-xs text-white">{{ $loop->iteration }}</span>{{ $sectionName }}</span><div class="h-px flex-1 bg-blue-100"></div></div>
-                    <section class="overflow-hidden rounded-3xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10"><div class="border-b border-gray-100 p-5 dark:border-gray-800"><p class="font-semibold text-gray-900 dark:text-white">{{ $sectionName }}</p><p class="text-sm text-gray-400">{{ $sectionAnswered }}/{{ $sectionTotal }} poin terisi</p><div class="mt-3 h-2 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-blue-500" style="width: {{ $sectionTotal ? round($sectionAnswered / $sectionTotal * 100) : 0 }}%"></div></div></div>
-                    @foreach($sectionItems as $item)
-                        <details class="group border-b border-gray-100 last:border-0 dark:border-gray-800"><summary class="flex cursor-pointer list-none items-start gap-3 p-5"><span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full {{ $item->result === 'pass' ? 'bg-emerald-100 text-emerald-600' : ($item->result === 'fail' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600') }} text-lg">{{ $item->result === 'pass' ? '✓' : ($item->result === 'fail' ? '!' : '−') }}</span><span class="min-w-0 flex-1"><span class="block text-base font-semibold leading-6 text-gray-900 dark:text-white">{{ $item->question }}</span><span class="mt-2 inline-flex rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ $item->result === 'pass' ? $item->maximum_points : 0 }}/{{ $item->maximum_points }} poin</span></span><span class="mt-1 text-2xl text-gray-300 transition-transform group-open:rotate-90">›</span></summary><div class="space-y-3 bg-gray-50 px-5 pb-5 pt-1 dark:bg-gray-950/40"><p class="text-xs leading-5 text-gray-500">{{ $item->check_procedure }}</p><select wire:model="results.{{ $item->id }}.result" @disabled($isSubmitted) class="w-full rounded-xl border-0 bg-white px-3 py-3 text-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500"><option value="">Pilih kondisi</option><option value="pass">Baik</option><option value="fail">Perlu perbaikan</option><option value="na">Tidak berlaku</option></select><textarea wire:model="results.{{ $item->id }}.notes" @disabled($isSubmitted) rows="3" class="w-full rounded-xl border-0 bg-white px-3 py-3 text-sm ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500" placeholder="Catatan hasil pengecekan (wajib saat kirim)"></textarea><input type="file" accept="image/*" capture="environment" wire:model="results.{{ $item->id }}.photo" @disabled($isSubmitted) class="block w-full text-xs text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-semibold file:text-blue-600"><p class="text-[11px] text-gray-400">Foto bukti wajib diunggah saat kirim.</p></div></details>
-                    @endforeach</section>
-                </div>
-            @endforeach
-            <textarea wire:model="overallNotes" @disabled($isSubmitted) rows="3" class="w-full rounded-2xl border-0 bg-white px-4 py-3 text-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10" placeholder="Catatan keseluruhan (opsional)"></textarea>
-            @unless($isSubmitted)<button type="submit" wire:loading.attr="disabled" class="w-full rounded-2xl bg-blue-600 px-4 py-3.5 font-semibold text-white disabled:opacity-60">Simpan Draft</button><button type="button" wire:click="submit" wire:loading.attr="disabled" class="w-full rounded-2xl bg-blue-700 px-4 py-3.5 font-semibold text-white disabled:opacity-60">Kirim Maintenance</button>@endunless
+                    <div x-show="activeItemId === {{ $item->id }}" x-cloak class="fixed inset-0 z-50 flex items-end" style="display: none">
+                        <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" @click="activeItemId = null"></div>
+                        <div class="relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white dark:bg-gray-900" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-y-0" x-transition:leave-end="translate-y-full">
+                            <div class="flex justify-center pb-1 pt-3"><div class="h-1 w-10 rounded-full bg-gray-200 dark:bg-gray-700"></div></div>
+                            <div class="px-5 pb-2 pt-2"><p class="text-base font-semibold text-gray-900 dark:text-white">{{ $item->question }}</p><p class="mt-0.5 text-sm text-gray-500">{{ $item->check_procedure ?: 'Lengkapi hasil pengecekan rutin.' }}</p></div>
+                            <div class="space-y-4 px-5 pb-4 pt-2" wire:key="maintenance-item-{{ $item->id }}">
+                                @if($item->photoUrls())
+                                    <div><p class="mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">Foto Bukti Tersimpan</p><div class="grid grid-cols-3 gap-2">@foreach($item->photoUrls() as $index => $url)<a href="{{ $url }}" target="_blank" class="aspect-square overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800"><img src="{{ $url }}" alt="Bukti {{ $index + 1 }}" class="h-full w-full object-cover"></a>@endforeach</div></div>
+                                @endif
+                                <div><label class="text-sm font-medium text-gray-700 dark:text-gray-300">Foto Bukti <span class="ml-1 text-xs font-normal text-red-500">* Wajib</span></label><label class="mt-1.5 flex aspect-square w-28 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 text-blue-600 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30"><svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z"/></svg><span class="text-xs font-medium">Kamera</span><input type="file" accept="image/*" capture="environment" wire:model="results.{{ $item->id }}.photo" @disabled($isSubmitted) class="sr-only"></label><p class="mt-1.5 text-center text-xs text-gray-400">Foto bukti wajib diunggah saat kirim.</p></div>
+                                <div><label class="text-sm font-medium text-gray-700 dark:text-gray-300">Catatan <span class="ml-1 text-xs font-normal text-red-500">* Wajib</span></label><textarea wire:model="results.{{ $item->id }}.notes" @disabled($isSubmitted) rows="3" class="mt-1.5 w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white" placeholder="Tambahkan catatan..."></textarea></div>
+                                <p class="text-[11px] text-gray-400">Dibuat {{ $item->created_at?->format('d M Y, H:i') ?? '—' }} · Terakhir diubah {{ $item->updated_at?->format('d M Y, H:i') ?? '—' }}</p>
+                            </div>
+                            <div class="flex gap-3 px-5 pb-10"><button type="button" @click="activeItemId = null" class="flex-1 rounded-2xl border border-gray-200 py-3.5 text-sm font-semibold text-gray-600 transition active:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Batal</button><button type="button" @click="activeItemId = null" wire:click="saveDraft" wire:loading.attr="disabled" class="flex-1 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-sm transition active:bg-blue-700 disabled:opacity-60">Simpan</button></div>
+                        </div>
+                    </div>
+                @endforeach
+            </section>
+            @unless($isSubmitted)<div class="border-t border-gray-100 p-4 dark:border-gray-800"><button type="button" wire:click="submit" wire:loading.attr="disabled" class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition active:bg-blue-700 disabled:opacity-60"><x-heroicon-o-paper-airplane class="h-4 w-4" />Kirim Maintenance</button></div>@endunless
         </form>
+        </div>
     </main>
     <x-technician.bottom-nav active="maintenance" />
 </div>

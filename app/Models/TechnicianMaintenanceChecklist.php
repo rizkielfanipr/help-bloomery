@@ -10,11 +10,11 @@ class TechnicianMaintenanceChecklist extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['section_code', 'section_name', 'question', 'check_procedure', 'points', 'is_critical', 'requires_photo', 'is_active', 'sort_order'];
+    protected $fillable = ['question', 'check_procedure', 'requires_photo', 'is_active', 'sort_order'];
 
     protected function casts(): array
     {
-        return ['points' => 'integer', 'is_critical' => 'boolean', 'requires_photo' => 'boolean', 'is_active' => 'boolean'];
+        return ['requires_photo' => 'boolean', 'is_active' => 'boolean'];
     }
 
     public function maintenanceItems(): HasMany

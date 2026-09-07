@@ -41,14 +41,10 @@ class TechnicianMaintenanceChecklistResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Informasi Poin Checklist')->schema([
-                TextInput::make('section_code')->label('Kode section')->required()->maxLength(30),
-                TextInput::make('section_name')->label('Nama section')->required()->maxLength(255),
+            Section::make('Informasi Checklist')->schema([
                 Textarea::make('question')->label('Pertanyaan checklist')->required()->columnSpanFull(),
                 Textarea::make('check_procedure')->label('Prosedur pengecekan')->columnSpanFull(),
-                TextInput::make('points')->label('Poin')->numeric()->required()->minValue(0)->default(1),
                 TextInput::make('sort_order')->label('Urutan')->numeric()->required()->minValue(0)->default(0),
-                Checkbox::make('is_critical')->label('Poin kritis'),
                 Checkbox::make('requires_photo')->label('Wajib foto'),
                 Checkbox::make('is_active')->label('Aktif')->default(true),
             ])->columns(2),
@@ -59,9 +55,7 @@ class TechnicianMaintenanceChecklistResource extends Resource
     {
         return $table->defaultSort('sort_order')->columns([
             TextColumn::make('sort_order')->label('#')->sortable(),
-            TextColumn::make('section_name')->label('Section')->searchable()->sortable(),
             TextColumn::make('question')->label('Pertanyaan')->searchable()->wrap(),
-            TextColumn::make('points')->label('Poin')->sortable(),
             IconColumn::make('requires_photo')->label('Foto')->boolean(),
             IconColumn::make('is_active')->label('Aktif')->boolean(),
         ])->actions([

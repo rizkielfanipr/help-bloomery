@@ -7,6 +7,7 @@ use App\Filament\Helpdesk\Resources\TechnicianMonthlyMaintenanceResource\Pages\E
 use App\Filament\Helpdesk\Resources\TechnicianMonthlyMaintenanceResource\Pages\ListTechnicianMonthlyMaintenances;
 use App\Models\TechnicianMaintenance;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -119,10 +121,6 @@ class TechnicianMonthlyMaintenanceResource extends Resource
                         11 => 'November',
                         12 => 'Desember',
                     ][$state]),
-                TextColumn::make('score')
-                    ->label('Nilai')
-                    ->suffix('%')
-                    ->sortable(),
                 TextColumn::make('status')->label('Status')->badge(),
                 TextColumn::make('created_at')
                     ->label('Dibuat')
@@ -136,6 +134,19 @@ class TechnicianMonthlyMaintenanceResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->actions([
+                Action::make('view_recap')
+                    ->label('Lihat Rekap')
+                    ->icon('heroicon-o-eye')
+                    ->color('info')
+                    ->iconButton()
+                    ->modalWidth(Width::ThreeExtraLarge)
+                    ->extraModalWindowAttributes(['class' => 'technician-maintenance-recap-modal'])
+                    ->modalHeading('Rekap Maintenance')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalContent(fn (TechnicianMaintenance $record) => view('filament.helpdesk.technician-maintenance.recap', [
+                        'maintenance' => $record->load(['branch', 'technician', 'items']),
+                    ])),
                 EditAction::make(),
             ])
             ->bulkActions([

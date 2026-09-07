@@ -425,13 +425,13 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             && $payload['branchCode'] === ['LR00']
             && $payload['promotionType'] === 4
             && $payload['discountAccountNumber'] === 'Refer to Account in Mapping'
-            && $payload['authorizationNeeded'] === false
-            && $payload['allCategories'] === true
+            && $payload['authorizationNeeded'] === 'No'
+            && $payload['allCategories'] === 'Yes'
             && $payload['applyDiscountTo'] === null
             && $payload['menuCategoryID'] === []
             && $payload['menuCategoryDetailID'] === []
             && $payload['menuID'] === []
-            && $payload['usedForLoyalty'] === true
+            && $payload['usedForLoyalty'] === 'Yes'
             && $payload['applyTo'] === 'Staff Only'
             && $payload['employeeGroupName'] === []
             && $payload['applyToApplicationID'] === ['pos', 'eso']

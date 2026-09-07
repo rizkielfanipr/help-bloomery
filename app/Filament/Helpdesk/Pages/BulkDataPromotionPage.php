@@ -634,16 +634,16 @@ class BulkDataPromotionPage extends Page
             'branchCode' => $this->branchCodesForBranches($data['branch_ids'] ?? []),
             'promotionType' => 4,
             'notes' => (string) ($data['notes'] ?? ''),
-            'authorizationNeeded' => (bool) $data['authorizationNeeded'],
+            'authorizationNeeded' => $this->yesNo((bool) $data['authorizationNeeded']),
             'promotionDaysID' => $this->integerList($data['promotionDaysID'] ?? []),
             'startDate' => $this->dateTime($data['startDate']),
             'endDate' => $this->dateTime($data['endDate']),
-            'allCategories' => $allCategories,
+            'allCategories' => $this->yesNo($allCategories),
             'applyDiscountTo' => $allCategories ? null : (int) $data['applyDiscountTo'],
             'menuCategoryID' => (! $allCategories && (int) $data['applyDiscountTo'] === 1) ? $this->integerList($data['menuCategoryID'] ?? []) : [],
             'menuCategoryDetailID' => (! $allCategories && (int) $data['applyDiscountTo'] === 2) ? $this->integerList($data['menuCategoryDetailID'] ?? []) : [],
             'menuID' => (! $allCategories && (int) $data['applyDiscountTo'] === 3) ? $this->integerList($data['menuID'] ?? []) : [],
-            'usedForLoyalty' => (bool) $data['usedForLoyalty'],
+            'usedForLoyalty' => $this->yesNo((bool) $data['usedForLoyalty']),
             'applyTo' => (string) $data['applyTo'],
             'employeeGroupName' => in_array($data['applyTo'], ['Member & Staff', 'Staff Only'], true) ? $this->stringList($data['employeeGroupName'] ?? []) : [],
             'applyToApplicationID' => $applicationIds,
@@ -958,6 +958,11 @@ class BulkDataPromotionPage extends Page
             'menuID' => 'Menu',
             default => 'Menu Category',
         };
+    }
+
+    private function yesNo(bool $state): string
+    {
+        return $state ? 'Yes' : 'No';
     }
 
     private function dateTime(mixed $value): string

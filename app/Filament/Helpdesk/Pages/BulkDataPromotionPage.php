@@ -68,7 +68,6 @@ class BulkDataPromotionPage extends Page
         $this->form->fill([
             'target_comcodes' => ['ALL'],
             'promotionType' => 4,
-            'discountAccountNumber' => 'Refer to Account in Mapping',
             'authorizationNeeded' => false,
             'promotionDaysID' => [1, 2, 3, 4, 5, 6, 7],
             'allCategories' => true,
@@ -152,15 +151,9 @@ class BulkDataPromotionPage extends Page
                             ->label('Promotion Master Code')
                             ->required()
                             ->maxLength(50),
-                        Select::make('discountAccountNumber')
-                            ->label('Discount Account Number')
-                            ->options([
-                                'Refer to Account in Mapping' => 'Refer to Account in Mapping',
-                            ])
-                            ->default('Refer to Account in Mapping')
-                            ->native(false),
                         TextInput::make('notes')
                             ->label('Promotion Notes')
+                            ->required()
                             ->maxLength(100),
                         Select::make('authorizationNeeded')
                             ->label('Authorization Needed ?')
@@ -286,8 +279,10 @@ class BulkDataPromotionPage extends Page
                             ->maxLength(20),
                         Select::make('voucherSourceName')
                             ->label('Voucher Source')
-                            ->options(['' => '- Select Source Voucher -', 'ESB' => 'ESB', 'Giftee' => 'Giftee'])
+                            ->options(['ESB' => 'ESB', 'Giftee' => 'Giftee'])
+                            ->placeholder('- Select Source Voucher -')
                             ->native(false)
+                            ->required()
                             ->live(),
                         TextInput::make('minSalesPrice')
                             ->label('Min. Sales Price')
@@ -659,7 +654,6 @@ class BulkDataPromotionPage extends Page
             'minSalesPrice' => in_array($voucherSource, ['ESB', 'Giftee'], true) ? (float) $data['minSalesPrice'] : null,
             'bankIdentificationNumbers' => (bool) ($data['settingBinRequired'] ?? false) ? $this->stringList($data['bankIdentificationNumbers'] ?? []) : [],
             'prefixPromotion' => $voucherSource === 'Giftee' ? (string) $data['prefixPromotion'] : '',
-            'discountAccountNumber' => (string) ($data['discountAccountNumber'] ?? ''),
         ];
     }
 

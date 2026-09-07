@@ -383,7 +383,6 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             'branch_ids' => ['BLSS|LR00', 'BLO7|LR00'],
             'promotionMasterCode' => 'F0001',
             'promotionType' => 4,
-            'discountAccountNumber' => 'Refer to Account in Mapping',
             'notes' => 'Promo Free Item',
             'authorizationNeeded' => false,
             'promotionDaysID' => [1, 2],
@@ -423,7 +422,7 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             && $request->hasHeader('Content-Type', 'application/json')
             && $payload['branchCode'] === ['LR00']
             && $payload['promotionType'] === 4
-            && $payload['discountAccountNumber'] === 'Refer to Account in Mapping'
+            && ! array_key_exists('discountAccountNumber', $payload)
             && $payload['authorizationNeeded'] === 'No'
             && $payload['allCategories'] === 'Yes'
             && $payload['applyDiscountTo'] === null
@@ -541,7 +540,7 @@ it('selects promotion category from the paginated picker modal', function () {
             'target_comcodes' => ['BLSS'],
             'promotionMasterCode' => 'F0002',
             'promotionType' => 4,
-            'discountAccountNumber' => 'Refer to Account in Mapping',
+            'notes' => 'Promo Free Item Category',
             'authorizationNeeded' => false,
             'promotionDaysID' => [1, 2],
             'startDate' => '2026-09-04 07:00:00',
@@ -554,7 +553,8 @@ it('selects promotion category from the paginated picker modal', function () {
             'usedForLoyalty' => false,
             'applyTo' => 'All Transaction',
             'promotionDesc' => 'Free item category',
-            'voucherSourceName' => '',
+            'voucherSourceName' => 'ESB',
+            'minSalesPrice' => 0,
             'settingBinRequired' => false,
         ])
         ->set('data.target_comcodes', ['BLSS'])
@@ -785,7 +785,7 @@ it('supports All Branch option in promotion page', function () {
             'branch_ids' => ['ALL'],
             'promotionMasterCode' => 'ALL-BR-01',
             'promotionType' => 4,
-            'discountAccountNumber' => 'Refer to Account in Mapping',
+            'notes' => 'All Branch Free Item',
             'authorizationNeeded' => false,
             'promotionDaysID' => [1, 2],
             'startDate' => '2026-09-04 07:00:00',
@@ -797,7 +797,8 @@ it('supports All Branch option in promotion page', function () {
             'usedForLoyalty' => false,
             'applyTo' => 'All Transaction',
             'promotionDesc' => 'All branch free item',
-            'voucherSourceName' => '',
+            'voucherSourceName' => 'ESB',
+            'minSalesPrice' => 0,
             'settingBinRequired' => false,
         ]);
 

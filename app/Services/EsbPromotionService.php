@@ -432,8 +432,7 @@ class EsbPromotionService
         int $perPage,
         string $nameSearch,
         string $codeSearch,
-    ): array
-    {
+    ): array {
         return $this->singleCatalogPage($comcode, $branchCode, '/corev1/master/get-menu', $page, $perPage, array_filter([
             'menuName' => trim($nameSearch),
             'menuCode' => trim($codeSearch),

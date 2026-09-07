@@ -846,3 +846,74 @@ it('supports All Branch option in promotion page', function () {
             && in_array('LR02', $payload['branchCode'] ?? [], true);
     });
 });
+
+it('supports searching menu by name and code separately in promotion picker', function () {
+    config([
+        'esb.base_url' => 'https://promotion-esb.test',
+        'esb.tokens.BLSS' => 'blss-static-token',
+    ]);
+
+    Http::fake([
+        'https://promotion-esb.test/corev1/master/get-menu*' => function (Request $request) {
+            $query = [];
+            parse_str(parse_url($request->url(), PHP_URL_QUERY) ?? '', $query);
+
+            $menuName = $query['menuName'] ?? null;
+            $menuCode = $query['menuCode'] ?? null;
+
+            $items = [
+                ['menuID' => 1, 'menuName' => 'Caramel Macchiato', 'menuCode' => 'CM01', 'flagActive' => 1],
+                ['menuID' => 2, 'menuName' => 'Vanilla Latte', 'menuCode' => 'VL01', 'flagActive' => 1],
+            ];
+
+            if ($menuName !== null && $menuName !== '') {
+                $items = array_values(array_filter($items, fn ($i) => str_contains(strtolower($i['menuName']), strtolower($menuName))));
+            }
+
+            if ($menuCode !== null && $menuCode !== '') {
+                $items = array_values(array_filter($items, fn ($i) => str_contains(strtolower($i['menuCode']), strtolower($menuCode))));
+            }
+
+            return Http::response([
+                'status' => 'ok',
+                'result' => [
+                    'page' => 1,
+                    'limit' => 20,
+                    'count' => count($items),
+                    'data' => $items,
+                ],
+                'next' => null,
+            ]);
+        },
+    ]);
+
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('IT_STAFF');
+    $this->actingAs($user);
+
+    $branch = Branch::factory()->create(['is_active' => true, 'name' => 'Branch One']);
+    $branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'LR01', 'is_active' => true]);
+
+    $component = Livewire::test(BulkDataPromotionPage::class)
+        ->fillForm([
+            'target_comcodes' => ['BLSS'],
+            'branch_ids' => [$branch->id],
+            'allCategories' => false,
+            'applyDiscountTo' => 3,
+        ])
+        ->call('openPicker', 'menu')
+        ->call('loadPickerRows');
+
+    expect($component->get('pickerRows'))->toHaveCount(2);
+
+    $component->set('pickerMenuNameSearch', 'Macchiato');
+    expect($component->get('pickerRows'))->toHaveCount(1)
+        ->and($component->get('pickerRows.0.label'))->toBe('Caramel Macchiato (CM01)');
+
+    $component->set('pickerMenuNameSearch', '')
+        ->set('pickerMenuCodeSearch', 'VL');
+    expect($component->get('pickerRows'))->toHaveCount(1)
+        ->and($component->get('pickerRows.0.label'))->toBe('Vanilla Latte (VL01)');
+});

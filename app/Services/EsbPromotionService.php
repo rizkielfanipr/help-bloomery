@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class EsbPromotionService
@@ -277,6 +278,8 @@ class EsbPromotionService
             throw new RuntimeException("Token ESB {$comcode} belum dikonfigurasi.");
         }
 
+        $requestBody = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+
         $response = Http::acceptJson()
             ->asJson()
             ->withToken($token)
@@ -285,11 +288,15 @@ class EsbPromotionService
             ->post($this->baseUrl().'/corev1/promotion/', $payload);
 
         if ($response->failed()) {
+            $this->logPromotionFailure($comcode, $requestBody, $response);
+
             throw new RuntimeException($this->errorMessage($response, "membuat promotion free item {$comcode}"));
         }
 
         $body = $response->json();
         if (! is_array($body) || (int) ($body['code'] ?? $response->status()) >= 400) {
+            $this->logPromotionFailure($comcode, $requestBody, $response);
+
             throw new RuntimeException($this->errorMessage($response, "membuat promotion free item {$comcode}"));
         }
 
@@ -302,6 +309,17 @@ class EsbPromotionService
     private function baseUrl(): string
     {
         return rtrim((string) config('esb.base_url'), '/');
+    }
+
+    private function logPromotionFailure(string $comcode, string $requestBody, Response $response): void
+    {
+        Log::warning('ESB promotion free item request failed.', [
+            'comcode' => $comcode,
+            'endpoint' => $this->baseUrl().'/corev1/promotion/',
+            'status' => $response->status(),
+            'request_body' => $requestBody,
+            'response_body' => $response->body(),
+        ]);
     }
 
     private function errorMessage(Response $response, string $action): string

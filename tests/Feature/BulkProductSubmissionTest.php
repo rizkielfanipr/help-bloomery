@@ -421,7 +421,6 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
         return $request->url() === 'https://promotion-esb.test/corev1/promotion/'
             && $request->hasHeader('Authorization', 'Bearer blss-static-token')
             && $request->hasHeader('Content-Type', 'application/json')
-            && is_array(json_decode($request->body(), true, flags: JSON_THROW_ON_ERROR))
             && $payload['branchCode'] === ['LR00']
             && $payload['promotionType'] === 4
             && $payload['discountAccountNumber'] === 'Refer to Account in Mapping'

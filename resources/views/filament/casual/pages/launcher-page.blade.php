@@ -110,10 +110,10 @@
         {{-- Search results --}}
         <div x-show="isSearching" class="mx-5 mb-5" style="display:none">
             <template x-if="filteredTiles.length > 0">
-                <div class="grid grid-cols-4 gap-3">
+                <div class="grid auto-rows-fr grid-cols-4 gap-3">
                     <template x-for="tile in filteredTiles" :key="tile.href">
                         <a :href="tile.href"
-                           class="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl bg-white p-1 ring-1 ring-black/5 transition-all active:scale-[0.92] dark:bg-gray-900 dark:ring-white/10">
+                           class="launcher-menu-tile flex h-full min-h-[112px] flex-col items-center justify-center gap-2 rounded-3xl bg-white p-2 ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.96] dark:bg-gray-900 dark:ring-white/10">
                             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                                  :style="`background:${tile.iconBgColor}`">
                                 <svg class="h-5 w-5" :style="`color:${tile.iconColor}`"
@@ -141,14 +141,14 @@
         </div>
 
         {{-- ── SERVICE GRID (default) ── --}}
-        <div x-show="!isSearching" class="mx-5 mb-5 grid grid-cols-4 gap-3">
+        <div x-show="!isSearching" class="mx-5 mb-5 grid auto-rows-fr grid-cols-4 gap-3">
             @foreach (array_slice($tiles, 0, 7) as $tile)
                 @php
                     $iconColor  = $iconColorMap[$tile['iconBg']] ?? '#64748b';
                     $iconBgColor = $iconBgColorMap[$tile['iconBg']] ?? '#f8fafc';
                 @endphp
                 <a href="{{ $tile['href'] }}"
-                   class="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl bg-white p-1 ring-1 ring-black/5 transition-all active:scale-[0.92] dark:bg-gray-900 dark:ring-white/10">
+                   class="launcher-menu-tile flex h-full min-h-[112px] flex-col items-center justify-center gap-2 rounded-3xl bg-white p-2 ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.96] dark:bg-gray-900 dark:ring-white/10">
 
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                          style="background:{{ $iconBgColor }}">
@@ -167,7 +167,7 @@
 
             {{-- Tile ke-8: Lihat Semua --}}
             <button type="button" @click="showAllMenus = true"
-                    class="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl bg-white ring-1 ring-black/5 transition-all active:scale-[0.92] dark:bg-gray-900 dark:ring-white/10">
+                    class="launcher-menu-tile flex h-full min-h-[112px] flex-col items-center justify-center gap-2 rounded-3xl bg-white p-2 ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.96] dark:bg-gray-900 dark:ring-white/10">
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]" style="background:#f1f5f9">
                     <svg class="h-5 w-5" style="color:#64748b" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z"/>
@@ -234,8 +234,8 @@
                             $iconColor   = $iconColorMap[$item['iconBg']] ?? '#64748b';
                             $iconBgColor = $iconBgColorMap[$item['iconBg']] ?? '#f8fafc';
                         @endphp
-                        <div class="flex items-center gap-3 border-b border-gray-100 p-4 last:border-0 dark:border-gray-800">
-                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+                        <div class="flex items-start gap-3 border-b border-gray-100 p-4 last:border-0 dark:border-gray-800">
+                            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
                                  style="background:{{ $iconBgColor }}">
                                 <svg class="h-5 w-5" style="color:{{ $iconColor }}"
                                      fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -244,10 +244,10 @@
                             </div>
                             <div class="min-w-0 flex-1">
                                 <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $item['type'] }}</p>
-                                <p class="mt-0.5 truncate text-[14px] font-bold text-slate-800 dark:text-white">{{ $item['label'] }}</p>
-                                <div class="mt-1.5 flex items-center gap-2"><span class="rounded-full px-2 py-0.5 text-[9.5px] font-bold {{ $statusClass($item['status_color']) }}">
+                                <p class="mt-0.5 line-clamp-2 text-[14px] font-bold leading-5 text-slate-800 dark:text-white">{{ $item['label'] }}</p>
+                                <div class="mt-2 flex flex-wrap items-center gap-2"><span class="rounded-full px-2.5 py-1 text-[10px] font-bold {{ $statusClass($item['status_color']) }}">
                                     {{ $item['status_label'] }}
-                                </span><span class="text-[10px] text-slate-400">{{ \Carbon\Carbon::parse($item['date'])->locale('id')->diffForHumans() }}</span></div>
+                                </span><span class="text-[10px] text-slate-400">Dikirim {{ \Carbon\Carbon::parse($item['date'])->locale('id')->isoFormat('D MMM Y, HH:mm') }}</span></div>
                             </div>
                             <svg class="h-5 w-5 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>
                         </div>
@@ -310,7 +310,7 @@
                     $iconBgColor = $iconBgColorMap[$tile['iconBg']] ?? '#f8fafc';
                 @endphp
                 <a href="{{ $tile['href'] }}"
-                   class="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl bg-gray-50 ring-1 ring-black/5 transition-all active:scale-[0.92] dark:bg-gray-800 dark:ring-white/10">
+                   class="launcher-menu-tile flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl bg-gray-50 p-2 ring-1 ring-black/5 transition-all hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.96] dark:bg-gray-800 dark:ring-white/10">
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
                          style="background:{{ $iconBgColor }}">
                         <svg class="h-5 w-5"

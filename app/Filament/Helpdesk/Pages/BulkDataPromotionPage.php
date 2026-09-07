@@ -45,15 +45,23 @@ class BulkDataPromotionPage extends Page
 
     public int $pickerPage = 1;
 
-    public int $pickerPerPage = 10;
+    public int $pickerPerPage = 20;
 
     public string $pickerSearch = '';
+
+    public string $pickerMenuNameSearch = '';
+
+    public string $pickerMenuCodeSearch = '';
+
+    public bool $pickerLoaded = false;
 
     /** @var list<string> */
     public array $pickerBranchIds = [];
 
     /** @var list<array{value:string,label:string,meta:string}> */
     public array $pickerRows = [];
+
+    public array $pickerSourceRows = [];
 
     public bool $pickerHasNext = false;
 
@@ -387,9 +395,16 @@ class BulkDataPromotionPage extends Page
 
         $this->pickerType = in_array($type, ['category', 'category_detail', 'menu'], true) ? $type : 'category';
         $this->pickerPage = 1;
+        $this->pickerPerPage = 20;
         $this->pickerSearch = '';
+        $this->pickerMenuNameSearch = '';
+        $this->pickerMenuCodeSearch = '';
+        $this->pickerRows = [];
+        $this->pickerSourceRows = [];
+        $this->pickerHasNext = false;
+        $this->pickerTotal = 0;
+        $this->pickerLoaded = false;
         $this->pickerOpen = true;
-        $this->loadPickerRows();
 
         return null;
     }
@@ -408,9 +423,32 @@ class BulkDataPromotionPage extends Page
     public function closePicker(): void
     {
         $this->pickerOpen = false;
+        $this->pickerLoaded = false;
+        $this->pickerRows = [];
+        $this->pickerSourceRows = [];
     }
 
-    public function updatedPickerSearch(): void
+    public function searchPicker(string $search): void
+    {
+        $this->pickerSearch = trim($search);
+        $this->pickerPage = 1;
+
+        if ($this->pickerType !== 'menu' && $this->pickerSourceRows !== []) {
+            $this->filterPickerSourceRows();
+
+            return;
+        }
+
+        $this->loadPickerRows();
+    }
+
+    public function updatedPickerMenuNameSearch(): void
+    {
+        $this->pickerPage = 1;
+        $this->loadPickerRows();
+    }
+
+    public function updatedPickerMenuCodeSearch(): void
     {
         $this->pickerPage = 1;
         $this->loadPickerRows();
@@ -418,7 +456,7 @@ class BulkDataPromotionPage extends Page
 
     public function setPickerPerPage(mixed $perPage): void
     {
-        $this->pickerPerPage = in_array((int) $perPage, [10, 20], true) ? (int) $perPage : 10;
+        $this->pickerPerPage = 20;
         $this->pickerPage = 1;
         $this->loadPickerRows();
     }
@@ -444,14 +482,44 @@ class BulkDataPromotionPage extends Page
         $pairs = $this->selectedEsbBranchPairs($this->pickerBranchIds ?: ($this->data['branch_ids'] ?? []))->all();
         $service = app(EsbPromotionService::class);
         $result = $this->pickerType === 'menu'
-            ? $service->menuPage($pairs, $this->pickerPage, $this->pickerPerPage, $this->pickerSearch)
+            ? $service->menuPage(
+                $pairs,
+                $this->pickerPage,
+                $this->pickerPerPage,
+                $this->pickerMenuNameSearch,
+                $this->pickerMenuCodeSearch,
+            )
             : $service->menuCategoryPage($pairs, $this->pickerType, $this->pickerPage, $this->pickerPerPage);
+
+        if ($this->pickerType !== 'menu') {
+            $this->pickerSourceRows = $result['rows'];
+        }
 
         $this->pickerRows = $result['rows'];
         $this->pickerPage = $result['page'];
         $this->pickerPerPage = $result['perPage'];
         $this->pickerTotal = $result['total'];
         $this->pickerHasNext = $result['hasNext'];
+        $this->pickerLoaded = true;
+
+        if ($this->pickerType !== 'menu') {
+            $this->filterPickerSourceRows();
+        }
+    }
+
+    private function filterPickerSourceRows(): void
+    {
+        $search = mb_strtolower($this->pickerSearch);
+        $this->pickerRows = $search === ''
+            ? $this->pickerSourceRows
+            : collect($this->pickerSourceRows)
+                ->filter(fn (array $row): bool => str_contains(
+                    mb_strtolower($row['label'].' '.$row['meta']),
+                    $search,
+                ))
+                ->values()
+                ->all();
+        $this->pickerTotal = count($this->pickerRows);
     }
 
     public function togglePickerValue(string $value): void

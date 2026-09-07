@@ -337,7 +337,7 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
             ]);
         }
 
-        if ($request->method() === 'GET' && $request->url() === 'https://promotion-esb.test/corev1/master/get-menu-category') {
+        if ($request->method() === 'GET' && str_starts_with($request->url(), 'https://promotion-esb.test/corev1/master/get-menu-category')) {
             return Http::response([
                 'status' => 'ok',
                 'result' => [
@@ -415,7 +415,11 @@ it('submits bulk promotion free item to selected comcodes with conditional paylo
     $component
         ->call('openPickerForComcode', 'category', 'BLSS')
         ->assertSet('pickerComcode', 'BLSS')
-        ->assertSet('pickerBranchIds', ['BLSS|LR00']);
+        ->assertSet('pickerBranchIds', ['BLSS|LR00'])
+        ->assertSet('pickerLoaded', false)
+        ->assertSet('pickerRows', [])
+        ->call('loadPickerRows')
+        ->assertSet('pickerLoaded', true);
 
     $component
         ->call('submit')
@@ -509,7 +513,7 @@ it('selects promotion category from the paginated picker modal', function () {
             ]);
         }
 
-        if ($request->method() === 'GET' && $request->url() === 'https://promotion-esb.test/corev1/master/get-menu-category') {
+        if ($request->method() === 'GET' && str_starts_with($request->url(), 'https://promotion-esb.test/corev1/master/get-menu-category')) {
             return Http::response([
                 'status' => 'ok',
                 'result' => [
@@ -569,6 +573,16 @@ it('selects promotion category from the paginated picker modal', function () {
         ->set('data.branch_ids', ['BLSS|LR00'])
         ->call('openPicker', 'category')
         ->assertSet('pickerOpen', true)
+        ->assertSet('pickerLoaded', false)
+        ->call('loadPickerRows')
+        ->assertSet('pickerLoaded', true)
+        ->assertSet('pickerSourceRows.0.value', 'BLSS|LR00|16')
+        ->call('searchPicker', 'tidak ditemukan')
+        ->assertSet('pickerRows', [])
+        ->call('searchPicker', 'Food-Int')
+        ->assertSet('pickerSearch', 'Food-Int')
+        ->assertSet('pickerBranchIds', ['BLSS|LR00'])
+        ->assertSet('pickerRows.0.value', 'BLSS|LR00|16')
         ->call('togglePickerValue', 'BLSS|LR00|16')
         ->assertSet('data.menuCategoryID', ['BLSS|LR00|16']);
 
@@ -634,6 +648,7 @@ it('opens promotion picker successfully when branches are selected via database 
         ])
         ->call('openPicker', 'category')
         ->assertSet('pickerOpen', true)
+        ->call('loadPickerRows')
         ->assertSet('pickerRows.0.label', 'Food-Int')
         ->assertSet('pickerRows.0.value', 'BLSS|LR00|16')
         ->assertSet('pickerRows.0.meta', 'BLSS - Bloomery Test Branch (#16)');
@@ -710,7 +725,8 @@ it('only displays active categories, category details, and menus in the promotio
             'allCategories' => false,
             'applyDiscountTo' => 1,
         ])
-        ->call('openPicker', 'category');
+        ->call('openPicker', 'category')
+        ->call('loadPickerRows');
 
     expect($categoryTest->get('pickerRows'))->toHaveCount(1)
         ->and($categoryTest->get('pickerRows.0.value'))->toBe('BLSS|LR00|10')
@@ -724,7 +740,8 @@ it('only displays active categories, category details, and menus in the promotio
             'allCategories' => false,
             'applyDiscountTo' => 2,
         ])
-        ->call('openPicker', 'category_detail');
+        ->call('openPicker', 'category_detail')
+        ->call('loadPickerRows');
 
     expect($detailTest->get('pickerRows'))->toHaveCount(1)
         ->and($detailTest->get('pickerRows.0.value'))->toBe('BLSS|LR00|101')
@@ -738,7 +755,8 @@ it('only displays active categories, category details, and menus in the promotio
             'allCategories' => false,
             'applyDiscountTo' => 3,
         ])
-        ->call('openPicker', 'menu');
+        ->call('openPicker', 'menu')
+        ->call('loadPickerRows');
 
     expect($menuTest->get('pickerRows'))->toHaveCount(1)
         ->and($menuTest->get('pickerRows.0.value'))->toBe('BLSS|LR00|301')
@@ -812,6 +830,7 @@ it('supports All Branch option in promotion page', function () {
     // Check that openPicker works when branch_ids is ALL
     $component->call('openPicker', 'category')
         ->assertSet('pickerOpen', true)
+        ->call('loadPickerRows')
         ->assertSet('pickerRows.0.label', 'All Branch Category');
 
     // Submit and verify branchCode in payload contains both branch codes

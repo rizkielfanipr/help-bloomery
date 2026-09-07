@@ -176,7 +176,7 @@ class EsbPromotionService
     }
 
     /** @return array{rows:list<array{value:string,label:string,meta:string}>,page:int,total:int,perPage:int,hasNext:bool} */
-    public function menuCategoryPage(array $pairs, string $type, int $page = 1, int $perPage = 10): array
+    public function menuCategoryPage(array $pairs, string $type, int $page = 1, int $perPage = 10, string $search = ''): array
     {
         $rows = [];
         $page = max(1, $page);
@@ -226,17 +226,28 @@ class EsbPromotionService
             }
         }
 
+        $normalizedSearch = mb_strtolower(trim($search));
+        $filteredRows = $normalizedSearch === ''
+            ? $rows
+            : collect($rows)
+                ->filter(fn (array $row): bool => str_contains(
+                    mb_strtolower($row['label'].' '.$row['meta']),
+                    $normalizedSearch,
+                ))
+                ->values()
+                ->all();
+
         return [
-            'rows' => $rows,
+            'rows' => $filteredRows,
             'page' => $page,
-            'total' => count($rows),
+            'total' => count($filteredRows),
             'perPage' => $perPage,
             'hasNext' => $hasNext || count($rows) >= $perPage,
         ];
     }
 
     /** @return array{rows:list<array{value:string,label:string,meta:string}>,page:int,total:int,perPage:int,hasNext:bool} */
-    public function menuPage(array $pairs, int $page = 1, int $perPage = 10, string $search = ''): array
+    public function menuPage(array $pairs, int $page = 1, int $perPage = 10, string $nameSearch = '', string $codeSearch = ''): array
     {
         $rows = [];
         $page = max(1, $page);
@@ -244,7 +255,14 @@ class EsbPromotionService
         $hasNext = false;
 
         foreach ($pairs as $pair) {
-            $result = $this->menuCatalogPage((string) $pair['comcode'], (string) $pair['branchCode'], $page, $perPage, $search);
+            $result = $this->menuCatalogPage(
+                (string) $pair['comcode'],
+                (string) $pair['branchCode'],
+                $page,
+                $perPage,
+                $nameSearch,
+                $codeSearch,
+            );
             $hasNext = $hasNext || ($result['hasNext'] ?? false);
 
             foreach ($result['data'] as $menu) {
@@ -407,10 +425,18 @@ class EsbPromotionService
     }
 
     /** @return array{data:list<array<string, mixed>>,hasNext:bool} */
-    private function menuCatalogPage(string $comcode, string $branchCode, int $page, int $perPage, string $search): array
+    private function menuCatalogPage(
+        string $comcode,
+        string $branchCode,
+        int $page,
+        int $perPage,
+        string $nameSearch,
+        string $codeSearch,
+    ): array
     {
         return $this->singleCatalogPage($comcode, $branchCode, '/corev1/master/get-menu', $page, $perPage, array_filter([
-            'menuCode' => trim($search),
+            'menuName' => trim($nameSearch),
+            'menuCode' => trim($codeSearch),
             'flagActive' => 1,
         ], fn (string|int $value): bool => (string) $value !== ''));
     }

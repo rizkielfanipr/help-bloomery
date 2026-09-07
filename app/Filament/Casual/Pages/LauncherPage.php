@@ -7,6 +7,7 @@ use App\Models\ContentRequest;
 use App\Models\DesignRequest;
 use App\Models\ErpRepairRequest;
 use App\Models\PurchaseRequest;
+use App\Models\ServiceRequest;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 
@@ -144,7 +145,7 @@ class LauncherPage extends Page
         $user = auth()->user();
         $results = collect();
 
-        DesignRequest::where('requester_id', $user->id)
+        DesignRequest::where('requester_id', $user->id)->where('status', 'design_request')
             ->latest()->take(3)->get()
             ->each(fn (DesignRequest $r) => $results->push([
                 'type' => 'Request Desain',
@@ -157,7 +158,7 @@ class LauncherPage extends Page
                 'date' => $r->created_at,
             ]));
 
-        ContentRequest::where('requester_id', $user->id)
+        ContentRequest::where('requester_id', $user->id)->where('status', 'submitted')
             ->latest()->take(3)->get()
             ->each(fn (ContentRequest $r) => $results->push([
                 'type' => 'Request Konten',
@@ -170,7 +171,7 @@ class LauncherPage extends Page
                 'date' => $r->created_at,
             ]));
 
-        ErpRepairRequest::where('requester_id', $user->id)
+        ErpRepairRequest::where('requester_id', $user->id)->where('status', 'submitted')
             ->with('module')->latest()->take(3)->get()
             ->each(fn (ErpRepairRequest $r) => $results->push([
                 'type' => 'Request ERP',
@@ -183,7 +184,7 @@ class LauncherPage extends Page
                 'date' => $r->created_at,
             ]));
 
-        PurchaseRequest::where('user_id', $user->id)
+        PurchaseRequest::where('user_id', $user->id)->where('status', 'submitted')
             ->latest()->take(3)->get()
             ->each(fn (PurchaseRequest $r) => $results->push([
                 'type' => 'Request Purchasing',
@@ -196,6 +197,18 @@ class LauncherPage extends Page
                 'date' => $r->created_at,
             ]));
 
-        return $results->sortByDesc('date')->take(5)->values();
+        ServiceRequest::where('scheduled_by', $user->id)->where('status', 'submitted')->latest()->take(3)->get()
+            ->each(fn (ServiceRequest $r) => $results->push([
+                'type' => 'Request Teknisi',
+                'label' => $r->requestor_notes ?: 'Permintaan teknisi',
+                'iconBg' => 'bg-sky-50',
+                'iconColor' => 'text-sky-500',
+                'path' => 'M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63',
+                'status_label' => $r->status->getLabel(),
+                'status_color' => $r->status->getColor(),
+                'date' => $r->created_at,
+            ]));
+
+        return $results->sortByDesc('date')->take(3)->values();
     }
 }

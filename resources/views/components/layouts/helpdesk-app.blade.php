@@ -44,7 +44,7 @@
     if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
     if (str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver/', $path))                  { $initialOpen[] = 'driver'; }
-    if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
+    if (preg_match('/service-request|technician-settings|technician-monthly-maintenance/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path))                { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches'))                              { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report')) { $initialOpen[] = 'finance'; }
@@ -93,6 +93,7 @@
             'icon'  => 'wrench',
             'items' => [
                 ['label' => 'Permintaan Service', 'icon' => 'clipboard-list', 'perm' => 'view service requests', 'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => request()->is('helpdesk/service-requests*')],
+                ['label' => 'Maintenance Bulanan', 'icon' => 'calendar-cog', 'perm' => 'view technician monthly maintenance', 'href' => $r('filament.helpdesk.resources.technician-monthly-maintenances.index'), 'active' => request()->is('technician-monthly-maintenances*')],
                 ['label' => 'Pengaturan', 'icon' => 'settings',       'perm' => 'edit service requests', 'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => request()->is('helpdesk/technician-settings*')],
             ],
         ],

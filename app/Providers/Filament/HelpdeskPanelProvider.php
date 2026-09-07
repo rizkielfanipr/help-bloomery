@@ -4,8 +4,6 @@ namespace App\Providers\Filament;
 
 use App\Filament\Helpdesk\Pages\Auth\Login;
 use App\Filament\Helpdesk\Pages\DriverMealAllowancePage;
-use App\Filament\Resources\Roles\RoleResource;
-use App\Filament\Resources\Users\UserResource;
 use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -72,10 +70,7 @@ class HelpdeskPanelProvider extends PanelProvider
                 NavigationGroup::make('Teknisi')->icon('heroicon-o-wrench-screwdriver'),
             ])
             ->discoverResources(in: app_path('Filament/Helpdesk/Resources'), for: 'App\Filament\Helpdesk\Resources')
-            ->resources([
-                UserResource::class,
-                RoleResource::class,
-            ])
+            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Helpdesk/Pages'), for: 'App\Filament\Helpdesk\Pages')
             ->pages([
                 DriverMealAllowancePage::class,

@@ -51,7 +51,7 @@
     ])->toJson();
 @endphp
 
-<div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh"
+<div class="flex flex-col bg-[#faf8ff] text-slate-900 dark:bg-gray-950" style="min-height:100dvh"
      x-data="{
          showAllMenus: false,
          search: '',
@@ -64,31 +64,31 @@
          }
      }">
 
-    {{-- ════════════════════════════════════════════
-         BLUE HEADER
-    ════════════════════════════════════════════ --}}
-    <div class="flex-shrink-0 px-5 pb-8 pt-14">
-
-        {{-- Logo + brand --}}
-        <div class="mb-5 flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/20">
-                <img src="{{ asset('images/bloomery-icon.png') }}" alt="" class="h-6 w-6 object-contain" style="filter:brightness(10)">
-            </div>
-            <div>
-                <p class="text-[11px] font-semibold uppercase tracking-widest text-blue-300">Superapp</p>
-                <p class="text-base font-bold leading-none text-white">Bloomery</p>
-            </div>
+    <header class="fixed inset-x-0 top-0 z-40 bg-[#faf8ff]/90 pt-[env(safe-area-inset-top)] shadow-[0_1px_8px_rgba(0,0,0,0.04)] backdrop-blur-xl dark:bg-gray-950/90">
+        <div class="mx-auto flex h-16 max-w-[430px] items-center justify-between gap-2 px-4">
+            <div class="flex min-w-0 items-center"><img src="{{ asset('images/bloomery-icon.png') }}" alt="Bloomery" class="h-8 w-auto object-contain"></div>
+            <div class="flex items-center gap-2"><button type="button" aria-label="Notifikasi" class="relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-500 hover:bg-blue-50 dark:text-slate-300"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.31 6.022 23.848 23.848 0 0 0 5.454 1.31m5.713 0a24.255 24.255 0 0 1-5.713 0m5.713 0a3 3 0 1 1-5.713 0"/></svg><span class="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500"></span></button><a href="{{ \App\Filament\Casual\Pages\ProfilePage::getUrl() }}" class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white ring-2 ring-blue-600/20">{{ strtoupper(substr($firstName, 0, 1)) }}</a></div>
         </div>
-
-        {{-- Greeting --}}
-        <p class="text-sm text-blue-200">{{ $branch }}</p>
-        <h1 class="mt-0.5 text-2xl font-extrabold text-white">{{ $greeting }}, {{ $firstName }}!</h1>
-    </div>
+    </header>
 
     {{-- ════════════════════════════════════════════
          WHITE CONTENT CARD
     ════════════════════════════════════════════ --}}
-    <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-5 dark:bg-gray-950">
+    <main class="flex-1 overflow-y-auto bg-[#faf8ff] pb-28 pt-16 dark:bg-gray-950">
+        <div class="mx-4 pb-8">
+            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-600 to-sky-500 p-4 text-white shadow-md">
+                <div class="absolute -right-8 -top-8 h-36 w-36 rounded-full bg-sky-300/20 blur-2xl"></div>
+                <div class="relative flex items-center gap-3"><div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 text-lg font-bold">{{ strtoupper(substr($firstName, 0, 1)) }}</div><div class="min-w-0"><p class="text-[11px] font-semibold uppercase tracking-wider text-blue-100">{{ $greeting }}</p><h1 class="truncate text-xl font-bold">{{ $user->name }}</h1><p class="mt-0.5 text-xs text-blue-100">{{ $branch }}</p></div><span class="ml-auto shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold">Casual Staff</span></div>
+            </div>
+        </div>
+
+        <div class="mx-5 mb-3 flex items-end justify-between">
+            <div>
+                <h2 class="text-base font-bold tracking-tight text-slate-900 dark:text-white">Modul Operasional</h2>
+                <p class="mt-0.5 text-xs text-slate-400">Akses layanan dan aktivitas kerja</p>
+            </div>
+            <span class="text-[11px] font-semibold text-blue-600 dark:text-blue-400">{{ count($tiles) }} modul</span>
+        </div>
 
         {{-- Search bar --}}
         <div class="mx-5 mb-5 flex items-center gap-2.5 rounded-2xl bg-white px-4 py-3 ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
@@ -110,18 +110,18 @@
         {{-- Search results --}}
         <div x-show="isSearching" class="mx-5 mb-5" style="display:none">
             <template x-if="filteredTiles.length > 0">
-                <div class="grid grid-cols-4 gap-2.5">
+                <div class="grid grid-cols-4 gap-3">
                     <template x-for="tile in filteredTiles" :key="tile.href">
                         <a :href="tile.href"
-                           class="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl bg-white ring-1 ring-black/5 transition-all active:scale-[0.92] dark:bg-gray-900 dark:ring-white/10">
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
+                           class="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl bg-white p-1 ring-1 ring-black/5 transition-all active:scale-[0.92] dark:bg-gray-900 dark:ring-white/10">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                                  :style="`background:${tile.iconBgColor}`">
                                 <svg class="h-5 w-5" :style="`color:${tile.iconColor}`"
                                      fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" :d="tile.path"/>
                                 </svg>
                             </div>
-                            <span class="line-clamp-2 w-full px-1 text-center text-[9px] font-semibold leading-tight text-slate-600 dark:text-slate-300"
+                            <span class="line-clamp-2 w-full px-1 text-center text-[10px] font-semibold leading-tight text-slate-600 dark:text-slate-300"
                                   x-text="tile.label"></span>
                         </a>
                     </template>
@@ -141,16 +141,16 @@
         </div>
 
         {{-- ── SERVICE GRID (default) ── --}}
-        <div x-show="!isSearching" class="mx-5 mb-5 grid grid-cols-4 gap-2.5">
+        <div x-show="!isSearching" class="mx-5 mb-5 grid grid-cols-4 gap-3">
             @foreach (array_slice($tiles, 0, 7) as $tile)
                 @php
                     $iconColor  = $iconColorMap[$tile['iconBg']] ?? '#64748b';
                     $iconBgColor = $iconBgColorMap[$tile['iconBg']] ?? '#f8fafc';
                 @endphp
                 <a href="{{ $tile['href'] }}"
-                   class="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl bg-white ring-1 ring-black/5 transition-all active:scale-[0.92] dark:bg-gray-900 dark:ring-white/10">
+                   class="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl bg-white p-1 ring-1 ring-black/5 transition-all active:scale-[0.92] dark:bg-gray-900 dark:ring-white/10">
 
-                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]"
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                          style="background:{{ $iconBgColor }}">
                         <svg class="h-5 w-5"
                              style="color:{{ $iconColor }}"
@@ -159,7 +159,7 @@
                         </svg>
                     </div>
 
-                    <span class="line-clamp-2 w-full px-1 text-center text-[9px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
+                    <span class="line-clamp-2 w-full px-1 text-center text-[10px] font-semibold leading-tight text-slate-600 dark:text-slate-300">
                         {{ $tile['label'] }}
                     </span>
                 </a>
@@ -180,7 +180,7 @@
         </div>
 
         {{-- ── INFO CARDS ── --}}
-        <div class="mx-5 mb-5 grid grid-cols-2 gap-3">
+        <div class="launcher-summary-cards mx-5 mb-5 grid grid-cols-2 gap-3">
             <div class="flex items-center justify-between rounded-2xl bg-white px-4 py-3.5 ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                 <div>
                     <p class="text-[11px] font-medium text-slate-400">Cabang</p>
@@ -195,7 +195,7 @@
             <div class="flex items-center justify-between rounded-2xl bg-white px-4 py-3.5 ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                 <div>
                     <p class="text-[11px] font-medium text-slate-400">Pengajuan</p>
-                    <p class="mt-0.5 text-[14px] font-bold text-slate-800 dark:text-white">{{ $recents->count() }} aktif</p>
+                    <p class="mt-0.5 text-[14px] font-bold text-slate-800 dark:text-white">{{ $recents->count() }} terakhir</p>
                 </div>
                 <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-900/30">
                     <svg class="h-5 w-5 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
@@ -207,11 +207,12 @@
 
         {{-- ── RECENT ACTIVITY ── --}}
         <div class="mx-5">
-            <div class="mb-3 flex items-center justify-between">
-                <span class="text-[17px] font-extrabold text-slate-900 dark:text-white">Pengajuan Terbaru</span>
-                @if ($recents->isNotEmpty())
-                    <span class="text-[13px] font-semibold text-blue-600 dark:text-blue-400">Lihat Semua →</span>
-                @endif
+            <div class="mb-3 flex items-end justify-between">
+                <div>
+                    <h2 class="text-base font-bold tracking-tight text-slate-900 dark:text-white">Pengajuan Terakhir</h2>
+                    <p class="mt-0.5 text-xs text-slate-400">Aktivitas pengajuan yang sudah dikirim</p>
+                </div>
+                <span class="text-[11px] font-semibold text-blue-600 dark:text-blue-400">{{ $recents->count() }} pengajuan</span>
             </div>
 
             @if ($recents->isEmpty())
@@ -227,40 +228,35 @@
                     </div>
                 </div>
             @else
-                <div class="flex gap-3 overflow-x-auto pb-2" style="scrollbar-width:none; -ms-overflow-style:none">
+                <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                     @foreach ($recents as $item)
                         @php
                             $iconColor   = $iconColorMap[$item['iconBg']] ?? '#64748b';
                             $iconBgColor = $iconBgColorMap[$item['iconBg']] ?? '#f8fafc';
                         @endphp
-                        <div class="w-44 shrink-0 rounded-2xl bg-white p-4 ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
-
-                            <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl"
+                        <div class="flex items-center gap-3 border-b border-gray-100 p-4 last:border-0 dark:border-gray-800">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
                                  style="background:{{ $iconBgColor }}">
                                 <svg class="h-5 w-5" style="color:{{ $iconColor }}"
                                      fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="{{ $item['path'] }}"/>
                                 </svg>
                             </div>
-
-                            <p class="text-[10.5px] font-semibold text-slate-400">{{ $item['type'] }}</p>
-                            <p class="mt-0.5 line-clamp-2 text-[12px] font-bold leading-snug text-slate-800 dark:text-white">{{ $item['label'] }}</p>
-
-                            <div class="mt-3 flex items-center justify-between">
-                                <span class="rounded-full px-2 py-0.5 text-[9.5px] font-bold {{ $statusClass($item['status_color']) }}">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $item['type'] }}</p>
+                                <p class="mt-0.5 truncate text-[14px] font-bold text-slate-800 dark:text-white">{{ $item['label'] }}</p>
+                                <div class="mt-1.5 flex items-center gap-2"><span class="rounded-full px-2 py-0.5 text-[9.5px] font-bold {{ $statusClass($item['status_color']) }}">
                                     {{ $item['status_label'] }}
-                                </span>
-                                <span class="text-[10px] text-slate-400">
-                                    {{ \Carbon\Carbon::parse($item['date'])->locale('id')->diffForHumans() }}
-                                </span>
+                                </span><span class="text-[10px] text-slate-400">{{ \Carbon\Carbon::parse($item['date'])->locale('id')->diffForHumans() }}</span></div>
                             </div>
+                            <svg class="h-5 w-5 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg>
                         </div>
                     @endforeach
                 </div>
             @endif
         </div>
 
-    </div>
+    </main>
 
     {{-- ════════════════════════════════════════════
          ALL MENUS BOTTOM SHEET

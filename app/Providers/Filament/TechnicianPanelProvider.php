@@ -28,7 +28,7 @@ class TechnicianPanelProvider extends PanelProvider
             ->when(! $domain, fn (Panel $p) => $p->path('technician'))
             ->login()
             ->viteTheme('resources/css/filament/technician/theme.css')
-            ->navigation(false)
+            ->navigation(true)
             ->topbar(false)
             ->colors([
                 'primary' => Color::Orange,

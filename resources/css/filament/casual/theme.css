@@ -31,6 +31,10 @@
     --spacing: 0;
 }
 
+.launcher-summary-cards {
+    display: none;
+}
+
 @keyframes faceScan {
     0%   { top: 2%; opacity: 0; }
     8%   { opacity: 1; }

@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             TripSeeder::class,
             QualityControlChecklistSeeder::class,
             QualityControlAuditSeeder::class,
+            TechnicianMaintenanceChecklistSeeder::class,
         ]);
     }
 }

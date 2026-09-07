@@ -51,6 +51,12 @@ Panel utama yang digunakan staff helpdesk untuk mengelola semua operasional. Men
 
 > Sidebar menggunakan Lucide icons via `data-lucide="..."`. Nama icon harus menggunakan konvensi Lucide (mis. `users`, `building-2`), bukan Heroicon.
 
+### Menambahkan menu sidebar
+
+Sidebar Helpdesk dirender oleh `resources/views/vendor/filament-panels/components/layout/index.blade.php`. Definisi item Technician yang dipakai lintas layout dipusatkan di `app/Filament/Helpdesk/Navigation/HelpdeskNavigation.php`.
+
+Saat menambahkan menu Technician, tambahkan item di `HelpdeskNavigation::technicianItems()` dengan `label`, `icon` Lucide, `perm`, dan route name. Jangan menambahkan item langsung ke Blade kecuali untuk kebutuhan layout. Setelah perubahan, jalankan `php artisan view:cache` dan pastikan permission yang digunakan terdaftar.
+
 **Resources (auto-discover dari `app/Filament/Helpdesk/Resources/`):**
 - `CasualStaffResource`
 - `CasualPositionResource`

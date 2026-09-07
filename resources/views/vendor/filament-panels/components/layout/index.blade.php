@@ -3,7 +3,6 @@
 @endpush
 
 @php
-    use App\Filament\Helpdesk\Resources\BulkProductSubmissions\BulkProductSubmissionResource;
     use Filament\Support\Enums\Width;
 
     $livewire ??= null;
@@ -29,6 +28,7 @@
         str_starts_with('/'.request()->path(), parse_url($href, PHP_URL_PATH) ?? '~');
     $activeExact = fn (string $href): bool => $href !== '#' &&
         '/'.request()->path() === rtrim(parse_url($href, PHP_URL_PATH) ?? '~', '/');
+    $technicianNavigation = \App\Filament\Helpdesk\Navigation\HelpdeskNavigation::technicianItems($r, $active);
 
     /* ── Auto-open the active group ──────────────────────────────── */
     $path = request()->path();
@@ -36,7 +36,7 @@
     if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
     if (str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-scores') || str_contains($path, 'briefing-settings') || str_contains($path, 'briefing-period-weights')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver|fuel-type/', $path)) { $initialOpen[] = 'driver'; }
-    if (preg_match('/service-request|technician-settings/', $path))  { $initialOpen[] = 'technician'; }
+    if (preg_match('/service-request|technician-settings|technician-monthly-maintenance|technician-maintenance-checklist/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'whatsapp-settings')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'basket-size') || str_contains($path, 'compliment-type')) { $initialOpen[] = 'finance'; }
@@ -94,8 +94,7 @@
             'label' => 'Technician',
             'icon'  => 'wrench',
             'items' => [
-                ['label' => 'Permintaan Service', 'icon' => 'clipboard-list', 'perm' => 'view service requests', 'href' => $r('filament.helpdesk.resources.service-requests.index'), 'active' => $active($r('filament.helpdesk.resources.service-requests.index'))],
-                ['label' => 'Pengaturan', 'icon' => 'settings',       'perm' => 'edit service requests', 'href' => $r('filament.helpdesk.pages.technician-settings'),         'active' => $active($r('filament.helpdesk.pages.technician-settings'))],
+                ...$technicianNavigation,
             ],
         ],
         [
@@ -106,7 +105,7 @@
                 ['label' => 'Permintaan ERP', 'icon' => 'server',      'perm' => 'view erp requests', 'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => $active($r('filament.helpdesk.resources.erp-repair-requests.index'))],
                 ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => $active($r('filament.helpdesk.resources.erp-modules.index'))],
                 ['label' => 'Request Types',  'icon' => 'tags',        'perm' => 'view it request types', 'href' => $r('filament.helpdesk.resources.it-request-types.index'),  'active' => $active($r('filament.helpdesk.resources.it-request-types.index'))],
-                ['label' => 'Bulk Data', 'icon' => 'cloud-upload', 'perm' => 'view bulk product submissions', 'href' => $r('filament.helpdesk.pages.bulk-data'), 'active' => $active($r('filament.helpdesk.pages.bulk-data')) || $active(BulkProductSubmissionResource::getUrl()) || $active($r('filament.helpdesk.pages.bulk-data.promotion'))],
+                ['label' => 'Bulk Data', 'icon' => 'cloud-upload', 'perm' => 'view bulk product submissions', 'href' => $r('filament.helpdesk.pages.bulk-data'), 'active' => $active($r('filament.helpdesk.pages.bulk-data')) || $active($r('filament.helpdesk.resources.bulk-data.product.index')) || $active($r('filament.helpdesk.pages.bulk-data.promotion'))],
             ],
         ],
         [

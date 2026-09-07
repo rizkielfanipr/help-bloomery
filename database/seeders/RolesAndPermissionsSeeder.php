@@ -13,6 +13,12 @@ class RolesAndPermissionsSeeder extends Seeder
     {
         app(PermissionSynchronizer::class)->sync();
 
+        // Technician Monthly Maintenance Permissions
+        Permission::firstOrCreate(['name' => 'view technician monthly maintenance', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'create technician monthly maintenance', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'edit technician monthly maintenance', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'delete technician monthly maintenance', 'guard_name' => 'web']);
+
         Role::firstOrCreate(['name' => 'SUPERADMIN', 'guard_name' => 'web'])
             ->syncPermissions(Permission::all());
 
@@ -53,6 +59,11 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view sales information',
                 'view promotion information',
                 'view stock information',
+                // technician monthly maintenance
+                'view technician monthly maintenance',
+                'create technician monthly maintenance',
+                'edit technician monthly maintenance',
+                'delete technician monthly maintenance',
             ]);
 
         Role::firstOrCreate(['name' => 'STORE_STAFF', 'guard_name' => 'web'])
@@ -81,6 +92,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access backoffice', 'access employee app technician',
                 'view service requests', 'create service requests', 'edit service requests', 'delete service requests',
+                'view technician monthly maintenance', 'create technician monthly maintenance', 'edit technician monthly maintenance', 'delete technician monthly maintenance',
             ]);
 
         Role::firstOrCreate(['name' => 'IT_STAFF', 'guard_name' => 'web'])

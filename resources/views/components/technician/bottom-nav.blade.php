@@ -35,6 +35,22 @@
         @endif
     </a>
 
+    {{-- Pemeliharaan Bulanan --}}
+    <a href="{{ \App\Filament\Casual\Pages\TechnicianMaintenancePage::getUrl(panel: 'casual') }}"
+       class="flex flex-1 flex-col items-center gap-1 py-3">
+        @if($active === 'maintenance')
+            <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3.75h10.5A2.25 2.25 0 0 1 19.5 6v12a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18V6a2.25 2.25 0 0 1 2.25-2.25ZM8.25 8.25h7.5m-7.5 3.75h7.5m-7.5 3.75h3" />
+            </svg>
+            <span class="text-xs font-semibold text-blue-600">Maintenance</span>
+        @else
+            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3.75h10.5A2.25 2.25 0 0 1 19.5 6v12a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 18V6a2.25 2.25 0 0 1 2.25-2.25ZM8.25 8.25h7.5m-7.5 3.75h7.5m-7.5 3.75h3" />
+            </svg>
+            <span class="text-xs text-gray-400">Maintenance</span>
+        @endif
+    </a>
+
     {{-- Profil --}}
     <a href="{{ \App\Filament\Casual\Pages\TechnicianProfilePage::getUrl() }}"
        class="flex flex-1 flex-col items-center gap-1 py-3">

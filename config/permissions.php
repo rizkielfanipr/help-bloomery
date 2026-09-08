@@ -106,6 +106,10 @@ return [
         'Sourcing Bahan' => ['review material sourcing as rnd'],
     ],
 
+    'Sales & Growth' => [
+        'Sales Projection' => ['view sales projections'],
+    ],
+
     'Management Access' => [
         'Pengguna' => ['view users', 'create users', 'edit users', 'delete users'],
         'Role & Permission' => ['view roles', 'create roles', 'edit roles', 'delete roles'],

@@ -47,6 +47,7 @@
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'shelf-life') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
+    if (str_contains($path, 'sales-projection')) { $initialOpen[] = 'sales_growth'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
 
     /* ── Navigation groups with real routes ───────────────────────*/
@@ -160,6 +161,14 @@
                 ['label' => 'Sales Report',      'icon' => 'bar-chart-2', 'perm' => 'view sales reports',   'href' => $r('filament.helpdesk.resources.sales-reports.index'),   'active' => $active($r('filament.helpdesk.resources.sales-reports.index'))],
                 ['label' => 'Compliment Types', 'icon' => 'tag', 'perm' => 'view compliment types', 'href' => $r('filament.helpdesk.resources.compliment-types.index'), 'active' => $active($r('filament.helpdesk.resources.compliment-types.index'))],
                 ['label' => 'Basket Size', 'icon' => 'shopping-basket', 'perm' => 'view basket sizes', 'href' => $r('filament.helpdesk.pages.basket-size-page'), 'active' => $active($r('filament.helpdesk.pages.basket-size-page'))],
+            ],
+        ],
+        [
+            'id'    => 'sales_growth',
+            'label' => 'Sales & Growth',
+            'icon'  => 'trending-up',
+            'items' => [
+                ['label' => 'Sales Projection', 'icon' => 'presentation', 'perm' => 'view sales projections', 'href' => $r('filament.helpdesk.pages.sales-projection'), 'active' => $active($r('filament.helpdesk.pages.sales-projection'))],
             ],
         ],
         [

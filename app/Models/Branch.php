@@ -92,6 +92,16 @@ class Branch extends Model
         return $this->hasMany(SalesReport::class);
     }
 
+    public function salesProjectionTargets(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            RndProductSalesProjection::class,
+            'rnd_product_sales_projection_branch_targets',
+            'branch_id',
+            'rnd_product_sales_projection_id',
+        )->withPivot('target_quantity')->withTimestamps();
+    }
+
     public function salesShifts(): HasMany
     {
         return $this->hasMany(BranchSalesShift::class)->orderBy('shift_number');

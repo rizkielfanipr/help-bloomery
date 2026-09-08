@@ -6,6 +6,7 @@ use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
+use App\Models\Branch;
 use App\Models\PrefixCategory;
 use App\Models\RndBomInstruction;
 use App\Models\RndProductEsbMaterial;
@@ -19,6 +20,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -28,9 +30,65 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 
-    $admin = User::factory()->create(['is_active' => true]);
+    $admin = User::factory()->create(['is_active' => true, 'use_bom_pin' => true, 'bom_pin' => Hash::make('246810')]);
     $admin->assignRole('SUPERADMIN');
     $this->actingAs($admin);
+});
+
+it('uses dry as the shelf life storage option', function () {
+    expect(RndProjectProduct::STORAGE_CONDITIONS)
+        ->toHaveKey('dry', 'Dry')
+        ->not->toHaveKey('ambient');
+});
+
+it('uploads names downloads and deletes multiple CCP project documents', function () {
+    Storage::fake('b2');
+    $project = RndProject::query()->create([
+        'name' => 'CCP Document Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('addCcpDocumentUpload')
+        ->call('addCcpDocumentUpload')
+        ->set('ccpDocumentUploads.0.name', 'CCP Produksi')
+        ->set('ccpDocumentUploads.0.file', UploadedFile::fake()->create('ccp-produksi.pdf', 120, 'application/pdf'))
+        ->set('ccpDocumentUploads.1.name', 'CCP Penyimpanan')
+        ->set('ccpDocumentUploads.1.file', UploadedFile::fake()->create('ccp-storage.docx', 80, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
+        ->call('saveCcpDocuments')
+        ->assertHasNoErrors()
+        ->assertSee('CCP Produksi')
+        ->assertSee('CCP Penyimpanan')
+        ->assertSee('Download');
+
+    $documents = $project->documents()->get();
+    expect($documents)->toHaveCount(2);
+    foreach ($documents as $document) {
+        Storage::disk('b2')->assertExists($document->file_path);
+    }
+
+    $deletedDocument = $documents->firstOrFail();
+    $page->call('deleteCcpDocument', $deletedDocument->id)->assertHasNoErrors();
+    Storage::disk('b2')->assertMissing($deletedDocument->file_path);
+    expect($project->documents()->count())->toBe(1);
+});
+
+it('allows selecting a projection branch before its target quantity is entered', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Branch Target Render Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    Branch::factory()->create(['is_active' => true, 'name' => 'Bloomery Pabelan']);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('addSalesProjection')
+        ->set('salesProjections.0.branch_targets.0.enabled', true)
+        ->assertSee('Bloomery Pabelan')
+        ->assertSee('0,00');
 });
 
 it('renders the R&D project list and create pages', function () {
@@ -78,6 +136,13 @@ it('creates and updates a product release with online and offline prices', funct
             'online_price' => (string) (36000 + ($index * 1000)),
         ])->all();
     $projectionRegion = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->firstOrFail();
+    $targetBranches = Branch::factory()->count(2)->create(['is_active' => true]);
+    $outletTargets = $targetBranches->values()->map(fn (Branch $branch, int $index): array => [
+        'branch_id' => $branch->id,
+        'branch_name' => $branch->name,
+        'enabled' => true,
+        'target_quantity' => (string) (500 + ($index * 100)),
+    ])->all();
 
     $page = Livewire::test(ViewProject::class, ['record' => $project->id])
         ->set('productName', 'Matcha Strawberry')
@@ -91,15 +156,15 @@ it('creates and updates a product release with online and offline prices', funct
         ->set('shelfLifeUnit', 'month')
         ->set('storageCondition', 'chiller')
         ->set('storageNotes', 'Simpan pada suhu 2–5°C.')
-        ->set('targetOutlets', '50')
         ->set('salesProjections', [[
             'id' => null,
             'projection_month' => '2026-09',
             'sales_region_id' => $projectionRegion->id,
             'channel' => 'offline',
-            'target_quantity' => '5000',
+            'target_quantity' => '',
             'target_revenue' => '250000000',
-            'target_outlets' => '50',
+            'target_outlets' => null,
+            'branch_targets' => $outletTargets,
             'notes' => 'Projection peluncuran awal.',
         ]])
         ->set('productPhoto', UploadedFile::fake()->image('matcha-product.jpg', 800, 800))
@@ -126,12 +191,15 @@ it('creates and updates a product release with online and offline prices', funct
         ->and($product->shelf_life_value)->toBe(6)
         ->and($product->shelf_life_unit)->toBe('month')
         ->and($product->storage_condition)->toBe('chiller')
-        ->and($product->target_outlets)->toBe(50)
+        ->and($product->target_outlets)->toBe(2)
         ->and($product->image_path)->not->toBe($originalImagePath);
     $projection = $product->salesProjections()->firstOrFail();
     expect($projection->projection_month->toDateString())->toBe('2026-09-01')
-        ->and((float) $projection->target_quantity)->toBe(5000.0)
-        ->and((float) $projection->target_revenue)->toBe(250000000.0);
+        ->and((float) $projection->target_quantity)->toBe(1100.0)
+        ->and((float) $projection->target_revenue)->toBe(250000000.0)
+        ->and($projection->target_outlets)->toBe(2)
+        ->and($projection->targetBranches()->count())->toBe(2)
+        ->and((float) $projection->targetBranches()->findOrFail($targetBranches->first()->id)->pivot->target_quantity)->toBe(500.0);
     Storage::disk('b2')->assertMissing($originalImagePath);
     Storage::disk('b2')->assertExists($product->image_path);
     $this->assertDatabaseHas('rnd_product_regional_prices', [
@@ -190,6 +258,7 @@ it('rejects duplicate sales projection periods for the same region and channel',
         'offline_price' => '32000',
         'online_price' => '36000',
     ])->all();
+    $targetBranch = Branch::factory()->create(['is_active' => true]);
     $duplicateProjection = [
         'id' => null,
         'projection_month' => '2026-09',
@@ -198,6 +267,12 @@ it('rejects duplicate sales projection periods for the same region and channel',
         'target_quantity' => '100',
         'target_revenue' => '3600000',
         'target_outlets' => '5',
+        'branch_targets' => [[
+            'branch_id' => $targetBranch->id,
+            'branch_name' => $targetBranch->name,
+            'enabled' => true,
+            'target_quantity' => '100',
+        ]],
         'notes' => '',
     ];
 

@@ -83,7 +83,13 @@
                                 <td class="px-5 py-3">{{ \App\Models\RndProductSalesProjection::CHANNELS[$projection->channel] ?? ucfirst($projection->channel) }}</td>
                                 <td class="px-5 py-3 text-right font-bold">{{ number_format((float) $projection->target_quantity, 0, ',', '.') }}</td>
                                 <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) $projection->target_revenue, 0, ',', '.') }}</td>
-                                <td class="px-5 py-3 text-right">{{ $projection->target_outlets ? number_format($projection->target_outlets, 0, ',', '.') : '—' }}</td>
+                                <td class="px-5 py-3 text-right">
+                                    @forelse($projection->targetBranches as $targetBranch)
+                                        <span class="mb-1 block">{{ $targetBranch->name }}: <strong>{{ number_format((float) $targetBranch->pivot->target_quantity, 2, ',', '.') }}</strong></span>
+                                    @empty
+                                        —
+                                    @endforelse
+                                </td>
                             </tr>
                         @empty
                             <tr><td colspan="6" class="px-5 py-10 text-center text-gray-500">Belum ada sales projection.</td></tr>
@@ -887,6 +893,29 @@
                     <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">Export Dokumen Resep</h3>
                     <p class="mt-2 text-sm leading-6 text-gray-500">Masukkan PIN keamanan untuk mengunduh Bill of Material {{ $exportScope === 'store' ? 'Store' : ($exportScope === 'kitchen' ? 'Kitchen' : '') }} dalam format PDF.</p>
                     <form wire:submit="exportBomPdf" class="mt-5">
+                        <div class="mb-4 max-h-80 space-y-2 overflow-y-auto rounded-xl border border-gray-200 p-3 text-left dark:border-gray-700">
+                            <p class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Pilih BOM yang ditampilkan</p>
+                            @foreach($this->eligibleExportBoms() as $exportBom)
+                                <div class="rounded-lg border border-gray-100 p-2 dark:border-gray-800">
+                                    <label class="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-1 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                        <input wire:model.live="exportBomIds" type="checkbox" value="{{ $exportBom->id }}" class="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                        <span class="min-w-0"><span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $exportBom->bom_name }}</span><span class="text-xs text-gray-500">{{ strtoupper($exportBom->pivot->usage_type) }}</span></span>
+                                    </label>
+                                    @if(in_array($exportBom->id, array_map('intval', $exportBomIds), true))
+                                        <div class="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
+                                            @foreach($this->exportBomComponents($exportBom->id) as $component)
+                                                <label class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                    <input wire:model="exportBomComponentKeys.{{ $exportBom->id }}" type="checkbox" value="{{ $component['key'] }}" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                                    <span class="min-w-0 truncate text-gray-700 dark:text-gray-200">{{ $component['name'] }} <span class="font-mono text-gray-400">{{ $component['code'] }}</span></span>
+                                                </label>
+                                            @endforeach
+                                            @error('exportBomComponentKeys.'.$exportBom->id)<p class="px-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                        @error('exportBomIds')<p class="mb-3 text-sm font-medium text-red-600">Pilih minimal satu BOM.</p>@enderror
                         <input wire:model="exportPin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Masukkan PIN" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-center text-lg font-bold tracking-[0.3em] dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                         @error('exportPin')<p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>@enderror
                         <div class="mt-4 grid grid-cols-2 gap-2">

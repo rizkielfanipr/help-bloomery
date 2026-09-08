@@ -4,6 +4,7 @@ namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
+use App\Models\Branch;
 use App\Models\RndProductSalesProjection;
 use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
@@ -54,13 +55,15 @@ class ViewProject extends ViewRecord
 
     public string $shelfLifeUnit = 'month';
 
-    public string $storageCondition = 'ambient';
+    public string $storageCondition = 'dry';
 
     public string $storageNotes = '';
 
     public string $targetOutlets = '';
 
     public array $salesProjections = [];
+
+    public array $ccpDocumentUploads = [];
 
     public $productPhoto = null;
 
@@ -71,6 +74,12 @@ class ViewProject extends ViewRecord
     public string $projectExportPin = '';
 
     public string $projectExportScope = 'kitchen';
+
+    /** @var list<int> */
+    public array $projectExportBomIds = [];
+
+    /** @var array<int, list<string>> */
+    public array $projectExportBomComponentKeys = [];
 
     public function mount(int|string $record): void
     {
@@ -88,11 +97,80 @@ class ViewProject extends ViewRecord
         return SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
     }
 
+    public function getActiveBranchesProperty(): Collection
+    {
+        return Branch::query()->where('is_active', true)->orderBy('name')->get();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
             EditAction::make()->label('Edit Project'),
         ];
+    }
+
+    public function addCcpDocumentUpload(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        $this->ccpDocumentUploads[] = ['name' => '', 'file' => null];
+    }
+
+    public function removeCcpDocumentUpload(int $index): void
+    {
+        unset($this->ccpDocumentUploads[$index]);
+        $this->ccpDocumentUploads = array_values($this->ccpDocumentUploads);
+    }
+
+    public function saveCcpDocuments(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        $validated = $this->validate([
+            'ccpDocumentUploads' => ['required', 'array', 'min:1'],
+            'ccpDocumentUploads.*.name' => ['required', 'string', 'max:255'],
+            'ccpDocumentUploads.*.file' => ['required', 'file', 'mimes:pdf,doc,docx,xls,xlsx,ppt,pptx,jpg,jpeg,png,webp', 'max:20480'],
+        ]);
+        $storedPaths = [];
+
+        try {
+            DB::transaction(function () use ($validated, &$storedPaths): void {
+                foreach ($validated['ccpDocumentUploads'] as $document) {
+                    $file = $document['file'];
+                    $path = $file->store('rnd/projects/'.$this->record->id.'/ccp-documents', 'b2');
+                    if (! is_string($path) || $path === '') {
+                        throw new \RuntimeException('Dokumen CCP gagal diunggah.');
+                    }
+                    $storedPaths[] = $path;
+                    $this->record->documents()->create([
+                        'name' => trim($document['name']),
+                        'file_path' => $path,
+                        'original_name' => $file->getClientOriginalName(),
+                        'mime_type' => $file->getMimeType(),
+                        'file_size' => $file->getSize(),
+                        'created_by' => auth()->id(),
+                    ]);
+                }
+            });
+        } catch (Throwable $exception) {
+            foreach ($storedPaths as $path) {
+                Storage::disk('b2')->delete($path);
+            }
+            throw $exception;
+        }
+
+        $this->ccpDocumentUploads = [];
+        $this->reloadProject();
+        Notification::make()->title('Dokumen CCP berhasil disimpan')->success()->send();
+    }
+
+    public function deleteCcpDocument(int $documentId): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        $document = $this->record->documents()->findOrFail($documentId);
+        $path = $document->file_path;
+        $document->delete();
+        Storage::disk('b2')->delete($path);
+        $this->reloadProject();
+        Notification::make()->title('Dokumen CCP berhasil dihapus')->success()->send();
     }
 
     public function openCreateProduct(): void
@@ -120,7 +198,7 @@ class ViewProject extends ViewRecord
         $this->productStatus = $product->status;
         $this->shelfLifeValue = (string) ($product->shelf_life_value ?? '');
         $this->shelfLifeUnit = $product->shelf_life_unit ?? 'month';
-        $this->storageCondition = $product->storage_condition ?? 'ambient';
+        $this->storageCondition = $product->storage_condition ?? 'dry';
         $this->storageNotes = $product->storage_notes ?? '';
         $this->targetOutlets = (string) ($product->target_outlets ?? '');
         $this->loadSalesProjectionForm($product);
@@ -156,15 +234,18 @@ class ViewProject extends ViewRecord
             'shelfLifeUnit' => ['nullable', Rule::in(array_keys(RndProjectProduct::SHELF_LIFE_UNITS))],
             'storageCondition' => ['nullable', Rule::in(array_keys(RndProjectProduct::STORAGE_CONDITIONS))],
             'storageNotes' => ['nullable', 'string', 'max:2000'],
-            'targetOutlets' => ['nullable', 'integer', 'min:1'],
             'salesProjections' => ['array'],
             'salesProjections.*.id' => ['nullable', 'integer'],
             'salesProjections.*.projection_month' => ['required', 'date_format:Y-m'],
             'salesProjections.*.sales_region_id' => ['required', 'integer', 'exists:sales_regions,id'],
             'salesProjections.*.channel' => ['required', Rule::in(array_keys(RndProductSalesProjection::CHANNELS))],
-            'salesProjections.*.target_quantity' => ['required', 'numeric', 'gt:0'],
+            'salesProjections.*.target_quantity' => ['nullable', 'numeric', 'min:0'],
             'salesProjections.*.target_revenue' => ['required', 'numeric', 'min:0'],
             'salesProjections.*.target_outlets' => ['nullable', 'integer', 'min:1'],
+            'salesProjections.*.branch_targets' => ['required', 'array'],
+            'salesProjections.*.branch_targets.*.branch_id' => ['required', 'integer', 'exists:branches,id'],
+            'salesProjections.*.branch_targets.*.enabled' => ['required', 'boolean'],
+            'salesProjections.*.branch_targets.*.target_quantity' => ['nullable', 'numeric', 'min:0'],
             'salesProjections.*.notes' => ['nullable', 'string', 'max:1000'],
             'productPhoto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
@@ -186,6 +267,21 @@ class ViewProject extends ViewRecord
             $this->addError('salesProjections', 'Periode, region, dan channel tidak boleh duplikat dalam satu product.');
 
             return;
+        }
+        foreach ($validated['salesProjections'] as $projectionIndex => $projection) {
+            $enabledTargets = collect($projection['branch_targets'])->where('enabled', true);
+            if ($enabledTargets->isEmpty()) {
+                $this->addError("salesProjections.$projectionIndex.branch_targets", 'Pilih minimal satu branch untuk target quantity.');
+
+                return;
+            }
+            foreach ($enabledTargets as $targetIndex => $target) {
+                if ((float) ($target['target_quantity'] ?? 0) <= 0) {
+                    $this->addError("salesProjections.$projectionIndex.branch_targets.$targetIndex.target_quantity", 'Target quantity branch wajib lebih dari 0.');
+
+                    return;
+                }
+            }
         }
         if (in_array($validated['productStatus'], ['ready', 'released'], true)) {
             $planningIsInvalid = false;
@@ -237,7 +333,7 @@ class ViewProject extends ViewRecord
             'shelf_life_unit' => $validated['shelfLifeValue'] ? $validated['shelfLifeUnit'] : null,
             'storage_condition' => $validated['shelfLifeValue'] ? $validated['storageCondition'] : null,
             'storage_notes' => trim($validated['storageNotes']) ?: null,
-            'target_outlets' => $validated['targetOutlets'] ?: null,
+            'target_outlets' => null,
             'status' => $validated['productStatus'],
         ];
         if ($newImagePath) {
@@ -308,6 +404,10 @@ class ViewProject extends ViewRecord
         abort_unless(auth()->user()?->can('view bill of materials'), 403);
         abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
         $this->projectExportScope = $scope;
+        $this->projectExportBomIds = $this->eligibleProjectExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $this->projectExportBomComponentKeys = $this->eligibleProjectExportBoms($scope)->mapWithKeys(fn ($bom): array => [
+            $bom->id => collect($this->projectExportBomComponents($bom->id))->pluck('key')->all(),
+        ])->all();
         $this->projectExportPin = '';
         $this->resetValidation('projectExportPin');
         $this->projectExportPinModalOpen = true;
@@ -323,7 +423,20 @@ class ViewProject extends ViewRecord
     public function exportProjectBomPdf(): mixed
     {
         abort_unless(auth()->user()?->can('view bill of materials'), 403);
-        $this->validate(['projectExportPin' => ['required', 'string', 'max:20']]);
+        $this->validate([
+            'projectExportPin' => ['required', 'string', 'max:20'],
+            'projectExportBomIds' => ['required', 'array', 'min:1'],
+            'projectExportBomIds.*' => ['integer'],
+        ]);
+        $eligibleBomIds = $this->eligibleProjectExportBoms($this->projectExportScope)->pluck('id')->map(fn ($id): int => (int) $id);
+        abort_unless(collect($this->projectExportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
+        foreach ($this->projectExportBomIds as $bomId) {
+            if ($this->projectExportBomComponents((int) $bomId) !== [] && empty($this->projectExportBomComponentKeys[$bomId] ?? [])) {
+                $this->addError("projectExportBomComponentKeys.$bomId", 'Pilih minimal satu component.');
+
+                return null;
+            }
+        }
         $rateKey = 'rnd-project-bom-export-pin:'.auth()->id().':'.request()->ip();
 
         if (RateLimiter::tooManyAttempts($rateKey, 5)) {
@@ -332,11 +445,16 @@ class ViewProject extends ViewRecord
             return null;
         }
 
-        $configuredPin = (string) config('rnd.bom_pin');
-        if ($configuredPin === '' || ! hash_equals($configuredPin, $this->projectExportPin)) {
+        if (! auth()->user()?->hasBomPin()) {
+            $this->reset('projectExportPin');
+            $this->addError('projectExportPin', 'PIN BOM Anda belum diset. Silakan set PIN terlebih dahulu melalui CMS User.');
+
+            return null;
+        }
+        if (! auth()->user()?->verifiesBomPin($this->projectExportPin)) {
             RateLimiter::hit($rateKey, 60);
             $this->reset('projectExportPin');
-            $this->addError('projectExportPin', $configuredPin === '' ? 'PIN resep belum dikonfigurasi.' : 'PIN yang dimasukkan tidak sesuai.');
+            $this->addError('projectExportPin', 'PIN yang dimasukkan tidak sesuai.');
 
             return null;
         }
@@ -346,11 +464,45 @@ class ViewProject extends ViewRecord
             RndProjectBomPdfController::sessionKey(auth()->id(), $this->record->id),
             now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
         );
+        session()->put(
+            RndProjectBomPdfController::componentSessionKey(auth()->id(), $this->record->id),
+            collect($this->projectExportBomComponentKeys)->only($this->projectExportBomIds)->all(),
+        );
 
-        return $this->redirect(route('helpdesk.rnd-projects.bom-pdf', [
+        $routeParameters = [
             'project' => $this->record->id,
             'scope' => $this->projectExportScope,
-        ]), navigate: false);
+        ];
+        if ($eligibleBomIds->sort()->values()->all() !== collect($this->projectExportBomIds)->map(fn ($id): int => (int) $id)->sort()->values()->all()) {
+            $routeParameters['bom_ids'] = collect($this->projectExportBomIds)->map(fn ($id): int => (int) $id)->implode(',');
+        }
+
+        return $this->redirect(route('helpdesk.rnd-projects.bom-pdf', $routeParameters), navigate: false);
+    }
+
+    public function eligibleProjectExportBoms(?string $scope = null): \Illuminate\Support\Collection
+    {
+        $scope ??= $this->projectExportScope;
+
+        return $this->record->products
+            ->flatMap->boms
+            ->filter(fn ($bom): bool => $scope === 'store'
+                ? $bom->pivot->usage_type === 'menu'
+                : $bom->pivot->usage_type !== 'menu')
+            ->unique('id')
+            ->values();
+    }
+
+    /** @return list<array{key:string,name:string,code:string}> */
+    public function projectExportBomComponents(int $bomId): array
+    {
+        $bom = $this->record->boms->firstWhere('id', $bomId);
+
+        return collect($bom?->detail_snapshot['bomDetails'] ?? [])->values()->map(fn (array $component, int $index): array => [
+            'key' => (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index),
+            'name' => (string) ($component['productName'] ?? 'Component '.($index + 1)),
+            'code' => (string) ($component['productCode'] ?? ''),
+        ])->all();
     }
 
     private function resetProductForm(): void
@@ -367,7 +519,7 @@ class ViewProject extends ViewRecord
         $this->productStatus = 'draft';
         $this->shelfLifeValue = '';
         $this->shelfLifeUnit = 'month';
-        $this->storageCondition = 'ambient';
+        $this->storageCondition = 'dry';
         $this->storageNotes = '';
         $this->targetOutlets = '';
         $this->salesProjections = [];
@@ -447,7 +599,8 @@ class ViewProject extends ViewRecord
             'channel' => 'all',
             'target_quantity' => '',
             'target_revenue' => '',
-            'target_outlets' => $this->targetOutlets,
+            'target_outlets' => null,
+            'branch_targets' => $this->emptyBranchTargets(),
             'notes' => '',
         ];
     }
@@ -460,29 +613,52 @@ class ViewProject extends ViewRecord
 
     private function loadSalesProjectionForm(RndProjectProduct $product): void
     {
-        $this->salesProjections = $product->salesProjections()->get()->map(fn (RndProductSalesProjection $projection): array => [
-            'id' => $projection->id,
-            'projection_month' => $projection->projection_month->format('Y-m'),
-            'sales_region_id' => $projection->sales_region_id,
-            'channel' => $projection->channel,
-            'target_quantity' => (string) $projection->target_quantity,
-            'target_revenue' => (string) $projection->target_revenue,
-            'target_outlets' => (string) ($projection->target_outlets ?? ''),
-            'notes' => $projection->notes ?? '',
-        ])->all();
+        $this->salesProjections = $product->salesProjections()->with('targetBranches')->get()
+            ->map(function (RndProductSalesProjection $projection): array {
+                $existingTargets = $projection->targetBranches->keyBy('id');
+
+                return [
+                    'id' => $projection->id,
+                    'projection_month' => $projection->projection_month->format('Y-m'),
+                    'sales_region_id' => $projection->sales_region_id,
+                    'channel' => $projection->channel,
+                    'target_quantity' => (string) $projection->target_quantity,
+                    'target_revenue' => (string) $projection->target_revenue,
+                    'target_outlets' => (string) ($projection->target_outlets ?? ''),
+                    'branch_targets' => $this->emptyBranchTargets($existingTargets),
+                    'notes' => $projection->notes ?? '',
+                ];
+            })->all();
+    }
+
+    private function emptyBranchTargets(?Collection $existingTargets = null): array
+    {
+        $existingTargets ??= collect();
+
+        return $this->activeBranches->map(function (Branch $branch) use ($existingTargets): array {
+            $existingBranch = $existingTargets->get($branch->id);
+
+            return [
+                'branch_id' => $branch->id,
+                'branch_name' => $branch->name,
+                'enabled' => $existingBranch !== null,
+                'target_quantity' => $existingBranch ? (string) $existingBranch->pivot->target_quantity : '',
+            ];
+        })->all();
     }
 
     private function saveSalesProjections(RndProjectProduct $product, array $projections): void
     {
         $keptIds = [];
         foreach ($projections as $projection) {
+            $enabledBranchTargets = collect($projection['branch_targets'])->where('enabled', true);
             $values = [
                 'sales_region_id' => $projection['sales_region_id'],
                 'projection_month' => Carbon::createFromFormat('Y-m', $projection['projection_month'])->startOfMonth(),
                 'channel' => $projection['channel'],
-                'target_quantity' => $projection['target_quantity'],
+                'target_quantity' => $enabledBranchTargets->sum(fn (array $target): float => (float) $target['target_quantity']),
                 'target_revenue' => $projection['target_revenue'],
-                'target_outlets' => $projection['target_outlets'] ?: null,
+                'target_outlets' => $enabledBranchTargets->count(),
                 'notes' => trim($projection['notes']) ?: null,
             ];
             $record = filled($projection['id'] ?? null)
@@ -494,12 +670,27 @@ class ViewProject extends ViewRecord
             } else {
                 $record = $product->salesProjections()->create($values + ['created_by' => auth()->id()]);
             }
+            $record->targetBranches()->sync(
+                $enabledBranchTargets->mapWithKeys(fn (array $target): array => [
+                    (int) $target['branch_id'] => ['target_quantity' => (float) $target['target_quantity']],
+                ])->all(),
+            );
             $keptIds[] = $record->id;
         }
 
         $product->salesProjections()
             ->when($keptIds !== [], fn ($query) => $query->whereNotIn('id', $keptIds))
             ->delete();
+
+        $product->update([
+            'target_outlets' => $product->salesProjections()
+                ->with('targetBranches:id')
+                ->get()
+                ->flatMap->targetBranches
+                ->pluck('id')
+                ->unique()
+                ->count() ?: null,
+        ]);
     }
 
     public function productImageUrl(): ?string
@@ -521,6 +712,8 @@ class ViewProject extends ViewRecord
             'products.boms',
             'products.currentRegionalPrices.region',
             'products.salesProjections.region',
+            'products.salesProjections.targetBranches',
+            'documents.creator',
         ]);
     }
 }

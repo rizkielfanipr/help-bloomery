@@ -15,6 +15,7 @@ use App\Http\Controllers\Helpdesk\RndBomInstructionImageController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
+use App\Http\Controllers\Helpdesk\ShelfLifeExportController;
 use App\Models\RndProjectBom;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +34,9 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/helpdesk/exports/briefing-scores', BriefingScoreExportController::class)
         ->name('helpdesk.exports.briefing-scores');
+
+    Route::get('/helpdesk/exports/shelf-life', ShelfLifeExportController::class)
+        ->name('helpdesk.exports.shelf-life');
 
     Route::get('/casual/exports/briefing-score-pdf', BriefingScorePdfController::class)
         ->name('casual.exports.briefing-score-pdf');

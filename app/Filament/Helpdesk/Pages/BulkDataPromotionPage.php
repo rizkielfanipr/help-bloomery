@@ -53,6 +53,8 @@ class BulkDataPromotionPage extends Page
 
     public string $pickerMenuCodeSearch = '';
 
+    public string $pickerBranchFilter = '';
+
     public bool $pickerLoaded = false;
 
     /** @var list<string> */
@@ -399,6 +401,7 @@ class BulkDataPromotionPage extends Page
         $this->pickerSearch = '';
         $this->pickerMenuNameSearch = '';
         $this->pickerMenuCodeSearch = '';
+        $this->pickerBranchFilter = '';
         $this->pickerRows = [];
         $this->pickerSourceRows = [];
         $this->pickerHasNext = false;
@@ -444,14 +447,17 @@ class BulkDataPromotionPage extends Page
 
     public function updatedPickerMenuNameSearch(): void
     {
-        $this->pickerPage = 1;
-        $this->loadPickerRows();
+        $this->loadPickerRows(true);
     }
 
     public function updatedPickerMenuCodeSearch(): void
     {
-        $this->pickerPage = 1;
-        $this->loadPickerRows();
+        $this->loadPickerRows(true);
+    }
+
+    public function updatedPickerBranchFilter(): void
+    {
+        $this->loadPickerRows(true);
     }
 
     public function setPickerPerPage(mixed $perPage): void
@@ -477,19 +483,55 @@ class BulkDataPromotionPage extends Page
         $this->loadPickerRows();
     }
 
-    public function loadPickerRows(): void
+    public function goToPickerPage(int $page): void
     {
-        $pairs = $this->selectedEsbBranchPairs($this->pickerBranchIds ?: ($this->data['branch_ids'] ?? []))->all();
-        $service = app(EsbPromotionService::class);
-        $result = $this->pickerType === 'menu'
-            ? $service->menuPage(
-                $pairs,
-                $this->pickerPage,
-                $this->pickerPerPage,
-                $this->pickerMenuNameSearch,
-                $this->pickerMenuCodeSearch,
+        $lastPage = max(1, (int) ceil($this->pickerTotal / max(1, $this->pickerPerPage)));
+        $this->pickerPage = min($lastPage, max(1, $page));
+        $this->loadPickerRows();
+    }
+
+    public function loadPickerRows(bool $reset = false): void
+    {
+        if ($reset) {
+            $this->pickerPage = 1;
+        }
+
+        $pairs = $this->selectedEsbBranchPairs($this->pickerBranchIds ?: ($this->data['branch_ids'] ?? []))
+            ->when(
+                $this->pickerBranchFilter !== '',
+                fn (Collection $pairs): Collection => $pairs->filter(
+                    fn (array $pair): bool => $this->pickerBranchFilter === $pair['comcode'].'|'.$pair['branchCode'],
+                ),
             )
-            : $service->menuCategoryPage($pairs, $this->pickerType, $this->pickerPage, $this->pickerPerPage);
+            ->values()
+            ->all();
+        $service = app(EsbPromotionService::class);
+
+        try {
+            $result = $this->pickerType === 'menu'
+                ? $service->menuPage(
+                    $pairs,
+                    $this->pickerPage,
+                    $this->pickerPerPage,
+                    $this->pickerMenuNameSearch,
+                    $this->pickerMenuCodeSearch,
+                )
+                : $service->menuCategoryPage($pairs, $this->pickerType, $this->pickerPage, $this->pickerPerPage);
+        } catch (\RuntimeException $exception) {
+            $this->pickerRows = [];
+            $this->pickerSourceRows = [];
+            $this->pickerTotal = 0;
+            $this->pickerHasNext = false;
+            $this->pickerLoaded = true;
+
+            Notification::make()
+                ->title('Master menu belum dapat dimuat')
+                ->body($exception->getMessage())
+                ->warning()
+                ->send();
+
+            return;
+        }
 
         if ($this->pickerType !== 'menu') {
             $this->pickerSourceRows = $result['rows'];
@@ -545,6 +587,16 @@ class BulkDataPromotionPage extends Page
         return $this->pickerComcode === null
             ? count($values)
             : count($this->selectedScopedIds($values, $this->pickerComcode));
+    }
+
+    /** @return array<string, string> */
+    public function pickerBranchOptions(): array
+    {
+        return $this->selectedEsbBranchPairs($this->pickerBranchIds)
+            ->mapWithKeys(fn (array $pair): array => [
+                $pair['comcode'].'|'.$pair['branchCode'] => $pair['branchName'].' ('.$pair['branchCode'].')',
+            ])
+            ->all();
     }
 
     public function pickerTitle(): string

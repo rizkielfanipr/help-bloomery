@@ -182,11 +182,13 @@ class EsbPromotionService
         $page = max(1, $page);
         $perPage = max(1, $perPage);
         $hasNext = false;
+        $total = 0;
 
         foreach ($pairs as $pair) {
             $result = $this->menuCategoriesPage((string) $pair['comcode'], (string) $pair['branchCode'], $page, $perPage);
             $categories = $result['data'];
             $hasNext = $hasNext || ($result['hasNext'] ?? false);
+            $total += (int) ($result['total'] ?? count($result['data']));
 
             foreach ($categories as $category) {
                 if (! is_array($category)) {
@@ -249,10 +251,15 @@ class EsbPromotionService
     /** @return array{rows:list<array{value:string,label:string,meta:string}>,page:int,total:int,perPage:int,hasNext:bool} */
     public function menuPage(array $pairs, int $page = 1, int $perPage = 10, string $nameSearch = '', string $codeSearch = ''): array
     {
+        if (filled($nameSearch) || filled($codeSearch)) {
+            return $this->searchMenuPage($pairs, $page, $perPage, $nameSearch, $codeSearch);
+        }
+
         $rows = [];
         $page = max(1, $page);
         $perPage = max(1, $perPage);
         $hasNext = false;
+        $total = 0;
 
         foreach ($pairs as $pair) {
             $result = $this->menuCatalogPage(
@@ -264,6 +271,7 @@ class EsbPromotionService
                 $codeSearch,
             );
             $hasNext = $hasNext || ($result['hasNext'] ?? false);
+            $total += (int) ($result['total'] ?? count($result['data']));
 
             foreach ($result['data'] as $menu) {
                 if (! is_array($menu) || ! $this->isRecordActive($menu)) {
@@ -274,7 +282,12 @@ class EsbPromotionService
                 $name = trim((string) ($menu['menuName'] ?? ''));
                 $code = trim((string) ($menu['menuCode'] ?? ''));
                 if ($id > 0 && $name !== '') {
-                    $rows[] = $this->pickerRow($pair, $id, $code !== '' ? "{$name} ({$code})" : $name);
+                    $rows[] = $this->pickerRow($pair, $id, $code !== '' ? "{$name} ({$code})" : $name) + [
+                        'name' => $name,
+                        'code' => $code,
+                        'comcode' => (string) $pair['comcode'],
+                        'branch' => (string) $pair['branchName'],
+                    ];
                 }
             }
         }
@@ -282,9 +295,62 @@ class EsbPromotionService
         return [
             'rows' => $rows,
             'page' => $page,
-            'total' => count($rows),
+            'total' => $total,
             'perPage' => $perPage,
             'hasNext' => $hasNext || count($rows) >= $perPage,
+        ];
+    }
+
+    /** @return array{rows:list<array<string, mixed>>,page:int,total:int,perPage:int,hasNext:bool} */
+    private function searchMenuPage(array $pairs, int $page, int $perPage, string $nameSearch, string $codeSearch): array
+    {
+        $nameNeedle = mb_strtolower(trim($nameSearch));
+        $codeNeedle = mb_strtolower(trim($codeSearch));
+        $rows = [];
+
+        foreach ($pairs as $pair) {
+            $menus = $this->pagedCatalog(
+                (string) $pair['comcode'],
+                (string) $pair['branchCode'],
+                '/corev1/master/get-menu',
+                ['flagActive' => 1],
+            );
+
+            foreach ($menus as $menu) {
+                if (! is_array($menu) || ! $this->isRecordActive($menu)) {
+                    continue;
+                }
+
+                $id = (int) ($menu['menuID'] ?? 0);
+                $name = trim((string) ($menu['menuName'] ?? ''));
+                $code = trim((string) ($menu['menuCode'] ?? ''));
+                $matchesName = $nameNeedle === '' || str_contains(mb_strtolower($name), $nameNeedle);
+                $matchesCode = $codeNeedle === '' || str_contains(mb_strtolower($code), $codeNeedle);
+
+                if ($id <= 0 || $name === '' || ! $matchesName || ! $matchesCode) {
+                    continue;
+                }
+
+                $rows[] = $this->pickerRow($pair, $id, $code !== '' ? "{$name} ({$code})" : $name) + [
+                    'name' => $name,
+                    'code' => $code,
+                    'comcode' => (string) $pair['comcode'],
+                    'branch' => (string) $pair['branchName'],
+                ];
+            }
+        }
+
+        $page = max(1, $page);
+        $perPage = max(1, $perPage);
+        $total = count($rows);
+        $pageRows = array_slice($rows, ($page - 1) * $perPage, $perPage);
+
+        return [
+            'rows' => $pageRows,
+            'page' => $page,
+            'total' => $total,
+            'perPage' => $perPage,
+            'hasNext' => $page * $perPage < $total,
         ];
     }
 
@@ -416,7 +482,7 @@ class EsbPromotionService
         ]);
     }
 
-    /** @return array{data:list<array<string, mixed>>,hasNext:bool} */
+    /** @return array{data:list<array<string, mixed>>,hasNext:bool,total:int} */
     private function menuCategoriesPage(string $comcode, string $branchCode, int $page, int $perPage): array
     {
         return $this->singleCatalogPage($comcode, $branchCode, '/corev1/master/get-menu-category', $page, $perPage, [
@@ -445,7 +511,7 @@ class EsbPromotionService
     {
         $token = trim((string) config("esb.tokens.{$comcode}", ''));
         if ($token === '') {
-            return ['data' => [], 'hasNext' => false];
+            throw new RuntimeException("Token ESB {$comcode} belum dikonfigurasi.");
         }
 
         try {
@@ -457,7 +523,7 @@ class EsbPromotionService
                 ->get($this->baseUrl().$path, ['page' => $page, 'limit' => $perPage, 'branchCode' => $branchCode, 'Boolean' => 1] + $params);
 
             if ($response->failed()) {
-                return ['data' => [], 'hasNext' => false];
+                throw new RuntimeException($this->errorMessage($response, "memuat master menu {$comcode}/{$branchCode}"));
             }
 
             $body = $response->json();
@@ -469,9 +535,12 @@ class EsbPromotionService
             return [
                 'data' => $data,
                 'hasNext' => filled($body['next'] ?? null) || ($page * $limit) < $count,
+                'total' => $count,
             ];
-        } catch (\Throwable) {
-            return ['data' => [], 'hasNext' => false];
+        } catch (RuntimeException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            throw new RuntimeException("Gagal memuat master menu {$comcode}/{$branchCode}: {$exception->getMessage()}", previous: $exception);
         }
     }
 

@@ -44,7 +44,7 @@
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions')) { $initialOpen[] = 'it'; }
-    if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names')) { $initialOpen[] = 'rnd'; }
+    if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'shelf-life') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
@@ -115,6 +115,7 @@
             'superadmin_only' => true,
             'items' => [
                 ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-projects.index'))],
+                ['label' => 'Shelf Life', 'icon' => 'clock-3', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.pages.shelf-life'), 'active' => $active($r('filament.helpdesk.pages.shelf-life'))],
                 ['label' => 'Product Price Index', 'icon' => 'chart-no-axes-combined', 'perm' => 'view product price index', 'href' => $r('filament.helpdesk.pages.product-price-index'), 'active' => $active($r('filament.helpdesk.pages.product-price-index'))],
                 ['label' => 'Prefix Category', 'icon' => 'tag', 'perm' => 'view prefix categories', 'href' => $r('filament.helpdesk.resources.prefix-categories.index'), 'active' => $active($r('filament.helpdesk.resources.prefix-categories.index'))],
                 ['label' => 'Prefix Name', 'icon' => 'tag', 'perm' => 'view prefix names', 'href' => $r('filament.helpdesk.resources.prefix-names.index'), 'active' => $active($r('filament.helpdesk.resources.prefix-names.index'))],

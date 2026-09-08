@@ -13,6 +13,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -22,7 +23,7 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 
-    $admin = User::factory()->create(['is_active' => true]);
+    $admin = User::factory()->create(['is_active' => true, 'use_bom_pin' => true, 'bom_pin' => Hash::make('246810')]);
     $admin->assignRole('SUPERADMIN');
     $this->actingAs($admin);
 

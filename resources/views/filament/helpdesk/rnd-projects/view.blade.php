@@ -36,6 +36,63 @@
             </div>
         </section>
 
+        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Dokumen CCP</h3>
+                    <p class="text-sm text-gray-500">Dokumen pendukung CCP untuk project ini.</p>
+                </div>
+                @if($canManage)
+                    <button type="button" wire:click="addCcpDocumentUpload" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
+                        <x-heroicon-o-plus class="h-4 w-4" /> Tambah Dokumen
+                    </button>
+                @endif
+            </div>
+
+            @if($ccpDocumentUploads !== [])
+                <form wire:submit="saveCcpDocuments" class="space-y-3 border-b border-gray-200 bg-gray-50/60 p-5 dark:border-gray-700 dark:bg-gray-800/30">
+                    @foreach($ccpDocumentUploads as $documentIndex => $documentUpload)
+                        <div wire:key="ccp-document-upload-{{ $documentIndex }}" class="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-start">
+                            <div>
+                                <label class="{{ $label }}">Nama Dokumen *</label>
+                                <input wire:model="ccpDocumentUploads.{{ $documentIndex }}.name" class="{{ $input }}" placeholder="Contoh: CCP Produksi Croissant">
+                                @error("ccpDocumentUploads.$documentIndex.name")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="{{ $label }}">File *</label>
+                                <input wire:model="ccpDocumentUploads.{{ $documentIndex }}.file" type="file" class="{{ $input }}" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp">
+                                <p wire:loading wire:target="ccpDocumentUploads.{{ $documentIndex }}.file" class="mt-1 text-xs text-blue-600">Mengunggah file...</p>
+                                @error("ccpDocumentUploads.$documentIndex.file")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <button type="button" wire:click="removeCcpDocumentUpload({{ $documentIndex }})" class="mt-6 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50">Hapus</button>
+                        </div>
+                    @endforeach
+                    <div class="flex justify-end">
+                        <button type="submit" wire:loading.attr="disabled" wire:target="saveCcpDocuments,ccpDocumentUploads.*.file" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
+                            <span wire:loading.remove wire:target="saveCcpDocuments">Simpan Semua Dokumen</span><span wire:loading wire:target="saveCcpDocuments">Menyimpan...</span>
+                        </button>
+                    </div>
+                </form>
+            @endif
+
+            <div class="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
+                @forelse($project->documents as $document)
+                    <article class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                        <div class="flex items-start gap-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300"><x-heroicon-o-document-text class="h-5 w-5" /></div>
+                            <div class="min-w-0 flex-1"><p class="truncate font-bold text-gray-900 dark:text-white">{{ $document->name }}</p><p class="truncate text-xs text-gray-500">{{ $document->original_name }}</p></div>
+                        </div>
+                        <div class="mt-4 flex gap-2">
+                            <a href="{{ $document->downloadUrl() }}" class="flex-1 rounded-lg bg-blue-50 px-3 py-2 text-center text-xs font-bold text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300">Download</a>
+                            @if($canManage)<button type="button" wire:click="deleteCcpDocument({{ $document->id }})" wire:confirm="Hapus dokumen {{ $document->name }}?" class="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50">Hapus</button>@endif
+                        </div>
+                    </article>
+                @empty
+                    <p class="py-8 text-center text-sm text-gray-500 md:col-span-2 xl:col-span-3">Belum ada dokumen CCP.</p>
+                @endforelse
+            </div>
+        </section>
+
         <div>
             <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                 <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
@@ -189,7 +246,7 @@
                                 <div class="flex-1">
                                     <input wire:model="productPhoto" type="file" accept="image/jpeg,image/png,image/webp"
                                            class="block w-full rounded-lg border border-gray-300 bg-white text-sm text-gray-600 file:mr-3 file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-bold file:text-blue-700 hover:file:bg-blue-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                    <p class="mt-2 text-xs text-gray-500">JPG, PNG, atau WebP. Maksimal 5 MB. Foto disimpan langsung ke Cloudflare R2.</p>
+                                    <p class="mt-2 text-xs text-gray-500">JPG, PNG, atau WebP. Maksimal 5 MB.</p>
                                     <div wire:loading wire:target="productPhoto" class="mt-2 text-xs font-semibold text-blue-600">Menyiapkan preview foto...</div>
                                     @error('productPhoto')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
@@ -253,12 +310,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="{{ $label }}">Target Outlet</label>
-                                    <input wire:model="targetOutlets" type="number" min="1" class="{{ $input }}" placeholder="Contoh: 50">
-                                    @error('targetOutlets')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
-                                <div class="md:col-span-2">
+                                <div class="md:col-span-3">
                                     <label class="{{ $label }}">Catatan Penyimpanan</label>
                                     <input wire:model="storageNotes" class="{{ $input }}" placeholder="Contoh: Simpan tertutup pada suhu 2–5°C">
                                     @error('storageNotes')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
@@ -282,14 +334,7 @@
                                                 <label class="{{ $label }}">Periode *</label>
                                                 <input wire:model="salesProjections.{{ $index }}.projection_month" type="month" class="{{ $input }}">
                                             </div>
-                                            <div>
-                                                <label class="{{ $label }}">Region *</label>
-                                                <select wire:model="salesProjections.{{ $index }}.sales_region_id" class="{{ $input }}">
-                                                    @foreach($this->activeSalesRegions as $region)
-                                                        <option value="{{ $region->id }}">{{ $region->name }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
+                                            <input wire:model="salesProjections.{{ $index }}.sales_region_id" type="hidden">
                                             <div>
                                                 <label class="{{ $label }}">Channel *</label>
                                                 <select wire:model="salesProjections.{{ $index }}.channel" class="{{ $input }}">
@@ -299,16 +344,50 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <label class="{{ $label }}">Target Quantity *</label>
-                                                <input wire:model="salesProjections.{{ $index }}.target_quantity" type="number" min="0.01" step="0.01" class="{{ $input }}" placeholder="0">
-                                            </div>
-                                            <div>
                                                 <label class="{{ $label }}">Target Revenue *</label>
                                                 <input wire:model="salesProjections.{{ $index }}.target_revenue" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
                                             </div>
-                                            <div>
-                                                <label class="{{ $label }}">Target Outlet</label>
-                                                <input wire:model="salesProjections.{{ $index }}.target_outlets" type="number" min="1" class="{{ $input }}" placeholder="Opsional">
+                                            <div class="md:col-span-2">
+                                                <label class="{{ $label }}">Total Target Quantity</label>
+                                                <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-bold text-blue-700 dark:border-gray-700 dark:bg-gray-800 dark:text-blue-300">
+                                                    {{ number_format(collect($projection['branch_targets'])->where('enabled', true)->sum(fn (array $target): float => (float) ($target['target_quantity'] ?: 0)), 2, ',', '.') }}
+                                                </div>
+                                            </div>
+                                            <div class="md:col-span-3">
+                                                <div class="mb-3">
+                                                    <label class="{{ $label }}">Target Quantity per Branch *</label>
+                                                    <p class="text-xs text-gray-500">Centang store tempat produk aktif pada projection ini, lalu isi target masing-masing.</p>
+                                                </div>
+                                                <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                                                    @forelse($projection['branch_targets'] as $targetIndex => $branchTarget)
+                                                        <div wire:key="projection-{{ $index }}-branch-{{ $branchTarget['branch_id'] }}" class="border-b border-gray-100 p-3 transition last:border-b-0 dark:border-gray-800 {{ $branchTarget['enabled'] ? 'bg-blue-50/60 dark:bg-blue-950/20' : 'bg-white dark:bg-gray-900' }}">
+                                                            <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,260px)] sm:items-center">
+                                                                <label class="flex min-w-0 cursor-pointer items-center gap-3">
+                                                                    <input wire:model.live="salesProjections.{{ $index }}.branch_targets.{{ $targetIndex }}.enabled" type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                                                    <span class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $branchTarget['branch_name'] }}</span>
+                                                                </label>
+                                                                <div>
+                                                                    <div class="flex items-center gap-2">
+                                                                        <input
+                                                                            wire:model.live.debounce.300ms="salesProjections.{{ $index }}.branch_targets.{{ $targetIndex }}.target_quantity"
+                                                                            type="number"
+                                                                            min="0.01"
+                                                                            step="0.01"
+                                                                            placeholder="Masukkan target"
+                                                                            class="{{ $input }} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-gray-800"
+                                                                            @disabled(! $branchTarget['enabled'])
+                                                                            @required($branchTarget['enabled'])
+                                                                        >
+                                                                    </div>
+                                                                    @error("salesProjections.$index.branch_targets.$targetIndex.target_quantity")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    @empty
+                                                        <p class="p-4 text-sm text-gray-500">Belum ada branch aktif.</p>
+                                                    @endforelse
+                                                </div>
+                                                @error("salesProjections.$index.branch_targets")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
                                             </div>
                                             <div class="md:col-span-2">
                                                 <label class="{{ $label }}">Asumsi / Catatan</label>
@@ -386,6 +465,29 @@
                     <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">Export {{ ucfirst($projectExportScope) }} Project</h3>
                     <p class="mt-2 text-sm leading-6 text-gray-500">Semua product dengan BOM {{ ucfirst($projectExportScope) }} akan digabung dalam satu dokumen PDF.</p>
                     <form wire:submit="exportProjectBomPdf" class="mt-5">
+                        <div class="mb-4 max-h-56 space-y-2 overflow-y-auto rounded-xl border border-gray-200 p-3 text-left dark:border-gray-700">
+                            <p class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Pilih BOM yang ditampilkan</p>
+                            @foreach($this->eligibleProjectExportBoms() as $exportBom)
+                                <div class="rounded-lg border border-gray-100 p-2 dark:border-gray-800">
+                                    <label class="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-1 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                        <input wire:model.live="projectExportBomIds" type="checkbox" value="{{ $exportBom->id }}" class="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                        <span class="min-w-0"><span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $exportBom->bom_name }}</span><span class="text-xs text-gray-500">{{ $exportBom->bom_code }}</span></span>
+                                    </label>
+                                    @if(in_array($exportBom->id, array_map('intval', $projectExportBomIds), true))
+                                        <div class="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
+                                            @foreach($this->projectExportBomComponents($exportBom->id) as $component)
+                                                <label class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                    <input wire:model="projectExportBomComponentKeys.{{ $exportBom->id }}" type="checkbox" value="{{ $component['key'] }}" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                                    <span class="min-w-0 truncate text-gray-700 dark:text-gray-200">{{ $component['name'] }} <span class="font-mono text-gray-400">{{ $component['code'] }}</span></span>
+                                                </label>
+                                            @endforeach
+                                            @error('projectExportBomComponentKeys.'.$exportBom->id)<p class="px-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                        @error('projectExportBomIds')<p class="mb-3 text-sm font-medium text-red-600">Pilih minimal satu BOM.</p>@enderror
                         <input wire:model="projectExportPin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Masukkan PIN" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-center text-lg font-bold tracking-[0.3em] dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                         @error('projectExportPin')<p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>@enderror
                         <div class="mt-4 grid grid-cols-2 gap-2">

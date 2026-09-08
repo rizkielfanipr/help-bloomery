@@ -33,7 +33,9 @@ class RndProductBomPdfController extends Controller
             'PIN diperlukan untuk mengunduh dokumen resep.',
         );
 
-        $data = $this->buildExportData($projectRecord, $productRecord, $exportScope);
+        $selectedBomIds = $this->selectedBomIds($request);
+        $selectedComponents = session()->get(self::componentSessionKey($user->id, $projectRecord->id, $productRecord->id));
+        $data = $this->buildExportData($projectRecord, $productRecord, $exportScope, $selectedBomIds, is_array($selectedComponents) ? $selectedComponents : null);
 
         $pdf = Pdf::loadView('exports.rnd-product-bom-pdf', $data)->setPaper('a4', 'portrait');
 
@@ -49,17 +51,26 @@ class RndProductBomPdfController extends Controller
         return $pdf->download($filename);
     }
 
-    public function buildExportData(RndProject $projectRecord, $productRecord, string $exportScope): array
+    public function buildExportData(RndProject $projectRecord, $productRecord, string $exportScope, ?array $selectedBomIds = null, ?array $selectedComponents = null): array
     {
         $esb = app(EsbCoreService::class);
         $exportBoms = $productRecord->boms->filter(fn ($bom): bool => match ($exportScope) {
             'kitchen' => $bom->pivot->usage_type !== 'menu',
             'store' => $bom->pivot->usage_type === 'menu',
             default => true,
+        })->when($selectedBomIds !== null, fn ($boms) => $boms->whereIn('id', $selectedBomIds));
+        abort_if($exportBoms->isEmpty(), 422, 'Pilih minimal satu Bill of Material untuk diekspor.');
+        $details = $exportBoms->mapWithKeys(function ($bom) use ($esb, $selectedComponents): array {
+            $detail = $bom->detail_snapshot ?: $esb->getBillOfMaterial($bom->esb_bom_id);
+            if (is_array($selectedComponents) && array_key_exists($bom->id, $selectedComponents)) {
+                $allowedKeys = collect($selectedComponents[$bom->id])->map(fn ($key): string => (string) $key);
+                $detail['bomDetails'] = collect($detail['bomDetails'] ?? [])->values()
+                    ->filter(fn (array $component, int $index): bool => $allowedKeys->contains($this->componentKey($component, $index)))
+                    ->values()->all();
+            }
+
+            return [$bom->id => $detail];
         });
-        $details = $exportBoms->mapWithKeys(fn ($bom): array => [
-            $bom->id => $bom->detail_snapshot ?: $esb->getBillOfMaterial($bom->esb_bom_id),
-        ]);
         $instructions = RndBomInstruction::query()
             ->where('rnd_project_id', $projectRecord->id)
             ->where('rnd_project_product_id', $productRecord->id)
@@ -118,6 +129,31 @@ class RndProductBomPdfController extends Controller
     public static function sessionKey(int $userId, int $projectId, int $productId): string
     {
         return "rnd.bom.export.$userId.$projectId.$productId";
+    }
+
+    public static function componentSessionKey(int $userId, int $projectId, int $productId): string
+    {
+        return "rnd.bom.export.components.$userId.$projectId.$productId";
+    }
+
+    private function componentKey(array $component, int $index): string
+    {
+        return (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index);
+    }
+
+    /** @return list<int>|null */
+    private function selectedBomIds(Request $request): ?array
+    {
+        if (! $request->filled('bom_ids')) {
+            return null;
+        }
+
+        return collect(explode(',', (string) $request->query('bom_ids')))
+            ->filter(fn (string $id): bool => ctype_digit($id) && (int) $id > 0)
+            ->map(fn (string $id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function addPageNumbers($pdf): void

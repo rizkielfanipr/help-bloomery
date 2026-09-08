@@ -76,11 +76,17 @@ class ViewBomPage extends Page
             return;
         }
 
-        $configuredPin = (string) config('rnd.bom_pin');
-        if ($configuredPin === '' || ! hash_equals($configuredPin, $this->pin)) {
+        $user = auth()->user();
+        if (! $user?->hasBomPin()) {
+            $this->reset('pin');
+            $this->addError('pin', 'PIN BOM Anda belum diset. Silakan set PIN terlebih dahulu melalui CMS User.');
+
+            return;
+        }
+        if (! $user?->verifiesBomPin($this->pin)) {
             RateLimiter::hit($key, 60);
             $this->reset('pin');
-            $this->addError('pin', $configuredPin === '' ? 'PIN resep belum dikonfigurasi oleh administrator.' : 'PIN yang dimasukkan tidak sesuai.');
+            $this->addError('pin', 'PIN yang dimasukkan tidak sesuai.');
 
             return;
         }

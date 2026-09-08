@@ -19,6 +19,7 @@ use App\Services\SyncRndEsbMaterialFromRemote;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -94,6 +95,12 @@ class ViewProjectProductPage extends Page
     public string $exportPin = '';
 
     public string $exportScope = 'all';
+
+    /** @var list<int> */
+    public array $exportBomIds = [];
+
+    /** @var array<int, list<string>> */
+    public array $exportBomComponentKeys = [];
 
     public ?int $materialDraftId = null;
 
@@ -2137,6 +2144,10 @@ class ViewProjectProductPage extends Page
         abort_unless(static::canAccess(), 403);
         abort_unless(in_array($scope, ['all', 'kitchen', 'store'], true), 422);
         $this->exportScope = $scope;
+        $this->exportBomIds = $this->eligibleExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $this->exportBomComponentKeys = $this->eligibleExportBoms($scope)->mapWithKeys(fn ($bom): array => [
+            $bom->id => collect($this->exportBomComponents($bom->id))->pluck('key')->all(),
+        ])->all();
         $this->exportPin = '';
         $this->resetValidation();
         $this->exportPinModalOpen = true;
@@ -2146,7 +2157,20 @@ class ViewProjectProductPage extends Page
     public function exportBomPdf(): mixed
     {
         abort_unless(static::canAccess(), 403);
-        $this->validate(['exportPin' => ['required', 'string', 'max:20']]);
+        $this->validate([
+            'exportPin' => ['required', 'string', 'max:20'],
+            'exportBomIds' => ['required', 'array', 'min:1'],
+            'exportBomIds.*' => ['integer'],
+        ]);
+        $eligibleBomIds = $this->eligibleExportBoms($this->exportScope)->pluck('id')->map(fn ($id): int => (int) $id);
+        abort_unless(collect($this->exportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
+        foreach ($this->exportBomIds as $bomId) {
+            if ($this->exportBomComponents((int) $bomId) !== [] && empty($this->exportBomComponentKeys[$bomId] ?? [])) {
+                $this->addError("exportBomComponentKeys.$bomId", 'Pilih minimal satu component.');
+
+                return null;
+            }
+        }
         $rateKey = 'rnd-bom-export-pin:'.auth()->id().':'.request()->ip();
 
         if (RateLimiter::tooManyAttempts($rateKey, 5)) {
@@ -2155,11 +2179,16 @@ class ViewProjectProductPage extends Page
             return null;
         }
 
-        $configuredPin = (string) config('rnd.bom_pin');
-        if ($configuredPin === '' || ! hash_equals($configuredPin, $this->exportPin)) {
+        if (! auth()->user()?->hasBomPin()) {
+            $this->reset('exportPin');
+            $this->addError('exportPin', 'PIN BOM Anda belum diset. Silakan set PIN terlebih dahulu melalui CMS User.');
+
+            return null;
+        }
+        if (! auth()->user()?->verifiesBomPin($this->exportPin)) {
             RateLimiter::hit($rateKey, 60);
             $this->reset('exportPin');
-            $this->addError('exportPin', $configuredPin === '' ? 'PIN resep belum dikonfigurasi.' : 'PIN yang dimasukkan tidak sesuai.');
+            $this->addError('exportPin', 'PIN yang dimasukkan tidak sesuai.');
 
             return null;
         }
@@ -2169,6 +2198,10 @@ class ViewProjectProductPage extends Page
             RndProductBomPdfController::sessionKey(auth()->id(), $this->projectId, $this->productId),
             now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
         );
+        session()->put(
+            RndProductBomPdfController::componentSessionKey(auth()->id(), $this->projectId, $this->productId),
+            collect($this->exportBomComponentKeys)->only($this->exportBomIds)->all(),
+        );
 
         $routeParameters = [
             'project' => $this->projectId,
@@ -2177,8 +2210,39 @@ class ViewProjectProductPage extends Page
         if ($this->exportScope !== 'all') {
             $routeParameters['scope'] = $this->exportScope;
         }
+        if ($eligibleBomIds->sort()->values()->all() !== collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->sort()->values()->all()) {
+            $routeParameters['bom_ids'] = collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->implode(',');
+        }
 
         return $this->redirect(route('helpdesk.rnd-products.bom-pdf', $routeParameters), navigate: false);
+    }
+
+    public function eligibleExportBoms(?string $scope = null): Collection
+    {
+        $scope ??= $this->exportScope;
+
+        return $this->productRecord->boms->filter(fn ($bom): bool => match ($scope) {
+            'kitchen' => $bom->pivot->usage_type !== 'menu',
+            'store' => $bom->pivot->usage_type === 'menu',
+            default => true,
+        })->values();
+    }
+
+    /** @return list<array{key:string,name:string,code:string}> */
+    public function exportBomComponents(int $bomId): array
+    {
+        return collect($this->bomComponentDetails[$bomId]['bomDetails'] ?? [])
+            ->values()
+            ->map(fn (array $component, int $index): array => [
+                'key' => $this->exportComponentKey($component, $index),
+                'name' => (string) ($component['productName'] ?? 'Component '.($index + 1)),
+                'code' => (string) ($component['productCode'] ?? ''),
+            ])->all();
+    }
+
+    public function exportComponentKey(array $component, int $index): string
+    {
+        return (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index);
     }
 
     private function authorizeProjectManagement(): void
@@ -2224,6 +2288,7 @@ class ViewProjectProductPage extends Page
             'regionalPrices.region',
             'currentRegionalPrices.region',
             'salesProjections.region',
+            'salesProjections.targetBranches',
         ]);
 
         foreach ($this->productRecord->boms as $bom) {

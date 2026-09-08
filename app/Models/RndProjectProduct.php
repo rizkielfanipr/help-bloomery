@@ -36,7 +36,7 @@ class RndProjectProduct extends Model
     ];
 
     public const STORAGE_CONDITIONS = [
-        'ambient' => 'Ambient',
+        'dry' => 'Dry',
         'chiller' => 'Chiller',
         'frozen' => 'Frozen',
     ];

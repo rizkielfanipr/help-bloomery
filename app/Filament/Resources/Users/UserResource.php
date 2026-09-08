@@ -145,6 +145,29 @@ class UserResource extends Resource
                                 }
                             }),
 
+                        Toggle::make('use_bom_pin')
+                            ->label('User PIN BOM')
+                            ->default(false)
+                            ->live()
+                            ->afterStateUpdated(function (bool $state, Set $set): void {
+                                if (! $state) {
+                                    $set('bom_pin', null);
+                                }
+                            }),
+
+                        TextInput::make('bom_pin')
+                            ->label('PIN BOM')
+                            ->password()
+                            ->revealable()
+                            ->numeric()
+                            ->minLength(4)
+                            ->maxLength(20)
+                            ->visible(fn (Get $get): bool => (bool) $get('use_bom_pin'))
+                            ->required(fn (Get $get, string $operation, ?User $record): bool => (bool) $get('use_bom_pin') && ($operation === 'create' || blank($record?->bom_pin)))
+                            ->dehydrated(fn (?string $state): bool => filled($state))
+                            ->dehydrateStateUsing(fn (string $state): string => Hash::make($state))
+                            ->helperText('Kosongkan saat edit jika PIN tidak ingin diubah.'),
+
                         Select::make('branch_access_ids')
                             ->label('Akses Cabang')
                             ->multiple()

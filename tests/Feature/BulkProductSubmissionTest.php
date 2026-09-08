@@ -761,6 +761,23 @@ it('only displays active categories, category details, and menus in the promotio
     expect($menuTest->get('pickerRows'))->toHaveCount(1)
         ->and($menuTest->get('pickerRows.0.value'))->toBe('BLSS|LR00|301')
         ->and($menuTest->get('pickerRows.0.label'))->toBe('Active Coffee (AC01)');
+
+    $menuTest
+        ->set('pickerMenuNameSearch', 'Menu Tidak Ada')
+        ->assertSet('pickerPage', 1)
+        ->assertSet('pickerRows', [])
+        ->set('pickerMenuNameSearch', 'Coffee')
+        ->set('pickerMenuCodeSearch', 'AC01')
+        ->set('pickerBranchFilter', 'BLSS|LR00')
+        ->assertSet('pickerPage', 1)
+        ->assertSet('pickerBranchFilter', 'BLSS|LR00')
+        ->assertSet('pickerRows.0.name', 'Active Coffee')
+        ->assertSet('pickerRows.0.code', 'AC01');
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/corev1/master/get-menu')
+        && ! str_contains($request->url(), 'get-menu-category')
+        && ($request->data()['branchCode'] ?? null) === 'LR00'
+        && ($request->data()['flagActive'] ?? null) === 1);
 });
 
 it('supports All Branch option in promotion page', function () {

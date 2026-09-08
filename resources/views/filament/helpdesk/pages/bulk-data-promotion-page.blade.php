@@ -109,30 +109,25 @@
                 x-init="$nextTick(() => $wire.loadPickerRows())"
             @endif
         >
-            <div class="w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-white/10">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-950 dark:text-white">
-                            {{ $this->pickerTitle() }}
-                        </h2>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            Dipilih: {{ $this->selectedPickerCount() }} item untuk {{ $pickerComcode ?? 'semua comcode' }}.
-                        </p>
-                    </div>
-
+            <x-rnd.picker-modal
+                :title="$this->pickerTitle()"
+                :description="'Dipilih: '.$this->selectedPickerCount().' item untuk '.($pickerComcode ?? 'semua comcode').'.'"
+                max-width="7xl"
+            >
+                <x-slot:close>
                     <button
                         type="button"
                         wire:click="closePicker"
                         class="rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200"
                         aria-label="Tutup modal"
                     >
-                        ✕
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
                     </button>
-                </div>
+                </x-slot:close>
 
                 <div class="space-y-4 p-6">
                     <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                        <div class="grid w-full gap-3 md:max-w-2xl {{ $pickerType === 'menu' ? 'sm:grid-cols-2' : '' }}">
+                        <div class="grid w-full gap-3 {{ $pickerType === 'menu' ? 'lg:grid-cols-3' : 'md:max-w-2xl' }}">
                             @if ($pickerType === 'menu')
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     Nama Menu
@@ -141,6 +136,15 @@
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-200">
                                     Kode Menu
                                     <input wire:model.live.debounce.700ms="pickerMenuCodeSearch" type="search" placeholder="Cari semua kode menu..." class="mt-1 block w-full rounded-lg border-gray-300 text-sm font-normal shadow-sm dark:border-white/10 dark:bg-gray-900 dark:text-white" />
+                                </label>
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                    Branch
+                                    <select wire:model.live="pickerBranchFilter" class="mt-1 block w-full rounded-lg border-gray-300 text-sm font-normal shadow-sm dark:border-white/10 dark:bg-gray-900 dark:text-white">
+                                        <option value="">- Semua Branch -</option>
+                                        @foreach ($this->pickerBranchOptions() as $pickerBranchKey => $pickerBranchLabel)
+                                            <option value="{{ $pickerBranchKey }}">{{ $pickerBranchLabel }}</option>
+                                        @endforeach
+                                    </select>
                                 </label>
                             @else
                                 <label class="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -176,7 +180,7 @@
                     @else
                         <div
                             wire:loading.flex
-                            wire:target="searchPicker,pickerMenuNameSearch,pickerMenuCodeSearch,loadPickerRows,nextPickerPage,previousPickerPage"
+                            wire:target="searchPicker,pickerMenuNameSearch,pickerMenuCodeSearch,pickerBranchFilter,loadPickerRows,nextPickerPage,previousPickerPage,goToPickerPage"
                             class="min-h-72 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-primary-300 bg-primary-50/50 text-sm text-gray-600 dark:border-primary-500/30 dark:bg-primary-500/5 dark:text-gray-300"
                         >
                             <x-filament::loading-indicator class="h-7 w-7 text-primary-600" />
@@ -192,9 +196,39 @@
 
                         <div
                             wire:loading.remove
-                            wire:target="searchPicker,pickerMenuNameSearch,pickerMenuCodeSearch,loadPickerRows,nextPickerPage,previousPickerPage"
+                            wire:target="searchPicker,pickerMenuNameSearch,pickerMenuCodeSearch,pickerBranchFilter,loadPickerRows,nextPickerPage,previousPickerPage,goToPickerPage"
                             class="max-h-96 overflow-y-auto rounded-xl border border-gray-200 dark:border-white/10"
                         >
+                        @if ($pickerType === 'menu')
+                            <table class="w-full min-w-[760px] table-fixed text-sm">
+                                <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-gray-800">
+                                    <tr class="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        <th class="w-12 px-4 py-3"></th>
+                                        <th class="w-[22%] px-4 py-3">Menu Code</th>
+                                        <th class="w-[34%] px-4 py-3">Menu Name</th>
+                                        <th class="w-[16%] px-4 py-3">Comcode</th>
+                                        <th class="px-4 py-3">Branch</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    @forelse ($pickerRows as $row)
+                                        @php
+                                            $pickerValueArgument = str_replace("'", "\\'", $row['value']);
+                                            $togglePickerAction = "togglePickerValue('{$pickerValueArgument}')";
+                                        @endphp
+                                        <tr wire:key="promotion-menu-picker-{{ md5($row['value']) }}" wire:click="{{ $togglePickerAction }}" class="cursor-pointer text-gray-700 transition hover:bg-blue-50 dark:text-gray-200 dark:hover:bg-blue-950/30">
+                                            <td class="px-4 py-3"><input type="checkbox" tabindex="-1" class="pointer-events-none rounded border-gray-300 text-primary-600" @checked($this->isPickerValueSelected($row['value'])) /></td>
+                                            <td class="px-4 py-3 font-mono font-semibold text-blue-700 dark:text-blue-300">{{ $row['code'] ?: '-' }}</td>
+                                            <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white">{{ $row['name'] }}</td>
+                                            <td class="px-4 py-3">{{ $row['comcode'] }}</td>
+                                            <td class="px-4 py-3">{{ $row['branch'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr><td colspan="5" class="px-4 py-14 text-center text-sm text-gray-500 dark:text-gray-400"><x-heroicon-o-cube-transparent class="mx-auto mb-3 h-10 w-10 text-gray-300" />Tidak ada menu aktif yang berhasil dimuat.</td></tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        @else
                         @forelse ($pickerRows as $row)
                             @php
                                 $pickerValueArgument = str_replace("'", "\\'", $row['value']);
@@ -224,6 +258,7 @@
                                 Data belum ditemukan untuk branch/comcode yang dipilih.
                             </div>
                         @endforelse
+                        @endif
                         </div>
                     @endif
 
@@ -236,7 +271,23 @@
                             @endif
                         </p>
 
-                        <div class="flex gap-2">
+                        @php
+                            $pickerLastPage = max(1, (int) ceil($pickerTotal / max(1, $pickerPerPage)));
+                            $pickerPageStart = max(1, $pickerPage - 4);
+                            $pickerPageEnd = min($pickerLastPage, $pickerPageStart + 8);
+                            $pickerPageStart = max(1, $pickerPageEnd - 8);
+                        @endphp
+
+                        <div class="flex max-w-full gap-2 overflow-x-auto">
+                            @if ($pickerType === 'menu' && $pickerLastPage > 1)
+                                <div class="inline-flex min-w-max overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600">
+                                    <button type="button" wire:click="goToPickerPage(1)" @disabled($pickerPage <= 1) class="border-r border-gray-300 px-3 py-2 text-xs font-semibold disabled:opacity-40 dark:border-gray-600">First</button>
+                                    @foreach (range($pickerPageStart, $pickerPageEnd) as $pageNumber)
+                                        <button type="button" wire:click="goToPickerPage({{ $pageNumber }})" @disabled($pageNumber === $pickerPage) class="border-r border-gray-300 px-3.5 py-2 text-xs font-semibold dark:border-gray-600 {{ $pageNumber === $pickerPage ? 'bg-blue-600 text-white disabled:opacity-100' : 'hover:bg-gray-50 dark:hover:bg-gray-800' }}">{{ $pageNumber }}</button>
+                                    @endforeach
+                                    <button type="button" wire:click="goToPickerPage({{ $pickerLastPage }})" @disabled($pickerPage >= $pickerLastPage) class="px-3 py-2 text-xs font-semibold disabled:opacity-40">Last</button>
+                                </div>
+                            @endif
                             <x-filament::button
                                 type="button"
                                 color="gray"
@@ -261,7 +312,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </x-rnd.picker-modal>
         </div>
     @endif
 </x-filament-panels::page>

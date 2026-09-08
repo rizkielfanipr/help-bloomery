@@ -23,6 +23,7 @@ class EditUser extends EditRecord
 
         $data['branch_access_ids'] = $ids->map(fn ($id): int => (int) $id)->unique()->values()->all();
         $data['primary_branch_id'] = $this->record->primaryBranchId();
+        $data['bom_pin'] = null;
 
         return $data;
     }

@@ -34,6 +34,11 @@ class RndProject extends Model
         return $this->hasMany(RndProjectProduct::class)->latest('updated_at');
     }
 
+    public function documents(): HasMany
+    {
+        return $this->hasMany(RndProjectDocument::class)->latest();
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

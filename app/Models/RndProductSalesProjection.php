@@ -6,6 +6,7 @@ use Database\Factories\RndProductSalesProjectionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class RndProductSalesProjection extends Model
 {
@@ -56,5 +57,15 @@ class RndProductSalesProjection extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function targetBranches(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Branch::class,
+            'rnd_product_sales_projection_branch_targets',
+            'rnd_product_sales_projection_id',
+            'branch_id',
+        )->withPivot('target_quantity')->withTimestamps();
     }
 }

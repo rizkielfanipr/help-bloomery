@@ -28,17 +28,26 @@ class RndProjectBomPdfController extends Controller
             'PIN diperlukan untuk mengunduh dokumen resep project.',
         );
 
+        $selectedBomIds = $request->filled('bom_ids')
+            ? collect(explode(',', (string) $request->query('bom_ids')))
+                ->filter(fn (string $id): bool => ctype_digit($id) && (int) $id > 0)
+                ->map(fn (string $id): int => (int) $id)
+                ->unique()->values()->all()
+            : null;
+        $selectedComponents = session()->get(self::componentSessionKey($user->id, $projectRecord->id));
+        $selectedComponents = is_array($selectedComponents) ? $selectedComponents : null;
+
         $products = $projectRecord->products->filter(fn ($product): bool => $product->boms->contains(
             fn ($bom): bool => $scope === 'store'
-                ? $bom->pivot->usage_type === 'menu'
-                : $bom->pivot->usage_type !== 'menu',
+                ? $bom->pivot->usage_type === 'menu' && ($selectedBomIds === null || in_array($bom->id, $selectedBomIds, true))
+                : $bom->pivot->usage_type !== 'menu' && ($selectedBomIds === null || in_array($bom->id, $selectedBomIds, true)),
         ));
         abort_if($products->isEmpty(), 422, 'Tidak ada Bill of Material '.ucfirst($scope).' pada project ini.');
 
         $renderer = app(RndProductBomPdfController::class);
         $projectDocumentNumber = 'BOM-'.strtoupper($scope).'-PROJECT-'.str($projectRecord->name)->slug()->upper();
-        $renderedDocuments = $products->values()->map(function ($product, int $index) use ($renderer, $projectRecord, $scope, $products, $projectDocumentNumber): string {
-            $data = $renderer->buildExportData($projectRecord, $product, $scope);
+        $renderedDocuments = $products->values()->map(function ($product, int $index) use ($renderer, $projectRecord, $scope, $products, $projectDocumentNumber, $selectedBomIds, $selectedComponents): string {
+            $data = $renderer->buildExportData($projectRecord, $product, $scope, $selectedBomIds, $selectedComponents);
             $data['showHeader'] = $index === 0;
             $data['showFooter'] = $index === $products->count() - 1;
             $data['footerDocument'] = $projectDocumentNumber;
@@ -68,6 +77,11 @@ class RndProjectBomPdfController extends Controller
     public static function sessionKey(int $userId, int $projectId): string
     {
         return "rnd.project-bom.export.$userId.$projectId";
+    }
+
+    public static function componentSessionKey(int $userId, int $projectId): string
+    {
+        return "rnd.project-bom.export.components.$userId.$projectId";
     }
 
     private function addPageNumbers($pdf): void

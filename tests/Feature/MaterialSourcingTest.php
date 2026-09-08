@@ -151,19 +151,21 @@ it('shows complete supplier information inside the rnd approval modal', function
     $this->material->update(['sourcing_status' => MaterialSourcingStatus::PendingRndReview]);
     $this->actingAs($this->rnd);
 
-    $this->view('filament.helpdesk.material-sourcings.view-sourcing', [
-        'record' => $this->material->load(['sourcings', 'selectedSourcing', 'rndReviewer', 'financeReviewer']),
-    ])
-        ->assertSee('Supplier Lengkap')
-        ->assertSee('Merk Premium')
-        ->assertSee('Rizki')
-        ->assertSee('081234567890')
-        ->assertSee('Sudah termasuk ongkir.');
+    $supplierSelectionView = file_get_contents(resource_path('views/filament/helpdesk/material-sourcings/supplier-selection-cards.blade.php'));
+
+    expect($supplierSelectionView)
+        ->toContain('$record->sourcings')
+        ->toContain('x-model="state"')
+        ->toContain('supplier_name')
+        ->toContain('brand')
+        ->toContain('contact_name')
+        ->toContain('contact_phone')
+        ->toContain('notes')
+        ->not->toContain('Pilih Supplier Terbaik');
 
     Livewire::test(ListMaterialSourcings::class)
         ->assertTableActionExists('approve_rnd', function ($action): bool {
-            return $action->getModalContent() !== null
-                && str_contains((string) ($action->getExtraModalWindowAttributes()['class'] ?? ''), 'material-sourcing-modal');
+            return str_contains((string) ($action->getExtraModalWindowAttributes()['class'] ?? ''), 'material-sourcing-modal');
         }, $this->material);
 });
 

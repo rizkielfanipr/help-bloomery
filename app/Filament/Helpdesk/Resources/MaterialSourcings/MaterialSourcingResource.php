@@ -9,10 +9,10 @@ use App\Models\RndProductEsbMaterial;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Component;
@@ -163,19 +163,10 @@ class MaterialSourcingResource extends Resource
                     ->modalSubmitActionLabel('Setujui & Kirim ke Finance')
                     ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('review material sourcing as rnd')
                         && $record->sourcing_status === MaterialSourcingStatus::PendingRndReview)
-                    ->modalContent(fn (RndProductEsbMaterial $record) => view('filament.helpdesk.material-sourcings.view-sourcing', [
-                        'record' => $record->load(['sourcings', 'selectedSourcing', 'rndReviewer', 'financeReviewer']),
-                    ]))
                     ->form([
-                        Radio::make('sourcing_selected_id')
-                            ->label('Pilih Supplier Terbaik')
-                            ->options(fn (RndProductEsbMaterial $record): array => $record->sourcings
-                                ->mapWithKeys(fn ($s): array => [
-                                    $s->id => "{$s->supplier_name} — Rp".number_format((float) $s->price, 0, ',', '.')
-                                        .($s->moq ? " (MOQ: {$s->moq})" : '')
-                                        .($s->lead_time_days ? ", Lead Time: {$s->lead_time_days} hari" : ''),
-                                ])
-                                ->all())
+                        ViewField::make('sourcing_selected_id')
+                            ->view('filament.helpdesk.material-sourcings.supplier-selection-cards')
+                            ->hiddenLabel()
                             ->required(),
                         Textarea::make('rnd_note')->label('Catatan'),
                     ])

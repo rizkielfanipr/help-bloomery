@@ -778,10 +778,7 @@
                                         <option value="">Pilih Prefix Name</option>
                                         @foreach($this->esbMaterialNamePrefixOptions() as $prefix => $label)<option value="{{ $prefix }}">{{ $label }}</option>@endforeach
                                     </select>
-                                    <div class="mt-1 flex items-center justify-between gap-2 text-xs">
-                                        <span class="text-gray-500">Prefix Category akan mengikuti Prefix Name yang dipilih.</span>
-                                        <button type="button" wire:click="useEsbMaterialWithoutPrefix" class="font-semibold text-blue-600 hover:text-blue-700">Tanpa Prefix</button>
-                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">Prefix Category akan mengikuti Prefix Name yang dipilih.</p>
                                     @error('esbMaterialNamePrefix')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
                                 @if($esbMaterialNamePrefix !== '')
@@ -789,6 +786,7 @@
                                         <label class="mb-1.5 block text-sm font-semibold">Prefix Category *</label>
                                         <select wire:model.live="esbMaterialPrefixCategoryId" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800">
                                             <option value="">Pilih Prefix Category</option>
+                                            <option value="{{ \App\Filament\Helpdesk\Pages\ViewProjectProductPage::NON_PREFIX_CATEGORY_ID }}">Non Prefix Category</option>
                                             @foreach($this->esbMaterialPrefixCategoryOptions() as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
                                         </select>
                                         @error('esbMaterialPrefixCategoryId')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
@@ -804,12 +802,6 @@
                                         <label class="mb-1.5 block text-sm font-semibold">Product Name Final *</label>
                                         <input wire:model="esbMaterialProductName" readonly class="w-full rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200" placeholder="Prefix dan nama product akan digabung otomatis">
                                         <p class="mt-1 text-xs text-gray-500">Nama ini yang akan dikirim ke Master Product ESB.</p>
-                                        @error('esbMaterialProductName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                    </div>
-                                @elseif($esbMaterialPrefixCategoryId === \App\Filament\Helpdesk\Pages\ViewProjectProductPage::NON_PREFIX_CATEGORY_ID)
-                                    <div>
-                                        <label class="mb-1.5 block text-sm font-semibold">Product Name *</label>
-                                        <input wire:model="esbMaterialProductName" maxlength="100" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Ketik nama product langsung">
                                         @error('esbMaterialProductName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                     </div>
                                 @endif

@@ -1585,7 +1585,7 @@ class ViewProjectProductPage extends Page
                 'nullable', 'string', 'max:90',
             ],
             'esbMaterialNamePrefix' => [
-                Rule::requiredIf(fn (): bool => $this->usesEsbMaterialStructuredName()),
+                Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
                 'nullable', Rule::in(array_keys($this->esbMaterialNamePrefixOptions())),
             ],
             'esbMaterialPrefixCategoryId' => [
@@ -1771,27 +1771,16 @@ class ViewProjectProductPage extends Page
 
     public function updatedEsbMaterialNamePrefix(): void
     {
-        if (! array_key_exists($this->esbMaterialPrefixCategoryId, $this->esbMaterialPrefixCategoryOptions())) {
+        if ($this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID
+            && ! array_key_exists($this->esbMaterialPrefixCategoryId, $this->esbMaterialPrefixCategoryOptions())) {
             $this->esbMaterialPrefixCategoryId = null;
         }
 
         $this->syncEsbMaterialProductName();
     }
 
-    public function useEsbMaterialWithoutPrefix(): void
-    {
-        $this->esbMaterialNamePrefix = '';
-        $this->esbMaterialPrefixCategoryId = self::NON_PREFIX_CATEGORY_ID;
-        $this->esbMaterialProductBaseName = '';
-    }
-
     public function updatedEsbMaterialPrefixCategoryId(): void
     {
-        if ($this->esbMaterialPrefixCategoryId === self::NON_PREFIX_CATEGORY_ID) {
-            $this->esbMaterialNamePrefix = '';
-            $this->esbMaterialProductBaseName = '';
-        }
-
         $this->syncEsbMaterialProductName();
     }
 
@@ -1806,8 +1795,8 @@ class ViewProjectProductPage extends Page
     {
         return $this->isEsbMaterialWipCategory()
             && $this->esbMaterialNamePrefix !== ''
-            && $this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID
-            && array_key_exists($this->esbMaterialPrefixCategoryId, $this->esbMaterialPrefixCategoryOptions());
+            && ($this->esbMaterialPrefixCategoryId === self::NON_PREFIX_CATEGORY_ID
+                || array_key_exists($this->esbMaterialPrefixCategoryId, $this->esbMaterialPrefixCategoryOptions()));
     }
 
     public function esbMaterialNamePrefixOptions(): array
@@ -1860,7 +1849,7 @@ class ViewProjectProductPage extends Page
             ?? self::NON_PREFIX_CATEGORY_ID;
         $this->esbMaterialProductBaseName = $this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID
             ? $this->stripPrefixCategoryName($remainder, $this->esbMaterialPrefixCategoryId)
-            : '';
+            : $remainder;
         $this->syncEsbMaterialProductName();
     }
 

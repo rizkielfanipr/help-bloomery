@@ -508,7 +508,7 @@ it('stores a new material draft and creates its Master Product in ESB', function
     ]))->assertOk();
 });
 
-it('allows a WIP material to use a direct product name without a prefix', function () {
+it('allows a WIP material to omit prefix category while keeping prefix name', function () {
     $project = RndProject::query()->create([
         'name' => 'Non Prefix Project',
         'start_date' => '2026-08-01',
@@ -525,10 +525,12 @@ it('allows a WIP material to use a direct product name without a prefix', functi
         'project' => $project->id,
         'product' => $product->id,
     ])->set('esbCategoryOptions', [77 => 'Barang WIP'])
+        ->set('prefixNameOptions', ['WIP |' => 'Kitchen - WIP |'])
         ->set('esbMaterialCategoryId', 77)
         ->set('esbMaterialSubCategoryId', 21)
+        ->set('esbMaterialNamePrefix', 'WIP |')
         ->set('esbMaterialPrefixCategoryId', ViewProjectProductPage::NON_PREFIX_CATEGORY_ID)
-        ->set('esbMaterialProductName', 'Adonan Croissant Khusus')
+        ->set('esbMaterialProductBaseName', 'Adonan Croissant Khusus')
         ->set('esbMaterialProductCode', 'BBMK-WIP-01')
         ->set('esbMaterialUnits', [[
             'uom_id' => 5,
@@ -542,7 +544,7 @@ it('allows a WIP material to use a direct product name without a prefix', functi
         ->assertHasNoErrors();
 
     $material = $product->esbMaterials()->firstOrFail();
-    expect($material->product_name)->toBe('Adonan Croissant Khusus')
+    expect($material->product_name)->toBe('WIP | Adonan Croissant Khusus')
         ->and($material->units()->where('is_base', true)->value('is_sales'))->toBeTrue();
 });
 

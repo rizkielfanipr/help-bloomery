@@ -30,6 +30,7 @@ return [
         'access backoffice',
         'access employee app briefing',
         'access employee app sales report',
+        'access employee app store sop',
     ],
     'FINANCE_STAFF' => ['access backoffice'],
     'PURCHASING_STAFF' => ['access backoffice'],

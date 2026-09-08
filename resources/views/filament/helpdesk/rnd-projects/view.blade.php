@@ -424,21 +424,42 @@
                             </div>
                             <div class="divide-y divide-gray-100 dark:divide-gray-800">
                                 @forelse($regionalPrices as $index => $price)
-                                    <div class="grid gap-3 p-4 md:grid-cols-[minmax(160px,1fr)_minmax(0,1fr)_minmax(0,1fr)] md:items-end">
+                                    <div class="grid gap-4 p-4 md:grid-cols-[minmax(160px,0.65fr)_minmax(0,2.35fr)] md:items-start">
                                         <div>
                                             <p class="text-sm font-bold text-gray-900 dark:text-white">{{ $price['region_name'] }}</p>
                                             <p class="font-mono text-xs text-gray-400">{{ $price['region_code'] }}</p>
                                             <input wire:model="regionalPrices.{{ $index }}.region_id" type="hidden">
+                                            <input wire:model="regionalPrices.{{ $index }}.offline_price" type="hidden">
+                                            <input wire:model="regionalPrices.{{ $index }}.online_price" type="hidden">
                                         </div>
-                                        <div>
-                                            <label class="{{ $label }}">Harga Offline *</label>
-                                            <input wire:model="regionalPrices.{{ $index }}.offline_price" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
-                                            @error("regionalPrices.$index.offline_price")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                        </div>
-                                        <div>
-                                            <label class="{{ $label }}">Harga Online *</label>
-                                            <input wire:model="regionalPrices.{{ $index }}.online_price" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
-                                            @error("regionalPrices.$index.online_price")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                        <div class="space-y-4">
+                                            <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                                                <p class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Offline</p>
+                                                <div class="grid gap-3 sm:grid-cols-2">
+                                                    <div>
+                                                        <label class="{{ $label }}">Dine In *</label>
+                                                        <input wire:model="regionalPrices.{{ $index }}.dine_in_price" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
+                                                        @error("regionalPrices.$index.dine_in_price")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                                    </div>
+                                                    <div>
+                                                        <label class="{{ $label }}">Takeaway *</label>
+                                                        <input wire:model="regionalPrices.{{ $index }}.takeaway_price" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
+                                                        @error("regionalPrices.$index.takeaway_price")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+                                                <p class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Online</p>
+                                                <div class="grid gap-3 sm:grid-cols-3">
+                                                    @foreach(['gofood_price' => 'GoFood', 'grabfood_price' => 'GrabFood', 'shopeefood_price' => 'ShopeeFood'] as $field => $channel)
+                                                        <div>
+                                                            <label class="{{ $label }}">{{ $channel }} *</label>
+                                                            <input wire:model="regionalPrices.{{ $index }}.{{ $field }}" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
+                                                            @error("regionalPrices.$index.$field")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 @empty

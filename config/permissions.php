@@ -18,6 +18,7 @@ return [
         'Konten' => ['access employee app content'],
         'ERP' => ['access employee app erp'],
         'Quality Control' => ['access employee app quality control'],
+        'SOP Store' => ['access employee app store sop'],
     ],
 
     'Human Resources' => [
@@ -108,6 +109,17 @@ return [
 
     'Sales & Growth' => [
         'Sales Projection' => ['view sales projections'],
+    ],
+
+    'Operational' => [
+        'SOP Store' => [
+            'view store sops',
+            'create store sops',
+            'edit store sops',
+            'delete store sops',
+            'publish store sops',
+            'view store sop reports',
+        ],
     ],
 
     'Management Access' => [

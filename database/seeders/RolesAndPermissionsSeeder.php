@@ -136,6 +136,7 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::firstOrCreate(['name' => 'SUPERVISOR_STORE', 'guard_name' => 'web'])
             ->syncPermissions([
                 'access backoffice', 'access employee app briefing', 'access employee app sales report',
+                'access employee app store sop',
                 'view briefing items', 'edit briefing items',
                 'view sales reports', 'review sales reports as supervisor',
                 'view compliment types',

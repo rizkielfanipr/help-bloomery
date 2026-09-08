@@ -180,13 +180,19 @@ it('creates and updates a product release with online and offline prices', funct
     $page->call('editProduct', $product->id)
         ->set('priceEffectiveFrom', '2026-08-01')
         ->set('regionalPrices.0.online_price', '38000')
+        ->set('regionalPrices.0.has_separate_offline_prices', true)
+        ->set('regionalPrices.0.dine_in_price', '31000')
+        ->set('regionalPrices.0.takeaway_price', '35000')
+        ->set('regionalPrices.0.gofood_price', '39000')
+        ->set('regionalPrices.0.grabfood_price', '40000')
+        ->set('regionalPrices.0.shopeefood_price', '41000')
         ->set('productStatus', 'trial')
         ->set('productPhoto', UploadedFile::fake()->image('matcha-product-new.png', 900, 900))
         ->call('saveProduct')
         ->assertHasNoErrors();
 
     $product->refresh();
-    expect((float) $product->offline_price)->toBe(32000.0)
+    expect((float) $product->offline_price)->toBe(31000.0)
         ->and((float) $product->online_price)->toBe(37000.0)
         ->and($product->status)->toBe('trial')
         ->and($product->shelf_life_value)->toBe(6)
@@ -194,6 +200,13 @@ it('creates and updates a product release with online and offline prices', funct
         ->and($product->storage_condition)->toBe('chiller')
         ->and($product->target_outlets)->toBe(2)
         ->and($product->image_path)->not->toBe($originalImagePath);
+    $regionalPrice = $product->regionalPrices()->where('sales_region_id', $regionalPrices[0]['region_id'])->firstOrFail();
+    expect($regionalPrice->has_separate_offline_prices)->toBeTrue()
+        ->and((float) $regionalPrice->dine_in_price)->toBe(31000.0)
+        ->and((float) $regionalPrice->takeaway_price)->toBe(35000.0)
+        ->and((float) $regionalPrice->gofood_price)->toBe(39000.0)
+        ->and((float) $regionalPrice->grabfood_price)->toBe(40000.0)
+        ->and((float) $regionalPrice->shopeefood_price)->toBe(41000.0);
     $projection = $product->salesProjections()->firstOrFail();
     expect($projection->projection_month->toDateString())->toBe('2026-09-01')
         ->and((float) $projection->target_quantity)->toBe(1100.0)
@@ -206,7 +219,7 @@ it('creates and updates a product release with online and offline prices', funct
     $this->assertDatabaseHas('rnd_product_regional_prices', [
         'rnd_project_product_id' => $product->id,
         'sales_region_id' => $regionalPrices[0]['region_id'],
-        'online_price' => 38000,
+        'online_price' => 39000,
     ]);
     expect($product->regionalPrices()
         ->where('sales_region_id', $regionalPrices[0]['region_id'])

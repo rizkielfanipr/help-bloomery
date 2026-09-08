@@ -102,24 +102,27 @@
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="border-b border-gray-200 p-5 dark:border-gray-700">
                 <h3 class="text-lg font-bold text-gray-900 dark:text-white">Regional Pricing</h3>
-                <p class="text-sm text-gray-500">Harga aktif online dan offline untuk setiap wilayah penjualan.</p>
+                <p class="text-sm text-gray-500">Harga aktif Dine In, Takeaway, dan Online untuk setiap wilayah penjualan.</p>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[680px] text-sm">
+                <table class="w-full min-w-[1050px] text-sm">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-800">
-                        <tr><th class="px-5 py-3 text-left">Region</th><th class="px-5 py-3 text-right">Offline</th><th class="px-5 py-3 text-right">Online</th><th class="px-5 py-3 text-left">Berlaku Mulai</th><th class="px-5 py-3 text-left">Status</th></tr>
+                        <tr><th class="px-5 py-3 text-left">Region</th><th class="px-5 py-3 text-right">Dine In</th><th class="px-5 py-3 text-right">Takeaway</th><th class="px-5 py-3 text-right">GoFood</th><th class="px-5 py-3 text-right">GrabFood</th><th class="px-5 py-3 text-right">ShopeeFood</th><th class="px-5 py-3 text-left">Berlaku Mulai</th><th class="px-5 py-3 text-left">Status</th></tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse($product->currentRegionalPrices->unique('sales_region_id')->sortBy('region.sort_order') as $price)
                             <tr>
                                 <td class="px-5 py-3"><p class="font-bold text-gray-900 dark:text-white">{{ $price->region->name }}</p><p class="font-mono text-xs text-gray-400">{{ $price->region->code }}</p></td>
-                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) $price->offline_price, 0, ',', '.') }}</td>
-                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) $price->online_price, 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->dine_in_price ?? $price->offline_price), 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->takeaway_price ?? $price->offline_price), 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->gofood_price ?? $price->online_price), 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->grabfood_price ?? $price->online_price), 0, ',', '.') }}</td>
+                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->shopeefood_price ?? $price->online_price), 0, ',', '.') }}</td>
                                 <td class="px-5 py-3">{{ $price->effective_from->format('d M Y') }}</td>
                                 <td class="px-5 py-3"><span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">Active</span></td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-5 py-10 text-center text-gray-500">Belum ada harga regional yang aktif.</td></tr>
+                            <tr><td colspan="8" class="px-5 py-10 text-center text-gray-500">Belum ada harga regional yang aktif.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

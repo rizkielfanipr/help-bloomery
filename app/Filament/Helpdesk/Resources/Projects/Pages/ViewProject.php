@@ -212,6 +212,20 @@ class ViewProject extends ViewRecord
     {
         abort_unless(ProjectResource::canEdit($this->record), 403);
 
+        $this->regionalPrices = collect($this->regionalPrices)->map(function (array $price): array {
+            $offlinePrice = (string) ($price['offline_price'] ?? 0);
+            $onlinePrice = (string) ($price['online_price'] ?? 0);
+
+            $price['has_separate_offline_prices'] = true;
+            $price['dine_in_price'] = (string) ($price['dine_in_price'] ?? $offlinePrice);
+            $price['takeaway_price'] = (string) ($price['takeaway_price'] ?? $offlinePrice);
+            $price['gofood_price'] = (string) ($price['gofood_price'] ?? $onlinePrice);
+            $price['grabfood_price'] = (string) ($price['grabfood_price'] ?? $onlinePrice);
+            $price['shopeefood_price'] = (string) ($price['shopeefood_price'] ?? $onlinePrice);
+
+            return $price;
+        })->all();
+
         $validated = $this->validate([
             'productName' => ['required', 'string', 'max:255'],
             'productCode' => [
@@ -227,7 +241,16 @@ class ViewProject extends ViewRecord
             'regionalPrices' => ['required', 'array'],
             'regionalPrices.*.region_id' => ['required', 'integer', 'exists:sales_regions,id'],
             'regionalPrices.*.offline_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.has_separate_offline_prices' => ['required', 'boolean'],
+            'regionalPrices.*.dine_in_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.takeaway_price' => ['required', 'numeric', 'min:0'],
             'regionalPrices.*.online_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.gofood_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.grabfood_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.shopeefood_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.gofood_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.grabfood_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.shopeefood_price' => ['required', 'numeric', 'min:0'],
             'releaseDate' => ['nullable', 'date'],
             'productStatus' => ['required', Rule::in(array_keys(RndProjectProduct::STATUSES))],
             'shelfLifeValue' => ['nullable', 'integer', 'min:1', 'max:9999'],
@@ -311,8 +334,12 @@ class ViewProject extends ViewRecord
                 return;
             }
             foreach ($validated['regionalPrices'] as $index => $price) {
-                if ((float) $price['offline_price'] <= 0 || (float) $price['online_price'] <= 0) {
-                    $this->addError("regionalPrices.$index.offline_price", 'Harga online dan offline wajib diisi sebelum produk Ready/Released.');
+                if ((float) $price['dine_in_price'] <= 0
+                    || (float) $price['takeaway_price'] <= 0
+                    || (float) $price['gofood_price'] <= 0
+                    || (float) $price['grabfood_price'] <= 0
+                    || (float) $price['shopeefood_price'] <= 0) {
+                    $this->addError("regionalPrices.$index.dine_in_price", 'Seluruh harga channel wajib diisi sebelum produk Ready/Released.');
 
                     return;
                 }
@@ -333,8 +360,16 @@ class ViewProject extends ViewRecord
             }
         }
 
-        $minimumOffline = collect($validated['regionalPrices'])->min(fn ($price) => (float) $price['offline_price']) ?? 0;
-        $minimumOnline = collect($validated['regionalPrices'])->min(fn ($price) => (float) $price['online_price']) ?? 0;
+        $minimumOffline = collect($validated['regionalPrices'])->min(
+            fn (array $price): float => min((float) $price['dine_in_price'], (float) $price['takeaway_price'])
+        ) ?? 0;
+        $minimumOnline = collect($validated['regionalPrices'])->min(
+            fn (array $price): float => min(
+                (float) $price['gofood_price'],
+                (float) $price['grabfood_price'],
+                (float) $price['shopeefood_price'],
+            )
+        ) ?? 0;
         $payload = [
             'name' => trim($validated['productName']),
             'product_code' => trim($validated['productCode']) ?: null,
@@ -559,7 +594,13 @@ class ViewProject extends ViewRecord
                 'region_name' => $region->name,
                 'region_code' => $region->code,
                 'offline_price' => (string) ($price?->offline_price ?? $product?->offline_price ?? 0),
+                'has_separate_offline_prices' => (bool) ($price?->has_separate_offline_prices ?? false),
+                'dine_in_price' => (string) ($price?->dine_in_price ?? $price?->offline_price ?? $product?->offline_price ?? 0),
+                'takeaway_price' => (string) ($price?->takeaway_price ?? $price?->offline_price ?? $product?->offline_price ?? 0),
                 'online_price' => (string) ($price?->online_price ?? $product?->online_price ?? 0),
+                'gofood_price' => (string) ($price?->gofood_price ?? $price?->online_price ?? $product?->online_price ?? 0),
+                'grabfood_price' => (string) ($price?->grabfood_price ?? $price?->online_price ?? $product?->online_price ?? 0),
+                'shopeefood_price' => (string) ($price?->shopeefood_price ?? $price?->online_price ?? $product?->online_price ?? 0),
             ];
         })->all();
     }
@@ -568,6 +609,11 @@ class ViewProject extends ViewRecord
     {
         $effectiveDate = Carbon::parse($effectiveFrom)->startOfDay();
         foreach ($prices as $price) {
+            $dineInPrice = (float) $price['dine_in_price'];
+            $takeawayPrice = (float) $price['takeaway_price'];
+            $gofoodPrice = (float) $price['gofood_price'];
+            $grabfoodPrice = (float) $price['grabfood_price'];
+            $shopeefoodPrice = (float) $price['shopeefood_price'];
             $nextEffective = $product->regionalPrices()
                 ->where('sales_region_id', $price['region_id'])
                 ->whereDate('effective_from', '>', $effectiveDate)
@@ -580,8 +626,14 @@ class ViewProject extends ViewRecord
                 ->update(['effective_to' => $effectiveDate->copy()->subDay()->toDateString(), 'status' => 'expired']);
 
             $values = [
-                'offline_price' => (float) $price['offline_price'],
-                'online_price' => (float) $price['online_price'],
+                'offline_price' => min($dineInPrice, $takeawayPrice),
+                'has_separate_offline_prices' => (bool) $price['has_separate_offline_prices'],
+                'dine_in_price' => $dineInPrice,
+                'takeaway_price' => $takeawayPrice,
+                'online_price' => min($gofoodPrice, $grabfoodPrice, $shopeefoodPrice),
+                'gofood_price' => $gofoodPrice,
+                'grabfood_price' => $grabfoodPrice,
+                'shopeefood_price' => $shopeefoodPrice,
                 'effective_to' => $nextEffective ? Carbon::parse($nextEffective)->subDay()->toDateString() : null,
                 'status' => 'active',
                 'created_by' => auth()->id(),

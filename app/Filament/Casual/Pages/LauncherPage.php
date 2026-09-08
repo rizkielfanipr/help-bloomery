@@ -130,6 +130,14 @@ class LauncherPage extends Page
                 'href' => fn (): string => QualityControlAudits::getUrl(panel: 'casual'),
                 'permission' => 'access employee app quality control',
             ],
+            [
+                'label' => 'SOP Store',
+                'iconBg' => 'bg-indigo-50',
+                'iconColor' => 'text-indigo-500',
+                'path' => 'M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25A8.966 8.966 0 0 1 18 3.75c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25',
+                'href' => fn (): string => StoreSopsPage::getUrl(panel: 'casual'),
+                'permission' => 'access employee app store sop',
+            ],
         ];
 
         return array_values(array_map(function (array $tile): array {

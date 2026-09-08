@@ -50,7 +50,25 @@ it('renders the BOM recipe form without a Blade parse error', function () {
         ->assertSee('Buat Bill of Material Baru')
         ->assertSee('Test R&amp;D Project', false)
         ->assertSee('Test Product Release')
-        ->assertSee('Pilih produk hasil');
+        ->assertSee('Pilih produk hasil')
+        ->assertDontSeeHtml('wire:model="data.bomName"')
+        ->assertDontSeeHtml('wire:model="data.bomCode"')
+        ->assertDontSeeHtml('wire:model="data.bomCostTotal"')
+        ->assertDontSeeHtml('wire:model="data.notes"')
+        ->assertDontSeeHtml('wire:model="data.bomDetails.0.lastHPP"')
+        ->assertDontSeeHtml('wire:model="data.bomDetails.0.yieldPercent"')
+        ->assertDontSeeHtml('wire:model="data.bomDetails.0.tolerancePercent"')
+        ->assertDontSeeHtml('wire:model="data.bomDetails.0.printGroup"');
+});
+
+it('keeps the BOM name input visible when creating a Store BOM', function () {
+    Livewire::withQueryParams(['usageType' => 'menu'])
+        ->test(CreateBomRecipePage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->assertSet('usageType', 'menu')
+        ->assertSeeHtml('wire:model="data.bomName"')
+        ->assertDontSeeHtml('wire:model="data.bomCode"')
+        ->assertDontSeeHtml('wire:model.live="data.accessType"')
+        ->assertDontSeeHtml('wire:model="data.selectedUserAccess"');
 });
 
 it('renders the BOM view and update workspaces', function () {
@@ -177,8 +195,8 @@ it('stores a newly created ESB BOM inside its project', function () {
     $this->assertDatabaseHas('rnd_project_boms', [
         'rnd_project_id' => $this->project->id,
         'esb_bom_id' => 424,
-        'bom_code' => 'BOM-CRS',
-        'bom_name' => 'Croissant Assembly',
+        'bom_code' => 'CRS',
+        'bom_name' => 'Croissant',
         'product_name' => 'Croissant',
     ]);
     $projectBomId = RndProjectBom::query()->where('esb_bom_id', 424)->value('id');
@@ -240,8 +258,8 @@ it('creates a BOM Menu with bomTypeID 3 when usageType is menu', function () {
             'bomCode' => 'BOM-CRS-SET',
             'notes' => 'Test BOM Menu',
             'bomCostTotal' => 0,
-            'accessType' => 0,
-            'selectedUserAccess' => [],
+            'accessType' => 1,
+            'selectedUserAccess' => [99],
             'bomDetails' => [[
                 'ID' => 0,
                 'productDetailID' => 202,
@@ -264,6 +282,8 @@ it('creates a BOM Menu with bomTypeID 3 when usageType is menu', function () {
         // (unlike Assembly), nor a top-level productDetailID (no result product)
         // — neither must be sent for a Menu BOM.
         return $request['bomTypeID'] === 3
+            && $request['accessType'] === 0
+            && $request['selectedUserAccess'] === []
             && ! array_key_exists('productDetailID', $request->data())
             && ! array_key_exists('tolerancePercent', $request['bomDetails'][0]);
     });

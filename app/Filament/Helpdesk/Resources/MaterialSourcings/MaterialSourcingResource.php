@@ -155,10 +155,17 @@ class MaterialSourcingResource extends Resource
                     ->tooltip('Setujui (RnD)')
                     ->color('success')
                     ->iconButton()
-                    ->modalHeading('Setujui Supplier Pilihan RnD')
+                    ->modalWidth(Width::ThreeExtraLarge)
+                    ->stickyModalHeader()
+                    ->stickyModalFooter()
+                    ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
+                    ->modalHeading(fn (RndProductEsbMaterial $record): string => 'Setujui Supplier Pilihan RnD — '.$record->product_name)
                     ->modalSubmitActionLabel('Setujui & Kirim ke Finance')
                     ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('review material sourcing as rnd')
                         && $record->sourcing_status === MaterialSourcingStatus::PendingRndReview)
+                    ->modalContent(fn (RndProductEsbMaterial $record) => view('filament.helpdesk.material-sourcings.view-sourcing', [
+                        'record' => $record->load(['sourcings', 'selectedSourcing', 'rndReviewer', 'financeReviewer']),
+                    ]))
                     ->form([
                         Radio::make('sourcing_selected_id')
                             ->label('Pilih Supplier Terbaik')

@@ -113,8 +113,8 @@ class CreateBomRecipePage extends Page
         $this->usageType = $this->usageType === 'menu' ? 'menu' : 'main';
 
         $this->data = [
-            'bomName' => '',
-            'bomCode' => '',
+            'bomName' => $productRecord->name,
+            'bomCode' => $productRecord->product_code ?: 'BOM-'.$productRecord->id,
             'productDetailID' => '',
             'notes' => '',
             'bomCostTotal' => 0,
@@ -226,7 +226,10 @@ class CreateBomRecipePage extends Page
         $this->selectedProducts[$productDetailId] = $this->products[$productDetailId];
 
         if ($target === 'result') {
+            $product = $this->products[$productDetailId];
             $this->data['productDetailID'] = $productDetailId;
+            $this->data['bomName'] = (string) ($product['productName'] ?? $this->productName);
+            $this->data['bomCode'] = (string) (($product['productCode'] ?? '') ?: 'BOM-'.$productDetailId);
             $this->resetValidation('data.productDetailID');
 
             return;
@@ -337,6 +340,21 @@ class CreateBomRecipePage extends Page
     public function create(): void
     {
         $isMenu = $this->usageType === 'menu';
+
+        if (! $this->isEditing && ! $isMenu) {
+            $resultProduct = $this->selectedProducts[(int) ($this->data['productDetailID'] ?? 0)] ?? null;
+            if ($resultProduct) {
+                $this->data['bomName'] = (string) ($resultProduct['productName'] ?? $this->productName);
+                $this->data['bomCode'] = (string) (($resultProduct['productCode'] ?? '') ?: 'BOM-'.$resultProduct['productDetailID']);
+            }
+            $this->data['bomCostTotal'] = 0;
+            $this->data['notes'] = '';
+        }
+
+        if ($isMenu) {
+            $this->data['accessType'] = 0;
+            $this->data['selectedUserAccess'] = [];
+        }
 
         $validated = $this->validate([
             'data.bomName' => ['required', 'string', 'max:255'],

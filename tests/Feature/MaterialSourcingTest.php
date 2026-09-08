@@ -140,6 +140,33 @@ it('uses the scrollable modal layout for manage and view supplier actions', func
         }, $this->material);
 });
 
+it('shows complete supplier information inside the rnd approval modal', function () {
+    $this->material->sourcings()->create([
+        ...supplierRow('Supplier Lengkap', 12500),
+        'brand' => 'Merk Premium',
+        'contact_name' => 'Rizki',
+        'contact_phone' => '081234567890',
+        'notes' => 'Sudah termasuk ongkir.',
+    ]);
+    $this->material->update(['sourcing_status' => MaterialSourcingStatus::PendingRndReview]);
+    $this->actingAs($this->rnd);
+
+    $this->view('filament.helpdesk.material-sourcings.view-sourcing', [
+        'record' => $this->material->load(['sourcings', 'selectedSourcing', 'rndReviewer', 'financeReviewer']),
+    ])
+        ->assertSee('Supplier Lengkap')
+        ->assertSee('Merk Premium')
+        ->assertSee('Rizki')
+        ->assertSee('081234567890')
+        ->assertSee('Sudah termasuk ongkir.');
+
+    Livewire::test(ListMaterialSourcings::class)
+        ->assertTableActionExists('approve_rnd', function ($action): bool {
+            return $action->getModalContent() !== null
+                && str_contains((string) ($action->getExtraModalWindowAttributes()['class'] ?? ''), 'material-sourcing-modal');
+        }, $this->material);
+});
+
 it('uses compact icon buttons for sourcing table actions', function () {
     $this->material->sourcings()->create(supplierRow('Supplier A', 10000));
     $this->actingAs($this->purchasing);

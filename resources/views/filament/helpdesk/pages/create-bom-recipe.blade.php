@@ -34,16 +34,20 @@
                     <p class="text-sm text-gray-500">Identitas utama dan produk yang dihasilkan.</p>
                 </div>
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <div>
-                        <label class="{{ $label }}">Nama BOM <span class="text-red-500">*</span></label>
-                        <input wire:model="data.bomName" class="{{ $input }}" placeholder="Contoh: Assembly Croissant">
-                        @error('data.bomName') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="{{ $label }}">Kode BOM <span class="text-red-500">*</span></label>
-                        <input wire:model="data.bomCode" class="{{ $input }}" placeholder="Contoh: BOM-CRS-001">
-                        @error('data.bomCode') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
+                    @if($isEditing || $usageType === 'menu')
+                        <div>
+                            <label class="{{ $label }}">Nama BOM <span class="text-red-500">*</span></label>
+                            <input wire:model="data.bomName" class="{{ $input }}" placeholder="Contoh: Assembly Croissant">
+                            @error('data.bomName') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
+                    @if($isEditing)
+                        <div>
+                            <label class="{{ $label }}">Kode BOM <span class="text-red-500">*</span></label>
+                            <input wire:model="data.bomCode" class="{{ $input }}" placeholder="Contoh: BOM-CRS-001">
+                            @error('data.bomCode') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                    @endif
                     @unless($usageType === 'menu')
                         <div class="md:col-span-2 xl:col-span-4">
                             @php
@@ -69,30 +73,34 @@
                             @error('data.productDetailID') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                     @endunless
-                    <div>
-                        <label class="{{ $label }}">Total Biaya BOM</label>
-                        <input wire:model="data.bomCostTotal" type="number" min="0" step="0.0001" class="{{ $input }}">
-                        @error('data.bomCostTotal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div class="md:col-span-2 xl:col-span-4">
-                        <label class="{{ $label }}">Catatan</label>
-                        <textarea wire:model="data.notes" rows="3" class="{{ $input }}" placeholder="Catatan proses atau keterangan resep..."></textarea>
-                        @error('data.notes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div class="md:col-span-2 xl:col-span-2">
-                        <label class="{{ $label }}">Akses BOM</label>
-                        <select wire:model.live="data.accessType" class="{{ $input }}">
-                            <option value="0">Semua pengguna ESB</option>
-                            <option value="1">Pengguna tertentu</option>
-                        </select>
-                    </div>
-                    @if((int) ($data['accessType'] ?? 0) === 1)
-                        <div class="md:col-span-2 xl:col-span-2">
-                            <label class="{{ $label }}">User Access ID</label>
-                            <input wire:model="data.selectedUserAccess" class="{{ $input }}" placeholder="Memerlukan API master user ESB" disabled>
-                            <p class="mt-1 text-xs text-amber-600">Pilihan user belum aktif karena API daftar user belum tersedia.</p>
+                    @if($isEditing)
+                        <div>
+                            <label class="{{ $label }}">Total Biaya BOM</label>
+                            <input wire:model="data.bomCostTotal" type="number" min="0" step="0.0001" class="{{ $input }}">
+                            @error('data.bomCostTotal') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <div class="md:col-span-2 xl:col-span-4">
+                            <label class="{{ $label }}">Catatan</label>
+                            <textarea wire:model="data.notes" rows="3" class="{{ $input }}" placeholder="Catatan proses atau keterangan resep..."></textarea>
+                            @error('data.notes') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                         </div>
                     @endif
+                    @unless($usageType === 'menu')
+                        <div class="md:col-span-2 xl:col-span-2">
+                            <label class="{{ $label }}">Akses BOM</label>
+                            <select wire:model.live="data.accessType" class="{{ $input }}">
+                                <option value="0">Semua pengguna ESB</option>
+                                <option value="1">Pengguna tertentu</option>
+                            </select>
+                        </div>
+                        @if((int) ($data['accessType'] ?? 0) === 1)
+                            <div class="md:col-span-2 xl:col-span-2">
+                                <label class="{{ $label }}">User Access ID</label>
+                                <input wire:model="data.selectedUserAccess" class="{{ $input }}" placeholder="Memerlukan API master user ESB" disabled>
+                                <p class="mt-1 text-xs text-amber-600">Pilihan user belum aktif karena API daftar user belum tersedia.</p>
+                            </div>
+                        @endif
+                    @endunless
                 </div>
             </section>
 
@@ -125,8 +133,8 @@
                                     </button>
                                 @endif
                             </div>
-                            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-9">
-                                <div class="sm:col-span-2 lg:col-span-3 2xl:col-span-2">
+                            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-12">
+                                <div class="sm:col-span-2 lg:col-span-5">
                                     <label class="{{ $label }}">Product Name *</label>
                                     @php
                                         $selectedMaterial = $selectedProducts[(int) ($material['productDetailID'] ?? 0)] ?? null;
@@ -137,40 +145,42 @@
                                     </button>
                                     @error("data.bomDetails.$index.productDetailID") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                 </div>
-                                <div>
+                                <div class="lg:col-span-3">
                                     <label class="{{ $label }}">Product Code</label>
                                     <input value="{{ $selectedMaterial['productCode'] ?? '' }}" readonly class="{{ $input }} bg-white text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                                 </div>
-                                <div>
+                                <div class="lg:col-span-2">
                                     <label class="{{ $label }}">Unit</label>
                                     <input value="{{ ($selectedMaterial['baseUnit'] ?? '') ?: ($selectedMaterial['unit'] ?? '') }}" readonly class="{{ $input }} bg-white text-center font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                                 </div>
-                                <div>
+                                <div class="lg:col-span-2">
                                     <label class="{{ $label }}">Qty *</label>
                                     <input wire:model="data.bomDetails.{{ $index }}.qty" type="number" min="0.0001" step="0.0001" class="{{ $input }}">
                                     @error("data.bomDetails.$index.qty") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                 </div>
-                                <div>
-                                    <label class="{{ $label }}">Last HPP *</label>
-                                    <input wire:model="data.bomDetails.{{ $index }}.lastHPP" type="number" min="0" step="0.0001" class="{{ $input }}">
-                                    @error("data.bomDetails.$index.lastHPP") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                </div>
-                                <div>
-                                    <label class="{{ $label }}">Waste / Yield (%)</label>
-                                    <input wire:model="data.bomDetails.{{ $index }}.yieldPercent" type="number" min="0" max="100" step="0.0001" class="{{ $input }}">
-                                    @error("data.bomDetails.$index.yieldPercent") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                </div>
-                                @unless($usageType === 'menu')
-                                    <div>
-                                        <label class="{{ $label }}">Tolerance (%)</label>
-                                        <input wire:model="data.bomDetails.{{ $index }}.tolerancePercent" type="number" min="0" max="100" step="0.0001" class="{{ $input }}">
-                                        @error("data.bomDetails.$index.tolerancePercent") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                @if($isEditing)
+                                    <div class="lg:col-span-3">
+                                        <label class="{{ $label }}">Last HPP *</label>
+                                        <input wire:model="data.bomDetails.{{ $index }}.lastHPP" type="number" min="0" step="0.0001" class="{{ $input }}">
+                                        @error("data.bomDetails.$index.lastHPP") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                                     </div>
-                                @endunless
-                                <div>
-                                    <label class="{{ $label }}">Print Group</label>
-                                    <input wire:model="data.bomDetails.{{ $index }}.printGroup" class="{{ $input }}" placeholder="Opsional">
-                                </div>
+                                    <div class="lg:col-span-3">
+                                        <label class="{{ $label }}">Waste / Yield (%)</label>
+                                        <input wire:model="data.bomDetails.{{ $index }}.yieldPercent" type="number" min="0" max="100" step="0.0001" class="{{ $input }}">
+                                        @error("data.bomDetails.$index.yieldPercent") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                    </div>
+                                    @unless($usageType === 'menu')
+                                        <div class="lg:col-span-3">
+                                            <label class="{{ $label }}">Tolerance (%)</label>
+                                            <input wire:model="data.bomDetails.{{ $index }}.tolerancePercent" type="number" min="0" max="100" step="0.0001" class="{{ $input }}">
+                                            @error("data.bomDetails.$index.tolerancePercent") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                        </div>
+                                    @endunless
+                                    <div class="lg:col-span-3">
+                                        <label class="{{ $label }}">Print Group</label>
+                                        <input wire:model="data.bomDetails.{{ $index }}.printGroup" class="{{ $input }}" placeholder="Opsional">
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endforeach

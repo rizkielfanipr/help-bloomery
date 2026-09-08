@@ -285,8 +285,21 @@ class ViewProject extends ViewRecord
         }
         if (in_array($validated['productStatus'], ['ready', 'released'], true)) {
             $planningIsInvalid = false;
-            if (blank($validated['releaseDate']) || blank($validated['shelfLifeValue']) || blank($validated['storageCondition'])) {
-                $this->addError('shelfLifeValue', 'Shelf life, kondisi penyimpanan, dan tanggal rilis wajib sebelum produk Ready/Released.');
+
+            if (blank($validated['releaseDate'])) {
+                $this->addError('releaseDate', 'Tanggal rilis wajib diisi sebelum produk Ready/Released.');
+                $planningIsInvalid = true;
+            }
+            if (blank($validated['shelfLifeValue'])) {
+                $this->addError('shelfLifeValue', 'Shelf life wajib diisi sebelum produk Ready/Released.');
+                $planningIsInvalid = true;
+            }
+            if (blank($validated['shelfLifeUnit'])) {
+                $this->addError('shelfLifeUnit', 'Satuan shelf life wajib dipilih sebelum produk Ready/Released.');
+                $planningIsInvalid = true;
+            }
+            if (blank($validated['storageCondition'])) {
+                $this->addError('storageCondition', 'Kondisi penyimpanan wajib dipilih sebelum produk Ready/Released.');
                 $planningIsInvalid = true;
             }
             if ($validated['salesProjections'] === []) {

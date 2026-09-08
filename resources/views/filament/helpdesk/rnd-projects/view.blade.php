@@ -301,6 +301,7 @@
                                             <option value="{{ $value }}">{{ $unitLabel }}</option>
                                         @endforeach
                                     </select>
+                                    @error('shelfLifeUnit')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
                                 <div>
                                     <label class="{{ $label }}">Kondisi Penyimpanan</label>
@@ -309,6 +310,7 @@
                                             <option value="{{ $value }}">{{ $conditionLabel }}</option>
                                         @endforeach
                                     </select>
+                                    @error('storageCondition')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 </div>
                                 <div class="md:col-span-3">
                                     <label class="{{ $label }}">Catatan Penyimpanan</label>

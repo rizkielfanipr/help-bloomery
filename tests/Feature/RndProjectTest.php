@@ -231,14 +231,24 @@ it('requires shelf life and a sales projection before a product is ready', funct
             'online_price' => '36000',
         ])->all();
 
-    Livewire::test(ViewProject::class, ['record' => $project->id])
+    $page = Livewire::test(ViewProject::class, ['record' => $project->id])
         ->set('productName', 'Ready Product')
         ->set('priceEffectiveFrom', '2026-08-01')
         ->set('regionalPrices', $regionalPrices)
         ->set('releaseDate', '2026-09-01')
         ->set('productStatus', 'ready')
         ->call('saveProduct')
-        ->assertHasErrors(['shelfLifeValue', 'salesProjections']);
+        ->assertHasErrors(['shelfLifeValue', 'salesProjections'])
+        ->assertSee('Shelf life wajib diisi sebelum produk Ready/Released.');
+
+    $page->set('releaseDate', '')
+        ->set('shelfLifeValue', '5')
+        ->set('shelfLifeUnit', 'month')
+        ->set('storageCondition', 'chiller')
+        ->call('saveProduct')
+        ->assertHasErrors(['releaseDate', 'salesProjections'])
+        ->assertHasNoErrors(['shelfLifeValue', 'shelfLifeUnit', 'storageCondition'])
+        ->assertSee('Tanggal rilis wajib diisi sebelum produk Ready/Released.');
 
     expect($project->products()->count())->toBe(0);
 });

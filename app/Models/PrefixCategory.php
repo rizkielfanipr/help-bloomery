@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class PrefixCategory extends Model
 {
@@ -11,5 +12,10 @@ class PrefixCategory extends Model
     protected function casts(): array
     {
         return ['is_active' => 'boolean'];
+    }
+
+    public function prefixNames(): BelongsToMany
+    {
+        return $this->belongsToMany(PrefixName::class)->withTimestamps();
     }
 }

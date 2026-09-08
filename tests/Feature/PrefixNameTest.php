@@ -3,6 +3,7 @@
 use App\Filament\Helpdesk\Resources\PrefixNames\Pages\CreatePrefixName;
 use App\Filament\Helpdesk\Resources\PrefixNames\Pages\EditPrefixName;
 use App\Filament\Helpdesk\Resources\PrefixNames\Pages\ListPrefixNames;
+use App\Models\PrefixCategory;
 use App\Models\PrefixName;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -39,26 +40,33 @@ it('lists prefix names ordered by sort_order', function () {
 });
 
 it('creates a prefix name', function () {
+    $prefixCategory = PrefixCategory::create(['name' => 'Whole Cake', 'sort_order' => 1, 'is_active' => true]);
+
     Livewire::test(CreatePrefixName::class)
         ->fillForm([
             'code' => 'NEW |',
             'label' => 'New Brand - NEW |',
+            'prefixCategories' => [$prefixCategory->id],
             'sort_order' => 6,
             'is_active' => true,
         ])
         ->call('create')
         ->assertHasNoFormErrors();
 
-    expect(PrefixName::where('code', 'NEW |')->exists())->toBeTrue();
+    $prefixName = PrefixName::where('code', 'NEW |')->firstOrFail();
+
+    expect($prefixName->prefixCategories()->whereKey($prefixCategory->id)->exists())->toBeTrue();
 });
 
 it('requires a unique code when creating a prefix name', function () {
     PrefixName::create(['code' => 'DUP |', 'label' => 'Duplicate', 'sort_order' => 1]);
+    $prefixCategory = PrefixCategory::create(['name' => 'Whole Cake', 'sort_order' => 1, 'is_active' => true]);
 
     Livewire::test(CreatePrefixName::class)
         ->fillForm([
             'code' => 'DUP |',
             'label' => 'Another Label',
+            'prefixCategories' => [$prefixCategory->id],
         ])
         ->call('create')
         ->assertHasFormErrors(['code']);
@@ -66,13 +74,18 @@ it('requires a unique code when creating a prefix name', function () {
 
 it('edits a prefix name', function () {
     $prefixName = PrefixName::create(['code' => 'OLD |', 'label' => 'Old Label', 'sort_order' => 1]);
+    $prefixCategory = PrefixCategory::create(['name' => 'Whole Cake', 'sort_order' => 1, 'is_active' => true]);
 
     Livewire::test(EditPrefixName::class, ['record' => $prefixName->getRouteKey()])
-        ->fillForm(['label' => 'Updated Label'])
+        ->fillForm([
+            'label' => 'Updated Label',
+            'prefixCategories' => [$prefixCategory->id],
+        ])
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect($prefixName->refresh()->label)->toBe('Updated Label');
+    expect($prefixName->refresh()->label)->toBe('Updated Label')
+        ->and($prefixName->prefixCategories()->whereKey($prefixCategory->id)->exists())->toBeTrue();
 });
 
 it('deletes a prefix name from the index', function () {

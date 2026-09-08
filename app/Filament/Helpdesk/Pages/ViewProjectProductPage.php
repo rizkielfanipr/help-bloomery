@@ -140,6 +140,9 @@ class ViewProjectProductPage extends Page
 
     public array $prefixNameOptions = [];
 
+    /** @var array<string, list<int>> */
+    public array $prefixCategoryIdsByNamePrefix = [];
+
     public array $bomComponentDetails = [];
 
     public array $resultUnitLabels = [];
@@ -1587,7 +1590,7 @@ class ViewProjectProductPage extends Page
             ],
             'esbMaterialPrefixCategoryId' => [
                 Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
-                'nullable', Rule::in([self::NON_PREFIX_CATEGORY_ID, ...array_keys($this->prefixCategoryOptions)]),
+                'nullable', Rule::in([self::NON_PREFIX_CATEGORY_ID, ...array_keys($this->esbMaterialPrefixCategoryOptions())]),
             ],
             'esbMaterialProductCode' => [
                 'required', 'string', 'max:50',
@@ -1768,7 +1771,18 @@ class ViewProjectProductPage extends Page
 
     public function updatedEsbMaterialNamePrefix(): void
     {
+        if (! array_key_exists($this->esbMaterialPrefixCategoryId, $this->esbMaterialPrefixCategoryOptions())) {
+            $this->esbMaterialPrefixCategoryId = null;
+        }
+
         $this->syncEsbMaterialProductName();
+    }
+
+    public function useEsbMaterialWithoutPrefix(): void
+    {
+        $this->esbMaterialNamePrefix = '';
+        $this->esbMaterialPrefixCategoryId = self::NON_PREFIX_CATEGORY_ID;
+        $this->esbMaterialProductBaseName = '';
     }
 
     public function updatedEsbMaterialPrefixCategoryId(): void
@@ -1791,12 +1805,25 @@ class ViewProjectProductPage extends Page
     public function usesEsbMaterialStructuredName(): bool
     {
         return $this->isEsbMaterialWipCategory()
-            && $this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID;
+            && $this->esbMaterialNamePrefix !== ''
+            && $this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID
+            && array_key_exists($this->esbMaterialPrefixCategoryId, $this->esbMaterialPrefixCategoryOptions());
     }
 
     public function esbMaterialNamePrefixOptions(): array
     {
         return $this->prefixNameOptions;
+    }
+
+    public function esbMaterialPrefixCategoryOptions(): array
+    {
+        if ($this->esbMaterialNamePrefix === '') {
+            return [];
+        }
+
+        $categoryIds = $this->prefixCategoryIdsByNamePrefix[$this->esbMaterialNamePrefix] ?? [];
+
+        return array_intersect_key($this->prefixCategoryOptions, array_flip($categoryIds));
     }
 
     private function syncEsbMaterialProductName(): void
@@ -1858,7 +1885,7 @@ class ViewProjectProductPage extends Page
     {
         $remainder = trim($remainder);
 
-        $candidates = collect($this->prefixCategoryOptions)
+        $candidates = collect($this->esbMaterialPrefixCategoryOptions())
             ->sortByDesc(fn (string $name): int => mb_strlen(trim($name)));
 
         foreach ($candidates as $id => $name) {
@@ -2131,12 +2158,17 @@ class ViewProjectProductPage extends Page
 
     private function loadPrefixNameOptions(): void
     {
-        $this->prefixNameOptions = PrefixName::query()
+        $prefixNames = PrefixName::query()
+            ->with(['prefixCategories' => fn ($query) => $query->where('is_active', true)])
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->orderBy('code')
-            ->pluck('label', 'code')
-            ->all();
+            ->get();
+
+        $this->prefixNameOptions = $prefixNames->pluck('label', 'code')->all();
+        $this->prefixCategoryIdsByNamePrefix = $prefixNames->mapWithKeys(fn (PrefixName $prefixName): array => [
+            $prefixName->code => $prefixName->prefixCategories->pluck('id')->map(fn ($id): int => (int) $id)->all(),
+        ])->all();
     }
 
     public function openExportPdf(string $scope = 'all'): void

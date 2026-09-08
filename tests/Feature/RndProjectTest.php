@@ -8,6 +8,7 @@ use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
 use App\Models\Branch;
 use App\Models\PrefixCategory;
+use App\Models\PrefixName;
 use App\Models\RndBomInstruction;
 use App\Models\RndProductEsbMaterial;
 use App\Models\RndProject;
@@ -585,6 +586,7 @@ it('combines prefix name, prefix category, and base name into the final ESB mate
     ])->set('esbCategoryOptions', [77 => 'Barang WIP'])
         ->set('prefixCategoryOptions', [$prefixCategory->id => 'Whole Cake'])
         ->set('prefixNameOptions', ['JYM |' => 'Joy-Mart - JYM |'])
+        ->set('prefixCategoryIdsByNamePrefix', ['JYM |' => [$prefixCategory->id]])
         ->set('esbMaterialCategoryId', 77)
         ->set('esbMaterialSubCategoryId', 21)
         ->set('esbMaterialNamePrefix', 'JYM |')
@@ -606,8 +608,43 @@ it('combines prefix name, prefix category, and base name into the final ESB mate
     expect($material->product_name)->toBe('JYM | Whole Cake Chocolate');
 });
 
+it('only exposes prefix categories assigned to the selected prefix name', function () {
+    $allowedCategory = PrefixCategory::create(['name' => 'Whole Cake', 'sort_order' => 1, 'is_active' => true]);
+    $hiddenCategory = PrefixCategory::create(['name' => 'Sauce', 'sort_order' => 2, 'is_active' => true]);
+
+    $project = RndProject::query()->create([
+        'name' => 'Filtered Prefix Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Filtered Prefix Product',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, [
+        'project' => $project->id,
+        'product' => $product->id,
+    ])->set('esbCategoryOptions', [77 => 'Barang WIP'])
+        ->set('esbMaterialCategoryId', 77)
+        ->set('prefixCategoryOptions', [
+            $allowedCategory->id => 'Whole Cake',
+            $hiddenCategory->id => 'Sauce',
+        ])
+        ->set('prefixNameOptions', ['JYM |' => 'Joy-Mart - JYM |'])
+        ->set('prefixCategoryIdsByNamePrefix', ['JYM |' => [$allowedCategory->id]])
+        ->set('esbMaterialNamePrefix', 'JYM |');
+
+    expect($page->instance()->esbMaterialPrefixCategoryOptions())->toBe([
+        $allowedCategory->id => 'Whole Cake',
+    ]);
+});
+
 it('rehydrates prefix name, prefix category, and base name when editing an existing WIP material draft', function () {
     $prefixCategory = PrefixCategory::create(['name' => 'Whole Cake', 'sort_order' => 1, 'is_active' => true]);
+    PrefixName::where('code', 'JYM |')->firstOrFail()->prefixCategories()->attach($prefixCategory);
 
     $project = RndProject::query()->create([
         'name' => 'Edit Prefix Category Project',

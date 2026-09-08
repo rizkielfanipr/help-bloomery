@@ -10,6 +10,7 @@ use App\Models\PrefixName;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -48,6 +49,14 @@ class PrefixNameResource extends Resource
                     ->helperText('Teks yang ditempel di depan nama product, misalnya "WIP |".'),
                 TextInput::make('label')->label('Label')->required()->maxLength(100)
                     ->helperText('Teks yang tampil di pilihan dropdown, misalnya "Kitchen - WIP |".'),
+                Select::make('prefixCategories')
+                    ->label('Prefix Categories')
+                    ->relationship('prefixCategories', 'name', modifyQueryUsing: fn ($query) => $query->orderBy('sort_order')->orderBy('name'))
+                    ->multiple()
+                    ->preload()
+                    ->searchable()
+                    ->required()
+                    ->helperText('Pilih kategori yang boleh digunakan untuk Prefix Name ini.'),
                 TextInput::make('sort_order')->label('Order')->numeric()->default(0)->minValue(0),
                 Toggle::make('is_active')->label('Active')->default(true),
             ]),
@@ -61,6 +70,7 @@ class PrefixNameResource extends Resource
                 TextColumn::make('sort_order')->label('#')->sortable(),
                 TextColumn::make('code')->label('Code')->searchable()->sortable(),
                 TextColumn::make('label')->label('Label')->searchable()->sortable(),
+                TextColumn::make('prefixCategories.name')->label('Prefix Categories')->badge()->separator(','),
                 IconColumn::make('is_active')->label('Active')->boolean(),
             ])
             ->defaultSort('sort_order')

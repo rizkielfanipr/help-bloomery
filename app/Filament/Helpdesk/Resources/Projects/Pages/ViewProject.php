@@ -453,9 +453,7 @@ class ViewProject extends ViewRecord
         abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
         $this->projectExportScope = $scope;
         $this->projectExportBomIds = $this->eligibleProjectExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
-        $this->projectExportBomComponentKeys = $this->eligibleProjectExportBoms($scope)->mapWithKeys(fn ($bom): array => [
-            $bom->id => collect($this->projectExportBomComponents($bom->id))->pluck('key')->all(),
-        ])->all();
+        $this->projectExportBomComponentKeys = [];
         $this->projectExportPin = '';
         $this->resetValidation('projectExportPin');
         $this->projectExportPinModalOpen = true;
@@ -478,13 +476,6 @@ class ViewProject extends ViewRecord
         ]);
         $eligibleBomIds = $this->eligibleProjectExportBoms($this->projectExportScope)->pluck('id')->map(fn ($id): int => (int) $id);
         abort_unless(collect($this->projectExportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
-        foreach ($this->projectExportBomIds as $bomId) {
-            if ($this->projectExportBomComponents((int) $bomId) !== [] && empty($this->projectExportBomComponentKeys[$bomId] ?? [])) {
-                $this->addError("projectExportBomComponentKeys.$bomId", 'Pilih minimal satu component.');
-
-                return null;
-            }
-        }
         $rateKey = 'rnd-project-bom-export-pin:'.auth()->id().':'.request()->ip();
 
         if (RateLimiter::tooManyAttempts($rateKey, 5)) {
@@ -512,10 +503,7 @@ class ViewProject extends ViewRecord
             RndProjectBomPdfController::sessionKey(auth()->id(), $this->record->id),
             now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
         );
-        session()->put(
-            RndProjectBomPdfController::componentSessionKey(auth()->id(), $this->record->id),
-            collect($this->projectExportBomComponentKeys)->only($this->projectExportBomIds)->all(),
-        );
+        session()->forget(RndProjectBomPdfController::componentSessionKey(auth()->id(), $this->record->id));
 
         $routeParameters = [
             'project' => $this->record->id,

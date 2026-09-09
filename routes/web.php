@@ -24,7 +24,7 @@ use App\Models\RndProjectBom;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/login', fn () => redirect()->to(Filament::getPanel('casual')->getLoginUrl()))->name('login');
+Route::get('/employee-login', fn () => redirect()->to(Filament::getPanel('casual')->getLoginUrl()))->name('login');
 Route::get('/assets/scan/{token}', AssetScanController::class)->name('assets.scan');
 Route::get('/assets/scan/{token}/login', function (string $token) {
     Asset::query()->where('qr_token', $token)->firstOrFail();

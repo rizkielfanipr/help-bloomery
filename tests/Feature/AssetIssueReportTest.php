@@ -81,6 +81,11 @@ it('returns a guest to the scanned asset after login', function () {
         ->assertRedirect(route('assets.scan', $asset->qr_token));
 });
 
+it('keeps the helpdesk login route available alongside the employee login bridge', function () {
+    expect(route('filament.helpdesk.auth.login'))->toEndWith('/login')
+        ->and(route('login'))->toEndWith('/employee-login');
+});
+
 it('leaves the request unassigned when the asset branch has no technician', function () {
     $branch = Branch::factory()->create();
     $asset = Asset::factory()->create(['branch_id' => $branch->id]);

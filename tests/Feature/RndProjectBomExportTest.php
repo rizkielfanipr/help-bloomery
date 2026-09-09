@@ -165,7 +165,11 @@ it('renders a selected main BOM without indexing an unselected child BOM', funct
     $data = app(RndProductBomPdfController::class)->buildExportData($project, $exportProduct, 'kitchen', [$main->id]);
     $html = view('exports.rnd-product-bom-pdf', $data)->render();
 
-    expect($html)->toContain('ATL | Ayam Woku')->not->toContain('ATL | Bumbu Woku');
+    expect($html)
+        ->toContain('ATL | Ayam Woku')
+        ->not->toContain('ATL | Bumbu Woku')
+        ->not->toContain('Product Code / SKU')
+        ->not->toContain('Product Detail');
 });
 
 it('exports all Store BOM products in a project as one PIN-protected PDF', function () {

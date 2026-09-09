@@ -8,7 +8,8 @@
         $resultInfo['baseUnit'] ?? null,
         $resultInfo['conversionFactor'] ?? null,
     );
-    $showProductSummary = in_array($sectionLabel, ['Main Recipe', 'Menu'], true);
+    $showProductSummary = $exportScope !== 'kitchen'
+        && in_array($sectionLabel, ['Main Recipe', 'Menu'], true);
 ?>
 <div class="bom-section">
     <table class="bom-table">

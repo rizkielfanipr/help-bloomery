@@ -740,6 +740,15 @@ it('stores safe inline Quill images for BOM instructions', function () {
         ->not->toContain('onerror');
 });
 
+it('handles Quill text paste separately from clipboard image uploads', function () {
+    $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
+
+    expect($view)
+        ->toContain("getData('text/plain')")
+        ->toContain('this.quill.clipboard.convert')
+        ->toContain("addEventListener('paste'");
+});
+
 it('rejects saving a BOM instruction for a BOM not attached to the product', function () {
     Livewire::test(ViewProjectProductPage::class, [
         'project' => $this->project->id,

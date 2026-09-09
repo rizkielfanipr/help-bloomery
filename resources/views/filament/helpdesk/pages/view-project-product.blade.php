@@ -1158,11 +1158,32 @@
                             this.insertFiles(event.dataTransfer.files);
                         });
                         this.$refs.editor.addEventListener('paste', event => {
+                            const plainText = event.clipboardData?.getData('text/plain') ?? '';
+                            const html = event.clipboardData?.getData('text/html') ?? '';
                             const files = Array.from(event.clipboardData?.items ?? [])
                                 .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
                                 .map(item => item.getAsFile()).filter(Boolean);
-                            if (files.length) { event.preventDefault(); this.insertFiles(files); }
-                        });
+
+                            if (plainText !== '' || html !== '') {
+                                event.preventDefault();
+                                event.stopImmediatePropagation();
+                                const range = this.quill.getSelection() ?? { index: this.quill.getLength() - 1, length: 0 };
+                                const pasted = this.quill.clipboard.convert({ html, text: plainText });
+                                const Delta = window.Quill.import('delta');
+                                this.quill.updateContents(
+                                    new Delta().retain(range.index).delete(range.length).concat(pasted),
+                                    'user',
+                                );
+                                this.quill.setSelection(range.index + pasted.length(), 0, 'silent');
+                                return;
+                            }
+
+                            if (files.length) {
+                                event.preventDefault();
+                                event.stopImmediatePropagation();
+                                this.insertFiles(files);
+                            }
+                        }, true);
                     },
                     async insertFiles(fileList) {
                         const files = Array.from(fileList).filter(file => file.type.startsWith('image/'));

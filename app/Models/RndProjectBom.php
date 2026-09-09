@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RndProjectBom extends Model
 {
@@ -51,5 +52,10 @@ class RndProjectBom extends Model
             'rnd_project_bom_id',
             'rnd_project_product_id',
         )->withPivot(['usage_type', 'notes'])->withTimestamps();
+    }
+
+    public function documentMaterials(): HasMany
+    {
+        return $this->hasMany(RndBomDocumentMaterial::class)->orderBy('sort_order');
     }
 }

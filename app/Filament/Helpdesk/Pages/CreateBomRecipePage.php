@@ -121,6 +121,7 @@ class CreateBomRecipePage extends Page
             'accessType' => 0,
             'selectedUserAccess' => [],
             'bomDetails' => [$this->emptyMaterial()],
+            'documentMaterials' => [],
         ];
 
     }
@@ -337,6 +338,17 @@ class CreateBomRecipePage extends Page
         $this->data['bomDetails'] = array_values($this->data['bomDetails']);
     }
 
+    public function addDocumentMaterial(): void
+    {
+        $this->data['documentMaterials'][] = $this->emptyDocumentMaterial();
+    }
+
+    public function removeDocumentMaterial(int $index): void
+    {
+        unset($this->data['documentMaterials'][$index]);
+        $this->data['documentMaterials'] = array_values($this->data['documentMaterials']);
+    }
+
     public function create(): void
     {
         $isMenu = $this->usageType === 'menu';
@@ -373,11 +385,18 @@ class CreateBomRecipePage extends Page
             'data.bomDetails.*.yieldPercent' => ['required', 'numeric', 'between:0,100'],
             'data.bomDetails.*.printGroup' => ['nullable', 'string', 'max:100'],
             'data.bomDetails.*.tolerancePercent' => $isMenu ? ['nullable', 'numeric', 'between:0,100'] : ['required', 'numeric', 'between:0,100'],
+            'data.documentMaterials' => ['array'],
+            'data.documentMaterials.*.name' => ['required', 'string', 'max:255'],
+            'data.documentMaterials.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'data.documentMaterials.*.unit' => ['required', 'string', 'max:50'],
+            'data.documentMaterials.*.notes' => ['nullable', 'string', 'max:255'],
         ], [
             'data.bomDetails.*.productDetailID.different' => 'Material tidak boleh sama dengan produk hasil.',
         ]);
 
         $payload = $validated['data'];
+        $documentMaterials = $payload['documentMaterials'] ?? [];
+        unset($payload['documentMaterials']);
         $payload['bomTypeID'] = $isMenu ? 3 : 1;
 
         // BOM Menu has no "Product Hasil" concept in ESB's API — only Assembly
@@ -413,6 +432,7 @@ class CreateBomRecipePage extends Page
         try {
             $bomId = $this->persistBom($payload);
             $this->syncProjectBom($bomId, $payload);
+            $this->syncDocumentMaterials($bomId, $documentMaterials);
 
             Notification::make()
                 ->title($this->isEditing ? 'BOM berhasil diperbarui' : 'Resep berhasil dibuat')
@@ -477,6 +497,20 @@ class CreateBomRecipePage extends Page
             'printGroup' => '',
             'tolerancePercent' => 0,
         ];
+    }
+
+    protected function emptyDocumentMaterial(): array
+    {
+        return ['name' => '', 'quantity' => 1, 'unit' => '', 'notes' => ''];
+    }
+
+    protected function syncDocumentMaterials(int $bomId, array $materials): void
+    {
+        $bom = RndProjectBom::query()->where('esb_bom_id', $bomId)->firstOrFail();
+        $bom->documentMaterials()->delete();
+        $bom->documentMaterials()->createMany(collect($materials)->values()->map(
+            fn (array $material, int $index): array => $material + ['sort_order' => $index],
+        )->all());
     }
 
     protected function materialFromBomDetail(array $item, bool $preserveId = true): array

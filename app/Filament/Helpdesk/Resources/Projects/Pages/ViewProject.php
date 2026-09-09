@@ -546,8 +546,16 @@ class ViewProject extends ViewRecord
     {
         $bom = $this->record->boms->firstWhere('id', $bomId);
 
-        return collect($bom?->detail_snapshot['bomDetails'] ?? [])->values()->map(fn (array $component, int $index): array => [
-            'key' => (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index),
+        $documentMaterials = $bom?->documentMaterials?->map(fn ($material): array => [
+            'documentMaterialId' => $material->id,
+            'productName' => $material->name,
+            'productCode' => '',
+        ]) ?? collect();
+
+        return collect($bom?->detail_snapshot['bomDetails'] ?? [])->concat($documentMaterials)->values()->map(fn (array $component, int $index): array => [
+            'key' => isset($component['documentMaterialId'])
+                ? 'document-'.$component['documentMaterialId']
+                : (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index),
             'name' => (string) ($component['productName'] ?? 'Component '.($index + 1)),
             'code' => (string) ($component['productCode'] ?? ''),
         ])->all();

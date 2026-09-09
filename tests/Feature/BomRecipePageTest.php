@@ -188,9 +188,19 @@ it('stores a newly created ESB BOM inside its project', function () {
                 'printGroup' => '',
                 'tolerancePercent' => 0,
             ]],
+            'documentMaterials' => [[
+                'name' => 'Air',
+                'quantity' => 200,
+                'unit' => 'ml',
+                'notes' => 'Hanya ditampilkan di SOP',
+            ]],
         ])
         ->call('create')
         ->assertHasNoErrors();
+
+    Http::assertSent(fn ($request): bool => $request->url() === 'https://core-esb.test/product/bom'
+        && ! array_key_exists('documentMaterials', $request->data())
+        && collect($request['bomDetails'])->doesntContain(fn (array $row): bool => ($row['productName'] ?? null) === 'Air'));
 
     $this->assertDatabaseHas('rnd_project_boms', [
         'rnd_project_id' => $this->project->id,
@@ -204,6 +214,12 @@ it('stores a newly created ESB BOM inside its project', function () {
         'rnd_project_product_id' => $this->product->id,
         'rnd_project_bom_id' => $projectBomId,
         'usage_type' => 'main',
+    ]);
+    $this->assertDatabaseHas('rnd_bom_document_materials', [
+        'rnd_project_bom_id' => $projectBomId,
+        'name' => 'Air',
+        'quantity' => 200,
+        'unit' => 'ml',
     ]);
 });
 
@@ -446,7 +462,13 @@ it('loads and updates BOM components inline from the product release page', func
         ->assertDontSee('Tutup Komponen')
         ->call('editBomComponents', $projectBom->id)
         ->assertSee('Tambah Komponen')
+        ->assertSee('Bahan Khusus SOP')
         ->assertSee('Ganti Product Hasil')
+        ->call('addInlineDocumentMaterial', $projectBom->id)
+        ->set("bomComponentDrafts.{$projectBom->id}.documentMaterials.0.name", 'Air')
+        ->set("bomComponentDrafts.{$projectBom->id}.documentMaterials.0.quantity", 200)
+        ->set("bomComponentDrafts.{$projectBom->id}.documentMaterials.0.unit", 'ml')
+        ->set("bomComponentDrafts.{$projectBom->id}.documentMaterials.0.notes", 'Hanya untuk SOP')
         ->set('inlineProductBomId', $projectBom->id)
         ->set('inlineProductTarget', 'result')
         ->set('inlineProductOptions', [
@@ -489,12 +511,19 @@ it('loads and updates BOM components inline from the product release page', func
         && data_get($request->data(), 'bomDetails.0.qty') === 125.0
         && data_get($request->data(), 'bomDetails.0.tolerancePercent') === 3.0
         && data_get($request->data(), 'bomDetails.1.productDetailID') === 201
-        && data_get($request->data(), 'bomDetails.1.ID') === 0);
+        && data_get($request->data(), 'bomDetails.1.ID') === 0
+        && ! array_key_exists('documentMaterials', $request->data()));
 
     expect((float) data_get($projectBom->fresh()->detail_snapshot, 'bomDetails.0.qty'))->toBe(125.0)
         ->and(data_get($projectBom->fresh()->detail_snapshot, 'productDetailID'))->toBe(101)
         ->and(data_get($projectBom->fresh()->detail_snapshot, 'productName'))->toBe('Adonan Bitterballen')
         ->and($projectBom->fresh()->sync_status)->toBe('synced');
+    $this->assertDatabaseHas('rnd_bom_document_materials', [
+        'rnd_project_bom_id' => $projectBom->id,
+        'name' => 'Air',
+        'quantity' => 200,
+        'unit' => 'ml',
+    ]);
 });
 
 it('automatically displays a matching Barang WIP recipe below its main recipe', function () {

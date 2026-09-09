@@ -51,6 +51,13 @@ it('exports only the selected BOM from the export checklist', function () {
         return $bom;
     });
     $selectedBom = $boms->first();
+    $selectedBom->documentMaterials()->create([
+        'name' => 'Air',
+        'quantity' => 200,
+        'unit' => 'ml',
+        'notes' => 'Untuk melarutkan bahan',
+        'sort_order' => 0,
+    ]);
     $exportUrl = route('helpdesk.rnd-products.bom-pdf', [
         'project' => $project->id,
         'product' => $product->id,
@@ -62,13 +69,37 @@ it('exports only the selected BOM from the export checklist', function () {
         'project' => $project->id,
         'product' => $product->id,
     ])
+        ->set('autoWipComponentRecipes', [
+            $selectedBom->id => [[
+                'bomID' => 1980,
+                'bomCode' => 'BOM-FILLING',
+                'bomName' => 'Blueberry Cheesecake Filling',
+                'productName' => 'Blueberry Cheesecake Filling',
+                'productCode' => 'BW-FILLING',
+                'uomName' => 'GR',
+                'sourceQty' => 1,
+                'sourceUnit' => 'GR',
+                'bomDetails' => [],
+            ]],
+        ])
         ->call('openExportPdf', 'kitchen')
+        ->assertSee('Main Recipe')
+        ->assertSee('Blueberry Cheesecake Filling')
+        ->assertSee('Component')
+        ->assertSeeHtml('max-h-[calc(100dvh-2rem)]')
+        ->assertSeeHtml('touch-pan-y')
+        ->assertDontSeeHtml('wire:model="exportBomComponentKeys')
         ->assertSet('exportBomIds', $boms->pluck('id')->all())
+        ->assertSet('exportAutoBomKeys', [$selectedBom->id.':1980'])
         ->set('exportBomIds', [$selectedBom->id])
+        ->set('exportAutoBomKeys', [$selectedBom->id.':1980'])
         ->set('exportBomComponentKeys.'.$selectedBom->id, ['100'])
         ->set('exportPin', '246810')
         ->call('exportBomPdf')
         ->assertRedirect($exportUrl);
+
+    expect(session(RndProductBomPdfController::autoBomSessionKey(auth()->id(), $project->id, $product->id)))
+        ->toBe([$selectedBom->id.':1980']);
 
     $exportProduct = $project->products()->with(['boms', 'currentRegionalPrices.region'])->findOrFail($product->id);
     $data = app(RndProductBomPdfController::class)->buildExportData(
@@ -82,6 +113,58 @@ it('exports only the selected BOM from the export checklist', function () {
     expect($data['exportBoms']->pluck('id')->all())->toBe([$selectedBom->id])
         ->and($data['details'][$selectedBom->id]['bomDetails'])->toHaveCount(1)
         ->and($data['details'][$selectedBom->id]['bomDetails'][0]['productCode'])->toBe('CMP-A-0');
+
+    $dataWithDocumentMaterial = app(RndProductBomPdfController::class)->buildExportData(
+        $project,
+        $exportProduct,
+        'kitchen',
+        [$selectedBom->id],
+    );
+
+    expect($dataWithDocumentMaterial['details'][$selectedBom->id]['bomDetails'])->toHaveCount(3)
+        ->and($dataWithDocumentMaterial['details'][$selectedBom->id]['bomDetails'][2])->toMatchArray([
+            'productName' => 'Air',
+            'uomName' => 'ml',
+            'qty' => 200.0,
+            'isDocumentOnly' => true,
+        ]);
+});
+
+it('renders a selected main BOM without indexing an unselected child BOM', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Partial Hierarchy Export',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Ayam Woku',
+        'product_code' => 'ATL',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $main = $project->boms()->create([
+        'esb_bom_id' => 991,
+        'bom_code' => 'ATL',
+        'bom_name' => 'ATL | Ayam Woku',
+        'detail_snapshot' => ['bomID' => 991, 'bomName' => 'ATL | Ayam Woku', 'bomDetails' => []],
+        'created_by' => auth()->id(),
+    ]);
+    $child = $project->boms()->create([
+        'esb_bom_id' => 992,
+        'bom_code' => 'BW984',
+        'bom_name' => 'ATL | Bumbu Woku',
+        'detail_snapshot' => ['bomID' => 992, 'bomName' => 'ATL | Bumbu Woku', 'bomDetails' => []],
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($main->id, ['usage_type' => 'main']);
+    $product->boms()->attach($child->id, ['usage_type' => 'component', 'parent_rnd_project_bom_id' => $main->id]);
+
+    $exportProduct = $project->products()->with(['boms', 'currentRegionalPrices.region'])->findOrFail($product->id);
+    $data = app(RndProductBomPdfController::class)->buildExportData($project, $exportProduct, 'kitchen', [$main->id]);
+    $html = view('exports.rnd-product-bom-pdf', $data)->render();
+
+    expect($html)->toContain('ATL | Ayam Woku')->not->toContain('ATL | Bumbu Woku');
 });
 
 it('exports all Store BOM products in a project as one PIN-protected PDF', function () {

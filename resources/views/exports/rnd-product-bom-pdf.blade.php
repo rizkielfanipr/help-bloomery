@@ -179,7 +179,7 @@
 
             @foreach($groupLabels as $usageType => $groupLabel)
                 @php
-                    $children = $productRecord->boms->filter(
+                    $children = $exportBoms->filter(
                         fn ($bom) => $bom->pivot->usage_type === $usageType
                             && (int) $bom->pivot->parent_rnd_project_bom_id === $mainBom->id
                     );

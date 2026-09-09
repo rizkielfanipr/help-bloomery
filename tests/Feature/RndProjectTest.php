@@ -793,8 +793,8 @@ it('renders project cards and the individual project workspace', function () {
         ->assertSee('Bill of Material')
         ->assertSee('BOM-LBR')
         ->assertSee('Main Recipe')
-        ->assertSee('Add Component')
-        ->assertSee('Add Packaging')
+        ->assertDontSee('Add Component')
+        ->assertDontSee('Add Packaging')
         ->assertDontSee('Add Support')
         ->assertSee('Create Main Recipe');
 });

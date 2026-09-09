@@ -99,6 +99,9 @@ class ViewProjectProductPage extends Page
     /** @var list<int> */
     public array $exportBomIds = [];
 
+    /** @var list<string> */
+    public array $exportAutoBomKeys = [];
+
     /** @var array<int, list<string>> */
     public array $exportBomComponentKeys = [];
 
@@ -1026,6 +1029,13 @@ class ViewProjectProductPage extends Page
             $this->loadBomComponents($projectBomId);
         }
         $this->bomComponentDrafts[$projectBomId] = $this->bomComponentDetails[$projectBomId];
+        $bom = $this->attachedProjectBom($projectBomId);
+        $this->bomComponentDrafts[$projectBomId]['documentMaterials'] = $bom->documentMaterials->map(fn ($material): array => [
+            'name' => $material->name,
+            'quantity' => (float) $material->quantity,
+            'unit' => $material->unit,
+            'notes' => (string) $material->notes,
+        ])->all();
         $this->bomComponentEditing[$projectBomId] = true;
         $this->bomComponentExpanded[$projectBomId] = true;
     }
@@ -1052,6 +1062,26 @@ class ViewProjectProductPage extends Page
         unset($this->bomComponentDrafts[$projectBomId]['bomDetails'][$index]);
         $this->bomComponentDrafts[$projectBomId]['bomDetails'] = array_values(
             $this->bomComponentDrafts[$projectBomId]['bomDetails'],
+        );
+    }
+
+    public function addInlineDocumentMaterial(int $projectBomId): void
+    {
+        $this->authorizeBomUpdate();
+        $this->bomComponentDrafts[$projectBomId]['documentMaterials'][] = [
+            'name' => '',
+            'quantity' => 1,
+            'unit' => '',
+            'notes' => '',
+        ];
+    }
+
+    public function removeInlineDocumentMaterial(int $projectBomId, int $index): void
+    {
+        $this->authorizeBomUpdate();
+        unset($this->bomComponentDrafts[$projectBomId]['documentMaterials'][$index]);
+        $this->bomComponentDrafts[$projectBomId]['documentMaterials'] = array_values(
+            $this->bomComponentDrafts[$projectBomId]['documentMaterials'],
         );
     }
 
@@ -1228,6 +1258,11 @@ class ViewProjectProductPage extends Page
             "bomComponentDrafts.$projectBomId.bomDetails.*.yieldPercent" => ['required', 'numeric', 'between:0,100'],
             "bomComponentDrafts.$projectBomId.bomDetails.*.tolerancePercent" => $isMenu ? ['nullable', 'numeric', 'between:0,100'] : ['required', 'numeric', 'between:0,100'],
             "bomComponentDrafts.$projectBomId.bomDetails.*.printGroup" => ['nullable', 'string', 'max:100'],
+            "bomComponentDrafts.$projectBomId.documentMaterials" => ['array'],
+            "bomComponentDrafts.$projectBomId.documentMaterials.*.name" => ['required', 'string', 'max:255'],
+            "bomComponentDrafts.$projectBomId.documentMaterials.*.quantity" => ['required', 'numeric', 'gt:0'],
+            "bomComponentDrafts.$projectBomId.documentMaterials.*.unit" => ['required', 'string', 'max:50'],
+            "bomComponentDrafts.$projectBomId.documentMaterials.*.notes" => ['nullable', 'string', 'max:255'],
         ]);
         $draft = data_get($validated, "bomComponentDrafts.$projectBomId");
 
@@ -1282,6 +1317,10 @@ class ViewProjectProductPage extends Page
                 'sync_status' => 'synced',
                 'last_synced_at' => now(),
             ]);
+            $projectBom->documentMaterials()->delete();
+            $projectBom->documentMaterials()->createMany(collect($draft['documentMaterials'] ?? [])->values()->map(
+                fn (array $material, int $index): array => $material + ['sort_order' => $index],
+            )->all());
             $this->setBomComponentState($projectBomId, $snapshot);
             $this->bomComponentEditing[$projectBomId] = false;
             $this->reloadProduct();
@@ -2166,9 +2205,8 @@ class ViewProjectProductPage extends Page
         abort_unless(in_array($scope, ['all', 'kitchen', 'store'], true), 422);
         $this->exportScope = $scope;
         $this->exportBomIds = $this->eligibleExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
-        $this->exportBomComponentKeys = $this->eligibleExportBoms($scope)->mapWithKeys(fn ($bom): array => [
-            $bom->id => collect($this->exportBomComponents($bom->id))->pluck('key')->all(),
-        ])->all();
+        $this->exportAutoBomKeys = $scope === 'store' ? [] : $this->eligibleExportAutoBomKeys();
+        $this->exportBomComponentKeys = [];
         $this->exportPin = '';
         $this->resetValidation();
         $this->exportPinModalOpen = true;
@@ -2182,16 +2220,13 @@ class ViewProjectProductPage extends Page
             'exportPin' => ['required', 'string', 'max:20'],
             'exportBomIds' => ['required', 'array', 'min:1'],
             'exportBomIds.*' => ['integer'],
+            'exportAutoBomKeys' => ['array'],
+            'exportAutoBomKeys.*' => ['string', 'regex:/^\d+:\d+$/'],
         ]);
         $eligibleBomIds = $this->eligibleExportBoms($this->exportScope)->pluck('id')->map(fn ($id): int => (int) $id);
         abort_unless(collect($this->exportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
-        foreach ($this->exportBomIds as $bomId) {
-            if ($this->exportBomComponents((int) $bomId) !== [] && empty($this->exportBomComponentKeys[$bomId] ?? [])) {
-                $this->addError("exportBomComponentKeys.$bomId", 'Pilih minimal satu component.');
-
-                return null;
-            }
-        }
+        $eligibleAutoBomKeys = collect($this->eligibleExportAutoBomKeys());
+        abort_unless(collect($this->exportAutoBomKeys)->every(fn (string $key): bool => $eligibleAutoBomKeys->contains($key)), 422);
         $rateKey = 'rnd-bom-export-pin:'.auth()->id().':'.request()->ip();
 
         if (RateLimiter::tooManyAttempts($rateKey, 5)) {
@@ -2219,9 +2254,10 @@ class ViewProjectProductPage extends Page
             RndProductBomPdfController::sessionKey(auth()->id(), $this->projectId, $this->productId),
             now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
         );
+        session()->forget(RndProductBomPdfController::componentSessionKey(auth()->id(), $this->projectId, $this->productId));
         session()->put(
-            RndProductBomPdfController::componentSessionKey(auth()->id(), $this->projectId, $this->productId),
-            collect($this->exportBomComponentKeys)->only($this->exportBomIds)->all(),
+            RndProductBomPdfController::autoBomSessionKey(auth()->id(), $this->projectId, $this->productId),
+            $this->exportAutoBomKeys,
         );
 
         $routeParameters = [
@@ -2249,10 +2285,36 @@ class ViewProjectProductPage extends Page
         })->values();
     }
 
+    /** @return list<string> */
+    private function eligibleExportAutoBomKeys(): array
+    {
+        $mainBomIds = $this->eligibleExportBoms()
+            ->where('pivot.usage_type', 'main')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id);
+
+        return $mainBomIds->flatMap(fn (int $mainBomId): array => collect($this->autoWipComponentRecipes[$mainBomId] ?? [])
+            ->map(fn (array $recipe): string => $mainBomId.':'.(int) ($recipe['bomID'] ?? 0))
+            ->filter(fn (string $key): bool => ! str_ends_with($key, ':0'))
+            ->values()
+            ->all())
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     /** @return list<array{key:string,name:string,code:string}> */
     public function exportBomComponents(int $bomId): array
     {
+        $bom = $this->productRecord->boms->firstWhere('id', $bomId);
+        $documentMaterials = $bom?->documentMaterials?->map(fn ($material): array => [
+            'documentMaterialId' => $material->id,
+            'productName' => $material->name,
+            'productCode' => '',
+        ]) ?? collect();
+
         return collect($this->bomComponentDetails[$bomId]['bomDetails'] ?? [])
+            ->concat($documentMaterials)
             ->values()
             ->map(fn (array $component, int $index): array => [
                 'key' => $this->exportComponentKey($component, $index),
@@ -2263,7 +2325,9 @@ class ViewProjectProductPage extends Page
 
     public function exportComponentKey(array $component, int $index): string
     {
-        return (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index);
+        return isset($component['documentMaterialId'])
+            ? 'document-'.$component['documentMaterialId']
+            : (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index);
     }
 
     private function authorizeProjectManagement(): void

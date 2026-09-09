@@ -187,6 +187,55 @@
                 </div>
             </section>
 
+            <section class="rounded-xl border border-amber-200 bg-amber-50/40 p-5 dark:border-amber-900 dark:bg-amber-950/10 lg:p-6">
+                <div class="mb-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Bahan Khusus SOP</h3>
+                            <span class="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold uppercase text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">Tidak ke ESB</span>
+                        </div>
+                        <p class="text-sm text-gray-500">Bahan informasi seperti air yang hanya ditampilkan pada dokumen resep.</p>
+                    </div>
+                    <button type="button" wire:click="addDocumentMaterial" class="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-3.5 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-gray-900 dark:text-amber-300">
+                        <x-heroicon-o-plus class="h-4 w-4" /> Tambah Bahan SOP
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    @forelse($data['documentMaterials'] ?? [] as $index => $material)
+                        <div wire:key="document-material-{{ $index }}" class="rounded-lg border border-amber-200 bg-white p-4 dark:border-amber-900 dark:bg-gray-900">
+                            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-12">
+                                <div class="lg:col-span-4">
+                                    <label class="{{ $label }}">Nama Bahan *</label>
+                                    <input wire:model="data.documentMaterials.{{ $index }}.name" class="{{ $input }}" placeholder="Contoh: Air">
+                                    @error("data.documentMaterials.$index.name") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div class="lg:col-span-2">
+                                    <label class="{{ $label }}">Qty *</label>
+                                    <input wire:model="data.documentMaterials.{{ $index }}.quantity" type="number" min="0.0001" step="0.0001" class="{{ $input }}">
+                                    @error("data.documentMaterials.$index.quantity") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div class="lg:col-span-2">
+                                    <label class="{{ $label }}">Unit *</label>
+                                    <input wire:model="data.documentMaterials.{{ $index }}.unit" class="{{ $input }}" placeholder="ml / gram">
+                                    @error("data.documentMaterials.$index.unit") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div class="lg:col-span-3">
+                                    <label class="{{ $label }}">Keterangan</label>
+                                    <input wire:model="data.documentMaterials.{{ $index }}.notes" class="{{ $input }}" placeholder="Opsional">
+                                    @error("data.documentMaterials.$index.notes") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                </div>
+                                <div class="flex items-end lg:col-span-1">
+                                    <button type="button" wire:click="removeDocumentMaterial({{ $index }})" class="flex h-10 w-full items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50" title="Hapus bahan SOP"><x-heroicon-o-trash class="h-4 w-4" /></button>
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="rounded-lg border border-dashed border-amber-300 px-4 py-8 text-center text-sm text-gray-500 dark:border-amber-900">Belum ada bahan khusus SOP.</div>
+                    @endforelse
+                </div>
+            </section>
+
             <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
                 <a href="{{ \App\Filament\Helpdesk\Pages\ViewProjectProductPage::getUrl(['project' => $projectId, 'product' => $productId]) }}" class="rounded-xl border border-gray-300 px-5 py-2.5 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Batal</a>
                 <button type="submit" wire:loading.attr="disabled" wire:target="create"

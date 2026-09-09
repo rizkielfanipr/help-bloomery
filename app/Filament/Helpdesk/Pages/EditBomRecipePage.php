@@ -50,6 +50,16 @@ class EditBomRecipePage extends CreateBomRecipePage
                 fn (array $item): array => $this->materialFromBomDetail($item),
                 $detail['bomDetails'] ?? [],
             ),
+            'documentMaterials' => RndProjectBom::query()
+                ->where('esb_bom_id', $bom)
+                ->firstOrFail()
+                ->documentMaterials
+                ->map(fn ($material): array => [
+                    'name' => $material->name,
+                    'quantity' => (float) $material->quantity,
+                    'unit' => $material->unit,
+                    'notes' => (string) $material->notes,
+                ])->all(),
         ];
 
         $this->rememberBomProduct([

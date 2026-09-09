@@ -6,6 +6,14 @@
     $inlineRows = $inlineEditing
         ? ($inlineDraft['bomDetails'] ?? [])
         : ($inlineDetail['bomDetails'] ?? []);
+    $documentRows = $inlineEditing
+        ? ($inlineDraft['documentMaterials'] ?? [])
+        : $bom->documentMaterials->map(fn ($material) => [
+            'name' => $material->name,
+            'quantity' => (float) $material->quantity,
+            'unit' => $material->unit,
+            'notes' => (string) $material->notes,
+        ])->all();
     $inlineResult = $inlineEditing ? $inlineDraft : $inlineDetail;
     $inlineIsMenu = $this->isMenuBomDetail($inlineDetail ?? []);
     $inlineColumnCount = $inlineIsMenu ? 7 : 8;
@@ -160,6 +168,38 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
+
+            <div class="border-t border-amber-200 bg-amber-50/40 px-3 py-3 dark:border-amber-900 dark:bg-amber-950/10">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                    <div>
+                        <div class="flex items-center gap-2"><p class="text-xs font-bold text-gray-800 dark:text-gray-100">Bahan Khusus SOP</p><span class="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">TIDAK KE ESB</span></div>
+                        <p class="text-[10px] text-gray-500">Hanya tampil pada dokumen resep.</p>
+                    </div>
+                    @if($inlineEditing)
+                        <button type="button" wire:click="addInlineDocumentMaterial({{ $inlineBomId }})" class="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-amber-700 dark:border-amber-800 dark:bg-gray-900 dark:text-amber-300"><x-heroicon-o-plus class="h-3.5 w-3.5" /> Tambah</button>
+                    @endif
+                </div>
+                <div class="space-y-2">
+                    @forelse($documentRows as $documentIndex => $documentMaterial)
+                        <div wire:key="inline-document-material-{{ $inlineBomId }}-{{ $documentIndex }}" class="grid gap-2 rounded-lg border border-amber-200 bg-white p-3 dark:border-amber-900 dark:bg-gray-900 sm:grid-cols-12">
+                            @if($inlineEditing)
+                                <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.documentMaterials.{{ $documentIndex }}.name" placeholder="Nama bahan" class="rounded-md border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-800 sm:col-span-4">
+                                <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.documentMaterials.{{ $documentIndex }}.quantity" type="number" min="0.0001" step="0.0001" placeholder="Qty" class="rounded-md border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-800 sm:col-span-2">
+                                <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.documentMaterials.{{ $documentIndex }}.unit" placeholder="Unit" class="rounded-md border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-800 sm:col-span-2">
+                                <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.documentMaterials.{{ $documentIndex }}.notes" placeholder="Keterangan" class="rounded-md border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-800 sm:col-span-3">
+                                <button type="button" wire:click="removeInlineDocumentMaterial({{ $inlineBomId }}, {{ $documentIndex }})" class="flex items-center justify-center rounded-md border border-red-200 text-red-600 sm:col-span-1"><x-heroicon-o-trash class="h-3.5 w-3.5" /></button>
+                            @else
+                                <p class="font-semibold text-gray-900 dark:text-white sm:col-span-5">{{ $documentMaterial['name'] }}</p>
+                                <p class="font-bold text-amber-700 sm:col-span-3">{{ rtrim(rtrim(number_format((float) $documentMaterial['quantity'], 4, '.', ''), '0'), '.') }} {{ $documentMaterial['unit'] }}</p>
+                                <p class="text-gray-500 sm:col-span-4">{{ $documentMaterial['notes'] ?: '-' }}</p>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="rounded-lg border border-dashed border-amber-300 px-3 py-4 text-center text-[10px] text-gray-500 dark:border-amber-900">Belum ada bahan khusus SOP.</p>
+                    @endforelse
+                </div>
+                @error("bomComponentDrafts.$inlineBomId.documentMaterials")<p class="mt-2 text-[10px] font-semibold text-red-600">{{ $message }}</p>@enderror
             </div>
 
             @if(!empty($inlineRows))

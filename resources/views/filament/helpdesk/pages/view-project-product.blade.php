@@ -434,9 +434,6 @@
                                             <div class="flex items-center gap-1.5"><h5 class="text-xs font-bold text-gray-800 dark:text-gray-100">{{ $group['title'] }}</h5>@if($group['optional'])<span class="text-[9px] font-bold text-gray-400">OPTIONAL</span>@endif</div>
                                             <p class="text-[10px] text-gray-400">{{ $children->count() + count($autoRecipes) + count($autoPackaging) }} item</p>
                                         </div>
-                                        @if($canManageBom)
-                                            <button type="button" wire:click="openBomPicker('{{ $usageType }}', {{ $mainBom->id }})" class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1.5 text-[11px] font-bold text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300"><x-heroicon-o-plus class="h-3.5 w-3.5" /> {{ $group['button'] }}</button>
-                                        @endif
                                     </div>
                                     <div class="divide-y divide-gray-100 dark:divide-gray-800">
                                         @foreach($autoRecipes as $autoRecipe)
@@ -884,33 +881,66 @@
         @endif
 
         @if($exportPinModalOpen)
-            <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
+            <div class="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overscroll-contain p-4 sm:items-center">
                 <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/55" wire:click="closeModal('exportPin')"></button>
-                <div class="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
+                <div class="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
                     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300"><x-heroicon-o-lock-closed class="h-7 w-7" /></div>
                     <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">Export Dokumen Resep</h3>
                     <p class="mt-2 text-sm leading-6 text-gray-500">Masukkan PIN keamanan untuk mengunduh Bill of Material {{ $exportScope === 'store' ? 'Store' : ($exportScope === 'kitchen' ? 'Kitchen' : '') }} dalam format PDF.</p>
                     <form wire:submit="exportBomPdf" class="mt-5">
-                        <div class="mb-4 max-h-80 space-y-2 overflow-y-auto rounded-xl border border-gray-200 p-3 text-left dark:border-gray-700">
+                        <div class="mb-4 max-h-[40dvh] touch-pan-y space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 p-3 text-left dark:border-gray-700">
                             <p class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Pilih BOM yang ditampilkan</p>
-                            @foreach($this->eligibleExportBoms() as $exportBom)
-                                <div class="rounded-lg border border-gray-100 p-2 dark:border-gray-800">
+                            @php
+                                $exportableBoms = $this->eligibleExportBoms();
+                                $exportMainBoms = $exportableBoms->filter(fn ($bom) => $bom->pivot->usage_type === 'main');
+                                $exportRootBoms = $exportableBoms->filter(fn ($bom) => $bom->pivot->usage_type === 'menu' || ! $bom->pivot->parent_rnd_project_bom_id);
+                                $orderedExportBoms = $exportMainBoms->flatMap(fn ($mainBom) => collect([$mainBom])->concat(
+                                    $exportableBoms->filter(fn ($bom) => (int) $bom->pivot->parent_rnd_project_bom_id === $mainBom->id)
+                                ))->concat($exportRootBoms)->unique('id')->values();
+                            @endphp
+                            @foreach($orderedExportBoms as $exportBom)
+                                @php
+                                    $isChildBom = filled($exportBom->pivot->parent_rnd_project_bom_id);
+                                    $typeLabel = match($exportBom->pivot->usage_type) {
+                                        'main' => 'Main Recipe',
+                                        'component' => 'Component',
+                                        'packaging' => 'Packaging',
+                                        'menu' => 'Menu',
+                                        default => ucfirst($exportBom->pivot->usage_type),
+                                    };
+                                @endphp
+                                <div class="rounded-lg border border-gray-100 p-2 dark:border-gray-800 {{ $isChildBom ? 'ml-5 border-l-2 border-l-blue-300' : '' }}">
                                     <label class="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-1 hover:bg-gray-50 dark:hover:bg-gray-800">
                                         <input wire:model.live="exportBomIds" type="checkbox" value="{{ $exportBom->id }}" class="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-                                        <span class="min-w-0"><span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $exportBom->bom_name }}</span><span class="text-xs text-gray-500">{{ strtoupper($exportBom->pivot->usage_type) }}</span></span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $exportBom->bom_name }}</span>
+                                            <span class="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide {{ $isChildBom ? 'text-blue-600' : 'text-emerald-600' }}">
+                                                @if($isChildBom)<span aria-hidden="true">↳</span>@endif {{ $typeLabel }}
+                                            </span>
+                                        </span>
                                     </label>
-                                    @if(in_array($exportBom->id, array_map('intval', $exportBomIds), true))
-                                        <div class="ml-6 mt-2 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
-                                            @foreach($this->exportBomComponents($exportBom->id) as $component)
-                                                <label class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800">
-                                                    <input wire:model="exportBomComponentKeys.{{ $exportBom->id }}" type="checkbox" value="{{ $component['key'] }}" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                                    <span class="min-w-0 truncate text-gray-700 dark:text-gray-200">{{ $component['name'] }} <span class="font-mono text-gray-400">{{ $component['code'] }}</span></span>
-                                                </label>
-                                            @endforeach
-                                            @error('exportBomComponentKeys.'.$exportBom->id)<p class="px-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
-                                        </div>
-                                    @endif
                                 </div>
+                                @if($exportBom->pivot->usage_type === 'main')
+                                    @php
+                                        $attachedChildEsbIds = $exportableBoms
+                                            ->filter(fn ($bom) => (int) $bom->pivot->parent_rnd_project_bom_id === $exportBom->id)
+                                            ->pluck('esb_bom_id')
+                                            ->map(fn ($id) => (int) $id);
+                                        $automaticComponents = collect($autoWipComponentRecipes[$exportBom->id] ?? [])
+                                            ->reject(fn (array $recipe) => $attachedChildEsbIds->contains((int) ($recipe['bomID'] ?? 0)));
+                                    @endphp
+                                    @foreach($automaticComponents as $automaticComponent)
+                                        <div class="ml-5 rounded-lg border border-gray-100 border-l-2 border-l-blue-300 p-2 dark:border-gray-800">
+                                            <label class="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-1 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                                <input wire:model.live="exportAutoBomKeys" type="checkbox" value="{{ $exportBom->id }}:{{ (int) $automaticComponent['bomID'] }}" class="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                                <span class="min-w-0 flex-1">
+                                                    <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $automaticComponent['bomName'] ?: $automaticComponent['productName'] }}</span>
+                                                    <span class="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-blue-600"><span aria-hidden="true">↳</span> Component</span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    @endforeach
+                                @endif
                             @endforeach
                         </div>
                         @error('exportBomIds')<p class="mb-3 text-sm font-medium text-red-600">Pilih minimal satu BOM.</p>@enderror

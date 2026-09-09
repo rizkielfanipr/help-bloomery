@@ -78,7 +78,11 @@
                 <tr>
                     <td class="center num number-column">{{ $index + 1 }}</td>
                     <td>{{ $item['productCode'] ?? '-' }}</td>
-                    <td colspan="2">{{ $item['productName'] ?? '-' }}</td>
+                    <td colspan="2">
+                        {{ $item['productName'] ?? '-' }}
+                        @if($item['isDocumentOnly'] ?? false)<small>(SOP)</small>@endif
+                        @if(filled($item['notes'] ?? null))<br><small>{{ $item['notes'] }}</small>@endif
+                    </td>
                     <td class="center"><span class="unit-badge">{{ $item['uomName'] ?? '-' }}</span></td>
                     <td class="center">{{ rtrim(rtrim(number_format((float) ($item['qty'] ?? 0), 4, '.', ''), '0'), '.') }}</td>
                 </tr>

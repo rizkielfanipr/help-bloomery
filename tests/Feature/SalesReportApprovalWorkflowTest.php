@@ -195,7 +195,6 @@ it('moves a report from supervisor approval through finance reconciliation', fun
     $this->actingAs($finance);
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->set("settlementRows.{$this->reconciliation->id}.settlement", '993000')
         ->call('approveFinance')
         ->assertHasNoErrors();
 
@@ -204,11 +203,8 @@ it('moves a report from supervisor approval through finance reconciliation', fun
 
     expect($this->report->status)->toBe(SalesReportStatus::Completed)
         ->and($this->report->finance_reviewed_by)->toBe($finance->id)
-        ->and((float) $this->reconciliation->mdr_amount)->toBe(7000.0)
-        ->and((float) $this->reconciliation->mdr_percentage)->toBe(0.7)
-        ->and((float) $this->reconciliation->expected_settlement_amount)->toBe(993000.0)
-        ->and((float) $this->reconciliation->settlement_difference)->toBe(0.0)
-        ->and($this->reconciliation->reconciliation_status)->toBe('matched')
+        ->and($this->reconciliation->settlement_amount)->toBeNull()
+        ->and($this->reconciliation->reconciliation_status)->toBeNull()
         ->and($this->report->approvals()->count())->toBe(2);
 });
 
@@ -323,20 +319,19 @@ it('preserves first input while the supervisor corrects the working values', fun
         ->and($this->reconciliation->supervisor_notes)->toBe('Shortage reconciled by supervisor.');
 });
 
-it('calculates mdr percentage automatically from settlement', function () {
+it('allows finance to complete without settlement data', function () {
     $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
     $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->set("settlementRows.{$this->reconciliation->id}.settlement", '900000')
+        ->assertDontSeeHtml('wire:model.live.debounce.400ms="settlementRows')
         ->call('approveFinance')
         ->assertHasNoErrors();
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
-        ->and((float) $this->reconciliation->refresh()->mdr_amount)->toBe(100000.0)
-        ->and((float) $this->reconciliation->mdr_percentage)->toBe(10.0);
+        ->and($this->reconciliation->refresh()->settlement_amount)->toBeNull();
 });
 
 it('shows the workflow status in the finance sales report list', function () {
@@ -412,14 +407,13 @@ it('allows a superadmin to test both supervisor and finance approval stages', fu
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingFinance);
 
-    $page->set("settlementRows.{$this->reconciliation->id}.settlement", '995000')
-        ->call('approveFinance')
+    $page->call('approveFinance')
         ->assertHasNoErrors();
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
         ->and($this->report->supervisor_reviewed_by)->toBe($superadmin->id)
         ->and($this->report->finance_reviewed_by)->toBe($superadmin->id)
-        ->and($this->reconciliation->refresh()->reconciliation_status)->toBe('matched');
+        ->and($this->reconciliation->refresh()->reconciliation_status)->toBeNull();
 });
 
 it('allows a superadmin to approve a report they submitted for testing', function () {
@@ -437,14 +431,13 @@ it('allows a superadmin to approve a report they submitted for testing', functio
         ->assertHasNoErrors()
         ->assertSee('Set as Completed');
 
-    $page->set("settlementRows.{$this->reconciliation->id}.settlement", '995000')
-        ->call('approveFinance')
+    $page->call('approveFinance')
         ->assertHasNoErrors();
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed);
 });
 
-it('allows finance to input settlement for cash payment methods', function () {
+it('allows finance to complete cash reports without settlement data', function () {
     $this->entry->update(['payment_method_name' => 'Cash']);
     $this->reconciliation->update(['payment_method_name' => 'Cash']);
     $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
@@ -454,12 +447,11 @@ it('allows finance to input settlement for cash payment methods', function () {
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
         ->assertDontSee('N/A')
-        ->set("settlementRows.{$this->reconciliation->id}.settlement", '1000000')
         ->call('approveFinance')
         ->assertHasNoErrors();
 
-    expect($this->reconciliation->refresh()->settlement_amount)->not->toBeNull()
-        ->and($this->reconciliation->reconciliation_status)->toBe('matched');
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
+        ->and($this->reconciliation->refresh()->settlement_amount)->toBeNull();
 });
 
 it('locks shift two until shift one has been submitted', function () {

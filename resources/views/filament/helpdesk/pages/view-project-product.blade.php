@@ -881,14 +881,14 @@
         @endif
 
         @if($exportPinModalOpen)
-            <div class="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto overscroll-contain p-4 sm:items-center">
+            <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
                 <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/55" wire:click="closeModal('exportPin')"></button>
-                <div class="relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
+                <div class="relative flex h-[calc(100dvh-2rem)] max-h-[42rem] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
                     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300"><x-heroicon-o-lock-closed class="h-7 w-7" /></div>
                     <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">Export Dokumen Resep</h3>
                     <p class="mt-2 text-sm leading-6 text-gray-500">Masukkan PIN keamanan untuk mengunduh Bill of Material {{ $exportScope === 'store' ? 'Store' : ($exportScope === 'kitchen' ? 'Kitchen' : '') }} dalam format PDF.</p>
-                    <form wire:submit="exportBomPdf" class="mt-5">
-                        <div class="mb-4 max-h-[40dvh] touch-pan-y space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 p-3 text-left dark:border-gray-700">
+                    <form wire:submit="exportBomPdf" class="mt-5 flex min-h-0 flex-1 flex-col">
+                        <div class="mb-4 min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 p-3 text-left dark:border-gray-700">
                             <p class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Pilih BOM yang ditampilkan</p>
                             @php
                                 $exportableBoms = $this->eligibleExportBoms();

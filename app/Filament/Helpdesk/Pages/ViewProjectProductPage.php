@@ -798,6 +798,7 @@ class ViewProjectProductPage extends Page
             $detail = ! $force && $projectBom->detail_snapshot
                 ? $projectBom->detail_snapshot
                 : app(EsbCoreService::class)->getBillOfMaterial($projectBom->esb_bom_id);
+            $detail['bomDetails'] = $this->hydrateMissingBomRowMetadata($detail['bomDetails'] ?? []);
 
             $projectBom->update([
                 'detail_snapshot' => $detail,
@@ -1394,6 +1395,43 @@ class ViewProjectProductPage extends Page
             ],
             $rows,
         ));
+    }
+
+    private function hydrateMissingBomRowMetadata(array $rows): array
+    {
+        $products = app(EsbService::class);
+
+        return array_map(function (array $row) use ($products): array {
+            if (
+                filled($row['productCode'] ?? null)
+                && filled($row['productName'] ?? null)
+                && filled($row['uomName'] ?? null)
+            ) {
+                return $row;
+            }
+
+            try {
+                $product = $products->findActiveProductDetail(
+                    (int) ($row['productDetailID'] ?? 0),
+                    (string) ($row['productCode'] ?? ''),
+                    (string) ($row['productName'] ?? ''),
+                );
+            } catch (Throwable) {
+                return $row;
+            }
+
+            if (! is_array($product)) {
+                return $row;
+            }
+
+            return array_merge($row, [
+                'productID' => (int) ($product['productID'] ?? $row['productID'] ?? 0),
+                'productCode' => (string) ($product['productCode'] ?? $row['productCode'] ?? ''),
+                'productName' => (string) ($product['productName'] ?? $row['productName'] ?? ''),
+                'categoryName' => (string) ($product['categoryName'] ?? $row['categoryName'] ?? ''),
+                'uomName' => (string) ($product['baseUnit'] ?: $product['unit'] ?? $row['uomName'] ?? ''),
+            ]);
+        }, $rows);
     }
 
     private function inlineBomPayload(array $latest, array $draft): array

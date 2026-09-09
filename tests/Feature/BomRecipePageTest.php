@@ -529,6 +529,68 @@ it('loads and updates BOM components inline from the product release page', func
     ]);
 });
 
+it('backfills missing component metadata from master product ESB', function () {
+    config()->set([
+        'esb.master_product.base_url' => 'https://master-esb.test',
+        'esb.master_product.token' => 'static-token',
+    ]);
+    Http::fake([
+        'https://master-esb.test/corev1/master/product*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1,
+                'limit' => 10,
+                'count' => 1,
+                'data' => [[
+                    'productID' => 88,
+                    'productCode' => 'BBMK575',
+                    'productName' => 'Osmanthus Tea',
+                    'categoryName' => 'Bahan Baku Makanan',
+                    'productDetails' => [[
+                        'productDetailID' => 2443,
+                        'unit' => 'GR',
+                        'basePrice' => 875,
+                    ]],
+                ]],
+            ],
+        ]),
+    ]);
+
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1212,
+        'bom_name' => 'Osmanthus Gelee Garnish',
+        'detail_snapshot' => [
+            'bomID' => 1212,
+            'productDetailID' => 999,
+            'productName' => 'Osmanthus Gelee Garnish',
+            'bomDetails' => [[
+                'ID' => 1,
+                'productDetailID' => 2443,
+                'qty' => 3,
+            ]],
+        ],
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])
+        ->call('loadBomComponents', $projectBom->id)
+        ->assertSee('BBMK575')
+        ->assertSee('Osmanthus Tea')
+        ->assertSee('GR');
+
+    expect(data_get($projectBom->fresh()->detail_snapshot, 'bomDetails.0'))->toMatchArray([
+        'productDetailID' => 2443,
+        'productCode' => 'BBMK575',
+        'productName' => 'Osmanthus Tea',
+        'uomName' => 'GR',
+    ]);
+});
+
 it('automatically displays a matching Barang WIP recipe below its main recipe', function () {
     config()->set([
         'cache.default' => 'array',

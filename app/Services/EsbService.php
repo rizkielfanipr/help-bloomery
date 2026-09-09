@@ -106,6 +106,7 @@ class EsbService
         string $productName = '',
         int $page = 1,
         string $productCode = '',
+        ?int $productDetailId = null,
     ): array {
         $baseUrl = rtrim((string) config('esb.master_product.base_url'), '/');
         $token = (string) config('esb.master_product.token');
@@ -121,8 +122,9 @@ class EsbService
                 'statusActive' => 'Yes',
                 'productName' => trim($productName),
                 'productCode' => trim($productCode),
+                'productDetailID' => $productDetailId,
                 'page' => max(1, $page),
-            ], fn ($value) => $value !== ''));
+            ], fn ($value) => $value !== '' && $value !== null));
 
         $payload = $response->json();
         if ($response->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'ok') {
@@ -188,6 +190,14 @@ class EsbService
     ): ?array {
         if ($productDetailId < 1) {
             return null;
+        }
+
+        $exactResult = $this->getActiveProductDetailsPage(
+            page: 1,
+            productDetailId: $productDetailId,
+        );
+        if (isset($exactResult['data'][$productDetailId])) {
+            return $exactResult['data'][$productDetailId];
         }
 
         foreach ([

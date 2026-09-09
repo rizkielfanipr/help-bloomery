@@ -83,3 +83,11 @@ it('generates a random SR- code for a service request and shows it on the succes
     expect($request->code)->toMatch('/^SR-\d{6}$/');
     $page->assertSet('requestCode', $request->code)->assertSee($request->code);
 });
+
+it('offers manual and QR Code modes on the technician request page', function () {
+    Livewire::test(TechnicianRequestPage::class)
+        ->assertSee('Manual')
+        ->assertSee('QR Code')
+        ->assertSee('Scan QR Asset')
+        ->assertSee('Buka Kamera');
+});

@@ -73,12 +73,25 @@ it('returns a guest to the scanned asset after login', function () {
     $this->get(route('assets.login', $asset->qr_token))->assertRedirect();
 
     expect(session('url.intended'))->toBe(route('assets.scan', $asset->qr_token));
+    expect(Filament::getPanel('casual')->getLoginUrl())->toStartWith('https://'.config('app.domain'));
 
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     Livewire::test(Login::class)
         ->fillForm(['email' => $user->username, 'password' => 'password'])
         ->call('authenticate')
         ->assertRedirect(route('assets.scan', $asset->qr_token));
+});
+
+it('keeps asset scan and report URLs on the employee app domain', function () {
+    $asset = Asset::factory()->create();
+
+    expect(route('assets.scan', $asset->qr_token))->toStartWith('https://'.config('app.domain'))
+        ->and(route('assets.login', $asset->qr_token))->toStartWith('https://'.config('app.domain'))
+        ->and(route('assets.report', $asset->qr_token))->toStartWith('https://'.config('app.domain'));
+
+    $legacyUrl = config('app.url').'/assets/scan/'.$asset->qr_token;
+
+    $this->get($legacyUrl)->assertMovedPermanently()->assertRedirect(route('assets.scan', $asset->qr_token));
 });
 
 it('keeps the helpdesk login route available alongside the employee login bridge', function () {

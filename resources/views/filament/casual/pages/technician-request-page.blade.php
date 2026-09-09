@@ -3,7 +3,7 @@
     $hasBranch = (bool) $user->branch_id;
     $branch    = $user->branch?->name ?? null;
 @endphp
-<div class="flex flex-col bg-blue-600 dark:bg-blue-900"
+<div x-data="technicianRequestMode" class="flex flex-col bg-blue-600 dark:bg-blue-900"
      style="min-height:100dvh">
 
     {{-- ════════════════════════════════════════════
@@ -54,6 +54,28 @@
             </x-casual.whatsapp-success-card>
 
         @else
+            <div class="grid grid-cols-2 rounded-2xl bg-slate-200 p-1 dark:bg-gray-800">
+                <button type="button"
+                        x-on:click="selectMode('manual')"
+                        :class="mode === 'manual' ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'"
+                        class="flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5V5.625a3.375 3.375 0 0 0-3.375-3.375H8.625m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                    </svg>
+                    Manual
+                </button>
+                <button type="button"
+                        x-on:click="selectMode('qr')"
+                        :class="mode === 'qr' ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'"
+                        class="flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm0 12a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm12-12a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3ZM15.75 15.75h1.5v1.5h-1.5v-1.5Zm3 0h1.5v1.5h-1.5v-1.5Zm-3 3h1.5v1.5h-1.5v-1.5Zm3 0h1.5v1.5h-1.5v-1.5Z"/>
+                    </svg>
+                    QR Code
+                </button>
+            </div>
+
+            <div x-show="mode === 'manual'" class="flex flex-col gap-4">
             <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
 
             {{-- Branch / Divisi (read-only) --}}
@@ -136,6 +158,44 @@
                 <span wire:loading.remove wire:target="submit">Kirim Permintaan</span>
                 <span wire:loading wire:target="submit">Mengirim...</span>
             </button>
+            </div>
+
+            <div x-cloak x-show="mode === 'qr'" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="p-5 text-center">
+                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm0 12a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm12-12a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75h1.5v1.5h-1.5v-1.5Zm3 0h1.5v1.5h-1.5v-1.5Zm-3 3h1.5v1.5h-1.5v-1.5Zm3 0h1.5v1.5h-1.5v-1.5Z"/>
+                        </svg>
+                    </div>
+                    <h2 class="mt-3 text-base font-semibold text-slate-800 dark:text-white">Scan QR Asset</h2>
+                    <p class="mt-1 text-sm leading-5 text-slate-500 dark:text-slate-400">Arahkan kamera ke QR Code yang menempel pada asset.</p>
+                </div>
+
+                <div x-show="scanning" class="relative aspect-square bg-black">
+                    <video x-ref="scannerVideo" autoplay playsinline muted class="h-full w-full object-cover"></video>
+                    <div class="pointer-events-none absolute inset-10 rounded-3xl border-2 border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.35)]"></div>
+                    <button type="button" x-on:click="stopScanner" class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-xs font-semibold text-white">Tutup Kamera</button>
+                </div>
+
+                <div class="space-y-4 border-t border-gray-100 p-5 dark:border-gray-800">
+                    <p x-show="error" x-text="error" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"></p>
+                    <button type="button" x-show="!scanning" x-on:click="startScanner"
+                            class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95">
+                        Buka Kamera
+                    </button>
+
+                    <div>
+                        <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Atau tempel URL / kode QR</label>
+                        <div class="flex gap-2">
+                            <input x-model="qrValue" x-on:keydown.enter.prevent="openQrValue" type="text"
+                                   placeholder="URL atau kode asset"
+                                   class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                            <button type="button" x-on:click="openQrValue" class="rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white dark:bg-slate-700">Buka</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         @endif
         </div>
@@ -144,3 +204,107 @@
     <x-technician-request.bottom-nav active="form" />
 
 </div>
+
+@script
+<script>
+    Alpine.data('technicianRequestMode', () => ({
+        mode: 'manual',
+        scanning: false,
+        error: '',
+        qrValue: '',
+        stream: null,
+        detector: null,
+        animationFrame: null,
+
+        selectMode(mode) {
+            this.mode = mode
+
+            if (mode !== 'qr') {
+                this.stopScanner()
+            }
+        },
+
+        async startScanner() {
+            this.error = ''
+
+            if (!('BarcodeDetector' in window)) {
+                this.error = 'Scanner QR belum didukung browser ini. Gunakan kamera HP untuk membuka QR, atau tempel URL QR di bawah.'
+                return
+            }
+
+            try {
+                this.detector = new BarcodeDetector({ formats: ['qr_code'] })
+                this.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' } },
+                    audio: false,
+                })
+                this.$refs.scannerVideo.srcObject = this.stream
+                this.scanning = true
+                await this.$nextTick()
+                await this.$refs.scannerVideo.play()
+                this.detectQrCode()
+            } catch (error) {
+                this.stopScanner()
+                this.error = 'Kamera tidak dapat dibuka. Pastikan izin kamera sudah diberikan.'
+            }
+        },
+
+        async detectQrCode() {
+            if (!this.scanning || !this.detector) {
+                return
+            }
+
+            try {
+                const codes = await this.detector.detect(this.$refs.scannerVideo)
+
+                if (codes.length > 0) {
+                    this.openAssetQr(codes[0].rawValue)
+                    return
+                }
+            } catch (error) {
+                // The next frame can still be decoded when a video frame is not ready yet.
+            }
+
+            this.animationFrame = requestAnimationFrame(() => this.detectQrCode())
+        },
+
+        openQrValue() {
+            this.error = ''
+            this.openAssetQr(this.qrValue)
+        },
+
+        openAssetQr(value) {
+            const rawValue = value.trim()
+            let token = rawValue
+
+            try {
+                const url = new URL(rawValue)
+                const match = url.pathname.match(/^\/assets\/scan\/([0-9a-f-]+)\/?$/i)
+                token = match?.[1] ?? ''
+            } catch (error) {
+                token = rawValue.replace(/^.*\/assets\/scan\//, '').replace(/\/$/, '')
+            }
+
+            if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(token)) {
+                this.error = 'QR Code tidak dikenali. Pastikan Anda memindai QR asset Bloomery.'
+                return
+            }
+
+            this.stopScanner()
+            window.location.assign(`/assets/scan/${token}`)
+        },
+
+        stopScanner() {
+            this.scanning = false
+
+            if (this.animationFrame) {
+                cancelAnimationFrame(this.animationFrame)
+                this.animationFrame = null
+            }
+
+            this.stream?.getTracks().forEach((track) => track.stop())
+            this.stream = null
+        },
+    }))
+</script>
+@endscript

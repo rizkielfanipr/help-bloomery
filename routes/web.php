@@ -25,16 +25,35 @@ use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/employee-login', fn () => redirect()->to(Filament::getPanel('casual')->getLoginUrl()))->name('login');
-Route::get('/assets/scan/{token}', AssetScanController::class)->name('assets.scan');
-Route::get('/assets/scan/{token}/login', function (string $token) {
-    Asset::query()->where('qr_token', $token)->firstOrFail();
-    session(['url.intended' => route('assets.scan', $token)]);
 
-    return redirect()->to(Filament::getPanel('casual')->getLoginUrl());
-})->name('assets.login');
+$assetScanRoutes = function (): void {
+    Route::get('/assets/scan/{token}', AssetScanController::class)->name('assets.scan');
+    Route::get('/assets/scan/{token}/login', function (string $token) {
+        Asset::query()->where('qr_token', $token)->firstOrFail();
+        session(['url.intended' => route('assets.scan', $token)]);
+
+        return redirect()->to(Filament::getPanel('casual')->getLoginUrl());
+    })->name('assets.login');
+    Route::post('/assets/scan/{token}/report', AssetIssueReportController::class)
+        ->middleware('auth')
+        ->name('assets.report');
+};
+
+$employeeAppDomain = config('app.domain');
+
+if ($employeeAppDomain) {
+    Route::domain($employeeAppDomain)->group($assetScanRoutes);
+
+    Route::get('/assets/scan/{token}', function (string $token) {
+        Asset::query()->where('qr_token', $token)->firstOrFail();
+
+        return redirect()->to(route('assets.scan', $token), 301);
+    });
+} else {
+    $assetScanRoutes();
+}
 
 Route::middleware(['auth'])->group(function (): void {
-    Route::post('/assets/scan/{token}/report', AssetIssueReportController::class)->name('assets.report');
     Route::get('/helpdesk/exports/casual-clock-records', CasualClockRecordExportController::class)
         ->name('helpdesk.exports.casual-clock-records');
 

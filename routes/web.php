@@ -3,7 +3,10 @@
 use App\Filament\Helpdesk\Pages\EditBomRecipePage;
 use App\Filament\Helpdesk\Pages\ViewBomPage;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Http\Controllers\AssetIssueReportController;
+use App\Http\Controllers\AssetScanController;
 use App\Http\Controllers\Casual\BriefingScorePdfController;
+use App\Http\Controllers\Helpdesk\AssetLabelController;
 use App\Http\Controllers\Helpdesk\BriefingExportController;
 use App\Http\Controllers\Helpdesk\BriefingScoreExportController;
 use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
@@ -16,10 +19,22 @@ use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Http\Controllers\Helpdesk\ShelfLifeExportController;
+use App\Models\Asset;
 use App\Models\RndProjectBom;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/login', fn () => redirect()->to(Filament::getPanel('casual')->getLoginUrl()))->name('login');
+Route::get('/assets/scan/{token}', AssetScanController::class)->name('assets.scan');
+Route::get('/assets/scan/{token}/login', function (string $token) {
+    Asset::query()->where('qr_token', $token)->firstOrFail();
+    session(['url.intended' => route('assets.scan', $token)]);
+
+    return redirect()->to(Filament::getPanel('casual')->getLoginUrl());
+})->name('assets.login');
+
 Route::middleware(['auth'])->group(function (): void {
+    Route::post('/assets/scan/{token}/report', AssetIssueReportController::class)->name('assets.report');
     Route::get('/helpdesk/exports/casual-clock-records', CasualClockRecordExportController::class)
         ->name('helpdesk.exports.casual-clock-records');
 
@@ -46,6 +61,10 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/helpdesk/locations/labels-pdf', [LocationLabelPdfController::class, 'bulk'])
         ->name('helpdesk.locations.labels-pdf');
+
+    Route::get('/helpdesk/assets/{asset}/label-pdf', [AssetLabelController::class, 'single'])->name('helpdesk.assets.label-pdf');
+    Route::get('/helpdesk/assets/labels-pdf', [AssetLabelController::class, 'bulk'])->name('helpdesk.assets.labels-pdf');
+    Route::get('/helpdesk/assets/{asset}/qr', [AssetLabelController::class, 'qr'])->name('helpdesk.assets.qr');
 
     Route::get('/helpdesk/products/{code}/label-pdf', [ProductLabelPdfController::class, 'single'])
         ->name('helpdesk.products.label-pdf');

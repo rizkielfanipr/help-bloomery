@@ -93,6 +93,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'access backoffice', 'access employee app technician',
                 'view service requests', 'create service requests', 'edit service requests', 'delete service requests',
                 'view technician monthly maintenance', 'create technician monthly maintenance', 'edit technician monthly maintenance', 'delete technician monthly maintenance',
+                'view assets', 'create assets', 'edit assets', 'delete assets', 'generate asset qr codes', 'print asset labels',
             ]);
 
         Role::firstOrCreate(['name' => 'IT_STAFF', 'guard_name' => 'web'])

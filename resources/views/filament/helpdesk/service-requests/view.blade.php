@@ -24,7 +24,7 @@
         <div class="flex flex-col gap-4 border-b border-gray-200 px-6 py-5 dark:border-gray-700 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
                 <p class="font-mono text-sm font-semibold text-blue-600 dark:text-blue-400">{{ $record->code ?: ('SR-'.str_pad((string) $record->id, 6, '0', STR_PAD_LEFT)) }}</p>
-                <h1 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Permintaan Service</h1>
+                <h1 class="mt-1 text-xl font-semibold text-gray-900 dark:text-white">Detail Permintaan</h1>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $record->scheduledBy?->name ?? 'Pemohon' }} · {{ $record->scheduled_date?->format('d M Y') ?? '-' }}</p>
             </div>
             <div class="flex shrink-0 flex-col items-start gap-1 sm:items-end">
@@ -46,6 +46,14 @@
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Tanggal Penjadwalan</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->scheduled_date?->format('d M Y') ?? '-' }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Garansi Hingga</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->warranty_expires_at?->format('d M Y H:i') ?? '-' }}</p></div>
         </div>
+
+        @if($record->asset)
+            <div class="grid gap-4 border-t border-gray-200 bg-blue-50/50 px-6 py-5 dark:border-gray-700 dark:bg-blue-950/10 sm:grid-cols-3">
+                <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Nomor Asset</p><p class="mt-1 text-sm font-semibold text-blue-700 dark:text-blue-300">{{ $record->asset->asset_number }}</p></div>
+                <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Nama Asset</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->asset->name }}</p></div>
+                <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Branch</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->branch?->name ?? '-' }}</p></div>
+            </div>
+        @endif
 
         <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
             <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Catatan Pemohon</p>
@@ -113,7 +121,7 @@
 
     <section class="rounded-xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-700 dark:bg-gray-900">
         <div class="flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Hasil Tindak Lanjut & Riwayat Perbaikan</h2>
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Riwayat Perbaikan</h2>
             @if($record->repairs->isNotEmpty())
                 <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                     {{ $record->repairs->count() }} Tahap

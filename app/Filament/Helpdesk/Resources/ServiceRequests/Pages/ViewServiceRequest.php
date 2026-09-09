@@ -32,7 +32,7 @@ class ViewServiceRequest extends ViewRecord
     {
         parent::mount($record);
         $this->record->checkAndAutoComplete();
-        $this->record->refresh()->load(['scheduledBy', 'technician', 'repairs.technician']);
+        $this->record->refresh()->load(['asset', 'branch', 'scheduledBy', 'technician', 'repairs.technician']);
     }
 
     public function infolist(Schema $schema): Schema
@@ -40,6 +40,9 @@ class ViewServiceRequest extends ViewRecord
         return $schema->components([
             Section::make('Detail Permintaan')->schema([
                 TextEntry::make('status')->label('Status')->badge(),
+                TextEntry::make('asset.asset_number')->label('Nomor Asset')->badge()->placeholder('Permintaan manual'),
+                TextEntry::make('asset.name')->label('Nama Asset')->placeholder('—'),
+                TextEntry::make('branch.name')->label('Branch')->placeholder('—'),
                 Grid::make(2)->schema([
                     TextEntry::make('scheduledBy.name')->label('Dijadwalkan Oleh'),
                     TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),

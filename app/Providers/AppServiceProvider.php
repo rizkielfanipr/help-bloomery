@@ -9,9 +9,11 @@ use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests as
 use App\Filament\Helpdesk\Resources\Trips\Pages\ListTrips;
 use App\Filament\Technician\Resources\ServiceRequests\Pages\ListServiceRequests as TechnicianListServiceRequests;
 use App\Http\Middleware\EnsureRole;
+use App\Models\Asset;
 use App\Models\Location;
 use App\Models\ProductSetting;
 use App\Models\User;
+use App\Observers\AssetObserver;
 use App\Observers\LocationObserver;
 use App\Observers\ProductSettingObserver;
 use Filament\Support\Facades\FilamentView;
@@ -32,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
 
         Route::aliasMiddleware('role', EnsureRole::class);
 
+        Asset::observe(AssetObserver::class);
         Location::observe(LocationObserver::class);
         ProductSetting::observe(ProductSettingObserver::class);
 

@@ -36,7 +36,7 @@
     if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
     if (str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-scores') || str_contains($path, 'briefing-settings') || str_contains($path, 'briefing-period-weights')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver|fuel-type/', $path)) { $initialOpen[] = 'driver'; }
-    if (preg_match('/service-request|technician-settings|technician-monthly-maintenance|technician-maintenance-checklist/', $path))  { $initialOpen[] = 'technician'; }
+    if (preg_match('/service-request|technician-settings|technician-monthly-maintenance|technician-maintenance-checklist|(^|\/)assets(\/|$)/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'whatsapp-settings')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'basket-size') || str_contains($path, 'compliment-type')) { $initialOpen[] = 'finance'; }

@@ -208,6 +208,11 @@ class ServiceRequestResource extends Resource
                     ->searchable()
                     ->sortable(),
 
+                TextColumn::make('asset.asset_number')
+                    ->label('ASSET')
+                    ->placeholder('Manual')
+                    ->searchable(),
+
                 TextColumn::make('technician.name')
                     ->label('TEKNISI')
                     ->placeholder('Belum ditugaskan')
@@ -338,6 +343,6 @@ class ServiceRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['technician', 'scheduledBy', 'repairs.technician']);
+        return parent::getEloquentQuery()->with(['asset', 'branch', 'technician', 'scheduledBy', 'repairs.technician']);
     }
 }

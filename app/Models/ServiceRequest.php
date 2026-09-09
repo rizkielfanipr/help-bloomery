@@ -17,6 +17,10 @@ class ServiceRequest extends Model
 
     protected $fillable = [
         'technician_id',
+        'branch_id',
+        'asset_id',
+        'source',
+        'assigned_at',
         'scheduled_by',
         'scheduled_date',
         'requestor_notes',
@@ -35,6 +39,7 @@ class ServiceRequest extends Model
             'attachments' => 'array',
             'warranty_claim_attachments' => 'array',
             'warranty_expires_at' => 'datetime',
+            'assigned_at' => 'datetime',
         ];
     }
 
@@ -56,6 +61,16 @@ class ServiceRequest extends Model
     public function technician(): BelongsTo
     {
         return $this->belongsTo(User::class, 'technician_id');
+    }
+
+    public function asset(): BelongsTo
+    {
+        return $this->belongsTo(Asset::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function scheduledBy(): BelongsTo

@@ -49,6 +49,7 @@ return [
 
     'Teknisi' => [
         'Service Request' => ['view service requests', 'create service requests', 'edit service requests', 'delete service requests'],
+        'Asset QR' => ['view assets', 'create assets', 'edit assets', 'delete assets', 'generate asset qr codes', 'print asset labels'],
     ],
 
     'Inventory' => [

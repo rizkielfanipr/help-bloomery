@@ -55,6 +55,10 @@ class ServiceRequestResource extends Resource
                     ->date('d M Y')
                     ->sortable(),
 
+                TextColumn::make('asset.asset_number')
+                    ->label('ASSET')
+                    ->placeholder('Manual'),
+
                 TextColumn::make('technician.name')
                     ->label('TEKNISI')
                     ->placeholder('Belum ditugaskan')
@@ -113,7 +117,7 @@ class ServiceRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['technician', 'repairs.technician']);
+        $query = parent::getEloquentQuery()->with(['asset', 'branch', 'technician', 'repairs.technician']);
 
         if (auth()->user()?->canAccessAllBranches()) {
             return $query;

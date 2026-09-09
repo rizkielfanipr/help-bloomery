@@ -1,13 +1,16 @@
 <?php
 
 use App\Enums\ServiceRequestStatus;
+use App\Filament\Casual\Pages\Auth\Login;
 use App\Models\Asset;
 use App\Models\Branch;
 use App\Models\ServiceRequest;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 
 beforeEach(function () {
     Storage::fake('b2');
@@ -64,10 +67,18 @@ it('requires an authenticated branch user issue and at least one image', functio
 
 it('returns a guest to the scanned asset after login', function () {
     $asset = Asset::factory()->create();
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('access employee app attendance');
 
     $this->get(route('assets.login', $asset->qr_token))->assertRedirect();
 
     expect(session('url.intended'))->toBe(route('assets.scan', $asset->qr_token));
+
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Livewire::test(Login::class)
+        ->fillForm(['email' => $user->username, 'password' => 'password'])
+        ->call('authenticate')
+        ->assertRedirect(route('assets.scan', $asset->qr_token));
 });
 
 it('leaves the request unassigned when the asset branch has no technician', function () {

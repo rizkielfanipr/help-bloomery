@@ -69,8 +69,7 @@ class Login extends BaseLogin
     public function mount(): void
     {
         if (Filament::auth()->check()) {
-            $user = Filament::auth()->user();
-            redirect($this->resolveHomeUrl($user));
+            redirect($this->resolveHomeUrl());
 
             return;
         }
@@ -83,8 +82,7 @@ class Login extends BaseLogin
         $response = parent::authenticate();
 
         if ($response !== null) {
-            $user = Filament::auth()->user();
-            redirect($this->resolveHomeUrl($user));
+            redirect($this->resolveHomeUrl());
 
             return null;
         }
@@ -92,8 +90,8 @@ class Login extends BaseLogin
         return null;
     }
 
-    private function resolveHomeUrl(mixed $user): string
+    private function resolveHomeUrl(): string
     {
-        return LauncherPage::getUrl();
+        return session()->pull('url.intended', LauncherPage::getUrl());
     }
 }

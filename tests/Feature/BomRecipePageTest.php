@@ -515,6 +515,9 @@ it('loads and updates BOM components inline from the product release page', func
         && ! array_key_exists('documentMaterials', $request->data()));
 
     expect((float) data_get($projectBom->fresh()->detail_snapshot, 'bomDetails.0.qty'))->toBe(125.0)
+        ->and(data_get($projectBom->fresh()->detail_snapshot, 'bomDetails.1.productCode'))->toBe('BBM-201')
+        ->and(data_get($projectBom->fresh()->detail_snapshot, 'bomDetails.1.productName'))->toBe('Tepung Premium')
+        ->and(data_get($projectBom->fresh()->detail_snapshot, 'bomDetails.1.uomName'))->toBe('GR')
         ->and(data_get($projectBom->fresh()->detail_snapshot, 'productDetailID'))->toBe(101)
         ->and(data_get($projectBom->fresh()->detail_snapshot, 'productName'))->toBe('Adonan Bitterballen')
         ->and($projectBom->fresh()->sync_status)->toBe('synced');

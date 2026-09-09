@@ -43,6 +43,7 @@ Panel utama yang digunakan staff helpdesk untuk mengelola semua operasional. Men
 | Driver | Perjalanan, Rute Perjalanan, Kendaraan, Jenis BBM, Uang Makan Driver, Pengaturan |
 | Master | Branch |
 | Technician | Permintaan Servis, Rekap Maintenance, Checklist Maintenance, Pengaturan Teknisi |
+| Operational | SOP Store, SOP Kategori |
 | Purchasing | *(placeholder — belum aktif)* |
 | Information Technology | *(placeholder — belum aktif)* |
 | Finance | *(placeholder — belum aktif)* |

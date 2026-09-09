@@ -112,6 +112,12 @@ return [
     ],
 
     'Operational' => [
+        'SOP Kategori' => [
+            'view store sop categories',
+            'create store sop categories',
+            'edit store sop categories',
+            'delete store sop categories',
+        ],
         'SOP Store' => [
             'view store sops',
             'create store sops',

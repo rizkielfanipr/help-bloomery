@@ -2,7 +2,9 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Models\Branch;
 use App\Models\StoreSopAssignment;
+use App\Services\StoreSopPublisher;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Database\Eloquent\Collection;
@@ -26,6 +28,14 @@ class StoreSopsPage extends Page
         return auth()->user()?->can('access employee app store sop') ?? false;
     }
 
+    public function mount(StoreSopPublisher $publisher): void
+    {
+        $user = auth()->user();
+        if ($user) {
+            $publisher->syncAssignmentsForUser($user);
+        }
+    }
+
     public function getBranches(): Collection
     {
         $user = auth()->user();
@@ -33,26 +43,34 @@ class StoreSopsPage extends Page
             return new Collection;
         }
 
-        return $user->accessibleBranches()->where('is_active', true)->orderBy('name')->get();
+        return Branch::query()
+            ->whereIn('id', $user->accessibleBranchIds())
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
     }
 
     public function assignments(): Collection
     {
+        $user = auth()->user();
+        if (! $user) {
+            return new Collection;
+        }
+
         $query = StoreSopAssignment::query()
-            ->with(['sop', 'branch'])
-            ->where('user_id', auth()->id())
+            ->with(['sop.category', 'branch'])
+            ->where('user_id', $user->id)
+            ->whereIn('branch_id', $user->accessibleBranchIds())
             ->whereHas('sop', fn ($q) => $q->where('status', 'published'));
 
         if ($this->selectedBranchId) {
             $query->where('branch_id', $this->selectedBranchId);
         }
 
-        if ($this->filter === 'unread') {
-            $query->whereNull('opened_at');
-        } elseif ($this->filter === 'unacknowledged') {
-            $query->whereNull('acknowledged_at');
-        } elseif ($this->filter === 'acknowledged') {
-            $query->whereNotNull('acknowledged_at');
+        if ($this->filter === 'ongoing') {
+            $query->whereHas('sop', fn ($q) => $q->whereNull('expires_at')->orWhereDate('expires_at', '>=', today()));
+        } elseif ($this->filter === 'expired') {
+            $query->whereHas('sop', fn ($q) => $q->whereDate('expires_at', '<', today()));
         }
 
         if (filled($this->search)) {
@@ -60,7 +78,7 @@ class StoreSopsPage extends Page
             $query->whereHas('sop', function ($q) use ($search): void {
                 $q->where('title', 'like', $search)
                     ->orWhere('code', 'like', $search)
-                    ->orWhere('category', 'like', $search);
+                    ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery->where('name', 'like', $search));
             });
         }
 
@@ -68,12 +86,18 @@ class StoreSopsPage extends Page
     }
 
     /**
-     * @return array{all: int, unread: int, unacknowledged: int, acknowledged: int}
+     * @return array{all: int, ongoing: int, expired: int}
      */
     public function counts(): array
     {
+        $user = auth()->user();
+        if (! $user) {
+            return ['all' => 0, 'ongoing' => 0, 'expired' => 0];
+        }
+
         $base = StoreSopAssignment::query()
-            ->where('user_id', auth()->id())
+            ->where('user_id', $user->id)
+            ->whereIn('branch_id', $user->accessibleBranchIds())
             ->whereHas('sop', fn ($q) => $q->where('status', 'published'));
 
         if ($this->selectedBranchId) {
@@ -82,9 +106,8 @@ class StoreSopsPage extends Page
 
         return [
             'all' => (clone $base)->count(),
-            'unread' => (clone $base)->whereNull('opened_at')->count(),
-            'unacknowledged' => (clone $base)->whereNull('acknowledged_at')->count(),
-            'acknowledged' => (clone $base)->whereNotNull('acknowledged_at')->count(),
+            'ongoing' => (clone $base)->whereHas('sop', fn ($q) => $q->whereNull('expires_at')->orWhereDate('expires_at', '>=', today()))->count(),
+            'expired' => (clone $base)->whereHas('sop', fn ($q) => $q->whereDate('expires_at', '<', today()))->count(),
         ];
     }
 
@@ -96,6 +119,7 @@ class StoreSopsPage extends Page
     public function openSop(int $assignmentId): void
     {
         $assignment = StoreSopAssignment::where('user_id', auth()->id())->findOrFail($assignmentId);
+        abort_unless(auth()->user()->canAccessBranch($assignment->branch_id), 403);
         $assignment->update(['opened_at' => $assignment->opened_at ?? now()]);
         $this->redirect($assignment->sop->downloadUrl(), navigate: false);
     }
@@ -103,7 +127,8 @@ class StoreSopsPage extends Page
     public function acknowledge(int $assignmentId): void
     {
         $assignment = StoreSopAssignment::where('user_id', auth()->id())->findOrFail($assignmentId);
+        abort_unless(auth()->user()->canAccessBranch($assignment->branch_id), 403);
         $assignment->update(['opened_at' => $assignment->opened_at ?? now(), 'acknowledged_at' => now()]);
-        Notification::make()->title('SOP sudah dikonfirmasi')->success()->send();
+        Notification::make()->title('Penerimaan SOP sudah dikonfirmasi')->success()->send();
     }
 }

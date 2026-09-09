@@ -5,6 +5,7 @@ namespace App\Filament\Helpdesk\Resources\StoreSops\Pages;
 use App\Filament\Helpdesk\Resources\StoreSops\StoreSopResource;
 use App\Services\StoreSopPublisher;
 use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -23,12 +24,12 @@ class ViewStoreSop extends ViewRecord
                 ->icon('heroicon-o-paper-airplane')
                 ->color('success')
                 ->requiresConfirmation()
-                ->modalDescription('SOP akan langsung diberikan kepada Supervisor Store yang menangani branch terpilih.')
+                ->modalDescription('SOP akan tersedia untuk semua pengguna yang memiliki akses SOP Store pada branch terpilih.')
                 ->visible(fn (): bool => $this->record->status === 'draft' && auth()->user()?->can('publish store sops'))
                 ->action(function (): void {
                     $count = app(StoreSopPublisher::class)->publish($this->record, auth()->user());
                     $this->refreshFormData(['status', 'published_at', 'published_by']);
-                    Notification::make()->title('SOP berhasil dipublikasikan')->body($count.' assignment Supervisor Store dibuat.')->success()->send();
+                    Notification::make()->title('SOP berhasil dipublikasikan')->body($count.' branch menerima SOP.')->success()->send();
                 }),
             Action::make('recipients')
                 ->label('Rekap Penerima')
@@ -38,19 +39,14 @@ class ViewStoreSop extends ViewRecord
                 ->modalHeading(fn (): string => 'Rekap Penerima — '.$this->record->title)
                 ->modalWidth(Width::FourExtraLarge)
                 ->modalSubmitAction(false)
-                ->modalContent(fn () => view('filament.helpdesk.store-sops.recipients', ['record' => $this->record->load('assignments.user', 'assignments.branch')])),
-            Action::make('archive')
-                ->label('Arsipkan')
-                ->icon('heroicon-o-archive-box')
-                ->color('warning')
+                ->modalContent(fn () => view('filament.helpdesk.store-sops.recipients', ['record' => $this->record->load('branches', 'assignments.user', 'assignments.branch')])),
+            DeleteAction::make()
+                ->label('Hapus SOP')
+                ->icon('heroicon-o-trash')
+                ->color('danger')
                 ->requiresConfirmation()
-                ->modalDescription('SOP ini akan diarsipkan dan tidak lagi muncul sebagai tugas aktif.')
-                ->visible(fn (): bool => $this->record->status === 'published' && auth()->user()?->can('edit store sops'))
-                ->action(function (): void {
-                    $this->record->update(['status' => 'archived']);
-                    $this->refreshFormData(['status']);
-                    Notification::make()->title('SOP berhasil diarsipkan')->warning()->send();
-                }),
+                ->modalHeading('Hapus SOP')
+                ->modalDescription('SOP beserta seluruh riwayat penerimaannya akan dihapus permanen.'),
         ];
     }
 }

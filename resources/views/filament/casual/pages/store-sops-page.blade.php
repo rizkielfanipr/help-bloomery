@@ -24,21 +24,6 @@
                 </div>
             </div>
 
-            {{-- Summary Stats --}}
-            <div class="mt-4 grid grid-cols-3 gap-2">
-                <div class="rounded-xl bg-white/10 p-2.5 backdrop-blur-xs">
-                    <p class="text-[11px] text-blue-100">Total SOP</p>
-                    <p class="mt-0.5 text-lg font-bold text-white">{{ $counts['all'] }}</p>
-                </div>
-                <div class="rounded-xl bg-white/10 p-2.5 backdrop-blur-xs">
-                    <p class="text-[11px] text-blue-100">Perlu Dibaca</p>
-                    <p class="mt-0.5 text-lg font-bold text-amber-200">{{ $counts['unacknowledged'] }}</p>
-                </div>
-                <div class="rounded-xl bg-white/10 p-2.5 backdrop-blur-xs">
-                    <p class="text-[11px] text-blue-100">Selesai</p>
-                    <p class="mt-0.5 text-lg font-bold text-emerald-200">{{ $counts['acknowledged'] }}</p>
-                </div>
-            </div>
         </div>
     </header>
 
@@ -81,22 +66,16 @@
                     Semua ({{ $counts['all'] }})
                 </button>
                 <button
-                    wire:click="setFilter('unread')"
-                    class="rounded-xl px-3 py-1.5 transition shrink-0 {{ $this->filter === 'unread' ? 'bg-blue-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' }}"
+                    wire:click="setFilter('ongoing')"
+                    class="rounded-xl px-3 py-1.5 transition shrink-0 {{ $this->filter === 'ongoing' ? 'bg-blue-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' }}"
                 >
-                    Belum Dibuka ({{ $counts['unread'] }})
+                    Ongoing ({{ $counts['ongoing'] }})
                 </button>
                 <button
-                    wire:click="setFilter('unacknowledged')"
-                    class="rounded-xl px-3 py-1.5 transition shrink-0 {{ $this->filter === 'unacknowledged' ? 'bg-blue-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' }}"
+                    wire:click="setFilter('expired')"
+                    class="rounded-xl px-3 py-1.5 transition shrink-0 {{ $this->filter === 'expired' ? 'bg-blue-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' }}"
                 >
-                    Perlu Konfirmasi ({{ $counts['unacknowledged'] }})
-                </button>
-                <button
-                    wire:click="setFilter('acknowledged')"
-                    class="rounded-xl px-3 py-1.5 transition shrink-0 {{ $this->filter === 'acknowledged' ? 'bg-blue-600 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300' }}"
-                >
-                    Sudah Dipahami ({{ $counts['acknowledged'] }})
+                    Expired ({{ $counts['expired'] }})
                 </button>
             </div>
         </div>
@@ -110,14 +89,14 @@
                             <span class="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                                 {{ $assignment->sop->code }}
                             </span>
-                            <span class="rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                v{{ $assignment->sop->version }}
-                            </span>
                             @if($assignment->sop->category)
                                 <span class="rounded-md bg-purple-50 px-2 py-0.5 text-[11px] font-medium text-purple-700 dark:bg-purple-950/40 dark:text-purple-300">
-                                    {{ $assignment->sop->category }}
+                                    {{ $assignment->sop->category->name }}
                                 </span>
                             @endif
+                            <span class="rounded-md px-2 py-0.5 text-[11px] font-bold {{ $assignment->sop->isExpired() ? 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' }}">
+                                {{ $assignment->sop->display_status_label }}
+                            </span>
                         </div>
                         <h2 class="mt-2 text-base font-bold text-gray-900 dark:text-white leading-snug">
                             {{ $assignment->sop->title }}
@@ -133,12 +112,15 @@
                                 <svg class="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                                 </svg>
-                                Berlaku {{ $assignment->sop->effective_date->format('d M Y') }}
+                                {{ $assignment->sop->effective_date->format('d M Y') }}
+                                @if($assignment->sop->expires_at)
+                                    – {{ $assignment->sop->expires_at->format('d M Y') }}
+                                @endif
                             </span>
                         </div>
                     </div>
-                    <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold {{ $assignment->acknowledged_at ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : ($assignment->opened_at ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300') }}">
-                        {{ $assignment->acknowledged_at ? 'Dipahami' : ($assignment->opened_at ? 'Dibuka' : 'Baru') }}
+                    <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold {{ $assignment->acknowledged_at ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' }}">
+                        {{ $assignment->acknowledged_at ? 'Diterima' : 'Baru' }}
                     </span>
                 </div>
 
@@ -153,7 +135,7 @@
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Dikonfirmasi pada {{ $assignment->acknowledged_at->format('d M Y H:i') }}
+                        Diterima pada {{ $assignment->acknowledged_at->format('d M Y H:i') }}
                     </div>
                 @endif
 
@@ -170,13 +152,13 @@
                     @if(! $assignment->acknowledged_at)
                         <button
                             wire:click="acknowledge({{ $assignment->id }})"
-                            wire:confirm="Konfirmasi: Saya menyatakan telah membaca, memahami, dan siap menjalankan SOP ini."
+                            wire:confirm="Konfirmasi bahwa SOP ini sudah diterima dan dibaca."
                             class="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 py-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-blue-700 active:scale-[0.98]"
                         >
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                             </svg>
-                            Saya Sudah Memahami
+                            Konfirmasi Diterima
                         </button>
                     @endif
                 </div>

@@ -1131,6 +1131,20 @@
                             placeholder: 'Contoh: Campurkan bahan kering, aduk 3 menit, lalu panggang pada suhu 170°C...',
                             modules: { toolbar: this.$refs.toolbar },
                         });
+                        // Quill listens to the document-wide selectionchange event for every
+                        // editor instance. On this page there can be many editors, and Livewire
+                        // may transiently detach the DOM node selected by another instance.
+                        // Treat that foreign/stale native range as no selection instead of
+                        // allowing Quill 2.0.3 to call offset() on a missing blot.
+                        const normalizeRange = this.quill.selection.normalizedToRange.bind(this.quill.selection);
+                        this.quill.selection.normalizedToRange = nativeRange => {
+                            try {
+                                return normalizeRange(nativeRange);
+                            } catch (error) {
+                                if (error instanceof TypeError && error.message.includes('offset')) return null;
+                                throw error;
+                            }
+                        };
                         // Quill's built-in Uploader module inserts pasted/dropped images as base64
                         // on its own before our listeners run, bypassing compression and R2 upload.
                         // It can't be disabled via the modules config, so neutralize it directly.

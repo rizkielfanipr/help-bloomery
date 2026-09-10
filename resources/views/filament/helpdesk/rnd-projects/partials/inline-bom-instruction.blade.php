@@ -5,7 +5,7 @@
 
 @if($canManageProject)
     <section
-        wire:key="bom-instruction-{{ $instructionBomId }}"
+        wire:key="bom-instruction-{{ $instructionInstanceKey }}"
         class="border-t border-gray-200 bg-gray-50/60 p-4 dark:border-gray-700 dark:bg-gray-900/40"
         x-data="bomQuillEditor({
             bomId: {{ $instructionBomId }},

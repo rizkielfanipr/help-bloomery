@@ -410,7 +410,7 @@
                         </div>
 
                         @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $mainBom])
-                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $mainBom->esb_bom_id])
+                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $mainBom->esb_bom_id, 'instructionInstanceKey' => 'main-'.$mainBom->id])
 
                         <div class="grid grid-cols-1 gap-3 p-4">
                             @foreach($childGroups as $usageType => $group)
@@ -496,7 +496,7 @@
                                                     </div>
                                                 </div>
                                                 @endif
-                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $autoRecipe['bomID']])
+                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $autoRecipe['bomID'], 'instructionInstanceKey' => 'auto-'.$mainBom->id.'-'.$autoRecipe['bomID']])
                                             </div>
                                         @endforeach
                                         @foreach($autoPackaging as $packagingItem)
@@ -529,7 +529,7 @@
                                                     @endif
                                                 </div>
                                                 @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $bom])
-                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id])
+                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id, 'instructionInstanceKey' => 'child-'.$mainBom->id.'-'.$bom->id])
                                             </div>
                                         @endforeach
                                         @if($children->isEmpty() && count($autoRecipes) === 0 && count($autoPackaging) === 0)
@@ -566,7 +566,7 @@
                                     @endif
                                 </div>
                                 @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $bom])
-                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id])
+                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id, 'instructionInstanceKey' => 'unassigned-'.$bom->id])
                             @endforeach
                         </div>
                     </section>
@@ -617,7 +617,7 @@
                         </div>
 
                         @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $menuBom])
-                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $menuBom->esb_bom_id])
+                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $menuBom->esb_bom_id, 'instructionInstanceKey' => 'menu-'.$menuBom->id])
                     </section>
                 @empty
                     <div class="rounded-xl border border-dashed border-blue-300 py-12 text-center dark:border-blue-800">
@@ -1131,20 +1131,6 @@
                             placeholder: 'Contoh: Campurkan bahan kering, aduk 3 menit, lalu panggang pada suhu 170°C...',
                             modules: { toolbar: this.$refs.toolbar },
                         });
-                        // Quill listens to the document-wide selectionchange event for every
-                        // editor instance. On this page there can be many editors, and Livewire
-                        // may transiently detach the DOM node selected by another instance.
-                        // Treat that foreign/stale native range as no selection instead of
-                        // allowing Quill 2.0.3 to call offset() on a missing blot.
-                        const normalizeRange = this.quill.selection.normalizedToRange.bind(this.quill.selection);
-                        this.quill.selection.normalizedToRange = nativeRange => {
-                            try {
-                                return normalizeRange(nativeRange);
-                            } catch (error) {
-                                if (error instanceof TypeError && error.message.includes('offset')) return null;
-                                throw error;
-                            }
-                        };
                         // Quill's built-in Uploader module inserts pasted/dropped images as base64
                         // on its own before our listeners run, bypassing compression and R2 upload.
                         // It can't be disabled via the modules config, so neutralize it directly.

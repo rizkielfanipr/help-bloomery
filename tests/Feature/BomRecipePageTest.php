@@ -759,13 +759,17 @@ it('loads initial Quill content without forcing a selection on hidden editors', 
         ->not->toContain('this.quill.clipboard.dangerouslyPasteHTML(initialHtml)');
 });
 
-it('ignores stale native selections received from other inline Quill instances', function () {
+it('uses unique stable Livewire keys for inline Quill instances in every BOM hierarchy', function () {
     $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
+    $partial = file_get_contents(resource_path('views/filament/helpdesk/rnd-projects/partials/inline-bom-instruction.blade.php'));
 
     expect($view)
-        ->toContain('this.quill.selection.normalizedToRange.bind(this.quill.selection)')
-        ->toContain('this.quill.selection.normalizedToRange = nativeRange')
-        ->toContain("error.message.includes('offset')");
+        ->toContain("'instructionInstanceKey' => 'main-'")
+        ->toContain("'instructionInstanceKey' => 'auto-'")
+        ->toContain("'instructionInstanceKey' => 'child-'")
+        ->toContain("'instructionInstanceKey' => 'unassigned-'")
+        ->toContain("'instructionInstanceKey' => 'menu-'");
+    expect($partial)->toContain('wire:key="bom-instruction-{{ $instructionInstanceKey }}"');
 });
 
 it('rejects saving a BOM instruction for a BOM not attached to the product', function () {

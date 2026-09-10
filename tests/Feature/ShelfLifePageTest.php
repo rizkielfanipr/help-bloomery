@@ -81,3 +81,39 @@ it('exports shelf life products to an xlsx file', function () {
 
     expect($response->headers->get('content-disposition'))->toContain('shelf-life-products-');
 });
+
+it('updates missing shelf life data from the shelf life page', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Project Shelf Life Input',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-12-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = RndProjectProduct::query()->create([
+        'rnd_project_id' => $project->id,
+        'name' => 'Product Belum Diatur',
+        'product_code' => 'SKU-SHELF-01',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ShelfLifePage::class)
+        ->assertSee('Isi Shelf Life')
+        ->call('editShelfLife', $product->id)
+        ->assertSet('shelfLifeModalOpen', true)
+        ->assertSet('editingProductName', 'Product Belum Diatur')
+        ->set('shelfLifeValue', '14')
+        ->set('shelfLifeUnit', 'day')
+        ->set('editingStorageCondition', 'chiller')
+        ->set('storageNotes', 'Simpan pada suhu 2-5°C.')
+        ->call('saveShelfLife')
+        ->assertHasNoErrors()
+        ->assertSet('shelfLifeModalOpen', false)
+        ->assertSee('14 Hari');
+
+    $product->refresh();
+    expect($product->shelf_life_value)->toBe(14)
+        ->and($product->shelf_life_unit)->toBe('day')
+        ->and($product->storage_condition)->toBe('chiller')
+        ->and($product->storage_notes)->toBe('Simpan pada suhu 2-5°C.');
+});

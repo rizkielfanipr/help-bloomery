@@ -59,6 +59,7 @@
                             <th class="px-4 py-3 text-left">Catatan</th>
                             <th class="px-4 py-3 text-left">Tanggal Rilis</th>
                             <th class="px-4 py-3 text-left">Status</th>
+                            @can('edit rnd projects')<th class="px-4 py-3 text-right">Aksi</th>@endcan
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -85,9 +86,17 @@
                                 <td class="max-w-xs px-4 py-3 text-gray-600 dark:text-gray-300"><p class="line-clamp-2">{{ $product->storage_notes ?: '-' }}</p></td>
                                 <td class="px-4 py-3">{{ $product->release_date?->format('d M Y') ?? '-' }}</td>
                                 <td class="px-4 py-3"><span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{{ $statusLabel }}</span></td>
+                                @can('edit rnd projects')
+                                    <td class="px-4 py-3 text-right">
+                                        <button wire:click="editShelfLife({{ $product->id }})" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/30">
+                                            <x-heroicon-o-pencil-square class="h-4 w-4" />
+                                            {{ $product->shelf_life_value ? 'Edit' : 'Isi Shelf Life' }}
+                                        </button>
+                                    </td>
+                                @endcan
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="px-5 py-16 text-center text-gray-500"><x-heroicon-o-clock class="mx-auto mb-3 h-10 w-10 text-gray-300" />Belum ada produk yang sesuai dengan filter.</td></tr>
+                            <tr><td colspan="8" class="px-5 py-16 text-center text-gray-500"><x-heroicon-o-clock class="mx-auto mb-3 h-10 w-10 text-gray-300" />Belum ada produk yang sesuai dengan filter.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -104,5 +113,56 @@
                 </div>
             </div>
         </section>
+
+        @if($shelfLifeModalOpen)
+            <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                <button wire:click="closeShelfLifeModal" type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/55"></button>
+                <div class="relative w-full max-w-lg overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+                    <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Atur Shelf Life</h3>
+                        <p class="mt-1 text-sm text-gray-500">{{ $editingProductName }}</p>
+                    </div>
+                    <form wire:submit="saveShelfLife" class="space-y-4 p-5">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Shelf Life *</label>
+                                <input wire:model="shelfLifeValue" type="number" min="1" max="9999" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Contoh: 7">
+                                @error('shelfLifeValue')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div>
+                                <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Satuan *</label>
+                                <select wire:model="shelfLifeUnit" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800">
+                                    @foreach(\App\Models\RndProjectProduct::SHELF_LIFE_UNITS as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                @error('shelfLifeUnit')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Kondisi Penyimpanan *</label>
+                            <select wire:model="editingStorageCondition" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800">
+                                @foreach(\App\Models\RndProjectProduct::STORAGE_CONDITIONS as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('editingStorageCondition')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Catatan Penyimpanan</label>
+                            <textarea wire:model="storageNotes" rows="3" maxlength="2000" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800" placeholder="Contoh: Simpan tertutup pada suhu 2-5°C"></textarea>
+                            @error('storageNotes')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                            <button wire:click="closeShelfLifeModal" type="button" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-700 dark:border-gray-600 dark:text-gray-200">Batal</button>
+                            <button type="submit" wire:loading.attr="disabled" wire:target="saveShelfLife" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                                <span wire:loading.remove wire:target="saveShelfLife">Simpan Shelf Life</span>
+                                <span wire:loading wire:target="saveShelfLife">Menyimpan...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endif
     </div>
 </x-filament-panels::page>

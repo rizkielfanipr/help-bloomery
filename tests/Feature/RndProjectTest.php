@@ -1094,9 +1094,14 @@ it('includes the Bill of Material Store section and product photo when exporting
     Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
         ->assertSee('Export Store PDF')
         ->call('openExportPdf', 'store')
+        ->assertSee('Seluruh BOM Menu pada product ini akan otomatis diekspor.')
+        ->assertSeeHtml('h-auto max-h-[calc(100dvh-2rem)] max-w-sm')
+        ->assertDontSeeHtml('wire:model.live="exportBomIds"')
+        ->set('exportBomIds', [])
         ->set('exportPin', '246810')
         ->call('exportBomPdf')
         ->assertHasNoErrors()
+        ->assertSet('exportBomIds', [$bom->id])
         ->assertRedirect($exportUrl);
 
     $this->get($exportUrl)

@@ -883,11 +883,20 @@
         @if($exportPinModalOpen)
             <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
                 <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/55" wire:click="closeModal('exportPin')"></button>
-                <div class="relative flex h-[calc(100dvh-2rem)] max-h-[42rem] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900">
+                <div @class([
+                    'relative flex w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900',
+                    'h-auto max-h-[calc(100dvh-2rem)] max-w-sm' => $exportScope === 'store',
+                    'h-[calc(100dvh-2rem)] max-h-[42rem] max-w-md' => $exportScope !== 'store',
+                ])>
                     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300"><x-heroicon-o-lock-closed class="h-7 w-7" /></div>
                     <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">Export Dokumen Resep</h3>
                     <p class="mt-2 text-sm leading-6 text-gray-500">Masukkan PIN keamanan untuk mengunduh Bill of Material {{ $exportScope === 'store' ? 'Store' : ($exportScope === 'kitchen' ? 'Kitchen' : '') }} dalam format PDF.</p>
                     <form wire:submit="exportBomPdf" class="mt-5 flex min-h-0 flex-1 flex-col">
+                        @if($exportScope === 'store')
+                            <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
+                                Seluruh BOM Menu pada product ini akan otomatis diekspor.
+                            </div>
+                        @else
                         <div class="mb-4 min-h-0 flex-1 touch-pan-y space-y-2 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 p-3 text-left dark:border-gray-700">
                             <p class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Pilih BOM yang ditampilkan</p>
                             @php
@@ -944,6 +953,7 @@
                             @endforeach
                         </div>
                         @error('exportBomIds')<p class="mb-3 text-sm font-medium text-red-600">Pilih minimal satu BOM.</p>@enderror
+                        @endif
                         <input wire:model="exportPin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Masukkan PIN" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-center text-lg font-bold tracking-[0.3em] dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                         @error('exportPin')<p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>@enderror
                         <div class="mt-4 grid grid-cols-2 gap-2">

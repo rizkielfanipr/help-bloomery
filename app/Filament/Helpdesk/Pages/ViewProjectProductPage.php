@@ -2278,14 +2278,22 @@ class ViewProjectProductPage extends Page
     public function exportBomPdf(): mixed
     {
         abort_unless(static::canAccess(), 403);
-        $this->validate([
+        $eligibleBomIds = $this->eligibleExportBoms($this->exportScope)->pluck('id')->map(fn ($id): int => (int) $id);
+        if ($this->exportScope === 'store') {
+            $this->exportBomIds = $eligibleBomIds->all();
+            $this->exportAutoBomKeys = [];
+        }
+
+        $rules = [
             'exportPin' => ['required', 'string', 'max:20'],
-            'exportBomIds' => ['required', 'array', 'min:1'],
-            'exportBomIds.*' => ['integer'],
             'exportAutoBomKeys' => ['array'],
             'exportAutoBomKeys.*' => ['string', 'regex:/^\d+:\d+$/'],
-        ]);
-        $eligibleBomIds = $this->eligibleExportBoms($this->exportScope)->pluck('id')->map(fn ($id): int => (int) $id);
+        ];
+        if ($this->exportScope !== 'store') {
+            $rules['exportBomIds'] = ['required', 'array', 'min:1'];
+            $rules['exportBomIds.*'] = ['integer'];
+        }
+        $this->validate($rules);
         abort_unless(collect($this->exportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
         $eligibleAutoBomKeys = collect($this->eligibleExportAutoBomKeys());
         abort_unless(collect($this->exportAutoBomKeys)->every(fn (string $key): bool => $eligibleAutoBomKeys->contains($key)), 422);
@@ -2329,7 +2337,7 @@ class ViewProjectProductPage extends Page
         if ($this->exportScope !== 'all') {
             $routeParameters['scope'] = $this->exportScope;
         }
-        if ($eligibleBomIds->sort()->values()->all() !== collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->sort()->values()->all()) {
+        if ($this->exportScope !== 'store' && $eligibleBomIds->sort()->values()->all() !== collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->sort()->values()->all()) {
             $routeParameters['bom_ids'] = collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->implode(',');
         }
 

@@ -33,7 +33,7 @@ class RndProductBomPdfController extends Controller
             'PIN diperlukan untuk mengunduh dokumen resep.',
         );
 
-        $selectedBomIds = $this->selectedBomIds($request);
+        $selectedBomIds = $exportScope === 'store' ? null : $this->selectedBomIds($request);
         $selectedComponents = session()->get(self::componentSessionKey($user->id, $projectRecord->id, $productRecord->id));
         $selectedAutoBoms = session()->get(self::autoBomSessionKey($user->id, $projectRecord->id, $productRecord->id));
         $data = $this->buildExportData($projectRecord, $productRecord, $exportScope, $selectedBomIds, is_array($selectedComponents) ? $selectedComponents : null, is_array($selectedAutoBoms) ? $selectedAutoBoms : null);

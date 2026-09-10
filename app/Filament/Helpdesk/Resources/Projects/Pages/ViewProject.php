@@ -465,12 +465,19 @@ class ViewProject extends ViewRecord
     public function exportProjectBomPdf(): mixed
     {
         abort_unless(auth()->user()?->can('view bill of materials'), 403);
-        $this->validate([
-            'projectExportPin' => ['required', 'string', 'max:20'],
-            'projectExportBomIds' => ['required', 'array', 'min:1'],
-            'projectExportBomIds.*' => ['integer'],
-        ]);
         $eligibleBomIds = $this->eligibleProjectExportBoms($this->projectExportScope)->pluck('id')->map(fn ($id): int => (int) $id);
+        if ($this->projectExportScope === 'store') {
+            $this->projectExportBomIds = $eligibleBomIds->all();
+        }
+
+        $rules = [
+            'projectExportPin' => ['required', 'string', 'max:20'],
+        ];
+        if ($this->projectExportScope !== 'store') {
+            $rules['projectExportBomIds'] = ['required', 'array', 'min:1'];
+            $rules['projectExportBomIds.*'] = ['integer'];
+        }
+        $this->validate($rules);
         abort_unless(collect($this->projectExportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
         $rateKey = 'rnd-project-bom-export-pin:'.auth()->id().':'.request()->ip();
 
@@ -505,7 +512,7 @@ class ViewProject extends ViewRecord
             'project' => $this->record->id,
             'scope' => $this->projectExportScope,
         ];
-        if ($eligibleBomIds->sort()->values()->all() !== collect($this->projectExportBomIds)->map(fn ($id): int => (int) $id)->sort()->values()->all()) {
+        if ($this->projectExportScope !== 'store' && $eligibleBomIds->sort()->values()->all() !== collect($this->projectExportBomIds)->map(fn ($id): int => (int) $id)->sort()->values()->all()) {
             $routeParameters['bom_ids'] = collect($this->projectExportBomIds)->map(fn ($id): int => (int) $id)->implode(',');
         }
 

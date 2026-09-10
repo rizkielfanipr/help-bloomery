@@ -29,7 +29,7 @@ class RndProjectBomPdfController extends Controller
             'PIN diperlukan untuk mengunduh dokumen resep project.',
         );
 
-        $selectedBomIds = $request->filled('bom_ids')
+        $selectedBomIds = $scope !== 'store' && $request->filled('bom_ids')
             ? collect(explode(',', (string) $request->query('bom_ids')))
                 ->filter(fn (string $id): bool => ctype_digit($id) && (int) $id > 0)
                 ->map(fn (string $id): int => (int) $id)

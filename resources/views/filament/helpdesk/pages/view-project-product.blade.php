@@ -1164,17 +1164,10 @@
                                 .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
                                 .map(item => item.getAsFile()).filter(Boolean);
 
+                            // Leave text and rich-text paste to Quill's native clipboard handler.
+                            // Cancelling it here made Cmd/Ctrl+V silently fail when a browser
+                            // supplied clipboard HTML that Quill could not convert synchronously.
                             if (plainText !== '' || html !== '') {
-                                event.preventDefault();
-                                event.stopImmediatePropagation();
-                                const range = this.quill.getSelection() ?? { index: this.quill.getLength() - 1, length: 0 };
-                                const pasted = this.quill.clipboard.convert({ html, text: plainText });
-                                const Delta = window.Quill.import('delta');
-                                this.quill.updateContents(
-                                    new Delta().retain(range.index).delete(range.length).concat(pasted),
-                                    'user',
-                                );
-                                this.quill.setSelection(range.index + pasted.length(), 0, 'silent');
                                 return;
                             }
 

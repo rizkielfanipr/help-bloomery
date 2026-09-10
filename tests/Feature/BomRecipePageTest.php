@@ -4,6 +4,7 @@ use App\Filament\Helpdesk\Pages\CreateBomRecipePage;
 use App\Filament\Helpdesk\Pages\EditBomRecipePage;
 use App\Filament\Helpdesk\Pages\ViewBomPage;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
+use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\RndBomInstruction;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
@@ -717,7 +718,7 @@ it('stores sanitized BOM instructions and process images on R2', function () {
     Storage::disk('b2')->assertExists($instruction->image_paths[0]);
 });
 
-it('stores safe inline Quill images for BOM instructions', function () {
+it('stores safe inline rich editor images for BOM instructions', function () {
     $image = 'data:image/png;base64,'.base64_encode('small-image');
     $projectBom = RndProjectBom::query()->create([
         'rnd_project_id' => $this->project->id,
@@ -740,26 +741,72 @@ it('stores safe inline Quill images for BOM instructions', function () {
         ->not->toContain('onerror');
 });
 
-it('leaves text paste to Quill and only intercepts clipboard image uploads', function () {
+it('uses the native Filament rich editor instead of custom clipboard handlers', function () {
     $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
+    $page = file_get_contents(app_path('Filament/Helpdesk/Pages/ViewProjectProductPage.php'));
 
     expect($view)
-        ->toContain("getData('text/plain')")
-        ->toContain("addEventListener('paste'")
-        ->toContain("if (plainText !== '' || html !== '')")
-        ->not->toContain('const pasted = this.quill.clipboard.convert');
+        ->not->toContain('quill@')
+        ->not->toContain('bomQuillEditor');
+    expect($page)
+        ->toContain('RichEditor::make')
+        ->toContain("['bulletList', 'orderedList']")
+        ->toContain("['link', 'attachFiles']");
 });
 
-it('loads initial Quill content without forcing a selection on hidden editors', function () {
+it('saves formatted instruction content through the TipTap modal action', function () {
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->callAction(
+        'editBomInstruction',
+        ['content' => '<p><strong>Persiapan</strong></p><ol><li>Campurkan bahan</li></ol>'],
+        ['bomId' => 1054, 'bomName' => 'Crepes Assembly'],
+    )->assertHasNoActionErrors();
+
+    expect(RndBomInstruction::query()->firstOrFail()->content_html)
+        ->toContain('<strong>Persiapan</strong>')
+        ->toContain('<ol>')
+        ->toContain('Campurkan bahan');
+});
+
+it('embeds TipTap attachment images into the exported PDF content', function () {
+    Storage::fake('b2');
+    $path = "rnd/bom-instructions/{$this->project->id}/{$this->product->id}/rich-editor/process.jpg";
+    Storage::disk('b2')->put($path, 'image-bytes');
+    $controller = app(RndProductBomPdfController::class);
+    $method = new ReflectionMethod($controller, 'inlineStoredImages');
+
+    $html = $method->invoke($controller, '<p>Proses</p><img data-id="'.$path.'" alt="Foto">');
+
+    expect($html)
+        ->toContain('<p>Proses</p>')
+        ->toContain('src="data:image/jpeg;base64,'.base64_encode('image-bytes').'"')
+        ->not->toContain('data-id=');
+});
+
+it('opens a single modal rich editor instead of mounting an editor for every BOM', function () {
     $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
+    $partial = file_get_contents(resource_path('views/filament/helpdesk/rnd-projects/partials/inline-bom-instruction.blade.php'));
 
     expect($view)
-        ->toContain("this.quill.clipboard.convert({ html: initialHtml, text: '' })")
-        ->toContain("this.quill.setContents(initialContents, 'silent')")
-        ->not->toContain('this.quill.clipboard.dangerouslyPasteHTML(initialHtml)');
+        ->not->toContain('new Quill');
+    expect($partial)
+        ->toContain('mountAction("editBomInstruction"')
+        ->toContain('Edit Informasi')
+        ->not->toContain('wire:ignore');
 });
 
-it('uses unique stable Livewire keys for inline Quill instances in every BOM hierarchy', function () {
+it('uses unique stable Livewire keys for instruction previews in every BOM hierarchy', function () {
     $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
     $partial = file_get_contents(resource_path('views/filament/helpdesk/rnd-projects/partials/inline-bom-instruction.blade.php'));
 

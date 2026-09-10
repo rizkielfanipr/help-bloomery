@@ -214,7 +214,7 @@ class RndProductBomPdfController extends Controller
             return $html;
         }
 
-        return preg_replace_callback(
+        $html = preg_replace_callback(
             '#<img\b([^>]*?)\bsrc\s*=\s*(["\'])(?:https?://[^/"\']+)?/rnd-bom-instruction-images/(rnd/bom-instructions/\d+/\d+/\d+/inline/[A-Za-z0-9\-]+\.jpg)\2([^>]*)>#i',
             function (array $match): string {
                 $contents = Storage::disk('b2')->get($match[3]);
@@ -223,6 +223,20 @@ class RndProductBomPdfController extends Controller
                 }
 
                 return '<img'.$match[1].'src="data:image/jpeg;base64,'.base64_encode($contents).'"'.$match[4].'>';
+            },
+            $html,
+        ) ?? $html;
+
+        return preg_replace_callback(
+            '#<img\b([^>]*?)\bdata-id\s*=\s*(["\'])(rnd/bom-instructions/\d+/\d+/rich-editor/[^"\']+)\2([^>]*)>#i',
+            function (array $match): string {
+                $contents = Storage::disk('b2')->get($match[3]);
+                if (! is_string($contents) || $contents === '') {
+                    return '';
+                }
+                $mime = Storage::disk('b2')->mimeType($match[3]) ?: 'image/jpeg';
+
+                return '<img'.$match[1].'src="data:'.$mime.';base64,'.base64_encode($contents).'"'.$match[4].'>';
             },
             $html,
         ) ?? $html;

@@ -16,6 +16,9 @@ use App\Services\EsbCoreService;
 use App\Services\EsbService;
 use App\Services\ProductPriceIndexService;
 use App\Services\SyncRndEsbMaterialFromRemote;
+use Filament\Actions\Action;
+use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\RichEditor\RichContentRenderer;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -173,17 +176,7 @@ class ViewProjectProductPage extends Page
 
     public array $bomInstructions = [];
 
-    public ?int $bomInstructionEsbId = null;
-
-    public string $bomInstructionName = '';
-
-    public string $bomInstructionHtml = '';
-
-    public array $bomInstructionUploads = [];
-
     public array $bomInstructionInlineUploads = [];
-
-    public array $bomInstructionTextDrafts = [];
 
     public array $inlineProductOptions = [];
 
@@ -244,72 +237,48 @@ class ViewProjectProductPage extends Page
         };
     }
 
-    public function openBomInstruction(int $esbBomId, string $bomName): void
+    public function editBomInstructionAction(): Action
     {
-        $this->authorizeProjectManagement();
-        $this->assertBomInstructionTarget($esbBomId);
-        $instruction = RndBomInstruction::query()
-            ->where('rnd_project_id', $this->projectId)
-            ->where('rnd_project_product_id', $this->productId)
-            ->where('esb_bom_id', $esbBomId)
-            ->first();
+        return Action::make('editBomInstruction')
+            ->label('Edit Informasi')
+            ->icon('heroicon-o-pencil-square')
+            ->color('primary')
+            ->modalHeading(fn (array $arguments): string => 'Informasi BOM · '.($arguments['bomName'] ?? 'BOM'))
+            ->modalDescription('Gunakan format teks, daftar berurutan, dan gambar untuk menjelaskan proses pembuatan.')
+            ->modalWidth(Width::FiveExtraLarge)
+            ->fillForm(function (array $arguments): array {
+                $this->authorizeProjectManagement();
+                $esbBomId = (int) ($arguments['bomId'] ?? 0);
+                $this->assertBomInstructionTarget($esbBomId);
+                $html = (string) RndBomInstruction::query()
+                    ->where('rnd_project_id', $this->projectId)
+                    ->where('rnd_project_product_id', $this->productId)
+                    ->where('esb_bom_id', $esbBomId)
+                    ->value('content_html');
 
-        $this->bomInstructionEsbId = $esbBomId;
-        $this->bomInstructionName = $bomName;
-        $this->bomInstructionHtml = (string) ($instruction?->content_html ?? '');
-        $this->bomInstructionUploads = [];
-        $this->resetValidation();
-        $this->dispatch('open-bom-instruction');
-    }
-
-    public function saveBomInstruction(): void
-    {
-        $this->authorizeProjectManagement();
-        $validated = $this->validate([
-            'bomInstructionEsbId' => ['required', 'integer', 'min:1'],
-            'bomInstructionHtml' => ['nullable', 'string', 'max:100000'],
-            'bomInstructionUploads' => ['array', 'max:8'],
-            'bomInstructionUploads.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
-        ]);
-        $this->assertBomInstructionTarget($validated['bomInstructionEsbId']);
-        $instruction = RndBomInstruction::query()->firstOrNew([
-            'rnd_project_id' => $this->projectId,
-            'rnd_project_product_id' => $this->productId,
-            'esb_bom_id' => $validated['bomInstructionEsbId'],
-        ]);
-        $previousHtml = (string) ($instruction->content_html ?? '');
-        $newPaths = [];
-
-        try {
-            foreach ($this->bomInstructionUploads as $upload) {
-                $path = $upload->store(
-                    "rnd/bom-instructions/{$this->projectId}/{$this->productId}/{$validated['bomInstructionEsbId']}",
-                    'b2',
-                );
-                if (! is_string($path) || $path === '') {
-                    throw new \RuntimeException('Gambar instruksi gagal diunggah ke Cloudflare R2.');
-                }
-                $newPaths[] = $path;
-            }
-
-            $sanitizedHtml = $this->sanitizeBomInstruction($validated['bomInstructionHtml'] ?? '');
-            $instruction->fill([
-                'content_html' => $sanitizedHtml,
-                'image_paths' => array_values(array_merge($instruction->image_paths ?? [], $newPaths)),
-                'updated_by' => auth()->id(),
-            ])->save();
-            $this->pruneOrphanedStoredImages($previousHtml, $sanitizedHtml);
-        } catch (Throwable $exception) {
-            if ($newPaths !== []) {
-                Storage::disk('b2')->delete($newPaths);
-            }
-            throw $exception;
-        }
-
-        $this->loadBomInstructions();
-        $this->bomInstructionUploads = [];
-        $this->dispatch('close-bom-instruction');
-        Notification::make()->title('Informasi tambahan BOM berhasil disimpan')->success()->send();
+                return ['content' => $this->convertLegacyInstructionImages($html)];
+            })
+            ->schema([
+                RichEditor::make('content')
+                    ->label('Informasi Tambahan & Cara Pembuatan')
+                    ->toolbarButtons([
+                        ['bold', 'italic', 'underline'],
+                        ['h2', 'h3'],
+                        ['bulletList', 'orderedList'],
+                        ['link', 'attachFiles'],
+                        ['undo', 'redo'],
+                    ])
+                    ->fileAttachmentsDisk('b2')
+                    ->fileAttachmentsDirectory(fn (): string => "rnd/bom-instructions/{$this->projectId}/{$this->productId}/rich-editor")
+                    ->fileAttachmentsVisibility('private')
+                    ->fileAttachmentsAcceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->fileAttachmentsMaxSize(8192)
+                    ->maxLength(5000000),
+            ])
+            ->modalSubmitActionLabel('Simpan Informasi')
+            ->action(function (array $arguments, array $data): void {
+                $this->saveInlineBomInstruction((int) ($arguments['bomId'] ?? 0), (string) ($data['content'] ?? ''));
+            });
     }
 
     public function saveInlineBomInstruction(int $esbBomId, string $contentHtml): void
@@ -364,16 +333,6 @@ class ViewProjectProductPage extends Page
         Notification::make()->title('Informasi BOM berhasil disimpan')->success()->send();
     }
 
-    public function saveInlineBomInstructionDraft(int $esbBomId): void
-    {
-        $text = (string) ($this->bomInstructionTextDrafts[$esbBomId] ?? '');
-        $contentHtml = $text === ''
-            ? ''
-            : '<p>'.nl2br(e($text), false).'</p>';
-
-        $this->saveInlineBomInstruction($esbBomId, $contentHtml);
-    }
-
     public function deleteBomInstructionImage(int $esbBomId, string $encodedPath): void
     {
         $this->authorizeProjectManagement();
@@ -407,22 +366,13 @@ class ViewProjectProductPage extends Page
         $this->bomInstructions = $instructions
             ->mapWithKeys(fn (RndBomInstruction $instruction): array => [
                 $instruction->esb_bom_id => [
-                    'content_html' => $instruction->content_html,
+                    'content_html' => $this->renderBomInstruction((string) $instruction->content_html),
                     'images' => $instruction->imageUrls(),
                     'updated_at' => $instruction->updated_at?->toIso8601String(),
                 ],
             ])
             ->all();
 
-        foreach ($instructions as $instruction) {
-            if (! array_key_exists($instruction->esb_bom_id, $this->bomInstructionTextDrafts)) {
-                $html = preg_replace('/<br\s*\/?>/i', "\n", (string) $instruction->content_html) ?? '';
-                $html = preg_replace('/<\/(p|div|h[1-6]|li)>/i', "\n", $html) ?? $html;
-                $this->bomInstructionTextDrafts[$instruction->esb_bom_id] = trim(
-                    html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                );
-            }
-        }
     }
 
     /**
@@ -456,6 +406,15 @@ class ViewProjectProductPage extends Page
         $html = preg_replace('/\son\w+\s*=\s*(["\']).*?\1/iu', '', $html) ?? '';
         $html = preg_replace('/javascript\s*:/iu', '', $html) ?? '';
         $html = preg_replace_callback('/<img\b[^>]*>/iu', function (array $match): string {
+            if (preg_match('/\bdata-id\s*=\s*(["\'])(.*?)\1/iu', $match[0], $dataId)) {
+                $path = html_entity_decode($dataId[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $expectedPrefix = "rnd/bom-instructions/{$this->projectId}/{$this->productId}/rich-editor/";
+
+                return str_starts_with($path, $expectedPrefix)
+                    ? '<img data-id="'.e($path).'" alt="Foto proses BOM">'
+                    : '';
+            }
+
             if (! preg_match('/\bsrc\s*=\s*(["\'])(.*?)\1/iu', $match[0], $src)) {
                 return '';
             }
@@ -496,6 +455,33 @@ class ViewProjectProductPage extends Page
         return trim($html);
     }
 
+    private function convertLegacyInstructionImages(string $html): string
+    {
+        return preg_replace_callback('/<img\b[^>]*\bsrc\s*=\s*(["\'])(.*?)\1[^>]*>/iu', function (array $match): string {
+            if (! preg_match(
+                '#/rnd-bom-instruction-images/(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)#iu',
+                $match[2],
+                $path,
+            )) {
+                return $match[0];
+            }
+
+            return '<img data-id="'.e($path[1]).'" alt="Foto proses BOM">';
+        }, $html) ?? $html;
+    }
+
+    private function renderBomInstruction(string $html): string
+    {
+        if (! str_contains($html, 'data-id=')) {
+            return $html;
+        }
+
+        return RichContentRenderer::make($html)
+            ->fileAttachmentsDisk('b2')
+            ->fileAttachmentsVisibility('private')
+            ->toHtml();
+    }
+
     private function storedImageUrlPattern(): string
     {
         return '#^(?:https?://[^/"\'\s]+)?/rnd-bom-instruction-images/(rnd/bom-instructions/'
@@ -513,7 +499,13 @@ class ViewProjectProductPage extends Page
             $matches,
         );
 
-        return array_values(array_unique($matches[1] ?? []));
+        preg_match_all(
+            '#data-id=(["\'])(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/rich-editor/[^"\']+)\1#iu',
+            $html,
+            $attachmentMatches,
+        );
+
+        return array_values(array_unique(array_merge($matches[1] ?? [], $attachmentMatches[2] ?? [])));
     }
 
     private function pruneOrphanedStoredImages(string $previousHtml, string $sanitizedHtml): void

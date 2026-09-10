@@ -8,6 +8,7 @@ use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcing
 use App\Models\RndProductEsbMaterial;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
@@ -19,6 +20,9 @@ use Filament\Schemas\Components\Component;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -56,32 +60,87 @@ class MaterialSourcingResource extends Resource
             }))
             ->columns([
                 TextColumn::make('product.project.name')
-                    ->label('Project')
+                    ->label('PROJECT')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('product.name')
-                    ->label('Produk')
-                    ->searchable(),
+                    ->label('PRODUK')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('product_name')
-                    ->label('Bahan')
+                    ->label('BAHAN')
                     ->searchable()
                     ->wrap(),
 
                 TextColumn::make('product_code')
-                    ->label('Kode')
+                    ->label('KODE')
                     ->badge()
                     ->color('gray'),
 
                 TextColumn::make('sourcing_status')
-                    ->label('Status Sourcing')
-                    ->badge(),
+                    ->label('STATUS SOURCING')
+                    ->badge()
+                    ->sortable(),
 
                 TextColumn::make('sourcings_count')
-                    ->label('Supplier'),
+                    ->label('SUPPLIER'),
+
+                TextColumn::make('updated_at')
+                    ->label('DIPERBARUI')
+                    ->date('d M Y')
+                    ->sortable(),
             ])
+            ->filters([
+                Filter::make('project_name')
+                    ->label('PROJECT')
+                    ->form([TextInput::make('value')->label('Project')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->whereHas('product.project', fn (Builder $query) => $query
+                                ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
+
+                Filter::make('product_name_filter')
+                    ->label('PRODUK')
+                    ->form([TextInput::make('value')->label('Produk')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->whereHas('product', fn (Builder $query) => $query
+                                ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
+
+                Filter::make('material_name')
+                    ->label('BAHAN')
+                    ->form([TextInput::make('value')->label('Bahan')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('product_name', 'like', '%'.trim((string) $data['value']).'%'))),
+
+                Filter::make('product_code_filter')
+                    ->label('KODE')
+                    ->form([TextInput::make('value')->label('Kode')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('product_code', 'like', '%'.trim((string) $data['value']).'%'))),
+
+                SelectFilter::make('sourcing_status')
+                    ->label('STATUS SOURCING')
+                    ->options(MaterialSourcingStatus::class),
+
+                Filter::make('updated_at')
+                    ->label('DIPERBARUI')
+                    ->form([
+                        DatePicker::make('from')->label('Dari Tanggal'),
+                        DatePicker::make('until')->label('Sampai Tanggal'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('updated_at', '>=', $date))
+                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('updated_at', '<=', $date))),
+            ], layout: FiltersLayout::AboveContent)
+            ->deferFilters(false)
             ->defaultSort('updated_at', 'desc')
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50, 100])
             ->recordActions([
                 Action::make('view_sourcing')
                     ->label('Lihat Supplier')

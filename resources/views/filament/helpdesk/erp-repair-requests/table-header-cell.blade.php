@@ -1,5 +1,6 @@
 @php
     use App\Enums\ItRequestStatus;
+    use App\Enums\MaterialSourcingStatus;
     use App\Models\Branch;
     use App\Models\ErpModule;
     use App\Models\ItRequestType;
@@ -17,9 +18,17 @@
         'keterangan' => '18%',
         'status' => '9%',
         'priority' => '9%',
+        'product.project.name' => '18%',
+        'product.name' => '17%',
+        'product_name' => '22%',
+        'product_code' => '12%',
+        'sourcing_status' => '13%',
+        'sourcings_count' => '7%',
+        'updated_at' => '11%',
         default => null,
     };
     $inputClass = 'mt-2 block w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-normal normal-case tracking-normal text-gray-900 shadow-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white';
+    $dateFilterName = $name === 'updated_at' ? 'updated_at' : 'created_at';
 @endphp
 
 @once
@@ -86,11 +95,12 @@
             @break
 
         @case('created_at')
+        @case('updated_at')
             <div
                 x-data="{
                     open: false,
-                    from: $wire.entangle('tableFilters.created_at.from').live,
-                    until: $wire.entangle('tableFilters.created_at.until').live,
+                    from: $wire.entangle('tableFilters.{{ $dateFilterName }}.from').live,
+                    until: $wire.entangle('tableFilters.{{ $dateFilterName }}.until').live,
                     draftFrom: null,
                     draftUntil: null,
                     hover: null,
@@ -243,6 +253,31 @@
                     </div>
                 </template>
             </div>
+            @break
+
+        @case('product.project.name')
+            <input wire:model.live.debounce.500ms="tableFilters.project_name.value" type="search" placeholder="Cari project..." class="{{ $inputClass }}">
+            @break
+
+        @case('product.name')
+            <input wire:model.live.debounce.500ms="tableFilters.product_name_filter.value" type="search" placeholder="Cari produk..." class="{{ $inputClass }}">
+            @break
+
+        @case('product_name')
+            <input wire:model.live.debounce.500ms="tableFilters.material_name.value" type="search" placeholder="Cari bahan..." class="{{ $inputClass }}">
+            @break
+
+        @case('product_code')
+            <input wire:model.live.debounce.500ms="tableFilters.product_code_filter.value" type="search" placeholder="Cari kode..." class="{{ $inputClass }}">
+            @break
+
+        @case('sourcing_status')
+            <select wire:model.live="tableFilters.sourcing_status.value" class="{{ $inputClass }}">
+                <option value="">- Semua Status -</option>
+                @foreach(MaterialSourcingStatus::cases() as $status)
+                    <option value="{{ $status->value }}">{{ $status->getLabel() }}</option>
+                @endforeach
+            </select>
             @break
 
         @case('requester.name')

@@ -11,6 +11,7 @@ use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Url;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -90,6 +91,52 @@ it('excludes Barang WIP materials from the sourcing list', function () {
     Livewire::test(ListMaterialSourcings::class)
         ->assertCanSeeTableRecords([$this->material])
         ->assertCanNotSeeTableRecords([$wipMaterial]);
+});
+
+it('filters the sourcing index like the erp request index', function () {
+    $otherProject = RndProject::create(['name' => 'Project Lain', 'start_date' => now(), 'end_date' => now()->addMonths(3)]);
+    $otherProduct = RndProjectProduct::create(['rnd_project_id' => $otherProject->id, 'name' => 'Produk Lain']);
+    $otherMaterial = RndProductEsbMaterial::create([
+        'rnd_project_product_id' => $otherProduct->id,
+        'category_id' => 1,
+        'sub_category_id' => 1,
+        'uom_id' => 1,
+        'uom_name' => 'KG',
+        'product_code' => 'MAT-OTHER',
+        'product_name' => 'Gula Pasir',
+        'sku' => 'SKU-MAT-OTHER',
+        'status' => 'draft',
+        'sourcing_status' => MaterialSourcingStatus::Approved,
+    ]);
+    $this->actingAs($this->purchasing);
+
+    Livewire::test(ListMaterialSourcings::class)
+        ->filterTable('project_name', ['value' => 'Project A'])
+        ->assertCanSeeTableRecords([$this->material])
+        ->assertCanNotSeeTableRecords([$otherMaterial])
+        ->resetTableFilters()
+        ->filterTable('sourcing_status', MaterialSourcingStatus::Approved->value)
+        ->assertCanSeeTableRecords([$otherMaterial])
+        ->assertCanNotSeeTableRecords([$this->material]);
+});
+
+it('renders sourcing filters directly inside table headers like the erp request index', function () {
+    $this->actingAs($this->purchasing);
+
+    $response = $this->get(route('filament.helpdesk.resources.material-sourcings.index'));
+
+    $response->assertOk()
+        ->assertSee('Cari project...')
+        ->assertSee('Cari produk...')
+        ->assertSee('Cari bahan...')
+        ->assertSee('Cari kode...')
+        ->assertSee('- Semua Status -');
+});
+
+it('keeps sourcing filter state out of the url', function () {
+    $property = new ReflectionProperty(ListMaterialSourcings::class, 'tableFilters');
+
+    expect($property->getAttributes(Url::class))->toBeEmpty();
 });
 
 it('lets purchasing edit suppliers from the view supplier modal', function () {

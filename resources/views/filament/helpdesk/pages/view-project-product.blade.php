@@ -410,7 +410,7 @@
                         </div>
 
                         @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $mainBom])
-                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $mainBom->esb_bom_id, 'instructionInstanceKey' => 'main-'.$mainBom->id, 'bomName' => $mainBom->bom_name])
+                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $mainBom->esb_bom_id, 'instructionInstanceKey' => 'main-'.$mainBom->id])
 
                         <div class="grid grid-cols-1 gap-3 p-4">
                             @foreach($childGroups as $usageType => $group)
@@ -496,7 +496,7 @@
                                                     </div>
                                                 </div>
                                                 @endif
-                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $autoRecipe['bomID'], 'instructionInstanceKey' => 'auto-'.$mainBom->id.'-'.$autoRecipe['bomID'], 'bomName' => $autoRecipe['bomName']])
+                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $autoRecipe['bomID'], 'instructionInstanceKey' => 'auto-'.$mainBom->id.'-'.$autoRecipe['bomID']])
                                             </div>
                                         @endforeach
                                         @foreach($autoPackaging as $packagingItem)
@@ -529,7 +529,7 @@
                                                     @endif
                                                 </div>
                                                 @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $bom])
-                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id, 'instructionInstanceKey' => 'child-'.$mainBom->id.'-'.$bom->id, 'bomName' => $bom->bom_name])
+                                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id, 'instructionInstanceKey' => 'child-'.$mainBom->id.'-'.$bom->id])
                                             </div>
                                         @endforeach
                                         @if($children->isEmpty() && count($autoRecipes) === 0 && count($autoPackaging) === 0)
@@ -566,7 +566,7 @@
                                     @endif
                                 </div>
                                 @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $bom])
-                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id, 'instructionInstanceKey' => 'unassigned-'.$bom->id, 'bomName' => $bom->bom_name])
+                                @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $bom->esb_bom_id, 'instructionInstanceKey' => 'unassigned-'.$bom->id])
                             @endforeach
                         </div>
                     </section>
@@ -617,7 +617,7 @@
                         </div>
 
                         @include('filament.helpdesk.rnd-projects.partials.inline-bom-components', ['bom' => $menuBom])
-                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $menuBom->esb_bom_id, 'instructionInstanceKey' => 'menu-'.$menuBom->id, 'bomName' => $menuBom->bom_name])
+                        @include('filament.helpdesk.rnd-projects.partials.inline-bom-instruction', ['instructionBomId' => (int) $menuBom->esb_bom_id, 'instructionInstanceKey' => 'menu-'.$menuBom->id])
                     </section>
                 @empty
                     <div class="rounded-xl border border-dashed border-blue-300 py-12 text-center dark:border-blue-800">

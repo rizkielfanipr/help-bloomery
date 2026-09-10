@@ -243,7 +243,7 @@ class ViewProjectProductPage extends Page
             ->label('Edit Informasi')
             ->icon('heroicon-o-pencil-square')
             ->color('primary')
-            ->modalHeading(fn (array $arguments): string => 'Informasi BOM · '.($arguments['bomName'] ?? 'BOM'))
+            ->modalHeading(fn (array $arguments): string => 'Informasi BOM #'.(int) ($arguments['bomId'] ?? 0))
             ->modalDescription('Gunakan format teks, daftar berurutan, dan gambar untuk menjelaskan proses pembuatan.')
             ->modalWidth(Width::FiveExtraLarge)
             ->fillForm(function (array $arguments): array {

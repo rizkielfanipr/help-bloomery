@@ -770,7 +770,7 @@ it('saves formatted instruction content through the TipTap modal action', functi
     ])->callAction(
         'editBomInstruction',
         ['content' => '<p><strong>Persiapan</strong></p><ol><li>Campurkan bahan</li></ol>'],
-        ['bomId' => 1054, 'bomName' => 'Crepes Assembly'],
+        ['bomId' => 1054],
     )->assertHasNoActionErrors();
 
     expect(RndBomInstruction::query()->firstOrFail()->content_html)
@@ -801,7 +801,7 @@ it('opens a single modal rich editor instead of mounting an editor for every BOM
     expect($view)
         ->not->toContain('new Quill');
     expect($partial)
-        ->toContain('mountAction("editBomInstruction"')
+        ->toContain("mountAction('editBomInstruction'")
         ->toContain('Edit Informasi')
         ->not->toContain('wire:ignore');
 });

@@ -19,7 +19,7 @@
                 @endif
                 <button
                     type="button"
-                    wire:click='mountAction("editBomInstruction", { bomId: {{ $instructionBomId }}, bomName: @js($bomName ?? "BOM") })'
+                    wire:click="mountAction('editBomInstruction', { bomId: {{ $instructionBomId }} })"
                     class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700"
                 >
                     <x-heroicon-o-pencil-square class="h-4 w-4" />

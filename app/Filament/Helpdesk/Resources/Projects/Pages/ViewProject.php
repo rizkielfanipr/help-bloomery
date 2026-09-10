@@ -216,6 +216,7 @@ class ViewProject extends ViewRecord
             $offlinePrice = (string) ($price['offline_price'] ?? 0);
             $onlinePrice = (string) ($price['online_price'] ?? 0);
 
+            $price['enabled'] = (bool) ($price['enabled'] ?? true);
             $price['has_separate_offline_prices'] = true;
             $price['dine_in_price'] = (string) ($price['dine_in_price'] ?? $offlinePrice);
             $price['takeaway_price'] = (string) ($price['takeaway_price'] ?? $offlinePrice);
@@ -239,18 +240,16 @@ class ViewProject extends ViewRecord
             'productDescription' => ['nullable', 'string', 'max:3000'],
             'priceEffectiveFrom' => ['required', 'date'],
             'regionalPrices' => ['required', 'array'],
+            'regionalPrices.*.enabled' => ['required', 'boolean'],
             'regionalPrices.*.region_id' => ['required', 'integer', 'exists:sales_regions,id'],
-            'regionalPrices.*.offline_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.offline_price' => ['nullable', 'numeric', 'min:0'],
             'regionalPrices.*.has_separate_offline_prices' => ['required', 'boolean'],
-            'regionalPrices.*.dine_in_price' => ['required', 'numeric', 'min:0'],
-            'regionalPrices.*.takeaway_price' => ['required', 'numeric', 'min:0'],
-            'regionalPrices.*.online_price' => ['required', 'numeric', 'min:0'],
-            'regionalPrices.*.gofood_price' => ['required', 'numeric', 'min:0'],
-            'regionalPrices.*.grabfood_price' => ['required', 'numeric', 'min:0'],
-            'regionalPrices.*.shopeefood_price' => ['required', 'numeric', 'min:0'],
-            'regionalPrices.*.gofood_price' => ['required', 'numeric', 'min:0'],
-            'regionalPrices.*.grabfood_price' => ['required', 'numeric', 'min:0'],
-            'regionalPrices.*.shopeefood_price' => ['required', 'numeric', 'min:0'],
+            'regionalPrices.*.dine_in_price' => ['nullable', 'required_if:regionalPrices.*.enabled,true', 'numeric', 'min:0'],
+            'regionalPrices.*.takeaway_price' => ['nullable', 'required_if:regionalPrices.*.enabled,true', 'numeric', 'min:0'],
+            'regionalPrices.*.online_price' => ['nullable', 'numeric', 'min:0'],
+            'regionalPrices.*.gofood_price' => ['nullable', 'required_if:regionalPrices.*.enabled,true', 'numeric', 'min:0'],
+            'regionalPrices.*.grabfood_price' => ['nullable', 'required_if:regionalPrices.*.enabled,true', 'numeric', 'min:0'],
+            'regionalPrices.*.shopeefood_price' => ['nullable', 'required_if:regionalPrices.*.enabled,true', 'numeric', 'min:0'],
             'releaseDate' => ['nullable', 'date'],
             'productStatus' => ['required', Rule::in(array_keys(RndProjectProduct::STATUSES))],
             'shelfLifeValue' => ['nullable', 'integer', 'min:1', 'max:9999'],
@@ -272,13 +271,10 @@ class ViewProject extends ViewRecord
             'salesProjections.*.notes' => ['nullable', 'string', 'max:1000'],
             'productPhoto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
-        $activeRegionIds = SalesRegion::query()->where('is_active', true)->pluck('id')->sort()->values();
-        $submittedRegionIds = collect($validated['regionalPrices'])->pluck('region_id')->map(fn ($id) => (int) $id)->sort()->values();
-        if ($activeRegionIds->values()->all() !== $submittedRegionIds->all()) {
-            $this->addError('regionalPrices', 'Harga harus diisi untuk seluruh region aktif.');
-
-            return;
-        }
+        $selectedRegionalPrices = collect($validated['regionalPrices'])
+            ->where('enabled', true)
+            ->values()
+            ->all();
         $projectionKeys = collect($validated['salesProjections'])->map(
             fn (array $projection): string => implode('|', [
                 $projection['projection_month'],
@@ -333,7 +329,7 @@ class ViewProject extends ViewRecord
             if ($planningIsInvalid) {
                 return;
             }
-            foreach ($validated['regionalPrices'] as $index => $price) {
+            foreach ($selectedRegionalPrices as $index => $price) {
                 if ((float) $price['dine_in_price'] <= 0
                     || (float) $price['takeaway_price'] <= 0
                     || (float) $price['gofood_price'] <= 0
@@ -360,10 +356,10 @@ class ViewProject extends ViewRecord
             }
         }
 
-        $minimumOffline = collect($validated['regionalPrices'])->min(
+        $minimumOffline = collect($selectedRegionalPrices)->min(
             fn (array $price): float => min((float) $price['dine_in_price'], (float) $price['takeaway_price'])
         ) ?? 0;
-        $minimumOnline = collect($validated['regionalPrices'])->min(
+        $minimumOnline = collect($selectedRegionalPrices)->min(
             fn (array $price): float => min(
                 (float) $price['gofood_price'],
                 (float) $price['grabfood_price'],
@@ -389,7 +385,7 @@ class ViewProject extends ViewRecord
         }
 
         try {
-            DB::transaction(function () use ($payload, $validated, &$message): void {
+            DB::transaction(function () use ($payload, $selectedRegionalPrices, $validated, &$message): void {
                 if ($this->editingProductId) {
                     $product = $this->record->products()->findOrFail($this->editingProductId);
                     $product->update($payload);
@@ -398,7 +394,7 @@ class ViewProject extends ViewRecord
                     $product = $this->record->products()->create($payload + ['created_by' => auth()->id()]);
                     $message = 'Product berhasil ditambahkan';
                 }
-                $this->saveRegionalPrices($product, $validated['regionalPrices'], $validated['priceEffectiveFrom']);
+                $this->saveRegionalPrices($product, $selectedRegionalPrices, $validated['priceEffectiveFrom']);
                 $this->saveSalesProjections($product, $validated['salesProjections']);
             });
         } catch (Throwable $exception) {
@@ -577,6 +573,7 @@ class ViewProject extends ViewRecord
         $regions = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $existing = $product?->regionalPrices()
             ->with('region')
+            ->where('status', 'active')
             ->orderByDesc('effective_from')
             ->get()
             ->unique('sales_region_id')
@@ -586,6 +583,7 @@ class ViewProject extends ViewRecord
             $price = $existing->get($region->id);
 
             return [
+                'enabled' => $price !== null,
                 'region_id' => $region->id,
                 'region_name' => $region->name,
                 'region_code' => $region->code,
@@ -604,6 +602,13 @@ class ViewProject extends ViewRecord
     private function saveRegionalPrices(RndProjectProduct $product, array $prices, string $effectiveFrom): void
     {
         $effectiveDate = Carbon::parse($effectiveFrom)->startOfDay();
+        $selectedRegionIds = collect($prices)->pluck('region_id')->map(fn ($id): int => (int) $id);
+
+        $product->regionalPrices()
+            ->where('status', 'active')
+            ->when($selectedRegionIds->isNotEmpty(), fn ($query) => $query->whereNotIn('sales_region_id', $selectedRegionIds))
+            ->update(['status' => 'expired']);
+
         foreach ($prices as $price) {
             $dineInPrice = (float) $price['dine_in_price'];
             $takeawayPrice = (float) $price['takeaway_price'];

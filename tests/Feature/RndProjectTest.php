@@ -6,6 +6,7 @@ use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
+use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\Branch;
 use App\Models\PrefixCategory;
 use App\Models\PrefixName;
@@ -226,6 +227,79 @@ it('creates and updates a product release with online and offline prices', funct
         ->firstOrFail()
         ->effective_from
         ->toDateString())->toBe('2026-08-01');
+});
+
+it('requires and exports pricing only for checked regions', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Selected Regional Pricing',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $regions = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->take(2)->get();
+    $regionalPrices = $regions->values()->map(fn (SalesRegion $region, int $index): array => [
+        'enabled' => $index === 0,
+        'region_id' => $region->id,
+        'region_name' => $region->name,
+        'region_code' => $region->code,
+        'offline_price' => '',
+        'online_price' => '',
+        'has_separate_offline_prices' => true,
+        'dine_in_price' => $index === 0 ? '30000' : '',
+        'takeaway_price' => $index === 0 ? '31000' : '',
+        'gofood_price' => $index === 0 ? '35000' : '',
+        'grabfood_price' => $index === 0 ? '36000' : '',
+        'shopeefood_price' => $index === 0 ? '37000' : '',
+    ])->all();
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->set('productName', 'Regional Product')
+        ->set('priceEffectiveFrom', today()->toDateString())
+        ->set('regionalPrices', $regionalPrices)
+        ->call('saveProduct')
+        ->assertHasNoErrors();
+
+    $product = $project->products()->where('name', 'Regional Product')->firstOrFail();
+    $bom = $project->boms()->create([
+        'esb_bom_id' => 9901,
+        'bom_code' => 'MENU-REGIONAL',
+        'bom_name' => 'Regional Menu',
+        'bom_type_name' => 'Menu',
+        'detail_snapshot' => [
+            'bomID' => 9901,
+            'bomName' => 'Regional Menu',
+            'bomDetails' => [],
+        ],
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($bom->id, ['usage_type' => 'menu']);
+    expect($product->currentRegionalPrices()->pluck('sales_region_id')->all())
+        ->toBe([$regions[0]->id]);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('editProduct', $product->id)
+        ->assertSet('regionalPrices.0.enabled', true)
+        ->assertSet('regionalPrices.1.enabled', false)
+        ->set('regionalPrices.0.enabled', false)
+        ->set('regionalPrices.1.enabled', true)
+        ->set('regionalPrices.1.dine_in_price', '40000')
+        ->set('regionalPrices.1.takeaway_price', '41000')
+        ->set('regionalPrices.1.gofood_price', '45000')
+        ->set('regionalPrices.1.grabfood_price', '46000')
+        ->set('regionalPrices.1.shopeefood_price', '47000')
+        ->call('saveProduct')
+        ->assertHasNoErrors();
+
+    $product->refresh();
+    expect($product->currentRegionalPrices()->pluck('sales_region_id')->all())
+        ->toBe([$regions[1]->id])
+        ->and($product->regionalPrices()->where('sales_region_id', $regions[0]->id)->latest('id')->value('status'))
+        ->toBe('expired');
+
+    $product->load(['boms', 'currentRegionalPrices.region']);
+    $pdfData = app(RndProductBomPdfController::class)->buildExportData($project, $product, 'store');
+    expect($pdfData['regionalPrices']->pluck('sales_region_id')->all())
+        ->toBe([$regions[1]->id]);
 });
 
 it('requires shelf life and a sales projection before a product is ready', function () {

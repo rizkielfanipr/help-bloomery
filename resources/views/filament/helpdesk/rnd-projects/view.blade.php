@@ -426,12 +426,18 @@
                                 @forelse($regionalPrices as $index => $price)
                                     <div class="grid gap-4 p-4 md:grid-cols-[minmax(160px,0.65fr)_minmax(0,2.35fr)] md:items-start">
                                         <div>
-                                            <p class="text-sm font-bold text-gray-900 dark:text-white">{{ $price['region_name'] }}</p>
-                                            <p class="font-mono text-xs text-gray-400">{{ $price['region_code'] }}</p>
+                                            <label class="flex cursor-pointer items-start gap-3">
+                                                <input wire:model.live="regionalPrices.{{ $index }}.enabled" type="checkbox" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                                <span>
+                                                    <span class="block text-sm font-bold text-gray-900 dark:text-white">{{ $price['region_name'] }}</span>
+                                                    <span class="block font-mono text-xs text-gray-400">{{ $price['region_code'] }}</span>
+                                                </span>
+                                            </label>
                                             <input wire:model="regionalPrices.{{ $index }}.region_id" type="hidden">
                                             <input wire:model="regionalPrices.{{ $index }}.offline_price" type="hidden">
                                             <input wire:model="regionalPrices.{{ $index }}.online_price" type="hidden">
                                         </div>
+                                        @if($price['enabled'] ?? false)
                                         <div class="space-y-4">
                                             <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-3 dark:border-gray-700 dark:bg-gray-800/50">
                                                 <p class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Offline</p>
@@ -461,6 +467,11 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        @else
+                                            <div class="rounded-xl border border-dashed border-gray-300 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700">
+                                                Centang region untuk mengisi dan menampilkan harga di PDF.
+                                            </div>
+                                        @endif
                                     </div>
                                 @empty
                                     <p class="p-5 text-center text-sm text-gray-500">Belum ada region aktif. Tambahkan melalui Master Region Penjualan.</p>

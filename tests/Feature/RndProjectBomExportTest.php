@@ -3,6 +3,7 @@
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
+use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Models\RndProject;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -17,6 +18,23 @@ beforeEach(function () {
     $admin->assignRole('SUPERADMIN');
     $this->actingAs($admin);
     config()->set('rnd.bom_pin', '246810');
+});
+
+it('keeps the complete styled product document when combining project PDFs', function () {
+    $controller = app(RndProjectBomPdfController::class);
+    $method = new ReflectionMethod($controller, 'combineRenderedDocuments');
+    $html = $method->invoke($controller, collect([
+        '<!DOCTYPE html><html><head><style>.kop{display:table}</style></head><body><div class="kop">First</div></body></html>',
+        '<!DOCTYPE html><html><head><style>.ignored{color:red}</style></head><body><div class="kop">Second</div></body></html>',
+    ]));
+
+    expect($html)
+        ->toStartWith('<!DOCTYPE html>')
+        ->toContain('<style>.kop{display:table}</style>')
+        ->toContain('<div class="kop">First</div>')
+        ->toContain('page-break-before: always;')
+        ->toContain('<div class="kop">Second</div>')
+        ->not->toContain('.ignored{color:red}');
 });
 
 it('exports only the selected BOM from the export checklist', function () {

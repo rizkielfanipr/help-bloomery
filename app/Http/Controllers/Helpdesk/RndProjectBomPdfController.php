@@ -7,6 +7,7 @@ use App\Models\RndProject;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 
 class RndProjectBomPdfController extends Controller
 {
@@ -54,17 +55,7 @@ class RndProjectBomPdfController extends Controller
 
             return view('exports.rnd-product-bom-pdf', $data)->render();
         });
-        $documents = $renderedDocuments->map(function (string $rendered): string {
-            preg_match('/<body>(.*)<\/body>/s', $rendered, $body);
-
-            return $body[1] ?? '';
-        })->filter()->values();
-
-        preg_match('/<style>(.*)<\/style>/s', $renderedDocuments->first(), $style);
-
-        $pages = $documents->map(fn (string $body): string => '<section class="project-product-document">'.$body.'</section>'
-        )->implode('');
-        $html = '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><style>'.($style[1] ?? '').'.project-product-document+.project-product-document{margin-top:14px;}</style></head><body>'.$pages.'</body></html>';
+        $html = $this->combineRenderedDocuments($renderedDocuments);
 
         $filename = $projectDocumentNumber.'.pdf';
 
@@ -90,5 +81,27 @@ class RndProjectBomPdfController extends Controller
         $domPdf = $pdf->getDomPDF();
         $font = $domPdf->getFontMetrics()->getFont('DejaVu Sans', 'normal');
         $domPdf->getCanvas()->page_text(470, 817, 'Halaman {PAGE_NUM} / {PAGE_COUNT}', $font, 7, [0.58, 0.64, 0.72]);
+    }
+
+    /** @param Collection<int, string> $renderedDocuments */
+    private function combineRenderedDocuments(Collection $renderedDocuments): string
+    {
+        $firstDocument = (string) $renderedDocuments->first();
+        $additionalPages = $renderedDocuments->skip(1)
+            ->map(function (string $document): string {
+                if (preg_match('/<body\b[^>]*>(.*?)<\/body>/is', $document, $body) !== 1) {
+                    return '';
+                }
+
+                return '<div style="page-break-before: always;">'.$body[1].'</div>';
+            })
+            ->filter()
+            ->implode('');
+
+        if ($additionalPages === '') {
+            return $firstDocument;
+        }
+
+        return preg_replace('/<\/body>/i', $additionalPages.'</body>', $firstDocument, 1) ?? $firstDocument;
     }
 }

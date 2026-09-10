@@ -747,7 +747,16 @@ it('leaves text paste to Quill and only intercepts clipboard image uploads', fun
         ->toContain("getData('text/plain')")
         ->toContain("addEventListener('paste'")
         ->toContain("if (plainText !== '' || html !== '')")
-        ->not->toContain('this.quill.clipboard.convert');
+        ->not->toContain('const pasted = this.quill.clipboard.convert');
+});
+
+it('loads initial Quill content without forcing a selection on hidden editors', function () {
+    $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
+
+    expect($view)
+        ->toContain("this.quill.clipboard.convert({ html: initialHtml, text: '' })")
+        ->toContain("this.quill.setContents(initialContents, 'silent')")
+        ->not->toContain('this.quill.clipboard.dangerouslyPasteHTML(initialHtml)');
 });
 
 it('rejects saving a BOM instruction for a BOM not attached to the product', function () {

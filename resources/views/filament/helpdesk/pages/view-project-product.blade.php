@@ -1135,7 +1135,10 @@
                         // on its own before our listeners run, bypassing compression and R2 upload.
                         // It can't be disabled via the modules config, so neutralize it directly.
                         this.quill.uploader.upload = () => {};
-                        if (initialHtml) this.quill.clipboard.dangerouslyPasteHTML(initialHtml);
+                        if (initialHtml) {
+                            const initialContents = this.quill.clipboard.convert({ html: initialHtml, text: '' });
+                            this.quill.setContents(initialContents, 'silent');
+                        }
                         // Some clipboards (e.g. macOS screenshots) paste an <img> with an embedded
                         // data URI as rich HTML rather than a raw file, which skips the Uploader
                         // module entirely. Strip <img> from that pipeline too, now that any saved

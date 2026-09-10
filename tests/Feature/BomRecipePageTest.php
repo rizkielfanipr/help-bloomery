@@ -750,8 +750,46 @@ it('uses the native Filament rich editor instead of custom clipboard handlers', 
         ->not->toContain('bomQuillEditor');
     expect($page)
         ->toContain('RichEditor::make')
+        ->toContain('->resizableImages()')
         ->toContain("['bulletList', 'orderedList']")
         ->toContain("['link', 'attachFiles']");
+});
+
+it('preserves safe resized image dimensions in BOM instructions', function () {
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+    $image = 'data:image/png;base64,'.base64_encode('small-image');
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call(
+        'saveInlineBomInstruction',
+        1054,
+        '<img src="'.$image.'" width="640" height="360" style="position:fixed" onerror="alert(1)">',
+    )->assertHasNoErrors();
+
+    expect(RndBomInstruction::query()->firstOrFail()->content_html)
+        ->toContain('width="640"')
+        ->toContain('height="360"')
+        ->not->toContain('style=')
+        ->not->toContain('onerror');
+});
+
+it('supports deeply nested TipTap content and keeps the editor modal scrollable', function () {
+    $page = file_get_contents(app_path('Filament/Helpdesk/Pages/ViewProjectProductPage.php'));
+
+    expect(config('livewire.payload.max_nesting_depth'))->toBe(30)
+        ->and($page)
+        ->toContain("'style' => 'min-height: 16rem; max-height: 60vh; overflow-y: auto;'")
+        ->toContain('->stickyModalHeader()')
+        ->toContain('->stickyModalFooter()');
 });
 
 it('saves formatted instruction content through the TipTap modal action', function () {

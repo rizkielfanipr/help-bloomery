@@ -246,6 +246,8 @@ class ViewProjectProductPage extends Page
             ->modalHeading(fn (array $arguments): string => 'Informasi BOM #'.(int) ($arguments['bomId'] ?? 0))
             ->modalDescription('Gunakan format teks, daftar berurutan, dan gambar untuk menjelaskan proses pembuatan.')
             ->modalWidth(Width::FiveExtraLarge)
+            ->stickyModalHeader()
+            ->stickyModalFooter()
             ->fillForm(function (array $arguments): array {
                 $this->authorizeProjectManagement();
                 $esbBomId = (int) ($arguments['bomId'] ?? 0);
@@ -273,6 +275,10 @@ class ViewProjectProductPage extends Page
                     ->fileAttachmentsVisibility('private')
                     ->fileAttachmentsAcceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
                     ->fileAttachmentsMaxSize(8192)
+                    ->resizableImages()
+                    ->extraInputAttributes([
+                        'style' => 'min-height: 16rem; max-height: 60vh; overflow-y: auto;',
+                    ])
                     ->maxLength(5000000),
             ])
             ->modalSubmitActionLabel('Simpan Informasi')
@@ -406,12 +412,14 @@ class ViewProjectProductPage extends Page
         $html = preg_replace('/\son\w+\s*=\s*(["\']).*?\1/iu', '', $html) ?? '';
         $html = preg_replace('/javascript\s*:/iu', '', $html) ?? '';
         $html = preg_replace_callback('/<img\b[^>]*>/iu', function (array $match): string {
+            $dimensions = $this->sanitizeInstructionImageDimensions($match[0]);
+
             if (preg_match('/\bdata-id\s*=\s*(["\'])(.*?)\1/iu', $match[0], $dataId)) {
                 $path = html_entity_decode($dataId[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $expectedPrefix = "rnd/bom-instructions/{$this->projectId}/{$this->productId}/rich-editor/";
 
                 return str_starts_with($path, $expectedPrefix)
-                    ? '<img data-id="'.e($path).'" alt="Foto proses BOM">'
+                    ? '<img data-id="'.e($path).'" alt="Foto proses BOM"'.$dimensions.'>'
                     : '';
             }
 
@@ -427,7 +435,7 @@ class ViewProjectProductPage extends Page
                 return '';
             }
 
-            return '<img src="'.e($url).'" alt="Foto proses BOM">';
+            return '<img src="'.e($url).'" alt="Foto proses BOM"'.$dimensions.'>';
         }, $html) ?? '';
         $html = preg_replace_callback('/<a\b[^>]*>/iu', static function (array $match): string {
             if (! preg_match('/\bhref\s*=\s*(["\'])(.*?)\1/iu', $match[0], $hrefMatch)) {
@@ -453,6 +461,27 @@ class ViewProjectProductPage extends Page
         }, $html) ?? '';
 
         return trim($html);
+    }
+
+    private function sanitizeInstructionImageDimensions(string $imageTag): string
+    {
+        $attributes = '';
+
+        foreach (['width', 'height'] as $attribute) {
+            if (! preg_match('/\b'.$attribute.'\s*=\s*(["\'])(.*?)\1/iu', $imageTag, $match)) {
+                continue;
+            }
+
+            $value = strtolower(trim(html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
+            if (preg_match('/^(?:[1-9]\d{0,3})(?:px|%)?$/', $value) !== 1) {
+                continue;
+            }
+
+            $attributes .= ' '.$attribute.'="'.e($value).'"';
+        }
+
+        return $attributes;
     }
 
     private function convertLegacyInstructionImages(string $html): string

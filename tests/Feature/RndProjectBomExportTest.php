@@ -37,6 +37,44 @@ it('keeps the complete styled product document when combining project PDFs', fun
         ->not->toContain('.ignored{color:red}');
 });
 
+it('shows every regional sales channel price in the store PDF', function () {
+    $product = (object) [
+        'name' => 'Channel Product',
+        'product_code' => 'CHANNEL-01',
+        'description' => null,
+    ];
+    $price = (object) [
+        'region' => (object) ['name' => 'Jakarta', 'code' => 'JKT'],
+        'offline_price' => 30000,
+        'online_price' => 35000,
+        'dine_in_price' => 31000,
+        'takeaway_price' => 32000,
+        'gofood_price' => 36000,
+        'grabfood_price' => 37000,
+        'shopeefood_price' => 38000,
+    ];
+
+    $view = $this->view('exports.partials.rnd-bom-section', [
+        'bom' => ['bomName' => 'Menu Product', 'bomDetails' => []],
+        'bomModel' => (object) ['bom_name' => 'Menu Product', 'product_name' => 'Channel Product'],
+        'exportScope' => 'store',
+        'instruction' => null,
+        'productPhoto' => null,
+        'productRecord' => $product,
+        'regionalPrices' => collect([$price]),
+        'resultUnitMap' => [],
+        'sectionLabel' => 'Menu',
+    ]);
+
+    $view->assertSeeTextInOrder([
+        'Dine In', 'Rp 31.000',
+        'Takeaway', 'Rp 32.000',
+        'GoFood', 'Rp 36.000',
+        'GrabFood', 'Rp 37.000',
+        'ShopeeFood', 'Rp 38.000',
+    ]);
+});
+
 it('exports only the selected BOM from the export checklist', function () {
     $project = RndProject::query()->create([
         'name' => 'Selective SOP Export',

@@ -44,6 +44,7 @@
         .regional-price-name span { color: #94a3b8; font-family: DejaVu Sans Mono, monospace; font-size: 7px; }
         .regional-price-values { margin-top: 2px; color: #64748b; font-size: 7.5px; }
         .regional-price-values strong { color: #1e293b; }
+        .regional-price-channel { display: inline-block; width: 48%; margin: 1px 0; }
         .regional-price-empty { margin-top: 5px; color: #94a3b8; font-size: 8px; }
 
         /* ─── MAIN GROUP ─── */

@@ -40,6 +40,9 @@ it('creates an IT ticket from the user app with a unique ticket number', functio
     expect($request->ticket_number)->toMatch('/^IT-\d{6}$/')
         ->and($request->status)->toBe(ItRequestStatus::Submitted)
         ->and($request->request_type_id)->toBe($this->type->id)
+        ->and($request->submitted_at)->not->toBeNull()
+        ->and($request->first_responded_at)->toBeNull()
+        ->and($request->response_business_seconds)->toBeNull()
         ->and($request->activities()->where('action', 'submitted')->exists())->toBeTrue();
 });
 

@@ -38,6 +38,10 @@ class ErpRepairRequest extends Model
             'attachments' => 'array',
             'status' => ItRequestStatus::class,
             'resolved_at' => 'datetime',
+            'submitted_at' => 'datetime',
+            'first_responded_at' => 'datetime',
+            'response_business_seconds' => 'integer',
+            'resolution_business_seconds' => 'integer',
         ];
     }
 
@@ -74,6 +78,10 @@ class ErpRepairRequest extends Model
     protected static function booted(): void
     {
         static::creating(function (self $request): void {
+            if ($request->status === ItRequestStatus::Submitted && ! $request->submitted_at) {
+                $request->submitted_at = $request->created_at ?? now();
+            }
+
             if ($request->ticket_number) {
                 return;
             }

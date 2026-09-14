@@ -2,12 +2,13 @@
 
 namespace App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages;
 
+use App\Actions\UpdateErpRequestStatusAction;
 use App\Enums\ItRequestStatus;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\ErpRepairRequestResource;
+use App\Services\ItBusinessHoursService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ViewErpRepairRequest extends ViewRecord
@@ -34,6 +35,29 @@ class ViewErpRepairRequest extends ViewRecord
         return $this->record->ticket_number.' — '.$this->record->module?->name;
     }
 
+    /** @return list<array{label: string, duration: string, days: list<array{date: string, start: string, end: string, seconds: int}>}> */
+    public function getSlaBreakdowns(): array
+    {
+        $businessHours = app(ItBusinessHoursService::class);
+        $metrics = [];
+        foreach ([
+            ['Respons pertama: Submitted → Review', $this->record->first_responded_at, $this->record->response_business_seconds],
+            ['Penyelesaian: Submitted → Completed', $this->record->status === ItRequestStatus::Completed ? $this->record->resolved_at : null, $this->record->resolution_business_seconds],
+        ] as [$label, $end, $seconds]) {
+            if ($seconds === null || ! $this->record->submitted_at || ! $end) {
+                continue;
+            }
+
+            $metrics[] = [
+                'label' => $label,
+                'duration' => $businessHours->formatDuration($seconds),
+                'days' => $businessHours->breakdown($this->record->submitted_at, $end),
+            ];
+        }
+
+        return $metrics;
+    }
+
     public function saveFollowUp(): void
     {
         $this->authorizeFollowUp();
@@ -56,24 +80,12 @@ class ViewErpRepairRequest extends ViewRecord
             return;
         }
 
-        $previousStatus = $this->record->status->value;
-
-        DB::transaction(function () use ($data, $status, $previousStatus): void {
-            $this->record->update([
-                'status' => $status,
-                'it_notes' => trim($data['itNotes']) ?: null,
-                'resolved_at' => $status === ItRequestStatus::Completed ? ($this->record->resolved_at ?? now()) : $this->record->resolved_at,
-                'closed_by' => $status === ItRequestStatus::Completed ? ($this->record->closed_by ?? auth()->id()) : $this->record->closed_by,
-            ]);
-
-            $this->record->activities()->create([
-                'actor_id' => auth()->id(),
-                'action' => $previousStatus === $status->value ? 'follow_up_updated' : 'status_changed',
-                'from_status' => $previousStatus,
-                'to_status' => $status->value,
-                'notes' => trim($data['itNotes']) ?: null,
-            ]);
-        });
+        app(UpdateErpRequestStatusAction::class)->execute(
+            $this->record,
+            $status,
+            $data['itNotes'],
+            auth()->user(),
+        );
 
         $this->reloadRecord();
         $this->fillFollowUp();

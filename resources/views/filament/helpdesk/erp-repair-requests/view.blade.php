@@ -20,6 +20,8 @@
         \App\Enums\ItRequestStatus::Completed->value => 4,
     ];
     $currentOrder = $statusOrder[$status->value] ?? -1;
+    $businessHours = app(\App\Services\ItBusinessHoursService::class);
+    $slaBreakdowns = $this->getSlaBreakdowns();
 @endphp
 
 <div class="mx-auto w-full max-w-6xl space-y-5">
@@ -39,7 +41,7 @@
                     'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300' => $status === \App\Enums\ItRequestStatus::Progress,
                     'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300' => $status === \App\Enums\ItRequestStatus::Rejected,
                 ])>{{ $status->getLabel() }}</span>
-                <span class="text-xs text-gray-400">{{ $record->created_at->format('d M Y, H:i') }}</span>
+                <span class="text-xs text-gray-400">{{ $record->submitted_at?->format('d M Y, H:i') ?? 'Tanggal pengajuan tidak tersedia' }}</span>
             </div>
         </div>
 
@@ -95,7 +97,7 @@
                     @foreach($timelineSteps as [$stepStatus, $icon])
                         @php
                             $isReached = $currentOrder >= ($statusOrder[$stepStatus->value] ?? 99);
-                            $activity = $record->activities->first(fn ($item) => $item->to_status === $stepStatus->value);
+                            $activity = $record->activities->last(fn ($item) => $item->to_status === $stepStatus->value && in_array($item->action, ['submitted', 'status_changed'], true));
                         @endphp
                         <div class="flex min-w-0 flex-1 items-start">
                             <div class="w-full text-center">
@@ -109,6 +111,56 @@
                 </div>
             </div>
         </div>
+    </section>
+
+    <section class="space-y-4 rounded-xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-700 dark:bg-gray-900">
+        <div>
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">SLA ERP IT · Jam kerja</h2>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Senin–Jumat 08.00–17.00 WIB. Waktu di luar jadwal tidak menambah durasi.</p>
+        </div>
+        <dl class="grid gap-4 sm:grid-cols-3">
+            @foreach ([
+                ['Pengajuan', $record->submitted_at],
+                ['Respons pertama IT', $record->first_responded_at],
+                ['Selesai', $status === \App\Enums\ItRequestStatus::Completed ? $record->resolved_at : null],
+            ] as [$label, $timestamp])
+                <div>
+                    <dt class="text-xs text-gray-500 dark:text-gray-400">{{ $label }}</dt>
+                    <dd class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $timestamp ? $timestamp->copy()->setTimezone(\App\Services\ItBusinessHoursService::TIMEZONE)->format('d M Y H:i:s').' WIB' : ($label === 'Pengajuan' ? 'Tidak tersedia' : 'Belum tercatat') }}</dd>
+                </div>
+            @endforeach
+        </dl>
+        <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Durasi respons pertama</p>
+                <p class="mt-1 font-semibold text-blue-700 dark:text-blue-300">{{ $record->response_business_seconds !== null ? $businessHours->formatDuration($record->response_business_seconds) : ($status === \App\Enums\ItRequestStatus::Submitted ? 'Belum direspons' : 'Tidak tersedia') }}</p>
+            </div>
+            <div class="rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Durasi penyelesaian</p>
+                <p class="mt-1 font-semibold text-blue-700 dark:text-blue-300">{{ $record->resolution_business_seconds !== null ? $businessHours->formatDuration($record->resolution_business_seconds) : match ($status) { \App\Enums\ItRequestStatus::Completed => 'Tidak tersedia', \App\Enums\ItRequestStatus::Rejected => 'Ditolak', default => 'Belum selesai' } }}</p>
+            </div>
+        </div>
+        @if (! in_array($status, [\App\Enums\ItRequestStatus::Completed, \App\Enums\ItRequestStatus::Rejected], true))
+            <p class="text-xs text-gray-500 dark:text-gray-400">Umur tiket aktif: {{ $businessHours->formatDuration($businessHours->secondsBetween($record->submitted_at, now())) }} kerja sejak Submitted, diperbarui saat halaman dimuat atau tiket ditindaklanjuti.</p>
+        @endif
+        @foreach ($slaBreakdowns as $metric)
+            <details class="rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-700">
+                <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">{{ $metric['label'] }} · {{ $metric['duration'] }}</summary>
+                <div class="mt-3 overflow-x-auto">
+                    <table class="w-full text-left text-xs text-gray-600 dark:text-gray-300">
+                        <thead><tr><th class="py-2 pr-3">Tanggal</th><th class="py-2 pr-3">Mulai dihitung (WIB)</th><th class="py-2 pr-3">Akhir dihitung (WIB)</th><th class="py-2">Durasi</th></tr></thead>
+                        <tbody>
+                            @forelse ($metric['days'] as $day)
+                                <tr class="border-t border-gray-100 dark:border-gray-800"><td class="py-2 pr-3">{{ $day['date'] }}</td><td class="py-2 pr-3">{{ $day['start'] }}</td><td class="py-2 pr-3">{{ $day['end'] }}</td><td class="py-2">{{ $businessHours->formatDuration($day['seconds']) }}</td></tr>
+                            @empty
+                                <tr><td colspan="4" class="py-2">Tidak ada waktu yang beririsan dengan jam kerja. Durasi 0 tetap valid.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        @endforeach
+        <x-erp-request.sla-explanation />
     </section>
 
     @if(! empty($record->attachments))

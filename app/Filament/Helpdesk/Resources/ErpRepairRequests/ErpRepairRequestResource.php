@@ -12,6 +12,7 @@ use App\Models\Branch;
 use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
 use App\Models\ItRequestType;
+use App\Services\ItBusinessHoursService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -80,7 +81,7 @@ class ErpRepairRequestResource extends Resource
                         ->color(fn (ItRequestStatus $state) => $state->getColor()),
                     TextEntry::make('requestType.name')->label('Request Type')->placeholder('-'),
                     TextEntry::make('module.name')->label('Modul ERP')->placeholder('-'),
-                    TextEntry::make('created_at')->label('Tanggal Pengajuan')->dateTime('d M Y H:i'),
+                    TextEntry::make('submitted_at')->label('Tanggal Pengajuan')->dateTime('d M Y H:i')->placeholder('Tidak tersedia'),
                     TextEntry::make('priority')->label('Priority')->badge(),
                 ]),
             ]),
@@ -158,8 +159,10 @@ class ErpRepairRequestResource extends Resource
 
                 TextColumn::make('created_at')
                     ->label('TANGGAL')
+                    ->getStateUsing(fn (ErpRepairRequest $record) => $record->submitted_at)
                     ->date('d M Y')
-                    ->sortable(),
+                    ->placeholder('Tidak tersedia')
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy('submitted_at', $direction)),
 
                 TextColumn::make('requester.name')
                     ->label('PEMOHON')
@@ -204,6 +207,24 @@ class ErpRepairRequestResource extends Resource
                         'low' => 'gray',
                         default => 'info',
                     }),
+
+                TextColumn::make('response_business_seconds')
+                    ->label('RESPONS PERTAMA')
+                    ->formatStateUsing(fn (int $state): string => app(ItBusinessHoursService::class)->formatDuration($state))
+                    ->placeholder(fn (ErpRepairRequest $record): string => $record->status === ItRequestStatus::Submitted ? 'Belum direspons' : 'Tidak tersedia')
+                    ->tooltip('Submitted → Review. Hanya Senin–Jumat 08.00–17.00 WIB.')
+                    ->sortable(),
+
+                TextColumn::make('resolution_business_seconds')
+                    ->label('PENYELESAIAN')
+                    ->formatStateUsing(fn (int $state): string => app(ItBusinessHoursService::class)->formatDuration($state))
+                    ->placeholder(fn (ErpRepairRequest $record): string => match ($record->status) {
+                        ItRequestStatus::Completed => 'Tidak tersedia',
+                        ItRequestStatus::Rejected => 'Ditolak',
+                        default => 'Belum selesai',
+                    })
+                    ->tooltip('Submitted → Completed, termasuk review dan approval. Hanya jam kerja.')
+                    ->sortable(),
             ])
             ->filters([
                 Filter::make('ticket_number')
@@ -218,8 +239,8 @@ class ErpRepairRequestResource extends Resource
                         DatePicker::make('until'),
                     ])
                     ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('created_at', '>=', $date))
-                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('created_at', '<=', $date))),
+                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('submitted_at', '>=', $date))
+                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('submitted_at', '<=', $date))),
 
                 Filter::make('requester_name')
                     ->form([TextInput::make('value')])
@@ -290,7 +311,7 @@ class ErpRepairRequestResource extends Resource
                     ->tooltip('Hapus data terpilih')
                     ->color('danger'),
             ])
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('submitted_at', 'desc')
             ->defaultPaginationPageOption(10)
             ->paginationPageOptions([10, 25, 50, 100]);
     }

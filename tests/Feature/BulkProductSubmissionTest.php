@@ -304,7 +304,10 @@ it('renders the Bulk Data menu, product pages, and promotion page for IT staff',
         ->assertSee('Target Comcode');
 
     Livewire::test(CreateBulkProductSubmission::class)
-        ->assertFormSet(['target_comcodes' => ['BLSS']]);
+        ->assertFormSet([
+            'target_comcodes' => ['BLSS'],
+            'payload.saleable' => true,
+        ]);
 
     $submission = BulkProductSubmission::factory()->create(['created_by' => $user->id, 'payload' => bulkProductPayload()]);
     $submission->items()->create(['comcode' => 'BLO7', 'status' => 'succeeded', 'remote_product_id' => 123]);

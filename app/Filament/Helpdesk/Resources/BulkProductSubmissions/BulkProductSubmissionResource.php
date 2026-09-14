@@ -118,7 +118,7 @@ class BulkProductSubmissionResource extends Resource
                 TextInput::make('payload.productName')->label('Product Name')->required()->maxLength(100),
                 Toggle::make('payload.requestable')->label('Requestable')->default(true),
                 Toggle::make('payload.purchasable')->label('Purchasable')->default(true),
-                Toggle::make('payload.saleable')->label('Saleable')->default(false),
+                Toggle::make('payload.saleable')->label('Saleable')->default(true),
                 Toggle::make('payload.vat')->label('VAT')->default(false),
                 Select::make('payload.flagLuxuryItem')->label('Luxury Item')->options([0 => 'Non Luxury', 1 => 'Luxury'])->default(0)->required(),
                 TextInput::make('payload.receiptTolerance')->label('Receipt Tolerance (%)')->numeric()->default(0)->minValue(0),

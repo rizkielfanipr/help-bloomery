@@ -56,4 +56,31 @@ class ErpRequestSlaStatsWidget extends Widget
             ],
         ];
     }
+
+    /** @return list<array{label: string, value: string, description: string, target: string, target_met: ?bool, provisional: bool}> */
+    public function getKpis(): array
+    {
+        $sla = app(ErpRequestSlaService::class);
+        $kpis = $sla->ticketingKpis($this->getPageTableQuery());
+        $provisional = $kpis['pending'] > 0 || $kpis['missing_completed_duration'] > 0;
+
+        return [
+            [
+                'label' => 'Kecepatan pemrosesan data ERP',
+                'value' => $kpis['on_time_percent'] === null ? 'Tidak tersedia' : number_format($kpis['on_time_percent'], 2, ',', '.').'%',
+                'description' => $kpis['on_time'].' dari '.$kpis['total'].' permintaan Ticketing selesai ≤ 9 jam kerja. '.$kpis['pending'].' belum selesai; '.$kpis['missing_completed_duration'].' Completed tanpa durasi valid.',
+                'target' => 'Target ≥ 98% selesai ≤ 1 hari kerja (9 jam)',
+                'target_met' => $kpis['processing_target_met'],
+                'provisional' => $provisional,
+            ],
+            [
+                'label' => 'Penyelesaian Ticket IT ringan',
+                'value' => $sla->businessHours->formatDuration($kpis['completion_average']),
+                'description' => $kpis['completion_count'].' tiket Ticketing Completed dengan durasi valid. '.$kpis['missing_completed_duration'].' Completed tanpa durasi valid.',
+                'target' => 'Target rata-rata < 4 jam kerja',
+                'target_met' => $kpis['completion_target_met'],
+                'provisional' => $provisional,
+            ],
+        ];
+    }
 }

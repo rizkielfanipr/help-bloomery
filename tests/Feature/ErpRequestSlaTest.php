@@ -8,6 +8,7 @@ use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest
 use App\Filament\Helpdesk\Widgets\ErpRequestSlaStatsWidget;
 use App\Models\Branch;
 use App\Models\ErpRepairRequest;
+use App\Models\ItRequestType;
 use App\Models\User;
 use App\Services\ErpRequestSlaService;
 use Carbon\CarbonImmutable;
@@ -222,4 +223,106 @@ it('does not invent a historical completion timestamp when updating a completed 
 
     expect($request->refresh()->resolved_at)->toBeNull()
         ->and($request->resolution_business_seconds)->toBeNull();
+});
+
+it('limits KPIs to Ticketing and keeps all Ticketing requests in the percentage denominator', function () {
+    $ticketing = ItRequestType::where('name', 'Ticketing')->firstOrFail();
+    foreach ([
+        [ItRequestStatus::Completed, 0],
+        [ItRequestStatus::Completed, 32400],
+        [ItRequestStatus::Completed, 32401],
+        [ItRequestStatus::Completed, null],
+        [ItRequestStatus::Submitted, null],
+        [ItRequestStatus::Rejected, null],
+    ] as [$status, $duration]) {
+        ErpRepairRequest::factory()->create([
+            'request_type_id' => $ticketing->id, 'status' => $status,
+            'resolution_business_seconds' => $duration, 'resolved_at' => null,
+        ]);
+    }
+    foreach (['Project', 'CMS'] as $name) {
+        $type = ItRequestType::firstOrCreate(['name' => $name], ['priority' => 'medium', 'is_active' => true]);
+        ErpRepairRequest::factory()->create(['request_type_id' => $type->id, 'status' => ItRequestStatus::Completed, 'resolution_business_seconds' => 0]);
+        ErpRepairRequest::factory()->create(['request_type_id' => $type->id, 'status' => ItRequestStatus::Completed, 'resolution_business_seconds' => 999999]);
+    }
+    $deleted = ErpRepairRequest::factory()->create(['request_type_id' => $ticketing->id, 'status' => ItRequestStatus::Completed, 'resolution_business_seconds' => 0]);
+    $deleted->delete();
+
+    $kpis = app(ErpRequestSlaService::class)->ticketingKpis(ErpRepairRequest::query());
+    expect($kpis['total'])->toBe(6)->and($kpis['on_time'])->toBe(2)
+        ->and($kpis['on_time_percent'])->toBe(2 / 6 * 100)
+        ->and($kpis['completion_count'])->toBe(3)
+        ->and($kpis['completion_average'])->toBe((32400.0 + 32401.0) / 3)
+        ->and($kpis['pending'])->toBe(1)->and($kpis['missing_completed_duration'])->toBe(1);
+
+    Livewire::test(ErpRequestSlaStatsWidget::class)->assertSee('KPI Ticketing')
+        ->assertSee('2 dari 6 permintaan Ticketing')
+        ->assertSee('Sementara')->assertSee('Project dan CMS tidak masuk');
+});
+
+it('compares the light ticket average against a strict four working hour limit', function (int $duration, bool $expected) {
+    $ticketing = ItRequestType::where('name', 'Ticketing')->firstOrFail();
+    ErpRepairRequest::factory()->create([
+        'request_type_id' => $ticketing->id, 'status' => ItRequestStatus::Completed,
+        'resolution_business_seconds' => $duration,
+    ]);
+    expect(app(ErpRequestSlaService::class)->ticketingKpis(ErpRepairRequest::query())['completion_target_met'])->toBe($expected);
+})->with([
+    'zero is a valid sample' => [0, true],
+    'below four hours' => [14399, true],
+    'exactly four hours' => [14400, false],
+    'over four hours' => [14401, false],
+]);
+
+it('accepts exactly ninety eight percent of Ticketing requests completed within one working day', function () {
+    $ticketing = ItRequestType::where('name', 'Ticketing')->firstOrFail();
+    ErpRepairRequest::factory()->count(49)->create([
+        'request_type_id' => $ticketing->id, 'status' => ItRequestStatus::Completed,
+        'resolution_business_seconds' => 32400,
+    ]);
+    ErpRepairRequest::factory()->create([
+        'request_type_id' => $ticketing->id, 'status' => ItRequestStatus::Rejected,
+        'resolution_business_seconds' => null,
+    ]);
+    $kpis = app(ErpRequestSlaService::class)->ticketingKpis(ErpRepairRequest::query());
+    expect($kpis['on_time_percent'])->toBe(98.0)->and($kpis['processing_target_met'])->toBeTrue();
+
+    ErpRepairRequest::factory()->create([
+        'request_type_id' => $ticketing->id, 'status' => ItRequestStatus::Completed,
+        'resolution_business_seconds' => 32401,
+    ]);
+    expect(app(ErpRequestSlaService::class)->ticketingKpis(ErpRepairRequest::query())['processing_target_met'])->toBeFalse();
+});
+
+it('does not declare a KPI target achieved without Ticketing data', function () {
+    $project = ItRequestType::where('name', 'Project')->firstOrFail();
+    ErpRepairRequest::factory()->create(['request_type_id' => $project->id, 'status' => ItRequestStatus::Completed, 'resolution_business_seconds' => 0]);
+    $kpis = app(ErpRequestSlaService::class)->ticketingKpis(ErpRepairRequest::query());
+    expect($kpis['total'])->toBe(0)->and($kpis['on_time_percent'])->toBeNull()
+        ->and($kpis['processing_target_met'])->toBeNull()->and($kpis['completion_target_met'])->toBeNull();
+    Livewire::test(ErpRequestSlaStatsWidget::class)->assertSee('Belum ada sampel yang bisa dinilai');
+});
+
+it('uses the existing table filters to select the Ticketing KPI cohort', function () {
+    $ticketing = ItRequestType::where('name', 'Ticketing')->firstOrFail();
+    $branch = Branch::factory()->create();
+    ErpRepairRequest::factory()->create([
+        'request_type_id' => $ticketing->id, 'branch_id' => $branch->id, 'status' => ItRequestStatus::Completed,
+        'submitted_at' => '2026-09-14 08:00:00', 'resolution_business_seconds' => 3600,
+    ]);
+    ErpRepairRequest::factory()->create([
+        'request_type_id' => $ticketing->id, 'branch_id' => null, 'status' => ItRequestStatus::Completed,
+        'submitted_at' => '2026-09-14 08:00:00', 'resolution_business_seconds' => 40000,
+    ]);
+    ErpRepairRequest::factory()->create([
+        'request_type_id' => $ticketing->id, 'branch_id' => $branch->id, 'status' => ItRequestStatus::Completed,
+        'submitted_at' => '2026-09-10 08:00:00', 'resolution_business_seconds' => 40000,
+    ]);
+    $widget = Livewire::test(ErpRequestSlaStatsWidget::class, ['tableFilters' => [
+        'branch_id' => ['value' => $branch->id],
+        'created_at' => ['from' => '2026-09-14', 'until' => '2026-09-14'],
+    ]]);
+    expect($widget->instance()->getKpis()[0]['value'])->toBe('100,00%')
+        ->and($widget->instance()->getKpis()[1]['value'])->toBe('1 jam 0 menit')
+        ->and($widget->instance()->getKpis()[0]['provisional'])->toBeFalse();
 });

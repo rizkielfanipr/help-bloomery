@@ -46,6 +46,23 @@ beforeEach(function () {
     ]);
 });
 
+it('hides Kitchen and Store BOM sections without the BOM view permission', function () {
+    $projectViewer = User::factory()->create(['is_active' => true]);
+    $projectViewer->givePermissionTo(['access backoffice', 'view rnd projects']);
+    $this->actingAs($projectViewer);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])
+        ->assertSee('Test Product Release')
+        ->assertDontSee('Bill of Material Kitchen')
+        ->assertDontSee('Bill of Material Store')
+        ->assertDontSee('Harga WA Dari Tanggal')
+        ->assertDontSee('Belum ada Main Recipe')
+        ->assertDontSee('Belum ada BOM Menu');
+});
+
 it('renders the BOM recipe form without a Blade parse error', function () {
     Livewire::test(CreateBomRecipePage::class, ['project' => $this->project->id, 'product' => $this->product->id])
         ->assertSee('Buat Bill of Material Baru')

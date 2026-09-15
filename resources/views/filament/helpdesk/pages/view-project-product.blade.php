@@ -325,6 +325,7 @@
             </div>
         </section>
 
+        @can('view bill of materials')
         <section wire:init="loadAllBomComponents" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
                 <div>
@@ -628,6 +629,7 @@
                 @endforelse
             </div>
         </section>
+        @endcan
 
         @if($inlineProductModalOpen)
             <div wire:init="loadInlineProducts" class="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6">

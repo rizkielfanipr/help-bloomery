@@ -8,6 +8,7 @@ use App\Models\Branch;
 use App\Models\RndProductSalesProjection;
 use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
+use App\Services\RndProjectMaterialForecastService;
 use Carbon\Carbon;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
@@ -788,13 +789,20 @@ class ViewProject extends ViewRecord
         }
     }
 
+    /** @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, product_count: int}>, projected_units: float, projected_products: int, warnings: list<string>} */
+    public function materialForecast(): array
+    {
+        return app(RndProjectMaterialForecastService::class)->calculate($this->record);
+    }
+
     private function reloadProject(): void
     {
         $this->record->refresh()->load([
-            'products.boms',
+            'products.boms.documentMaterials',
             'products.currentRegionalPrices.region',
             'products.salesProjections.region',
             'products.salesProjections.targetBranches',
+            'boms.documentMaterials',
             'documents.creator',
         ]);
     }

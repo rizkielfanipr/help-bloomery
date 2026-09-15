@@ -1190,9 +1190,10 @@ it('inlines R2-hosted BOM instruction images as base64 in the exported PDF', fun
         'updated_by' => auth()->id(),
     ]);
 
-    $exportUrl = route('helpdesk.rnd-products.bom-pdf', ['project' => $project->id, 'product' => $product->id]);
+    $exportUrl = route('helpdesk.rnd-products.bom-pdf', ['project' => $project->id, 'product' => $product->id, 'scope' => 'kitchen']);
 
     Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->call('openExportPdf', 'kitchen')
         ->set('exportPin', '246810')
         ->call('exportBomPdf')
         ->assertHasNoErrors()

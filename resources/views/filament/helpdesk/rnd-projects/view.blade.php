@@ -94,6 +94,97 @@
             </div>
         </section>
 
+        @can('view bill of materials')
+            @php $materialForecast = $this->materialForecast(); @endphp
+            <section class="overflow-hidden rounded-2xl border border-emerald-200 bg-white dark:border-emerald-900/70 dark:bg-gray-900">
+                <div class="border-b border-emerald-200 bg-emerald-50/70 p-5 dark:border-emerald-900/70 dark:bg-emerald-950/20">
+                    <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+                        <div class="flex items-start gap-3">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-200 bg-white text-emerald-600 dark:border-emerald-800 dark:bg-gray-900 dark:text-emerald-300">
+                                <x-heroicon-o-calculator class="h-6 w-6" />
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wider text-emerald-600">Purchasing Preparation</p>
+                                <h3 class="mt-1 text-xl font-bold text-gray-900 dark:text-white">Material Forecast</h3>
+                                <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">Perkiraan total bahan baku yang perlu disiapkan Purchasing berdasarkan proyeksi penjualan seluruh produk dalam project.</p>
+                                <div class="mt-3 inline-flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-gray-900 dark:text-emerald-200">
+                                    <x-heroicon-o-variable class="h-4 w-4 shrink-0" />
+                                    <span><strong>Rumus:</strong> Sales Projection × Qty Main Recipe + Tolerance bahan</span>
+                                </div>
+                                <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Component dan WIP ditelusuri sampai bahan baku terakhir. Bahan dengan kode dan unit yang sama otomatis dijumlahkan.</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                            <div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-white p-3.5 dark:border-emerald-800 dark:bg-gray-900">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                    <x-heroicon-o-cube class="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Produk Terhitung</p>
+                                    <p class="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">{{ number_format($materialForecast['projected_products']) }}</p>
+                                    <p class="text-[10px] text-gray-500">memiliki projection &amp; Main Recipe</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-white p-3.5 dark:border-emerald-800 dark:bg-gray-900">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                                    <x-heroicon-o-chart-bar class="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Total Proyeksi Penjualan</p>
+                                    <p class="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">{{ number_format($materialForecast['projected_units'], 0, ',', '.') }}</p>
+                                    <p class="text-[10px] text-gray-500">unit produk dalam project</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if($materialForecast['warnings'] !== [])
+                    <div class="border-b border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-900 dark:bg-amber-950/20">
+                        <div class="flex items-start gap-3">
+                            <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                            <div>
+                                <p class="text-sm font-bold text-amber-800 dark:text-amber-200">Mapping WIP Belum Lengkap</p>
+                                <p class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">Lengkapi BOM turunan berikut di ESB agar bahan bakunya dapat dihitung.</p>
+                                <ul class="mt-3 space-y-2">
+                                    @foreach($materialForecast['warnings'] as $warning)
+                                        <li class="rounded-lg border border-amber-200 bg-white/70 px-3 py-2 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-gray-900/40 dark:text-amber-200">{{ $warning }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[760px] text-sm">
+                        <thead class="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500 dark:bg-gray-800/70">
+                            <tr>
+                                <th class="px-5 py-3 text-left">Kode</th>
+                                <th class="px-5 py-3 text-left">Nama Bahan</th>
+                                <th class="px-5 py-3 text-right">Kebutuhan Gross</th>
+                                <th class="px-5 py-3 text-left">Unit</th>
+                                <th class="px-5 py-3 text-center">Sumber Produk</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @forelse($materialForecast['rows'] as $row)
+                                <tr>
+                                    <td class="px-5 py-3 font-mono text-xs font-bold text-emerald-700">{{ $row['code'] ?: 'MANUAL' }}</td>
+                                    <td class="px-5 py-3 font-semibold text-gray-800 dark:text-gray-100">{{ $row['name'] }}</td>
+                                    <td class="px-5 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ number_format($row['quantity'], 2, ',', '.') }}</td>
+                                    <td class="px-5 py-3 font-bold text-gray-500">{{ $row['unit'] }}</td>
+                                    <td class="px-5 py-3 text-center text-gray-500">{{ $row['product_count'] }} produk</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="px-5 py-10 text-center text-gray-500">Belum ada forecast. Isi Sales Projection dan Main Recipe pada produk project ini.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endcan
+
         <div>
             <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                 <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">

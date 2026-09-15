@@ -55,6 +55,23 @@ it('shows and filters shelf life products', function () {
         ->assertDontSee('Matcha Latte Bottle');
 });
 
+it('uses dedicated Shelf Life permissions independently from Project permissions', function () {
+    $projectOnlyUser = User::factory()->create(['is_active' => true]);
+    $projectOnlyUser->givePermissionTo(['access backoffice', 'view rnd projects', 'edit rnd projects']);
+    $this->actingAs($projectOnlyUser);
+
+    $this->get(ShelfLifePage::getUrl())->assertForbidden();
+
+    $shelfLifeViewer = User::factory()->create(['is_active' => true]);
+    $shelfLifeViewer->givePermissionTo(['access backoffice', 'view shelf life']);
+    $this->actingAs($shelfLifeViewer);
+
+    $this->get(ShelfLifePage::getUrl())
+        ->assertOk()
+        ->assertSee('Shelf Life Produk')
+        ->assertDontSee('Isi Shelf Life');
+});
+
 it('exports shelf life products to an xlsx file', function () {
     $project = RndProject::query()->create([
         'name' => 'Project Export',

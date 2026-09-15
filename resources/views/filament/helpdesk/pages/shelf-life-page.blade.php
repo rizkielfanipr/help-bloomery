@@ -59,7 +59,7 @@
                             <th class="px-4 py-3 text-left">Catatan</th>
                             <th class="px-4 py-3 text-left">Tanggal Rilis</th>
                             <th class="px-4 py-3 text-left">Status</th>
-                            @can('edit rnd projects')<th class="px-4 py-3 text-right">Aksi</th>@endcan
+                            @can('edit shelf life')<th class="px-4 py-3 text-right">Aksi</th>@endcan
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -86,7 +86,7 @@
                                 <td class="max-w-xs px-4 py-3 text-gray-600 dark:text-gray-300"><p class="line-clamp-2">{{ $product->storage_notes ?: '-' }}</p></td>
                                 <td class="px-4 py-3">{{ $product->release_date?->format('d M Y') ?? '-' }}</td>
                                 <td class="px-4 py-3"><span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{{ $statusLabel }}</span></td>
-                                @can('edit rnd projects')
+                                @can('edit shelf life')
                                     <td class="px-4 py-3 text-right">
                                         <button wire:click="editShelfLife({{ $product->id }})" type="button" class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50 dark:border-blue-900 dark:text-blue-300 dark:hover:bg-blue-950/30">
                                             <x-heroicon-o-pencil-square class="h-4 w-4" />

@@ -16,7 +16,7 @@ class ShelfLifeExportController extends Controller
 {
     public function __invoke(Request $request): BinaryFileResponse
     {
-        abort_unless(auth()->user()?->can('view rnd projects'), 403);
+        abort_unless(auth()->user()?->can('view shelf life'), 403);
 
         $query = RndProjectProduct::query()
             ->with('project:id,name')

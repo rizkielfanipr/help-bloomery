@@ -110,6 +110,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'access backoffice',
                 'view bill of materials', 'create bill of materials', 'edit bill of materials',
                 'view rnd projects', 'create rnd projects', 'edit rnd projects', 'delete rnd projects',
+                'view shelf life', 'edit shelf life',
                 'view product price index', 'sync product price index',
                 'view material sourcings', 'review material sourcing as rnd',
             ]);
@@ -127,6 +128,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access backoffice',
                 'view rnd projects', 'upload marketing materials',
+                'view shelf life',
             ]);
 
         Role::firstOrCreate(['name' => 'INVENTORY_STAFF', 'guard_name' => 'web'])

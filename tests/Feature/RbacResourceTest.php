@@ -83,6 +83,15 @@ it('bundles sales region access into Project and removes payment grouping permis
         ->and(Permission::where('name', 'view payment method groups')->exists())->toBeFalse();
 });
 
+it('registers Shelf Life permissions separately from Project permissions', function () {
+    $groups = app(PermissionRegistry::class)->groups();
+
+    expect($groups['Research & Development']['Shelf Life'])->toBe([
+        'view shelf life',
+        'edit shelf life',
+    ])->and($groups['Research & Development']['Project'])->not->toContain('view shelf life');
+});
+
 it('SUPERADMIN role has all permissions', function () {
     $superAdminRole = Role::findByName('SUPERADMIN', 'web');
     $allPermissions = array_merge(...array_values(array_map(

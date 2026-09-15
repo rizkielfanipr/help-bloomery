@@ -53,7 +53,7 @@ class ShelfLifePage extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view rnd projects') ?? false;
+        return auth()->user()?->can('view shelf life') ?? false;
     }
 
     public function updated(string $property): void
@@ -70,7 +70,7 @@ class ShelfLifePage extends Page
 
     public function editShelfLife(int $productId): void
     {
-        abort_unless(auth()->user()?->can('edit rnd projects'), 403);
+        abort_unless(auth()->user()?->can('edit shelf life'), 403);
         $product = RndProjectProduct::query()->findOrFail($productId);
 
         $this->editingProductId = $product->id;
@@ -85,7 +85,7 @@ class ShelfLifePage extends Page
 
     public function saveShelfLife(): void
     {
-        abort_unless(auth()->user()?->can('edit rnd projects'), 403);
+        abort_unless(auth()->user()?->can('edit shelf life'), 403);
         $validated = $this->validate([
             'editingProductId' => ['required', 'integer', 'exists:rnd_project_products,id'],
             'shelfLifeValue' => ['required', 'integer', 'min:1', 'max:9999'],

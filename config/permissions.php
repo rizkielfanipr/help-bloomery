@@ -104,6 +104,10 @@ return [
             'edit rnd projects',
             'delete rnd projects',
         ],
+        'Shelf Life' => [
+            'view shelf life',
+            'edit shelf life',
+        ],
         'Product Price Index' => [
             'view product price index',
             'sync product price index',

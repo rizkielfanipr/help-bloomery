@@ -125,7 +125,7 @@
             'icon'  => 'flask-conical',
             'items' => [
                 ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-projects.index'))],
-                ['label' => 'Shelf Life', 'icon' => 'clock-3', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.pages.shelf-life'), 'active' => $active($r('filament.helpdesk.pages.shelf-life'))],
+                ['label' => 'Shelf Life', 'icon' => 'clock-3', 'perm' => 'view shelf life', 'href' => $r('filament.helpdesk.pages.shelf-life'), 'active' => $active($r('filament.helpdesk.pages.shelf-life'))],
                 ['label' => 'Product Price Index', 'icon' => 'chart-no-axes-combined', 'perm' => 'view product price index', 'href' => $r('filament.helpdesk.pages.product-price-index'), 'active' => $active($r('filament.helpdesk.pages.product-price-index'))],
                 ['label' => 'Prefix Category', 'icon' => 'tag', 'perm' => 'view prefix categories', 'href' => $r('filament.helpdesk.resources.prefix-categories.index'), 'active' => $active($r('filament.helpdesk.resources.prefix-categories.index'))],
                 ['label' => 'Prefix Name', 'icon' => 'tag', 'perm' => 'view prefix names', 'href' => $r('filament.helpdesk.resources.prefix-names.index'), 'active' => $active($r('filament.helpdesk.resources.prefix-names.index'))],

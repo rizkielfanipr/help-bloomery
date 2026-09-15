@@ -10,6 +10,16 @@
         table { width: 100%; border-collapse: collapse; }
         .page-wrapper { width: 100%; }
 
+        /* ─── PROJECT SALES PROJECTION ─── */
+        .sales-projection-section { margin-bottom: 14px; page-break-inside: avoid; }
+        .sales-projection-title { margin-bottom: 5px; padding: 7px 9px; background: #0f172a; color: #ffffff; font-size: 10pt; font-weight: 700; text-transform: uppercase; }
+        .sales-projection-table { border: 1.2px solid #111827; }
+        .sales-projection-table th { background: #f8fafc; color: #334155; font-size: 6.8pt; }
+        .sales-projection-table td { font-size: 7.2pt; }
+        .sales-projection-table .money { white-space: nowrap; text-align: right; }
+        .sales-projection-branches { color: #475569; font-size: 6.8pt; line-height: 1.45; }
+        .sales-projection-empty { padding: 22px; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; text-align: center; }
+
         /* ─── KOP ─── */
         .kop { display: table; width: 100%; border: 1.2px solid #111827; margin-bottom: 14px; }
         .kop-logo { display: table-cell; width: 90px; vertical-align: middle; padding: 8px; border-right: 1px solid #111827; text-align: center; }
@@ -147,6 +157,12 @@
             </div>
         </div>
     </div>
+    @endif
+
+    @if($projectSalesProjectionProducts ?? null)
+        @include('exports.partials.rnd-project-sales-projection', [
+            'products' => $projectSalesProjectionProducts,
+        ])
     @endif
 
     @php

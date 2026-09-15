@@ -20,7 +20,12 @@ class RndProjectBomPdfController extends Controller
         abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
 
         $projectRecord = RndProject::query()
-            ->with(['products.boms', 'products.currentRegionalPrices.region'])
+            ->with([
+                'products.boms',
+                'products.currentRegionalPrices.region',
+                'products.salesProjections.region',
+                'products.salesProjections.targetBranches',
+            ])
             ->findOrFail($project);
 
         abort_unless(
@@ -52,6 +57,9 @@ class RndProjectBomPdfController extends Controller
             $data['showHeader'] = $index === 0;
             $data['showFooter'] = $index === $products->count() - 1;
             $data['footerDocument'] = $projectDocumentNumber;
+            $data['projectSalesProjectionProducts'] = $scope === 'store' && $index === 0
+                ? $products->values()
+                : null;
 
             return view('exports.rnd-product-bom-pdf', $data)->render();
         });

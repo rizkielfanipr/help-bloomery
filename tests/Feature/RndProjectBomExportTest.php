@@ -4,7 +4,10 @@ use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
+use App\Models\Branch;
+use App\Models\RndProductSalesProjection;
 use App\Models\RndProject;
+use App\Models\SalesRegion;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -73,6 +76,58 @@ it('shows every regional sales channel price in the store PDF', function () {
         'GrabFood', 'Rp 37.000',
         'ShopeeFood', 'Rp 38.000',
     ]);
+});
+
+it('renders project sales projections as a leading Store PDF section', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Project Projection Store',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-12-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Salt Bread',
+        'product_code' => 'SB-001',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $region = SalesRegion::query()->create([
+        'name' => 'Yogyakarta',
+        'code' => 'YOG',
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+    $branch = Branch::factory()->create(['name' => 'Bloomery Kaliurang']);
+    $projection = RndProductSalesProjection::factory()->create([
+        'rnd_project_product_id' => $product->id,
+        'sales_region_id' => $region->id,
+        'projection_month' => '2026-10-01',
+        'channel' => 'offline',
+        'target_quantity' => 1250,
+        'target_revenue' => 62500000,
+        'target_outlets' => 4,
+        'notes' => 'Prioritas pembukaan menu baru.',
+        'created_by' => auth()->id(),
+    ]);
+    $projection->targetBranches()->attach($branch->id, ['target_quantity' => 750]);
+    $product->load(['salesProjections.region', 'salesProjections.targetBranches']);
+
+    $html = view('exports.partials.rnd-project-sales-projection', [
+        'products' => collect([$product]),
+    ])->render();
+
+    expect($html)
+        ->toContain('sales-projection-section')
+        ->toContain('Sales Projection')
+        ->toContain('Oct 2026')
+        ->toContain('Yogyakarta')
+        ->toContain('Offline')
+        ->toContain('1.250,00')
+        ->toContain('Rp 62.500.000')
+        ->toContain('Bloomery Kaliurang: 750,00')
+        ->not->toContain('Project Projection Store')
+        ->not->toContain('Salt Bread · SB-001')
+        ->not->toContain('Prioritas pembukaan menu baru.');
 });
 
 it('exports only the selected BOM from the export checklist', function () {
@@ -224,6 +279,7 @@ it('renders a selected main BOM without indexing an unselected child BOM', funct
     expect($html)
         ->toContain('ATL | Ayam Woku')
         ->not->toContain('ATL | Bumbu Woku')
+        ->not->toContain('Sales Projection')
         ->not->toContain('Product Code / SKU')
         ->not->toContain('Product Detail');
 });

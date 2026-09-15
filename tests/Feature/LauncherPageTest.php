@@ -73,10 +73,7 @@ it('hides role-specific tiles from users without that role', function () {
 
 it('only shows feature tiles granted by permissions', function () {
     $user = User::factory()->create(['is_active' => true]);
-    $role = Role::create([
-        'name' => 'PURCHASING_STAFF',
-        'guard_name' => 'web',
-    ]);
+    $role = Role::findOrCreate('PURCHASING_STAFF', 'web');
     $role->givePermissionTo('access employee app purchasing');
     $user->assignRole($role);
 
@@ -107,5 +104,7 @@ it('shows all available tiles for SUPERADMIN', function () {
     Livewire::test(LauncherPage::class)
         ->assertSee('Absensi')
         ->assertSee('Driver')
-        ->assertSee('Teknisi');
+        ->assertSee('Teknisi')
+        ->assertSee('Receiving')
+        ->assertDontSee('Penerimaan Barang');
 });

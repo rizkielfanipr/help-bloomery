@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Casual\Pages\GoodsReceiptPage;
+use App\Filament\Helpdesk\Resources\GoodsReceipts\GoodsReceiptResource;
 use App\Models\GoodsReceipt;
 use App\Models\GoodsReceiptExpiry;
 use App\Models\GoodsReceiptItem;
@@ -18,6 +19,11 @@ test('goods receipt records store their items and expiry details', function () {
     expect($receipt->items()->first()->is($item))->toBeTrue()
         ->and($item->expiries()->first()->is($expiry))->toBeTrue()
         ->and(GoodsReceiptPage::getUrl(panel: 'casual'))->toContain('goods-receipt-page');
+});
+
+test('goods receipt menus use the Receiving label', function () {
+    expect(app(GoodsReceiptPage::class)->getTitle())->toBe('Receiving')
+        ->and(GoodsReceiptResource::getNavigationLabel())->toBe('Receiving');
 });
 
 test('employee app loads purchase orders that ESB allows to receive', function () {

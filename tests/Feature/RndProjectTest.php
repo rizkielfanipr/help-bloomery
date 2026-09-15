@@ -784,6 +784,18 @@ it('renders the prefix category link in the custom helpdesk sidebar', function (
         ->assertSee(route('filament.helpdesk.resources.prefix-categories.index'), false);
 });
 
+it('shows the Project sidebar menu to a non-superadmin with project permission', function () {
+    $projectManager = User::factory()->create(['is_active' => true]);
+    $projectManager->givePermissionTo(['access backoffice', 'view rnd projects']);
+    $this->actingAs($projectManager);
+
+    $this->get(route('filament.helpdesk.resources.rnd-projects.index'))
+        ->assertOk()
+        ->assertSee('Research & Development')
+        ->assertSee('Project')
+        ->assertSee(route('filament.helpdesk.resources.rnd-projects.index'), false);
+});
+
 it('suggests the next ESB product code from the highest code in its category', function () {
     Cache::forget('esb_core.access_token');
     config()->set('esb.core.base_url', 'https://services.esb.co.id/core');

@@ -123,7 +123,6 @@
             'id'    => 'rnd',
             'label' => 'Research & Development',
             'icon'  => 'flask-conical',
-            'superadmin_only' => true,
             'items' => [
                 ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-projects.index'))],
                 ['label' => 'Shelf Life', 'icon' => 'clock-3', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.pages.shelf-life'), 'active' => $active($r('filament.helpdesk.pages.shelf-life'))],
@@ -158,7 +157,7 @@
             'icon'  => 'database',
             'items' => [
                 ['label' => 'Stock Card', 'icon' => 'clipboard-list', 'perm' => 'view stock cards', 'href' => $r('filament.helpdesk.resources.stock-cards.index'), 'active' => $active($r('filament.helpdesk.resources.stock-cards.index'))],
-                ['label' => 'Penerimaan', 'icon' => 'package-check', 'perm' => 'view goods receipts', 'href' => $r('filament.helpdesk.resources.goods-receipts.index'), 'active' => $active($r('filament.helpdesk.resources.goods-receipts.index'))],
+                ['label' => 'Receiving', 'icon' => 'package-check', 'perm' => 'view goods receipts', 'href' => $r('filament.helpdesk.resources.goods-receipts.index'), 'active' => $active($r('filament.helpdesk.resources.goods-receipts.index'))],
                 ['label' => 'Lokasi', 'icon' => 'map', 'perm' => 'view locations', 'href' => $r('filament.helpdesk.resources.locations.index'), 'active' => $active($r('filament.helpdesk.resources.locations.index'))],
                 ['label' => 'Tipe Lokasi', 'icon' => 'tag', 'perm' => 'view location types', 'href' => $r('filament.helpdesk.resources.location-types.index'), 'active' => $active($r('filament.helpdesk.resources.location-types.index'))],
                 ['label' => 'Product List', 'icon' => 'box', 'perm' => 'view product list', 'href' => $r('filament.helpdesk.pages.product-list-page'), 'active' => $active($r('filament.helpdesk.pages.product-list-page'))],

@@ -85,7 +85,7 @@ class GoodsReceiptPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return 'Penerimaan Barang';
+        return 'Receiving';
     }
 
     public function getBreadcrumbs(): array

@@ -33,7 +33,7 @@ class GoodsReceiptResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Inventory';
 
-    protected static ?string $navigationLabel = 'Penerimaan';
+    protected static ?string $navigationLabel = 'Receiving';
 
     protected static ?string $modelLabel = 'Penerimaan';
 

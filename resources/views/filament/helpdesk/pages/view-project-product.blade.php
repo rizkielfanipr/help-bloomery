@@ -4,6 +4,7 @@
         $project = $projectRecord;
         $productImageUrl = $product->imageUrl();
         $canManageBom = auth()->user()?->hasRole('SUPERADMIN') || (auth()->user()?->can('edit rnd projects') && auth()->user()?->can('create bill of materials'));
+        $canAddExistingBom = $canManageBom && (auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('add existing bill of materials'));
         $canUpdateBomInline = auth()->user()?->hasRole('SUPERADMIN') || (auth()->user()?->can('edit rnd projects') && auth()->user()?->can('edit bill of materials'));
         $canExportKitchenBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export kitchen bill of materials');
         $canExportStoreBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export store bill of materials');
@@ -344,10 +345,12 @@
                             <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Kitchen PDF
                         </button>
                         @endif
-                        @if($canManageBom)
+                        @if($canAddExistingBom)
                             <button type="button" wire:click="openBomPicker('main')" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
                                 <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Add Existing Main
                             </button>
+                        @endif
+                        @if($canManageBom)
                             <a href="{{ \App\Filament\Helpdesk\Pages\CreateBomRecipePage::getUrl(['project' => $project->id, 'product' => $product->id]) }}" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-blue-700">
                                 <x-heroicon-o-plus class="h-4 w-4" /> Create Main Recipe
                             </a>
@@ -589,10 +592,12 @@
                             <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Store PDF
                         </button>
                         @endif
-                        @if($canManageBom)
+                        @if($canAddExistingBom)
                             <button type="button" wire:click="openBomPicker('menu')" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
                                 <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Add Existing Menu
                             </button>
+                        @endif
+                        @if($canManageBom)
                             <a href="{{ \App\Filament\Helpdesk\Pages\CreateBomRecipePage::getUrl(['project' => $project->id, 'product' => $product->id]) }}?usageType=menu" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-blue-700">
                                 <x-heroicon-o-plus class="h-4 w-4" /> Create Menu
                             </a>

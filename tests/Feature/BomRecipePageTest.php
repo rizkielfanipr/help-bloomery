@@ -63,6 +63,29 @@ it('hides Kitchen and Store BOM sections without the BOM view permission', funct
         ->assertDontSee('Belum ada BOM Menu');
 });
 
+it('keeps Create BOM actions but hides Add Existing without its permission', function () {
+    $bomCreator = User::factory()->create(['is_active' => true]);
+    $bomCreator->givePermissionTo([
+        'access backoffice',
+        'view rnd projects',
+        'edit rnd projects',
+        'view bill of materials',
+        'create bill of materials',
+    ]);
+    $this->actingAs($bomCreator);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])
+        ->assertSee('Create Main Recipe')
+        ->assertSee('Create Menu')
+        ->assertDontSee('Add Existing Main')
+        ->assertDontSee('Add Existing Menu')
+        ->call('openBomPicker', 'main')
+        ->assertForbidden();
+});
+
 it('renders the BOM recipe form without a Blade parse error', function () {
     Livewire::test(CreateBomRecipePage::class, ['project' => $this->project->id, 'product' => $this->product->id])
         ->assertSee('Buat Bill of Material Baru')

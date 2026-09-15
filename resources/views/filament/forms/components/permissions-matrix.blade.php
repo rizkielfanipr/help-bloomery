@@ -104,6 +104,7 @@
         @php
             $groupActionLabels = $actionLabels;
             if ($groupName === 'Research & Development') {
+                $groupActionLabels['add existing'] = 'Add Existing';
                 $groupActionLabels['export kitchen'] = 'Export Kitchen';
                 $groupActionLabels['export store'] = 'Export Store';
             }
@@ -143,11 +144,11 @@
 
             {{-- Table --}}
             <div class="overflow-x-auto">
-            <table class="w-full {{ $groupName === 'Research & Development' ? 'min-w-[980px]' : 'min-w-[760px]' }} table-fixed text-sm">
+            <table class="w-full {{ $groupName === 'Research & Development' ? 'min-w-[1080px]' : 'min-w-[760px]' }} table-fixed text-sm">
                 <colgroup>
-                    <col class="{{ $groupName === 'Research & Development' ? 'w-[30%]' : 'w-[40%]' }}">
+                    <col class="{{ $groupName === 'Research & Development' ? 'w-[28%]' : 'w-[40%]' }}">
                     @foreach ($groupActionLabels as $action => $label)
-                        <col class="{{ $groupName === 'Research & Development' ? 'w-[10%]' : 'w-[12%]' }}">
+                        <col class="{{ $groupName === 'Research & Development' ? 'w-[9%]' : 'w-[12%]' }}">
                     @endforeach
                 </colgroup>
                 <thead>

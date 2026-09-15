@@ -100,6 +100,14 @@ it('registers Kitchen and Store export permissions separately', function () {
         ->toContain('export store bill of materials');
 });
 
+it('registers Add Existing BOM separately from Create BOM', function () {
+    $permissions = app(PermissionRegistry::class)->groups()['Research & Development']['Bill of Material'];
+
+    expect($permissions)
+        ->toContain('create bill of materials')
+        ->toContain('add existing bill of materials');
+});
+
 it('SUPERADMIN role has all permissions', function () {
     $superAdminRole = Role::findByName('SUPERADMIN', 'web');
     $allPermissions = array_merge(...array_values(array_map(
@@ -274,6 +282,7 @@ it('shows Kitchen and Store export permissions in the role matrix', function () 
     $response = actingAs(superAdmin())
         ->get('/admin/roles/create')
         ->assertOk()
+        ->assertSee('Add Existing')
         ->assertSee('Export Kitchen')
         ->assertSee('Export Store')
         ->assertSeeInOrder([
@@ -287,6 +296,7 @@ it('shows Kitchen and Store export permissions in the role matrix', function () 
         ->and(substr_count($response->getContent(), 'Export Store'))->toBe(1);
 
     Permission::whereIn('name', [
+        'add existing bill of materials',
         'export kitchen bill of materials',
         'export store bill of materials',
     ])->pluck('id')->each(

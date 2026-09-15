@@ -551,6 +551,8 @@ class ViewProjectProductPage extends Page
 
     public function loadImportBoms(): void
     {
+        $this->authorizeExistingBomAttachment();
+
         if ($this->importBomOptions !== []) {
             return;
         }
@@ -576,6 +578,7 @@ class ViewProjectProductPage extends Page
     public function openBomPicker(string $usageType, ?int $parentBomId = null): void
     {
         $this->authorizeBomManagement();
+        $this->authorizeExistingBomAttachment();
         abort_unless(array_key_exists($usageType, RndProjectProduct::BOM_USAGE_TYPES), 422);
         if (! $this->isTopLevelUsageType($usageType)) {
             abort_unless($parentBomId !== null && $this->isAttachedMainBom($parentBomId), 422);
@@ -673,6 +676,7 @@ class ViewProjectProductPage extends Page
     public function attachBom(int $bomId): void
     {
         $this->authorizeBomManagement();
+        $this->authorizeExistingBomAttachment();
         if (! $this->isTopLevelUsageType($this->importUsageType)) {
             abort_unless($this->importParentBomId !== null && $this->isAttachedMainBom($this->importParentBomId), 422);
         }
@@ -2434,6 +2438,11 @@ class ViewProjectProductPage extends Page
             $user?->can('edit rnd projects') && $user?->can('create bill of materials'),
             403,
         );
+    }
+
+    private function authorizeExistingBomAttachment(): void
+    {
+        abort_unless(auth()->user()?->can('add existing bill of materials'), 403);
     }
 
     private function authorizeBomUpdate(): void

@@ -109,6 +109,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access backoffice',
                 'view bill of materials', 'create bill of materials', 'edit bill of materials',
+                'add existing bill of materials',
                 'export kitchen bill of materials', 'export store bill of materials',
                 'view rnd projects', 'create rnd projects', 'edit rnd projects', 'delete rnd projects',
                 'view shelf life', 'edit shelf life',

@@ -28,6 +28,7 @@ class EnsureEmployeeAppFeaturePermission
         'sales-report-' => 'access employee app sales report',
         '.report-page' => 'access employee app attendance',
         'stock-card-' => 'access employee app stock card',
+        'goods-receipt-' => 'access employee app goods receipt',
         'purchase-request-' => 'access employee app purchasing',
         'design-request-' => 'access employee app design',
         'erp-request-' => 'access employee app erp',

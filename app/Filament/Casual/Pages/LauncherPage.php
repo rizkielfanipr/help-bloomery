@@ -91,6 +91,14 @@ class LauncherPage extends Page
                 'permission' => 'access employee app stock card',
             ],
             [
+                'label' => 'Penerimaan Barang',
+                'iconBg' => 'bg-emerald-50',
+                'iconColor' => 'text-emerald-600',
+                'path' => 'M20.25 7.5 12 3 3.75 7.5M20.25 7.5 12 12m8.25-4.5v9L12 21m0-9L3.75 7.5m8.25 4.5v9m-8.25-13.5v9L12 21m3.75-15.75L7.5 9.75',
+                'href' => fn (): string => GoodsReceiptPage::getUrl(panel: 'casual'),
+                'permission' => 'access employee app goods receipt',
+            ],
+            [
                 'label' => 'Purchasing',
                 'iconBg' => 'bg-amber-50',
                 'iconColor' => 'text-amber-500',

@@ -120,6 +120,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view purchase requests', 'create purchase requests', 'edit purchase requests',
                 'view material sourcings', 'submit material sourcing',
                 'view marketing material fulfillments', 'process marketing material as purchasing',
+                'view vendor compliance incidents', 'edit vendor compliance incidents',
             ]);
 
         Role::firstOrCreate(['name' => 'DESIGN_STAFF', 'guard_name' => 'web'])
@@ -130,7 +131,8 @@ class RolesAndPermissionsSeeder extends Seeder
 
         Role::firstOrCreate(['name' => 'INVENTORY_STAFF', 'guard_name' => 'web'])
             ->syncPermissions([
-                'access backoffice',
+                'access backoffice', 'access employee app goods receipt',
+                'view goods receipts',
                 'view marketing material fulfillments', 'process marketing material as inventory',
             ]);
 

@@ -13,6 +13,7 @@ return [
         'Briefing' => ['access employee app briefing'],
         'Sales Report' => ['access employee app sales report'],
         'Stock Card' => ['access employee app stock card'],
+        'Penerimaan Barang' => ['access employee app goods receipt'],
         'Purchasing' => ['access employee app purchasing'],
         'Desain' => ['access employee app design'],
         'Konten' => ['access employee app content'],
@@ -54,6 +55,7 @@ return [
 
     'Inventory' => [
         'Stock Card' => ['view stock cards', 'create stock cards', 'edit stock cards', 'delete stock cards', 'review stock cards as supervisor', 'review stock cards as finance'],
+        'Penerimaan' => ['view goods receipts'],
         'Product List' => ['view product list', 'edit product list'],
         'Proses Material Marketing' => ['process marketing material as inventory'],
     ],
@@ -70,6 +72,7 @@ return [
     ],
 
     'Purchasing' => [
+        'Vendor Compliance' => ['view vendor compliance incidents', 'edit vendor compliance incidents'],
         'Permintaan Pembelian' => ['view purchase requests', 'create purchase requests', 'edit purchase requests', 'delete purchase requests'],
         'Sourcing Bahan' => ['view material sourcings', 'submit material sourcing'],
         'Proses Material Marketing' => ['view marketing material fulfillments', 'process marketing material as purchasing'],

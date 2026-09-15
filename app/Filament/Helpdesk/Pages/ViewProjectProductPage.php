@@ -2265,6 +2265,7 @@ class ViewProjectProductPage extends Page
     {
         abort_unless(static::canAccess(), 403);
         abort_unless(in_array($scope, ['all', 'kitchen', 'store'], true), 422);
+        abort_unless($this->canExportBomScope($scope), 403);
         $this->exportScope = $scope;
         $this->exportBomIds = $this->eligibleExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $this->exportAutoBomKeys = $scope === 'store' ? [] : $this->eligibleExportAutoBomKeys();
@@ -2278,6 +2279,7 @@ class ViewProjectProductPage extends Page
     public function exportBomPdf(): mixed
     {
         abort_unless(static::canAccess(), 403);
+        abort_unless($this->canExportBomScope($this->exportScope), 403);
         $eligibleBomIds = $this->eligibleExportBoms($this->exportScope)->pluck('id')->map(fn ($id): int => (int) $id);
         if ($this->exportScope === 'store') {
             $this->exportBomIds = $eligibleBomIds->all();
@@ -2342,6 +2344,19 @@ class ViewProjectProductPage extends Page
         }
 
         return $this->redirect(route('helpdesk.rnd-products.bom-pdf', $routeParameters), navigate: false);
+    }
+
+    private function canExportBomScope(string $scope): bool
+    {
+        $user = auth()->user();
+
+        return match ($scope) {
+            'kitchen' => $user?->can('export kitchen bill of materials') ?? false,
+            'store' => $user?->can('export store bill of materials') ?? false,
+            'all' => ($user?->can('export kitchen bill of materials') ?? false)
+                && ($user?->can('export store bill of materials') ?? false),
+            default => false,
+        };
     }
 
     public function eligibleExportBoms(?string $scope = null): Collection

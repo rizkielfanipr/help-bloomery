@@ -23,6 +23,50 @@ beforeEach(function () {
     config()->set('rnd.bom_pin', '246810');
 });
 
+it('shows only the BOM export action granted to the user', function () {
+    $user = User::factory()->create([
+        'is_active' => true,
+        'use_bom_pin' => true,
+        'bom_pin' => Hash::make('246810'),
+    ]);
+    $user->givePermissionTo([
+        'access backoffice',
+        'view rnd projects',
+        'view bill of materials',
+        'export kitchen bill of materials',
+    ]);
+    $this->actingAs($user);
+
+    $project = RndProject::query()->create([
+        'name' => 'Scoped Export Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => $user->id,
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Scoped Export Product',
+        'status' => 'development',
+        'created_by' => $user->id,
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $project->id,
+        'product' => $product->id,
+    ])
+        ->assertSee('Export Kitchen PDF')
+        ->assertDontSee('Export Store PDF');
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->assertSee('Export Kitchen PDF')
+        ->assertDontSee('Export Store PDF');
+
+    $this->get(route('helpdesk.rnd-products.bom-pdf', [
+        'project' => $project->id,
+        'product' => $product->id,
+        'scope' => 'store',
+    ]))->assertForbidden();
+});
+
 it('keeps the complete styled product document when combining project PDFs', function () {
     $controller = app(RndProjectBomPdfController::class);
     $method = new ReflectionMethod($controller, 'combineRenderedDocuments');

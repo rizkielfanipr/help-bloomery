@@ -92,6 +92,14 @@ it('registers Shelf Life permissions separately from Project permissions', funct
     ])->and($groups['Research & Development']['Project'])->not->toContain('view shelf life');
 });
 
+it('registers Kitchen and Store export permissions separately', function () {
+    $permissions = app(PermissionRegistry::class)->groups()['Research & Development']['Bill of Material'];
+
+    expect($permissions)
+        ->toContain('export kitchen bill of materials')
+        ->toContain('export store bill of materials');
+});
+
 it('SUPERADMIN role has all permissions', function () {
     $superAdminRole = Role::findByName('SUPERADMIN', 'web');
     $allPermissions = array_merge(...array_values(array_map(

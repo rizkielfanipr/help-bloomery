@@ -18,6 +18,10 @@ class RndProjectBomPdfController extends Controller
 
         $scope = (string) $request->query('scope');
         abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
+        abort_unless($user?->can(match ($scope) {
+            'kitchen' => 'export kitchen bill of materials',
+            'store' => 'export store bill of materials',
+        }), 403);
 
         $projectRecord = RndProject::query()
             ->with([

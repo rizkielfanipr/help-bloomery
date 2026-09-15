@@ -5,7 +5,8 @@
         $productImageUrl = $product->imageUrl();
         $canManageBom = auth()->user()?->hasRole('SUPERADMIN') || (auth()->user()?->can('edit rnd projects') && auth()->user()?->can('create bill of materials'));
         $canUpdateBomInline = auth()->user()?->hasRole('SUPERADMIN') || (auth()->user()?->can('edit rnd projects') && auth()->user()?->can('edit bill of materials'));
-        $canExportBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('view bill of materials');
+        $canExportKitchenBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export kitchen bill of materials');
+        $canExportStoreBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export store bill of materials');
         $canManageProject = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('edit rnd projects');
         $canManageMaterials = $canManageProject || auth()->user()?->can('upload marketing materials');
         $statusStyle = match($product->status) {
@@ -332,16 +333,17 @@
                     <h3 class="text-lg font-bold text-gray-900 dark:text-white">Bill of Material Kitchen</h3>
                     <p class="text-sm text-gray-500">{{ $product->boms->count() }} BOM digunakan untuk membuat produk ini.</p>
                 </div>
-                @if($canExportBom)
-                    <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2">
                         <button type="button" wire:click="refreshWipComponentRecipes" wire:loading.attr="disabled" wire:target="refreshWipComponentRecipes,loadAllBomComponents" class="inline-flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3.5 py-2 text-sm font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-300">
                             <x-heroicon-o-arrow-path class="h-4 w-4" />
                             <span wire:loading.remove wire:target="refreshWipComponentRecipes,loadAllBomComponents">Refresh Mapping</span>
                             <span wire:loading wire:target="refreshWipComponentRecipes,loadAllBomComponents">Memetakan...</span>
                         </button>
+                        @if($canExportKitchenBom)
                         <button type="button" wire:click="openExportPdf('kitchen')" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
                             <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Kitchen PDF
                         </button>
+                        @endif
                         @if($canManageBom)
                             <button type="button" wire:click="openBomPicker('main')" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
                                 <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Add Existing Main
@@ -350,8 +352,7 @@
                                 <x-heroicon-o-plus class="h-4 w-4" /> Create Main Recipe
                             </a>
                         @endif
-                    </div>
-                @endif
+                </div>
             </div>
             @if($autoWipComponentError)
                 <div class="flex items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-5 py-3 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-300">
@@ -581,11 +582,13 @@
                     <h3 class="text-lg font-bold text-gray-900 dark:text-white">Bill of Material Store</h3>
                     <p class="text-sm text-gray-500">{{ $menuBoms->count() }} BOM Menu digunakan untuk penjualan produk ini.</p>
                 </div>
-                @if($canExportBom)
+                @if($canExportStoreBom || $canManageBom)
                     <div class="flex flex-wrap gap-2">
+                        @if($canExportStoreBom)
                         <button type="button" wire:click="openExportPdf('store')" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
                             <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Store PDF
                         </button>
+                        @endif
                         @if($canManageBom)
                             <button type="button" wire:click="openBomPicker('menu')" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2 text-sm font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
                                 <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Add Existing Menu

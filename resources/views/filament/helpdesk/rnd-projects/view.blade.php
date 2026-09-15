@@ -3,7 +3,8 @@
         $project = $this->record;
         $status = today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active');
         $canManage = \App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project);
-        $canExportBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('view bill of materials');
+        $canExportKitchenBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export kitchen bill of materials');
+        $canExportStoreBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export store bill of materials');
         $input = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
         $label = 'mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200';
     @endphp
@@ -101,10 +102,12 @@
                         <p class="text-sm text-gray-500">Daftar produk yang dikembangkan dan akan dirilis dalam project ini.</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        @if($canExportBom)
+                        @if($canExportKitchenBom)
                             <button type="button" wire:click="openProjectBomExport('kitchen')" class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100">
                                 <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Kitchen PDF
                             </button>
+                        @endif
+                        @if($canExportStoreBom)
                             <button type="button" wire:click="openProjectBomExport('store')" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100">
                                 <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Store PDF
                             </button>

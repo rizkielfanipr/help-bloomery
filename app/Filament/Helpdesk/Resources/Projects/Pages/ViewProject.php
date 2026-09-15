@@ -445,8 +445,8 @@ class ViewProject extends ViewRecord
 
     public function openProjectBomExport(string $scope): void
     {
-        abort_unless(auth()->user()?->can('view bill of materials'), 403);
         abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
+        abort_unless($this->canExportProjectBomScope($scope), 403);
         $this->projectExportScope = $scope;
         $this->projectExportBomIds = $this->eligibleProjectExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $this->projectExportBomComponentKeys = [];
@@ -464,7 +464,7 @@ class ViewProject extends ViewRecord
 
     public function exportProjectBomPdf(): mixed
     {
-        abort_unless(auth()->user()?->can('view bill of materials'), 403);
+        abort_unless($this->canExportProjectBomScope($this->projectExportScope), 403);
         $eligibleBomIds = $this->eligibleProjectExportBoms($this->projectExportScope)->pluck('id')->map(fn ($id): int => (int) $id);
         if ($this->projectExportScope === 'store') {
             $this->projectExportBomIds = $eligibleBomIds->all();
@@ -517,6 +517,15 @@ class ViewProject extends ViewRecord
         }
 
         return $this->redirect(route('helpdesk.rnd-projects.bom-pdf', $routeParameters), navigate: false);
+    }
+
+    private function canExportProjectBomScope(string $scope): bool
+    {
+        return auth()->user()?->can(match ($scope) {
+            'kitchen' => 'export kitchen bill of materials',
+            'store' => 'export store bill of materials',
+            default => '',
+        }) ?? false;
     }
 
     public function eligibleProjectExportBoms(?string $scope = null): \Illuminate\Support\Collection

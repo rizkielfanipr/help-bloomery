@@ -19,14 +19,21 @@ class RndProductBomPdfController extends Controller
     public function __invoke(Request $request, int $project, int $product): Response
     {
         $user = auth()->user();
-        abort_unless($user?->can('view bill of materials'), 403);
+        $exportScope = (string) $request->query('scope', 'all');
+        abort_unless(in_array($exportScope, ['all', 'kitchen', 'store'], true), 422);
+        abort_unless(
+            match ($exportScope) {
+                'kitchen' => $user?->can('export kitchen bill of materials'),
+                'store' => $user?->can('export store bill of materials'),
+                'all' => $user?->can('export kitchen bill of materials') && $user?->can('export store bill of materials'),
+            },
+            403,
+        );
 
         $projectRecord = RndProject::query()->findOrFail($project);
         $productRecord = $projectRecord->products()
             ->with(['boms', 'currentRegionalPrices.region'])
             ->findOrFail($product);
-        $exportScope = (string) $request->query('scope', 'all');
-        abort_unless(in_array($exportScope, ['all', 'kitchen', 'store'], true), 422);
         abort_unless(
             (int) session()->get(self::sessionKey($user->id, $projectRecord->id, $productRecord->id), 0) > now()->timestamp,
             403,

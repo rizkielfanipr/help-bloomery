@@ -97,6 +97,8 @@ return [
             'view bill of materials',
             'create bill of materials',
             'edit bill of materials',
+            'export kitchen bill of materials',
+            'export store bill of materials',
         ],
         'Project' => [
             'view rnd projects',

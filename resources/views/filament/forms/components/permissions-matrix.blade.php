@@ -102,6 +102,11 @@
 
     @foreach ($config as $groupName => $resources)
         @php
+            $groupActionLabels = $actionLabels;
+            if ($groupName === 'Research & Development') {
+                $groupActionLabels['export kitchen'] = 'Export Kitchen';
+                $groupActionLabels['export store'] = 'Export Store';
+            }
             $groupIds = [];
             foreach ($resources as $perms) {
                 foreach ($perms as $perm) {
@@ -138,17 +143,17 @@
 
             {{-- Table --}}
             <div class="overflow-x-auto">
-            <table class="w-full min-w-[760px] table-fixed text-sm">
+            <table class="w-full {{ $groupName === 'Research & Development' ? 'min-w-[980px]' : 'min-w-[760px]' }} table-fixed text-sm">
                 <colgroup>
-                    <col class="w-[40%]">
-                    @foreach ($actionLabels as $action => $label)
-                        <col class="w-[12%]">
+                    <col class="{{ $groupName === 'Research & Development' ? 'w-[30%]' : 'w-[40%]' }}">
+                    @foreach ($groupActionLabels as $action => $label)
+                        <col class="{{ $groupName === 'Research & Development' ? 'w-[10%]' : 'w-[12%]' }}">
                     @endforeach
                 </colgroup>
                 <thead>
                     <tr class="h-11 border-b border-gray-100 bg-white dark:border-white/5 dark:bg-gray-900">
                         <th class="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Resource</th>
-                        @foreach ($actionLabels as $action => $label)
+                        @foreach ($groupActionLabels as $action => $label)
                             <th class="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ $label }}</th>
                         @endforeach
                     </tr>
@@ -159,7 +164,7 @@
                             $permByAction = [];
                             foreach ($permissions as $perm) {
                                 if (!isset($nameToId[$perm])) continue;
-                                foreach (array_keys($actionLabels) as $action) {
+                                foreach (array_keys($groupActionLabels) as $action) {
                                     if (str_starts_with($perm, $action . ' ')) {
                                         $permByAction[$action] = $nameToId[$perm];
                                     }
@@ -170,7 +175,7 @@
                             <td class="px-4 py-3 align-middle font-medium text-gray-700 dark:text-gray-200">
                                 {{ $resourceName }}
                             </td>
-                            @foreach ($actionLabels as $action => $label)
+                            @foreach ($groupActionLabels as $action => $label)
                                 <td class="px-2 py-3 text-center align-middle">
                                     @if (isset($permByAction[$action]))
                                         @php $permId = $permByAction[$action]; @endphp

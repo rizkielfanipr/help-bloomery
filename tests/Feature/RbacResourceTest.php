@@ -269,3 +269,27 @@ it('shows application access permissions in the role matrix', function () {
         ->pluck('id')
         ->each(fn (int $id) => $response->assertSee("toggle({$id})", escape: false));
 });
+
+it('shows Kitchen and Store export permissions in the role matrix', function () {
+    $response = actingAs(superAdmin())
+        ->get('/admin/roles/create')
+        ->assertOk()
+        ->assertSee('Export Kitchen')
+        ->assertSee('Export Store')
+        ->assertSeeInOrder([
+            'Research &amp; Development',
+            'Export Kitchen',
+            'Export Store',
+            'Sales &amp; Growth',
+        ], escape: false);
+
+    expect(substr_count($response->getContent(), 'Export Kitchen'))->toBe(1)
+        ->and(substr_count($response->getContent(), 'Export Store'))->toBe(1);
+
+    Permission::whereIn('name', [
+        'export kitchen bill of materials',
+        'export store bill of materials',
+    ])->pluck('id')->each(
+        fn (int $id) => $response->assertSee("toggle({$id})", escape: false)
+    );
+});

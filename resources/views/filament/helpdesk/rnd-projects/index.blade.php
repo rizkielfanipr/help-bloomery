@@ -1,20 +1,73 @@
 <x-filament-panels::page>
     <div class="space-y-6">
-        <section class="overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white dark:border-blue-900">
-            <div class="flex flex-col justify-between gap-5 md:flex-row md:items-center">
-                <div>
-                    <p class="text-sm font-semibold text-blue-100">Research &amp; Development</p>
-                    <h2 class="mt-1 text-2xl font-bold">Project Workspace</h2>
-                    <p class="mt-1 max-w-2xl text-sm text-blue-100">Kelola timeline dan seluruh Bill of Material dalam project yang terpisah dan terstruktur.</p>
+        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-col justify-between gap-5 p-5 sm:p-6 md:flex-row md:items-center">
+                <div class="flex min-w-0 items-start gap-4">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                        <x-heroicon-o-folder-open class="h-6 w-6" />
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Research &amp; Development</p>
+                        <h2 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">Project Workspace</h2>
+                        <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400">Kelola timeline, Product Release, sales projection, dan seluruh Bill of Material dalam workspace project yang terstruktur.</p>
+                    </div>
                 </div>
                 @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canCreate())
-                    <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('create') }}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-50">
-                        <x-heroicon-o-plus class="h-5 w-5" />
-                        Buat Project
-                    </a>
+                    <button type="button" wire:click="openCreateProjectModal" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
+                        <x-heroicon-o-plus class="h-5 w-5" /> Buat Project
+                    </button>
                 @endif
             </div>
+            <div class="flex items-center gap-2 border-t border-gray-200 bg-gray-50/60 px-5 py-3 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800/30 dark:text-gray-400 sm:px-6">
+                <x-heroicon-o-information-circle class="h-4 w-4 shrink-0 text-blue-500" />
+                <span>Pilih project untuk mengelola produk, dokumen CCP, kebutuhan bahan, dan tahapan pengembangan.</span>
+            </div>
         </section>
+
+        @if($createProjectModalOpen)
+            <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                <button type="button" wire:click="closeCreateProjectModal" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup modal buat project"></button>
+                <form wire:submit="saveProject" class="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <div class="flex items-start justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $editingProjectId ? 'Edit Project' : 'Buat Project Baru' }}</h3>
+                            <p class="mt-1 text-sm text-gray-500">{{ $editingProjectId ? 'Perbarui informasi utama dan periode pelaksanaan project.' : 'Lengkapi informasi utama dan periode pelaksanaan project R&D.' }}</p>
+                        </div>
+                        <button type="button" wire:click="closeCreateProjectModal" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200" aria-label="Tutup">
+                            <x-heroicon-o-x-mark class="h-5 w-5" />
+                        </button>
+                    </div>
+                    <div class="grid gap-4 overflow-y-auto p-5 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Nama Project *</label>
+                            <input wire:model="projectName" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Contoh: Pengembangan Menu Seasonal">
+                            @error('projectName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Deskripsi Project</label>
+                            <textarea wire:model="projectDescription" rows="4" class="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Jelaskan tujuan, ruang lingkup, dan hasil yang diharapkan..."></textarea>
+                            @error('projectDescription')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Start Date *</label>
+                            <input wire:model="projectStartDate" type="date" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                            @error('projectStartDate')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">End Date *</label>
+                            <input wire:model="projectEndDate" type="date" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                            @error('projectEndDate')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 border-t border-gray-200 p-5 dark:border-gray-700">
+                        <button type="button" wire:click="closeCreateProjectModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Batal</button>
+                        <button type="submit" wire:loading.attr="disabled" wire:target="saveProject" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                            <span wire:loading.remove wire:target="saveProject">{{ $editingProjectId ? 'Simpan Perubahan' : 'Buat Project' }}</span><span wire:loading wire:target="saveProject">Menyimpan...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        @endif
 
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
             <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
@@ -83,9 +136,9 @@
                                 <x-heroicon-o-arrow-right class="h-4 w-4" />
                             </a>
                             @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project))
-                                <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('edit', ['record' => $project]) }}" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Project">
+                                <button type="button" wire:click="openEditProjectModal({{ $project->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Project">
                                     <x-heroicon-o-pencil-square class="h-5 w-5" />
-                                </a>
+                                </button>
                             @endif
                         </div>
                     </div>

@@ -25,44 +25,53 @@
         x-data
         x-on:run-rnd-bom-mapping.window="$nextTick(() => $wire.refreshWipComponentRecipes())"
     >
-        <section class="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:border-blue-900/50 dark:from-blue-950/40 dark:to-indigo-950/40">
-            <div class="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-                <div class="flex min-w-0 flex-1 flex-col gap-5 sm:flex-row sm:items-center">
+        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="border-b border-gray-200 p-5 dark:border-gray-700 sm:p-6">
+                <div class="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center">
                     @if($productImageUrl)
-                        <img src="{{ $productImageUrl }}" alt="{{ $product->name }}" class="h-36 w-36 shrink-0 rounded-2xl border border-blue-200 object-cover dark:border-blue-800">
+                        <img src="{{ $productImageUrl }}" alt="{{ $product->name }}" class="h-28 w-28 shrink-0 rounded-2xl border border-gray-200 object-cover dark:border-gray-700 sm:h-32 sm:w-32">
                     @else
-                        <div class="flex h-36 w-36 shrink-0 items-center justify-center rounded-2xl border border-blue-200 bg-white/70 text-blue-400 dark:border-blue-800 dark:bg-gray-900/60">
-                            <x-heroicon-o-cake class="h-14 w-14" />
+                        <div class="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-500 dark:bg-blue-950/40 dark:text-blue-300 sm:h-32 sm:w-32">
+                            <x-heroicon-o-cake class="h-12 w-12" />
                         </div>
                     @endif
                     <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2 text-sm font-semibold text-blue-700 dark:text-blue-300">
-                        <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project->id]) }}" class="hover:underline">{{ $project->name }}</a>
-                        <span>/</span>
-                        <span>Product Release</span>
-                    </div>
-                    <div class="mt-3 flex flex-wrap items-center gap-3">
-                        <h2 class="text-3xl font-bold text-gray-900 dark:text-white">{{ $product->name }}</h2>
-                        <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $statusStyle }}">{{ \App\Models\RndProjectProduct::STATUSES[$product->status] ?? ucfirst($product->status) }}</span>
-                    </div>
-                    <p class="mt-1 font-mono text-sm font-bold text-blue-600">{{ $product->product_code ?: 'Belum ada Product Code' }}</p>
-                    <p class="mt-3 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">{{ $product->description ?: 'Tidak ada deskripsi produk.' }}</p>
+                        <div class="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                            <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project->id]) }}" class="hover:text-blue-700">{{ $project->name }}</a>
+                            <span class="text-gray-300 dark:text-gray-600">/</span>
+                            <span>Product Release</span>
+                        </div>
+                        <div class="mt-2 flex flex-wrap items-center gap-3">
+                            <h2 class="text-2xl font-bold text-gray-950 dark:text-white sm:text-3xl">{{ $product->name }}</h2>
+                            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold {{ $statusStyle }}">
+                                <span class="h-1.5 w-1.5 rounded-full bg-current"></span>{{ \App\Models\RndProjectProduct::STATUSES[$product->status] ?? ucfirst($product->status) }}
+                            </span>
+                        </div>
+                        <div class="mt-2 inline-flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-1.5 text-xs font-bold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                            <x-heroicon-o-qr-code class="h-4 w-4 text-blue-500" />
+                            <span class="font-mono">{{ $product->product_code ?: 'Product Code belum tersedia' }}</span>
+                        </div>
+                        <p class="mt-3 max-w-3xl text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $product->description ?: 'Deskripsi produk belum ditambahkan.' }}</p>
                     </div>
                 </div>
-                <div class="grid min-w-72 gap-3">
-                    <div class="rounded-xl border border-blue-100 bg-white/80 p-3 dark:border-blue-900 dark:bg-gray-900/70">
-                        <p class="text-xs text-gray-400">Target Rilis</p>
-                        <p class="mt-1 font-bold text-gray-900 dark:text-white">{{ $product->release_date?->format('d M Y') ?? 'Belum ditentukan' }}</p>
-                    </div>
-                    <div class="rounded-xl border border-blue-100 bg-white/80 p-3 dark:border-blue-900 dark:bg-gray-900/70">
-                        <p class="text-xs text-gray-400">Cakupan Harga</p>
-                        <p class="mt-1 font-bold text-gray-900 dark:text-white">{{ $product->currentRegionalPrices->unique('sales_region_id')->count() }} Region Aktif</p>
-                    </div>
-                    <div class="rounded-xl border border-blue-100 bg-white/80 p-3 dark:border-blue-900 dark:bg-gray-900/70">
-                        <p class="text-xs text-gray-400">Shelf Life & Projection</p>
-                        <p class="mt-1 font-bold text-gray-900 dark:text-white">{{ $product->shelf_life_value ? $product->shelf_life_value.' '.(\App\Models\RndProjectProduct::SHELF_LIFE_UNITS[$product->shelf_life_unit] ?? $product->shelf_life_unit) : 'Shelf life belum diatur' }}</p>
-                        <p class="mt-1 text-xs text-gray-500">{{ number_format((float) $product->salesProjections->sum('target_quantity'), 0, ',', '.') }} unit · Rp {{ number_format((float) $product->salesProjections->sum('target_revenue'), 0, ',', '.') }}</p>
-                    </div>
+            </div>
+
+            <div class="grid divide-y divide-gray-200 dark:divide-gray-700 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
+                <div class="flex items-start gap-3 p-5">
+                    <x-heroicon-o-calendar-days class="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Target Rilis</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $product->release_date?->format('d M Y') ?? 'Belum ditentukan' }}</p><p class="mt-1 text-xs text-gray-500">Jadwal produk diluncurkan</p></div>
+                </div>
+                <div class="flex items-start gap-3 p-5">
+                    <x-heroicon-o-banknotes class="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Cakupan Harga</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $product->currentRegionalPrices->unique('sales_region_id')->count() }} Region Aktif</p><p class="mt-1 text-xs text-gray-500">Harga regional yang berlaku</p></div>
+                </div>
+                <div class="flex items-start gap-3 border-t border-gray-200 p-5 dark:border-gray-700 sm:border-l-0 xl:border-l xl:border-t-0">
+                    <x-heroicon-o-clock class="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Shelf Life</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $product->shelf_life_value ? $product->shelf_life_value.' '.(\App\Models\RndProjectProduct::SHELF_LIFE_UNITS[$product->shelf_life_unit] ?? $product->shelf_life_unit) : 'Belum diatur' }}</p><p class="mt-1 text-xs text-gray-500">Masa simpan produk</p></div>
+                </div>
+                <div class="flex items-start gap-3 border-t border-gray-200 p-5 dark:border-gray-700 sm:border-l xl:border-t-0">
+                    <x-heroicon-o-chart-bar class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Sales Projection</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ number_format((float) $product->salesProjections->sum('target_quantity'), 0, ',', '.') }} Unit</p><p class="mt-1 text-xs text-gray-500">Target omzet Rp {{ number_format((float) $product->salesProjections->sum('target_revenue'), 0, ',', '.') }}</p></div>
                 </div>
             </div>
         </section>

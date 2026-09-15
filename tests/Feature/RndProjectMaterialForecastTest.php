@@ -159,6 +159,8 @@ it('shows the material forecast on the Project page for BOM viewers', function (
     ]);
 
     Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->assertSee('Critical Control Point (CCP)')
+        ->assertSee('Dokumen pendukung titik kendali kritis')
         ->assertSee('Material Forecast')
         ->assertSee('Purchasing Preparation')
         ->assertSee('Produk Terhitung')

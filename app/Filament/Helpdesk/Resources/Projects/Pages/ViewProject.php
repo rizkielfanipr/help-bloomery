@@ -10,7 +10,6 @@ use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
 use App\Services\RndProjectMaterialForecastService;
 use Carbon\Carbon;
-use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
@@ -66,6 +65,18 @@ class ViewProject extends ViewRecord
 
     public array $ccpDocumentUploads = [];
 
+    public bool $ccpUploadModalOpen = false;
+
+    public bool $editProjectModalOpen = false;
+
+    public string $editProjectName = '';
+
+    public string $editProjectDescription = '';
+
+    public string $editProjectStartDate = '';
+
+    public string $editProjectEndDate = '';
+
     public $productPhoto = null;
 
     public string $productImagePath = '';
@@ -105,15 +116,67 @@ class ViewProject extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            EditAction::make()->label('Edit Project'),
-        ];
+        return [];
+    }
+
+    public function openEditProjectModal(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        $this->resetValidation();
+        $this->editProjectName = $this->record->name;
+        $this->editProjectDescription = $this->record->description ?? '';
+        $this->editProjectStartDate = $this->record->start_date->format('Y-m-d');
+        $this->editProjectEndDate = $this->record->end_date->format('Y-m-d');
+        $this->editProjectModalOpen = true;
+    }
+
+    public function closeEditProjectModal(): void
+    {
+        $this->resetValidation();
+        $this->editProjectModalOpen = false;
+    }
+
+    public function saveProjectInformation(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        $validated = $this->validate([
+            'editProjectName' => ['required', 'string', 'max:255'],
+            'editProjectDescription' => ['nullable', 'string'],
+            'editProjectStartDate' => ['required', 'date'],
+            'editProjectEndDate' => ['required', 'date', 'after_or_equal:editProjectStartDate'],
+        ]);
+
+        $this->record->update([
+            'name' => trim($validated['editProjectName']),
+            'description' => trim($validated['editProjectDescription']) ?: null,
+            'start_date' => $validated['editProjectStartDate'],
+            'end_date' => $validated['editProjectEndDate'],
+        ]);
+
+        $this->editProjectModalOpen = false;
+        $this->reloadProject();
+        Notification::make()->title('Project berhasil diperbarui')->success()->send();
     }
 
     public function addCcpDocumentUpload(): void
     {
         abort_unless(ProjectResource::canEdit($this->record), 403);
         $this->ccpDocumentUploads[] = ['name' => '', 'file' => null];
+    }
+
+    public function openCcpUploadModal(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        $this->resetValidation();
+        $this->ccpDocumentUploads = [['name' => '', 'file' => null]];
+        $this->ccpUploadModalOpen = true;
+    }
+
+    public function closeCcpUploadModal(): void
+    {
+        $this->resetValidation();
+        $this->ccpDocumentUploads = [];
+        $this->ccpUploadModalOpen = false;
     }
 
     public function removeCcpDocumentUpload(int $index): void
@@ -159,6 +222,7 @@ class ViewProject extends ViewRecord
         }
 
         $this->ccpDocumentUploads = [];
+        $this->ccpUploadModalOpen = false;
         $this->reloadProject();
         Notification::make()->title('Dokumen CCP berhasil disimpan')->success()->send();
     }

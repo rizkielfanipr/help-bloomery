@@ -13,68 +13,115 @@
          @open-product-form.window="productFormOpen = true"
          @close-product-form.window="productFormOpen = false"
          @keydown.escape.window="productFormOpen = false">
-        <section class="overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white">
-            <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-                <div>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('index') }}" class="text-sm font-semibold text-blue-100 hover:text-white">Project</a>
-                        <span class="text-blue-300">/</span>
-                        <span class="rounded-full bg-white/15 px-2.5 py-1 text-xs font-bold">{{ $status }}</span>
+        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="border-b border-gray-200 p-5 dark:border-gray-700 sm:p-6">
+                <div class="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
+                    <div class="flex min-w-0 items-start gap-4">
+                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300">
+                            <x-heroicon-o-folder-open class="h-6 w-6" />
+                        </div>
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('index') }}" class="text-xs font-bold uppercase tracking-wider text-blue-600 hover:text-blue-700 dark:text-blue-400">Project R&amp;D</a>
+                                <span class="text-gray-300 dark:text-gray-600">/</span>
+                                <span @class([
+                                    'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold',
+                                    'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' => $status === 'Active',
+                                    'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' => $status === 'Upcoming',
+                                    'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' => $status === 'Completed',
+                                ])>
+                                    <span class="h-1.5 w-1.5 rounded-full bg-current"></span>{{ $status }}
+                                </span>
+                            </div>
+                            <h2 class="mt-2 text-2xl font-bold text-gray-950 dark:text-white sm:text-3xl">{{ $project->name }}</h2>
+                            <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $project->description ?: 'Deskripsi project belum ditambahkan.' }}</p>
+                        </div>
                     </div>
-                    <h2 class="mt-3 text-3xl font-bold">{{ $project->name }}</h2>
-                    <p class="mt-2 max-w-3xl text-sm leading-6 text-blue-100">{{ $project->description ?: 'Tidak ada deskripsi project.' }}</p>
+                    @if($canManage)
+                        <button type="button" wire:click="openEditProjectModal" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
+                            <x-heroicon-o-pencil-square class="h-5 w-5" /> Edit Project
+                        </button>
+                    @endif
                 </div>
-                <div class="grid min-w-72 grid-cols-2 gap-3">
-                    <div class="rounded-xl bg-white/10 p-3 backdrop-blur">
-                        <p class="text-xs text-blue-100">Periode</p>
-                        <p class="mt-1 text-sm font-bold">{{ $project->start_date->format('d M') }} – {{ $project->end_date->format('d M Y') }}</p>
-                    </div>
-                    <div class="rounded-xl bg-white/10 p-3 backdrop-blur">
-                        <p class="text-xs text-blue-100">Product Release</p>
-                        <p class="mt-1 text-sm font-bold">{{ $project->products->count() }} Product</p>
-                    </div>
+            </div>
+
+            <div class="grid divide-y divide-gray-200 dark:divide-gray-700 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
+                <div class="flex items-start gap-3 p-5">
+                    <x-heroicon-o-calendar-days class="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Periode Project</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $project->start_date->format('d M Y') }} – {{ $project->end_date->format('d M Y') }}</p><p class="mt-1 text-xs text-gray-500">{{ $project->start_date->diffInDays($project->end_date) + 1 }} hari kalender</p></div>
+                </div>
+                <div class="flex items-start gap-3 p-5">
+                    <x-heroicon-o-cube class="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Product Release</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $project->products->count() }} Produk</p><p class="mt-1 text-xs text-gray-500">Produk yang terdaftar di project</p></div>
+                </div>
+                <div class="flex items-start gap-3 border-t border-gray-200 p-5 dark:border-gray-700 sm:border-l-0 xl:border-l xl:border-t-0">
+                    <x-heroicon-o-user-circle class="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Project Owner</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $project->creator?->name ?? 'Belum ditentukan' }}</p><p class="mt-1 text-xs text-gray-500">Pembuat project</p></div>
+                </div>
+                <div class="flex items-start gap-3 border-t border-gray-200 p-5 dark:border-gray-700 sm:border-l xl:border-t-0">
+                    <x-heroicon-o-clock class="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Terakhir Diperbarui</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $project->updated_at->format('d M Y, H:i') }}</p><p class="mt-1 text-xs text-gray-500">{{ $project->updated_at->diffForHumans() }}</p></div>
                 </div>
             </div>
         </section>
 
-        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Dokumen CCP</h3>
-                    <p class="text-sm text-gray-500">Dokumen pendukung CCP untuk project ini.</p>
-                </div>
-                @if($canManage)
-                    <button type="button" wire:click="addCcpDocumentUpload" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
-                        <x-heroicon-o-plus class="h-4 w-4" /> Tambah Dokumen
-                    </button>
-                @endif
-            </div>
-
-            @if($ccpDocumentUploads !== [])
-                <form wire:submit="saveCcpDocuments" class="space-y-3 border-b border-gray-200 bg-gray-50/60 p-5 dark:border-gray-700 dark:bg-gray-800/30">
-                    @foreach($ccpDocumentUploads as $documentIndex => $documentUpload)
-                        <div wire:key="ccp-document-upload-{{ $documentIndex }}" class="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-start">
-                            <div>
-                                <label class="{{ $label }}">Nama Dokumen *</label>
-                                <input wire:model="ccpDocumentUploads.{{ $documentIndex }}.name" class="{{ $input }}" placeholder="Contoh: CCP Produksi Croissant">
-                                @error("ccpDocumentUploads.$documentIndex.name")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label class="{{ $label }}">File *</label>
-                                <input wire:model="ccpDocumentUploads.{{ $documentIndex }}.file" type="file" class="{{ $input }}" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp">
-                                <p wire:loading wire:target="ccpDocumentUploads.{{ $documentIndex }}.file" class="mt-1 text-xs text-blue-600">Mengunggah file...</p>
-                                @error("ccpDocumentUploads.$documentIndex.file")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                            </div>
-                            <button type="button" wire:click="removeCcpDocumentUpload({{ $documentIndex }})" class="mt-6 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50">Hapus</button>
+        @if($editProjectModalOpen)
+            <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                <button type="button" wire:click="closeEditProjectModal" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup modal edit project"></button>
+                <form wire:submit="saveProjectInformation" class="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <div class="flex items-start justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Edit Project</h3>
+                            <p class="mt-1 text-sm text-gray-500">Perbarui informasi utama dan periode pelaksanaan project.</p>
                         </div>
-                    @endforeach
-                    <div class="flex justify-end">
-                        <button type="submit" wire:loading.attr="disabled" wire:target="saveCcpDocuments,ccpDocumentUploads.*.file" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">
-                            <span wire:loading.remove wire:target="saveCcpDocuments">Simpan Semua Dokumen</span><span wire:loading wire:target="saveCcpDocuments">Menyimpan...</span>
+                        <button type="button" wire:click="closeEditProjectModal" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200" aria-label="Tutup">
+                            <x-heroicon-o-x-mark class="h-5 w-5" />
+                        </button>
+                    </div>
+                    <div class="grid gap-4 overflow-y-auto p-5 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Nama Project *</label>
+                            <input wire:model="editProjectName" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Contoh: Pengembangan Menu Seasonal">
+                            @error('editProjectName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Deskripsi Project</label>
+                            <textarea wire:model="editProjectDescription" rows="4" class="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Jelaskan tujuan, ruang lingkup, dan hasil yang diharapkan..."></textarea>
+                            @error('editProjectDescription')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Start Date *</label>
+                            <input wire:model="editProjectStartDate" type="date" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                            @error('editProjectStartDate')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">End Date *</label>
+                            <input wire:model="editProjectEndDate" type="date" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                            @error('editProjectEndDate')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2 border-t border-gray-200 p-5 dark:border-gray-700">
+                        <button type="button" wire:click="closeEditProjectModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Batal</button>
+                        <button type="submit" wire:loading.attr="disabled" wire:target="saveProjectInformation" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                            <span wire:loading.remove wire:target="saveProjectInformation">Simpan Perubahan</span><span wire:loading wire:target="saveProjectInformation">Menyimpan...</span>
                         </button>
                     </div>
                 </form>
-            @endif
+            </div>
+        @endif
+
+        <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Critical Control Point (CCP)</h3>
+                    <p class="text-sm text-gray-500">Dokumen pendukung titik kendali kritis untuk project ini.</p>
+                </div>
+                @if($canManage)
+                    <button type="button" wire:click="openCcpUploadModal" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
+                        <x-heroicon-o-document-plus class="h-4 w-4" /> Tambah CCP
+                    </button>
+                @endif
+            </div>
 
             <div class="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
                 @forelse($project->documents as $document)
@@ -93,6 +140,69 @@
                 @endforelse
             </div>
         </section>
+
+        @if($ccpUploadModalOpen)
+            <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
+                <button type="button" wire:click="closeCcpUploadModal" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup modal upload CCP"></button>
+                <form wire:submit="saveCcpDocuments" class="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <div class="flex items-start justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Tambah CCP</h3>
+                            <p class="mt-1 text-sm text-gray-500">Unggah dokumen pendukung Critical Control Point untuk project ini.</p>
+                        </div>
+                        <button type="button" wire:click="closeCcpUploadModal" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200" aria-label="Tutup">
+                            <x-heroicon-o-x-mark class="h-5 w-5" />
+                        </button>
+                    </div>
+
+                    <div class="space-y-4 overflow-y-auto p-5">
+                        @foreach($ccpDocumentUploads as $documentIndex => $documentUpload)
+                            <div wire:key="ccp-document-upload-{{ $documentIndex }}" class="space-y-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white">Dokumen CCP {{ $documentIndex + 1 }}</p>
+                                    @if(count($ccpDocumentUploads) > 1)
+                                        <button type="button" wire:click="removeCcpDocumentUpload({{ $documentIndex }})" class="text-xs font-bold text-red-600 hover:text-red-700">Hapus</button>
+                                    @endif
+                                </div>
+                                <div>
+                                    <label class="{{ $label }}">Nama Dokumen *</label>
+                                    <input wire:model="ccpDocumentUploads.{{ $documentIndex }}.name" class="{{ $input }}" placeholder="Contoh: CCP Produksi Croissant">
+                                    @error("ccpDocumentUploads.$documentIndex.name")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                                <div>
+                                    <label class="{{ $label }}">Attachment *</label>
+                                    @if($documentUpload['file'] ?? null)
+                                        <div class="mb-2 flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-700">
+                                            <x-heroicon-o-paper-clip class="h-4 w-4 shrink-0 text-blue-400" />
+                                            <span class="min-w-0 flex-1 truncate text-xs text-gray-600 dark:text-gray-300">{{ $documentUpload['file']->getClientOriginalName() }}</span>
+                                        </div>
+                                    @endif
+                                    <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-4 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20">
+                                        <x-heroicon-o-arrow-up-tray class="h-5 w-5 text-gray-400" />
+                                        <span class="text-sm text-gray-400">Tambah File / Dokumen CCP</span>
+                                        <input wire:model="ccpDocumentUploads.{{ $documentIndex }}.file" type="file" class="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp">
+                                    </label>
+                                    <p class="mt-1.5 text-xs text-gray-400">PDF, Office, JPG, PNG, atau WebP · maksimal 20 MB.</p>
+                                    <p wire:loading wire:target="ccpDocumentUploads.{{ $documentIndex }}.file" class="mt-1 text-xs text-blue-600">Mengunggah file...</p>
+                                    @error("ccpDocumentUploads.$documentIndex.file")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                        @endforeach
+
+                        <button type="button" wire:click="addCcpDocumentUpload" class="inline-flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700">
+                            <x-heroicon-o-plus class="h-4 w-4" /> Tambah Dokumen Lain
+                        </button>
+                    </div>
+
+                    <div class="flex justify-end gap-2 border-t border-gray-200 p-5 dark:border-gray-700">
+                        <button type="button" wire:click="closeCcpUploadModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Batal</button>
+                        <button type="submit" wire:loading.attr="disabled" wire:target="saveCcpDocuments,ccpDocumentUploads.*.file" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                            <span wire:loading.remove wire:target="saveCcpDocuments">Simpan CCP</span><span wire:loading wire:target="saveCcpDocuments">Menyimpan...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        @endif
 
         @can('view bill of materials')
             @php $materialForecast = $this->materialForecast(); @endphp

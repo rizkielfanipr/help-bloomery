@@ -3,7 +3,6 @@
 use App\Enums\MarketingMaterialFulfillmentStatus;
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
-use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
@@ -43,6 +42,37 @@ it('uses dry as the shelf life storage option', function () {
         ->not->toHaveKey('ambient');
 });
 
+it('edits project information from the project detail modal', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Project Lama',
+        'description' => null,
+        'start_date' => '2026-08-21',
+        'end_date' => '2026-10-21',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->assertSee('Edit Project')
+        ->assertSee('Periode Project')
+        ->assertSee('Project Owner')
+        ->call('openEditProjectModal')
+        ->assertSet('editProjectModalOpen', true)
+        ->set('editProjectName', 'Project Baru')
+        ->set('editProjectDescription', 'Informasi project yang telah diperbarui.')
+        ->set('editProjectStartDate', '2026-09-01')
+        ->set('editProjectEndDate', '2026-11-30')
+        ->call('saveProjectInformation')
+        ->assertHasNoErrors()
+        ->assertSet('editProjectModalOpen', false)
+        ->assertSee('Project Baru');
+
+    expect($project->refresh())
+        ->name->toBe('Project Baru')
+        ->description->toBe('Informasi project yang telah diperbarui.')
+        ->start_date->format('Y-m-d')->toBe('2026-09-01')
+        ->end_date->format('Y-m-d')->toBe('2026-11-30');
+});
+
 it('uploads names downloads and deletes multiple CCP project documents', function () {
     Storage::fake('b2');
     $project = RndProject::query()->create([
@@ -53,7 +83,10 @@ it('uploads names downloads and deletes multiple CCP project documents', functio
     ]);
 
     $page = Livewire::test(ViewProject::class, ['record' => $project->id])
-        ->call('addCcpDocumentUpload')
+        ->assertSee('Tambah CCP')
+        ->call('openCcpUploadModal')
+        ->assertSet('ccpUploadModalOpen', true)
+        ->assertSee('Tambah File / Dokumen CCP')
         ->call('addCcpDocumentUpload')
         ->set('ccpDocumentUploads.0.name', 'CCP Produksi')
         ->set('ccpDocumentUploads.0.file', UploadedFile::fake()->create('ccp-produksi.pdf', 120, 'application/pdf'))
@@ -61,6 +94,7 @@ it('uploads names downloads and deletes multiple CCP project documents', functio
         ->set('ccpDocumentUploads.1.file', UploadedFile::fake()->create('ccp-storage.docx', 80, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
         ->call('saveCcpDocuments')
         ->assertHasNoErrors()
+        ->assertSet('ccpUploadModalOpen', false)
         ->assertSee('CCP Produksi')
         ->assertSee('CCP Penyimpanan')
         ->assertSee('Download');
@@ -93,32 +127,59 @@ it('allows selecting a projection branch before its target quantity is entered',
         ->assertSee('0,00');
 });
 
-it('renders the R&D project list and create pages', function () {
+it('renders the R&D project list and create modal', function () {
     Livewire::test(ListProjects::class)
         ->assertSee('Project')
-        ->assertSee('Buat Project');
-
-    Livewire::test(CreateProject::class)
-        ->assertSee('Informasi Project')
-        ->assertDontSee('Timeline Project');
+        ->assertSee('Project Workspace')
+        ->assertSee('sales projection')
+        ->assertSee('Buat Project')
+        ->call('openCreateProjectModal')
+        ->assertSet('createProjectModalOpen', true)
+        ->assertSee('Buat Project Baru')
+        ->assertSee('Nama Project');
 });
 
 it('creates a project', function () {
-    Livewire::test(CreateProject::class)
-        ->fillForm([
-            'name' => 'Seasonal Product Development',
-            'description' => 'Project pengembangan menu seasonal.',
-            'start_date' => '2026-08-01',
-            'end_date' => '2026-08-31',
-        ])
-        ->call('create')
-        ->assertHasNoFormErrors();
+    Livewire::test(ListProjects::class)
+        ->call('openCreateProjectModal')
+        ->set('projectName', 'Seasonal Product Development')
+        ->set('projectDescription', 'Project pengembangan menu seasonal.')
+        ->set('projectStartDate', '2026-08-01')
+        ->set('projectEndDate', '2026-08-31')
+        ->call('createProject')
+        ->assertHasNoErrors();
 
     $project = RndProject::query()->where('name', 'Seasonal Product Development')->firstOrFail();
 
     expect($project->description)->toBe('Project pengembangan menu seasonal.')
         ->and($project->start_date->toDateString())->toBe('2026-08-01')
         ->and($project->end_date->toDateString())->toBe('2026-08-31');
+});
+
+it('updates a project from the project list modal', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Project Sebelum Edit',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-08-31',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ListProjects::class)
+        ->call('openEditProjectModal', $project->id)
+        ->assertSet('createProjectModalOpen', true)
+        ->assertSet('editingProjectId', $project->id)
+        ->assertSee('Edit Project')
+        ->set('projectName', 'Project Setelah Edit')
+        ->set('projectDescription', 'Deskripsi telah diperbarui.')
+        ->set('projectEndDate', '2026-09-30')
+        ->call('saveProject')
+        ->assertHasNoErrors()
+        ->assertSet('createProjectModalOpen', false);
+
+    expect($project->refresh())
+        ->name->toBe('Project Setelah Edit')
+        ->description->toBe('Deskripsi telah diperbarui.')
+        ->end_date->format('Y-m-d')->toBe('2026-09-30');
 });
 
 it('creates and updates a product release with online and offline prices', function () {
@@ -403,6 +464,10 @@ it('uploads and deletes product marketing materials on Cloudflare storage', func
     ]);
 
     $page = Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->assertSee('Target Rilis')
+        ->assertSee('Cakupan Harga')
+        ->assertSee('Shelf Life')
+        ->assertSee('Sales Projection')
         ->call('openMaterialForm')
         ->set('materialType', 'packaging_design')
         ->set('materialTitle', 'Final Packaging Design')

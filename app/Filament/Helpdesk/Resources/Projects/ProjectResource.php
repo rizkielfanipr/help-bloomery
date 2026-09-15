@@ -3,8 +3,6 @@
 namespace App\Filament\Helpdesk\Resources\Projects;
 
 use App\Filament\Helpdesk\Concerns\HasPermissions;
-use App\Filament\Helpdesk\Resources\Projects\Pages\CreateProject;
-use App\Filament\Helpdesk\Resources\Projects\Pages\EditProject;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
 use App\Models\RndProject;
@@ -12,12 +10,12 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -48,7 +46,13 @@ class ProjectResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
+        return $schema->components(static::projectFormComponents());
+    }
+
+    /** @return array<int, Component> */
+    public static function projectFormComponents(): array
+    {
+        return [
             Section::make('Informasi Project')
                 ->description('Informasi utama dan periode pelaksanaan project R&D.')
                 ->schema([
@@ -78,8 +82,7 @@ class ProjectResource extends Resource
                         ->afterOrEqual('start_date'),
                 ])
                 ->columns(2),
-
-        ]);
+        ];
     }
 
     public static function table(Table $table): Table
@@ -115,7 +118,6 @@ class ProjectResource extends Resource
             ->defaultSort('updated_at', 'desc')
             ->recordActions([
                 ViewAction::make()->iconButton()->tooltip('Buka Project'),
-                EditAction::make()->iconButton()->tooltip('Edit Project'),
                 DeleteAction::make()->iconButton()->tooltip('Hapus Project'),
             ])
             ->toolbarActions([
@@ -129,9 +131,7 @@ class ProjectResource extends Resource
     {
         return [
             'index' => ListProjects::route('/'),
-            'create' => CreateProject::route('/create'),
             'view' => ViewProject::route('/{record}'),
-            'edit' => EditProject::route('/{record}/edit'),
         ];
     }
 }

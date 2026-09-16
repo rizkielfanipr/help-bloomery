@@ -71,6 +71,7 @@ it('selects products from a paginated ESB picker', function () {
         ->set('companyCode', 'BLSS')
         ->call('openProductPicker', 0)
         ->assertSet('productPickerOpen', true)
+        ->assertSeeHtml('style="z-index: 70"')
         ->call('loadProducts')
         ->assertSet('productTotal', 11)
         ->assertSet('productHasNext', true)

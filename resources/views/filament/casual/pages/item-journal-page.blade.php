@@ -4,7 +4,7 @@
 <div class="flex min-h-dvh flex-col bg-blue-600 dark:bg-blue-900">
     <header class="flex-shrink-0 px-5 pb-8 pt-14 text-white">
         <div class="mb-4 flex items-center gap-3">
-            <a href="{{ route('filament.casual.pages.launcher-page') }}" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 transition active:bg-white/30"><x-heroicon-o-arrow-left class="h-5 w-5" /></a>
+            <a href="{{ \App\Filament\Casual\Pages\LauncherPage::getUrl() }}" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 transition active:bg-white/30"><x-heroicon-o-arrow-left class="h-5 w-5" /></a>
             <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20"><x-heroicon-o-arrows-right-left class="h-5 w-5" /></div>
             <span class="text-base font-semibold">Item Journal</span>
         </div>

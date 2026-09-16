@@ -21,6 +21,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class CasualPanelProvider extends PanelProvider
@@ -35,7 +36,10 @@ class CasualPanelProvider extends PanelProvider
             ->when(! $domain, fn (Panel $p) => $p->path('casual'))
             ->login(Login::class)
             ->registration(Register::class)
-            ->homeUrl(fn (): string => LauncherPage::getUrl())
+            ->homeUrl(fn (): string => route('filament.casual.home'))
+            ->authenticatedRoutes(function (): void {
+                Route::get('/', LauncherPage::class)->name('home');
+            })
             ->viteTheme('resources/css/filament/casual/theme.css')
             ->defaultThemeMode(ThemeMode::Light)
             ->navigation(false)

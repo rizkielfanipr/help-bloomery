@@ -92,6 +92,12 @@ class Login extends BaseLogin
 
     private function resolveHomeUrl(): string
     {
-        return session()->pull('url.intended', LauncherPage::getUrl());
+        $intendedUrl = session()->pull('url.intended');
+
+        if (is_string($intendedUrl) && str_contains(parse_url($intendedUrl, PHP_URL_PATH) ?: '', '/assets/scan/')) {
+            return $intendedUrl;
+        }
+
+        return LauncherPage::getUrl(panel: 'casual');
     }
 }

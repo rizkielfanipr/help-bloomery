@@ -14,7 +14,7 @@
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $this->iconPath('arrow-left') }}"/></svg>
                 </button>
             @else
-                <a href="{{ route('filament.casual.pages.launcher-page') }}" aria-label="Kembali ke halaman aplikasi" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30 active:scale-95">
+                <a href="{{ \App\Filament\Casual\Pages\LauncherPage::getUrl() }}" aria-label="Kembali ke halaman aplikasi" class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30 active:scale-95">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $this->iconPath('arrow-left') }}"/></svg>
                 </a>
             @endif

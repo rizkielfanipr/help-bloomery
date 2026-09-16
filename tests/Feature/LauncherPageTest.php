@@ -16,8 +16,24 @@ beforeEach(function () {
 });
 
 it('redirects guests to login', function () {
-    get(route('filament.casual.pages.launcher-page'))
+    get(route('filament.casual.home'))
         ->assertRedirect();
+});
+
+it('serves the launcher at the casual domain root and redirects the legacy URL', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('CASUAL_STAFF');
+
+    actingAs($user);
+
+    expect(LauncherPage::getUrl(panel: 'casual'))->toBe(route('filament.casual.home'));
+
+    get(route('filament.casual.home'))
+        ->assertOk()
+        ->assertSee('Absensi');
+
+    get(route('filament.casual.pages.launcher-page'))
+        ->assertRedirect(route('filament.casual.home'));
 });
 
 it('shows Absensi tile for CASUAL_STAFF', function () {

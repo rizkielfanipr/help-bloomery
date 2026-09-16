@@ -9,6 +9,7 @@ use App\Models\ErpRepairRequest;
 use App\Models\PurchaseRequest;
 use App\Models\ServiceRequest;
 use Filament\Pages\Page;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 class LauncherPage extends Page
@@ -18,6 +19,19 @@ class LauncherPage extends Page
     protected static string $layout = 'filament.casual.layouts.bare';
 
     protected static bool $shouldRegisterNavigation = false;
+
+    public function mount(): void
+    {
+        if (request()->routeIs('filament.casual.pages.launcher-page')) {
+            $this->redirect(route('filament.casual.home'));
+        }
+    }
+
+    /** @param array<mixed> $parameters */
+    public static function getUrl(array $parameters = [], bool $isAbsolute = true, ?string $panel = null, ?Model $tenant = null, bool $shouldGuessMissingParameters = false, ?string $configuration = null): string
+    {
+        return route('filament.casual.home', [], $isAbsolute);
+    }
 
     public function getTitle(): string
     {

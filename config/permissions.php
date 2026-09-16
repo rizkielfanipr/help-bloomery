@@ -60,6 +60,10 @@ return [
         'Proses Material Marketing' => ['process marketing material as inventory'],
     ],
 
+    'Quality Control' => [
+        'Item Journal' => ['view quality control item journals', 'view all quality control item journals', 'create quality control item journals', 'submit quality control item journals', 'delete quality control item journal attachments'],
+    ],
+
     'Finance' => [
         'Sales Report' => [
             'view sales reports', 'create sales reports', 'edit sales reports', 'delete sales reports',

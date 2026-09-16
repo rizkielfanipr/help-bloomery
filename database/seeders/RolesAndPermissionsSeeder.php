@@ -166,12 +166,14 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access employee app quality control',
                 'view quality control audits', 'create quality control audits', 'edit quality control audits',
+                'view quality control item journals', 'create quality control item journals', 'submit quality control item journals', 'delete quality control item journal attachments',
             ]);
 
         Role::firstOrCreate(['name' => 'QUALITY_CONTROL_SUPERVISOR', 'guard_name' => 'web'])
             ->syncPermissions([
                 'access backoffice',
                 'view quality control audits',
+                'view quality control item journals', 'view all quality control item journals',
                 'view quality control checklists', 'create quality control checklists', 'edit quality control checklists', 'delete quality control checklists',
             ]);
 

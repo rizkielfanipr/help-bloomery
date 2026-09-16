@@ -149,6 +149,7 @@
             'items' => [
                 ['label' => 'Audit QC',   'icon' => 'clipboard-check', 'perm' => 'view quality control audits',     'href' => $r('filament.helpdesk.resources.quality-control-audits.index'),          'active' => $active($r('filament.helpdesk.resources.quality-control-audits.index'))],
                 ['label' => 'Checklist QC', 'icon' => 'list-checks',   'perm' => 'view quality control checklists', 'href' => $r('filament.helpdesk.resources.quality-control-checklist-items.index'), 'active' => $active($r('filament.helpdesk.resources.quality-control-checklist-items.index'))],
+                ['label' => 'Item Journal', 'icon' => 'arrow-left-right', 'perm' => 'view quality control item journals', 'href' => $r('filament.helpdesk.resources.quality-control-item-journals.index'), 'active' => $active($r('filament.helpdesk.resources.quality-control-item-journals.index'))],
             ],
         ],
         [

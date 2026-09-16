@@ -70,7 +70,7 @@
         @endif
 
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-            <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
                 <div class="relative">
                     <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
                     <input wire:model.live.debounce.300ms="projectSearch" type="search" placeholder="Cari nama atau deskripsi project..."
@@ -82,13 +82,89 @@
                     <option value="active">Active</option>
                     <option value="completed">Completed</option>
                 </select>
+                <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1 dark:border-gray-600 dark:bg-gray-800">
+                    <button type="button" wire:click="showProjectList" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'list' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
+                        <x-heroicon-o-squares-2x2 class="h-4 w-4" /> Daftar
+                    </button>
+                    <button type="button" wire:click="showProjectCalendar" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'calendar' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
+                        <x-heroicon-o-calendar-days class="h-4 w-4" /> Kalender
+                    </button>
+                </div>
             </div>
         </section>
 
-        @php
-            $projects = $this->projects();
-        @endphp
-        <section class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+        @if($projectView === 'calendar')
+            @php
+                $calendar = $this->calendar();
+            @endphp
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="flex flex-col gap-4 border-b border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <x-heroicon-o-calendar-days class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Timeline Project</h3>
+                        </div>
+                        <p class="mt-1 text-sm text-gray-500">Setiap blok menunjukkan periode project dari tanggal mulai sampai tanggal selesai.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" wire:click="previousCalendarMonth" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" aria-label="Bulan sebelumnya">
+                            <x-heroicon-o-chevron-left class="h-4 w-4" />
+                        </button>
+                        <button type="button" wire:click="currentCalendarMonth" class="min-w-36 rounded-lg border border-gray-300 px-3 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-800">{{ $calendar['monthLabel'] }}</button>
+                        <button type="button" wire:click="nextCalendarMonth" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" aria-label="Bulan berikutnya">
+                            <x-heroicon-o-chevron-right class="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <div class="min-w-[760px]">
+                        <div class="grid grid-cols-7 border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/60">
+                            @foreach(['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $dayName)
+                                <div class="border-r border-gray-200 px-3 py-2 text-center text-xs font-bold uppercase tracking-wide text-gray-500 last:border-r-0 dark:border-gray-700">{{ $dayName }}</div>
+                            @endforeach
+                        </div>
+                        @foreach($calendar['weeks'] as $weekIndex => $week)
+                            <div class="border-b border-gray-200 last:border-b-0 dark:border-gray-700" wire:key="calendar-week-{{ $weekIndex }}">
+                                <div class="grid grid-cols-7">
+                                    @foreach($week['dates'] as $day)
+                                        <div class="min-h-10 border-r border-gray-100 px-2 py-2 text-right text-xs last:border-r-0 dark:border-gray-800 {{ $day['isCurrentMonth'] ? 'text-gray-700 dark:text-gray-200' : 'bg-gray-50/70 text-gray-300 dark:bg-gray-800/30 dark:text-gray-600' }}">
+                                            <span class="inline-flex h-6 w-6 items-center justify-center rounded-full {{ $day['isToday'] ? 'bg-blue-600 font-bold text-white' : '' }}">{{ $day['date']->day }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <div class="grid grid-cols-7 gap-y-1 px-1 pb-2">
+                                    @foreach($week['projects'] as $segment)
+                                        @php
+                                            $project = $segment['project'];
+                                            $status = today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active');
+                                            $barClass = match($status) {
+                                                'Active' => 'border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-200',
+                                                'Completed' => 'border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300',
+                                                default => 'border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-200',
+                                            };
+                                        @endphp
+                                        <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project]) }}"
+                                           class="mx-0.5 truncate rounded-md border px-2 py-1.5 text-xs font-bold hover:brightness-95 {{ $barClass }}"
+                                           style="grid-column: {{ $segment['startColumn'] }} / span {{ $segment['daySpan'] }}"
+                                           title="{{ $project->name }} · {{ $project->start_date->format('d M Y') }} – {{ $project->end_date->format('d M Y') }}">
+                                            {{ $project->name }}
+                                        </a>
+                                    @endforeach
+                                    @if(count($week['projects']) === 0)
+                                        <div class="col-span-7 h-6"></div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </section>
+        @else
+            @php
+                $projects = $this->projects();
+            @endphp
+            <section class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
             @forelse($projects as $project)
                 @php
                     $status = today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active');
@@ -150,6 +226,7 @@
                     <p class="mt-1 text-sm text-gray-500">Buat project terlebih dahulu sebelum mengelola BOM atau resep.</p>
                 </div>
             @endforelse
-        </section>
+            </section>
+        @endif
     </div>
 </x-filament-panels::page>

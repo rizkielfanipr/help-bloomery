@@ -139,6 +139,29 @@ it('renders the R&D project list and create modal', function () {
         ->assertSee('Nama Project');
 });
 
+it('shows project date ranges in the monthly timeline calendar', function () {
+    RndProject::query()->create([
+        'name' => 'Project Calendar Seasonal',
+        'start_date' => '2026-09-14',
+        'end_date' => '2026-09-24',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectCalendar')
+        ->set('calendarMonth', '2026-09')
+        ->assertSet('projectView', 'calendar')
+        ->assertSee('Timeline Project')
+        ->assertSee('September 2026')
+        ->assertSee('Project Calendar Seasonal')
+        ->call('nextCalendarMonth')
+        ->assertSet('calendarMonth', '2026-10')
+        ->assertDontSee('Project Calendar Seasonal')
+        ->call('previousCalendarMonth')
+        ->assertSet('calendarMonth', '2026-09')
+        ->assertSee('Project Calendar Seasonal');
+});
+
 it('creates a project', function () {
     Livewire::test(ListProjects::class)
         ->call('openCreateProjectModal')

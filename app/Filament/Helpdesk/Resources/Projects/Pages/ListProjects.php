@@ -7,6 +7,7 @@ use App\Models\RndProject;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 
 class ListProjects extends ListRecords
 {
@@ -17,6 +18,10 @@ class ListProjects extends ListRecords
     public string $projectSearch = '';
 
     public string $projectStatus = '';
+
+    public string $projectView = 'list';
+
+    public string $calendarMonth = '';
 
     public bool $createProjectModalOpen = false;
 
@@ -46,6 +51,95 @@ class ListProjects extends ListRecords
             ->when($this->projectStatus === 'completed', fn ($query) => $query->whereDate('end_date', '<', today()))
             ->latest('updated_at')
             ->get();
+    }
+
+    /**
+     * @return array{monthLabel: string, weeks: array<int, array{dates: array<int, array{date: Carbon, isCurrentMonth: bool, isToday: bool}>, projects: array<int, array{project: RndProject, startColumn: int, daySpan: int}>}>}
+     */
+    public function calendar(): array
+    {
+        $month = $this->selectedCalendarMonth();
+        $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+        $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
+        $projects = $this->projects()
+            ->filter(fn (RndProject $project): bool => $project->start_date->lte($calendarEnd) && $project->end_date->gte($calendarStart));
+        $weeks = [];
+
+        for ($weekStart = $calendarStart->copy(); $weekStart->lte($calendarEnd); $weekStart->addWeek()) {
+            $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+            $dates = [];
+
+            for ($date = $weekStart->copy(); $date->lte($weekEnd); $date->addDay()) {
+                $dates[] = [
+                    'date' => $date->copy(),
+                    'isCurrentMonth' => $date->month === $month->month,
+                    'isToday' => $date->isToday(),
+                ];
+            }
+
+            $segments = $projects
+                ->filter(fn (RndProject $project): bool => $project->start_date->lte($weekEnd) && $project->end_date->gte($weekStart))
+                ->sortBy(fn (RndProject $project): string => $project->start_date->format('Y-m-d').'|'.$project->end_date->format('Y-m-d').'|'.str_pad((string) $project->id, 10, '0', STR_PAD_LEFT))
+                ->map(function (RndProject $project) use ($weekStart, $weekEnd): array {
+                    $segmentStart = $project->start_date->greaterThan($weekStart) ? $project->start_date : $weekStart;
+                    $segmentEnd = $project->end_date->lessThan($weekEnd) ? $project->end_date : $weekEnd;
+
+                    return [
+                        'project' => $project,
+                        'startColumn' => (int) $weekStart->diffInDays($segmentStart) + 1,
+                        'daySpan' => (int) $segmentStart->diffInDays($segmentEnd) + 1,
+                    ];
+                })
+                ->values()
+                ->all();
+
+            $weeks[] = ['dates' => $dates, 'projects' => $segments];
+        }
+
+        return [
+            'monthLabel' => $month->translatedFormat('F Y'),
+            'weeks' => $weeks,
+        ];
+    }
+
+    public function showProjectList(): void
+    {
+        $this->projectView = 'list';
+    }
+
+    public function showProjectCalendar(): void
+    {
+        $this->projectView = 'calendar';
+        $this->ensureCalendarMonthIsSet();
+    }
+
+    public function previousCalendarMonth(): void
+    {
+        $this->calendarMonth = $this->selectedCalendarMonth()->subMonthNoOverflow()->format('Y-m');
+    }
+
+    public function nextCalendarMonth(): void
+    {
+        $this->calendarMonth = $this->selectedCalendarMonth()->addMonthNoOverflow()->format('Y-m');
+    }
+
+    public function currentCalendarMonth(): void
+    {
+        $this->calendarMonth = today()->format('Y-m');
+    }
+
+    private function ensureCalendarMonthIsSet(): void
+    {
+        if ($this->calendarMonth === '') {
+            $this->calendarMonth = today()->format('Y-m');
+        }
+    }
+
+    private function selectedCalendarMonth(): Carbon
+    {
+        $this->ensureCalendarMonthIsSet();
+
+        return Carbon::createFromFormat('Y-m-d', $this->calendarMonth.'-01')->startOfDay();
     }
 
     protected function getHeaderActions(): array

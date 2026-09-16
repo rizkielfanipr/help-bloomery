@@ -95,7 +95,7 @@
         </div>
 
         @if($productPickerOpen)
-            <div wire:init="loadProducts" class="fixed inset-0 flex items-end justify-center sm:items-center sm:p-6" style="z-index: 70">
+            <div wire:init="loadProducts" class="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-6">
                 <button type="button" aria-label="Tutup pemilih produk" class="absolute inset-0 bg-slate-950/55" wire:click="closeProductPicker"></button>
                 <div class="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-gray-200 bg-white sm:rounded-2xl dark:border-gray-700 dark:bg-gray-900">
                     <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">

@@ -23,6 +23,8 @@ class Branch extends Model
         'is_active',
         'location_required',
         'sales_shift_count',
+        'sales_assessment_started_at',
+        'sales_assessment_excluded_dates',
     ];
 
     protected function casts(): array
@@ -33,6 +35,8 @@ class Branch extends Model
             'is_active' => 'boolean',
             'location_required' => 'boolean',
             'sales_shift_count' => 'integer',
+            'sales_assessment_started_at' => 'immutable_date',
+            'sales_assessment_excluded_dates' => 'array',
         ];
     }
 

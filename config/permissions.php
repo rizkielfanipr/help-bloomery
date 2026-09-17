@@ -65,6 +65,7 @@ return [
     ],
 
     'Finance' => [
+        'Sales Report Scores' => ['view sales report scores', 'edit sales report assessment settings'],
         'Sales Report' => [
             'view sales reports', 'create sales reports', 'edit sales reports', 'delete sales reports',
             'review sales reports as supervisor', 'review sales reports as finance',

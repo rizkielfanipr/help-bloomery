@@ -57,7 +57,7 @@ it('counts leap months and attributes late approval to report month', function (
 
 it('shows finance page and restricts branch settings and details', function () {
     $other = Branch::factory()->create(['name' => 'Forbidden Branch']);
-    $this->actingAs($this->user)->get(SalesReportScoresPage::getUrl())->assertSuccessful()->assertSee('Monthly Reporting Compliance')->assertDontSee('Forbidden Branch');
+    $this->actingAs($this->user)->get(SalesReportScoresPage::getUrl())->assertSuccessful()->assertSee('Reporting Compliance')->assertDontSee('Forbidden Branch');
     Livewire::test(SalesReportScoresPage::class)->call('showDetail', $this->branch->id)->assertSee('Rincian Harian');
     expect(fn () => Livewire::test(SalesReportScoresPage::class)->call('openSettings', $other->id))->toThrow(ModelNotFoundException::class);
     expect(fn () => Livewire::test(SalesReportScoresPage::class)->call('showDetail', $other->id))->toThrow(ModelNotFoundException::class);
@@ -121,4 +121,19 @@ it('standardizes all existing branch start dates without changing reports or exc
     expect($inactiveBranch->fresh()->sales_assessment_started_at->toDateString())->toBe('2026-09-01');
     expect($this->branch->fresh()->sales_assessment_excluded_dates)->toBe($exceptions);
     expect($report->fresh()->getRawOriginal())->toBe($before);
+});
+
+it('opens daily details and settings as mutually exclusive dismissible modals', function () {
+    $this->actingAs($this->user);
+    Livewire::test(SalesReportScoresPage::class)
+        ->assertDontSee('data-testid="daily-score-modal"', false)
+        ->assertDontSee('data-testid="score-settings-modal"', false)
+        ->call('showDetail', $this->branch->id)->assertSee('data-testid="daily-score-modal"', false)
+        ->call('closeDetail')->assertSet('detailBranchId', null)->assertDontSee('Rincian Harian')
+        ->call('openSettings', $this->branch->id)->assertSee('data-testid="score-settings-modal"', false)
+        ->call('showDetail', $this->branch->id)->assertSet('settingsBranchId', null)
+        ->call('openSettings', $this->branch->id)->assertSet('detailBranchId', null)
+        ->call('closeSettings')->assertDontSee('data-testid="score-settings-modal"', false)
+        ->call('showDetail', $this->branch->id)->set('month', '2026-08')->assertSet('detailBranchId', null)
+        ->call('showDetail', $this->branch->id)->set('branchFilter', (string) $this->branch->id)->assertSet('detailBranchId', null);
 });

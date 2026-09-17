@@ -74,13 +74,30 @@ class SalesReportScoresPage extends Page
     public function showDetail(int $branchId): void
     {
         $this->branchesQuery()->findOrFail($branchId);
+        $this->settingsBranchId = null;
         $this->detailBranchId = $branchId;
+    }
+
+    public function closeDetail(): void
+    {
+        $this->detailBranchId = null;
+    }
+
+    public function updatedMonth(): void
+    {
+        $this->closeDetail();
+    }
+
+    public function updatedBranchFilter(): void
+    {
+        $this->closeDetail();
     }
 
     public function openSettings(int $branchId): void
     {
         abort_unless(auth()->user()->can('edit sales report assessment settings'), 403);
         $branch = $this->branchesQuery()->findOrFail($branchId);
+        $this->detailBranchId = null;
         $this->settingsBranchId = $branchId;
         $this->assessmentStart = $branch->sales_assessment_started_at?->toDateString() ?? '';
         $this->excludedDates = $branch->sales_assessment_excluded_dates ?? [];

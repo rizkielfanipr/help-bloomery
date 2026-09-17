@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\SalesReportScoreCalculator;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\SalesReportAssessmentPermissionSeeder;
+use Database\Seeders\SalesReportAssessmentStartDateSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
@@ -106,4 +107,18 @@ it('allows explicitly authorized users to view all branches', function () {
     $this->user->update(['access_all_branches' => true]);
     $this->actingAs($this->user);
     Livewire::test(SalesReportScoresPage::class)->assertSee('Additional Branch')->call('openSettings', $other->id)->assertSet('settingsBranchId', $other->id);
+});
+
+it('standardizes all existing branch start dates without changing reports or exceptions', function () {
+    $exceptions = [['date' => '2026-09-03', 'reason' => 'Tutup renovasi']];
+    $this->branch->update(['sales_assessment_started_at' => '2026-08-01', 'sales_assessment_excluded_dates' => $exceptions]);
+    $inactiveBranch = Branch::factory()->create(['is_active' => false]);
+    $report = SalesReport::factory()->create(['branch_id' => $this->branch->id, 'report_date' => '2026-09-01', 'status' => SalesReportStatus::Completed]);
+    $before = $report->fresh()->getRawOriginal();
+    $this->seed(SalesReportAssessmentStartDateSeeder::class);
+    $this->seed(SalesReportAssessmentStartDateSeeder::class);
+    expect($this->branch->fresh()->sales_assessment_started_at->toDateString())->toBe('2026-09-01');
+    expect($inactiveBranch->fresh()->sales_assessment_started_at->toDateString())->toBe('2026-09-01');
+    expect($this->branch->fresh()->sales_assessment_excluded_dates)->toBe($exceptions);
+    expect($report->fresh()->getRawOriginal())->toBe($before);
 });

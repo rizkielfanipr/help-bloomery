@@ -244,7 +244,7 @@ class GoodsReceiptPage extends Page
             return;
         }
         $qc = app(InboundGoodsReceiptQcService::class);
-        $assessed = $selected->map(fn (array $item): array => $item + $qc->assessItem($item, $this->goodsReceiptDate));
+        $assessed = $selected->map(fn (array $item): array => array_replace($item, $qc->assessItem($item, $this->goodsReceiptDate)));
         $this->validateQc($assessed, $qc);
         $location = collect($this->locations)->firstWhere('locationID', (int) $this->locationId);
         abort_unless($location, 422, 'Lokasi tidak valid untuk cabang PO ini.');

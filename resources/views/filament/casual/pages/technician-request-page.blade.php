@@ -77,6 +77,10 @@
 
             <div x-show="mode === 'manual'" class="flex flex-col gap-4">
             <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+                <div class="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 dark:border-blue-900 dark:bg-blue-950/40">
+                    <x-heroicon-o-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                    <p class="text-xs leading-5 text-blue-800 dark:text-blue-200"><span class="font-semibold">Manual khusus asset yang belum memiliki QR.</span> Jika asset sudah memiliki QR, gunakan tab <button type="button" x-on:click="selectMode('qr')" class="font-semibold underline underline-offset-2">QR Code</button> agar laporan terhubung ke riwayat perbaikan asset.</p>
+                </div>
 
             {{-- Branch / Divisi (read-only) --}}
             <div>
@@ -96,15 +100,6 @@
                         <span class="text-sm text-amber-700 dark:text-amber-400">Cabang belum diatur. Hubungi admin.</span>
                     </div>
                 @endif
-            </div>
-
-            {{-- Tanggal Jadwal --}}
-            <div>
-                <label class="{{ $labelClass }}">Tanggal Jadwal</label>
-                <input type="date" wire:model="scheduledDate"
-                       min="{{ now()->toDateString() }}"
-                       class="{{ $fieldClass }}">
-                @error('scheduledDate') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
             </div>
 
             {{-- Deskripsi Masalah --}}
@@ -161,39 +156,35 @@
             </div>
 
             <div x-cloak x-show="mode === 'qr'" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                <div class="p-5 text-center">
-                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm0 12a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm12-12a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75h1.5v1.5h-1.5v-1.5Zm3 0h1.5v1.5h-1.5v-1.5Zm-3 3h1.5v1.5h-1.5v-1.5Zm3 0h1.5v1.5h-1.5v-1.5Z"/>
-                        </svg>
-                    </div>
-                    <h2 class="mt-3 text-base font-semibold text-slate-800 dark:text-white">Scan QR Asset</h2>
-                    <p class="mt-1 text-sm leading-5 text-slate-500 dark:text-slate-400">Arahkan kamera ke QR Code yang menempel pada asset.</p>
+                <div class="m-3 flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 dark:border-blue-900 dark:bg-blue-950/40">
+                    <x-heroicon-o-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                    <p class="text-xs leading-5 text-blue-800 dark:text-blue-200"><span class="font-semibold">Scan atau upload QR asset.</span> Arahkan kamera ke QR pada asset, atau pilih gambar melalui <span class="font-semibold">Upload Gambar QR</span>. QR yang terbaca akan membuka halaman asset untuk membuat laporan kendala.</p>
                 </div>
 
-                <div x-show="scanning" class="relative aspect-square bg-black">
+                <div wire:ignore class="relative aspect-square overflow-hidden bg-slate-950">
                     <video x-ref="scannerVideo" autoplay playsinline muted class="h-full w-full object-cover"></video>
+                    <div x-show="!scanning" class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-300">
+                        <x-heroicon-o-qr-code class="h-12 w-12" />
+                        <p class="text-xs" x-text="starting ? 'Membuka kamera...' : 'Kamera belum aktif'"></p>
+                    </div>
                     <div class="pointer-events-none absolute inset-10 rounded-3xl border-2 border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.35)]"></div>
-                    <button type="button" x-on:click="stopScanner" class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-xs font-semibold text-white">Tutup Kamera</button>
+                    <button type="button" x-show="scanning" x-on:click="stopScanner" class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-xs font-semibold text-white">Tutup Kamera</button>
                 </div>
 
                 <div class="space-y-4 border-t border-gray-100 p-5 dark:border-gray-800">
                     <p x-show="error" x-text="error" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"></p>
-                    <button type="button" x-show="!scanning" x-on:click="startScanner"
+                    <button type="button" x-show="!scanning && !starting && !readingImage" x-on:click="startScanner"
                             class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95">
                         Buka Kamera
                     </button>
+                    <input x-ref="qrImageInput" type="file" accept="image/jpeg,image/png,image/webp" x-on:change="readQrImage($event)" class="hidden">
+                    <button type="button" x-on:click="$refs.qrImageInput.click()" :disabled="readingImage" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-blue-600 disabled:opacity-60 dark:border-gray-700 dark:text-blue-400">
+                        <x-heroicon-o-photo class="h-4 w-4" />
+                        <span x-text="readingImage ? 'Membaca QR...' : 'Upload Gambar QR'">Upload Gambar QR</span>
+                    </button>
+                    <p class="text-center text-[10px] text-slate-400">JPG, PNG, WebP · Maks. 5 MB</p>
 
-                    <div>
-                        <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Atau tempel URL / kode QR</label>
-                        <div class="flex gap-2">
-                            <input x-model="qrValue" x-on:keydown.enter.prevent="openQrValue" type="text"
-                                   placeholder="URL atau kode asset"
-                                   class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
-                            <button type="button" x-on:click="openQrValue" class="rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white dark:bg-slate-700">Buka</button>
-                        </div>
-                    </div>
+
                 </div>
             </div>
 
@@ -211,7 +202,9 @@
         mode: 'manual',
         scanning: false,
         error: '',
-        qrValue: '',
+        starting: false,
+        readingImage: false,
+        cameraSession: 0,
         stream: null,
         detector: null,
         animationFrame: null,
@@ -219,33 +212,100 @@
         selectMode(mode) {
             this.mode = mode
 
-            if (mode !== 'qr') {
+            if (mode === 'qr') {
+                this.$nextTick(() => {
+                    if (this.mode === 'qr') {
+                        this.startScanner()
+                    }
+                })
+            } else {
                 this.stopScanner()
             }
         },
 
         async startScanner() {
+            if (this.scanning || this.starting || this.readingImage || this.mode !== 'qr') {
+                return
+            }
             this.error = ''
 
             if (!('BarcodeDetector' in window)) {
-                this.error = 'Scanner QR belum didukung browser ini. Gunakan kamera HP untuk membuka QR, atau tempel URL QR di bawah.'
+                this.error = 'Scanner QR belum didukung browser ini. Gunakan browser yang mendukung scanner QR atau pindai QR melalui kamera HP.'
                 return
             }
 
+            this.starting = true
+            const session = ++this.cameraSession
+
             try {
                 this.detector = new BarcodeDetector({ formats: ['qr_code'] })
-                this.stream = await navigator.mediaDevices.getUserMedia({
+                const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: { ideal: 'environment' } },
                     audio: false,
                 })
-                this.$refs.scannerVideo.srcObject = this.stream
+                if (session !== this.cameraSession || this.mode !== 'qr') {
+                    stream.getTracks().forEach((track) => track.stop())
+                    return
+                }
+                this.stream = stream
+                this.$refs.scannerVideo.srcObject = stream
                 this.scanning = true
                 await this.$nextTick()
                 await this.$refs.scannerVideo.play()
+                if (session !== this.cameraSession || this.mode !== 'qr') {
+                    return
+                }
+                this.starting = false
                 this.detectQrCode()
             } catch (error) {
+                if (session !== this.cameraSession) {
+                    return
+                }
                 this.stopScanner()
                 this.error = 'Kamera tidak dapat dibuka. Pastikan izin kamera sudah diberikan.'
+            }
+        },
+
+        async readQrImage(event) {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+            if (!file || this.readingImage || this.mode !== 'qr') {
+                return
+            }
+            this.error = ''
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+                this.error = 'Pilih gambar JPG, PNG, atau WebP maksimal 5 MB.'
+                return
+            }
+            if (!('BarcodeDetector' in window)) {
+                this.error = 'Browser ini belum mendukung pembacaan QR. Gunakan browser yang mendukung scanner QR.'
+                return
+            }
+            this.stopScanner()
+            this.readingImage = true
+            const session = this.cameraSession
+            let image = null
+            try {
+                image = await createImageBitmap(file)
+                const codes = await new BarcodeDetector({ formats: ['qr_code'] }).detect(image)
+                if (session !== this.cameraSession || this.mode !== 'qr') {
+                    return
+                }
+                const assetCode = codes.find((code) => this.assetToken(code.rawValue))
+                if (!assetCode) {
+                    this.error = 'QR asset tidak ditemukan. Pilih gambar QR yang jelas dan tidak terpotong.'
+                    return
+                }
+                this.openAssetQr(assetCode.rawValue)
+            } catch (error) {
+                if (session === this.cameraSession) {
+                    this.error = 'Gambar tidak dapat dibaca. Coba gambar QR yang lebih jelas.'
+                }
+            } finally {
+                image?.close()
+                if (session === this.cameraSession) {
+                    this.readingImage = false
+                }
             }
         },
 
@@ -254,12 +314,17 @@
                 return
             }
 
+            const session = this.cameraSession
             try {
                 const codes = await this.detector.detect(this.$refs.scannerVideo)
+                if (!this.scanning || session !== this.cameraSession) {
+                    return
+                }
 
                 if (codes.length > 0) {
-                    this.openAssetQr(codes[0].rawValue)
-                    return
+                    if (this.openAssetQr(codes[0].rawValue)) {
+                        return
+                    }
                 }
             } catch (error) {
                 // The next frame can still be decoded when a video frame is not ready yet.
@@ -268,12 +333,7 @@
             this.animationFrame = requestAnimationFrame(() => this.detectQrCode())
         },
 
-        openQrValue() {
-            this.error = ''
-            this.openAssetQr(this.qrValue)
-        },
-
-        openAssetQr(value) {
+        assetToken(value) {
             const rawValue = value.trim()
             let token = rawValue
 
@@ -286,15 +346,31 @@
             }
 
             if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(token)) {
-                this.error = 'QR Code tidak dikenali. Pastikan Anda memindai QR asset Bloomery.'
-                return
+                return null
             }
 
+            return token
+        },
+
+        openAssetQr(value) {
+            const token = this.assetToken(value)
+            if (!token) {
+                this.error = 'QR Code tidak dikenali. Pastikan Anda memindai QR asset Bloomery.'
+                return false
+            }
             this.stopScanner()
             window.location.assign(`/assets/scan/${token}`)
+            return true
+        },
+
+        destroy() {
+            this.stopScanner()
         },
 
         stopScanner() {
+            this.cameraSession++
+            this.starting = false
+            this.readingImage = false
             this.scanning = false
 
             if (this.animationFrame) {

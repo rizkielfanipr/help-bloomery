@@ -7,7 +7,7 @@
         'completed'   => ['label' => 'Completed',   'bg' => 'bg-emerald-100', 'text' => 'text-emerald-700', 'dark' => 'dark:bg-emerald-900/30 dark:text-emerald-400'],
         default       => ['label' => $record->status->getLabel(), 'bg' => 'bg-gray-100', 'text' => 'text-gray-600', 'dark' => ''],
     };
-    $canStart    = $record->status->value === 'submitted';
+    $canStart    = in_array($record->status->value, ['submitted', 'scheduled', 're_submitted']);
     $canComplete = $record->status->value === 'in_progress' && $record->technician_id === auth()->id();
 @endphp
 
@@ -35,12 +35,35 @@
 
         <p class="text-orange-200">SR-{{ str_pad($record->id, 4, '0', STR_PAD_LEFT) }}</p>
         <div class="flex items-center gap-2">
-            <p class="text-xl font-semibold text-white">{{ $record->scheduled_date?->format('d M Y') ?? '-' }}</p>
+            <p class="text-xl font-semibold text-white">{{ $record->scheduled_date?->format('d M Y') ?? 'Belum dijadwalkan' }}</p>
             <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $statusConfig['bg'] }} {{ $statusConfig['text'] }}">
                 {{ $statusConfig['label'] }}
             </span>
         </div>
     </div>
+
+    <section class="mx-5 mb-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+        <div class="flex flex-wrap gap-2">
+            @if(in_array($record->status->value, ['submitted', 'scheduled', 're_submitted']))<button type="button" wire:click="mountAction('schedule')" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold dark:border-gray-600">Atur Jadwal</button>@endif
+            @if(in_array($record->status->value, ['submitted', 'scheduled', 're_submitted', 'in_progress', 'awaiting_parts']))<button type="button" wire:click="mountAction('outsource')" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold dark:border-gray-600">Perlu Outsource</button>@endif
+            @if($record->status->value === 'in_progress')<button type="button" wire:click="mountAction('awaiting_parts')" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold dark:border-gray-600">Menunggu Sparepart</button>@endif
+            @if($record->status->value === 'awaiting_parts')<button type="button" wire:click="mountAction('resume')" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold dark:border-gray-600">Lanjutkan Pengerjaan</button>@endif
+            @if($record->status->value === 'awaiting_verification')<button type="button" wire:click="mountAction('verify_outsource')" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white">Verifikasi Report Vendor</button>@endif
+
+        </div>
+        <p class="mt-3 text-sm text-gray-500">Asset: {{ $record->asset?->asset_number ?? 'Tanpa Asset' }} · {{ $record->asset?->name }} · {{ $record->asset?->status }}</p>
+        <p class="mt-2 text-sm text-gray-500">Prioritas: {{ ucfirst($record->priority ?? 'normal') }} · Diagnosis: {{ $record->diagnosis ?: 'Belum diperiksa' }}</p>
+        @if($record->outsource_reason)
+            <p class="mt-2 text-sm text-gray-500">Outsource: {{ $record->outsource_reason }}</p>
+        @endif
+        @if($record->outsource_report)
+            <p class="mt-2 text-sm text-gray-500">Vendor: {{ $record->outsource_report['vendor'] }} · {{ $record->outsource_report['date'] }} · Biaya: Rp {{ number_format($record->outsource_report['cost'] ?? 0, 0, ',', '.') }}</p>
+            <p class="mt-2 text-sm text-gray-500">{{ $record->outsource_report['notes'] ?? '' }}</p>
+            @foreach($record->outsource_report['files'] as $file)
+                <a class="mt-2 block text-sm text-blue-600" target="_blank" href="{{ \Storage::disk('b2')->temporaryUrl($file, now()->addHour()) }}">Lihat Report Vendor {{ $loop->iteration }}</a>
+            @endforeach
+        @endif
+    </section>
 
     {{-- ════════════════════════════════════════════
          WHITE CONTENT CARD
@@ -87,12 +110,12 @@
                         [
                             'icon' => 'M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z',
                             'label' => 'Dijadwalkan Oleh',
-                            'value' => $record->scheduledBy?->name ?? '-',
+                            'value' => $record->scheduledBy?->name ?? 'Belum dijadwalkan',
                         ],
                         [
                             'icon' => 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5',
                             'label' => 'Tanggal',
-                            'value' => $record->scheduled_date?->format('d M Y') ?? '-',
+                            'value' => $record->scheduled_date?->format('d M Y') ?? 'Belum dijadwalkan',
                         ],
                         [
                             'icon' => 'M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z',
@@ -102,7 +125,7 @@
                         [
                             'icon' => 'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z',
                             'label' => 'Garansi Berakhir',
-                            'value' => $record->warranty_expires_at?->format('d M Y H:i') ?? '-',
+                            'value' => $record->warranty_expires_at?->format('d M Y H:i') ?? 'Belum dijadwalkan',
                         ],
                     ];
                 @endphp
@@ -171,7 +194,7 @@
                                     </div>
                                     <div>
                                         <p class="text-xs font-medium text-gray-400">Teknisi</p>
-                                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $repair->technician?->name ?? '-' }}</p>
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $repair->technician?->name ?? 'Belum dijadwalkan' }}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-3">
@@ -182,7 +205,7 @@
                                     </div>
                                     <div>
                                         <p class="text-xs font-medium text-gray-400">Mulai Dikerjakan</p>
-                                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $repair->started_at?->format('d M Y H:i') ?? '-' }}</p>
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $repair->started_at?->format('d M Y H:i') ?? 'Belum dijadwalkan' }}</p>
                                     </div>
                                 </div>
                                 @if($repair->before_notes)

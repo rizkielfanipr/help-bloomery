@@ -44,7 +44,7 @@ class ViewServiceRequest extends ViewRecord
                 TextEntry::make('asset.name')->label('Nama Asset')->placeholder('—'),
                 TextEntry::make('branch.name')->label('Branch')->placeholder('—'),
                 Grid::make(2)->schema([
-                    TextEntry::make('scheduledBy.name')->label('Dijadwalkan Oleh'),
+                    TextEntry::make('scheduledBy.name')->label('Pelapor'),
                     TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),
                 ]),
                 Grid::make(2)->schema([

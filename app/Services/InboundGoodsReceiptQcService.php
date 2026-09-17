@@ -32,7 +32,7 @@ class InboundGoodsReceiptQcService
                 $receiptDate,
             );
 
-            return $batch + ['shelfLifePercentage' => $percentage];
+            return array_replace($batch, ['shelfLifePercentage' => $percentage]);
         })->all();
         $minimumShelfLife = (float) ($item['minimumShelfLifePercentage'] ?? 80);
         $shelfLifeResult = ! $this->truthy($item['shelfLifeRequired'] ?? false) ? 'not_applicable' : (

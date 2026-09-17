@@ -65,7 +65,7 @@
                         $statusValue = $request->status instanceof ServiceRequestStatus
                             ? $request->status->value
                             : $request->status;
-                        $cfg = $statusConfig[$statusValue] ?? ['label' => $statusValue, 'bg' => 'bg-gray-100', 'text' => 'text-gray-600'];
+                        $cfg = $statusConfig[$statusValue] ?? ['label' => $request->status->getLabel(), 'bg' => 'bg-gray-100', 'text' => 'text-gray-600'];
                         $isExpanded = $expandedId === $request->id;
                         $lastRepair = $request->repairs->sortByDesc('completed_at')->first();
                     @endphp
@@ -122,7 +122,7 @@
                                     </span>
                                 </div>
                                 <p class="mt-0.5 text-xs text-slate-500">
-                                    Jadwal: {{ $request->scheduled_date->format('d M Y') }}
+                                    Jadwal: {{ $request->scheduled_date?->format('d M Y') ?? 'Menunggu jadwal teknisi' }}
                                 </p>
                                 @if($request->technician)
                                     <p class="mt-0.5 text-xs text-slate-400">
@@ -144,6 +144,23 @@
                         @if($isExpanded)
                             @php $repairs = $request->repairs->sortBy('cycle'); @endphp
                             <div class="border-t border-gray-100 dark:border-gray-800">
+
+                                <div class="border-b border-gray-200 p-4 dark:border-gray-700">
+                                    <p class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $request->asset?->asset_number ?? 'Tanpa Asset' }} · {{ $request->asset?->name }}</p>
+                                    @if($request->outsource_reason)
+                                        <p class="mt-2 text-sm text-gray-500">Alasan Outsource: {{ $request->outsource_reason }}</p>
+                                        <p class="mt-1 text-sm text-gray-500">{{ $request->verification_notes }}</p>
+                                    @endif
+                                    @if($request->status === ServiceRequestStatus::Outsource)
+                                        <button type="button" wire:click="openOutsourceReport({{ $request->id }})" class="mt-3 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white">Upload Report Vendor</button>
+                                    @endif
+                                    @if($request->outsource_report)
+                                        <p class="mt-2 text-sm text-gray-500">Vendor: {{ $request->outsource_report['vendor'] }} · {{ $request->outsource_report['date'] }}</p>
+                                        @foreach($request->outsource_report['files'] as $file)
+                                            <a class="mt-2 block text-sm text-blue-600" href="{{ Storage::disk('b2')->temporaryUrl($file, now()->addHour()) }}" target="_blank">Report Vendor {{ $loop->iteration }}</a>
+                                        @endforeach
+                                    @endif
+                                </div>
 
                                 {{-- ── PERMINTAAN AWAL ── --}}
                                 <div class="bg-gray-50 px-4 py-3 dark:bg-gray-800/40">
@@ -365,4 +382,20 @@
 
     <x-technician-request.bottom-nav active="history" />
 
+    @if($outsourceRequestId)
+        <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
+            <button type="button" wire:click="closeOutsourceReport" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup"></button>
+            <form wire:submit="submitOutsourceReport" class="relative max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Report Perbaikan Vendor</h3>
+                <p class="text-sm text-gray-500">Lampirkan service report dan foto hasil perbaikan. Teknisi akan memverifikasi hasil sebelum menutup pekerjaan.</p>
+                <div><label class="block text-sm font-semibold">Nama Vendor *</label><input wire:model="vendorName" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 dark:border-gray-600"></div>
+                <div><label class="block text-sm font-semibold">Tanggal Perbaikan *</label><input type="date" wire:model="vendorDate" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 dark:border-gray-600"></div>
+                <div><label class="block text-sm font-semibold">Biaya (Opsional)</label><input type="number" min="0" wire:model="vendorCost" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 dark:border-gray-600"></div>
+                <div><label class="block text-sm font-semibold">Hasil Perbaikan *</label><textarea wire:model="vendorNotes" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 bg-transparent p-2 dark:border-gray-600"></textarea></div>
+                <div class="rounded-xl border border-dashed border-gray-300 p-4 dark:border-gray-600"><label class="block text-sm font-semibold">Service Report / Foto / Invoice *</label><input type="file" multiple wire:model="vendorFiles" accept="image/jpeg,image/png,image/webp,application/pdf" class="mt-2 block w-full text-sm"><p class="mt-2 text-xs text-gray-500">Maksimal 5 file · JPG, PNG, WebP, PDF · 5 MB per file.</p><p wire:loading wire:target="vendorFiles" class="mt-2 text-xs text-blue-600">Mengunggah...</p></div>
+                @foreach($errors->all() as $error)<p class="text-xs text-red-600">{{ $error }}</p>@endforeach
+                <div class="flex justify-end gap-2"><button type="button" wire:click="closeOutsourceReport" class="rounded-lg border border-gray-300 px-3 py-2 text-sm">Batal</button><button type="submit" wire:loading.attr="disabled" class="rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Kirim Report</button></div>
+            </form>
+        </div>
+    @endif
 </div>

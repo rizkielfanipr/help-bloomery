@@ -1,108 +1,116 @@
-@php $user = auth()->user(); @endphp
+@php
+    $user = auth()->user();
+    $jobs = $this->completedJobs;
+@endphp
 
-<div class="flex flex-col bg-blue-600" style="min-height:100dvh">
-
-    {{-- ════════════════════════════════════════════
-         HEADER
-    ════════════════════════════════════════════ --}}
-    <div class="flex-shrink-0 px-5 pb-8 pt-14">
-        <div class="mb-4 flex items-center gap-3">
-            <a href="{{ \App\Filament\Casual\Resources\ServiceRequests\ServiceRequestResource::getUrl('index') }}"
-               class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition active:bg-white/30">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
-                </svg>
+<div class="min-h-dvh bg-slate-50 pb-28 dark:bg-gray-950">
+    <header class="relative overflow-hidden bg-blue-600 px-5 pb-5 pt-6 text-white">
+        <div class="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full border-[32px] border-white/5" aria-hidden="true"></div>
+        <div class="relative flex items-center justify-between gap-4">
+            <a href="{{ \App\Filament\Casual\Resources\ServiceRequests\ServiceRequestResource::getUrl('index') }}" aria-label="Kembali ke Logbook Teknisi" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 transition hover:bg-white/20">
+                <x-heroicon-o-arrow-left class="h-5 w-5" />
             </a>
-            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-                </svg>
+            <span class="rounded-full border border-white/20 px-3 py-1.5 text-xs font-medium text-blue-100">{{ now()->locale('id')->isoFormat('D MMM YYYY') }}</span>
+        </div>
+        <div class="relative mt-4 flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+                <x-heroicon-o-clock class="h-5 w-5" />
             </div>
-            <span class="text-base font-semibold text-white">Riwayat Pekerjaan</span>
+            <div class="min-w-0">
+                <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200">Technician Workspace</p>
+                <h1 class="mt-1 text-xl font-bold tracking-tight">Riwayat Pekerjaan</h1>
+                <p class="mt-1 text-xs leading-5 text-blue-100">Lihat hasil perbaikan dan pantau masa garansi pekerjaan.</p>
+            </div>
         </div>
+        <div class="relative mt-3 flex items-center gap-2 border-t border-white/15 pt-3 text-xs text-blue-100">
+            <x-heroicon-o-user-circle class="h-4 w-4 shrink-0" />
+            <span class="truncate">{{ $user->name }}</span>
+        </div>
+    </header>
 
-        <p class="text-blue-200">{{ $user->name }}</p>
-        <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
-    </div>
-
-    {{-- ════════════════════════════════════════════
-         WHITE CONTENT CARD
-    ════════════════════════════════════════════ --}}
-    <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
-
-        @php $jobs = $this->completedJobs; @endphp
-
-        <div class="mx-5 mb-3 flex items-center justify-between">
-            <p class="font-semibold text-gray-900 dark:text-white">Selesai Dikerjakan</p>
-            @if($jobs->isNotEmpty())
-                <div class="flex items-center gap-1.5 rounded-lg bg-gray-200/70 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                    {{ $jobs->count() }} pekerjaan
+    <main class="space-y-6 px-5 py-6">
+        <section aria-label="Ringkasan Riwayat" class="grid grid-cols-3 gap-2">
+            @foreach([
+                ['label' => 'Total Riwayat', 'value' => $jobs->count(), 'icon' => 'heroicon-o-clipboard-document-list', 'color' => 'text-blue-600 dark:text-blue-400'],
+                ['label' => 'Garansi', 'value' => $jobs->where('status', \App\Enums\ServiceRequestStatus::Warranty)->count(), 'icon' => 'heroicon-o-shield-check', 'color' => 'text-purple-600 dark:text-purple-400'],
+                ['label' => 'Completed', 'value' => $jobs->where('status', \App\Enums\ServiceRequestStatus::Completed)->count(), 'icon' => 'heroicon-o-check-badge', 'color' => 'text-emerald-600 dark:text-emerald-400'],
+            ] as $summary)
+                <div class="rounded-xl border border-slate-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900">
+                    @svg($summary['icon'], 'h-5 w-5 '.$summary['color'])
+                    <p class="mt-3 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{{ $summary['value'] }}</p>
+                    <p class="mt-1 text-[10px] font-medium leading-4 text-slate-500 dark:text-gray-400">{{ $summary['label'] }}</p>
                 </div>
-            @endif
-        </div>
+            @endforeach
+        </section>
 
-        @forelse($jobs as $job)
-            @php
-                $statusConfig = match($job->status->value) {
-                    'warranty'  => ['label' => 'Warranty',  'bg' => 'bg-purple-100',  'text' => 'text-purple-700',  'dark' => 'dark:bg-purple-900/30 dark:text-purple-400'],
-                    'completed' => ['label' => 'Completed', 'bg' => 'bg-emerald-100', 'text' => 'text-emerald-700', 'dark' => 'dark:bg-emerald-900/30 dark:text-emerald-400'],
-                    default     => ['label' => $job->status->getLabel(), 'bg' => 'bg-gray-100', 'text' => 'text-gray-600', 'dark' => 'dark:bg-gray-800 dark:text-gray-400'],
-                };
-                $lastRepair = $job->repairs->sortByDesc('completed_at')->first();
-            @endphp
+        <section class="space-y-3" aria-label="Daftar Riwayat">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white">Selesai Dikerjakan</h2>
+                    <p class="mt-1 text-xs text-slate-500">Pilih pekerjaan untuk melihat dokumentasi hasil perbaikan.</p>
+                </div>
+                <span class="shrink-0 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ $jobs->count() }}</span>
+            </div>
 
-            <a href="{{ \App\Filament\Casual\Resources\ServiceRequests\ServiceRequestResource::getUrl('view', ['record' => $job]) }}"
-               class="mx-5 mb-3 block overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 transition active:scale-[0.98] dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex items-center gap-3 px-5 py-4">
-                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl
-                        {{ $job->status->value === 'warranty' ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20' }}">
-                        @if($job->status->value === 'warranty')
-                            <svg class="h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/>
-                            </svg>
-                        @else
-                            <svg class="h-5 w-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                            </svg>
-                        @endif
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <p class="truncate font-semibold text-gray-900 dark:text-white">SR-{{ str_pad($job->id, 4, '0', STR_PAD_LEFT) }}</p>
-                        <p class="mt-0.5 text-xs text-gray-500">
-                            {{ $job->scheduled_date?->format('d M Y') ?? '-' }}
-                            @if($lastRepair?->completed_at)
-                                · Selesai {{ $lastRepair->completed_at->format('d M Y') }}
+            @forelse($jobs as $job)
+                @php
+                    $lastRepair = $job->repairs->whereNotNull('completed_at')->sortByDesc('completed_at')->first();
+                    $statusClass = match($job->status->value) {
+                        'warranty' => 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300',
+                        'completed' => 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
+                        'in_progress' => 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
+                        'scheduled' => 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300',
+                        're_submitted' => 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300',
+                        'awaiting_verification' => 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
+                        default => 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
+                    };
+                    $isUrgent = in_array($job->priority, ['urgent', 'high']);
+                @endphp
+                <a href="{{ \App\Filament\Casual\Resources\ServiceRequests\ServiceRequestResource::getUrl('view', ['record' => $job]) }}" wire:key="technician-job-{{ $job->id }}" class="group block overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-blue-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-blue-600">
+                    <div class="p-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="font-mono text-xs font-semibold text-slate-500 dark:text-gray-400">{{ $job->code }}</span>
+                            <span class="rounded-md border px-2 py-1 text-[10px] font-bold {{ $statusClass }}">{{ $job->status->getLabel() }}</span>
+                        </div>
+                        <div class="mt-4 flex items-start gap-3">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-gray-800 dark:text-gray-400">
+                                <x-heroicon-o-cube class="h-5 w-5" />
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-sm font-bold leading-5 text-slate-900 dark:text-white">{{ $job->asset?->name ?? 'Permintaan Perbaikan' }}</h3>
+                                <p class="mt-1 text-[11px] text-slate-500 dark:text-gray-400">{{ $job->asset?->asset_number ?? 'Tanpa Asset' }}</p>
+                            </div>
+                            @if($isUrgent)
+                                <span class="inline-flex shrink-0 items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-[10px] font-bold text-red-600 dark:bg-red-950/40 dark:text-red-300"><x-heroicon-o-bolt class="h-3 w-3" />{{ ucfirst($job->priority) }}</span>
                             @endif
-                        </p>
-                        @if($job->status->value === 'warranty' && $job->warranty_expires_at)
-                            <p class="mt-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
-                                Garansi hingga {{ $job->warranty_expires_at->format('d M Y') }}
-                            </p>
+                        </div>
+                        <p class="mt-3 line-clamp-2 text-xs leading-5 text-slate-600 dark:text-gray-400">{{ $job->requestor_notes ?: 'Belum ada deskripsi kendala.' }}</p>
+                        @if($lastRepair?->after_notes)
+                            <div class="mt-3 rounded-lg bg-slate-50 p-3 dark:bg-gray-800/50"><p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Hasil Perbaikan</p><p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-600 dark:text-gray-300">{{ $lastRepair->after_notes }}</p></div>
                         @endif
+                        @if($job->status->value === 'warranty' && $job->warranty_expires_at)
+                            <p class="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-purple-600 dark:text-purple-400"><x-heroicon-o-shield-check class="h-4 w-4 shrink-0" />Garansi Hingga {{ $job->warranty_expires_at->format('d M Y') }}</p>
+                        @endif
+                        <div class="mt-4 grid gap-2 border-t border-slate-100 pt-3 text-[11px] text-slate-500 dark:border-gray-800 dark:text-gray-400">
+                            <div class="flex items-center gap-2"><x-heroicon-o-building-office-2 class="h-4 w-4 shrink-0" /><span class="truncate">{{ $job->branch?->name ?? 'Cabang Belum Diatur' }}</span></div>
+                            <div class="flex items-center gap-2"><x-heroicon-o-calendar-days class="h-4 w-4 shrink-0" /><span>Selesai {{ $lastRepair?->completed_at?->format('d M Y') ?? 'Tanggal Belum Tercatat' }}</span></div>
+                            <div class="flex items-center gap-2"><x-heroicon-o-user-circle class="h-4 w-4 shrink-0" /><span class="truncate">{{ $job->technician?->name ?? 'Belum Ditugaskan' }}</span></div>
+                        </div>
                     </div>
-                    <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold {{ $statusConfig['bg'] }} {{ $statusConfig['text'] }} {{ $statusConfig['dark'] }}">
-                        {{ $statusConfig['label'] }}
-                    </span>
+                    <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/30">
+                        <span class="text-[10px] text-slate-400">Dilaporkan {{ $job->created_at->format('d M Y') }}</span>
+                        <span class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400">Lihat Detail <x-heroicon-o-arrow-right class="h-3.5 w-3.5 transition group-hover:translate-x-0.5" /></span>
+                    </div>
+                </a>
+            @empty
+                <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center dark:border-gray-700 dark:bg-gray-900">
+                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500 dark:bg-emerald-950/40"><x-heroicon-o-check-badge class="h-8 w-8" /></div>
+                    <h3 class="mt-4 font-bold text-slate-900 dark:text-white">Belum Ada Riwayat</h3>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">Pekerjaan yang selesai akan muncul di sini beserta hasil perbaikan dan masa garansinya.</p>
+                    <a href="{{ \App\Filament\Casual\Resources\ServiceRequests\ServiceRequestResource::getUrl('index') }}" class="mt-5 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-blue-600 dark:border-gray-700 dark:text-blue-400"><x-heroicon-o-clock class="h-4 w-4" />Lihat Pekerjaan Aktif</a>
                 </div>
-            </a>
-        @empty
-            <div class="mx-5 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex flex-col items-center gap-4 px-5 py-12 text-center">
-                    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 dark:bg-orange-900/20">
-                        <svg class="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="font-semibold text-gray-900 dark:text-white">Belum Ada Riwayat</p>
-                        <p class="mt-1 text-sm text-gray-400">Pekerjaan yang selesai akan muncul di sini.</p>
-                    </div>
-                </div>
-            </div>
-        @endforelse
-
-    </div>
-
+            @endforelse
+        </section>
+    </main>
     <x-technician.bottom-nav active="history" />
-
 </div>

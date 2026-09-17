@@ -40,3 +40,14 @@ test('it assigns higher vendor demerit for critical product failures', function 
         ->and($service->demeritPoints('quality'))->toBe(10)
         ->and($service->demeritPoints('other'))->toBe(5);
 });
+
+test('it recalculates shelf life instead of keeping a supplied percentage', function () {
+    $result = app(InboundGoodsReceiptQcService::class)->assessItem([
+        'shelfLifeRequired' => true,
+        'batches' => [['manufacturedDate' => '2026-01-01', 'expiredDate' => '2026-01-11', 'shelfLifePercentage' => 100]],
+    ], '2026-01-10');
+
+    expect($result['batches'][0]['shelfLifePercentage'])->toBe(10.0)
+        ->and($result['shelfLifeResult'])->toBe('fail')
+        ->and($result['canAccept'])->toBeFalse();
+});

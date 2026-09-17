@@ -65,7 +65,7 @@ class ServiceRequestResource extends Resource
             Section::make('Detail Permintaan')->schema([
                 DatePicker::make('scheduled_date')
                     ->label('Tanggal Penjadwalan')
-                    ->required()
+                    ->nullable()
                     ->minDate(today())
                     ->live()
                     ->helperText(function ($state): string {
@@ -108,7 +108,7 @@ class ServiceRequestResource extends Resource
                 TextEntry::make('code')->label('Kode')->badge()->color('info'),
                 TextEntry::make('status')->label('Status')->badge(),
                 Grid::make(2)->schema([
-                    TextEntry::make('scheduledBy.name')->label('Dijadwalkan Oleh'),
+                    TextEntry::make('scheduledBy.name')->label('Pelapor'),
                     TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),
                 ]),
                 Grid::make(2)->schema([

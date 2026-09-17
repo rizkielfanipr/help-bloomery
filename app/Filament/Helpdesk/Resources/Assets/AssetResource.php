@@ -25,7 +25,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,8 +77,10 @@ class AssetResource extends Resource
             TextColumn::make('name')->label('Nama Asset')->searchable()->sortable(),
             TextColumn::make('category')->label('Kategori')->placeholder('—')->searchable(),
             TextColumn::make('branch.name')->label('Branch')->sortable(),
-            IconColumn::make('is_active')->label('Aktif')->boolean(),
+            TextColumn::make('status')->label('Status')->badge(),
+            TextColumn::make('completed_repairs_count')->label('Perbaikan Selesai')->counts('completedRepairs'),
         ])->defaultSort('created_at', 'desc')->recordActions([
+            Action::make('repair_history')->label('Riwayat Perbaikan')->icon('heroicon-o-clock')->iconButton()->modalSubmitAction(false)->modalContent(fn (Asset $record) => view('filament.helpdesk.assets.repair-history', ['requests' => $record->serviceRequests()->with(['technician', 'repairs.technician'])->latest()->get()])),
             Action::make('preview_qr')->label('QR')->icon('heroicon-o-qr-code')->iconButton()->tooltip('Lihat QR')->modalHeading(fn (Asset $record): string => $record->asset_number)->modalWidth(Width::Small)->modalSubmitAction(false)->modalContent(fn (Asset $record) => view('filament.helpdesk.assets.qr-preview', ['asset' => $record])),
             Action::make('download_qr')->label('Download QR')->icon('heroicon-o-arrow-down-tray')->iconButton()->tooltip('Download QR')->url(fn (Asset $record): string => route('helpdesk.assets.qr', $record))->openUrlInNewTab()->visible(fn (): bool => auth()->user()?->can('generate asset qr codes') ?? false),
             Action::make('print_label')->label('Cetak Label')->icon('heroicon-o-printer')->iconButton()->tooltip('Cetak Label')->url(fn (Asset $record): string => route('helpdesk.assets.label-pdf', $record))->openUrlInNewTab()->visible(fn (): bool => auth()->user()?->can('print asset labels') ?? false),

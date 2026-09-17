@@ -160,3 +160,47 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertSeeHtml('Buat GR & QC')
         ->assertDontSeeHtml('Simpan QC & Proses Goods Receipt');
 });
+
+test('receiving saves calculated shelf life for form batches', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+    $this->travelTo(now()->setDate(2026, 9, 16));
+
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('PO-BATCH')->twice()->andReturn([
+        'purchaseNum' => 'PO-BATCH',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 10,
+        'purchaseDetails' => [['ID' => 11, 'productID' => 12, 'productDetailID' => 13, 'qty' => 2]],
+    ]);
+    $service->shouldReceive('locations')->with(10)->andReturn([
+        ['locationID' => 9, 'locationName' => 'Warehouse'],
+    ]);
+    $service->shouldReceive('create')->once()->with('PO-BATCH', Mockery::on(fn (array $payload): bool => $payload['goodsReceiptDetail'][0]['expiredDates'] === [['expiredDate' => '2027-09-01', 'qty' => 2.0]]
+    ))->andReturn(['result' => ['goodsReceiptNum' => 'GR-BATCH'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-BATCH')
+        ->set('deliveryNumber', 'DO-BATCH')
+        ->set('invoiceNumber', 'INV-BATCH')
+        ->set('invoiceDate', '2026-09-16')
+        ->set('items.0.shelfLifeRequired', true)
+        ->call('addBatch', 0)
+        ->set('items.0.batches.0', [
+            'batchNumber' => 'BATCH-1', 'manufacturedDate' => '2026-09-01', 'expiredDate' => '2027-09-01',
+            'quantity' => 2, 'acceptedQty' => 2, 'holdQty' => 0, 'rejectedQty' => 0,
+        ])
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $receipt = GoodsReceipt::where('reference_number', 'PO-BATCH')->sole();
+    $expiry = $receipt->items()->sole()->expiries()->sole();
+    expect($receipt->status)->toBe(GoodsReceipt::STATUS_SUCCEEDED)
+        ->and((float) $expiry->shelf_life_remaining_percentage)->toBe(95.89)
+        ->and($expiry->qc_result)->toBe('pass');
+});

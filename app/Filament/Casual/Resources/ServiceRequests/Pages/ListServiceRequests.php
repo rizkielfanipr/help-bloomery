@@ -20,8 +20,13 @@ class ListServiceRequests extends ListRecords
     public function serviceRequests(): Collection
     {
         return ServiceRequestResource::getEloquentQuery()
+            ->with(['asset', 'branch'])
             ->whereIn('status', [
                 ServiceRequestStatus::Submitted,
+                ServiceRequestStatus::Scheduled,
+                ServiceRequestStatus::AwaitingParts,
+                ServiceRequestStatus::Outsource,
+                ServiceRequestStatus::AwaitingVerification,
                 ServiceRequestStatus::InProgress,
                 ServiceRequestStatus::ReSubmitted,
             ])

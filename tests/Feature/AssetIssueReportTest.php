@@ -46,7 +46,9 @@ it('creates an asset service request with required photos and assigns the least 
         ->and($request->scheduled_by)->toBe($reporter->id)
         ->and($request->technician_id)->toBe($availableTechnician->id)
         ->and($request->assigned_at)->not->toBeNull()
-        ->and($request->attachments)->toHaveCount(1);
+        ->and($request->attachments)->toHaveCount(1)
+        ->and($request->scheduled_date)->toBeNull()
+        ->and($asset->fresh()->status)->toBe('Maintenance');
     Storage::disk('b2')->assertExists($request->attachments[0]);
 });
 
@@ -111,4 +113,26 @@ it('leaves the request unassigned when the asset branch has no technician', func
     ])->assertRedirect();
 
     expect(ServiceRequest::query()->where('asset_id', $asset->id)->sole()->technician_id)->toBeNull();
+});
+
+it('shows the scanned asset report form with request styling and protects unavailable assets', function () {
+    $branch = Branch::factory()->create();
+    $asset = Asset::factory()->create(['branch_id' => $branch->id]);
+    $reporter = User::factory()->create(['is_active' => true]);
+    $reporter->syncBranchAccess([$branch->id], $branch->id);
+    $this->actingAs($reporter)->get(route('assets.scan', $asset->qr_token))
+        ->assertOk()
+        ->assertSee('Asset Teridentifikasi')
+        ->assertSee('<meta name="color-scheme" content="light">', false)
+        ->assertDontSee('dark:', false)
+        ->assertSee('Laporkan Kendala')
+        ->assertSee('jadwal pengerjaan ditentukan oleh teknisi.')
+        ->assertSee('Deskripsi Masalah')
+        ->assertSee('Tambah Foto')
+        ->assertSee('Riwayat Perbaikan')
+        ->assertSee('0 kali perbaikan selesai');
+    $asset->update(['is_active' => false]);
+    $this->get(route('assets.scan', $asset->qr_token))
+        ->assertOk()->assertSee('Asset dinyatakan Inactive.')
+        ->assertDontSee('Kirim Laporan');
 });

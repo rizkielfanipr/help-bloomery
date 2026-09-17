@@ -35,7 +35,7 @@ class AssetIssueReportController extends Controller
                 'source' => 'asset_qr',
                 'scheduled_by' => $request->user()->id,
                 'branch_id' => $asset->branch_id,
-                'scheduled_date' => today(),
+                'scheduled_date' => null,
                 'requestor_notes' => $validated['issue'],
                 'attachments' => $paths,
                 'status' => ServiceRequestStatus::Submitted->value,

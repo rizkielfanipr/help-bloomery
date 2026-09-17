@@ -24,7 +24,7 @@ class EditServiceRequest extends EditRecord
         $originalDate = $this->record->scheduled_date?->toDateString();
         $newDate = $data['scheduled_date'];
 
-        if ($newDate !== $originalDate) {
+        if ($newDate && $newDate !== $originalDate) {
             $max = TechnicianSettings::instance()->max_jobs_per_day;
             $booked = ServiceRequest::whereDate('scheduled_date', $newDate)
                 ->where('id', '!=', $this->record->id)

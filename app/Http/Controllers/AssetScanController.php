@@ -16,6 +16,11 @@ class AssetScanController extends Controller
             ->latest()
             ->first();
 
-        return view('assets.scan', compact('asset', 'activeRequest'));
+        $history = auth()->user()?->canAccessBranch($asset->branch_id)
+            ? $asset->serviceRequests()->with(['technician', 'repairs.technician'])->latest()->get()
+            : collect();
+        $repairCount = auth()->user()?->canAccessBranch($asset->branch_id) ? $asset->completedRepairs()->count() : null;
+
+        return view('assets.scan', compact('asset', 'activeRequest', 'history', 'repairCount'));
     }
 }

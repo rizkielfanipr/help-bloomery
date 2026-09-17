@@ -1,147 +1,115 @@
 @php
-    $record        = $this->record;
-    $isResubmitted = $record->status->value === 're_submitted';
-    $canStart      = in_array($record->status->value, ['submitted', 're_submitted']);
-    $canComplete   = $record->status->value === 'in_progress' && $record->technician_id === auth()->id();
-
-    $statusConfig = match($record->status->value) {
-        'submitted'    => ['label' => 'Submitted',    'bg' => 'bg-amber-100',  'text' => 'text-amber-700'],
-        'in_progress'  => ['label' => 'In Progress',  'bg' => 'bg-blue-100',   'text' => 'text-blue-700'],
-        'warranty'     => ['label' => 'Warranty',     'bg' => 'bg-purple-100', 'text' => 'text-purple-700'],
-        're_submitted' => ['label' => 'Re-submitted', 'bg' => 'bg-red-100',    'text' => 'text-red-700'],
-        'completed'    => ['label' => 'Completed',    'bg' => 'bg-blue-100',   'text' => 'text-blue-700'],
-        default        => ['label' => $record->status->getLabel(), 'bg' => 'bg-gray-100', 'text' => 'text-gray-600'],
+    $record = $this->record;
+    $status = $record->status->value;
+    $canStart = in_array($status, ['submitted', 'scheduled', 're_submitted']);
+    $canComplete = $status === 'in_progress' && $record->technician_id === auth()->id();
+    $secondaryClass = 'inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800';
+    $statusClass = match($status) {
+        'in_progress' => 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
+        'scheduled' => 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300',
+        're_submitted' => 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300',
+        'warranty' => 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300',
+        'completed', 'awaiting_verification' => 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
+        default => 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
     };
 @endphp
 
-<div>
-<div class="flex flex-col bg-blue-600" style="min-height:100dvh">
-
-    {{-- HEADER --}}
-    <div class="flex-shrink-0 px-5 pb-8 pt-14">
-        <div class="mb-4 flex items-center gap-3">
-            <a href="{{ \App\Filament\Casual\Resources\ServiceRequests\ServiceRequestResource::getUrl('index') }}"
-               class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition active:bg-white/30">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
-                </svg>
-            </a>
-            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
-                </svg>
+<div class="min-h-dvh bg-slate-50 pb-28 dark:bg-gray-950">
+    <header class="relative overflow-hidden bg-blue-600 px-5 pb-5 pt-6 text-white">
+        <div class="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full border-[32px] border-white/5" aria-hidden="true"></div>
+        <div class="relative flex items-center justify-between gap-3">
+            <a href="{{ \App\Filament\Casual\Resources\ServiceRequests\ServiceRequestResource::getUrl('index') }}" aria-label="Kembali ke Logbook Teknisi" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 transition hover:bg-white/20"><x-heroicon-o-arrow-left class="h-5 w-5" /></a>
+            <span class="font-mono text-xs font-semibold text-blue-100">{{ $record->code }}</span>
+        </div>
+        <div class="relative mt-4 flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/15"><x-heroicon-o-wrench-screwdriver class="h-5 w-5" /></div>
+            <div class="min-w-0">
+                <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-200">Technician Workspace</p>
+                <h1 class="mt-1 text-xl font-bold tracking-tight">Detail Pekerjaan</h1>
+                <p class="mt-1 text-xs leading-5 text-blue-100">Informasi kendala, tindak lanjut, dan dokumentasi perbaikan.</p>
             </div>
-            <span class="text-base font-semibold text-white">Detail Pekerjaan</span>
         </div>
-        <p class="text-sm text-blue-200">SR-{{ str_pad($record->id, 4, '0', STR_PAD_LEFT) }}</p>
-        <div class="mt-1 flex items-center gap-2">
-            <p class="text-xl font-semibold text-white">{{ $record->scheduled_date?->format('d M Y') ?? '-' }}</p>
-            <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $statusConfig['bg'] }} {{ $statusConfig['text'] }}">
-                {{ $statusConfig['label'] }}
-            </span>
-        </div>
-    </div>
+    </header>
 
-    {{-- CONTENT --}}
-    <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 dark:bg-gray-950">
-        <div class="space-y-6 px-5 pb-28 pt-6">
+    <main class="space-y-5 px-5 py-6">
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+            <div class="p-4">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Informasi Asset</span>
+                    <span class="rounded-md border px-2 py-1 text-[10px] font-bold {{ $statusClass }}">{{ $record->status->getLabel() }}</span>
+                </div>
+                <div class="mt-4 flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-gray-800"><x-heroicon-o-cube class="h-5 w-5" /></div>
+                    <div class="min-w-0"><h2 class="text-base font-bold text-slate-900 dark:text-white">{{ $record->asset?->name ?? 'Permintaan Perbaikan' }}</h2><p class="mt-1 font-mono text-[11px] text-slate-500">{{ $record->asset?->asset_number ?? 'Tanpa Asset' }}</p></div>
+                </div>
+                <dl class="mt-4 grid grid-cols-2 gap-4 border-t border-slate-100 pt-4 dark:border-gray-800">
+                    <div><dt class="text-[10px] font-semibold text-slate-400">Cabang</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->branch?->name ?? 'Belum Diatur' }}</dd></div>
+                    <div><dt class="text-[10px] font-semibold text-slate-400">Status Asset</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->asset?->status ?? 'Tidak Terkait Asset' }}</dd></div>
+                    <div><dt class="text-[10px] font-semibold text-slate-400">Jadwal Pengerjaan</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->scheduled_date?->format('d M Y') ?? 'Belum Dijadwalkan' }}</dd></div>
+                    <div><dt class="text-[10px] font-semibold text-slate-400">Prioritas</dt><dd class="mt-1 text-xs font-semibold {{ in_array($record->priority, ['high', 'urgent']) ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-gray-200' }}">{{ ucfirst($record->priority ?? 'normal') }}</dd></div>
+                    <div><dt class="text-[10px] font-semibold text-slate-400">Pelapor</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->scheduledBy?->name ?? 'Belum Diatur' }}</dd></div>
+                    <div><dt class="text-[10px] font-semibold text-slate-400">Teknisi</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->technician?->name ?? 'Belum Ditugaskan' }}</dd></div>
+                </dl>
+            </div>
+            @if($record->warranty_expires_at)
+                <div class="flex items-center gap-2 border-t border-purple-100 bg-purple-50 px-4 py-3 text-xs text-purple-700 dark:border-purple-900 dark:bg-purple-950/30 dark:text-purple-300"><x-heroicon-o-shield-check class="h-4 w-4 shrink-0" />Garansi Berakhir {{ $record->warranty_expires_at->format('d M Y') }}</div>
+            @endif
+        </section>
 
-            {{-- Action buttons --}}
-            @if($canStart || $canComplete)
-                <div class="flex gap-3">
-                    @if($canStart)
-                        <button wire:click="mountAction('mulai_kerjakan')"
-                                class="flex flex-1 items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white transition active:scale-95
-                                    {{ $isResubmitted ? 'bg-red-600 active:bg-red-700' : 'bg-blue-600 active:bg-blue-700' }}">
-                            @if($isResubmitted)
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>
-                                </svg>
-                                Tangani Pengaduan
-                            @else
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/>
-                                </svg>
-                                Mulai Kerjakan
-                            @endif
-                        </button>
-                    @endif
-                    @if($canComplete)
-                        <button wire:click="mountAction('selesai_kerjakan')"
-                                class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                            </svg>
-                            Selesai Kerjakan
-                        </button>
-                    @endif
+        @if($canStart || $canComplete || in_array($status, ['awaiting_parts', 'awaiting_verification']))
+            <section class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                <h2 class="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white"><x-heroicon-o-wrench-screwdriver class="h-4 w-4 text-blue-600" />Tindak Lanjut</h2>
+                <p class="mt-1 text-xs leading-5 text-slate-500">{{ $canStart ? 'Atur jadwal atau mulai pekerjaan dengan mengisi diagnosis dan foto kondisi awal.' : 'Perbarui proses dan dokumentasikan hasil pengerjaan.' }}</p>
+                <div class="mt-4 grid gap-2">
+                    @if($canStart)<button type="button" wire:click="mountAction('mulai_kerjakan')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"><x-heroicon-o-play class="h-4 w-4" />{{ $status === 're_submitted' ? 'Tangani Pengaduan' : 'Mulai Kerjakan' }}</button>@endif
+                    @if($canComplete)<button type="button" wire:click="mountAction('selesai_kerjakan')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"><x-heroicon-o-check-circle class="h-4 w-4" />Selesai Kerjakan</button>@endif
+                    @if($status === 'awaiting_parts')<button type="button" wire:click="mountAction('resume')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"><x-heroicon-o-play class="h-4 w-4" />Lanjutkan Pengerjaan</button>@endif
+                    @if($status === 'awaiting_verification')<button type="button" wire:click="mountAction('verify_outsource')" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white hover:bg-blue-700"><x-heroicon-o-check-badge class="h-4 w-4" />Verifikasi Report Vendor</button>@endif
+                </div>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                    @if($canStart)<button type="button" wire:click="mountAction('schedule')" class="{{ $secondaryClass }}"><x-heroicon-o-calendar-days class="h-4 w-4 shrink-0" />Atur Jadwal</button>@endif
+                    @if(in_array($status, ['submitted', 'scheduled', 're_submitted', 'in_progress', 'awaiting_parts']))<button type="button" wire:click="mountAction('outsource')" class="{{ $secondaryClass }}"><x-heroicon-o-building-office class="h-4 w-4 shrink-0" />Perlu Outsource</button>@endif
+                    @if($canComplete)<button type="button" wire:click="mountAction('awaiting_parts')" class="{{ $secondaryClass }}"><x-heroicon-o-clock class="h-4 w-4 shrink-0" />Menunggu Sparepart</button>@endif
+                </div>
+            </section>
+        @endif
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+            <h2 class="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white"><x-heroicon-o-chat-bubble-left-ellipsis class="h-4 w-4 text-blue-600" />Detail Kendala</h2>
+            <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-gray-300">{{ $record->requestor_notes ?: 'Belum ada deskripsi kendala.' }}</p>
+            <p class="mt-3 text-[10px] text-slate-400">Dilaporkan {{ $record->created_at->format('d M Y, H:i') }}</p>
+            @if(! empty($record->attachments))
+                <div class="mt-4 grid grid-cols-3 gap-2">
+                    @foreach($record->attachments as $attachment)
+                        <a href="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" target="_blank" class="aspect-square overflow-hidden rounded-xl border border-slate-200 dark:border-gray-700"><img src="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" alt="Foto kendala {{ $loop->iteration }}" class="h-full w-full object-cover"></a>
+                    @endforeach
                 </div>
             @endif
+            <div class="mt-4 border-t border-slate-100 pt-3 dark:border-gray-800"><p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Diagnosis Teknisi</p><p class="mt-2 text-sm leading-6 text-slate-600 dark:text-gray-300">{{ $record->diagnosis ?: 'Belum diperiksa. Diagnosis dicatat saat pekerjaan dimulai.' }}</p></div>
+        </section>
 
-            {{-- ══════════════════════════════════
-                 SECTION 1 — DETAIL PERMINTAAN
-            ══════════════════════════════════ --}}
-            <div>
-                <p class="mb-3 text-[11px] font-bold uppercase tracking-widest text-gray-400">Detail Permintaan</p>
-
-                <div class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
-
-                    {{-- Key info grid --}}
-                    <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800">
-                        <div class="bg-white px-4 py-3 dark:bg-gray-900">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Dijadwalkan Oleh</p>
-                            <p class="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{{ $record->scheduledBy?->name ?? '-' }}</p>
-                        </div>
-                        <div class="bg-white px-4 py-3 dark:bg-gray-900">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Tanggal</p>
-                            <p class="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{{ $record->scheduled_date?->format('d M Y') ?? '-' }}</p>
-                        </div>
-                        <div class="bg-white px-4 py-3 dark:bg-gray-900">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Teknisi</p>
-                            <p class="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">{{ $record->technician?->name ?? 'Belum ditugaskan' }}</p>
-                        </div>
-                        @if($record->warranty_expires_at)
-                            <div class="bg-white px-4 py-3 dark:bg-gray-900">
-                                <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Garansi Berakhir</p>
-                                <p class="mt-0.5 text-sm font-semibold text-purple-700 dark:text-purple-400">{{ $record->warranty_expires_at->format('d M Y') }}</p>
-                            </div>
-                        @endif
-                    </div>
-
-                    {{-- Catatan Pemohon --}}
-                    @if($record->requestor_notes)
-                        <div class="border-t border-gray-100 px-4 py-3 dark:border-gray-800">
-                            <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Catatan Pemohon</p>
-                            <p class="mt-1 text-sm leading-relaxed text-gray-700 dark:text-gray-300">{{ $record->requestor_notes }}</p>
-                        </div>
-                    @endif
-
-                    {{-- Foto Lampiran --}}
-                    @if(!empty($record->attachments))
-                        <div class="border-t border-gray-100 px-4 py-3 dark:border-gray-800">
-                            <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Foto Lampiran</p>
-                            <div class="grid grid-cols-3 gap-2">
-                                @foreach($record->attachments as $attachment)
-                                    <a href="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" target="_blank"
-                                       class="aspect-square overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800">
-                                        <img src="{{ \Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}" class="h-full w-full object-cover" alt="">
-                                    </a>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
-                </div>
-
-            </div>
-
-            {{-- ══════════════════════════════════
-                 SECTION 2 — TINDAK LANJUT
-            ══════════════════════════════════ --}}
+        @if($record->outsource_reason || $record->outsource_report)
+            <section class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+                <h2 class="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white"><x-heroicon-o-building-office class="h-4 w-4 text-blue-600" />Perbaikan Vendor</h2>
+                <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-gray-300">{{ $record->outsource_reason }}</p>
+                @if($status === 'outsource')<p class="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-5 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">Menunggu pelapor melampirkan report hasil perbaikan vendor.</p>@endif
+                @if($record->outsource_report)
+                    <dl class="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 dark:border-gray-800">
+                        <div><dt class="text-[10px] text-slate-400">Nama Vendor</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->outsource_report['vendor'] }}</dd></div>
+                        <div><dt class="text-[10px] text-slate-400">Tanggal Perbaikan</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->outsource_report['date'] }}</dd></div>
+                        <div><dt class="text-[10px] text-slate-400">Biaya Perbaikan</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">Rp {{ number_format($record->outsource_report['cost'] ?? 0, 0, ',', '.') }}</dd></div>
+                    </dl>
+                    <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-gray-300">{{ $record->outsource_report['notes'] ?? '' }}</p>
+                    <div class="mt-3 space-y-2">@foreach($record->outsource_report['files'] as $file)<a class="flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-xs font-semibold text-blue-600 dark:border-gray-700 dark:text-blue-400" target="_blank" href="{{ \Storage::disk('b2')->temporaryUrl($file, now()->addHour()) }}"><x-heroicon-o-document-text class="h-4 w-4 shrink-0" />Report Vendor {{ $loop->iteration }}<x-heroicon-o-arrow-up-right class="ml-auto h-3.5 w-3.5" /></a>@endforeach</div>
+                @endif
+                @if($record->verification_notes)<p class="mt-3 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-500 dark:border-gray-800">Catatan Verifikasi: {{ $record->verification_notes }}</p>@endif
+            </section>
+        @endif
             @if($record->repairs->isNotEmpty() || $record->warranty_claim_notes)
                 <div>
-                    <p class="mb-3 text-[11px] font-bold uppercase tracking-widest text-gray-400">Tindak Lanjut</p>
+                    <p class="mb-3 text-[11px] font-bold uppercase tracking-widest text-gray-400">Riwayat Perbaikan</p>
 
-                    <div class="space-y-0 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+                    <div class="space-y-0 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-gray-800 dark:bg-gray-900">
                         @foreach($record->repairs as $repair)
                             @php
                                 $isFirst = $repair->cycle === 1;
@@ -290,12 +258,7 @@
                 </div>
             @endif
 
-        </div>
-    </div>
-
+    </main>
     <x-technician.bottom-nav active="jobs" />
-
-</div>
-
-<x-filament-actions::modals />
+    <x-filament-actions::modals />
 </div>

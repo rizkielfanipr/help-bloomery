@@ -13,6 +13,10 @@ class AssetServiceRequestAssigner
     {
         $activeStatuses = [
             ServiceRequestStatus::Submitted->value,
+            ServiceRequestStatus::Scheduled->value,
+            ServiceRequestStatus::AwaitingParts->value,
+            ServiceRequestStatus::Outsource->value,
+            ServiceRequestStatus::AwaitingVerification->value,
             ServiceRequestStatus::InProgress->value,
             ServiceRequestStatus::ReSubmitted->value,
         ];

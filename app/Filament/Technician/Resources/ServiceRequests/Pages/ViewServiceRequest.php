@@ -3,11 +3,14 @@
 namespace App\Filament\Technician\Resources\ServiceRequests\Pages;
 
 use App\Enums\ServiceRequestStatus;
+use App\Filament\Technician\Concerns\HasServiceRequestWorkflow;
 use App\Filament\Technician\Resources\ServiceRequests\ServiceRequestResource;
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestRepair;
+use App\Services\ServiceRequestWorkflow;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -24,6 +27,8 @@ use Filament\Support\Enums\Width;
 
 class ViewServiceRequest extends ViewRecord
 {
+    use HasServiceRequestWorkflow;
+
     protected static string $resource = ServiceRequestResource::class;
 
     protected static string $layout = 'filament.technician.layouts.bare';
@@ -43,7 +48,7 @@ class ViewServiceRequest extends ViewRecord
             Section::make('Detail Permintaan')->schema([
                 TextEntry::make('status')->label('Status')->badge(),
                 Grid::make(2)->schema([
-                    TextEntry::make('scheduledBy.name')->label('Dijadwalkan Oleh'),
+                    TextEntry::make('scheduledBy.name')->label('Pelapor'),
                     TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),
                 ]),
                 Grid::make(2)->schema([
@@ -126,17 +131,25 @@ class ViewServiceRequest extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            ...$this->workflowActions(),
             Action::make('mulai_kerjakan')
                 ->label('Mulai Kerjakan')
                 ->icon('heroicon-o-play')
                 ->color('primary')
-                ->visible(fn (ServiceRequest $record): bool => $record->status === ServiceRequestStatus::Submitted)
+                ->visible(fn (ServiceRequest $record): bool => in_array($record->status, [ServiceRequestStatus::Submitted, ServiceRequestStatus::Scheduled, ServiceRequestStatus::ReSubmitted], true))
                 ->form([
                     Textarea::make('notes')
-                        ->label('Catatan Kondisi Awal')
+                        ->label('Diagnosis & Kondisi Awal')
                         ->rows(5)
                         ->required()
                         ->placeholder('Jelaskan kondisi perangkat, kerusakan yang terlihat, dan temuan awal sebelum pekerjaan dimulai.'),
+
+                    Select::make('asset_condition')
+                        ->label('Kondisi Asset')
+                        ->options(['safe' => 'Aman Digunakan', 'unsafe' => 'Tidak Layak Digunakan'])
+                        ->visible(fn (ServiceRequest $record): bool => $record->asset_id !== null)
+                        ->required(fn (ServiceRequest $record): bool => $record->asset_id !== null)
+                        ->helperText('Pilih tidak layak jika asset tidak boleh digunakan. Status asset menjadi Inactive sampai hasil perbaikan dinyatakan aman.'),
 
                     FileUpload::make('photo')
                         ->label('Foto Kondisi Awal')
@@ -161,21 +174,7 @@ class ViewServiceRequest extends ViewRecord
                 ->extraModalWindowAttributes(['class' => 'technician-work-modal'])
                 ->modalSubmitActionLabel('Mulai Pekerjaan')
                 ->action(function (ServiceRequest $record, array $data): void {
-                    $nextCycle = $record->repairs()->max('cycle') + 1;
-
-                    ServiceRequestRepair::create([
-                        'service_request_id' => $record->id,
-                        'technician_id' => auth()->id(),
-                        'cycle' => $nextCycle,
-                        'before_photos' => array_values($data['photo']),
-                        'before_notes' => $data['notes'],
-                        'started_at' => now(),
-                    ]);
-
-                    $record->update([
-                        'status' => ServiceRequestStatus::InProgress,
-                        'technician_id' => auth()->id(),
-                    ]);
+                    app(ServiceRequestWorkflow::class)->start($record, auth()->user(), $data);
 
                     $this->record->refresh();
 
@@ -189,6 +188,7 @@ class ViewServiceRequest extends ViewRecord
                 ->visible(fn (ServiceRequest $record): bool => $record->status === ServiceRequestStatus::InProgress
                     && $record->technician_id === auth()->id())
                 ->form([
+                    Select::make('asset_condition')->label('Kondisi Akhir Asset')->options(['safe' => 'Aman Digunakan', 'unsafe' => 'Tidak Layak Digunakan'])->default('safe')->required(),
                     Textarea::make('notes')
                         ->label('Catatan Hasil Pekerjaan')
                         ->rows(5)
@@ -218,20 +218,8 @@ class ViewServiceRequest extends ViewRecord
                 ->extraModalWindowAttributes(['class' => 'technician-work-modal'])
                 ->modalSubmitActionLabel('Selesaikan Pekerjaan')
                 ->action(function (ServiceRequest $record, array $data): void {
-                    $completedAt = now();
-                    $warrantyExpiresAt = $completedAt->copy()->addDays(30);
-
-                    $record->activeRepair()->update([
-                        'after_photos' => array_values($data['photo']),
-                        'after_notes' => $data['notes'],
-                        'completed_at' => $completedAt,
-                        'warranty_expires_at' => $warrantyExpiresAt,
-                    ]);
-
-                    $record->update([
-                        'status' => ServiceRequestStatus::Warranty,
-                        'warranty_expires_at' => $warrantyExpiresAt,
-                    ]);
+                    app(ServiceRequestWorkflow::class)->complete($record, auth()->user(), $data);
+                    $warrantyExpiresAt = now()->addDays(30);
 
                     $this->record->refresh();
 

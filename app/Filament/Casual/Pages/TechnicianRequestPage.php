@@ -4,6 +4,7 @@ namespace App\Filament\Casual\Pages;
 
 use App\Enums\ServiceRequestStatus;
 use App\Models\ServiceRequest;
+use App\Services\AssetServiceRequestAssigner;
 use App\Services\WhatsappCtaBuilder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -21,8 +22,6 @@ class TechnicianRequestPage extends Page
     protected static string $layout = 'filament.casual.layouts.bare';
 
     protected string $view = 'filament.casual.pages.technician-request-page';
-
-    public string $scheduledDate = '';
 
     public string $requestorNotes = '';
 
@@ -68,9 +67,8 @@ class TechnicianRequestPage extends Page
         }
 
         $this->validate([
-            'scheduledDate' => ['required', 'date', 'after_or_equal:today'],
             'requestorNotes' => ['required', 'string', 'max:2000'],
-            'attachments' => ['nullable', 'array'],
+            'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'image', 'max:5120'],
         ]);
 
@@ -83,24 +81,28 @@ class TechnicianRequestPage extends Page
             'scheduled_by' => $user->id,
             'branch_id' => $user->branch_id,
             'technician_id' => null,
-            'scheduled_date' => $this->scheduledDate,
+            'scheduled_date' => null,
+            'asset_id' => null,
+            'source' => 'manual',
             'requestor_notes' => $this->requestorNotes,
             'attachments' => $paths ?: null,
             'status' => ServiceRequestStatus::Submitted->value,
         ]);
 
+        app(AssetServiceRequestAssigner::class)->assign($request->load(['asset', 'branch']));
+
         $this->whatsappUrl = $whatsappCtaBuilder->build('service_request', [
             'cabang' => $user->branch?->name ?? 'Tanpa Cabang',
             'requester' => $user->name,
             'kode' => $request->code,
-            'tanggal' => $this->scheduledDate,
+            'tanggal' => 'Menunggu penjadwalan teknisi',
             'deskripsi' => $this->requestorNotes,
             'link' => route('filament.helpdesk.resources.service-requests.view', $request),
         ]);
         $this->requestCode = $request->code;
         $this->submitted = true;
 
-        $this->reset(['scheduledDate', 'requestorNotes', 'attachments']);
+        $this->reset(['requestorNotes', 'attachments']);
 
         Notification::make()
             ->title('Permintaan teknisi berhasil dikirim')

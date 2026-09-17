@@ -18,7 +18,7 @@ class CreateServiceRequest extends CreateRecord
         $max = TechnicianSettings::instance()->max_jobs_per_day;
         $booked = ServiceRequest::whereDate('scheduled_date', $data['scheduled_date'])->count();
 
-        if ($booked >= $max) {
+        if (! empty($data['scheduled_date']) && $booked >= $max) {
             Notification::make()
                 ->title('Kuota penjadwalan penuh')
                 ->body("Tanggal {$data['scheduled_date']} sudah mencapai batas {$max} pekerjaan. Silakan pilih tanggal lain.")

@@ -4,6 +4,7 @@ namespace App\Filament\Casual\Pages;
 
 use App\Enums\ServiceRequestStatus;
 use App\Models\ServiceRequest;
+use App\Services\ServiceRequestWorkflow;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -31,6 +32,59 @@ class TechnicianRequestHistoryPage extends Page
     /** @var array<int, TemporaryUploadedFile> */
     #[Validate(['claimAttachments.*' => 'file|image|max:5120'])]
     public array $claimAttachments = [];
+
+    public ?int $outsourceRequestId = null;
+
+    public string $vendorName = '';
+
+    public string $vendorDate = '';
+
+    public string $vendorNotes = '';
+
+    public string $vendorCost = '';
+
+    /** @var array<int, TemporaryUploadedFile> */
+    public array $vendorFiles = [];
+
+    public function openOutsourceReport(int $id): void
+    {
+        ServiceRequest::query()->where('scheduled_by', auth()->id())->where('status', ServiceRequestStatus::Outsource)->findOrFail($id);
+        $this->resetValidation();
+        $this->reset(['vendorName', 'vendorDate', 'vendorNotes', 'vendorCost', 'vendorFiles']);
+        $this->outsourceRequestId = $id;
+    }
+
+    public function closeOutsourceReport(): void
+    {
+        $this->outsourceRequestId = null;
+        $this->reset(['vendorName', 'vendorDate', 'vendorNotes', 'vendorCost', 'vendorFiles']);
+    }
+
+    public function submitOutsourceReport(): void
+    {
+        $request = ServiceRequest::query()->where('scheduled_by', auth()->id())->where('status', ServiceRequestStatus::Outsource)->findOrFail($this->outsourceRequestId);
+        $this->validate([
+            'vendorName' => ['required', 'string', 'max:255'],
+            'vendorDate' => ['required', 'date', 'before_or_equal:today'],
+            'vendorNotes' => ['required', 'string', 'max:2000'],
+            'vendorCost' => ['nullable', 'numeric', 'min:0'],
+            'vendorFiles' => ['required', 'array', 'min:1', 'max:5'],
+            'vendorFiles.*' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+        ]);
+        $paths = [];
+        foreach ($this->vendorFiles as $file) {
+            $paths[] = $file->store('service-requests/outsource', 'b2');
+        }
+        app(ServiceRequestWorkflow::class)->submitOutsourceReport($request, auth()->user(), [
+            'vendor' => $this->vendorName,
+            'date' => $this->vendorDate,
+            'notes' => $this->vendorNotes,
+            'cost' => $this->vendorCost ?: null,
+            'files' => $paths,
+        ]);
+        $this->closeOutsourceReport();
+        Notification::make()->title('Report vendor dikirim untuk verifikasi teknisi')->success()->send();
+    }
 
     public function getTitle(): string|Htmlable
     {
@@ -115,7 +169,7 @@ class TechnicianRequestHistoryPage extends Page
     public function requests(): Collection
     {
         return ServiceRequest::where('scheduled_by', auth()->id())
-            ->with(['technician', 'repairs'])
+            ->with(['technician', 'repairs', 'asset'])
             ->orderByDesc('created_at')
             ->get();
     }

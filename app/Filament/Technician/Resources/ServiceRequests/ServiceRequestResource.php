@@ -124,7 +124,7 @@ class ServiceRequestResource extends Resource
         }
 
         // Show unassigned jobs + jobs assigned to this technician
-        return $query->where(function (Builder $q): void {
+        return $query->whereIn('branch_id', auth()->user()->accessibleBranchIds())->where(function (Builder $q): void {
             $q->whereNull('technician_id')
                 ->orWhere('technician_id', auth()->id());
         });

@@ -35,7 +35,7 @@ class TechnicianHistoryPage extends Page
                 ServiceRequestStatus::Completed,
                 ServiceRequestStatus::Warranty,
             ])
-            ->with(['repairs.technician'])
+            ->with(['repairs.technician', 'asset', 'branch', 'technician'])
             ->orderByDesc('updated_at')
             ->get();
     }

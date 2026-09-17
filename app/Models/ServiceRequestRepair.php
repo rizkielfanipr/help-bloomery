@@ -11,6 +11,7 @@ class ServiceRequestRepair extends Model
         'service_request_id',
         'technician_id',
         'cycle',
+        'outsource_report',
         'before_photo',
         'before_photos',
         'before_notes',
@@ -27,6 +28,7 @@ class ServiceRequestRepair extends Model
     protected function casts(): array
     {
         return [
+            'outsource_report' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'warranty_expires_at' => 'datetime',

@@ -12,6 +12,7 @@ enum SalesReportStatus: string implements HasColor, HasLabel
     case PendingFinance = 'pending_finance';
     case Completed = 'completed';
     case Rejected = 'rejected';
+    case RejectedBySystem = 'rejected_by_system';
 
     public function getLabel(): string
     {
@@ -21,6 +22,7 @@ enum SalesReportStatus: string implements HasColor, HasLabel
             self::PendingFinance => 'Finance Review',
             self::Completed => 'Completed',
             self::Rejected => 'Rejected',
+            self::RejectedBySystem => 'Rejected by System',
         };
     }
 
@@ -30,7 +32,7 @@ enum SalesReportStatus: string implements HasColor, HasLabel
             self::Draft => 'gray',
             self::PendingSupervisor, self::PendingFinance => 'warning',
             self::Completed => 'success',
-            self::Rejected => 'danger',
+            self::Rejected, self::RejectedBySystem => 'danger',
         };
     }
 

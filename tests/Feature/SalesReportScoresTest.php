@@ -29,7 +29,9 @@ it('scores each required date once and excludes today', function () {
     }
     SalesReport::factory()->create(['branch_id' => $this->branch->id, 'report_date' => '2026-09-17', 'status' => SalesReportStatus::Completed]);
     $result = app(SalesReportScoreCalculator::class)->calculate(Branch::whereKey($this->branch->id)->get(), '2026-09')[$this->branch->id];
-    expect($result)->toMatchArray(['required' => 16, 'passed' => 2, 'rejected' => 1, 'pending' => 2, 'missing' => 11, 'score' => 12.5]);
+    expect($result)->toMatchArray(['required' => 16, 'passed' => 1, 'rejected' => 1, 'pending' => 3, 'missing' => 11, 'score' => 6.25]);
+    expect($result['days'][0])->toMatchArray(['status' => 'pending_finance', 'score' => 0]);
+    expect($result['days'][1])->toMatchArray(['status' => 'completed', 'score' => 100]);
     expect($result['days'][16])->toMatchArray(['required' => false, 'score' => null, 'reason' => 'Berjalan']);
     expect($result['days'])->toHaveCount(30);
 });
@@ -48,9 +50,10 @@ it('counts leap months and attributes late approval to report month', function (
     $calculate = fn () => app(SalesReportScoreCalculator::class)->calculate(Branch::whereKey($this->branch->id)->get(), '2024-02')[$this->branch->id];
     expect($calculate()['required'])->toBe(29)->and($calculate()['passed'])->toBe(0);
     $report->update(['status' => SalesReportStatus::PendingFinance, 'supervisor_reviewed_at' => now()]);
-    expect($calculate()['passed'])->toBe(1)->and($calculate()['score'])->toBe(3.45);
+    expect($calculate()['passed'])->toBe(0)->and($calculate()['score'])->toBe(0.0);
+    expect($calculate()['days'][28])->toMatchArray(['status' => 'pending_finance', 'score' => 0]);
     $report->update(['status' => SalesReportStatus::Completed]);
-    expect($calculate()['passed'])->toBe(1);
+    expect($calculate()['passed'])->toBe(1)->and($calculate()['score'])->toBe(3.45);
     $report->update(['status' => SalesReportStatus::Rejected]);
     expect($calculate()['passed'])->toBe(0);
 });

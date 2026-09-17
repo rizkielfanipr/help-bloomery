@@ -32,8 +32,8 @@ class SalesReportScoreCalculator
                 $required = $branch->sales_assessment_started_at !== null
                     && $date->greaterThanOrEqualTo($branch->sales_assessment_started_at)
                     && $date->lessThan($today) && ! $exceptions->has($key);
-                $passed = $report && in_array($report->status, [SalesReportStatus::PendingFinance, SalesReportStatus::Completed], true);
-                $category = $passed ? 'passed' : (! $report ? 'missing' : ($report->status === SalesReportStatus::Rejected ? 'rejected' : 'pending'));
+                $passed = $report && $report->status === SalesReportStatus::Completed;
+                $category = $passed ? 'passed' : (! $report ? 'missing' : (in_array($report->status, [SalesReportStatus::Rejected, SalesReportStatus::RejectedBySystem], true) ? 'rejected' : 'pending'));
                 if ($required) {
                     $counts['required']++;
                     $counts[$category]++;

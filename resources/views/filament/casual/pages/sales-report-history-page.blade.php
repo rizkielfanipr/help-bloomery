@@ -102,6 +102,7 @@
                                         'mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold',
                                         'bg-emerald-100 text-emerald-700' => $report->status === \App\Enums\SalesReportStatus::Completed,
                                         'bg-amber-100 text-amber-700' => in_array($report->status, [\App\Enums\SalesReportStatus::PendingSupervisor, \App\Enums\SalesReportStatus::PendingFinance], true),
+                                        'bg-red-100 text-red-700' => in_array($report->status, [\App\Enums\SalesReportStatus::Rejected, \App\Enums\SalesReportStatus::RejectedBySystem], true),
                                         'bg-gray-100 text-gray-600' => $report->status === \App\Enums\SalesReportStatus::Draft,
                                     ])>{{ $report->status->getLabel() }}</span>
                                     @php

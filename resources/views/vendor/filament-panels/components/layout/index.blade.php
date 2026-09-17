@@ -170,6 +170,7 @@
             'label' => 'Finance',
             'icon'  => 'banknote',
             'items' => [
+                ['label' => 'Sales Report Settings', 'icon' => 'settings-2', 'perm' => 'edit sales report settings', 'href' => $r('filament.helpdesk.pages.sales-report-settings-page'), 'active' => $active($r('filament.helpdesk.pages.sales-report-settings-page'))],
                 ['label' => 'Sales Report Scores', 'icon' => 'clipboard-check', 'perm' => 'view sales report scores', 'href' => $r('filament.helpdesk.pages.sales-report-scores-page'), 'active' => $active($r('filament.helpdesk.pages.sales-report-scores-page'))],
                 ['label' => 'Sales Report',      'icon' => 'bar-chart-2', 'perm' => 'view sales reports',   'href' => $r('filament.helpdesk.resources.sales-reports.index'),   'active' => $active($r('filament.helpdesk.resources.sales-reports.index'))],
                 ['label' => 'Compliment Types', 'icon' => 'tag', 'perm' => 'view compliment types', 'href' => $r('filament.helpdesk.resources.compliment-types.index'), 'active' => $active($r('filament.helpdesk.resources.compliment-types.index'))],

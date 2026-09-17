@@ -256,7 +256,7 @@
                                 <div @class(['mx-auto flex h-9 w-9 items-center justify-center rounded-full border', 'border-red-200 bg-red-50 text-red-600' => $approval->action === 'rejected', 'border-emerald-200 bg-emerald-50 text-emerald-600' => $approval->action === 'approved', 'border-blue-200 bg-blue-50 text-blue-600' => ! in_array($approval->action, ['rejected', 'approved'], true)])>
                                     @if($approval->action === 'rejected')<x-heroicon-o-x-mark class="h-4 w-4" />@elseif($approval->action === 'approved')<x-heroicon-o-check class="h-4 w-4" />@else<x-heroicon-o-document-text class="h-4 w-4" />@endif
                                 </div>
-                                <p class="mt-2 text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $approvalStageLabels[$approval->stage] ?? ucfirst($approval->stage) }} · {{ $approvalActionLabels[$approval->action] ?? ucfirst($approval->action) }}</p>
+                                <p class="mt-2 text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $approvalStageLabels[$approval->stage] ?? ucfirst($approval->stage) }} · {{ ($approval->metadata['source'] ?? null) === 'system' && $approval->action === 'rejected' ? 'Rejected by System' : $approvalActionLabels[$approval->action] ?? ucfirst($approval->action) }}</p>
                                 <p class="mt-1 text-[11px] text-gray-500">{{ $approval->created_at->isoFormat('D MMM Y, HH:mm') }}</p>
                                 <p class="text-[11px] text-gray-400">oleh {{ $approval->actor?->name ?? 'System' }} · Rev. {{ $approval->revision_number }}</p>
                                 @if($approval->notes)<p class="mx-auto mt-1 max-w-40 text-[11px] leading-4 text-gray-500">{{ $approval->notes }}</p>@endif

@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\SalesReport;
 use App\Models\SalesReportReconciliation;
-use App\Services\EsbService;
+use App\Services\Esb\EsbService;
 use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;

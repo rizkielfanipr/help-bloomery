@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Asset;
-use App\Services\QrCodeGenerator;
+use App\Services\MasterData\QrCodeGenerator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 

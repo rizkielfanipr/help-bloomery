@@ -2,7 +2,7 @@
 
 namespace App\Filament\Forms\Components;
 
-use App\Services\PermissionSynchronizer;
+use App\Services\AccessManagement\PermissionSynchronizer;
 use Filament\Forms\Components\CheckboxList;
 use Spatie\Permission\Models\Permission;
 

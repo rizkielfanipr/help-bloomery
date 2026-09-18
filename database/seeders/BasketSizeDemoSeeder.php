@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Actions\CalculateBasketSizeAction;
+use App\Actions\Finance\CalculateBasketSizeAction;
 use App\Enums\SalesReportStatus;
 use App\Models\Branch;
 use App\Models\Employee;

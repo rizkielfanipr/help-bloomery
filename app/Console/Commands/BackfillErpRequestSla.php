@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\ItRequestStatus;
 use App\Models\ErpRepairRequest;
-use App\Services\ErpRequestSlaService;
+use App\Services\Erp\ErpRequestSlaService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;

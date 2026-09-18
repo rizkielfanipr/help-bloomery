@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-const template = readFileSync(new URL('../../resources/views/filament/casual/pages/technician-request-page.blade.php', import.meta.url), 'utf8');
+const template = readFileSync(new URL('../../resources/views/filament/employee/technician/pages/technician-request-page.blade.php', import.meta.url), 'utf8');
 const script = template.match(/@script\s*<script>([\s\S]*?)<\/script>/)[1];
 
 function scanner(getUserMedia, options = {}) {

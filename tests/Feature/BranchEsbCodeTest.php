@@ -1,10 +1,10 @@
 <?php
 
-use App\Filament\Helpdesk\Resources\Branches\Pages\CreateBranch;
-use App\Filament\Helpdesk\Resources\Branches\Pages\EditBranch;
+use App\Filament\Helpdesk\Modules\MasterData\Resources\Branches\Pages\CreateBranch;
+use App\Filament\Helpdesk\Modules\MasterData\Resources\Branches\Pages\EditBranch;
 use App\Models\Branch;
 use App\Models\User;
-use App\Services\EsbService;
+use App\Services\Esb\EsbService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;

@@ -1,18 +1,18 @@
 <?php
 
 use App\Enums\ServiceRequestStatus;
-use App\Filament\Casual\Pages\TechnicianHistoryPage;
-use App\Filament\Casual\Pages\TechnicianMaintenancePage;
-use App\Filament\Casual\Pages\TechnicianRequestHistoryPage;
-use App\Filament\Casual\Pages\TechnicianRequestPage;
-use App\Filament\Casual\Resources\ServiceRequests\Pages\ListServiceRequests;
+use App\Filament\Employee\Modules\Technician\Pages\TechnicianHistoryPage;
+use App\Filament\Employee\Modules\Technician\Pages\TechnicianMaintenancePage;
+use App\Filament\Employee\Modules\Technician\Pages\TechnicianRequestHistoryPage;
+use App\Filament\Employee\Modules\Technician\Pages\TechnicianRequestPage;
+use App\Filament\Employee\Modules\Technician\Resources\ServiceRequests\Pages\ListServiceRequests;
 use App\Filament\Technician\Resources\ServiceRequests\Pages\ViewServiceRequest;
 use App\Models\Asset;
 use App\Models\Branch;
 use App\Models\ServiceRequest;
 use App\Models\TechnicianMaintenance;
 use App\Models\User;
-use App\Services\ServiceRequestWorkflow;
+use App\Services\Technician\ServiceRequestWorkflow;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
@@ -42,7 +42,7 @@ beforeEach(function () {
 });
 
 it('submits a manual request without asset selection or a user schedule', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->reporter);
     Livewire::test(TechnicianRequestPage::class)
         ->assertDontSee('Tanggal Jadwal')
@@ -80,7 +80,7 @@ it('routes vendor reports from the requester to technician verification and reco
     $workflow = app(ServiceRequestWorkflow::class);
     expect($this->asset->status)->toBe('Maintenance');
     $workflow->outsource($this->request, $this->technician, ['outsource_reason' => 'Penggantian motor oleh vendor']);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->reporter);
     Livewire::test(TechnicianRequestHistoryPage::class)
         ->call('openOutsourceReport', $this->request->id)
@@ -122,9 +122,9 @@ it('rejects scheduling by the requester and report uploads from a different user
 });
 
 it('completes internal repairs once and reopens asset maintenance for a warranty claim', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->technician);
-    $page = Livewire::test(App\Filament\Casual\Resources\ServiceRequests\Pages\ViewServiceRequest::class, ['record' => $this->request->id])
+    $page = Livewire::test(App\Filament\Employee\Modules\Technician\Resources\ServiceRequests\Pages\ViewServiceRequest::class, ['record' => $this->request->id])
         ->assertSee('Perlu Outsource')
         ->assertSee('Informasi Asset')
         ->assertSee('Detail Kendala')
@@ -157,7 +157,7 @@ it('returns rejected vendor reports to the requester without recording a complet
 });
 
 it('renders the technician work overview with asset branch schedule and actual request code', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->technician);
     Livewire::test(ListServiceRequests::class)
         ->assertSee('Logbook Teknisi')
@@ -175,7 +175,7 @@ it('renders the technician work overview with asset branch schedule and actual r
 });
 
 it('renders the maintenance workspace and its saved checklist cards', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->technician);
     Livewire::test(TechnicianMaintenancePage::class)
         ->assertSee('Technician Workspace')
@@ -199,7 +199,7 @@ it('renders the maintenance workspace and its saved checklist cards', function (
 });
 
 it('shows the technician history overview with repair results and warranty date', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->technician);
     Livewire::test(TechnicianHistoryPage::class)->assertSee('Belum Ada Riwayat')->assertDontSee($this->request->code);
     $this->request->update(['status' => ServiceRequestStatus::Warranty, 'warranty_expires_at' => today()->addDays(30)]);
@@ -213,4 +213,22 @@ it('shows the technician history overview with repair results and warranty date'
         ->assertSee('Mesin telah diuji dan berfungsi normal')
         ->assertSee('Garansi Hingga')
         ->assertDontSee('Belum Ada Riwayat');
+});
+
+it('centralizes sparepart waiting and resume while preserving authorization and repair cycles', function () {
+    $workflow = app(ServiceRequestWorkflow::class);
+    $workflow->start($this->request, $this->technician, ['photo' => ['before.jpg'], 'notes' => 'Memulai diagnosis', 'asset_condition' => 'safe']);
+    $workflow->awaitParts($this->request, $this->technician);
+    expect($this->request->fresh()->status)->toBe(ServiceRequestStatus::AwaitingParts);
+    expect(fn () => $workflow->awaitParts($this->request, $this->technician))->toThrow(ValidationException::class);
+    expect(fn () => $workflow->resume($this->request, $this->reporter))->toThrow(HttpException::class);
+    $foreignTechnician = User::factory()->create(['is_active' => true]);
+    $foreignTechnician->assignRole('TECHNICIAN');
+    $foreignBranch = Branch::factory()->create();
+    $foreignTechnician->syncBranchAccess([$foreignBranch->id], $foreignBranch->id);
+    expect(fn () => $workflow->resume($this->request, $foreignTechnician))->toThrow(HttpException::class);
+    $workflow->resume($this->request, $this->technician);
+    expect($this->request->fresh()->status)->toBe(ServiceRequestStatus::InProgress);
+    expect($this->request->repairs()->count())->toBe(1)->and($this->request->activeRepair->completed_at)->toBeNull();
+    expect(fn () => $workflow->resume($this->request, $this->technician))->toThrow(ValidationException::class);
 });

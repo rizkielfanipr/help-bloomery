@@ -1,9 +1,9 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\CreateBomRecipePage;
-use App\Filament\Helpdesk\Pages\EditBomRecipePage;
-use App\Filament\Helpdesk\Pages\ViewBomPage;
-use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\CreateBomRecipePage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\EditBomRecipePage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ViewBomPage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ViewProjectProductPage;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\RndBomInstruction;
 use App\Models\RndProject;
@@ -782,8 +782,8 @@ it('stores safe inline rich editor images for BOM instructions', function () {
 });
 
 it('uses the native Filament rich editor instead of custom clipboard handlers', function () {
-    $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
-    $page = file_get_contents(app_path('Filament/Helpdesk/Pages/ViewProjectProductPage.php'));
+    $view = file_get_contents(resource_path('views/filament/helpdesk/rnd/pages/view-project-product.blade.php'));
+    $page = file_get_contents(app_path('Filament/Helpdesk/Modules/Rnd/Pages/ViewProjectProductPage.php'));
 
     expect($view)
         ->not->toContain('quill@')
@@ -823,7 +823,7 @@ it('preserves safe resized image dimensions in BOM instructions', function () {
 });
 
 it('supports deeply nested TipTap content and keeps the editor modal scrollable', function () {
-    $page = file_get_contents(app_path('Filament/Helpdesk/Pages/ViewProjectProductPage.php'));
+    $page = file_get_contents(app_path('Filament/Helpdesk/Modules/Rnd/Pages/ViewProjectProductPage.php'));
 
     expect(config('livewire.payload.max_nesting_depth'))->toBe(30)
         ->and($page)
@@ -873,8 +873,8 @@ it('embeds TipTap attachment images into the exported PDF content', function () 
 });
 
 it('opens a single modal rich editor instead of mounting an editor for every BOM', function () {
-    $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
-    $partial = file_get_contents(resource_path('views/filament/helpdesk/rnd-projects/partials/inline-bom-instruction.blade.php'));
+    $view = file_get_contents(resource_path('views/filament/helpdesk/rnd/pages/view-project-product.blade.php'));
+    $partial = file_get_contents(resource_path('views/filament/helpdesk/rnd/projects/partials/inline-bom-instruction.blade.php'));
 
     expect($view)
         ->not->toContain('new Quill');
@@ -885,8 +885,8 @@ it('opens a single modal rich editor instead of mounting an editor for every BOM
 });
 
 it('uses unique stable Livewire keys for instruction previews in every BOM hierarchy', function () {
-    $view = file_get_contents(resource_path('views/filament/helpdesk/pages/view-project-product.blade.php'));
-    $partial = file_get_contents(resource_path('views/filament/helpdesk/rnd-projects/partials/inline-bom-instruction.blade.php'));
+    $view = file_get_contents(resource_path('views/filament/helpdesk/rnd/pages/view-project-product.blade.php'));
+    $partial = file_get_contents(resource_path('views/filament/helpdesk/rnd/projects/partials/inline-bom-instruction.blade.php'));
 
     expect($view)
         ->toContain("'instructionInstanceKey' => 'main-'")

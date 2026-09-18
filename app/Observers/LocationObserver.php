@@ -3,7 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Location;
-use App\Services\QrCodeGenerator;
+use App\Services\MasterData\QrCodeGenerator;
 use Illuminate\Support\Facades\DB;
 
 class LocationObserver

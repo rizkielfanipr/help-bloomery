@@ -1,12 +1,12 @@
 <?php
 
-use App\Filament\Casual\Pages\GoodsReceiptPage;
-use App\Filament\Helpdesk\Resources\GoodsReceipts\GoodsReceiptResource;
+use App\Filament\Employee\Modules\Receiving\Pages\GoodsReceiptPage;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\GoodsReceipts\GoodsReceiptResource;
 use App\Models\GoodsReceipt;
 use App\Models\GoodsReceiptExpiry;
 use App\Models\GoodsReceiptItem;
 use App\Models\User;
-use App\Services\EsbGoodsReceiptService;
+use App\Services\Esb\EsbGoodsReceiptService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -18,7 +18,7 @@ test('goods receipt records store their items and expiry details', function () {
 
     expect($receipt->items()->first()->is($item))->toBeTrue()
         ->and($item->expiries()->first()->is($expiry))->toBeTrue()
-        ->and(GoodsReceiptPage::getUrl(panel: 'casual'))->toContain('goods-receipt-page');
+        ->and(GoodsReceiptPage::getUrl(panel: 'employee'))->toContain('goods-receipt-page');
 });
 
 test('goods receipt menus use the Receiving label', function () {
@@ -28,7 +28,7 @@ test('goods receipt menus use the Receiving label', function () {
 
 test('employee app loads purchase orders that ESB allows to receive', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $user = User::factory()->create(['is_active' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);
@@ -163,7 +163,7 @@ test('employee app loads purchase orders that ESB allows to receive', function (
 
 test('receiving saves calculated shelf life for form batches', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $user = User::factory()->create(['is_active' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);

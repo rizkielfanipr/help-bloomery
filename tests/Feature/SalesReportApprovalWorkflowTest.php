@@ -1,11 +1,11 @@
 <?php
 
 use App\Enums\SalesReportStatus;
-use App\Filament\Casual\Pages\SalesReportShiftPage;
-use App\Filament\Helpdesk\Pages\DriverTripSettingsPage;
-use App\Filament\Helpdesk\Resources\Employees\EmployeeResource;
-use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
-use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
+use App\Filament\Employee\Modules\SalesReport\Pages\SalesReportShiftPage;
+use App\Filament\Helpdesk\Modules\Driver\Pages\DriverTripSettingsPage;
+use App\Filament\Helpdesk\Modules\Finance\Resources\SalesReports\Pages\ListSalesReports;
+use App\Filament\Helpdesk\Modules\Finance\Resources\SalesReports\Pages\ViewSalesReport;
+use App\Filament\Helpdesk\Modules\MasterData\Resources\Employees\EmployeeResource;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
@@ -77,7 +77,7 @@ it('only allows an active employee from the submitter branch', function () {
         'branch_id' => Branch::factory()->create()->id,
     ]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->submitter);
 
     Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
@@ -104,7 +104,7 @@ it('allows selecting multiple staff for a single sales report submission', funct
         'position' => 'Cashier',
     ]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->submitter);
 
     Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
@@ -162,7 +162,7 @@ it('hides the delete action on the index without delete sales reports permission
 });
 
 it('keeps the app locked after submission and rejects re-save attempts', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->submitter);
 
     Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
@@ -456,7 +456,7 @@ it('allows finance to complete cash reports without settlement data', function (
 
 it('locks shift two until shift one has been submitted', function () {
     $this->report->delete();
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->submitter);
 
     Livewire::test(SalesReportShiftPage::class, [

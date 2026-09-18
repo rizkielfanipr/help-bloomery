@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\ServiceRequestStatus;
-use App\Filament\Casual\Pages\Auth\Login;
+use App\Filament\Employee\Pages\Auth\Login;
 use App\Models\Asset;
 use App\Models\Branch;
 use App\Models\ServiceRequest;
@@ -75,9 +75,9 @@ it('returns a guest to the scanned asset after login', function () {
     $this->get(route('assets.login', $asset->qr_token))->assertRedirect();
 
     expect(session('url.intended'))->toBe(route('assets.scan', $asset->qr_token));
-    expect(Filament::getPanel('casual')->getLoginUrl())->toStartWith('https://'.config('app.domain'));
+    expect(Filament::getPanel('employee')->getLoginUrl())->toStartWith('https://'.config('app.domain'));
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     Livewire::test(Login::class)
         ->fillForm(['email' => $user->username, 'password' => 'password'])
         ->call('authenticate')

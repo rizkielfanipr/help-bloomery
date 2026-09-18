@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\ProductListPage;
+use App\Filament\Helpdesk\Modules\Inventory\Pages\ProductListPage;
 use App\Models\Branch;
 use App\Models\Location;
 use App\Models\ProductSetting;
@@ -225,6 +225,9 @@ it('downloads a bulk product labels pdf', function () {
 });
 
 it('renders the product list menu link in the custom helpdesk sidebar', function () {
+    Http::preventStrayRequests();
+    fakeEsbProductPage([]);
+
     $response = $this->get(route('filament.helpdesk.pages.product-list-page'));
 
     $response->assertOk()

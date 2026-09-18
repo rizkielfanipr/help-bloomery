@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\SalesProjectionPage;
+use App\Filament\Helpdesk\Modules\SalesPlanning\Pages\SalesProjectionPage;
 use App\Models\Branch;
 use App\Models\RndProductSalesProjection;
 use App\Models\RndProject;

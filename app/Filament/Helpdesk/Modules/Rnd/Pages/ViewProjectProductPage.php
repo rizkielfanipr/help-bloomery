@@ -1,0 +1,2481 @@
+<?php
+
+namespace App\Filament\Helpdesk\Modules\Rnd\Pages;
+
+use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
+use App\Models\PrefixCategory;
+use App\Models\PrefixName;
+use App\Models\RndBomInstruction;
+use App\Models\RndProductEsbMaterial;
+use App\Models\RndProductEsbMaterialUnit;
+use App\Models\RndProject;
+use App\Models\RndProjectBom;
+use App\Models\RndProjectMarketingMaterial;
+use App\Models\RndProjectProduct;
+use App\Services\Esb\EsbCoreService;
+use App\Services\Esb\EsbService;
+use App\Services\Rnd\ProductPriceIndexService;
+use App\Services\Rnd\SyncRndEsbMaterialFromRemote;
+use Filament\Actions\Action;
+use Filament\Forms\Components\RichEditor;
+use Filament\Forms\Components\RichEditor\RichContentRenderer;
+use Filament\Notifications\Notification;
+use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Livewire\WithFileUploads;
+use Throwable;
+
+class ViewProjectProductPage extends Page
+{
+    public const NON_PREFIX_CATEGORY_ID = 0;
+
+    use WithFileUploads;
+
+    protected static ?string $slug = 'rnd-projects/{project}/products/{product}';
+
+    protected static ?string $title = 'Product Release';
+
+    protected static bool $shouldRegisterNavigation = false;
+
+    protected string $view = 'filament.helpdesk.rnd.pages.view-project-product';
+
+    protected Width|string|null $maxContentWidth = Width::Full;
+
+    public int $projectId;
+
+    public int $productId;
+
+    public RndProject $projectRecord;
+
+    public RndProjectProduct $productRecord;
+
+    public array $importBomOptions = [];
+
+    public string $importSearch = '';
+
+    public string $importBomCodeSearch = '';
+
+    public string $importBomNameSearch = '';
+
+    public string $importBomProductSearch = '';
+
+    public string $importBomUnitSearch = '';
+
+    public string $importBomTypeSearch = '';
+
+    public string $importUsageType = 'main';
+
+    public ?int $importParentBomId = null;
+
+    public int $importPage = 1;
+
+    public int $importPerPage = 10;
+
+    public bool $importModalOpen = false;
+
+    public bool $materialModalOpen = false;
+
+    public bool $esbMaterialModalOpen = false;
+
+    public bool $exportPinModalOpen = false;
+
+    public bool $inlineProductModalOpen = false;
+
+    public string $materialType = 'packaging_design';
+
+    public string $materialTitle = '';
+
+    public string $materialNotes = '';
+
+    public $materialFile = null;
+
+    public string $exportPin = '';
+
+    public string $exportScope = 'all';
+
+    /** @var list<int> */
+    public array $exportBomIds = [];
+
+    /** @var list<string> */
+    public array $exportAutoBomKeys = [];
+
+    /** @var array<int, list<string>> */
+    public array $exportBomComponentKeys = [];
+
+    public ?int $materialDraftId = null;
+
+    public string $esbMaterialProductName = '';
+
+    public string $esbMaterialProductBaseName = '';
+
+    public string $esbMaterialNamePrefix = '';
+
+    public ?int $esbMaterialPrefixCategoryId = null;
+
+    public string $esbMaterialProductCode = '';
+
+    public ?int $esbMaterialCategoryId = null;
+
+    public ?int $esbMaterialSubCategoryId = null;
+
+    public ?int $esbMaterialUomId = null;
+
+    public string $esbMaterialUomName = '';
+
+    public string $esbMaterialSku = '';
+
+    public string $esbMaterialConversionFactor = '1';
+
+    public string $esbMaterialBasePrice = '0';
+
+    public string $esbMaterialNotes = '';
+
+    public array $esbMaterialUnits = [];
+
+    public array $esbCategoryOptions = [];
+
+    public array $esbSubCategoryOptions = [];
+
+    public array $prefixCategoryOptions = [];
+
+    public array $prefixNameOptions = [];
+
+    /** @var array<string, list<int>> */
+    public array $prefixCategoryIdsByNamePrefix = [];
+
+    public array $bomComponentDetails = [];
+
+    public array $resultUnitLabels = [];
+
+    public array $bomComponentDrafts = [];
+
+    public array $bomComponentExpanded = [];
+
+    public array $bomComponentEditing = [];
+
+    public bool $bomComponentsInitialized = false;
+
+    public array $autoWipComponentRecipes = [];
+
+    public array $autoPackagingItems = [];
+
+    public ?string $autoWipComponentError = null;
+
+    public string $waDateFrom = '';
+
+    public string $waDateTo = '';
+
+    /** @var array<int, array{average_price: float, po_count: int}> */
+    public array $waPrices = [];
+
+    public array $bomInstructions = [];
+
+    public array $bomInstructionInlineUploads = [];
+
+    public array $inlineProductOptions = [];
+
+    public array $inlineProductCategoryOptions = [];
+
+    public array $inlineProductSubCategoryOptions = [];
+
+    public array $inlineProductUnitOptions = [];
+
+    public string $inlineProductNameSearch = '';
+
+    public string $inlineProductCodeSearch = '';
+
+    public string $inlineProductCategoryId = '';
+
+    public string $inlineProductSubCategoryId = '';
+
+    public int $inlineProductPage = 1;
+
+    public int $inlineProductTotal = 0;
+
+    public int $inlineProductPerPage = 10;
+
+    public bool $inlineProductHasNext = false;
+
+    public ?int $inlineProductBomId = null;
+
+    public string $inlineProductTarget = 'component';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('view rnd projects') ?? false;
+    }
+
+    public function mount(int $project, int $product): void
+    {
+        $this->projectRecord = RndProject::query()->findOrFail($project);
+        $this->productRecord = $this->projectRecord->products()->findOrFail($product);
+        $this->projectId = $this->projectRecord->id;
+        $this->productId = $this->productRecord->id;
+        $this->reloadProduct();
+    }
+
+    public function getTitle(): string
+    {
+        return $this->productRecord->name;
+    }
+
+    public function closeModal(string $modal): void
+    {
+        match ($modal) {
+            'import' => $this->importModalOpen = false,
+            'material' => $this->materialModalOpen = false,
+            'esbMaterial' => $this->esbMaterialModalOpen = false,
+            'exportPin' => $this->exportPinModalOpen = false,
+            'inlineProduct' => $this->inlineProductModalOpen = false,
+            default => abort(422),
+        };
+    }
+
+    public function editBomInstructionAction(): Action
+    {
+        return Action::make('editBomInstruction')
+            ->label('Edit Informasi')
+            ->icon('heroicon-o-pencil-square')
+            ->color('primary')
+            ->modalHeading(fn (array $arguments): string => 'Informasi BOM #'.(int) ($arguments['bomId'] ?? 0))
+            ->modalDescription('Gunakan format teks, daftar berurutan, dan gambar untuk menjelaskan proses pembuatan.')
+            ->modalWidth(Width::FiveExtraLarge)
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->fillForm(function (array $arguments): array {
+                $this->authorizeProjectManagement();
+                $esbBomId = (int) ($arguments['bomId'] ?? 0);
+                $this->assertBomInstructionTarget($esbBomId);
+                $html = (string) RndBomInstruction::query()
+                    ->where('rnd_project_id', $this->projectId)
+                    ->where('rnd_project_product_id', $this->productId)
+                    ->where('esb_bom_id', $esbBomId)
+                    ->value('content_html');
+
+                return ['content' => $this->convertLegacyInstructionImages($html)];
+            })
+            ->schema([
+                RichEditor::make('content')
+                    ->label('Informasi Tambahan & Cara Pembuatan')
+                    ->toolbarButtons([
+                        ['bold', 'italic', 'underline'],
+                        ['h2', 'h3'],
+                        ['bulletList', 'orderedList'],
+                        ['link', 'attachFiles'],
+                        ['undo', 'redo'],
+                    ])
+                    ->fileAttachmentsDisk('b2')
+                    ->fileAttachmentsDirectory(fn (): string => "rnd/bom-instructions/{$this->projectId}/{$this->productId}/rich-editor")
+                    ->fileAttachmentsVisibility('private')
+                    ->fileAttachmentsAcceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->fileAttachmentsMaxSize(8192)
+                    ->resizableImages()
+                    ->extraInputAttributes([
+                        'style' => 'min-height: 16rem; max-height: 60vh; overflow-y: auto;',
+                    ])
+                    ->maxLength(5000000),
+            ])
+            ->modalSubmitActionLabel('Simpan Informasi')
+            ->action(function (array $arguments, array $data): void {
+                $this->saveInlineBomInstruction((int) ($arguments['bomId'] ?? 0), (string) ($data['content'] ?? ''));
+            });
+    }
+
+    public function saveInlineBomInstruction(int $esbBomId, string $contentHtml): void
+    {
+        $this->authorizeProjectManagement();
+        $this->assertBomInstructionTarget($esbBomId);
+        validator(
+            ['content' => $contentHtml, 'uploads' => $this->bomInstructionInlineUploads[$esbBomId] ?? []],
+            [
+                'content' => ['nullable', 'string', 'max:5000000'],
+                'uploads' => ['array', 'max:8'],
+                'uploads.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
+            ],
+        )->validate();
+
+        $instruction = RndBomInstruction::query()->firstOrNew([
+            'rnd_project_id' => $this->projectId,
+            'rnd_project_product_id' => $this->productId,
+            'esb_bom_id' => $esbBomId,
+        ]);
+        $previousHtml = (string) ($instruction->content_html ?? '');
+        $newPaths = [];
+
+        try {
+            foreach ($this->bomInstructionInlineUploads[$esbBomId] ?? [] as $upload) {
+                $path = $upload->store(
+                    "rnd/bom-instructions/{$this->projectId}/{$this->productId}/{$esbBomId}",
+                    'b2',
+                );
+                if (! is_string($path) || $path === '') {
+                    throw new \RuntimeException('Gambar instruksi gagal diunggah ke Cloudflare R2.');
+                }
+                $newPaths[] = $path;
+            }
+
+            $sanitizedHtml = $this->sanitizeBomInstruction($contentHtml);
+            $instruction->fill([
+                'content_html' => $sanitizedHtml,
+                'image_paths' => array_values(array_merge($instruction->image_paths ?? [], $newPaths)),
+                'updated_by' => auth()->id(),
+            ])->save();
+            $this->pruneOrphanedStoredImages($previousHtml, $sanitizedHtml);
+        } catch (Throwable $exception) {
+            if ($newPaths !== []) {
+                Storage::disk('b2')->delete($newPaths);
+            }
+            throw $exception;
+        }
+
+        unset($this->bomInstructionInlineUploads[$esbBomId]);
+        $this->loadBomInstructions();
+        Notification::make()->title('Informasi BOM berhasil disimpan')->success()->send();
+    }
+
+    public function deleteBomInstructionImage(int $esbBomId, string $encodedPath): void
+    {
+        $this->authorizeProjectManagement();
+        $path = base64_decode($encodedPath, true);
+        abort_unless(is_string($path) && $path !== '', 422);
+        $instruction = RndBomInstruction::query()
+            ->where('rnd_project_id', $this->projectId)
+            ->where('rnd_project_product_id', $this->productId)
+            ->where('esb_bom_id', $esbBomId)
+            ->firstOrFail();
+        abort_unless(in_array($path, $instruction->image_paths ?? [], true), 404);
+
+        $instruction->update([
+            'image_paths' => array_values(array_filter(
+                $instruction->image_paths ?? [],
+                fn (string $item): bool => $item !== $path,
+            )),
+            'updated_by' => auth()->id(),
+        ]);
+        Storage::disk('b2')->delete($path);
+        $this->loadBomInstructions();
+    }
+
+    private function loadBomInstructions(): void
+    {
+        $instructions = RndBomInstruction::query()
+            ->where('rnd_project_id', $this->projectId)
+            ->where('rnd_project_product_id', $this->productId)
+            ->get();
+
+        $this->bomInstructions = $instructions
+            ->mapWithKeys(fn (RndBomInstruction $instruction): array => [
+                $instruction->esb_bom_id => [
+                    'content_html' => $this->renderBomInstruction((string) $instruction->content_html),
+                    'images' => $instruction->imageUrls(),
+                    'updated_at' => $instruction->updated_at?->toIso8601String(),
+                ],
+            ])
+            ->all();
+
+    }
+
+    /**
+     * Verify the ESB BOM id is a legitimate target: either attached to the
+     * current product, or a WIP recipe discovered live via ESB for it.
+     */
+    private function assertBomInstructionTarget(int $esbBomId): void
+    {
+        $isAttached = $this->productRecord->boms()
+            ->where('rnd_project_boms.esb_bom_id', $esbBomId)
+            ->exists();
+
+        if ($isAttached) {
+            return;
+        }
+
+        foreach ($this->autoWipComponentRecipes as $recipes) {
+            foreach ($recipes as $recipe) {
+                if ((int) ($recipe['bomID'] ?? 0) === $esbBomId) {
+                    return;
+                }
+            }
+        }
+
+        abort(422, 'BOM tidak terpasang pada product ini.');
+    }
+
+    private function sanitizeBomInstruction(string $html): string
+    {
+        $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><ol><ul><li><h1><h2><h3><blockquote><a><img>');
+        $html = preg_replace('/\son\w+\s*=\s*(["\']).*?\1/iu', '', $html) ?? '';
+        $html = preg_replace('/javascript\s*:/iu', '', $html) ?? '';
+        $html = preg_replace_callback('/<img\b[^>]*>/iu', function (array $match): string {
+            $dimensions = $this->sanitizeInstructionImageDimensions($match[0]);
+
+            if (preg_match('/\bdata-id\s*=\s*(["\'])(.*?)\1/iu', $match[0], $dataId)) {
+                $path = html_entity_decode($dataId[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $expectedPrefix = "rnd/bom-instructions/{$this->projectId}/{$this->productId}/rich-editor/";
+
+                return str_starts_with($path, $expectedPrefix)
+                    ? '<img data-id="'.e($path).'" alt="Foto proses BOM"'.$dimensions.'>'
+                    : '';
+            }
+
+            if (! preg_match('/\bsrc\s*=\s*(["\'])(.*?)\1/iu', $match[0], $src)) {
+                return '';
+            }
+
+            $url = $src[2];
+            $isBase64 = preg_match('/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/iu', $url) === 1;
+            $isStoredImage = preg_match($this->storedImageUrlPattern(), $url) === 1;
+
+            if (! $isBase64 && ! $isStoredImage) {
+                return '';
+            }
+
+            return '<img src="'.e($url).'" alt="Foto proses BOM"'.$dimensions.'>';
+        }, $html) ?? '';
+        $html = preg_replace_callback('/<a\b[^>]*>/iu', static function (array $match): string {
+            if (! preg_match('/\bhref\s*=\s*(["\'])(.*?)\1/iu', $match[0], $hrefMatch)) {
+                return '<a>';
+            }
+
+            $href = html_entity_decode($hrefMatch[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $href = preg_replace('/[\x00-\x20]+/u', '', $href) ?? $href;
+
+            $scheme = null;
+            if (preg_match('/^([a-z][a-z0-9+.\-]*):/i', $href, $schemeMatch)) {
+                $scheme = strtolower($schemeMatch[1]);
+            }
+
+            $isSafeRelative = $scheme === null && ! str_starts_with($href, '//');
+            $isAllowedScheme = $scheme !== null && in_array($scheme, ['http', 'https', 'mailto'], true);
+
+            if (! $isSafeRelative && ! $isAllowedScheme) {
+                return '<a>';
+            }
+
+            return '<a href="'.e($href).'" target="_blank" rel="noopener noreferrer">';
+        }, $html) ?? '';
+
+        return trim($html);
+    }
+
+    private function sanitizeInstructionImageDimensions(string $imageTag): string
+    {
+        $attributes = '';
+
+        foreach (['width', 'height'] as $attribute) {
+            if (! preg_match('/\b'.$attribute.'\s*=\s*(["\'])(.*?)\1/iu', $imageTag, $match)) {
+                continue;
+            }
+
+            $value = strtolower(trim(html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
+            if (preg_match('/^(?:[1-9]\d{0,3})(?:px|%)?$/', $value) !== 1) {
+                continue;
+            }
+
+            $attributes .= ' '.$attribute.'="'.e($value).'"';
+        }
+
+        return $attributes;
+    }
+
+    private function convertLegacyInstructionImages(string $html): string
+    {
+        return preg_replace_callback('/<img\b[^>]*\bsrc\s*=\s*(["\'])(.*?)\1[^>]*>/iu', function (array $match): string {
+            if (! preg_match(
+                '#/rnd-bom-instruction-images/(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)#iu',
+                $match[2],
+                $path,
+            )) {
+                return $match[0];
+            }
+
+            return '<img data-id="'.e($path[1]).'" alt="Foto proses BOM">';
+        }, $html) ?? $html;
+    }
+
+    private function renderBomInstruction(string $html): string
+    {
+        if (! str_contains($html, 'data-id=')) {
+            return $html;
+        }
+
+        return RichContentRenderer::make($html)
+            ->fileAttachmentsDisk('b2')
+            ->fileAttachmentsVisibility('private')
+            ->toHtml();
+    }
+
+    private function storedImageUrlPattern(): string
+    {
+        return '#^(?:https?://[^/"\'\s]+)?/rnd-bom-instruction-images/(rnd/bom-instructions/'
+            .$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)$#iu';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function extractStoredImagePaths(string $html): array
+    {
+        preg_match_all(
+            '#/rnd-bom-instruction-images/(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)#iu',
+            $html,
+            $matches,
+        );
+
+        preg_match_all(
+            '#data-id=(["\'])(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/rich-editor/[^"\']+)\1#iu',
+            $html,
+            $attachmentMatches,
+        );
+
+        return array_values(array_unique(array_merge($matches[1] ?? [], $attachmentMatches[2] ?? [])));
+    }
+
+    private function pruneOrphanedStoredImages(string $previousHtml, string $sanitizedHtml): void
+    {
+        $removed = array_diff(
+            $this->extractStoredImagePaths($previousHtml),
+            $this->extractStoredImagePaths($sanitizedHtml),
+        );
+
+        if ($removed !== []) {
+            Storage::disk('b2')->delete(array_values($removed));
+        }
+    }
+
+    public function loadImportBoms(): void
+    {
+        $this->authorizeExistingBomAttachment();
+
+        if ($this->importBomOptions !== []) {
+            return;
+        }
+
+        try {
+            $attachedToProduct = $this->productRecord->boms()->pluck('rnd_project_boms.esb_bom_id')->all();
+            $ownedByOtherProjects = RndProjectBom::query()
+                ->where('rnd_project_id', '!=', $this->projectId)
+                ->pluck('esb_bom_id')
+                ->all();
+            $excluded = array_merge($attachedToProduct, $ownedByOtherProjects);
+
+            $this->importBomOptions = array_values(array_filter(
+                app(EsbCoreService::class)->getAllBillOfMaterials(),
+                fn (array $bom): bool => ! in_array((int) ($bom['bomID'] ?? 0), $excluded, true),
+            ));
+        } catch (\RuntimeException $exception) {
+            $this->importBomOptions = [];
+            Notification::make()->title('Daftar BOM belum dapat dimuat')->body($exception->getMessage())->danger()->send();
+        }
+    }
+
+    public function openBomPicker(string $usageType, ?int $parentBomId = null): void
+    {
+        $this->authorizeBomManagement();
+        $this->authorizeExistingBomAttachment();
+        abort_unless(array_key_exists($usageType, RndProjectProduct::BOM_USAGE_TYPES), 422);
+        if (! $this->isTopLevelUsageType($usageType)) {
+            abort_unless($parentBomId !== null && $this->isAttachedMainBom($parentBomId), 422);
+        }
+        $this->importUsageType = $usageType;
+        $this->importParentBomId = $this->isTopLevelUsageType($usageType) ? null : $parentBomId;
+        $this->importSearch = '';
+        $this->importBomCodeSearch = '';
+        $this->importBomNameSearch = '';
+        $this->importBomProductSearch = '';
+        $this->importBomUnitSearch = '';
+        $this->importBomTypeSearch = $usageType === 'menu' ? 'Menu' : '';
+        $this->importPage = 1;
+        $this->importModalOpen = true;
+    }
+
+    private function isTopLevelUsageType(string $usageType): bool
+    {
+        return in_array($usageType, ['main', 'menu'], true);
+    }
+
+    public function updatedImportSearch(): void
+    {
+        $this->importPage = 1;
+    }
+
+    public function updatedImportBomCodeSearch(): void
+    {
+        $this->importPage = 1;
+    }
+
+    public function updatedImportBomNameSearch(): void
+    {
+        $this->importPage = 1;
+    }
+
+    public function updatedImportBomProductSearch(): void
+    {
+        $this->importPage = 1;
+    }
+
+    public function updatedImportBomUnitSearch(): void
+    {
+        $this->importPage = 1;
+    }
+
+    public function updatedImportBomTypeSearch(): void
+    {
+        $this->importPage = 1;
+    }
+
+    public function filteredImportBoms(): array
+    {
+        $search = mb_strtolower(trim($this->importSearch));
+        $code = mb_strtolower(trim($this->importBomCodeSearch));
+        $name = mb_strtolower(trim($this->importBomNameSearch));
+        $product = mb_strtolower(trim($this->importBomProductSearch));
+        $unit = mb_strtolower(trim($this->importBomUnitSearch));
+        // "Add Existing Menu" is hard-locked to Menu-type BOMs only, regardless
+        // of whatever the type filter field is currently set to.
+        $type = $this->importUsageType === 'menu' ? 'menu' : mb_strtolower(trim($this->importBomTypeSearch));
+
+        return array_values(array_filter($this->importBomOptions, function (array $bom) use ($search, $code, $name, $product, $unit, $type): bool {
+            $bomCode = mb_strtolower((string) ($bom['bomCode'] ?? ''));
+            $bomName = mb_strtolower((string) ($bom['bomName'] ?? ''));
+            $productName = mb_strtolower((string) ($bom['productName'] ?? ''));
+            $uomName = mb_strtolower((string) ($bom['uomName'] ?? ''));
+            $typeName = mb_strtolower((string) ($bom['bomTypeName'] ?? 'Assembly'));
+            $all = implode(' ', [$bomCode, $bomName, $productName, $uomName, $typeName]);
+
+            return ($search === '' || str_contains($all, $search))
+                && ($code === '' || str_contains($bomCode, $code))
+                && ($name === '' || str_contains($bomName, $name))
+                && ($product === '' || str_contains($productName, $product))
+                && ($unit === '' || $uomName === $unit)
+                && ($type === '' || $typeName === $type);
+        }));
+    }
+
+    public function importRows(): array
+    {
+        return array_slice(
+            $this->filteredImportBoms(),
+            ($this->importPage - 1) * $this->importPerPage,
+            $this->importPerPage,
+        );
+    }
+
+    public function goToImportPage(int $page): void
+    {
+        $lastPage = max(1, (int) ceil(count($this->filteredImportBoms()) / $this->importPerPage));
+        $this->importPage = min($lastPage, max(1, $page));
+    }
+
+    public function attachBom(int $bomId): void
+    {
+        $this->authorizeBomManagement();
+        $this->authorizeExistingBomAttachment();
+        if (! $this->isTopLevelUsageType($this->importUsageType)) {
+            abort_unless($this->importParentBomId !== null && $this->isAttachedMainBom($this->importParentBomId), 422);
+        }
+
+        $projectBom = RndProjectBom::query()->where('esb_bom_id', $bomId)->first();
+        if ($projectBom && $projectBom->rnd_project_id !== $this->projectId) {
+            Notification::make()->title('BOM dimiliki project lain')->warning()->send();
+
+            return;
+        }
+
+        try {
+            $detail = app(EsbCoreService::class)->getBillOfMaterial($bomId);
+
+            if (! $projectBom) {
+                $projectBom = $this->projectRecord->boms()->create([
+                    'esb_bom_id' => $bomId,
+                    'bom_code' => $detail['bomCode'] ?? null,
+                    'bom_name' => $detail['bomName'] ?? 'BOM '.$bomId,
+                    'product_name' => $detail['productName'] ?? null,
+                    'uom_name' => $detail['uomName'] ?? null,
+                    'bom_type_name' => $detail['bomTypeName'] ?? 'Assembly',
+                    'is_active' => (int) ($detail['flagActive'] ?? 1) === 1,
+                    'sync_status' => 'synced',
+                    'detail_snapshot' => $detail,
+                    'created_by' => auth()->id(),
+                    'last_synced_at' => now(),
+                ]);
+            } else {
+                $projectBom->update([
+                    'bom_code' => $detail['bomCode'] ?? $projectBom->bom_code,
+                    'bom_name' => $detail['bomName'] ?? $projectBom->bom_name,
+                    'product_name' => $detail['productName'] ?? $projectBom->product_name,
+                    'uom_name' => $detail['uomName'] ?? $projectBom->uom_name,
+                    'bom_type_name' => $detail['bomTypeName'] ?? $projectBom->bom_type_name,
+                    'is_active' => (int) ($detail['flagActive'] ?? 1) === 1,
+                    'sync_status' => 'synced',
+                    'detail_snapshot' => $detail,
+                    'last_synced_at' => now(),
+                ]);
+            }
+
+            $this->productRecord->boms()->syncWithoutDetaching([
+                $projectBom->id => [
+                    'usage_type' => $this->importUsageType,
+                    'parent_rnd_project_bom_id' => $this->isTopLevelUsageType($this->importUsageType) ? null : $this->importParentBomId,
+                ],
+            ]);
+            $this->importBomOptions = array_values(array_filter(
+                $this->importBomOptions,
+                fn (array $bom): bool => (int) ($bom['bomID'] ?? 0) !== $bomId,
+            ));
+            $this->reloadProduct();
+            $this->setBomComponentState($projectBom->id, $detail);
+            $this->bomComponentExpanded[$projectBom->id] = true;
+            Cache::forget("rnd.wip-recipes.{$projectBom->esb_bom_id}");
+            Cache::forget("rnd.wip-recipes.v2.{$projectBom->esb_bom_id}");
+            Cache::forget("rnd.wip-recipes.v3.{$projectBom->esb_bom_id}");
+            Cache::forget("rnd.wip-recipes.v4.{$projectBom->esb_bom_id}");
+            $shouldMapComponents = $this->importUsageType === 'main';
+            $this->importModalOpen = false;
+            $this->dispatch('close-import-bom');
+            Notification::make()->title('BOM berhasil ditambahkan ke product')->success()->send();
+            if ($shouldMapComponents) {
+                $this->dispatch('run-rnd-bom-mapping');
+            }
+        } catch (\RuntimeException $exception) {
+            Notification::make()->title('BOM gagal ditambahkan')->body($exception->getMessage())->danger()->send();
+        }
+    }
+
+    public function detachBom(int $bomId): void
+    {
+        $this->authorizeBomManagement();
+        $projectBom = $this->projectRecord->boms()->where('esb_bom_id', $bomId)->firstOrFail();
+        $this->productRecord->boms()->detach($projectBom->id);
+        $this->reloadProduct();
+        Notification::make()->title('BOM dilepas dari product')->success()->send();
+    }
+
+    public function editMappedComponentBom(int $esbBomId, int $mainBomId): void
+    {
+        $this->authorizeBomUpdate();
+        abort_unless($this->isAttachedMainBom($mainBomId), 422);
+
+        try {
+            $detail = app(EsbCoreService::class)->getBillOfMaterial($esbBomId);
+            $projectBom = RndProjectBom::query()->where('esb_bom_id', $esbBomId)->first();
+
+            if ($projectBom && $projectBom->rnd_project_id !== $this->projectId) {
+                Notification::make()->title('BOM dimiliki project lain')->warning()->send();
+
+                return;
+            }
+
+            $values = [
+                'bom_code' => $detail['bomCode'] ?? null,
+                'bom_name' => $detail['bomName'] ?? 'BOM '.$esbBomId,
+                'product_name' => $detail['productName'] ?? null,
+                'uom_name' => $detail['uomName'] ?? null,
+                'bom_type_name' => $detail['bomTypeName'] ?? 'Assembly',
+                'is_active' => (int) ($detail['flagActive'] ?? 1) === 1,
+                'sync_status' => 'synced',
+                'detail_snapshot' => $detail,
+                'last_synced_at' => now(),
+            ];
+
+            if ($projectBom) {
+                $projectBom->update($values);
+            } else {
+                $projectBom = $this->projectRecord->boms()->create($values + [
+                    'esb_bom_id' => $esbBomId,
+                    'created_by' => auth()->id(),
+                ]);
+            }
+
+            $this->productRecord->boms()->syncWithoutDetaching([
+                $projectBom->id => [
+                    'usage_type' => 'component',
+                    'parent_rnd_project_bom_id' => $mainBomId,
+                ],
+            ]);
+
+            $this->reloadProduct();
+            $this->setBomComponentState($projectBom->id, $detail);
+            $this->bomComponentExpanded[$projectBom->id] = true;
+            $this->bomComponentEditing[$projectBom->id] = true;
+            $this->bomComponentDrafts[$projectBom->id] = $this->bomComponentDetails[$projectBom->id];
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->title('BOM belum dapat diedit')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function loadBomComponents(int $projectBomId, bool $force = false): void
+    {
+        abort_unless(static::canAccess(), 403);
+        $projectBom = $this->attachedProjectBom($projectBomId);
+
+        try {
+            $detail = ! $force && $projectBom->detail_snapshot
+                ? $projectBom->detail_snapshot
+                : app(EsbCoreService::class)->getBillOfMaterial($projectBom->esb_bom_id);
+            $detail['bomDetails'] = $this->hydrateMissingBomRowMetadata($detail['bomDetails'] ?? []);
+
+            $projectBom->update([
+                'detail_snapshot' => $detail,
+                'sync_status' => 'synced',
+                'last_synced_at' => now(),
+            ]);
+            $this->setBomComponentState($projectBomId, $detail);
+            $this->bomComponentExpanded[$projectBomId] = true;
+        } catch (Throwable $exception) {
+            $projectBom->update(['sync_status' => 'failed']);
+            Notification::make()
+                ->title('Komponen BOM belum dapat dimuat')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function loadAllBomComponents(): void
+    {
+        if ($this->bomComponentsInitialized) {
+            return;
+        }
+
+        $this->bomComponentsInitialized = true;
+        foreach ($this->productRecord->boms as $bom) {
+            $this->bomComponentExpanded[$bom->id] = true;
+            if (! isset($this->bomComponentDetails[$bom->id])) {
+                $this->loadBomComponents($bom->id);
+            }
+        }
+
+        $this->discoverWipComponentRecipes();
+        $this->loadWeightedAveragePrices();
+    }
+
+    public function applyWaDateFilter(): void
+    {
+        $this->loadWeightedAveragePrices();
+    }
+
+    private function loadWeightedAveragePrices(): void
+    {
+        $productDetailIds = [];
+
+        foreach ($this->bomComponentDetails as $detail) {
+            foreach ($detail['bomDetails'] ?? [] as $component) {
+                $productDetailIds[] = (int) ($component['productDetailID'] ?? 0);
+            }
+        }
+
+        foreach ($this->autoWipComponentRecipes as $recipes) {
+            foreach ($recipes as $recipe) {
+                foreach ($recipe['bomDetails'] ?? [] as $component) {
+                    $productDetailIds[] = (int) ($component['productDetailID'] ?? 0);
+                }
+            }
+        }
+
+        $prices = app(ProductPriceIndexService::class)->weightedAveragePrices(
+            $productDetailIds,
+            $this->waDateFrom ?: null,
+            $this->waDateTo ?: null,
+        );
+
+        $this->waPrices = $prices->map(fn ($row): array => [
+            'average_price' => (float) $row->average_price,
+            'po_count' => (int) $row->po_count,
+        ])->all();
+    }
+
+    /** @return array{total: float, hasFallback: bool} */
+    public function bomWeightedAverageTotal(int $projectBomId): array
+    {
+        return $this->weightedAverageTotalForRows($this->bomComponentDetails[$projectBomId]['bomDetails'] ?? []);
+    }
+
+    /**
+     * Same calculation as bomWeightedAverageTotal(), but works directly off a
+     * bomDetails array — used for auto-discovered WIP recipes that aren't
+     * (yet) attached as a local RndProjectBom, so there's no projectBomId to
+     * look up in bomComponentDetails.
+     *
+     * @param  array<int, array{productDetailID?: int, qty?: float, lastHPP?: float}>  $bomDetails
+     * @return array{total: float, hasFallback: bool}
+     */
+    public function weightedAverageTotalForRows(array $bomDetails): array
+    {
+        $total = 0.0;
+        $hasFallback = false;
+
+        foreach ($bomDetails as $component) {
+            $productDetailId = (int) ($component['productDetailID'] ?? 0);
+            $qty = (float) ($component['qty'] ?? 0);
+            $waPrice = $this->waPrices[$productDetailId]['average_price'] ?? null;
+
+            if ($waPrice === null) {
+                $waPrice = (float) ($component['lastHPP'] ?? 0);
+                $hasFallback = true;
+            }
+
+            $total += $qty * $waPrice;
+        }
+
+        return ['total' => $total, 'hasFallback' => $hasFallback];
+    }
+
+    public function refreshWipComponentRecipes(): void
+    {
+        foreach ($this->productRecord->boms as $bom) {
+            Cache::forget("rnd.wip-recipes.{$bom->esb_bom_id}");
+            Cache::forget("rnd.wip-recipes.v2.{$bom->esb_bom_id}");
+            Cache::forget("rnd.wip-recipes.v3.{$bom->esb_bom_id}");
+            Cache::forget("rnd.wip-recipes.v4.{$bom->esb_bom_id}");
+        }
+
+        $this->discoverWipComponentRecipes(true);
+        $this->loadWeightedAveragePrices();
+    }
+
+    private function discoverWipComponentRecipes(bool $force = false): void
+    {
+        $this->autoWipComponentRecipes = [];
+        $this->autoPackagingItems = [];
+        $this->autoWipComponentError = null;
+
+        try {
+            $core = app(EsbCoreService::class);
+            $mainBoms = $this->productRecord->boms->filter(
+                fn (RndProjectBom $bom): bool => $bom->pivot->usage_type === 'main',
+            );
+
+            foreach ($mainBoms as $mainBom) {
+                $mainDetail = $this->bomComponentDetails[$mainBom->id] ?? null;
+                if (! is_array($mainDetail)) {
+                    continue;
+                }
+
+                $this->autoPackagingItems[$mainBom->id] = collect($mainDetail['bomDetails'] ?? [])
+                    ->filter(function (array $component): bool {
+                        $code = strtoupper(trim((string) ($component['productCode'] ?? '')));
+
+                        return str_starts_with($code, 'PAM') || str_starts_with($code, 'P');
+                    })
+                    ->map(fn (array $component): array => [
+                        'productDetailID' => (int) ($component['productDetailID'] ?? 0),
+                        'productCode' => (string) ($component['productCode'] ?? ''),
+                        'productName' => (string) ($component['productName'] ?? ''),
+                        'uomName' => (string) ($component['uomName'] ?? ''),
+                        'qty' => (float) ($component['qty'] ?? 0),
+                    ])
+                    ->values()
+                    ->all();
+
+                $cacheKey = "rnd.wip-recipes.v4.{$mainBom->esb_bom_id}";
+                if ($force) {
+                    Cache::forget($cacheKey);
+                }
+
+                $this->autoWipComponentRecipes[$mainBom->id] = Cache::remember(
+                    $cacheKey,
+                    now()->addMinutes(30),
+                    function () use ($mainDetail, $mainBom, $core): array {
+                        $recipes = [];
+
+                        foreach ($mainDetail['bomDetails'] ?? [] as $component) {
+                            $productDetailId = (int) ($component['productDetailID'] ?? 0);
+                            $productCode = strtoupper(trim((string) ($component['productCode'] ?? '')));
+                            $isWipCode = str_starts_with($productCode, 'BW');
+                            $categoryName = trim((string) ($component['categoryName'] ?? ''));
+
+                            if (! $isWipCode && mb_strtolower($categoryName) !== 'barang wip') {
+                                continue;
+                            }
+
+                            $productName = (string) ($component['productName'] ?? '');
+                            $productId = (int) ($component['productID'] ?? 0);
+                            $candidates = $core->getBillOfMaterials([
+                                'productName' => $productName,
+                                'limit' => 100,
+                            ]);
+
+                            foreach ($candidates['data'] as $candidate) {
+                                $candidateBomId = (int) ($candidate['bomID'] ?? 0);
+                                if ($candidateBomId < 1 || $candidateBomId === $mainBom->esb_bom_id) {
+                                    continue;
+                                }
+
+                                $detail = $core->getBillOfMaterial($candidateBomId);
+                                $sameProductDetail = (int) ($detail['productDetailID'] ?? 0) === $productDetailId;
+                                $sameMasterProduct = $productId > 0
+                                    && (int) ($detail['productID'] ?? 0) === $productId;
+                                $sameProductCode = $productCode !== ''
+                                    && strtoupper(trim((string) ($detail['productCode'] ?? ''))) === $productCode;
+
+                                if (! $sameProductDetail && ! $sameMasterProduct && ! $sameProductCode) {
+                                    continue;
+                                }
+
+                                $detail['bomDetails'] = $this->normalizedBomRows($detail['bomDetails'] ?? []);
+                                $recipes[$candidateBomId] = [
+                                    'bomID' => $candidateBomId,
+                                    'bomCode' => (string) ($detail['bomCode'] ?? $candidate['bomCode'] ?? ''),
+                                    'bomName' => (string) ($detail['bomName'] ?? $candidate['bomName'] ?? ''),
+                                    'productDetailID' => $productDetailId,
+                                    'productCode' => $productCode,
+                                    'productName' => $productName,
+                                    'uomName' => (string) ($detail['uomName'] ?? $component['uomName'] ?? ''),
+                                    'sourceQty' => (float) ($component['qty'] ?? 0),
+                                    'sourceUnit' => (string) ($component['uomName'] ?? ''),
+                                    'bomDetails' => $detail['bomDetails'],
+                                ];
+                            }
+                        }
+
+                        return array_values($recipes);
+                    },
+                );
+            }
+        } catch (Throwable $exception) {
+            $this->autoWipComponentError = $exception->getMessage();
+        }
+    }
+
+    public function editBomComponents(int $projectBomId): void
+    {
+        $this->authorizeBomUpdate();
+        if (! isset($this->bomComponentDetails[$projectBomId])) {
+            $this->loadBomComponents($projectBomId);
+        }
+        $this->bomComponentDrafts[$projectBomId] = $this->bomComponentDetails[$projectBomId];
+        $bom = $this->attachedProjectBom($projectBomId);
+        $this->bomComponentDrafts[$projectBomId]['documentMaterials'] = $bom->documentMaterials->map(fn ($material): array => [
+            'name' => $material->name,
+            'quantity' => (float) $material->quantity,
+            'unit' => $material->unit,
+            'notes' => (string) $material->notes,
+        ])->all();
+        $this->bomComponentEditing[$projectBomId] = true;
+        $this->bomComponentExpanded[$projectBomId] = true;
+    }
+
+    public function cancelBomComponentEdit(int $projectBomId): void
+    {
+        unset($this->bomComponentDrafts[$projectBomId]);
+        $this->bomComponentEditing[$projectBomId] = false;
+        $this->resetValidation();
+    }
+
+    public function removeInlineBomComponent(int $projectBomId, int $index): void
+    {
+        $this->authorizeBomUpdate();
+        if (count($this->bomComponentDrafts[$projectBomId]['bomDetails'] ?? []) <= 1) {
+            $this->addError(
+                "bomComponentDrafts.$projectBomId.bomDetails",
+                'BOM wajib memiliki minimal satu komponen.',
+            );
+
+            return;
+        }
+
+        unset($this->bomComponentDrafts[$projectBomId]['bomDetails'][$index]);
+        $this->bomComponentDrafts[$projectBomId]['bomDetails'] = array_values(
+            $this->bomComponentDrafts[$projectBomId]['bomDetails'],
+        );
+    }
+
+    public function addInlineDocumentMaterial(int $projectBomId): void
+    {
+        $this->authorizeBomUpdate();
+        $this->bomComponentDrafts[$projectBomId]['documentMaterials'][] = [
+            'name' => '',
+            'quantity' => 1,
+            'unit' => '',
+            'notes' => '',
+        ];
+    }
+
+    public function removeInlineDocumentMaterial(int $projectBomId, int $index): void
+    {
+        $this->authorizeBomUpdate();
+        unset($this->bomComponentDrafts[$projectBomId]['documentMaterials'][$index]);
+        $this->bomComponentDrafts[$projectBomId]['documentMaterials'] = array_values(
+            $this->bomComponentDrafts[$projectBomId]['documentMaterials'],
+        );
+    }
+
+    public function openInlineProductPicker(int $projectBomId, string $target = 'component'): void
+    {
+        $this->authorizeBomUpdate();
+        abort_unless(in_array($target, ['component', 'result'], true), 422);
+        if (! ($this->bomComponentEditing[$projectBomId] ?? false)) {
+            $this->editBomComponents($projectBomId);
+        }
+
+        $this->inlineProductBomId = $projectBomId;
+        $this->inlineProductTarget = $target;
+        $this->inlineProductNameSearch = '';
+        $this->inlineProductCodeSearch = '';
+        $this->inlineProductCategoryId = '';
+        $this->inlineProductSubCategoryId = '';
+        $this->inlineProductPage = 1;
+        $this->inlineProductOptions = [];
+        $this->inlineProductTotal = 0;
+        $this->inlineProductHasNext = false;
+        $this->inlineProductModalOpen = true;
+    }
+
+    public function loadInlineProducts(bool $reset = false): void
+    {
+        if ($reset) {
+            $this->inlineProductPage = 1;
+        }
+
+        try {
+            if ($this->inlineProductCategoryOptions === []) {
+                $taxonomy = app(EsbCoreService::class)->getProductTaxonomy();
+                $this->inlineProductCategoryOptions = $taxonomy['categories'];
+                $this->inlineProductSubCategoryOptions = $taxonomy['subCategories'];
+                $this->inlineProductUnitOptions = app(EsbService::class)->getAllActiveProductUnits();
+            }
+
+            if (filled($this->inlineProductNameSearch) || filled($this->inlineProductCodeSearch) || filled($this->inlineProductCategoryId) || filled($this->inlineProductSubCategoryId)) {
+                $list = app(EsbCoreService::class)->getProducts([
+                    'page' => $this->inlineProductPage,
+                    'limit' => 20,
+                    'productName' => trim($this->inlineProductNameSearch),
+                    'productCode' => trim($this->inlineProductCodeSearch),
+                    'categoryID' => $this->inlineProductCategoryId,
+                    'subCategoryID' => $this->inlineProductSubCategoryId,
+                ]);
+                $this->inlineProductOptions = app(EsbService::class)->getActiveProductDetailsByCodes(
+                    array_column($list['data'], 'productCode'),
+                );
+                $this->inlineProductPage = $list['page'];
+                $this->inlineProductTotal = $list['count'];
+                $this->inlineProductPerPage = $list['limit'];
+                $this->inlineProductHasNext = filled($list['next'])
+                    || ($this->inlineProductPage * $this->inlineProductPerPage < $this->inlineProductTotal);
+            } else {
+                $result = app(EsbService::class)->getActiveProductDetailsPage('', $this->inlineProductPage);
+                $this->inlineProductOptions = $result['data'];
+                $this->inlineProductPage = $result['page'];
+                $this->inlineProductTotal = $result['total'];
+                $this->inlineProductPerPage = $result['perPage'];
+                $this->inlineProductHasNext = $result['hasNext'];
+            }
+        } catch (Throwable $exception) {
+            $this->inlineProductOptions = [];
+            Notification::make()
+                ->title('Master Product belum dapat dimuat')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function updatedInlineProductNameSearch(): void
+    {
+        $this->loadInlineProducts(true);
+    }
+
+    public function updatedInlineProductCodeSearch(): void
+    {
+        $this->loadInlineProducts(true);
+    }
+
+    public function updatedInlineProductCategoryId(): void
+    {
+        $this->loadInlineProducts(true);
+    }
+
+    public function updatedInlineProductSubCategoryId(): void
+    {
+        $this->loadInlineProducts(true);
+    }
+
+    public function previousInlineProductPage(): void
+    {
+        if ($this->inlineProductPage > 1) {
+            $this->inlineProductPage--;
+            $this->loadInlineProducts();
+        }
+    }
+
+    public function nextInlineProductPage(): void
+    {
+        if ($this->inlineProductHasNext) {
+            $this->inlineProductPage++;
+            $this->loadInlineProducts();
+        }
+    }
+
+    public function goToInlineProductPage(int $page): void
+    {
+        $lastPage = max(1, (int) ceil($this->inlineProductTotal / max(1, $this->inlineProductPerPage)));
+        $this->inlineProductPage = min($lastPage, max(1, $page));
+        $this->loadInlineProducts();
+    }
+
+    public function selectInlineProduct(int $productDetailId): void
+    {
+        $this->authorizeBomUpdate();
+        abort_unless($this->inlineProductBomId !== null, 422);
+        $product = $this->inlineProductOptions[$productDetailId] ?? null;
+        abort_unless(is_array($product), 422);
+        $bomId = $this->inlineProductBomId;
+
+        if ($this->inlineProductTarget === 'result') {
+            $this->bomComponentDrafts[$bomId]['productDetailID'] = $productDetailId;
+            $this->bomComponentDrafts[$bomId]['productName'] = $product['productName'];
+            $this->bomComponentDrafts[$bomId]['productCode'] = $product['productCode'];
+            $this->bomComponentDrafts[$bomId]['uomName'] = $product['baseUnit'] ?: $product['unit'];
+        } else {
+            $usedIds = collect($this->bomComponentDrafts[$bomId]['bomDetails'] ?? [])
+                ->pluck('productDetailID')
+                ->map(fn ($id): int => (int) $id);
+            if ($usedIds->contains($productDetailId)) {
+                Notification::make()->title('Product sudah menjadi komponen BOM')->warning()->send();
+
+                return;
+            }
+
+            $this->bomComponentDrafts[$bomId]['bomDetails'][] = [
+                'ID' => 0,
+                'productDetailID' => $productDetailId,
+                'productCode' => $product['productCode'],
+                'productName' => $product['productName'],
+                'uomName' => $product['baseUnit'] ?: $product['unit'],
+                'lastHPP' => (float) $product['basePrice'],
+                'qty' => 1,
+                'yieldPercent' => 0,
+                'tolerancePercent' => (float) $product['receiptTolerance'],
+                'printGroup' => '',
+                'subtitution' => [],
+            ];
+        }
+
+        $this->inlineProductModalOpen = false;
+        $this->dispatch('close-inline-product-picker');
+    }
+
+    public function updateInlineBom(int $projectBomId): void
+    {
+        $this->authorizeBomUpdate();
+        $projectBom = $this->attachedProjectBom($projectBomId);
+        $isMenu = $this->isMenuBomDetail(data_get($this->bomComponentDetails, $projectBomId, []));
+        $validated = $this->validate([
+            "bomComponentDrafts.$projectBomId.productDetailID" => $isMenu ? ['nullable', 'integer'] : ['required', 'integer', 'min:1'],
+            "bomComponentDrafts.$projectBomId.productName" => ['nullable', 'string', 'max:255'],
+            "bomComponentDrafts.$projectBomId.productCode" => ['nullable', 'string', 'max:100'],
+            "bomComponentDrafts.$projectBomId.uomName" => ['nullable', 'string', 'max:100'],
+            "bomComponentDrafts.$projectBomId.bomDetails" => ['required', 'array', 'min:1'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.ID" => ['required', 'integer', 'min:0'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.productDetailID" => ['required', 'integer', 'min:1'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.productCode" => ['nullable', 'string', 'max:100'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.productName" => ['nullable', 'string', 'max:255'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.uomName" => ['nullable', 'string', 'max:100'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.lastHPP" => ['required', 'numeric', 'min:0'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.qty" => ['required', 'numeric', 'gt:0'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.yieldPercent" => ['required', 'numeric', 'between:0,100'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.tolerancePercent" => $isMenu ? ['nullable', 'numeric', 'between:0,100'] : ['required', 'numeric', 'between:0,100'],
+            "bomComponentDrafts.$projectBomId.bomDetails.*.printGroup" => ['nullable', 'string', 'max:100'],
+            "bomComponentDrafts.$projectBomId.documentMaterials" => ['array'],
+            "bomComponentDrafts.$projectBomId.documentMaterials.*.name" => ['required', 'string', 'max:255'],
+            "bomComponentDrafts.$projectBomId.documentMaterials.*.quantity" => ['required', 'numeric', 'gt:0'],
+            "bomComponentDrafts.$projectBomId.documentMaterials.*.unit" => ['required', 'string', 'max:50'],
+            "bomComponentDrafts.$projectBomId.documentMaterials.*.notes" => ['nullable', 'string', 'max:255'],
+        ]);
+        $draft = data_get($validated, "bomComponentDrafts.$projectBomId");
+
+        if (! $isMenu && collect($draft['bomDetails'])->pluck('productDetailID')->map(fn ($id): int => (int) $id)
+            ->contains((int) $draft['productDetailID'])) {
+            $this->addError(
+                "bomComponentDrafts.$projectBomId.productDetailID",
+                'Product hasil tidak boleh digunakan sebagai komponen pada BOM yang sama.',
+            );
+
+            return;
+        }
+
+        try {
+            $latest = app(EsbCoreService::class)->getBillOfMaterial($projectBom->esb_bom_id);
+            $loadedEditedDate = data_get($this->bomComponentDetails, "$projectBomId.editedDate");
+            $latestEditedDate = $latest['editedDate'] ?? null;
+
+            if ($loadedEditedDate && $latestEditedDate && $loadedEditedDate !== $latestEditedDate) {
+                $this->addError(
+                    "bomComponentDrafts.$projectBomId",
+                    'BOM telah diperbarui user lain di ESB. Muat ulang komponen sebelum menyimpan.',
+                );
+
+                return;
+            }
+
+            $payload = $this->inlineBomPayload($latest, $draft);
+            $projectBom->update(['sync_status' => 'syncing']);
+            app(EsbCoreService::class)->updateBillOfMaterial($projectBom->esb_bom_id, $payload);
+
+            $snapshot = $latest;
+            $snapshot['productDetailID'] = (int) $draft['productDetailID'];
+            $snapshot['productName'] = (string) ($draft['productName'] ?? $latest['productName'] ?? '');
+            $snapshot['productCode'] = (string) ($draft['productCode'] ?? $latest['productCode'] ?? '');
+            $snapshot['uomName'] = (string) ($draft['uomName'] ?? $latest['uomName'] ?? '');
+            $originalById = collect($latest['bomDetails'] ?? [])->keyBy(
+                fn (array $item): int => (int) ($item['ID'] ?? 0),
+            );
+            $snapshot['bomDetails'] = array_map(
+                fn (array $updated): array => array_merge(
+                    $originalById->get((int) $updated['ID'], []),
+                    $updated,
+                ),
+                $draft['bomDetails'],
+            );
+            $snapshot['editedDate'] = null;
+            $projectBom->update([
+                'detail_snapshot' => $snapshot,
+                'product_name' => $snapshot['productName'] ?: $projectBom->product_name,
+                'uom_name' => $snapshot['uomName'] ?: $projectBom->uom_name,
+                'sync_status' => 'synced',
+                'last_synced_at' => now(),
+            ]);
+            $projectBom->documentMaterials()->delete();
+            $projectBom->documentMaterials()->createMany(collect($draft['documentMaterials'] ?? [])->values()->map(
+                fn (array $material, int $index): array => $material + ['sort_order' => $index],
+            )->all());
+            $this->setBomComponentState($projectBomId, $snapshot);
+            $this->bomComponentEditing[$projectBomId] = false;
+            $this->reloadProduct();
+            Notification::make()->title('Komponen BOM berhasil diperbarui')->success()->send();
+        } catch (Throwable $exception) {
+            $projectBom->update(['sync_status' => 'failed']);
+            Notification::make()
+                ->title('Komponen BOM gagal diperbarui')
+                ->body($exception->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    private function setBomComponentState(int $projectBomId, array $detail): void
+    {
+        $detail['bomDetails'] = $this->normalizedBomRows($detail['bomDetails'] ?? []);
+        $this->bomComponentDetails[$projectBomId] = $detail;
+        $this->bomComponentDrafts[$projectBomId] = $detail;
+        $this->resultUnitLabels[$projectBomId] = $this->resolveResultLabel($detail);
+    }
+
+    private function resolveResultLabel(array $detail): string
+    {
+        $productDetailId = (int) ($detail['productDetailID'] ?? 0);
+        $productName = (string) ($detail['productName'] ?? '-');
+        $uomName = (string) ($detail['uomName'] ?? '-');
+
+        if ($productDetailId < 1) {
+            return EsbService::formatResultLabel($productName, $uomName, null, null);
+        }
+
+        try {
+            $resultDetail = app(EsbService::class)->findActiveProductDetail(
+                $productDetailId,
+                (string) ($detail['productCode'] ?? ''),
+                $productName,
+            );
+        } catch (Throwable) {
+            $resultDetail = null;
+        }
+
+        return EsbService::formatResultLabel(
+            $productName,
+            $uomName,
+            $resultDetail['baseUnit'] ?? null,
+            $resultDetail['conversionFactor'] ?? null,
+        );
+    }
+
+    private function normalizedBomRows(array $rows): array
+    {
+        return array_values(array_map(
+            fn (array $item): array => [
+                'ID' => (int) ($item['ID'] ?? 0),
+                'productID' => (int) ($item['productID'] ?? 0),
+                'productDetailID' => (int) ($item['productDetailID'] ?? 0),
+                'productCode' => (string) ($item['productCode'] ?? ''),
+                'productName' => (string) ($item['productName'] ?? ''),
+                'categoryName' => (string) ($item['categoryName'] ?? ''),
+                'uomName' => (string) ($item['uomName'] ?? ''),
+                'lastHPP' => (float) ($item['lastHPP'] ?? $item['lastHpp'] ?? $item['price'] ?? 0),
+                'qty' => (float) ($item['qty'] ?? 0),
+                'yieldPercent' => (float) ($item['yieldPercent'] ?? 0),
+                'tolerancePercent' => (float) ($item['tolerancePercent'] ?? 0),
+                'printGroup' => (string) ($item['printGroup'] ?? ''),
+                'subtitution' => is_array($item['subtitution'] ?? null) ? $item['subtitution'] : [],
+            ],
+            $rows,
+        ));
+    }
+
+    private function hydrateMissingBomRowMetadata(array $rows): array
+    {
+        $products = app(EsbService::class);
+
+        return array_map(function (array $row) use ($products): array {
+            if (
+                filled($row['productCode'] ?? null)
+                && filled($row['productName'] ?? null)
+                && filled($row['uomName'] ?? null)
+            ) {
+                return $row;
+            }
+
+            try {
+                $product = $products->findActiveProductDetail(
+                    (int) ($row['productDetailID'] ?? 0),
+                    (string) ($row['productCode'] ?? ''),
+                    (string) ($row['productName'] ?? ''),
+                );
+            } catch (Throwable) {
+                return $row;
+            }
+
+            if (! is_array($product)) {
+                return $row;
+            }
+
+            return array_merge($row, [
+                'productID' => (int) ($product['productID'] ?? $row['productID'] ?? 0),
+                'productCode' => (string) ($product['productCode'] ?? $row['productCode'] ?? ''),
+                'productName' => (string) ($product['productName'] ?? $row['productName'] ?? ''),
+                'categoryName' => (string) ($product['categoryName'] ?? $row['categoryName'] ?? ''),
+                'uomName' => (string) ($product['baseUnit'] ?: $product['unit'] ?? $row['uomName'] ?? ''),
+            ]);
+        }, $rows);
+    }
+
+    private function inlineBomPayload(array $latest, array $draft): array
+    {
+        $isMenu = $this->isMenuBomDetail($latest);
+
+        $payload = [
+            'bomTypeID' => (int) ($latest['bomTypeID'] ?? 1),
+            'bomName' => (string) ($latest['bomName'] ?? ''),
+            'bomCode' => (string) ($latest['bomCode'] ?? ''),
+            'notes' => (string) ($latest['notes'] ?? ''),
+            'bomCostTotal' => (float) ($latest['bomCostTotal'] ?? 0),
+            'accessType' => (int) ($latest['accessType'] ?? 0),
+            'selectedUserAccess' => is_array($latest['selectedUserAccess'] ?? null) ? $latest['selectedUserAccess'] : [],
+            'bomDetails' => array_map(function (array $item) use ($isMenu): array {
+                $row = [
+                    'ID' => (int) $item['ID'],
+                    'productDetailID' => (int) $item['productDetailID'],
+                    'lastHPP' => (float) $item['lastHPP'],
+                    'qty' => (float) $item['qty'],
+                    'yieldPercent' => (float) $item['yieldPercent'],
+                    'printGroup' => (string) ($item['printGroup'] ?? ''),
+                    'subtitution' => is_array($item['subtitution'] ?? null) ? $item['subtitution'] : [],
+                ];
+
+                if (! $isMenu) {
+                    $row['tolerancePercent'] = (float) ($item['tolerancePercent'] ?? 0);
+                }
+
+                return $row;
+            }, $draft['bomDetails']),
+            'bomCosts' => is_array($latest['bomCosts'] ?? null) ? $latest['bomCosts'] : [],
+        ];
+
+        // BOM Menu has no "Product Hasil" concept in ESB's API — only Assembly
+        // BOMs carry a top-level productDetailID.
+        if (! $isMenu) {
+            $payload['productDetailID'] = (int) $draft['productDetailID'];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * BOM Menu (bomTypeID 3) has a leaner bomDetails schema than Assembly per
+     * ESB's API — no `tolerancePercent` field — so callers use this to decide
+     * whether to validate/send it.
+     *
+     * @param  array<string, mixed>  $detail
+     */
+    public function isMenuBomDetail(array $detail): bool
+    {
+        return (int) ($detail['bomTypeID'] ?? 0) === 3
+            || mb_strtolower(trim((string) ($detail['bomTypeName'] ?? ''))) === 'menu';
+    }
+
+    private function attachedProjectBom(int $projectBomId): RndProjectBom
+    {
+        return $this->productRecord->boms()
+            ->where('rnd_project_boms.id', $projectBomId)
+            ->firstOrFail();
+    }
+
+    public function updateBomUsage(int $bomId, string $usageType): void
+    {
+        $this->authorizeBomManagement();
+        abort_unless(array_key_exists($usageType, RndProjectProduct::BOM_USAGE_TYPES), 422);
+        $projectBom = $this->projectRecord->boms()->where('esb_bom_id', $bomId)->firstOrFail();
+        $this->productRecord->boms()->updateExistingPivot($projectBom->id, [
+            'usage_type' => $usageType,
+            'parent_rnd_project_bom_id' => $usageType === 'main' ? null : $this->importParentBomId,
+        ]);
+        $this->reloadProduct();
+    }
+
+    public function assignBomToMain(int $bomId, int $parentBomId): void
+    {
+        $this->authorizeBomManagement();
+        abort_unless($this->isAttachedMainBom($parentBomId), 422);
+        $projectBom = $this->productRecord->boms()->where('rnd_project_boms.esb_bom_id', $bomId)->firstOrFail();
+        abort_if($projectBom->pivot->usage_type === 'main', 422);
+        $this->productRecord->boms()->updateExistingPivot($projectBom->id, [
+            'parent_rnd_project_bom_id' => $parentBomId,
+        ]);
+        $this->reloadProduct();
+    }
+
+    private function isAttachedMainBom(int $bomId): bool
+    {
+        return $this->productRecord->boms()
+            ->where('rnd_project_boms.id', $bomId)
+            ->wherePivot('usage_type', 'main')
+            ->exists();
+    }
+
+    public function openMaterialForm(): void
+    {
+        $this->authorizeMaterialManagement();
+        $this->materialType = 'packaging_design';
+        $this->materialTitle = '';
+        $this->materialNotes = '';
+        $this->materialFile = null;
+        $this->resetValidation();
+        $this->materialModalOpen = true;
+        $this->dispatch('open-material-form');
+    }
+
+    public function saveMaterial(): void
+    {
+        $this->authorizeMaterialManagement();
+        $validated = $this->validate([
+            'materialType' => ['required', Rule::in(array_keys(RndProjectMarketingMaterial::TYPES))],
+            'materialTitle' => ['required', 'string', 'max:255'],
+            'materialNotes' => ['nullable', 'string', 'max:2000'],
+            'materialFile' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,svg,pdf,zip', 'max:15360'],
+        ]);
+        $path = $this->materialFile->store(
+            'rnd/marketing-materials/'.$this->projectId.'/'.$this->productId,
+            'b2',
+        );
+
+        if (! is_string($path) || $path === '') {
+            $this->addError('materialFile', 'File gagal diunggah ke Cloudflare R2.');
+
+            return;
+        }
+
+        try {
+            $this->productRecord->marketingMaterials()->create([
+                'type' => $validated['materialType'],
+                'title' => trim($validated['materialTitle']),
+                'file_path' => $path,
+                'original_name' => $this->materialFile->getClientOriginalName(),
+                'mime_type' => $this->materialFile->getMimeType(),
+                'file_size' => $this->materialFile->getSize(),
+                'notes' => trim($validated['materialNotes']) ?: null,
+                'created_by' => auth()->id(),
+            ]);
+        } catch (Throwable $exception) {
+            Storage::disk('b2')->delete($path);
+            throw $exception;
+        }
+
+        $this->reloadProduct();
+        $this->materialFile = null;
+        $this->materialModalOpen = false;
+        $this->dispatch('close-material-form');
+        Notification::make()->title('Marketing material berhasil diunggah')->success()->send();
+    }
+
+    public function deleteMaterial(int $materialId): void
+    {
+        $this->authorizeMaterialManagement();
+        $material = $this->productRecord->marketingMaterials()->findOrFail($materialId);
+        $path = $material->file_path;
+        $material->delete();
+        Storage::disk('b2')->delete($path);
+        $this->reloadProduct();
+        Notification::make()->title('Marketing material berhasil dihapus')->success()->send();
+    }
+
+    public function openEsbMaterialForm(?int $materialId = null): void
+    {
+        $this->authorizeProjectManagement();
+        $this->resetValidation();
+        $this->loadEsbTaxonomy();
+        $this->loadPrefixCategoryOptions();
+        $this->loadPrefixNameOptions();
+        $this->materialDraftId = $materialId;
+
+        if ($materialId) {
+            $material = $this->productRecord->esbMaterials()->with('units')->findOrFail($materialId);
+            $this->esbMaterialProductName = $material->product_name;
+            $this->hydrateEsbMaterialNaming($material->product_name);
+            $this->esbMaterialProductCode = $material->product_code;
+            $this->esbMaterialCategoryId = $material->category_id;
+            $this->esbMaterialSubCategoryId = $material->sub_category_id;
+            $this->esbMaterialUomId = $material->uom_id;
+            $this->esbMaterialUomName = $material->uom_name;
+            $this->esbMaterialSku = $material->sku;
+            $this->esbMaterialConversionFactor = (string) $material->conversion_factor;
+            $this->esbMaterialBasePrice = (string) $material->base_price;
+            $this->esbMaterialNotes = (string) $material->notes;
+            $this->esbMaterialUnits = $material->units->isNotEmpty()
+                ? $material->units->map(fn ($unit): array => [
+                    'uom_id' => $unit->uom_id,
+                    'uom_name' => $unit->uom_name,
+                    'sku' => $unit->sku,
+                    'conversion_factor' => (string) $unit->conversion_factor,
+                    'base_price' => (string) $unit->base_price,
+                    'is_base' => $unit->is_base,
+                ])->values()->all()
+                : [$this->newEsbMaterialUnit(true, $material->uom_id, $material->uom_name, $material->base_price)];
+        } else {
+            $this->reset([
+                'esbMaterialProductName',
+                'esbMaterialProductBaseName',
+                'esbMaterialNamePrefix',
+                'esbMaterialPrefixCategoryId',
+                'esbMaterialProductCode',
+                'esbMaterialCategoryId',
+                'esbMaterialSubCategoryId',
+                'esbMaterialUomId',
+                'esbMaterialUomName',
+                'esbMaterialSku',
+                'esbMaterialNotes',
+            ]);
+            $this->esbMaterialConversionFactor = '1';
+            $this->esbMaterialBasePrice = '0';
+            $this->esbMaterialUnits = [$this->newEsbMaterialUnit(true)];
+        }
+
+        $this->esbMaterialModalOpen = true;
+        $this->dispatch('open-esb-material-form');
+    }
+
+    public function saveEsbMaterial(): void
+    {
+        $this->authorizeProjectManagement();
+        $this->syncEsbMaterialProductName();
+        $this->syncEsbMaterialUnitSkus();
+        $material = $this->materialDraftId
+            ? $this->productRecord->esbMaterials()->findOrFail($this->materialDraftId)
+            : null;
+        $wasSynced = $material?->status === 'synced';
+
+        $validated = $this->validate([
+            'esbMaterialProductName' => ['required', 'string', 'max:100'],
+            'esbMaterialProductBaseName' => [
+                Rule::requiredIf(fn (): bool => $this->usesEsbMaterialStructuredName()),
+                'nullable', 'string', 'max:90',
+            ],
+            'esbMaterialNamePrefix' => [
+                Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
+                'nullable', Rule::in(array_keys($this->esbMaterialNamePrefixOptions())),
+            ],
+            'esbMaterialPrefixCategoryId' => [
+                Rule::requiredIf(fn (): bool => $this->isEsbMaterialWipCategory()),
+                'nullable', Rule::in([self::NON_PREFIX_CATEGORY_ID, ...array_keys($this->esbMaterialPrefixCategoryOptions())]),
+            ],
+            'esbMaterialProductCode' => [
+                'required', 'string', 'max:50',
+                Rule::unique('rnd_product_esb_materials', 'product_code')->ignore($material?->id),
+            ],
+            'esbMaterialCategoryId' => ['required', 'integer', 'min:1'],
+            'esbMaterialSubCategoryId' => ['required', 'integer', 'min:1'],
+            'esbMaterialSku' => [
+                'required', 'string', 'max:50',
+                Rule::unique('rnd_product_esb_materials', 'sku')->ignore($material?->id),
+            ],
+            'esbMaterialNotes' => ['nullable', 'string', 'max:100'],
+            'esbMaterialUnits' => ['required', 'array', 'min:1'],
+            'esbMaterialUnits.*.uom_id' => [
+                'required', 'integer', 'distinct', Rule::in(array_keys($this->esbUomOptions())),
+            ],
+            'esbMaterialUnits.*.uom_name' => ['required', 'string', 'max:50'],
+            'esbMaterialUnits.*.sku' => ['required', 'string', 'max:50', 'distinct'],
+            'esbMaterialUnits.*.conversion_factor' => ['required', 'numeric', 'gt:0'],
+            'esbMaterialUnits.*.base_price' => ['required', 'numeric', 'min:0'],
+            'esbMaterialUnits.*.is_base' => ['required', 'boolean'],
+        ], [
+            'esbMaterialUnits.*.uom_id.distinct' => 'Unit tidak boleh dipilih lebih dari satu kali.',
+            'esbMaterialUnits.*.sku.distinct' => 'SKU unit tidak boleh sama.',
+        ]);
+
+        $baseUnits = collect($validated['esbMaterialUnits'])->where('is_base', true);
+        if ($baseUnits->count() !== 1 || (float) $baseUnits->first()['conversion_factor'] !== 1.0) {
+            $this->addError('esbMaterialUnits.0.conversion_factor', 'Base Unit wajib tepat satu dengan Conversion Factor 1.');
+
+            return;
+        }
+
+        $unitSkus = collect($validated['esbMaterialUnits'])->pluck('sku');
+        $duplicateSku = RndProductEsbMaterialUnit::query()
+            ->whereIn('sku', $unitSkus)
+            ->when($material, fn ($query) => $query->where('rnd_product_esb_material_id', '!=', $material->id))
+            ->exists();
+        if ($duplicateSku) {
+            $this->addError('esbMaterialUnits', 'Salah satu SKU unit sudah digunakan pada bahan lain.');
+
+            return;
+        }
+
+        $baseUnit = $baseUnits->first();
+        $values = [
+            'category_id' => $validated['esbMaterialCategoryId'],
+            'category_name' => $this->esbCategoryOptions[$validated['esbMaterialCategoryId']] ?? null,
+            'sub_category_id' => $validated['esbMaterialSubCategoryId'],
+            'sub_category_name' => $this->esbSubCategoryOptions[$validated['esbMaterialSubCategoryId']] ?? null,
+            'uom_id' => $baseUnit['uom_id'],
+            'uom_name' => $baseUnit['uom_name'],
+            'product_code' => trim($validated['esbMaterialProductCode']),
+            'product_name' => trim($validated['esbMaterialProductName']),
+            'sku' => $baseUnit['sku'],
+            'conversion_factor' => 1,
+            'base_price' => $baseUnit['base_price'],
+            'notes' => trim($validated['esbMaterialNotes']) ?: null,
+            'status' => $wasSynced ? 'synced' : 'draft',
+            'sync_error' => null,
+        ];
+
+        try {
+            DB::transaction(function () use (&$material, $values, $validated, $wasSynced): void {
+                $existingDetailIds = $material?->units()->pluck('esb_product_detail_id', 'uom_id') ?? collect();
+
+                if ($material) {
+                    $material->update($values);
+                } else {
+                    $material = $this->productRecord->esbMaterials()->create($values + ['created_by' => auth()->id()]);
+                }
+                $material->units()->delete();
+                $material->units()->createMany(collect($validated['esbMaterialUnits'])
+                    ->map(fn (array $unit): array => [
+                        'uom_id' => $unit['uom_id'],
+                        'uom_name' => $unit['uom_name'],
+                        'esb_product_detail_id' => $existingDetailIds->get($unit['uom_id']),
+                        'sku' => $unit['sku'],
+                        'conversion_factor' => $unit['is_base'] ? 1 : $unit['conversion_factor'],
+                        'base_price' => $unit['base_price'],
+                        'is_base' => $unit['is_base'],
+                        'is_stock' => $unit['is_base'],
+                        'is_purchase' => $unit['is_base'],
+                        'is_transfer' => $unit['is_base'],
+                        'is_sales' => $unit['is_base'],
+                        'flag_active' => true,
+                    ])->all());
+
+                if ($wasSynced && $material->esb_product_id) {
+                    $payload = $material->fresh('units')->toEsbPayload();
+                    app(EsbCoreService::class)->updateProduct($material->esb_product_id, $payload);
+                    $material->update([
+                        'last_payload' => $payload,
+                        'last_response' => ['productID' => $material->esb_product_id, 'updated' => true],
+                        'sync_error' => null,
+                        'synced_at' => now(),
+                    ]);
+                }
+            });
+        } catch (Throwable $exception) {
+            $this->addError('esbMaterialProductName', $exception->getMessage());
+            Notification::make()->title('Perubahan gagal disinkronkan ke ESB')->body($exception->getMessage())->danger()->send();
+
+            return;
+        }
+
+        $this->reloadProduct();
+        $this->esbMaterialModalOpen = false;
+        $this->dispatch('close-esb-material-form');
+        Notification::make()->title($wasSynced ? 'Bahan dan Master Product ESB berhasil diperbarui' : 'Draft bahan berhasil disimpan')->success()->send();
+    }
+
+    public function updatedEsbMaterialUomId(): void
+    {
+        $this->esbMaterialUomName = $this->esbUomOptions()[$this->esbMaterialUomId] ?? '';
+        $this->syncEsbMaterialSku();
+    }
+
+    public function updatedEsbMaterialUnits(): void
+    {
+        $this->syncEsbMaterialUnitSkus();
+    }
+
+    public function addEsbMaterialUnit(): void
+    {
+        $this->esbMaterialUnits[] = $this->newEsbMaterialUnit(false);
+    }
+
+    public function removeEsbMaterialUnit(int $index): void
+    {
+        if ($index === 0 || ! isset($this->esbMaterialUnits[$index])) {
+            return;
+        }
+
+        unset($this->esbMaterialUnits[$index]);
+        $this->esbMaterialUnits = array_values($this->esbMaterialUnits);
+        $this->syncEsbMaterialUnitSkus();
+    }
+
+    public function updatedEsbMaterialProductCode(): void
+    {
+        $this->syncEsbMaterialUnitSkus();
+    }
+
+    public function esbUomOptions(): array
+    {
+        $options = config('esb.core.uoms', []);
+
+        if ($this->esbMaterialUomId && $this->esbMaterialUomName !== '') {
+            $options[$this->esbMaterialUomId] ??= $this->esbMaterialUomName;
+        }
+
+        return $options;
+    }
+
+    public function updatedEsbMaterialCategoryId(): void
+    {
+        if ($this->isEsbMaterialWipCategory()) {
+            $this->esbMaterialProductBaseName = $this->stripEsbMaterialNamePrefix($this->esbMaterialProductName);
+        } else {
+            if ($this->esbMaterialProductBaseName !== '') {
+                $this->esbMaterialProductName = $this->esbMaterialProductBaseName;
+            }
+            $this->esbMaterialNamePrefix = '';
+            $this->esbMaterialPrefixCategoryId = null;
+        }
+        $this->syncEsbMaterialProductName();
+
+        if ($this->esbMaterialCategoryId) {
+            $this->generateEsbMaterialProductCode();
+        }
+    }
+
+    public function updatedEsbMaterialProductBaseName(): void
+    {
+        $this->syncEsbMaterialProductName();
+    }
+
+    public function updatedEsbMaterialNamePrefix(): void
+    {
+        if ($this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID
+            && ! array_key_exists($this->esbMaterialPrefixCategoryId, $this->esbMaterialPrefixCategoryOptions())) {
+            $this->esbMaterialPrefixCategoryId = null;
+        }
+
+        $this->syncEsbMaterialProductName();
+    }
+
+    public function updatedEsbMaterialPrefixCategoryId(): void
+    {
+        $this->syncEsbMaterialProductName();
+    }
+
+    public function isEsbMaterialWipCategory(): bool
+    {
+        $name = $this->esbCategoryOptions[$this->esbMaterialCategoryId] ?? '';
+
+        return mb_strtolower(trim((string) $name)) === 'barang wip';
+    }
+
+    public function usesEsbMaterialStructuredName(): bool
+    {
+        return $this->isEsbMaterialWipCategory()
+            && $this->esbMaterialNamePrefix !== ''
+            && ($this->esbMaterialPrefixCategoryId === self::NON_PREFIX_CATEGORY_ID
+                || array_key_exists($this->esbMaterialPrefixCategoryId, $this->esbMaterialPrefixCategoryOptions()));
+    }
+
+    public function esbMaterialNamePrefixOptions(): array
+    {
+        return $this->prefixNameOptions;
+    }
+
+    public function esbMaterialPrefixCategoryOptions(): array
+    {
+        if ($this->esbMaterialNamePrefix === '') {
+            return [];
+        }
+
+        $categoryIds = $this->prefixCategoryIdsByNamePrefix[$this->esbMaterialNamePrefix] ?? [];
+
+        return array_intersect_key($this->prefixCategoryOptions, array_flip($categoryIds));
+    }
+
+    private function syncEsbMaterialProductName(): void
+    {
+        if (! $this->usesEsbMaterialStructuredName()) {
+            return;
+        }
+
+        $categoryName = $this->prefixCategoryOptions[$this->esbMaterialPrefixCategoryId] ?? '';
+
+        // Preserve trailing spaces while the user is typing. Normalization is
+        // performed when the draft is saved, otherwise a space between words
+        // is immediately removed by Livewire's real-time update.
+        $segments = array_filter(
+            [$this->esbMaterialNamePrefix, $categoryName, $this->esbMaterialProductBaseName],
+            fn (string $segment): bool => $segment !== ''
+        );
+
+        $this->esbMaterialProductName = implode(' ', $segments);
+    }
+
+    private function hydrateEsbMaterialNaming(string $productName): void
+    {
+        $this->esbMaterialNamePrefix = '';
+        foreach (array_keys($this->esbMaterialNamePrefixOptions()) as $prefix) {
+            if (str_starts_with(mb_strtolower(trim($productName)), mb_strtolower($prefix))) {
+                $this->esbMaterialNamePrefix = $prefix;
+                break;
+            }
+        }
+
+        $remainder = $this->stripEsbMaterialNamePrefix($productName);
+        $this->esbMaterialPrefixCategoryId = $this->matchPrefixCategoryId($remainder)
+            ?? self::NON_PREFIX_CATEGORY_ID;
+        $this->esbMaterialProductBaseName = $this->esbMaterialPrefixCategoryId !== self::NON_PREFIX_CATEGORY_ID
+            ? $this->stripPrefixCategoryName($remainder, $this->esbMaterialPrefixCategoryId)
+            : $remainder;
+        $this->syncEsbMaterialProductName();
+    }
+
+    private function stripEsbMaterialNamePrefix(string $name): string
+    {
+        $name = trim($name);
+        foreach (array_keys($this->esbMaterialNamePrefixOptions()) as $prefix) {
+            if (str_starts_with(mb_strtolower($name), mb_strtolower($prefix))) {
+                return trim(mb_substr($name, mb_strlen($prefix)));
+            }
+        }
+
+        return $name;
+    }
+
+    /**
+     * Matches the longest known Prefix Category name at the start of the
+     * remainder, so a category like "Whole Cake" wins over a shorter
+     * category that happens to share its first word (e.g. "Whole").
+     */
+    private function matchPrefixCategoryId(string $remainder): ?int
+    {
+        $remainder = trim($remainder);
+
+        $candidates = collect($this->esbMaterialPrefixCategoryOptions())
+            ->sortByDesc(fn (string $name): int => mb_strlen(trim($name)));
+
+        foreach ($candidates as $id => $name) {
+            $name = trim($name);
+            if ($name === '') {
+                continue;
+            }
+
+            $lowerRemainder = mb_strtolower($remainder);
+            $lowerName = mb_strtolower($name);
+
+            if ($lowerRemainder === $lowerName || str_starts_with($lowerRemainder, $lowerName.' ')) {
+                return (int) $id;
+            }
+        }
+
+        return null;
+    }
+
+    private function stripPrefixCategoryName(string $remainder, int $categoryId): string
+    {
+        $name = trim((string) ($this->prefixCategoryOptions[$categoryId] ?? ''));
+        $remainder = trim($remainder);
+
+        if ($name !== '' && str_starts_with(mb_strtolower($remainder), mb_strtolower($name))) {
+            return trim(mb_substr($remainder, mb_strlen($name)));
+        }
+
+        return $remainder;
+    }
+
+    public function generateEsbMaterialProductCode(): void
+    {
+        $this->authorizeProjectManagement();
+
+        if (! $this->esbMaterialCategoryId) {
+            $this->addError('esbMaterialProductCode', 'Pilih Category terlebih dahulu.');
+
+            return;
+        }
+
+        try {
+            $remoteSuggestion = app(EsbCoreService::class)
+                ->suggestNextProductCode($this->esbMaterialCategoryId);
+            $localCodes = RndProductEsbMaterial::query()
+                ->where('category_id', $this->esbMaterialCategoryId)
+                ->when($this->materialDraftId, fn ($query) => $query->where('id', '!=', $this->materialDraftId))
+                ->pluck('product_code')
+                ->all();
+
+            $this->esbMaterialProductCode = $this->nextAvailableProductCode(
+                $remoteSuggestion,
+                $localCodes,
+            ) ?? '';
+
+            if ($this->esbMaterialProductCode === '') {
+                $this->addError(
+                    'esbMaterialProductCode',
+                    'Kode otomatis belum dapat dibuat karena belum ada pola kode berakhiran angka pada kategori ini.',
+                );
+            } else {
+                $this->syncEsbMaterialUnitSkus();
+                $this->resetValidation('esbMaterialProductCode');
+            }
+        } catch (Throwable $exception) {
+            $this->addError('esbMaterialProductCode', $exception->getMessage());
+        }
+    }
+
+    private function nextAvailableProductCode(?string $remoteSuggestion, array $localCodes): ?string
+    {
+        if (! $remoteSuggestion || ! preg_match('/^(.*?)(\d+)$/', $remoteSuggestion, $matches)) {
+            return $remoteSuggestion;
+        }
+
+        $prefix = $matches[1];
+        $padding = strlen($matches[2]);
+        $number = (int) $matches[2];
+
+        foreach ($localCodes as $localCode) {
+            if (preg_match('/^'.preg_quote($prefix, '/').'(\d+)$/', (string) $localCode, $localMatch)) {
+                $number = max($number, ((int) $localMatch[1]) + 1);
+                $padding = max($padding, strlen($localMatch[1]));
+            }
+        }
+
+        return $prefix.str_pad((string) $number, $padding, '0', STR_PAD_LEFT);
+    }
+
+    private function syncEsbMaterialSku(): void
+    {
+        $code = strtoupper(trim($this->esbMaterialProductCode));
+        $unit = strtoupper(trim($this->esbUomOptions()[$this->esbMaterialUomId] ?? ''));
+        $this->esbMaterialSku = $code !== '' && $unit !== ''
+            ? $code.'-'.$unit
+            : '';
+    }
+
+    private function syncEsbMaterialUnitSkus(): void
+    {
+        $code = strtoupper(trim($this->esbMaterialProductCode));
+
+        foreach ($this->esbMaterialUnits as $index => $unit) {
+            $uomId = isset($unit['uom_id']) && $unit['uom_id'] !== ''
+                ? (int) $unit['uom_id']
+                : null;
+            $unitName = strtoupper(trim($this->esbUomOptions()[$uomId] ?? ''));
+            $isBase = $index === 0;
+            $this->esbMaterialUnits[$index]['uom_name'] = $unitName;
+            $this->esbMaterialUnits[$index]['sku'] = $code !== '' && $unitName !== ''
+                ? $code.'-'.$unitName
+                : '';
+            $this->esbMaterialUnits[$index]['is_base'] = $isBase;
+            if ($isBase) {
+                $this->esbMaterialUnits[$index]['conversion_factor'] = '1';
+            }
+        }
+
+        $base = $this->esbMaterialUnits[0] ?? null;
+        $this->esbMaterialUomId = isset($base['uom_id']) && $base['uom_id'] !== '' ? (int) $base['uom_id'] : null;
+        $this->esbMaterialUomName = (string) ($base['uom_name'] ?? '');
+        $this->esbMaterialSku = (string) ($base['sku'] ?? '');
+        $this->esbMaterialConversionFactor = '1';
+        $this->esbMaterialBasePrice = (string) ($base['base_price'] ?? '0');
+    }
+
+    private function newEsbMaterialUnit(
+        bool $isBase,
+        ?int $uomId = null,
+        ?string $uomName = null,
+        mixed $basePrice = 0,
+    ): array {
+        return [
+            'uom_id' => $uomId,
+            'uom_name' => $uomName ?? '',
+            'sku' => '',
+            'conversion_factor' => $isBase ? '1' : '',
+            'base_price' => (string) $basePrice,
+            'is_base' => $isBase,
+        ];
+    }
+
+    public function syncEsbMaterial(int $materialId): void
+    {
+        $this->authorizeProjectManagement();
+        $material = $this->productRecord->esbMaterials()->findOrFail($materialId);
+        if ($material->status === 'synced') {
+            Notification::make()->title('Bahan sudah tersinkron ke ESB')->warning()->send();
+
+            return;
+        }
+
+        $payload = $material->toEsbPayload();
+        $material->update([
+            'status' => 'syncing',
+            'last_payload' => $payload,
+            'sync_error' => null,
+        ]);
+
+        try {
+            $esb = app(EsbCoreService::class);
+            $existingProduct = $esb->findProductByExactName($material->product_name);
+            $existingProductId = (int) ($existingProduct['productID'] ?? 0);
+            $result = $existingProductId > 0
+                ? ['productID' => $existingProductId, 'isTemp' => (bool) ($existingProduct['isTemp'] ?? false)]
+                : $esb->createProduct($payload);
+
+            $material->update([
+                'status' => 'synced',
+                'esb_product_id' => $result['productID'],
+                'esb_is_temp' => $result['isTemp'],
+                'last_response' => $result,
+                'sync_error' => null,
+                'synced_at' => now(),
+            ]);
+            $this->syncEsbProductDetailIds(
+                $material,
+                $existingProductId > 0
+                    ? $existingProduct
+                    : $esb->findProductByExactName($material->product_name),
+            );
+            Notification::make()
+                ->title($existingProductId > 0 ? 'Bahan ditautkan ke Master Product ESB yang sudah ada' : 'Bahan berhasil dibuat di ESB')
+                ->success()
+                ->send();
+        } catch (Throwable $exception) {
+            $material->update([
+                'status' => 'failed',
+                'sync_error' => $exception->getMessage(),
+                'last_response' => ['message' => $exception->getMessage()],
+            ]);
+            Notification::make()->title('Sinkronisasi bahan gagal')->body($exception->getMessage())->danger()->send();
+        }
+
+        $this->reloadProduct();
+    }
+
+    private function syncEsbProductDetailIds(RndProductEsbMaterial $material, ?array $esbProduct): void
+    {
+        if (! is_array($esbProduct)) {
+            return;
+        }
+
+        $details = collect($esbProduct['productDetails'] ?? []);
+        foreach ($material->units as $unit) {
+            $detail = $details->first(fn (array $candidate): bool => ((int) ($candidate['uomID'] ?? 0) > 0 && (int) $candidate['uomID'] === $unit->uom_id)
+                || mb_strtolower(trim((string) ($candidate['sku'] ?? ''))) === mb_strtolower($unit->sku)
+            );
+            $detailId = (int) ($detail['productDetailID'] ?? 0);
+            if ($detailId > 0) {
+                $unit->update(['esb_product_detail_id' => $detailId]);
+            }
+        }
+    }
+
+    public function deleteEsbMaterial(int $materialId): void
+    {
+        $this->authorizeProjectManagement();
+        $material = $this->productRecord->esbMaterials()->findOrFail($materialId);
+        abort_if($material->status === 'synced', 422, 'Data yang sudah tersinkron tidak dapat dihapus.');
+        $material->delete();
+        $this->reloadProduct();
+        Notification::make()->title('Draft bahan berhasil dihapus')->success()->send();
+    }
+
+    public function refreshEsbMaterial(int $materialId): void
+    {
+        $this->authorizeProjectManagement();
+        $material = $this->productRecord->esbMaterials()->findOrFail($materialId);
+
+        try {
+            app(SyncRndEsbMaterialFromRemote::class)->execute($material);
+            Notification::make()->title('Data terbaru berhasil ditarik dari ESB')->success()->send();
+        } catch (Throwable $exception) {
+            $material->update(['sync_error' => $exception->getMessage()]);
+            Notification::make()->title('Gagal menarik data dari ESB')->body($exception->getMessage())->danger()->send();
+        }
+
+        $this->reloadProduct();
+    }
+
+    private function loadEsbTaxonomy(): void
+    {
+        if ($this->esbCategoryOptions !== [] && $this->esbSubCategoryOptions !== []) {
+            return;
+        }
+
+        try {
+            $taxonomy = app(EsbCoreService::class)->getProductTaxonomy();
+            $this->esbCategoryOptions = $taxonomy['categories'];
+            $this->esbSubCategoryOptions = $taxonomy['subCategories'];
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->title('Master kategori belum dapat dimuat')
+                ->body($exception->getMessage())
+                ->warning()
+                ->send();
+        }
+    }
+
+    private function loadPrefixCategoryOptions(): void
+    {
+        $this->prefixCategoryOptions = PrefixCategory::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    private function loadPrefixNameOptions(): void
+    {
+        $prefixNames = PrefixName::query()
+            ->with(['prefixCategories' => fn ($query) => $query->where('is_active', true)])
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('code')
+            ->get();
+
+        $this->prefixNameOptions = $prefixNames->pluck('label', 'code')->all();
+        $this->prefixCategoryIdsByNamePrefix = $prefixNames->mapWithKeys(fn (PrefixName $prefixName): array => [
+            $prefixName->code => $prefixName->prefixCategories->pluck('id')->map(fn ($id): int => (int) $id)->all(),
+        ])->all();
+    }
+
+    public function openExportPdf(string $scope = 'all'): void
+    {
+        abort_unless(static::canAccess(), 403);
+        abort_unless(in_array($scope, ['all', 'kitchen', 'store'], true), 422);
+        abort_unless($this->canExportBomScope($scope), 403);
+        $this->exportScope = $scope;
+        $this->exportBomIds = $this->eligibleExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $this->exportAutoBomKeys = $scope === 'store' ? [] : $this->eligibleExportAutoBomKeys();
+        $this->exportBomComponentKeys = [];
+        $this->exportPin = '';
+        $this->resetValidation();
+        $this->exportPinModalOpen = true;
+        $this->dispatch('open-export-pin');
+    }
+
+    public function exportBomPdf(): mixed
+    {
+        abort_unless(static::canAccess(), 403);
+        abort_unless($this->canExportBomScope($this->exportScope), 403);
+        $eligibleBomIds = $this->eligibleExportBoms($this->exportScope)->pluck('id')->map(fn ($id): int => (int) $id);
+        if ($this->exportScope === 'store') {
+            $this->exportBomIds = $eligibleBomIds->all();
+            $this->exportAutoBomKeys = [];
+        }
+
+        $rules = [
+            'exportPin' => ['required', 'string', 'max:20'],
+            'exportAutoBomKeys' => ['array'],
+            'exportAutoBomKeys.*' => ['string', 'regex:/^\d+:\d+$/'],
+        ];
+        if ($this->exportScope !== 'store') {
+            $rules['exportBomIds'] = ['required', 'array', 'min:1'];
+            $rules['exportBomIds.*'] = ['integer'];
+        }
+        $this->validate($rules);
+        abort_unless(collect($this->exportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
+        $eligibleAutoBomKeys = collect($this->eligibleExportAutoBomKeys());
+        abort_unless(collect($this->exportAutoBomKeys)->every(fn (string $key): bool => $eligibleAutoBomKeys->contains($key)), 422);
+        $rateKey = 'rnd-bom-export-pin:'.auth()->id().':'.request()->ip();
+
+        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
+            $this->addError('exportPin', 'Terlalu banyak percobaan. Coba kembali dalam '.RateLimiter::availableIn($rateKey).' detik.');
+
+            return null;
+        }
+
+        if (! auth()->user()?->hasBomPin()) {
+            $this->reset('exportPin');
+            $this->addError('exportPin', 'PIN BOM Anda belum diset. Silakan set PIN terlebih dahulu melalui CMS User.');
+
+            return null;
+        }
+        if (! auth()->user()?->verifiesBomPin($this->exportPin)) {
+            RateLimiter::hit($rateKey, 60);
+            $this->reset('exportPin');
+            $this->addError('exportPin', 'PIN yang dimasukkan tidak sesuai.');
+
+            return null;
+        }
+
+        RateLimiter::clear($rateKey);
+        session()->put(
+            RndProductBomPdfController::sessionKey(auth()->id(), $this->projectId, $this->productId),
+            now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
+        );
+        session()->forget(RndProductBomPdfController::componentSessionKey(auth()->id(), $this->projectId, $this->productId));
+        session()->put(
+            RndProductBomPdfController::autoBomSessionKey(auth()->id(), $this->projectId, $this->productId),
+            $this->exportAutoBomKeys,
+        );
+
+        $routeParameters = [
+            'project' => $this->projectId,
+            'product' => $this->productId,
+        ];
+        if ($this->exportScope !== 'all') {
+            $routeParameters['scope'] = $this->exportScope;
+        }
+        if ($this->exportScope !== 'store' && $eligibleBomIds->sort()->values()->all() !== collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->sort()->values()->all()) {
+            $routeParameters['bom_ids'] = collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->implode(',');
+        }
+
+        return $this->redirect(route('helpdesk.rnd-products.bom-pdf', $routeParameters), navigate: false);
+    }
+
+    private function canExportBomScope(string $scope): bool
+    {
+        $user = auth()->user();
+
+        return match ($scope) {
+            'kitchen' => $user?->can('export kitchen bill of materials') ?? false,
+            'store' => $user?->can('export store bill of materials') ?? false,
+            'all' => ($user?->can('export kitchen bill of materials') ?? false)
+                && ($user?->can('export store bill of materials') ?? false),
+            default => false,
+        };
+    }
+
+    public function eligibleExportBoms(?string $scope = null): Collection
+    {
+        $scope ??= $this->exportScope;
+
+        return $this->productRecord->boms->filter(fn ($bom): bool => match ($scope) {
+            'kitchen' => $bom->pivot->usage_type !== 'menu',
+            'store' => $bom->pivot->usage_type === 'menu',
+            default => true,
+        })->values();
+    }
+
+    /** @return list<string> */
+    private function eligibleExportAutoBomKeys(): array
+    {
+        $mainBomIds = $this->eligibleExportBoms()
+            ->where('pivot.usage_type', 'main')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id);
+
+        return $mainBomIds->flatMap(fn (int $mainBomId): array => collect($this->autoWipComponentRecipes[$mainBomId] ?? [])
+            ->map(fn (array $recipe): string => $mainBomId.':'.(int) ($recipe['bomID'] ?? 0))
+            ->filter(fn (string $key): bool => ! str_ends_with($key, ':0'))
+            ->values()
+            ->all())
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** @return list<array{key:string,name:string,code:string}> */
+    public function exportBomComponents(int $bomId): array
+    {
+        $bom = $this->productRecord->boms->firstWhere('id', $bomId);
+        $documentMaterials = $bom?->documentMaterials?->map(fn ($material): array => [
+            'documentMaterialId' => $material->id,
+            'productName' => $material->name,
+            'productCode' => '',
+        ]) ?? collect();
+
+        return collect($this->bomComponentDetails[$bomId]['bomDetails'] ?? [])
+            ->concat($documentMaterials)
+            ->values()
+            ->map(fn (array $component, int $index): array => [
+                'key' => $this->exportComponentKey($component, $index),
+                'name' => (string) ($component['productName'] ?? 'Component '.($index + 1)),
+                'code' => (string) ($component['productCode'] ?? ''),
+            ])->all();
+    }
+
+    public function exportComponentKey(array $component, int $index): string
+    {
+        return isset($component['documentMaterialId'])
+            ? 'document-'.$component['documentMaterialId']
+            : (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index);
+    }
+
+    private function authorizeProjectManagement(): void
+    {
+        $user = auth()->user();
+        abort_unless($user?->can('edit rnd projects'), 403);
+    }
+
+    private function authorizeMaterialManagement(): void
+    {
+        $user = auth()->user();
+        abort_unless($user?->can('edit rnd projects') || $user?->can('upload marketing materials'), 403);
+    }
+
+    private function authorizeBomManagement(): void
+    {
+        $user = auth()->user();
+        abort_unless(
+            $user?->can('edit rnd projects') && $user?->can('create bill of materials'),
+            403,
+        );
+    }
+
+    private function authorizeExistingBomAttachment(): void
+    {
+        abort_unless(auth()->user()?->can('add existing bill of materials'), 403);
+    }
+
+    private function authorizeBomUpdate(): void
+    {
+        $user = auth()->user();
+        abort_unless(
+            $user?->can('edit rnd projects') && $user?->can('edit bill of materials'),
+            403,
+        );
+    }
+
+    private function reloadProduct(): void
+    {
+        $this->productRecord->refresh()->load([
+            'boms',
+            'marketingMaterials.fulfillment.location.branch',
+            'marketingMaterials.fulfillment.orderedBy',
+            'marketingMaterials.fulfillment.receivedBy',
+            'esbMaterials.selectedSourcing.submittedBy',
+            'esbMaterials.rndReviewer',
+            'esbMaterials.financeReviewer',
+            'regionalPrices.region',
+            'currentRegionalPrices.region',
+            'salesProjections.region',
+            'salesProjections.targetBranches',
+        ]);
+
+        foreach ($this->productRecord->boms as $bom) {
+            if ($bom->detail_snapshot && ! isset($this->bomComponentDetails[$bom->id])) {
+                $this->setBomComponentState($bom->id, $bom->detail_snapshot);
+            }
+        }
+
+        $this->loadBomInstructions();
+    }
+}

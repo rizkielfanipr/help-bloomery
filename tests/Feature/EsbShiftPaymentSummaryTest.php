@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\EsbService;
+use App\Services\Esb\EsbService;
 use Illuminate\Support\Facades\Http;
 
 it('filters transactions by salesDateOut using half open shift boundaries while including all date payment methods', function () {

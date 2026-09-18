@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Services\PermissionSynchronizer;
+use App\Services\AccessManagement\PermissionSynchronizer;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;

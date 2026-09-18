@@ -1,0 +1,386 @@
+@php
+    $user      = auth()->user();
+    $hasBranch = (bool) $user->branch_id;
+    $branch    = $user->branch?->name ?? null;
+@endphp
+<div x-data="technicianRequestMode" class="flex flex-col bg-blue-600 dark:bg-blue-900"
+     style="min-height:100dvh">
+
+    {{-- ════════════════════════════════════════════
+         HEADER
+    ════════════════════════════════════════════ --}}
+    <div class="flex-shrink-0 px-5 pb-8 pt-14">
+        <div class="mb-4 flex items-center gap-3">
+            <a href="{{ \App\Filament\Employee\Pages\LauncherPage::getUrl() }}"
+               class="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white transition active:bg-white/30">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
+                </svg>
+            </a>
+            <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z"/>
+                </svg>
+            </div>
+            <span class="text-base font-semibold text-white">Request Teknisi</span>
+        </div>
+
+        <p class="text-blue-200">{{ $branch ?? 'Tanpa Cabang' }}</p>
+        <p class="text-xl font-semibold text-white">{{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}</p>
+    </div>
+
+    {{-- ════════════════════════════════════════════
+         WHITE CONTENT CARD
+    ════════════════════════════════════════════ --}}
+    <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
+
+        @php $fieldClass = 'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-slate-200'; @endphp
+        @php $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600'; @endphp
+
+        <div class="flex flex-col gap-4 px-5">
+        @if($submitted)
+
+            <x-casual.whatsapp-success-card
+                title="Permintaan teknisi berhasil dikirim!"
+                subtitle="Supaya lebih cepat diproses, konfirmasikan juga ke tim teknisi lewat WhatsApp."
+                :whatsapp-url="$whatsappUrl"
+                :code="$requestCode"
+                cta-label="Kirim ke WhatsApp Teknisi"
+            >
+                <a href="{{ route('filament.employee.pages.technician-request-history-page') }}"
+                   class="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                    Lihat Riwayat
+                </a>
+            </x-casual.whatsapp-success-card>
+
+        @else
+            <div class="grid grid-cols-2 rounded-2xl bg-slate-200 p-1 dark:bg-gray-800">
+                <button type="button"
+                        x-on:click="selectMode('manual')"
+                        :class="mode === 'manual' ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'"
+                        class="flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5V5.625a3.375 3.375 0 0 0-3.375-3.375H8.625m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+                    </svg>
+                    Manual
+                </button>
+                <button type="button"
+                        x-on:click="selectMode('qr')"
+                        :class="mode === 'qr' ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'"
+                        class="flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm0 12a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3Zm12-12a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-.75.75h-3a.75.75 0 0 1-.75-.75v-3ZM15.75 15.75h1.5v1.5h-1.5v-1.5Zm3 0h1.5v1.5h-1.5v-1.5Zm-3 3h1.5v1.5h-1.5v-1.5Zm3 0h1.5v1.5h-1.5v-1.5Z"/>
+                    </svg>
+                    QR Code
+                </button>
+            </div>
+
+            <div x-show="mode === 'manual'" class="flex flex-col gap-4">
+            <div class="flex flex-col gap-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+                <div class="flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 dark:border-blue-900 dark:bg-blue-950/40">
+                    <x-heroicon-o-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                    <p class="text-xs leading-5 text-blue-800 dark:text-blue-200"><span class="font-semibold">Manual khusus asset yang belum memiliki QR.</span> Jika asset sudah memiliki QR, gunakan tab <button type="button" x-on:click="selectMode('qr')" class="font-semibold underline underline-offset-2">QR Code</button> agar laporan terhubung ke riwayat perbaikan asset.</p>
+                </div>
+
+            {{-- Branch / Divisi (read-only) --}}
+            <div>
+                <label class="{{ $labelClass }}">Branch / Divisi</label>
+                @if($hasBranch)
+                    <div class="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
+                        <svg class="h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z"/>
+                        </svg>
+                        <span class="text-sm text-slate-600 dark:text-slate-300">{{ $branch }}</span>
+                    </div>
+                @else
+                    <div class="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20">
+                        <svg class="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"/>
+                        </svg>
+                        <span class="text-sm text-amber-700 dark:text-amber-400">Cabang belum diatur. Hubungi admin.</span>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Deskripsi Masalah --}}
+            <div>
+                <label class="{{ $labelClass }}">Deskripsi Masalah</label>
+                <textarea wire:model="requestorNotes" rows="4"
+                          placeholder="Contoh: AC di ruang meeting bocor dan tidak dingin, sudah berlangsung 2 hari. Mohon segera ditangani karena mengganggu operasional..."
+                          class="{{ $fieldClass }} resize-none"></textarea>
+                @error('requestorNotes') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+            </div>
+
+            {{-- Foto Lampiran --}}
+            <div>
+                <label class="{{ $labelClass }}">
+                    Foto Lampiran <span class="ml-1 font-normal normal-case text-slate-400">(opsional, maks. 5 MB)</span>
+                </label>
+
+                @if(count($attachments) > 0)
+                    <div class="mb-2 grid grid-cols-3 gap-2">
+                        @foreach($attachments as $index => $attachment)
+                            <div class="relative aspect-square">
+                                <img src="{{ $attachment->temporaryUrl() }}"
+                                     class="h-full w-full rounded-xl object-cover border border-gray-200">
+                                <button wire:click="removeAttachment({{ $index }})" type="button"
+                                        class="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white">
+                                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-4 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/>
+                    </svg>
+                    <span class="text-sm text-gray-400">Tambah foto</span>
+                    <input type="file" wire:model="attachments" multiple accept="image/*" class="hidden">
+                </label>
+                @error('attachments.*') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
+            </div>
+
+            </div>{{-- /white card --}}
+
+            {{-- Submit --}}
+            <button wire:click="submit" wire:loading.attr="disabled"
+                    @disabled(!$hasBranch)
+                    class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60">
+                <span wire:loading.remove wire:target="submit">Kirim Permintaan</span>
+                <span wire:loading wire:target="submit">Mengirim...</span>
+            </button>
+            </div>
+
+            <div x-cloak x-show="mode === 'qr'" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="m-3 flex items-start gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 dark:border-blue-900 dark:bg-blue-950/40">
+                    <x-heroicon-o-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                    <p class="text-xs leading-5 text-blue-800 dark:text-blue-200"><span class="font-semibold">Scan atau upload QR asset.</span> Arahkan kamera ke QR pada asset, atau pilih gambar melalui <span class="font-semibold">Upload Gambar QR</span>. QR yang terbaca akan membuka halaman asset untuk membuat laporan kendala.</p>
+                </div>
+
+                <div wire:ignore class="relative aspect-square overflow-hidden bg-slate-950">
+                    <video x-ref="scannerVideo" autoplay playsinline muted class="h-full w-full object-cover"></video>
+                    <div x-show="!scanning" class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-300">
+                        <x-heroicon-o-qr-code class="h-12 w-12" />
+                        <p class="text-xs" x-text="starting ? 'Membuka kamera...' : 'Kamera belum aktif'"></p>
+                    </div>
+                    <div class="pointer-events-none absolute inset-10 rounded-3xl border-2 border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.35)]"></div>
+                    <button type="button" x-show="scanning" x-on:click="stopScanner" class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-xs font-semibold text-white">Tutup Kamera</button>
+                </div>
+
+                <div class="space-y-4 border-t border-gray-100 p-5 dark:border-gray-800">
+                    <p x-show="error" x-text="error" class="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"></p>
+                    <button type="button" x-show="!scanning && !starting && !readingImage" x-on:click="startScanner"
+                            class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95">
+                        Buka Kamera
+                    </button>
+                    <input x-ref="qrImageInput" type="file" accept="image/jpeg,image/png,image/webp" x-on:change="readQrImage($event)" class="hidden">
+                    <button type="button" x-on:click="$refs.qrImageInput.click()" :disabled="readingImage" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-blue-600 disabled:opacity-60 dark:border-gray-700 dark:text-blue-400">
+                        <x-heroicon-o-photo class="h-4 w-4" />
+                        <span x-text="readingImage ? 'Membaca QR...' : 'Upload Gambar QR'">Upload Gambar QR</span>
+                    </button>
+                    <p class="text-center text-[10px] text-slate-400">JPG, PNG, WebP · Maks. 5 MB</p>
+
+
+                </div>
+            </div>
+
+        @endif
+        </div>
+    </div>
+
+    <x-technician-request.bottom-nav active="form" />
+
+</div>
+
+@script
+<script>
+    Alpine.data('technicianRequestMode', () => ({
+        mode: 'manual',
+        scanning: false,
+        error: '',
+        starting: false,
+        readingImage: false,
+        cameraSession: 0,
+        stream: null,
+        detector: null,
+        animationFrame: null,
+
+        selectMode(mode) {
+            this.mode = mode
+
+            if (mode === 'qr') {
+                this.$nextTick(() => {
+                    if (this.mode === 'qr') {
+                        this.startScanner()
+                    }
+                })
+            } else {
+                this.stopScanner()
+            }
+        },
+
+        async startScanner() {
+            if (this.scanning || this.starting || this.readingImage || this.mode !== 'qr') {
+                return
+            }
+            this.error = ''
+
+            if (!('BarcodeDetector' in window)) {
+                this.error = 'Scanner QR belum didukung browser ini. Gunakan browser yang mendukung scanner QR atau pindai QR melalui kamera HP.'
+                return
+            }
+
+            this.starting = true
+            const session = ++this.cameraSession
+
+            try {
+                this.detector = new BarcodeDetector({ formats: ['qr_code'] })
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: 'environment' } },
+                    audio: false,
+                })
+                if (session !== this.cameraSession || this.mode !== 'qr') {
+                    stream.getTracks().forEach((track) => track.stop())
+                    return
+                }
+                this.stream = stream
+                this.$refs.scannerVideo.srcObject = stream
+                this.scanning = true
+                await this.$nextTick()
+                await this.$refs.scannerVideo.play()
+                if (session !== this.cameraSession || this.mode !== 'qr') {
+                    return
+                }
+                this.starting = false
+                this.detectQrCode()
+            } catch (error) {
+                if (session !== this.cameraSession) {
+                    return
+                }
+                this.stopScanner()
+                this.error = 'Kamera tidak dapat dibuka. Pastikan izin kamera sudah diberikan.'
+            }
+        },
+
+        async readQrImage(event) {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+            if (!file || this.readingImage || this.mode !== 'qr') {
+                return
+            }
+            this.error = ''
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+                this.error = 'Pilih gambar JPG, PNG, atau WebP maksimal 5 MB.'
+                return
+            }
+            if (!('BarcodeDetector' in window)) {
+                this.error = 'Browser ini belum mendukung pembacaan QR. Gunakan browser yang mendukung scanner QR.'
+                return
+            }
+            this.stopScanner()
+            this.readingImage = true
+            const session = this.cameraSession
+            let image = null
+            try {
+                image = await createImageBitmap(file)
+                const codes = await new BarcodeDetector({ formats: ['qr_code'] }).detect(image)
+                if (session !== this.cameraSession || this.mode !== 'qr') {
+                    return
+                }
+                const assetCode = codes.find((code) => this.assetToken(code.rawValue))
+                if (!assetCode) {
+                    this.error = 'QR asset tidak ditemukan. Pilih gambar QR yang jelas dan tidak terpotong.'
+                    return
+                }
+                this.openAssetQr(assetCode.rawValue)
+            } catch (error) {
+                if (session === this.cameraSession) {
+                    this.error = 'Gambar tidak dapat dibaca. Coba gambar QR yang lebih jelas.'
+                }
+            } finally {
+                image?.close()
+                if (session === this.cameraSession) {
+                    this.readingImage = false
+                }
+            }
+        },
+
+        async detectQrCode() {
+            if (!this.scanning || !this.detector) {
+                return
+            }
+
+            const session = this.cameraSession
+            try {
+                const codes = await this.detector.detect(this.$refs.scannerVideo)
+                if (!this.scanning || session !== this.cameraSession) {
+                    return
+                }
+
+                if (codes.length > 0) {
+                    if (this.openAssetQr(codes[0].rawValue)) {
+                        return
+                    }
+                }
+            } catch (error) {
+                // The next frame can still be decoded when a video frame is not ready yet.
+            }
+
+            this.animationFrame = requestAnimationFrame(() => this.detectQrCode())
+        },
+
+        assetToken(value) {
+            const rawValue = value.trim()
+            let token = rawValue
+
+            try {
+                const url = new URL(rawValue)
+                const match = url.pathname.match(/^\/assets\/scan\/([0-9a-f-]+)\/?$/i)
+                token = match?.[1] ?? ''
+            } catch (error) {
+                token = rawValue.replace(/^.*\/assets\/scan\//, '').replace(/\/$/, '')
+            }
+
+            if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(token)) {
+                return null
+            }
+
+            return token
+        },
+
+        openAssetQr(value) {
+            const token = this.assetToken(value)
+            if (!token) {
+                this.error = 'QR Code tidak dikenali. Pastikan Anda memindai QR asset Bloomery.'
+                return false
+            }
+            this.stopScanner()
+            window.location.assign(`/assets/scan/${token}`)
+            return true
+        },
+
+        destroy() {
+            this.stopScanner()
+        },
+
+        stopScanner() {
+            this.cameraSession++
+            this.starting = false
+            this.readingImage = false
+            this.scanning = false
+
+            if (this.animationFrame) {
+                cancelAnimationFrame(this.animationFrame)
+                this.animationFrame = null
+            }
+
+            this.stream?.getTracks().forEach((track) => track.stop())
+            this.stream = null
+        },
+    }))
+</script>
+@endscript

@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\ItBusinessHoursService;
+use App\Services\Erp\ItBusinessHoursService;
 use Carbon\CarbonImmutable;
 
 it('counts only weekday working seconds', function (string $start, string $end, int $expected) {

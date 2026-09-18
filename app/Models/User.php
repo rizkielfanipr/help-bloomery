@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Services\PermissionRegistry;
+use App\Services\AccessManagement\PermissionRegistry;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
@@ -48,7 +48,7 @@ class User extends Authenticatable implements FilamentUser
 
         return match ($panel->getId()) {
             'helpdesk' => $this->can('access backoffice'),
-            'casual' => $this->hasAnyConfiguredPermission(
+            'employee' => $this->hasAnyConfiguredPermission(
                 ['Akses Employee App'],
                 app(PermissionRegistry::class)->groups(),
             ),

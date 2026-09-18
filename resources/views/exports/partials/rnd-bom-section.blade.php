@@ -2,7 +2,7 @@
     $materialRows = $bom['bomDetails'] ?? [];
     $hasInstruction = ! empty($instruction['content_html']) || ! empty($instruction['images']);
     $resultInfo = ($resultUnitMap ?? [])[(int) ($bom['productDetailID'] ?? 0)] ?? null;
-    $resultLabel = App\Services\EsbService::formatResultLabel(
+    $resultLabel = App\Services\Esb\EsbService::formatResultLabel(
         $bom['productName'] ?? $bomModel->product_name ?? '-',
         $bom['uomName'] ?? '-',
         $resultInfo['baseUnit'] ?? null,

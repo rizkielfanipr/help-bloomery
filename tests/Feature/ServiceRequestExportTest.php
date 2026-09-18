@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\ExportServiceRequestsXlsxAction;
+use App\Actions\Technician\ExportServiceRequestsXlsxAction;
 use App\Enums\ServiceRequestStatus;
 use App\Models\ServiceRequest;
 use App\Models\User;

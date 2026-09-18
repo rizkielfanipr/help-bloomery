@@ -1,11 +1,11 @@
 <?php
 
-use App\Filament\Casual\Pages\ContentRequestPage;
-use App\Filament\Casual\Pages\DesignRequestPage;
-use App\Filament\Casual\Pages\ErpRequestPage;
-use App\Filament\Casual\Pages\PurchaseRequestPage;
-use App\Filament\Casual\Pages\TechnicianRequestPage;
-use App\Filament\Helpdesk\Pages\WhatsappSettingsPage;
+use App\Filament\Employee\Modules\Content\Pages\ContentRequestPage;
+use App\Filament\Employee\Modules\Design\Pages\DesignRequestPage;
+use App\Filament\Employee\Modules\Erp\Pages\ErpRequestPage;
+use App\Filament\Employee\Modules\Purchasing\Pages\PurchaseRequestPage;
+use App\Filament\Employee\Modules\Technician\Pages\TechnicianRequestPage;
+use App\Filament\Helpdesk\Modules\MasterData\Pages\WhatsappSettingsPage;
 use App\Models\Branch;
 use App\Models\DesignCategory;
 use App\Models\ErpModule;
@@ -25,7 +25,7 @@ beforeEach(function () {
 it('does not show the WhatsApp CTA when the module is disabled', function () {
     $category = DesignCategory::create(['name' => 'Social Media', 'sort_order' => 1, 'is_active' => true]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     $page = Livewire::test(DesignRequestPage::class)
@@ -47,7 +47,7 @@ it('shows the WhatsApp CTA for a design request when enabled with a PIC', functi
         'pic_user_id' => $this->pic->id,
     ]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     $page = Livewire::test(DesignRequestPage::class)
@@ -70,7 +70,7 @@ it('shows the WhatsApp CTA for a content request when enabled with a PIC', funct
         'pic_user_id' => $this->pic->id,
     ]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     $page = Livewire::test(ContentRequestPage::class)
@@ -96,7 +96,7 @@ it('shows the WhatsApp CTA for an ERP request when enabled with a PIC', function
         'pic_user_id' => $this->pic->id,
     ]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     $page = Livewire::test(ErpRequestPage::class)
@@ -119,7 +119,7 @@ it('shows the WhatsApp CTA for a purchase request when enabled with a PIC', func
         'pic_user_id' => $this->pic->id,
     ]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     $page = Livewire::test(PurchaseRequestPage::class)
@@ -142,7 +142,7 @@ it('shows the WhatsApp CTA for a service request when enabled with a PIC, withou
         'pic_user_id' => $this->pic->id,
     ]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     $page = Livewire::test(TechnicianRequestPage::class)

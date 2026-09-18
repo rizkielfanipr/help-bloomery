@@ -1,5 +1,5 @@
 @php
-    $config     = app(\App\Services\PermissionRegistry::class)->groups();
+    $config     = app(\App\Services\AccessManagement\PermissionRegistry::class)->groups();
     $options    = $getOptions();              // [id => name]
     $nameToId   = array_flip($options);       // [name => id]
     $statePath  = $getStatePath();

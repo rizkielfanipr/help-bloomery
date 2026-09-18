@@ -1,17 +1,17 @@
 <?php
 
 use App\Enums\StockCardStatus;
-use App\Filament\Casual\Pages\StockCardEntryPage;
-use App\Filament\Casual\Pages\StockCardHistoryPage;
-use App\Filament\Casual\Pages\StockCardPage;
-use App\Filament\Helpdesk\Resources\StockCards\Pages\ListStockCards;
-use App\Filament\Helpdesk\Resources\StockCards\Pages\ViewStockCard;
+use App\Filament\Employee\Modules\StockCard\Pages\StockCardEntryPage;
+use App\Filament\Employee\Modules\StockCard\Pages\StockCardHistoryPage;
+use App\Filament\Employee\Modules\StockCard\Pages\StockCardPage;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\StockCards\Pages\ListStockCards;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\StockCards\Pages\ViewStockCard;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\StockCard;
 use App\Models\StockCardEntry;
 use App\Models\User;
-use App\Services\EsbStockMovementService;
+use App\Services\Esb\EsbStockMovementService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
@@ -43,7 +43,7 @@ beforeEach(function () {
 // ── Casual panel ─────────────────────────────────────────────────────────────
 
 it('shows stock card index page for store staff', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardPage::class)
@@ -52,7 +52,7 @@ it('shows stock card index page for store staff', function () {
 });
 
 it('returns null status when no stock card exists', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     $status = Livewire::test(StockCardPage::class)->instance()->getDailyStatus();
@@ -61,7 +61,7 @@ it('returns null status when no stock card exists', function () {
 });
 
 it('returns submitted_at when stock card is submitted', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     StockCard::factory()->submitted()->create([
@@ -76,7 +76,7 @@ it('returns submitted_at when stock card is submitted', function () {
 });
 
 it('persists progress as a draft so a refresh does not lose it', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
@@ -102,7 +102,7 @@ it('persists progress as a draft so a refresh does not lose it', function () {
 });
 
 it('does not expose manual product add or remove actions', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     $page = Livewire::test(StockCardEntryPage::class);
@@ -113,7 +113,7 @@ it('does not expose manual product add or remove actions', function () {
 });
 
 it('blocks requestConfirm when no product has been added', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
@@ -123,7 +123,7 @@ it('blocks requestConfirm when no product has been added', function () {
 });
 
 it('blocks save when a row has empty actual_qty', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
@@ -136,7 +136,7 @@ it('blocks save when a row has empty actual_qty', function () {
 });
 
 it('saves stock card with entries and marks as submitted', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     $page = Livewire::test(StockCardEntryPage::class)
@@ -165,7 +165,7 @@ it('saves stock card with entries and marks as submitted', function () {
 });
 
 it('requires at least one staff in charge before confirming submission', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
@@ -179,7 +179,7 @@ it('requires at least one staff in charge before confirming submission', functio
 });
 
 it('rejects an employee id that does not belong to an active employee on the branch', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     $otherBranchEmployee = Employee::factory()->create(['branch_id' => Branch::factory()->create()->id]);
@@ -203,7 +203,7 @@ it('loads the rolling Stock Movement catalog into the stock card application', f
     ]);
     Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     (new EsbStockMovementService)->cacheStockCardCatalog($this->branch, now(), 'stockUnit', [
@@ -236,7 +236,7 @@ it('loads Stock Movement progressively and exposes its progress to the applicati
     ]);
     Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Http::fake([
@@ -342,7 +342,7 @@ it('uses the report day only and keeps every product without category or quantit
         ->and($products->pluck('product_code'))->toContain('PRD-039')
         ->and($products->pluck('product_code'))->toContain('PRD-005');
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
     Livewire::test(StockCardEntryPage::class, ['reportDate' => '2026-08-10'])
         ->call('loadProductCatalog')
@@ -353,7 +353,7 @@ it('uses the report day only and keeps every product without category or quantit
 });
 
 it('preserves filled draft rows that are no longer returned by the rolling catalog', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
@@ -373,7 +373,7 @@ it('preserves filled draft rows that are no longer returned by the rolling catal
 });
 
 it('marks rolling Stock Movement entries as automatic products', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
@@ -393,7 +393,7 @@ it('marks rolling Stock Movement entries as automatic products', function () {
 });
 
 it('shows back-office-matching status text and complete data on the history page', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     $card = StockCard::factory()->pendingFinance()->create([
@@ -486,7 +486,7 @@ it('allows admin to view stock card detail with entries', function () {
 });
 
 it('shows the staff in charge in the back office list and detail view', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
 
     Livewire::test(StockCardEntryPage::class)
@@ -514,7 +514,7 @@ it('shows the staff in charge in the back office list and detail view', function
 });
 
 it('blocks the catalog when any active branch mapping is incomplete', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->storeUser);
     $this->branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => '', 'is_active' => true]);
     Http::preventStrayRequests();

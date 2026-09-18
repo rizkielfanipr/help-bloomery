@@ -9,7 +9,7 @@ use App\Models\SalesReportEntry;
 use App\Models\SalesReportReconciliation;
 use App\Models\SalesReportShiftSubmission;
 use App\Models\User;
-use App\Services\EsbService;
+use App\Services\Esb\EsbService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 

@@ -1,8 +1,8 @@
 <?php
 
 use App\Enums\SalesReportStatus;
-use App\Filament\Casual\Pages\SalesReportPage;
-use App\Filament\Casual\Pages\SalesReportShiftPage;
+use App\Filament\Employee\Modules\SalesReport\Pages\SalesReportPage;
+use App\Filament\Employee\Modules\SalesReport\Pages\SalesReportShiftPage;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
@@ -29,7 +29,7 @@ it('reports shift availability from the branch model helpers', function () {
 });
 
 it('only shows the shift tiles a branch actually has on the mobile sales report page', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $branch = Branch::factory()->create(['sales_shift_count' => 1]);
     $staff = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
     $staff->assignRole('CASUAL_STAFF');
@@ -41,7 +41,7 @@ it('only shows the shift tiles a branch actually has on the mobile sales report 
 });
 
 it('redirects away from an out-of-range shift for a single-shift branch', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $branch = Branch::factory()->create(['sales_shift_count' => 1]);
     $staff = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
     $staff->assignRole('CASUAL_STAFF');
@@ -50,13 +50,13 @@ it('redirects away from an out-of-range shift for a single-shift branch', functi
     Livewire::test(SalesReportShiftPage::class, [
         'reportDate' => today()->toDateString(),
         'shiftNumber' => 2,
-    ])->assertRedirect(route('filament.casual.pages.sales-report-page', [
+    ])->assertRedirect(route('filament.employee.pages.sales-report-page', [
         'reportDate' => today()->toDateString(),
     ]));
 });
 
 it('still locks shift 2 behind shift 1 submission for a two-shift branch', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $branch = Branch::factory()->create(['sales_shift_count' => 2]);
     $staff = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
     $staff->assignRole('CASUAL_STAFF');
@@ -66,7 +66,7 @@ it('still locks shift 2 behind shift 1 submission for a two-shift branch', funct
     Livewire::test(SalesReportShiftPage::class, [
         'reportDate' => today()->toDateString(),
         'shiftNumber' => 2,
-    ])->assertRedirect(route('filament.casual.pages.sales-report-page', [
+    ])->assertRedirect(route('filament.employee.pages.sales-report-page', [
         'reportDate' => today()->toDateString(),
     ]));
 

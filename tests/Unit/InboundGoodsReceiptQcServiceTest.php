@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\InboundGoodsReceiptQcService;
+use App\Services\Receiving\InboundGoodsReceiptQcService;
 
 test('it calculates inbound quality gates and remaining shelf life', function () {
     $result = app(InboundGoodsReceiptQcService::class)->assessItem([

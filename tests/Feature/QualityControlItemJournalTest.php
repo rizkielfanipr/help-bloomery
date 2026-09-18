@@ -1,9 +1,9 @@
 <?php
 
-use App\Filament\Casual\Pages\ItemJournalPage;
+use App\Filament\Employee\Modules\QualityControl\Pages\ItemJournalPage;
 use App\Models\QualityControlItemJournal;
 use App\Models\User;
-use App\Services\EsbItemJournalService;
+use App\Services\Esb\EsbItemJournalService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;
@@ -14,7 +14,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     Cache::flush();
     Storage::fake('b2');
     config()->set('esb.core.base_url', 'https://esb.test/core');

@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Filament\Employee\Modules\Driver\Pages;
+
+use App\Enums\TripStatus;
+use App\Models\Trip;
+use Filament\Pages\Page;
+use Illuminate\Database\Eloquent\Collection;
+use Livewire\Attributes\Computed;
+
+class TripDashboard extends Page
+{
+    protected static bool $shouldRegisterNavigation = false;
+
+    public function getTitle(): string
+    {
+        return 'Dashboard Driver';
+    }
+
+    protected static string $layout = 'filament.employee.layouts.bare';
+
+    protected string $view = 'filament.employee.driver.pages.trip-dashboard';
+
+    #[Computed]
+    public function activeTrip(): ?Trip
+    {
+        return Trip::where('driver_id', auth()->id())
+            ->where('status', TripStatus::InProgress)
+            ->with(['tripRoute.waypoints', 'waypointCheckins', 'vehicle'])
+            ->latest()
+            ->first();
+    }
+
+    #[Computed]
+    public function recentTrips(): Collection
+    {
+        return Trip::where('driver_id', auth()->id())
+            ->where('status', TripStatus::Completed)
+            ->with(['tripRoute', 'vehicle'])
+            ->latest('completed_at')
+            ->limit(5)
+            ->get();
+    }
+}

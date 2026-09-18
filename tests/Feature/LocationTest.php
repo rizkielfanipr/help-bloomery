@@ -1,9 +1,9 @@
 <?php
 
-use App\Filament\Helpdesk\Resources\Locations\LocationResource;
-use App\Filament\Helpdesk\Resources\Locations\Pages\CreateLocation;
-use App\Filament\Helpdesk\Resources\Locations\Pages\LocationFloorPlanPage;
-use App\Filament\Helpdesk\Resources\LocationTypes\Pages\CreateLocationType;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\Locations\LocationResource;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\Locations\Pages\CreateLocation;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\Locations\Pages\LocationFloorPlanPage;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\LocationTypes\Pages\CreateLocationType;
 use App\Models\Branch;
 use App\Models\Location;
 use App\Models\LocationType;

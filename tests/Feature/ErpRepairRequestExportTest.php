@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\ExportErpRepairRequestsXlsxAction;
+use App\Actions\Erp\ExportErpRepairRequestsXlsxAction;
 use App\Enums\ItRequestStatus;
 use App\Models\Branch;
 use App\Models\ErpModule;

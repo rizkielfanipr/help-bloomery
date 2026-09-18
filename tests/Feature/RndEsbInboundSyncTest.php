@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ViewProjectProductPage;
 use App\Models\RndProject;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;

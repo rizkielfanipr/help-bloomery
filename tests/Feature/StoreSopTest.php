@@ -1,14 +1,14 @@
 <?php
 
-use App\Filament\Casual\Pages\StoreSopsPage;
-use App\Filament\Helpdesk\Resources\StoreSops\Pages\ViewStoreSop;
+use App\Filament\Employee\Modules\StoreSop\Pages\StoreSopsPage;
+use App\Filament\Helpdesk\Modules\StoreSop\Resources\StoreSops\Pages\ViewStoreSop;
 use App\Models\Branch;
 use App\Models\Brand;
 use App\Models\StoreSop;
 use App\Models\StoreSopAssignment;
 use App\Models\StoreSopCategory;
 use App\Models\User;
-use App\Services\StoreSopPublisher;
+use App\Services\StoreSop\StoreSopPublisher;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -18,7 +18,7 @@ beforeEach(function () {
 });
 
 it('publishes by branch and allows every permitted branch user to receive the sop', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $targetBranch = Branch::factory()->create();
     $otherBranch = Branch::factory()->create();
     $branchUser = User::factory()->create(['is_active' => true]);
@@ -49,7 +49,7 @@ it('publishes by branch and allows every permitted branch user to receive the so
 });
 
 it('automatically exposes an existing branch sop to a newly permitted branch user', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $branch = Branch::factory()->create();
     $sop = StoreSop::factory()->create(['status' => 'published', 'published_at' => now()]);
     $sop->branches()->attach($branch);
@@ -69,7 +69,7 @@ it('automatically exposes an existing branch sop to a newly permitted branch use
 });
 
 it('lets the assigned supervisor acknowledge a store sop', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $branch = Branch::factory()->create();
     $supervisor = User::factory()->create(['is_active' => true]);
     $supervisor->assignRole('SUPERVISOR_STORE');
@@ -156,7 +156,7 @@ it('allows an authorized back office user to delete an sop and its receipts', fu
 });
 
 it('supports filtering and searching on the casual store sops page', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $branch = Branch::factory()->create();
     $supervisor = User::factory()->create(['is_active' => true]);
     $supervisor->assignRole('SUPERVISOR_STORE');
@@ -206,7 +206,7 @@ it('derives ongoing and expired statuses from the validity period', function () 
 });
 
 it('shows lifecycle status separately from the supervisor reading status', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $branch = Branch::factory()->create();
     $supervisor = User::factory()->create(['is_active' => true]);
     $supervisor->assignRole('SUPERVISOR_STORE');

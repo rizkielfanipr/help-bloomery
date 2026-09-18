@@ -1,8 +1,8 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\EditBomRecipePage;
-use App\Filament\Helpdesk\Pages\ViewBomPage;
-use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\EditBomRecipePage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ViewBomPage;
+use App\Filament\Helpdesk\Modules\Rnd\Resources\Projects\ProjectResource;
 use App\Http\Controllers\AssetIssueReportController;
 use App\Http\Controllers\AssetScanController;
 use App\Http\Controllers\Casual\BriefingScorePdfController;
@@ -24,7 +24,7 @@ use App\Models\RndProjectBom;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/employee-login', fn () => redirect()->to(Filament::getPanel('casual')->getLoginUrl()))->name('login');
+Route::get('/employee-login', fn () => redirect()->to(Filament::getPanel('employee')->getLoginUrl()))->name('login');
 
 $assetScanRoutes = function (): void {
     Route::get('/assets/scan/{token}', AssetScanController::class)->name('assets.scan');
@@ -32,7 +32,7 @@ $assetScanRoutes = function (): void {
         Asset::query()->where('qr_token', $token)->firstOrFail();
         session(['url.intended' => route('assets.scan', $token)]);
 
-        return redirect()->to(Filament::getPanel('casual')->getLoginUrl());
+        return redirect()->to(Filament::getPanel('employee')->getLoginUrl());
     })->name('assets.login');
     Route::post('/assets/scan/{token}/report', AssetIssueReportController::class)
         ->middleware('auth')
@@ -73,7 +73,7 @@ Route::middleware(['auth'])->group(function (): void {
         ->name('helpdesk.exports.shelf-life');
 
     Route::get('/casual/exports/briefing-score-pdf', BriefingScorePdfController::class)
-        ->name('casual.exports.briefing-score-pdf');
+        ->name('employee.exports.briefing-score-pdf');
 
     Route::get('/helpdesk/locations/{location}/label-pdf', [LocationLabelPdfController::class, 'single'])
         ->name('helpdesk.locations.label-pdf');
@@ -163,5 +163,4 @@ Route::middleware(['auth'])->group(function (): void {
 // Standalone UI mockups
 Route::get('/ui/helpdesk', fn () => view('ui.helpdesk-dashboard'))->name('ui.helpdesk-dashboard');
 
-require __DIR__.'/auth.php';
 require __DIR__.'/driver.php';

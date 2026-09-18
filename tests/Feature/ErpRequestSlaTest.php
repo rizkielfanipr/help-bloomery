@@ -1,16 +1,16 @@
 <?php
 
-use App\Actions\UpdateErpRequestStatusAction;
+use App\Actions\Erp\UpdateErpRequestStatusAction;
 use App\Enums\ItRequestStatus;
-use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\EditErpRepairRequest;
-use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
-use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest;
-use App\Filament\Helpdesk\Widgets\ErpRequestSlaStatsWidget;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ErpRepairRequests\Pages\EditErpRepairRequest;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest;
+use App\Filament\Helpdesk\Modules\Erp\Widgets\ErpRequestSlaStatsWidget;
 use App\Models\Branch;
 use App\Models\ErpRepairRequest;
 use App\Models\ItRequestType;
 use App\Models\User;
-use App\Services\ErpRequestSlaService;
+use App\Services\Erp\ErpRequestSlaService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;

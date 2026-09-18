@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\BriefingSettingsPage;
+use App\Filament\Helpdesk\Modules\Briefing\Pages\BriefingSettingsPage;
 use App\Models\BriefingSettings;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;

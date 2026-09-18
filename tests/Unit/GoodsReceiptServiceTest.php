@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\EsbGoodsReceiptService;
+use App\Services\Esb\EsbGoodsReceiptService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;

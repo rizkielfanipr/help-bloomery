@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\PermissionSynchronizer;
+use App\Services\AccessManagement\PermissionSynchronizer;
 use Illuminate\Console\Command;
 
 class SyncPermissionsCommand extends Command

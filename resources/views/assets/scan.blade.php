@@ -18,7 +18,7 @@
         <header class="relative overflow-hidden bg-blue-600 px-5 pb-5 pt-6 text-white">
             <div class="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full border-[32px] border-white/5" aria-hidden="true"></div>
             <div class="relative flex items-center justify-between gap-3">
-                <a href="{{ route('filament.casual.pages.technician-request-page') }}" aria-label="Kembali ke Request Teknisi" class="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 hover:bg-white/20"><x-heroicon-o-arrow-left class="h-5 w-5" /></a>
+                <a href="{{ route('filament.employee.pages.technician-request-page') }}" aria-label="Kembali ke Request Teknisi" class="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/10 hover:bg-white/20"><x-heroicon-o-arrow-left class="h-5 w-5" /></a>
                 <span class="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-3 py-1.5 text-[10px] font-semibold text-blue-100"><x-heroicon-o-qr-code class="h-3.5 w-3.5" />Asset Teridentifikasi</span>
             </div>
             <div class="relative mt-4 flex items-start gap-3">

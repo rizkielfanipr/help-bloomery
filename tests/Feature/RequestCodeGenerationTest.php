@@ -1,9 +1,9 @@
 <?php
 
-use App\Filament\Casual\Pages\DesignRequestPage;
-use App\Filament\Casual\Pages\ErpRequestPage;
-use App\Filament\Casual\Pages\PurchaseRequestPage;
-use App\Filament\Casual\Pages\TechnicianRequestPage;
+use App\Filament\Employee\Modules\Design\Pages\DesignRequestPage;
+use App\Filament\Employee\Modules\Erp\Pages\ErpRequestPage;
+use App\Filament\Employee\Modules\Purchasing\Pages\PurchaseRequestPage;
+use App\Filament\Employee\Modules\Technician\Pages\TechnicianRequestPage;
 use App\Models\Branch;
 use App\Models\DesignCategory;
 use App\Models\DesignRequest;
@@ -19,7 +19,7 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->branch = Branch::factory()->create();
     $this->user = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 });
 

@@ -1,0 +1,43 @@
+<?php
+
+namespace App\Filament\Helpdesk\Modules\Finance\Resources\SalesReports\Pages;
+
+use App\Enums\SalesReportStatus;
+use App\Filament\Helpdesk\Modules\Finance\Resources\SalesReports\SalesReportResource;
+use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Database\Eloquent\Builder;
+
+class ListSalesReports extends ListRecords
+{
+    protected static string $resource = SalesReportResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [];
+    }
+
+    public function getTabs(): array
+    {
+        return [
+            'all' => Tab::make('All'),
+            'pending_supervisor' => Tab::make('Supervisor Review')
+                ->badge(fn (): int => $this->statusCount(SalesReportStatus::PendingSupervisor))
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::PendingSupervisor->value)),
+            'pending_finance' => Tab::make('Finance Review')
+                ->badge(fn (): int => $this->statusCount(SalesReportStatus::PendingFinance))
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::PendingFinance->value)),
+            'completed' => Tab::make('Completed')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::Completed->value)),
+            'rejected_by_system' => Tab::make('Rejected by System')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::RejectedBySystem->value)),
+            'rejected' => Tab::make('Rejected')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('status', SalesReportStatus::Rejected->value)),
+        ];
+    }
+
+    private function statusCount(SalesReportStatus $status): int
+    {
+        return SalesReportResource::getEloquentQuery()->where('status', $status->value)->count();
+    }
+}

@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\EsbCoreService;
+use App\Services\Esb\EsbCoreService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -71,7 +71,7 @@ it('refreshes the access token once after an unauthorized response', function ()
         && $request->hasHeader('Authorization', 'Bearer fresh-token'));
 });
 
-it('forces Assembly type when creating a recipe', function () {
+it('defaults the recipe type to Assembly while retaining an explicit type', function (array $type, int $expected) {
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response([
             'status' => 'ok',
@@ -84,16 +84,19 @@ it('forces Assembly type when creating a recipe', function () {
     ]);
 
     $id = app(EsbCoreService::class)->createAssembly([
-        'bomTypeID' => 99,
         'bomName' => 'Assembly Croissant',
         'bomDetails' => [],
+        ...$type,
     ]);
 
     expect($id)->toBe(424);
 
     Http::assertSent(fn ($request) => $request->url() === 'https://core-esb.test/product/bom'
-        && $request['bomTypeID'] === 1);
-});
+        && $request['bomTypeID'] === $expected);
+})->with([
+    'default assembly' => [[], 1],
+    'explicit type' => [['bomTypeID' => 99], 99],
+]);
 
 it('gets and updates a Bill of Material detail', function () {
     Http::fake([

@@ -3,7 +3,7 @@
 namespace App\Filament\Helpdesk\Concerns;
 
 use App\Models\Branch;
-use App\Services\EsbStockMovementService;
+use App\Services\Esb\EsbStockMovementService;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
 

@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\MaterialSourcingStatus;
-use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
+use App\Filament\Helpdesk\Modules\Purchasing\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
 use App\Livewire\MaterialSourcingSupplierCard;
 use App\Models\MaterialSourcingApproval;
 use App\Models\RndProductEsbMaterial;
@@ -198,7 +198,7 @@ it('shows complete supplier information inside the rnd approval modal', function
     $this->material->update(['sourcing_status' => MaterialSourcingStatus::PendingRndReview]);
     $this->actingAs($this->rnd);
 
-    $supplierSelectionView = file_get_contents(resource_path('views/filament/helpdesk/material-sourcings/supplier-selection-cards.blade.php'));
+    $supplierSelectionView = file_get_contents(resource_path('views/filament/helpdesk/purchasing/material-sourcings/supplier-selection-cards.blade.php'));
 
     expect($supplierSelectionView)
         ->toContain('$record->sourcings')

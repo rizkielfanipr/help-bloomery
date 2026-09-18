@@ -2,19 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\ServiceRequestStatus;
+use App\Actions\Technician\CreateServiceRequestAction;
 use App\Models\Asset;
-use App\Models\ServiceRequest;
 use App\Models\User;
-use App\Services\AssetServiceRequestAssigner;
 use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class AssetIssueReportController extends Controller
 {
-    public function __invoke(Request $request, string $token, AssetServiceRequestAssigner $assigner): RedirectResponse
+    public function __invoke(Request $request, string $token, CreateServiceRequestAction $createRequest): RedirectResponse
     {
         $asset = Asset::query()->where('qr_token', $token)->firstOrFail();
         abort_unless($asset->is_active && $request->user()->canAccessBranch($asset->branch_id), 403);
@@ -29,20 +26,8 @@ class AssetIssueReportController extends Controller
             fn ($photo): string => $photo->store('service-request-attachments', 'b2'),
         )->all();
 
-        $serviceRequest = DB::transaction(function () use ($asset, $request, $validated, $paths): ServiceRequest {
-            return ServiceRequest::query()->create([
-                'asset_id' => $asset->id,
-                'source' => 'asset_qr',
-                'scheduled_by' => $request->user()->id,
-                'branch_id' => $asset->branch_id,
-                'scheduled_date' => null,
-                'requestor_notes' => $validated['issue'],
-                'attachments' => $paths,
-                'status' => ServiceRequestStatus::Submitted->value,
-            ]);
-        });
-
-        $technician = $assigner->assign($serviceRequest->load(['asset', 'branch']));
+        $serviceRequest = $createRequest->execute($request->user(), $validated['issue'], $paths, $asset);
+        $technician = $serviceRequest->technician;
 
         if (! $technician) {
             $backOfficeUsers = User::query()->where('is_active', true)->permission('edit service requests')->get();

@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\RndProductEsbMaterial;
-use App\Services\EsbCoreService;
-use App\Services\SyncRndEsbMaterialFromRemote;
+use App\Services\Esb\EsbCoreService;
+use App\Services\Rnd\SyncRndEsbMaterialFromRemote;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;

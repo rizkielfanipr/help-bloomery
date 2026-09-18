@@ -1,9 +1,9 @@
 <?php
 
 use App\Enums\MarketingMaterialFulfillmentStatus;
-use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
-use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillments;
-use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillmentsToReceive;
+use App\Filament\Helpdesk\Modules\Purchasing\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillments;
+use App\Filament\Helpdesk\Modules\Purchasing\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillmentsToReceive;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ViewProjectProductPage;
 use App\Models\Branch;
 use App\Models\Location;
 use App\Models\RndProject;

@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Resources\Assets\Pages\ListAssets;
+use App\Filament\Helpdesk\Modules\Technician\Resources\Assets\Pages\ListAssets;
 use App\Models\Asset;
 use App\Models\Branch;
 use App\Models\User;

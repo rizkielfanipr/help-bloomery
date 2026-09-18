@@ -2,7 +2,7 @@
 
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingReviewStatus;
-use App\Filament\Casual\Pages\DailyBriefingPage;
+use App\Filament\Employee\Modules\Briefing\Pages\DailyBriefingPage;
 use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
 use App\Models\BriefingTask;
@@ -20,7 +20,7 @@ beforeEach(function () {
 });
 
 it('redirects guests to login', function () {
-    get(route('filament.casual.pages.daily-briefing-page'))
+    get(route('filament.employee.pages.daily-briefing-page'))
         ->assertRedirect();
 });
 

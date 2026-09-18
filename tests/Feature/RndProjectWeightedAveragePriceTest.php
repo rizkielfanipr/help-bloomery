@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ViewProjectProductPage;
 use App\Models\EsbPurchaseOrder;
 use App\Models\EsbPurchaseOrderItem;
 use App\Models\RndProject;

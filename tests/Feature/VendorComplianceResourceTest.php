@@ -1,8 +1,8 @@
 <?php
 
-use App\Filament\Helpdesk\Resources\VendorComplianceIncidents\Pages\EditVendorComplianceIncident;
-use App\Filament\Helpdesk\Resources\VendorComplianceIncidents\Pages\ListVendorComplianceIncidents;
-use App\Filament\Helpdesk\Resources\VendorComplianceIncidents\VendorComplianceIncidentResource;
+use App\Filament\Helpdesk\Modules\Purchasing\Resources\VendorComplianceIncidents\Pages\EditVendorComplianceIncident;
+use App\Filament\Helpdesk\Modules\Purchasing\Resources\VendorComplianceIncidents\Pages\ListVendorComplianceIncidents;
+use App\Filament\Helpdesk\Modules\Purchasing\Resources\VendorComplianceIncidents\VendorComplianceIncidentResource;
 use App\Models\GoodsReceipt;
 use App\Models\GoodsReceiptItem;
 use App\Models\User;

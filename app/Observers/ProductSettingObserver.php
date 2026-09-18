@@ -3,8 +3,8 @@
 namespace App\Observers;
 
 use App\Models\ProductSetting;
-use App\Services\BarcodeGenerator;
-use App\Services\QrCodeGenerator;
+use App\Services\MasterData\BarcodeGenerator;
+use App\Services\MasterData\QrCodeGenerator;
 
 class ProductSettingObserver
 {

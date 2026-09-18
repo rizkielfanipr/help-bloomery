@@ -6,7 +6,7 @@ use App\Models\Branch;
 use App\Models\StockCard;
 use App\Models\StockCardEntry;
 use App\Models\User;
-use App\Services\EsbService;
+use App\Services\Esb\EsbService;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 

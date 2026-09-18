@@ -318,7 +318,7 @@
         {{-- App User --}}
         <a
             x-show="!hasSearch()"
-            href="{{ \App\Filament\Casual\Pages\LauncherPage::getUrl() }}"
+            href="{{ \App\Filament\Employee\Pages\LauncherPage::getUrl() }}"
             target="_blank"
             class="group flex items-center rounded-xl py-2 text-[13px] font-medium transition-all duration-150 text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-white/5"
             :class="sidebarOpen ? 'gap-3 px-3' : 'justify-center px-2'"

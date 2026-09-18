@@ -3,7 +3,7 @@
 <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 flex border-t border-gray-100 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
 
     {{-- Report --}}
-    <a href="{{ route('filament.casual.pages.sales-report-page') }}"
+    <a href="{{ route('filament.employee.pages.sales-report-page') }}"
        class="flex flex-1 flex-col items-center gap-1 py-3">
         @if($active === 'report')
             <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
@@ -20,7 +20,7 @@
     </a>
 
     {{-- Riwayat --}}
-    <a href="{{ route('filament.casual.pages.sales-report-history-page') }}"
+    <a href="{{ route('filament.employee.pages.sales-report-history-page') }}"
        class="flex flex-1 flex-col items-center gap-1 py-3">
         @if($active === 'history')
             <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
@@ -36,7 +36,7 @@
     </a>
 
     {{-- Kalender --}}
-    <a href="{{ route('filament.casual.pages.sales-report-calendar-page') }}"
+    <a href="{{ route('filament.employee.pages.sales-report-calendar-page') }}"
        class="flex flex-1 flex-col items-center gap-1 py-3">
         @if($active === 'calendar')
             <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">

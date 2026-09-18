@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\BriefingPeriodWeightsPage;
+use App\Filament\Helpdesk\Modules\Briefing\Pages\BriefingPeriodWeightsPage;
 use App\Models\Branch;
 use App\Models\BriefingPeriodWeight;
 use App\Models\User;

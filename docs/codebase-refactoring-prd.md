@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Tanggal baseline dokumen | 17 September 2026 |
-| Status | Rancangan; implementasi refactoring belum dimulai |
+| Status | Implementasi refactoring inti berjalan; struktur modul, Actions/Services, dan view dirapikan pada 18 September 2026; QA browser masih tertunda |
 | Sasaran | Struktur lebih jelas, logika dapat digunakan bersama, dan perilaku existing tetap terjaga |
 | Panel utama | Helpdesk untuk back office; Employee untuk aplikasi user |
 | Modul Casual | Salah satu modul/tile Employee, bukan nama keseluruhan aplikasi user |
@@ -118,6 +118,8 @@ tests/
 ├── Unit/
 └── Feature/
 ```
+
+Implementasi mempertahankan resource lintas panel Admin/Helpdesk di `app/Filament/Resources`; panel Driver dan Technician mandiri masih aktif dan tidak dihapus. Views bersama berada pada `{panel}/pages` dan `{panel}/layouts`; views domain pada `{panel}/{module}` tanpa lapisan `modules` tambahan. Folder kosong tidak dibuat, dan discovery folder legacy kosong telah dihapus dari provider.
 
 Struktur resource Filament tetap mempertahankan `Pages`, `Schemas`, `Tables`, dan `RelationManagers` existing. Jangan membuat variasi `Modules/Technician` dan `Pages/Technician` untuk tujuan yang sama.
 
@@ -357,13 +359,13 @@ Refactoring murni sebaiknya tidak membutuhkan perubahan schema. Bila migration d
 
 | Phase | Status | Bukti/commit |
 | --- | --- | --- |
-| 1. Audit & Baseline | Belum dimulai | — |
-| 2. Modul Teknisi | Belum dimulai | — |
-| 3. Reusable UI | Belum dimulai | — |
-| 4. Integrasi ESB | Belum dimulai | — |
-| 5. Modul lain | Belum dimulai | — |
-| 6. Struktur modul | Belum dimulai | — |
-| 7. Rename panel | Belum dimulai | — |
+| 1. Audit & Baseline | Selesai pada 18 September 2026 | [Baseline](codebase-refactoring-phase1-baseline.md), [inventaris](codebase-refactoring-phase1-inventory.md); 39 test / 232 assertions; baseline `e1c5724` |
+| 2. Modul Teknisi | Selesai pada 18 September 2026 (ekstraksi awal) | [Hasil Phase 2](codebase-refactoring-phase2-technician.md); 43 test / 260 assertions; 287 route tetap sama |
+| 3. Reusable UI | Implementasi terpilih selesai; QA browser tertunda | [Hasil sementara](codebase-refactoring-phase3-ui.md); digunakan ERP, Design, Content, Receiving, dan Item Journal |
+| 4. Integrasi ESB | Client Core bersama teruji; non-Core dipertahankan | [Hasil Phase 4–7](codebase-refactoring-phase4-7-progress.md) |
+| 5. Modul lain | Receiving dan pengiriman Item Journal diekstrak; modul lain memakai service existing | [Hasil Phase 4–7](codebase-refactoring-phase4-7-progress.md); ekstraksi lanjutan tetap bertahap |
+| 6. Struktur modul | Filament, Actions/Services, dan view dikelompokkan; kode legacy tidak digunakan dihapus setelah audit | Pengelompokan awal 274 file PHP / 73 view, dilanjutkan 38 class / 107 view; 287 route dipertahankan; [panduan panel](panels.md) |
+| 7. Rename panel | Employee diterapkan dan teruji; URL existing dipertahankan | [Hasil Phase 4–7](codebase-refactoring-phase4-7-progress.md); provider/route/theme/reference diperbarui |
 | 8. Performa/operasional | Backlog terpisah | — |
 | 9. API/frontend | Backlog terpisah | — |
 

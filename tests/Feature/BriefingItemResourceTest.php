@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\BriefingPeriod;
-use App\Filament\Helpdesk\Resources\BriefingItems\Pages\ListBriefingItems;
+use App\Filament\Helpdesk\Modules\Briefing\Resources\BriefingItems\Pages\ListBriefingItems;
 use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
 use App\Models\User;

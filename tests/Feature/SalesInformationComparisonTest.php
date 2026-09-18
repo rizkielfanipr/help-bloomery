@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\SalesInformationPage;
+use App\Filament\Helpdesk\Modules\Analytics\Pages\SalesInformationPage;
 use App\Models\Branch;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;

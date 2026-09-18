@@ -1,7 +1,7 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
-use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ViewProjectProductPage;
+use App\Filament\Helpdesk\Modules\Rnd\Resources\Projects\Pages\ViewProject;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Models\Branch;

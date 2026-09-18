@@ -1,8 +1,8 @@
 <?php
 
-use App\Filament\Casual\Pages\QualityControlAuditDetail;
-use App\Filament\Casual\Pages\QualityControlAuditHistory;
-use App\Filament\Casual\Pages\QualityControlAudits;
+use App\Filament\Employee\Modules\QualityControl\Pages\QualityControlAuditDetail;
+use App\Filament\Employee\Modules\QualityControl\Pages\QualityControlAuditHistory;
+use App\Filament\Employee\Modules\QualityControl\Pages\QualityControlAudits;
 use App\Models\Branch;
 use App\Models\QualityControlAudit;
 use App\Models\User;
@@ -15,7 +15,7 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     $this->seed(QualityControlChecklistSeeder::class);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
 
     $this->auditor = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $this->auditor->assignRole('QUALITY_CONTROL');
@@ -65,7 +65,7 @@ it('blocks starting an audit for a user without the app permission', function ()
     $otherUser = User::factory()->create(['is_active' => true]);
     $this->actingAs($otherUser);
 
-    $this->get(route('filament.casual.pages.quality-control-audits'))
+    $this->get(route('filament.employee.pages.quality-control-audits'))
         ->assertForbidden();
 });
 
@@ -220,7 +220,7 @@ it('prevents a quality control user from viewing another auditor\'s audit', func
         'auditor_id' => $otherAuditor->id,
     ]);
 
-    $this->get(route('filament.casual.pages.quality-control-audit-detail', ['record' => $audit->id]))
+    $this->get(route('filament.employee.pages.quality-control-audit-detail', ['record' => $audit->id]))
         ->assertNotFound();
 });
 
@@ -274,6 +274,6 @@ it('blocks the history page for a user without the app permission', function () 
     $otherUser = User::factory()->create(['is_active' => true]);
     $this->actingAs($otherUser);
 
-    $this->get(route('filament.casual.pages.quality-control-audit-history'))
+    $this->get(route('filament.employee.pages.quality-control-audit-history'))
         ->assertForbidden();
 });

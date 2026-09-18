@@ -2,12 +2,12 @@
 
 namespace App\Providers;
 
-use App\Filament\Casual\Resources\ServiceRequests\Pages\ListServiceRequests as CasualListServiceRequests;
-use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
-use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
-use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
-use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests as HelpdeskListServiceRequests;
-use App\Filament\Helpdesk\Resources\Trips\Pages\ListTrips;
+use App\Filament\Employee\Modules\Technician\Resources\ServiceRequests\Pages\ListServiceRequests as EmployeeListServiceRequests;
+use App\Filament\Helpdesk\Modules\Driver\Resources\Trips\Pages\ListTrips;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
+use App\Filament\Helpdesk\Modules\Purchasing\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
+use App\Filament\Helpdesk\Modules\Purchasing\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
+use App\Filament\Helpdesk\Modules\Technician\Resources\ServiceRequests\Pages\ListServiceRequests as HelpdeskListServiceRequests;
 use App\Filament\Technician\Resources\ServiceRequests\Pages\ListServiceRequests as TechnicianListServiceRequests;
 use App\Http\Middleware\EnsureRole;
 use App\Models\Asset;
@@ -41,13 +41,13 @@ class AppServiceProvider extends ServiceProvider
 
         FilamentView::registerRenderHook(
             TablesRenderHook::HEADER_CELL,
-            fn (array $data) => view('filament.helpdesk.purchase-requests.table-header-cell', $data),
+            fn (array $data) => view('filament.helpdesk.purchasing.requests.table-header-cell', $data),
             scopes: ListPurchaseRequests::class,
         );
 
         FilamentView::registerRenderHook(
             TablesRenderHook::HEADER_CELL,
-            fn (array $data) => view('filament.helpdesk.erp-repair-requests.table-header-cell', $data),
+            fn (array $data) => view('filament.helpdesk.erp.requests.table-header-cell', $data),
             scopes: [
                 ListErpRepairRequests::class,
                 ListMaterialSourcings::class,
@@ -56,17 +56,17 @@ class AppServiceProvider extends ServiceProvider
 
         FilamentView::registerRenderHook(
             TablesRenderHook::HEADER_CELL,
-            fn (array $data) => view('filament.helpdesk.service-requests.table-header-cell', $data),
+            fn (array $data) => view('filament.helpdesk.technician.service-requests.table-header-cell', $data),
             scopes: [
                 HelpdeskListServiceRequests::class,
                 TechnicianListServiceRequests::class,
-                CasualListServiceRequests::class,
+                EmployeeListServiceRequests::class,
             ],
         );
 
         FilamentView::registerRenderHook(
             TablesRenderHook::HEADER_CELL,
-            fn (array $data) => view('filament.helpdesk.trips.table-header-cell', $data),
+            fn (array $data) => view('filament.helpdesk.driver.trips.table-header-cell', $data),
             scopes: ListTrips::class,
         );
     }

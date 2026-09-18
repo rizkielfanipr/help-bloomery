@@ -7,7 +7,7 @@ use App\Filament\Technician\Concerns\HasServiceRequestWorkflow;
 use App\Filament\Technician\Resources\ServiceRequests\ServiceRequestResource;
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestRepair;
-use App\Services\ServiceRequestWorkflow;
+use App\Services\Technician\ServiceRequestWorkflow;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;

@@ -1,12 +1,12 @@
 <?php
 
 use App\Enums\SalesReportStatus;
-use App\Filament\Helpdesk\Pages\SalesReportSettingsPage;
+use App\Filament\Helpdesk\Modules\Finance\Pages\SalesReportSettingsPage;
 use App\Models\Branch;
 use App\Models\SalesReport;
 use App\Models\SalesReportSettings;
 use App\Models\User;
-use App\Services\SalesReportScoreCalculator;
+use App\Services\SalesReport\SalesReportScoreCalculator;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\SalesReportSettingsPermissionSeeder;
 use Filament\Facades\Filament;

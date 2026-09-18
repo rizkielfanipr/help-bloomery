@@ -1,12 +1,12 @@
 <?php
 
 use App\Enums\SalesReportStatus;
-use App\Filament\Casual\Pages\SalesReportShiftPage;
-use App\Filament\Helpdesk\Resources\ComplimentTypes\ComplimentTypeResource;
-use App\Filament\Helpdesk\Resources\ComplimentTypes\Pages\CreateComplimentType;
-use App\Filament\Helpdesk\Resources\ComplimentTypes\Pages\EditComplimentType;
-use App\Filament\Helpdesk\Resources\ComplimentTypes\Pages\ListComplimentTypes;
-use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
+use App\Filament\Employee\Modules\SalesReport\Pages\SalesReportShiftPage;
+use App\Filament\Helpdesk\Modules\Finance\Resources\ComplimentTypes\ComplimentTypeResource;
+use App\Filament\Helpdesk\Modules\Finance\Resources\ComplimentTypes\Pages\CreateComplimentType;
+use App\Filament\Helpdesk\Modules\Finance\Resources\ComplimentTypes\Pages\EditComplimentType;
+use App\Filament\Helpdesk\Modules\Finance\Resources\ComplimentTypes\Pages\ListComplimentTypes;
+use App\Filament\Helpdesk\Modules\Finance\Resources\SalesReports\Pages\ViewSalesReport;
 use App\Models\Branch;
 use App\Models\ComplimentType;
 use App\Models\Employee;
@@ -36,7 +36,7 @@ it('seeds the default compliment types', function () {
 
 it('submits multiple compliments and multiple nota attachments for a shift', function () {
     Storage::fake('b2');
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
 
     $owner = ComplimentType::where('name', 'Compliment Owner')->sole();
@@ -87,7 +87,7 @@ it('submits multiple compliments and multiple nota attachments for a shift', fun
 });
 
 it('supports adding and removing compliments and attachments interactively', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
 
     $owner = ComplimentType::where('name', 'Compliment Owner')->sole();
@@ -107,7 +107,7 @@ it('supports adding and removing compliments and attachments interactively', fun
 });
 
 it('rejects inactive types and compliments without nota or notes', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
     $inactiveType = ComplimentType::factory()->create(['is_active' => false]);
 

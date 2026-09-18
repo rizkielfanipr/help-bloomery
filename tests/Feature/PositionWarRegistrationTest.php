@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Casual\Pages\PositionsPage;
+use App\Filament\Employee\Modules\Casual\Pages\PositionsPage;
 use App\Models\CasualPositionOpening;
 use App\Models\CasualPositionRegistration;
 use App\Models\User;
@@ -12,7 +12,7 @@ use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
 });
 
 function casualUser(): User

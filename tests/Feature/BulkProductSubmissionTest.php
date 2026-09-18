@@ -1,15 +1,15 @@
 <?php
 
-use App\Actions\SubmitBulkProductAction;
-use App\Filament\Helpdesk\Pages\BulkDataPage;
-use App\Filament\Helpdesk\Pages\BulkDataPromotionPage;
-use App\Filament\Helpdesk\Resources\BulkProductSubmissions\BulkProductSubmissionResource;
-use App\Filament\Helpdesk\Resources\BulkProductSubmissions\Pages\CreateBulkProductSubmission;
+use App\Actions\Erp\SubmitBulkProductAction;
+use App\Filament\Helpdesk\Modules\Erp\Pages\BulkDataPage;
+use App\Filament\Helpdesk\Modules\Erp\Pages\BulkDataPromotionPage;
+use App\Filament\Helpdesk\Modules\Erp\Resources\BulkProductSubmissions\BulkProductSubmissionResource;
+use App\Filament\Helpdesk\Modules\Erp\Resources\BulkProductSubmissions\Pages\CreateBulkProductSubmission;
 use App\Models\Branch;
 use App\Models\BulkProductSubmission;
 use App\Models\User;
-use App\Services\EsbCompanyProductService;
-use App\Services\EsbPromotionService;
+use App\Services\Esb\EsbCompanyProductService;
+use App\Services\Esb\EsbPromotionService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;

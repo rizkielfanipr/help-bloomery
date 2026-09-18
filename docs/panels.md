@@ -1,199 +1,59 @@
 # Panel Filament
 
-Aplikasi memiliki **5 panel Filament** yang masing-masing melayani domain berbeda.
+Panduan struktur aktual setelah refactoring modul dan identitas Employee, 18 September 2026. Provider di `bootstrap/providers.php` merupakan sumber registrasi panel; route aktual diperiksa melalui `php artisan route:list`.
 
-## Ringkasan Panel
+## Panel dan Akses
 
-| Panel | Path | Role Akses | Warna | Keterangan |
-|-------|------|-----------|-------|-----------|
-| Admin | `/admin` | super_admin | Amber | Panel default Filament |
-| Helpdesk | `/helpdesk` | super_admin, helpdesk_manager, helpdesk_staff, hr_staff | Blue | Panel utama manajemen operasional |
-| Casual | `/casual` | super_admin, hr_staff, casual_staff | Blue | Portal mobile untuk pegawai casual |
-| Driver | `/driver` | super_admin, driver | Green | Portal manajemen perjalanan |
-| Technician | `/technician` | super_admin, technician | Orange | Portal servis & perbaikan |
+| ID panel | Provider | Domain/path | Pemeriksaan akses |
+| --- | --- | --- | --- |
+| admin | AdminPanelProvider | `/admin` | User aktif, `access backoffice`, dan permission Management Access |
+| helpdesk | HelpdeskPanelProvider | Root domain back office | User aktif dengan `access backoffice` |
+| employee | EmployeePanelProvider | `config('app.domain')` pada root; fallback `/casual` untuk kompatibilitas | User aktif dengan permission dari grup Akses Employee App |
+| driver | DriverPanelProvider | DRIVER_DOMAIN pada root; fallback `/driver` | User aktif dengan `access employee app driver` |
+| technician | TechnicianPanelProvider | TECHNICIAN_DOMAIN pada root; fallback `/technician` | User aktif dengan `access employee app technician` |
 
----
+Domain environment dan role existing tidak diganti. Akses panel mengikuti `User::canAccessPanel`; akses fitur aplikasi user juga diperiksa oleh `EnsureEmployeeAppFeaturePermission` dan guard halaman/resource existing. SUPERADMIN mengikuti Gate existing.
 
-## Panel Admin (`/admin`)
+## Helpdesk
 
-**Provider:** `app/Providers/Filament/AdminPanelProvider.php`
+- Halaman bersama: `app/Filament/Helpdesk/Pages`, termasuk Dashboard dan Auth/Login.
+- Halaman/resource/widget modul: `app/Filament/Helpdesk/Modules/{Module}/{Pages,Resources,Widgets}`.
+- Resource bersama yang juga dipakai Admin: `app/Filament/Resources`. Kepemilikannya dipertahankan; jangan memindahkan tanpa audit penggunaan lintas panel.
+- Modul tersedia: Analytics, Briefing, Casual, Content, Design, Driver, Erp, Finance, Inventory, MasterData, Purchasing, QualityControl, Rnd, SalesPlanning, Technician, StoreSop.
+- Struktur resource tetap menggunakan Pages, Schemas, Tables, dan RelationManagers sesuai kebutuhan existing.
 
-Panel default Filament untuk administrasi sistem tingkat tinggi. Hanya diakses oleh `super_admin`.
+Discovery module dilakukan oleh HelpdeskPanelProvider. Root discovery existing tetap didukung untuk halaman bersama. Jangan meregistrasikan kembali class yang sudah ditemukan tanpa kebutuhan.
 
-**Resources:**
-- User Management
-- Role & Permission
-- Department
+- View modul Helpdesk: `resources/views/filament/helpdesk/{module}/{pages,widgets,...}`; detail/partial berada di modul pemiliknya.
+- Actions: `app/Actions/{Module}`. Services integrasi: `app/Services/Esb`; service bisnis: `app/Services/{Domain}`.
 
----
+## Employee App
 
-## Panel Helpdesk (`/helpdesk`)
+Seluruh aplikasi user menggunakan `app/Filament/Employee`, bukan hanya tenaga casual. Casual merupakan satu modul di dalam aplikasi ini.
 
-**Provider:** `app/Providers/Filament/HelpdeskPanelProvider.php`
+- Halaman bersama dan autentikasi: `app/Filament/Employee/Pages`.
+- Modul: `app/Filament/Employee/Modules/{Module}/{Pages,Resources}`.
+- Modul tersedia: Briefing, Casual, Content, Design, Driver, Erp, Purchasing, QualityControl, Receiving, SalesReport, StockCard, StoreSop, Technician.
+- View bersama: `resources/views/filament/employee/{pages,layouts}`.
+- View modul: `resources/views/filament/employee/{module}/{pages,...}`.
+- Theme: `resources/css/filament/employee/theme.css`.
 
-Panel utama yang digunakan staff helpdesk untuk mengelola semua operasional. Menggunakan **sidebar kustom** dengan desain yang lebih rapi (Alpine.js + Lucide icons).
+Login diarahkan ke launcher pada root aplikasi user. Nama route aktif menggunakan `filament.employee.*`. Domain dan URL lama tetap sama, termasuk fallback `/casual`; nama route PHP lama bukan URL eksternal. QR asset dan export mempertahankan URI existing. Endpoint export briefing menggunakan nama `employee.exports.briefing-score-pdf` dengan URI kompatibilitas existing.
 
-**Layout:** `resources/views/vendor/filament-panels/components/layout/index.blade.php`
-> Layout ini meng-override sidebar default Filament dengan implementasi kustom. Navigasi sidebar didefinisikan secara hardcode dalam file tersebut, bukan via Filament navigation API.
+Theme localStorage menggunakan `employee-theme` dan membaca `casual-theme` sebagai fallback untuk preferensi yang sudah tersimpan. Manifest/service worker tidak memerlukan perubahan URL karena domain, scope, dan start URL tidak diubah.
 
-**Grup Navigasi Sidebar:**
+File dashboard historis `routes/employee.php`, `routes/helpdesk.php`, dan `routes/technician.php` sudah dihapus karena tidak pernah dimuat. Placeholder `routes/auth.php` dan scaffold controller/form/view Breeze yang tidak terhubung ke route aktif juga dihapus. Halaman Employee aktif berasal dari provider Filament; route scan QR dan export berasal dari `routes/web.php`. File `routes/driver.php` tetap digunakan dan tidak dihapus.
 
-| Grup | Menu Item |
-|------|-----------|
-| Driver | Perjalanan, Rute Perjalanan, Kendaraan, Jenis BBM, Uang Makan Driver, Pengaturan |
-| Master | Branch |
-| Technician | Permintaan Servis, Rekap Maintenance, Checklist Maintenance, Asset QR, Pengaturan Teknisi |
-| Operational | SOP Store, SOP Kategori |
-| Purchasing | *(placeholder — belum aktif)* |
-| Information Technology | *(placeholder — belum aktif)* |
-| Finance | *(placeholder — belum aktif)* |
-| Helpdesk | Semua Permintaan, Template Form |
-| Management Access | Pengguna, Role & Permission, Department |
+## Sidebar dan Permission
 
-> Sidebar menggunakan Lucide icons via `data-lucide="..."`. Nama icon harus menggunakan konvensi Lucide (mis. `users`, `building-2`), bukan Heroicon.
+Sidebar Helpdesk dirender oleh `resources/views/vendor/filament-panels/components/layout/index.blade.php`. Layout bersama tambahan berada di `resources/views/components/layouts/helpdesk-app.blade.php`. Menambahkan resource/permission tidak otomatis menambahkan item sidebar kustom.
 
-### Menambahkan menu sidebar
+Item Technician lintas layout dipusatkan di `app/Filament/Helpdesk/Navigation/HelpdeskNavigation.php`. Perbarui definisi item yang digunakan caller, dengan label, icon Lucide, permission, dan nama route aktif. Ikon Lucide menggunakan `data-lucide`; komponen Heroicon tetap dipakai pada UI yang mengikuti metode tersebut.
 
-Sidebar Helpdesk dirender oleh `resources/views/vendor/filament-panels/components/layout/index.blade.php`. Definisi item Technician yang dipakai lintas layout dipusatkan di `app/Filament/Helpdesk/Navigation/HelpdeskNavigation.php`.
+Permission tidak dibuat berdasarkan nama folder modul. Registry mengambil konfigurasi `config/permissions.php` serta permissionDefinition resource yang ditemukan. Guard backend tetap wajib meskipun sidebar atau tombol sudah disembunyikan.
 
-Saat menambahkan menu Technician, tambahkan item di `HelpdeskNavigation::technicianItems()` dengan `label`, `icon` Lucide, `perm`, dan route name. Jangan menambahkan item langsung ke Blade kecuali untuk kebutuhan layout. Setelah perubahan, jalankan `php artisan view:cache` dan pastikan permission yang digunakan terdaftar.
+## Verifikasi dan Deployment
 
-**Resources (auto-discover dari `app/Filament/Helpdesk/Resources/`):**
-- `CasualStaffResource`
-- `CasualPositionResource`
-- `CasualPositionOpeningResource`
-- `CasualClockRecordResource`
-- `BranchResource`
-- `BriefingRecordResource`
-- `FormTemplateResource`
-- `HelpdeskRequestResource`
-- `ServiceRequestResource`
-- `TripResource`
-- `TripRouteResource`
-- `VehicleResource`
+Jalankan test terkait panel, login, launcher, route langsung dengan/tanpa permission, dan scope cabang. Periksa `php artisan route:list` setelah mengubah discovery atau identitas panel; pastikan tidak ada endpoint hilang atau duplikat.
 
-**Route Tambahan:**
-- `GET /helpdesk/exports/casual-clock-records` — Export absensi casual ke XLSX (`CasualClockRecordExportController`)
-
-**Pages:**
-- `Dashboard`
-- `DriverTripSettingsPage`
-- `TechnicianSettingsPage`
-- `BriefingSettingsPage`
-- `BriefingPeriodWeightsPage`
-
----
-
-## Panel Casual (`/casual`)
-
-**Provider:** `app/Providers/Filament/CasualPanelProvider.php`
-
-Portal **mobile-first** untuk pegawai casual. Tidak ada sidebar atau topbar Filament standar — semua halaman menggunakan layout bare kustom.
-
-**Custom Domain:** Dapat dikonfigurasi via `CASUAL_DOMAIN` environment variable.
-
-**Auth Custom:**
-- `app/Filament/Casual/Pages/Auth/Login.php` — Login menggunakan **Nomor HP** sebagai identifier
-- `app/Filament/Casual/Pages/Auth/Register.php` — Register dengan nama, HP, nama bank, nomor rekening, password
-
-Tidak ada token registrasi. Pendaftaran terbuka langsung. Email internal di-generate otomatis (`{phone}@casual.app`).
-
-**Pages:**
-| Halaman | Route Name | Fungsi |
-|---------|-----------|--------|
-| `SelectPosition` | `filament.casual.pages.select-position` | Pilih posisi & lowongan tersedia |
-| `ClockPage` | `filament.casual.pages.clock-page` | Clock-in / Clock-out dengan selfie & GPS |
-| `AttendancePage` | `filament.casual.pages.attendance-page` | Riwayat absensi |
-| `ReportPage` | `filament.casual.pages.report-page` | Laporan pendapatan/absensi |
-| `NotificationPage` | `filament.casual.pages.notification-page` | Notifikasi sistem |
-| `ProfilePage` | `filament.casual.pages.profile-page` | Edit profil & ganti password |
-
-**Alur Pengguna Baru:**
-```
-Register → SelectPosition → (hari kerja) → ClockPage
-```
-
----
-
-## Panel Driver (`/driver`)
-
-**Provider:** `app/Providers/Filament/DriverPanelProvider.php`
-
-Portal untuk driver mengelola perjalanan harian.
-
-**Custom Domain:** Dapat dikonfigurasi via `DRIVER_DOMAIN` environment variable.
-
-**Pages:**
-| Halaman | Fungsi |
-|---------|--------|
-| `TripDashboard` | Dashboard utama driver, status trip hari ini |
-| `StartTrip` | Mulai perjalanan baru, pilih rute & kendaraan |
-| `ActiveTrip` | Perjalanan aktif: check-in waypoint, isi BBM |
-| `TripHistory` | Riwayat perjalanan selesai |
-
-**Route Tambahan:**
-- `GET /trip-report/pdf` — Generate PDF laporan trip (controller: `TripReportController`)
-
----
-
-## Panel Technician (`/technician`)
-
-**Provider:** `app/Providers/Filament/TechnicianPanelProvider.php`
-
-Portal untuk teknisi melihat dan menangani permintaan servis yang ditugaskan.
-
-**Custom Domain:** Dapat dikonfigurasi via `TECHNICIAN_DOMAIN` environment variable.
-
-**Resources (auto-discover dari `app/Filament/Technician/Resources/`):**
-- `ServiceRequestResource` — View-only untuk request yang ditugaskan ke teknisi tersebut
-
----
-
-## Menambah Menu ke Sidebar Helpdesk
-
-Karena sidebar Helpdesk menggunakan layout kustom, menu **tidak** ditambahkan via Filament navigation API. Cara menambah menu:
-
-1. Buka `resources/views/vendor/filament-panels/components/layout/index.blade.php`
-2. Temukan array `$navGroups` di bagian `@php`
-3. Tambahkan item ke grup yang sesuai:
-
-```php
-['label' => 'Nama Menu', 'href' => $r('filament.helpdesk.resources.nama-resource.index'), 'active' => request()->is('helpdesk/nama-resource*')],
-```
-
-4. Jika menambah grup baru, ikuti struktur yang sudah ada dengan `id`, `label`, `icon`, dan `items`.
-
-### Catatan penting: route ada tetapi menu tidak muncul
-
-Helpdesk meng-override layout Filament pada
-`resources/views/vendor/filament-panels/components/layout/index.blade.php`. Akibatnya,
-`$navigationGroup`, `$navigationLabel`, `canAccess()`, auto-discovery page, dan
-`Panel::pages()` hanya mendaftarkan route/otorisasi; semuanya **tidak otomatis
-menambahkan item ke sidebar Helpdesk**.
-
-Setiap page/resource baru yang perlu tampil di sidebar wajib ditambahkan ke
-`$allNavGroups` pada layout tersebut. Gunakan struktur berikut agar tetap mengikuti
-RBAC dinamis:
-
-```php
-[
-    'label' => 'Nama Menu',
-    'icon' => 'nama-icon-lucide',
-    'perm' => 'view nama resource',
-    'href' => $r('nama-route-filament'),
-    'active' => $active($r('nama-route-filament')),
-],
-```
-
-- `perm` harus sama persis dengan permission `view` pada `config/permissions.php`.
-- Icon memakai nama **Lucide**, bukan Heroicon.
-- Tambahkan pola URL ke `$initialOpen` agar grup terbuka otomatis saat page aktif.
-- Jangan mengedit file di `vendor/filament`; vendor hanya dipakai untuk memahami
-  alurnya. Perubahan aplikasi harus tetap berada di override `resources/views/vendor`.
-- Tambahkan regression test yang memastikan HTML layout berisi URL menu untuk user
-  yang memiliki permission.
-
-Di Filament, `vendor/filament/filament/src/Pages/Page.php::registerNavigationItems()`
-memang memeriksa `shouldRegisterNavigation()` dan `canAccess()`. Namun sidebar kustom
-Helpdesk tidak merender hasil navigation manager tersebut, sehingga pemeriksaan vendor
-itu saja tidak cukup.
+Deployment pemindahan class membutuhkan seluruh file baru beserta penghapusan file lama, build manifest terbaru, autoload, serta pembersihan cache route/view/Filament. Jangan mengunggah hanya file baru dan meninggalkan class lama. Gunakan `composer dump-autoload`, `php artisan optimize:clear`, lalu rebuild cache sesuai proses deployment existing. Tidak ada migration/seeder baru pada refactoring ini.

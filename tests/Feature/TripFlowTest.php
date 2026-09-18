@@ -1,8 +1,8 @@
 <?php
 
 use App\Enums\TripStatus;
-use App\Filament\Casual\Pages\ActiveTrip;
-use App\Filament\Casual\Pages\StartTrip;
+use App\Filament\Employee\Modules\Driver\Pages\ActiveTrip;
+use App\Filament\Employee\Modules\Driver\Pages\StartTrip;
 use App\Models\DriverTripSettings;
 use App\Models\Trip;
 use App\Models\TripRoute;
@@ -141,7 +141,7 @@ it('driver trip settings singleton returns defaults', function () {
 });
 
 it('stores required checkin photo and location metadata', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->driver);
     Storage::fake('b2');
 
@@ -182,7 +182,7 @@ it('stores required checkin photo and location metadata', function () {
 });
 
 it('renders clear upload and checkin failure feedback for drivers', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->driver);
 
     $vehicle = Vehicle::create([
@@ -209,7 +209,7 @@ it('renders clear upload and checkin failure feedback for drivers', function () 
 });
 
 it('renders the waypoint radius validation step before the checkin camera', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->driver);
 
     DriverTripSettings::instance()->update([
@@ -249,7 +249,7 @@ it('renders the waypoint radius validation step before the checkin camera', func
 });
 
 it('notifies the driver when attempting checkin outside the waypoint radius', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->driver);
 
     DriverTripSettings::instance()->update([
@@ -293,7 +293,7 @@ it('notifies the driver when attempting checkin outside the waypoint radius', fu
 });
 
 it('allows a driver to start a custom route with reorderable waypoints and required checkin photos', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->driver);
 
     DriverTripSettings::instance()->update([
@@ -341,7 +341,7 @@ it('allows a driver to start a custom route with reorderable waypoints and requi
 });
 
 it('allows custom route checkin without location when global location validation is enabled', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->driver);
 
     DriverTripSettings::instance()->update([
@@ -386,7 +386,7 @@ it('allows custom route checkin without location when global location validation
 });
 
 it('requires at least one waypoint when starting a custom route', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->driver);
 
     $vehicle = Vehicle::create([
@@ -413,7 +413,7 @@ it('requires at least one waypoint when starting a custom route', function () {
 });
 
 it('shows one waypoint input immediately after selecting a custom route', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->driver);
 
     $page = Livewire::test(StartTrip::class)

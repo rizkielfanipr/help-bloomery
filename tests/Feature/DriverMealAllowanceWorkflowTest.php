@@ -8,7 +8,7 @@ use App\Models\DriverTripSettings;
 use App\Models\Trip;
 use App\Models\TripRoute;
 use App\Models\User;
-use App\Services\DriverMealAllowanceService;
+use App\Services\Driver\DriverMealAllowanceService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Validation\ValidationException;

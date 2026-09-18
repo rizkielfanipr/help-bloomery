@@ -1,11 +1,11 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\ProductPriceIndexDetailPage;
-use App\Filament\Helpdesk\Pages\ProductPriceIndexPage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ProductPriceIndexDetailPage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ProductPriceIndexPage;
 use App\Models\EsbPurchaseOrderItem;
 use App\Models\User;
-use App\Services\EsbCoreService;
-use App\Services\PurchaseOrderPriceSyncService;
+use App\Services\Esb\EsbCoreService;
+use App\Services\Purchasing\PurchaseOrderPriceSyncService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;

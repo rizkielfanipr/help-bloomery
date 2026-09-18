@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Casual\Pages\LauncherPage;
+use App\Filament\Employee\Pages\LauncherPage;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -12,11 +12,11 @@ use function Pest\Laravel\get;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
 });
 
 it('redirects guests to login', function () {
-    get(route('filament.casual.home'))
+    get(route('filament.employee.home'))
         ->assertRedirect();
 });
 
@@ -26,14 +26,14 @@ it('serves the launcher at the casual domain root and redirects the legacy URL',
 
     actingAs($user);
 
-    expect(LauncherPage::getUrl(panel: 'casual'))->toBe(route('filament.casual.home'));
+    expect(LauncherPage::getUrl(panel: 'employee'))->toBe(route('filament.employee.home'));
 
-    get(route('filament.casual.home'))
+    get(route('filament.employee.home'))
         ->assertOk()
         ->assertSee('Absensi');
 
-    get(route('filament.casual.pages.launcher-page'))
-        ->assertRedirect(route('filament.casual.home'));
+    get(route('filament.employee.pages.launcher-page'))
+        ->assertRedirect(route('filament.employee.home'));
 });
 
 it('shows Absensi tile for CASUAL_STAFF', function () {
@@ -107,7 +107,7 @@ it('blocks direct Employee App URLs for menus that are not granted', function ()
     $user->assignRole('CASUAL_STAFF');
 
     actingAs($user)
-        ->get(route('filament.casual.pages.purchase-request-page'))
+        ->get(route('filament.employee.pages.purchase-request-page'))
         ->assertForbidden();
 });
 

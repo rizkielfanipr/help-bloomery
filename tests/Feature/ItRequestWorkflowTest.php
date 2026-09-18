@@ -1,12 +1,12 @@
 <?php
 
 use App\Enums\ItRequestStatus;
-use App\Filament\Casual\Pages\ErpRequestPage;
-use App\Filament\Helpdesk\Resources\ErpModules\Pages\ListErpModules;
-use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
-use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest;
-use App\Filament\Helpdesk\Resources\ItRequestTypes\Pages\EditItRequestType;
-use App\Filament\Helpdesk\Resources\ItRequestTypes\Pages\ListItRequestTypes;
+use App\Filament\Employee\Modules\Erp\Pages\ErpRequestPage;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ErpModules\Pages\ListErpModules;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ItRequestTypes\Pages\EditItRequestType;
+use App\Filament\Helpdesk\Modules\Erp\Resources\ItRequestTypes\Pages\ListItRequestTypes;
 use App\Models\Branch;
 use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
@@ -25,7 +25,7 @@ beforeEach(function () {
 });
 
 it('creates an IT ticket from the user app with a unique ticket number', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     Livewire::test(ErpRequestPage::class)
@@ -48,7 +48,7 @@ it('creates an IT ticket from the user app with a unique ticket number', functio
 
 it('derives the new ticket\'s priority from its Request Type\'s configured priority', function () {
     $this->type->update(['priority' => 'critical']);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     Livewire::test(ErpRequestPage::class)

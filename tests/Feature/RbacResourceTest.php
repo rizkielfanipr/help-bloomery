@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\User;
-use App\Services\PermissionRegistry;
+use App\Services\AccessManagement\PermissionRegistry;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Panel;
 use Illuminate\Support\Facades\Auth;
@@ -168,9 +168,9 @@ it('separates employee app access from backoffice access', function () {
     $hr = User::factory()->create(['is_active' => true]);
     $hr->assignRole('HRD_STAFF');
 
-    expect($casual->canAccessPanel(Panel::make()->id('casual')))->toBeTrue()
+    expect($casual->canAccessPanel(Panel::make()->id('employee')))->toBeTrue()
         ->and($casual->canAccessPanel(Panel::make()->id('helpdesk')))->toBeFalse()
-        ->and($hr->canAccessPanel(Panel::make()->id('casual')))->toBeTrue()
+        ->and($hr->canAccessPanel(Panel::make()->id('employee')))->toBeTrue()
         ->and($hr->canAccessPanel(Panel::make()->id('helpdesk')))->toBeTrue();
 });
 

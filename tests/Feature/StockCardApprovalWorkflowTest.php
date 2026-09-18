@@ -1,9 +1,9 @@
 <?php
 
 use App\Enums\StockCardStatus;
-use App\Filament\Casual\Pages\StockCardEntryPage;
-use App\Filament\Helpdesk\Resources\StockCards\Pages\ListStockCards;
-use App\Filament\Helpdesk\Resources\StockCards\Pages\ViewStockCard;
+use App\Filament\Employee\Modules\StockCard\Pages\StockCardEntryPage;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\StockCards\Pages\ListStockCards;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\StockCards\Pages\ViewStockCard;
 use App\Models\Branch;
 use App\Models\StockCard;
 use App\Models\StockCardEntry;
@@ -245,7 +245,7 @@ it('requires a rejection reason before returning to the supervisor', function ()
 it('never reopens the staff entry page for editing even after a finance rejection bounces it back to supervisor', function () {
     $this->card->update(['status' => StockCardStatus::PendingSupervisor->value, 'revision_number' => 1]);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     actingAs($this->staff);
 
     Livewire::test(StockCardEntryPage::class, ['reportDate' => today()->toDateString()])

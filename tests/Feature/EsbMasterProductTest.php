@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\EsbService;
+use App\Services\Esb\EsbService;
 use Illuminate\Support\Facades\Http;
 
 it('loads and flattens active ESB product details for BOM selectors', function () {

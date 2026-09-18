@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Branch;
-use App\Services\EsbStockMovementService;
+use App\Services\Esb\EsbStockMovementService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 

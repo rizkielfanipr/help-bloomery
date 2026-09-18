@@ -9,7 +9,7 @@ use App\Models\Trip;
 use App\Models\TripRoute;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Services\DriverMealAllowanceService;
+use App\Services\Driver\DriverMealAllowanceService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 

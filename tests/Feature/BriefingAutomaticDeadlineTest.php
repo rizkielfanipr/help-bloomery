@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\BriefingPeriod;
-use App\Filament\Helpdesk\Resources\BriefingTasks\Pages\CreateBriefingTask;
+use App\Filament\Helpdesk\Modules\Briefing\Resources\BriefingTasks\Pages\CreateBriefingTask;
 use App\Models\BriefingTask;
 use App\Models\User;
 use Carbon\Carbon;

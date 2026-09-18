@@ -2,7 +2,7 @@
 
 use App\Models\EsbPurchaseOrder;
 use App\Models\EsbPurchaseOrderItem;
-use App\Services\ProductPriceIndexService;
+use App\Services\Rnd\ProductPriceIndexService;
 
 function makePurchase(string $date, int $productDetailId, float $qty, float $total, float $vat = 0, float $rate = 1): EsbPurchaseOrderItem
 {

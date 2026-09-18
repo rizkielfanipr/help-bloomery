@@ -1,8 +1,8 @@
 <?php
 
-use App\Filament\Helpdesk\Resources\PrefixNames\Pages\CreatePrefixName;
-use App\Filament\Helpdesk\Resources\PrefixNames\Pages\EditPrefixName;
-use App\Filament\Helpdesk\Resources\PrefixNames\Pages\ListPrefixNames;
+use App\Filament\Helpdesk\Modules\Rnd\Resources\PrefixNames\Pages\CreatePrefixName;
+use App\Filament\Helpdesk\Modules\Rnd\Resources\PrefixNames\Pages\EditPrefixName;
+use App\Filament\Helpdesk\Modules\Rnd\Resources\PrefixNames\Pages\ListPrefixNames;
 use App\Models\PrefixCategory;
 use App\Models\PrefixName;
 use App\Models\User;

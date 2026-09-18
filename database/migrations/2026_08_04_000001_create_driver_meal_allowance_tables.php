@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\PermissionSynchronizer;
+use App\Services\AccessManagement\PermissionSynchronizer;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;

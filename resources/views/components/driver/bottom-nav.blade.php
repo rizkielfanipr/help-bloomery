@@ -4,10 +4,10 @@
     $isDriverPanel = filament()->getCurrentPanel()?->getId() === 'driver';
     $dashboardUrl = $isDriverPanel
         ? \App\Filament\Driver\Pages\TripDashboard::getUrl()
-        : \App\Filament\Casual\Pages\TripDashboard::getUrl();
+        : \App\Filament\Employee\Modules\Driver\Pages\TripDashboard::getUrl();
     $historyUrl = $isDriverPanel
         ? \App\Filament\Driver\Pages\TripHistory::getUrl()
-        : \App\Filament\Casual\Pages\TripHistory::getUrl();
+        : \App\Filament\Employee\Modules\Driver\Pages\TripHistory::getUrl();
 @endphp
 
 <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-30 flex border-t border-gray-100 bg-white/95 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/95">
@@ -48,7 +48,7 @@
 
     {{-- Profil hanya tersedia pada Employee App. --}}
     @unless($isDriverPanel)
-    <a href="{{ \App\Filament\Casual\Pages\DriverProfilePage::getUrl() }}"
+    <a href="{{ \App\Filament\Employee\Modules\Driver\Pages\DriverProfilePage::getUrl() }}"
        class="flex flex-1 flex-col items-center gap-1 py-3">
         @if($active === 'profile')
             <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">

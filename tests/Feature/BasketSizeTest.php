@@ -1,7 +1,7 @@
 <?php
 
-use App\Actions\CalculateBasketSizeAction;
-use App\Filament\Helpdesk\Pages\BasketSizePage;
+use App\Actions\Finance\CalculateBasketSizeAction;
+use App\Filament\Helpdesk\Modules\Finance\Pages\BasketSizePage;
 use App\Models\BasketSizeEmployeeRecord;
 use App\Models\Branch;
 use App\Models\Employee;

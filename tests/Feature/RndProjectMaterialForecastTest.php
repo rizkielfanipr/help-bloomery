@@ -1,12 +1,12 @@
 <?php
 
-use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
+use App\Filament\Helpdesk\Modules\Rnd\Resources\Projects\Pages\ViewProject;
 use App\Models\RndProductSalesProjection;
 use App\Models\RndProject;
 use App\Models\SalesRegion;
 use App\Models\User;
-use App\Services\EsbCoreService;
-use App\Services\RndProjectMaterialForecastService;
+use App\Services\Esb\EsbCoreService;
+use App\Services\Rnd\RndProjectMaterialForecastService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;

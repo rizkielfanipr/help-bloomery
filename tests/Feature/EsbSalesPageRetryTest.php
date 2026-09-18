@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\EsbService;
+use App\Services\Esb\EsbService;
 use Illuminate\Support\Facades\Http;
 
 it('registers the BLSS comcode token configuration', function () {

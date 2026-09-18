@@ -24,8 +24,8 @@ Panduan saja belum menjamin konsistensi. Elemen berulang perlu menggunakan kompo
 
 | Referensi repository | Pola yang diadopsi |
 | --- | --- |
-| [R&D Project Workspace](../resources/views/filament/helpdesk/rnd-projects/index.blade.php) | Header berikon, aksen biru, section informatif, filter, modal formulir |
-| [R&D Project Detail](../resources/views/filament/helpdesk/rnd-projects/view.blade.php) | Pengelompokan informasi detail dan aksi terkait |
+| [R&D Project Workspace](../resources/views/filament/helpdesk/rnd/projects/index.blade.php) | Header berikon, aksen biru, section informatif, filter, modal formulir |
+| [R&D Project Detail](../resources/views/filament/helpdesk/rnd/projects/view.blade.php) | Pengelompokan informasi detail dan aksi terkait |
 | [Sales Report Scores](../resources/views/filament/helpdesk/pages/sales-report-scores-page.blade.php) | Ringkasan angka, kartu cabang, filter, detail harian dalam modal |
 | [Sales Report Settings](../resources/views/filament/helpdesk/pages/sales-report-settings-page.blade.php) | Form bersection, petunjuk lokal, informasi proses otomatis, footer simpan |
 | [R&D Picker Modal](../resources/views/components/rnd/picker-modal.blade.php) | Shell modal existing yang diperiksa sebelum membuat shell baru |

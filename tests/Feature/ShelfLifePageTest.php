@@ -1,6 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\ShelfLifePage;
+use App\Filament\Helpdesk\Modules\Rnd\Pages\ShelfLifePage;
 use App\Models\RndProject;
 use App\Models\RndProjectProduct;
 use App\Models\User;

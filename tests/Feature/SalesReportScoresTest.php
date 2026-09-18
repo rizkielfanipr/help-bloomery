@@ -1,11 +1,11 @@
 <?php
 
 use App\Enums\SalesReportStatus;
-use App\Filament\Helpdesk\Pages\SalesReportScoresPage;
+use App\Filament\Helpdesk\Modules\Finance\Pages\SalesReportScoresPage;
 use App\Models\Branch;
 use App\Models\SalesReport;
 use App\Models\User;
-use App\Services\SalesReportScoreCalculator;
+use App\Services\SalesReport\SalesReportScoreCalculator;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\SalesReportAssessmentPermissionSeeder;
 use Database\Seeders\SalesReportAssessmentStartDateSeeder;

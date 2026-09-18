@@ -1,15 +1,15 @@
 <?php
 
 use App\Enums\SalesReportStatus;
-use App\Filament\Casual\Pages\SalesReportHistoryPage;
-use App\Filament\Casual\Pages\SalesReportShiftPage;
+use App\Filament\Employee\Modules\SalesReport\Pages\SalesReportHistoryPage;
+use App\Filament\Employee\Modules\SalesReport\Pages\SalesReportShiftPage;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\SalesReport;
 use App\Models\SalesReportEntry;
 use App\Models\User;
-use App\Services\EsbService;
-use App\Services\SalesReportReconciliationService;
+use App\Services\Esb\EsbService;
+use App\Services\SalesReport\SalesReportReconciliationService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;
@@ -165,7 +165,7 @@ it('builds shift input rows grouped by label, DINE IN before TAKEAWAY', function
         ]], 200, ['X-Pagination-Page-Count' => '1']);
     });
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
 
     $page = Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
@@ -199,7 +199,7 @@ it('shows an informative empty state on the shift page for a label with no ESB c
         ]],
     ]], 200, ['X-Pagination-Page-Count' => '1']));
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
 
     Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
@@ -216,7 +216,7 @@ it('warns and does not load rows when the branch only has a NO LABEL ESB pair', 
     config()->set(['esb.tokens.NOLABEL_CODE' => 'token-nolabel']);
     $this->branch->esbCodes()->create(['esb_branch_code' => 'BPL', 'esb_comcode' => 'NOLABEL_CODE', 'label' => 'NO LABEL']);
 
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
 
     Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString()])
@@ -227,7 +227,7 @@ it('warns and does not load rows when the branch only has a NO LABEL ESB pair', 
 });
 
 it('persists each row with its own label when a shift is submitted', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
     $employee = Employee::where('branch_id', $this->branch->id)->first();
 
@@ -251,7 +251,7 @@ it('persists each row with its own label when a shift is submitted', function ()
 });
 
 it('shows an informative empty state on the history page for a label with no data', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
 
     $report = SalesReport::create([

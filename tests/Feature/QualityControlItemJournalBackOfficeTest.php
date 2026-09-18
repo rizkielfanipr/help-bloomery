@@ -1,8 +1,8 @@
 <?php
 
-use App\Filament\Helpdesk\Resources\QualityControlItemJournals\Pages\ListQualityControlItemJournals;
-use App\Filament\Helpdesk\Resources\QualityControlItemJournals\Pages\ViewQualityControlItemJournal;
-use App\Filament\Helpdesk\Resources\QualityControlItemJournals\QualityControlItemJournalResource;
+use App\Filament\Helpdesk\Modules\QualityControl\Resources\QualityControlItemJournals\Pages\ListQualityControlItemJournals;
+use App\Filament\Helpdesk\Modules\QualityControl\Resources\QualityControlItemJournals\Pages\ViewQualityControlItemJournal;
+use App\Filament\Helpdesk\Modules\QualityControl\Resources\QualityControlItemJournals\QualityControlItemJournalResource;
 use App\Models\QualityControlItemJournal;
 use App\Models\User;
 use Filament\Facades\Filament;

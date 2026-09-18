@@ -1,15 +1,15 @@
 <?php
 
-use App\Filament\Casual\Pages\StockCardEntryPage;
-use App\Filament\Helpdesk\Pages\StockCardSettingsPage;
-use App\Filament\Helpdesk\Resources\StockCards\Pages\ViewStockCard;
+use App\Filament\Employee\Modules\StockCard\Pages\StockCardEntryPage;
+use App\Filament\Helpdesk\Modules\Inventory\Pages\StockCardSettingsPage;
+use App\Filament\Helpdesk\Modules\Inventory\Resources\StockCards\Pages\ViewStockCard;
 use App\Models\Branch;
 use App\Models\StockCard;
 use App\Models\StockCardEntry;
 use App\Models\StockCardSetting;
 use App\Models\User;
-use App\Services\EsbStockMovementService;
-use App\Services\StockCardCategoryFilter;
+use App\Services\Esb\EsbStockMovementService;
+use App\Services\StockCard\StockCardCategoryFilter;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Database\Seeders\StockCardSettingSeeder;
 use Filament\Facades\Filament;
@@ -118,7 +118,7 @@ function cacheSettingsTestCatalog(Branch $branch): void
 it('snapshots rules for new reports and does not change them when settings change', function () {
     $setting = StockCardSetting::factory()->create(['company_code' => StockCardSetting::GLOBAL_COMPANY, 'all_categories' => false, 'categories' => ['Bahan Baku']]);
     cacheSettingsTestCatalog($this->branch);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
     Livewire::test(StockCardEntryPage::class)->call('loadProductCatalog')->assertCount('rows', 1)
         ->assertSet('rows.0.product_code', 'RAW')->set('rows.0.actual_qty', '5');
@@ -135,7 +135,7 @@ it('keeps legacy reports unfiltered and preserves existing staff entries', funct
     $card = StockCard::factory()->create(['branch_id' => $this->branch->id, 'report_date' => now()->toDateString()]);
     StockCardEntry::factory()->create(['stock_card_id' => $card->id, 'product_code' => 'OLD', 'product_name' => 'Saved Product', 'actual_qty' => 7]);
     cacheSettingsTestCatalog($this->branch);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
     Livewire::test(StockCardEntryPage::class)->call('loadProductCatalog')->assertCount('rows', 3);
     expect($card->fresh()->category_settings_snapshot)->toBeNull();
@@ -144,7 +144,7 @@ it('keeps legacy reports unfiltered and preserves existing staff entries', funct
 
 it('uses all categories by default for new reports', function () {
     cacheSettingsTestCatalog($this->branch);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
     Livewire::test(StockCardEntryPage::class)->call('loadProductCatalog')->assertCount('rows', 2);
     expect(StockCard::firstOrFail()->category_settings_snapshot['COM01']['all_categories'])->toBeTrue();
@@ -194,7 +194,7 @@ it('restores old per-company report snapshots even after switching settings to g
         'category_settings_snapshot' => ['COM01' => ['all_categories' => false, 'categories' => ['Barang WIP'], 'show_uncategorized' => false]],
     ]);
     cacheSettingsTestCatalog($this->branch);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->staff);
     Livewire::test(StockCardEntryPage::class)->call('loadProductCatalog')->assertCount('rows', 1)->assertSet('rows.0.product_code', 'WIP');
 });

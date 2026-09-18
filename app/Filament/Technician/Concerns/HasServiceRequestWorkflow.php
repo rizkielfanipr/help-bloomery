@@ -4,7 +4,7 @@ namespace App\Filament\Technician\Concerns;
 
 use App\Enums\ServiceRequestStatus;
 use App\Models\ServiceRequest;
-use App\Services\ServiceRequestWorkflow;
+use App\Services\Technician\ServiceRequestWorkflow;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -28,19 +28,13 @@ trait HasServiceRequestWorkflow
             Action::make('awaiting_parts')->label('Menunggu Sparepart')->icon('heroicon-o-clock')
                 ->visible(fn (ServiceRequest $record): bool => $record->status === ServiceRequestStatus::InProgress)
                 ->requiresConfirmation()->action(function (ServiceRequest $record): void {
-                    $workflow = app(ServiceRequestWorkflow::class);
-                    $workflow->authorizeTechnician($record, auth()->user());
-                    $workflow->ensureStatus($record, [ServiceRequestStatus::InProgress]);
-                    $record->update(['status' => ServiceRequestStatus::AwaitingParts]);
+                    app(ServiceRequestWorkflow::class)->awaitParts($record, auth()->user());
                     $this->record->refresh();
                 }),
             Action::make('resume')->label('Lanjutkan Pengerjaan')->icon('heroicon-o-play')
                 ->visible(fn (ServiceRequest $record): bool => $record->status === ServiceRequestStatus::AwaitingParts)
                 ->action(function (ServiceRequest $record): void {
-                    $workflow = app(ServiceRequestWorkflow::class);
-                    $workflow->authorizeTechnician($record, auth()->user());
-                    $workflow->ensureStatus($record, [ServiceRequestStatus::AwaitingParts]);
-                    $record->update(['status' => ServiceRequestStatus::InProgress]);
+                    app(ServiceRequestWorkflow::class)->resume($record, auth()->user());
                     $this->record->refresh();
                 }),
             Action::make('outsource')->label('Perlu Outsource')->icon('heroicon-o-building-office')

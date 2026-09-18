@@ -1,8 +1,8 @@
 <?php
 
 use App\Enums\ContentRequestStatus;
-use App\Filament\Casual\Pages\ContentRequestPage;
-use App\Filament\Helpdesk\Resources\ContentRequests\Pages\ViewContentRequest;
+use App\Filament\Employee\Modules\Content\Pages\ContentRequestPage;
+use App\Filament\Helpdesk\Modules\Content\Resources\ContentRequests\Pages\ViewContentRequest;
 use App\Models\Branch;
 use App\Models\ContentRequest;
 use App\Models\User;
@@ -19,7 +19,7 @@ beforeEach(function () {
 });
 
 it('creates a content request from the casual app', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     Livewire::test(ContentRequestPage::class)
@@ -43,7 +43,7 @@ it('creates a content request from the casual app', function () {
 });
 
 it('shows the generated request code on the success card after submitting', function () {
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    Filament::setCurrentPanel(Filament::getPanel('employee'));
     $this->actingAs($this->user);
 
     $page = Livewire::test(ContentRequestPage::class)

@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\ExportPurchaseRequestsXlsxAction;
+use App\Actions\Purchasing\ExportPurchaseRequestsXlsxAction;
 use App\Enums\PurchaseRequestStatus;
 use App\Enums\PurchaseType;
 use App\Models\Branch;

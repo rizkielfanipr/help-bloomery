@@ -10,7 +10,8 @@ use App\Models\StockCardApproval;
 use App\Models\StockCardEmployee;
 use App\Models\StockCardEntry;
 use App\Models\User;
-use App\Services\EsbService;
+use App\Services\EsbStockMovementService;
+use App\Services\StockCardCategoryFilter;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -21,10 +22,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 
 class StockCardEntryPage extends Page
 {
+    #[Locked]
+    public array $categorySettingsSnapshot = [];
+
     protected static bool $shouldRegisterNavigation = false;
 
     protected static string $layout = 'filament.casual.layouts.bare';
@@ -47,7 +52,7 @@ class StockCardEntryPage extends Page
     public array $submittedEmployees = [];
 
     /**
-     * ESB's daily-sales-material-usage report is fetched by the Supervisor
+     * ESB's stock-movement balances are fetched by the Supervisor
      * during back-office review instead — staff just record the physical
      * count before closing, with no "system" quantity to compare against
      * at entry time. Staff can only submit once; any correction after that
@@ -71,29 +76,21 @@ class StockCardEntryPage extends Page
     public int $catalogFailedRequests = 0;
 
     /** @var list<int> */
+    #[Locked]
     public array $catalogPairIds = [];
 
-    /** @var list<string> */
-    public array $catalogDates = [];
-
+    #[Locked]
     public int $catalogTaskIndex = 0;
 
+    #[Locked]
     public int $catalogTaskTotal = 0;
 
     public string $catalogCurrentDate = '';
 
     public string $catalogCurrentCode = '';
 
+    #[Locked]
     public ?string $catalogFetchKey = null;
-
-    public string $catalogPhase = 'usage';
-
-    /** @var list<string> */
-    public array $catalogCategoryCodes = [];
-
-    public int $catalogCategoryIndex = 0;
-
-    public int $catalogCategoryTotal = 0;
 
     public function mount(): void
     {
@@ -101,7 +98,7 @@ class StockCardEntryPage extends Page
             $this->reportDate = now()->toDateString();
         }
 
-        $this->catalogPeriodFrom = Carbon::parse($this->reportDate)->subMonthNoOverflow()->toDateString();
+        $this->catalogPeriodFrom = Carbon::parse($this->reportDate)->toDateString();
         $this->catalogPeriodTo = $this->reportDate;
 
         $this->loadData();
@@ -136,9 +133,14 @@ class StockCardEntryPage extends Page
             ->first();
 
         if (! $card) {
+            if ($user->branch) {
+                $this->categorySettingsSnapshot = app(StockCardCategoryFilter::class)->snapshot($user->branch);
+            }
+
             return;
         }
 
+        $this->categorySettingsSnapshot = $card->category_settings_snapshot ?? [];
         $this->status = $card->status;
         $this->isSubmitted = ! $card->status->canBeEditedBySubmitter();
 
@@ -188,7 +190,7 @@ class StockCardEntryPage extends Page
             return;
         }
 
-        $service = new EsbService;
+        $service = new EsbStockMovementService;
         $cachedCatalog = $service->getCachedStockCardCatalog($user->branch, $this->reportDate, self::FLAG_UNIT);
         if ($cachedCatalog !== null) {
             $this->applyProductCatalog($cachedCatalog);
@@ -196,9 +198,12 @@ class StockCardEntryPage extends Page
             return;
         }
 
-        $pairs = $user->branch->activeEsbCodes()
-            ->filter(fn (BranchEsbCode $pair): bool => filled($pair->esb_token))
-            ->values();
+        $pairs = $user->branch->activeEsbCodes()->values();
+        if ($pairs->contains(fn (BranchEsbCode $pair): bool => blank($pair->esb_comcode) || blank($pair->esb_branch_code))) {
+            $this->catalogError = 'Mapping Company Code dan ESB Branch Code belum lengkap.';
+
+            return;
+        }
         if ($pairs->isEmpty()) {
             $this->catalogError = 'Branch belum memiliki konfigurasi ESB aktif.';
 
@@ -209,180 +214,52 @@ class StockCardEntryPage extends Page
         $this->catalogError = null;
         $this->catalogFailedRequests = 0;
         $this->catalogPairIds = $pairs->pluck('id')->all();
-        $this->catalogDates = collect(Carbon::parse($this->catalogPeriodFrom)->daysUntil($this->catalogPeriodTo))
-            ->map(fn (Carbon $date): string => $date->toDateString())
-            ->all();
         $this->catalogTaskIndex = 0;
-        $this->catalogTaskTotal = count($this->catalogPairIds) * count($this->catalogDates);
-        $this->catalogPhase = 'usage';
-        $this->catalogCategoryCodes = [];
-        $this->catalogCategoryIndex = 0;
-        $this->catalogCategoryTotal = 0;
+        $this->catalogTaskTotal = count($this->catalogPairIds);
         $this->catalogFetchKey = 'stock-card-catalog-fetch:'.auth()->id().':'.Str::uuid();
         Cache::put($this->catalogFetchKey, [], now()->addHour());
 
         $this->dispatch('stock-card-fetch-next');
     }
 
-    public function fetchNextCatalogUsage(): void
+    public function fetchNextCatalogMovement(): void
     {
         if (! $this->catalogLoading || ! $this->catalogFetchKey) {
             return;
         }
-
-        if ($this->catalogPhase === 'category') {
-            $this->fetchNextCatalogCategory();
-
-            return;
-        }
-
-        if ($this->catalogTaskIndex >= $this->catalogTaskTotal) {
-            $this->startCategoryEnrichment();
-
-            return;
-        }
-
-        $pairCount = count($this->catalogPairIds);
-        if ($pairCount === 0) {
-            $this->failProductCatalog('Branch belum memiliki konfigurasi ESB aktif.');
-
-            return;
-        }
-
-        $dateIndex = intdiv($this->catalogTaskIndex, $pairCount);
-        $pairIndex = $this->catalogTaskIndex % $pairCount;
         $pair = BranchEsbCode::query()
             ->where('branch_id', auth()->user()?->branch_id)
             ->where('is_active', true)
-            ->find($this->catalogPairIds[$pairIndex]);
-        $date = $this->catalogDates[$dateIndex] ?? null;
+            ->find($this->catalogPairIds[$this->catalogTaskIndex] ?? null);
+        if (! $pair) {
+            $this->failProductCatalog('Mapping cabang ESB tidak valid.');
 
-        $dateIsInPeriod = false;
-        if ($date) {
-            try {
-                $dateIsInPeriod = Carbon::parse($date)->betweenIncluded($this->catalogPeriodFrom, $this->catalogPeriodTo);
-            } catch (\Throwable) {
-                $dateIsInPeriod = false;
-            }
+            return;
         }
+        $to = Carbon::parse($this->reportDate)->toDateString();
+        $from = Carbon::parse($this->reportDate)->toDateString();
+        $this->catalogCurrentCode = $pair->esb_branch_code;
+        $this->catalogCurrentDate = $to;
+        try {
+            $service = new EsbStockMovementService;
+            $products = $service->mergeCatalogRows(
+                Cache::get($this->catalogFetchKey, []),
+                $service->movements($pair, $from, $to, self::FLAG_UNIT),
+                $service->categories($pair->esb_comcode),
+                $pair->esb_comcode,
+            );
+            Cache::put($this->catalogFetchKey, $products, now()->addHour());
+        } catch (\Throwable $exception) {
+            $this->failProductCatalog($exception->getMessage());
 
-        if (! $pair || ! $dateIsInPeriod || ! $pair->esb_token) {
-            $this->catalogFailedRequests++;
-        } else {
-            $this->catalogCurrentDate = $date;
-            $this->catalogCurrentCode = $pair->esb_branch_code;
-
-            try {
-                $products = Cache::get($this->catalogFetchKey, []);
-                $rows = (new EsbService)->getDailySalesMaterialUsage(
-                    $pair->esb_branch_code,
-                    $date,
-                    self::FLAG_UNIT,
-                    $pair->esb_token,
-                );
-
-                foreach ($rows as $row) {
-                    $productCode = trim((string) ($row['productCode'] ?? ''));
-                    $productName = trim((string) ($row['productName'] ?? ''));
-                    if ($productCode === '' || $productName === '') {
-                        continue;
-                    }
-
-                    $products[$productCode] ??= [
-                        'product_code' => $productCode,
-                        'product_name' => $productName,
-                        'category' => trim((string) ($row['categoryName'] ?? $row['productCategoryName'] ?? '')),
-                        'unit' => (string) ($row['unit'] ?? $row['unitConversion'] ?? ''),
-                        'usage_dates' => [],
-                        'total_qty' => 0.0,
-                    ];
-                    $products[$productCode]['usage_dates'][$date] = true;
-                    $products[$productCode]['total_qty'] += (float) ($row['totalQty'] ?? 0);
-                }
-
-                Cache::put($this->catalogFetchKey, $products, now()->addHour());
-            } catch (\Throwable) {
-                $this->catalogFailedRequests++;
-            }
+            return;
         }
-
         $this->catalogTaskIndex++;
-
         if ($this->catalogTaskIndex < $this->catalogTaskTotal) {
             $this->dispatch('stock-card-fetch-next');
 
             return;
         }
-
-        $this->startCategoryEnrichment();
-    }
-
-    private function startCategoryEnrichment(): void
-    {
-        $products = Cache::get($this->catalogFetchKey, []);
-        if ($products === [] && $this->catalogFailedRequests >= $this->catalogTaskTotal) {
-            $this->failProductCatalog('Riwayat Daily Usage ESB tidak dapat diambil. Silakan coba kembali.');
-
-            return;
-        }
-
-        $this->catalogPhase = 'category';
-        $this->catalogCategoryCodes = array_values(array_keys($products));
-        $this->catalogCategoryIndex = 0;
-        $this->catalogCategoryTotal = (int) ceil(count($this->catalogCategoryCodes) / 8);
-        $this->catalogCurrentDate = '';
-        $this->catalogCurrentCode = '';
-
-        if ($this->catalogCategoryTotal === 0) {
-            $this->finishProductCatalog();
-
-            return;
-        }
-
-        $this->dispatch('stock-card-fetch-next');
-    }
-
-    private function fetchNextCatalogCategory(): void
-    {
-        if ($this->catalogCategoryIndex >= $this->catalogCategoryTotal) {
-            $this->finishProductCatalog();
-
-            return;
-        }
-
-        $productCodes = array_slice($this->catalogCategoryCodes, $this->catalogCategoryIndex * 8, 8);
-
-        try {
-            $details = (new EsbService)->getActiveProductDetailsByCodes($productCodes);
-            $categoriesByCode = collect($details)
-                ->filter(fn (array $detail): bool => filled($detail['productCode'] ?? null))
-                ->mapWithKeys(fn (array $detail): array => [
-                    (string) $detail['productCode'] => (string) ($detail['categoryName'] ?? ''),
-                ]);
-            $products = Cache::get($this->catalogFetchKey, []);
-
-            foreach ($productCodes as $productCode) {
-                if (isset($products[$productCode])) {
-                    $products[$productCode]['category'] = $categoriesByCode->get(
-                        $productCode,
-                        $products[$productCode]['category'],
-                    );
-                }
-            }
-
-            Cache::put($this->catalogFetchKey, $products, now()->addHour());
-        } catch (\Throwable) {
-            $this->catalogFailedRequests++;
-        }
-
-        $this->catalogCategoryIndex++;
-
-        if ($this->catalogCategoryIndex < $this->catalogCategoryTotal) {
-            $this->dispatch('stock-card-fetch-next');
-
-            return;
-        }
-
         $this->finishProductCatalog();
     }
 
@@ -390,19 +267,18 @@ class StockCardEntryPage extends Page
     {
         $products = Cache::get($this->catalogFetchKey, []);
         if ($products === [] && $this->catalogFailedRequests >= $this->catalogTaskTotal) {
-            $this->failProductCatalog('Riwayat Daily Usage ESB tidak dapat diambil. Silakan coba kembali.');
+            $this->failProductCatalog('Riwayat Stock Movement ESB tidak dapat diambil. Silakan coba kembali.');
 
             return;
         }
 
         try {
-            $service = new EsbService;
+            $service = new EsbStockMovementService;
             $catalog = $service->buildStockCardProductCatalog(
                 $products,
                 $this->catalogPeriodFrom,
                 $this->catalogPeriodTo,
                 $this->catalogFailedRequests,
-                false,
             );
             $service->cacheStockCardCatalog(auth()->user()->branch, $this->reportDate, self::FLAG_UNIT, $catalog);
             $this->applyProductCatalog($catalog);
@@ -419,12 +295,13 @@ class StockCardEntryPage extends Page
     /** @param array<string, mixed> $catalog */
     private function applyProductCatalog(array $catalog): void
     {
+        $catalog['products'] = app(StockCardCategoryFilter::class)->filter($catalog['products'], $this->categorySettingsSnapshot);
         $existingRows = collect($this->rows)->keyBy('product_code');
         if (empty($catalog['products']) && $existingRows->isEmpty()) {
             $this->catalogLoading = false;
             $this->catalogLoaded = true;
-            $this->catalogError = 'Tidak ada produk Daily Usage pada periode satu bulan terakhir.';
-            Notification::make()->title('Belum ada riwayat Daily Usage')->body($this->catalogError)->warning()->send();
+            $this->catalogError = 'Tidak ada produk Stock Movement yang sesuai kategori pada tanggal laporan.';
+            Notification::make()->title('Belum ada riwayat Stock Movement')->body($this->catalogError)->warning()->send();
 
             return;
         }
@@ -456,7 +333,7 @@ class StockCardEntryPage extends Page
         if ($this->catalogFailedRequests > 0) {
             Notification::make()
                 ->title('Daftar produk dimuat sebagian')
-                ->body($this->catalogFailedRequests.' request Daily Usage gagal. Produk dari request lain tetap ditampilkan.')
+                ->body($this->catalogFailedRequests.' request Stock Movement gagal. Produk dari request lain tetap ditampilkan.')
                 ->warning()
                 ->send();
         }
@@ -509,6 +386,7 @@ class StockCardEntryPage extends Page
                     'report_date' => $this->reportDate,
                     'flag_unit' => self::FLAG_UNIT,
                     'status' => StockCardStatus::Draft->value,
+                    'category_settings_snapshot' => $this->categorySettingsSnapshot,
                 ]);
             } catch (QueryException) {
                 // Another persistDraft() call within the same request already created it.
@@ -571,7 +449,7 @@ class StockCardEntryPage extends Page
         }
 
         if (empty($this->rows)) {
-            Notification::make()->title('Tidak ada produk Daily Usage yang dapat dilaporkan')->warning()->send();
+            Notification::make()->title('Tidak ada produk Stock Movement yang dapat dilaporkan')->warning()->send();
 
             return;
         }

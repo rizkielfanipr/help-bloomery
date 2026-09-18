@@ -13,7 +13,7 @@
              return name.toLowerCase().includes(q) || code.toLowerCase().includes(q);
          }
      }"
-     x-init="$wire.on('stock-card-fetch-next', () => $wire.call('fetchNextCatalogUsage'))">
+     x-init="$wire.on('stock-card-fetch-next', () => $wire.call('fetchNextCatalogMovement'))">
 
     {{-- HEADER --}}
     <div class="flex-shrink-0 px-5 pb-8 pt-14">
@@ -142,7 +142,7 @@
                 @endif
             </div>
 
-            {{-- Rolling Daily Usage catalog --}}
+            {{-- Daily Stock Movement catalog --}}
             @if(! $isSubmitted)
                 <div class="rounded-2xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900/50 dark:bg-blue-950/30">
                     <div class="flex items-start gap-3">
@@ -151,20 +151,20 @@
                         </svg>
                         <div class="min-w-0 flex-1">
                             <p class="text-sm font-semibold text-blue-800 dark:text-blue-200">
-                                @if($catalogLoading && $catalogPhase === 'category')
-                                    Memuat kategori produk…
-                                @else
-                                    {{ $catalogLoading ? 'Memuat daftar produk…' : 'Produk dari Daily Usage' }}
-                                @endif
+                                {{ $catalogLoading ? 'Memuat daftar produk…' : 'Produk dari Stock Movement' }}
                             </p>
                             <p class="mt-1 text-xs leading-5 text-blue-700 dark:text-blue-300">
-                                Periode {{ \Carbon\Carbon::parse($catalogPeriodFrom)->format('d M Y') }}–{{ \Carbon\Carbon::parse($catalogPeriodTo)->format('d M Y') }}.
-                                Semua Barang WIP dan 30 produk kategori lain yang paling aktif.
+                                Tanggal {{ \Carbon\Carbon::parse($catalogPeriodTo)->format('d M Y') }}.
+                                @if(collect($this->categorySettingsSnapshot)->contains(fn ($rule) => ! $rule['all_categories'] || ! $rule['show_uncategorized']))
+                                    Produk mengikuti kategori yang ditetapkan saat laporan dibuat. Rincian transaksi ESB tetap tersedia lengkap.
+                                @else
+                                    Seluruh produk dari Stock Movement ESB ditampilkan tanpa batas jumlah atau kategori.
+                                @endif
                             </p>
                             @if($catalogLoading && $catalogTaskTotal > 0)
                                 @php
-                                    $catalogProgressIndex = $catalogPhase === 'category' ? $catalogCategoryIndex : $catalogTaskIndex;
-                                    $catalogProgressTotal = $catalogPhase === 'category' ? $catalogCategoryTotal : $catalogTaskTotal;
+                                    $catalogProgressIndex = $catalogTaskIndex;
+                                    $catalogProgressTotal = $catalogTaskTotal;
                                     $catalogProgress = $catalogProgressTotal > 0
                                         ? min(100, (int) floor(($catalogProgressIndex / $catalogProgressTotal) * 100))
                                         : 0;
@@ -172,9 +172,7 @@
                                 <div class="mt-3">
                                     <div class="mb-1.5 flex items-center justify-between gap-3 text-[11px] text-blue-700 dark:text-blue-300">
                                         <span class="truncate">
-                                            @if($catalogPhase === 'category')
-                                                Batch kategori produk
-                                            @elseif($catalogCurrentDate)
+                                            @if($catalogCurrentDate)
                                                 {{ \Carbon\Carbon::parse($catalogCurrentDate)->format('d M Y') }}
                                                 @if($catalogCurrentCode) · {{ $catalogCurrentCode }} @endif
                                             @else
@@ -266,7 +264,7 @@
                 </div>
             @elseif(! $isSubmitted)
                 <div class="rounded-2xl border border-dashed border-gray-200 bg-white px-5 py-8 text-center dark:border-gray-700 dark:bg-gray-900">
-                    <p class="text-sm text-slate-400 dark:text-slate-500">{{ $catalogLoading ? 'Daftar produk sedang disiapkan…' : 'Belum ada produk Daily Usage pada periode ini.' }}</p>
+                    <p class="text-sm text-slate-400 dark:text-slate-500">{{ $catalogLoading ? 'Daftar produk sedang disiapkan…' : 'Belum ada produk Stock Movement pada periode ini.' }}</p>
                 </div>
             @endif
 

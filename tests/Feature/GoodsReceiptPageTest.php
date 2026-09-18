@@ -204,3 +204,18 @@ test('receiving saves calculated shelf life for form batches', function () {
         ->and((float) $expiry->shelf_life_remaining_percentage)->toBe(95.89)
         ->and($expiry->qc_result)->toBe('pass');
 });
+
+test('inventory stays expanded on receiving index and detail', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('SUPERADMIN');
+    $this->actingAs($user);
+    $receipt = GoodsReceipt::factory()->create();
+
+    foreach ([GoodsReceiptResource::getUrl('index'), GoodsReceiptResource::getUrl('view', ['record' => $receipt])] as $url) {
+        $response = $this->get($url)->assertSuccessful();
+        preg_match('/openGroups:\s*(\[[^\]]*\])/', $response->getContent(), $matches);
+        expect(json_decode($matches[1] ?? '[]', true))->toBe(['inventory']);
+    }
+});

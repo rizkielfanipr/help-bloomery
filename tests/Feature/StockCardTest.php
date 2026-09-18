@@ -11,7 +11,7 @@ use App\Models\Employee;
 use App\Models\StockCard;
 use App\Models\StockCardEntry;
 use App\Models\User;
-use App\Services\EsbService;
+use App\Services\EsbStockMovementService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
@@ -194,18 +194,19 @@ it('rejects an employee id that does not belong to an active employee on the bra
         ->assertHasErrors(['employeeIds.0']);
 });
 
-it('loads the rolling Daily Usage catalog into the stock card application', function () {
+it('loads the rolling Stock Movement catalog into the stock card application', function () {
     config()->set([
-        'esb.base_url' => 'https://sales-esb.test',
+        'esb.core.base_url' => 'https://core-esb.test',
         'esb.tokens.COM01' => 'branch-token',
         'esb.master_product.base_url' => 'https://master-product.test',
         'esb.master_product.token' => 'static-token',
     ]);
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
 
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
-    (new EsbService)->cacheStockCardCatalog($this->branch, now(), 'stockUnit', [
+    (new EsbStockMovementService)->cacheStockCardCatalog($this->branch, now(), 'stockUnit', [
         'products' => [[
             'product_code' => 'WIP-001',
             'product_name' => 'Adonan Croissant',
@@ -214,7 +215,7 @@ it('loads the rolling Daily Usage catalog into the stock card application', func
             'usage_days' => 1,
             'total_qty' => 2.0,
         ]],
-        'period_from' => now()->subMonthNoOverflow()->toDateString(),
+        'period_from' => now()->toDateString(),
         'period_to' => now()->toDateString(),
         'failed_requests' => 0,
     ]);
@@ -226,25 +227,25 @@ it('loads the rolling Daily Usage catalog into the stock card application', func
         ->assertSet('rows.0.product_category', 'Barang WIP');
 });
 
-it('loads Daily Usage progressively and exposes its progress to the application', function () {
+it('loads Stock Movement progressively and exposes its progress to the application', function () {
     config()->set([
-        'esb.base_url' => 'https://sales-esb.test',
+        'esb.core.base_url' => 'https://core-esb.test',
         'esb.tokens.COM01' => 'branch-token',
         'esb.master_product.base_url' => 'https://master-product.test',
         'esb.master_product.token' => 'static-token',
     ]);
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
 
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
     Http::fake([
-        'https://sales-esb.test/corev1/sales/get-daily-sales-material-usage*' => Http::response([[
+        'https://core-esb.test/report/stock-movement*' => Http::response(['status' => 'ok', 'result' => ['count' => 1, 'next' => '', 'data' => [[
             'productCode' => 'WIP-001',
             'productName' => 'Adonan Croissant',
-            'totalQty' => 2,
-            'unit' => 'KG',
-        ]]),
-        'https://master-product.test/corev1/master/product*' => Http::response([
+            'qtyOut' => 2, 'UOM' => 'KG', 'branchCode' => 'TST01', 'documentDate' => today()->toDateString(),
+        ]]]]),
+        'https://core-esb.test/product/list*' => Http::response([
             'status' => 'ok',
             'result' => [
                 'page' => 1,
@@ -260,21 +261,15 @@ it('loads Daily Usage progressively and exposes its progress to the application'
         ]),
     ]);
 
-    $pairId = $this->branch->esbCodes()->value('id');
     $page = Livewire::test(StockCardEntryPage::class)
         ->call('loadProductCatalog')
         ->assertSet('catalogLoading', true)
-        ->assertSet('catalogTaskIndex', 0);
+        ->assertSet('catalogTaskIndex', 0)
+        ->assertSet('catalogPeriodFrom', today()->toDateString())
+        ->assertSet('catalogPeriodTo', today()->toDateString());
 
     $page
-        ->set('catalogPairIds', [$pairId])
-        ->set('catalogDates', [now()->toDateString()])
-        ->set('catalogTaskTotal', 1)
-        ->call('fetchNextCatalogUsage')
-        ->assertSet('catalogLoading', true)
-        ->assertSet('catalogPhase', 'category')
-        ->assertSet('catalogCategoryTotal', 1)
-        ->call('fetchNextCatalogUsage')
+        ->call('fetchNextCatalogMovement')
         ->assertSet('catalogLoading', false)
         ->assertSet('catalogLoaded', true)
         ->assertSet('catalogTaskIndex', 1)
@@ -283,19 +278,19 @@ it('loads Daily Usage progressively and exposes its progress to the application'
     expect(Cache::has($page->get('catalogFetchKey') ?? 'missing'))->toBeFalse();
 });
 
-it('uses a moving one month window and keeps all WIP plus 30 other products', function () {
+it('uses the report day only and keeps every product without category or quantity limits', function () {
     config()->set([
-        'esb.base_url' => 'https://sales-esb.test',
+        'esb.core.base_url' => 'https://core-esb.test',
         'esb.tokens.COM01' => 'branch-token',
         'esb.master_product.base_url' => 'https://master-product.test',
         'esb.master_product.token' => 'static-token',
     ]);
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
 
     $usageRows = collect(range(1, 39))->map(fn (int $number): array => [
         'productCode' => 'PRD-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT),
         'productName' => 'Product '.$number,
-        'totalQty' => $number,
-        'unit' => 'PCS',
+        'qtyOut' => $number, 'UOM' => 'PCS', 'branchCode' => 'TST01', 'documentDate' => '2026-08-10',
     ])->all();
     $masterProducts = collect($usageRows)->map(function (array $row, int $index): array {
         $number = $index + 1;
@@ -315,8 +310,8 @@ it('uses a moving one month window and keeps all WIP plus 30 other products', fu
     })->all();
 
     Http::fake([
-        'https://sales-esb.test/corev1/sales/get-daily-sales-material-usage*' => Http::response($usageRows),
-        'https://master-product.test/corev1/master/product*' => Http::response([
+        'https://core-esb.test/report/stock-movement*' => Http::response(['status' => 'ok', 'result' => ['data' => $usageRows, 'count' => count($usageRows), 'next' => '']]),
+        'https://core-esb.test/product/list*' => Http::response([
             'status' => 'ok',
             'result' => [
                 'page' => 1,
@@ -328,21 +323,33 @@ it('uses a moving one month window and keeps all WIP plus 30 other products', fu
         ]),
     ]);
 
-    $catalog = (new EsbService)->getRollingStockCardProductsForBranch(
+    $catalog = (new EsbStockMovementService)->getRollingStockCardProductsForBranch(
         $this->branch,
         '2026-08-10',
     );
 
     $products = collect($catalog['products']);
 
-    expect($catalog['period_from'])->toBe('2026-07-10')
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'stock-movement')
+        && $request['startPeriod'] === '2026-08-10' && $request['endPeriod'] === '2026-08-10');
+
+    expect($catalog['period_from'])->toBe('2026-08-10')
         ->and($catalog['period_to'])->toBe('2026-08-10')
-        ->and($products)->toHaveCount(34)
+        ->and($products)->toHaveCount(39)
         ->and($products->where('category', 'Barang WIP'))->toHaveCount(4)
-        ->and($products->where('category', 'Bahan Baku'))->toHaveCount(30)
-        ->and($products->pluck('product_code')->unique())->toHaveCount(34)
+        ->and($products->where('category', 'Bahan Baku'))->toHaveCount(35)
+        ->and($products->pluck('product_code')->unique())->toHaveCount(39)
         ->and($products->pluck('product_code'))->toContain('PRD-039')
-        ->and($products->pluck('product_code'))->not->toContain('PRD-005');
+        ->and($products->pluck('product_code'))->toContain('PRD-005');
+
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    actingAs($this->storeUser);
+    Livewire::test(StockCardEntryPage::class, ['reportDate' => '2026-08-10'])
+        ->call('loadProductCatalog')
+        ->assertSet('catalogLoaded', true)
+        ->assertCount('rows', 39)
+        ->assertSee('Product 39')
+        ->assertSee('tanpa batas jumlah atau kategori');
 });
 
 it('preserves filled draft rows that are no longer returned by the rolling catalog', function () {
@@ -365,7 +372,7 @@ it('preserves filled draft rows that are no longer returned by the rolling catal
         ->assertSet('rows.0.actual_qty', '3');
 });
 
-it('marks rolling Daily Usage entries as automatic products', function () {
+it('marks rolling Stock Movement entries as automatic products', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
@@ -504,4 +511,19 @@ it('shows the staff in charge in the back office list and detail view', function
     Livewire::test(ViewStockCard::class, ['record' => $card])
         ->assertOk()
         ->assertSee('Staff Gudang');
+});
+
+it('blocks the catalog when any active branch mapping is incomplete', function () {
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    actingAs($this->storeUser);
+    $this->branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => '', 'is_active' => true]);
+    Http::preventStrayRequests();
+    Http::fake();
+
+    Livewire::test(StockCardEntryPage::class)
+        ->call('loadProductCatalog')
+        ->assertSet('catalogLoading', false)
+        ->assertSet('catalogError', 'Mapping Company Code dan ESB Branch Code belum lengkap.');
+
+    Http::assertNothingSent();
 });

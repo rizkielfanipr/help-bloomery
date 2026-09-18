@@ -8,7 +8,7 @@
     $approvalActionLabels = ['submitted' => 'Submitted', 'approved' => 'Approved', 'rejected' => 'Rejected'];
 @endphp
 
-<div class="mx-auto w-full max-w-6xl space-y-5">
+<div class="mx-auto w-full max-w-6xl space-y-5" wire:init="loadTransactionBreakdown">
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div class="flex flex-col gap-4 border-b border-gray-200 px-6 py-5 dark:border-gray-700 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
@@ -51,8 +51,8 @@
             </div>
             <div>
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Product Source</p>
-                <p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">Daily Usage 1 Bulan</p>
-                <p class="text-xs text-gray-400">{{ $record->report_date->copy()->subMonthNoOverflow()->format('d M Y') }}–{{ $record->report_date->format('d M Y') }}</p>
+                <p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">Stock Movement Harian</p>
+                <p class="text-xs text-gray-400">{{ $record->report_date->format('d M Y') }}</p>
             </div>
         </div>
 
@@ -64,94 +64,7 @@
         @endif
     </section>
 
-    <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-        <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Stock Opname Reconciliation</h2>
-            <p class="mt-1 text-xs text-gray-400">Daftar produk berasal dari Daily Usage satu bulan terakhir: semua Barang WIP dan 30 produk kategori lain yang paling aktif. Qty harian tetap dibandingkan dengan data ESB tanggal laporan.</p>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[1000px] text-sm">
-                <thead class="border-b border-gray-200 bg-gray-50/70 text-xs uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800/60">
-                    <tr>
-                        <th class="px-4 py-3 text-left">Product</th>
-                        <th class="px-4 py-3 text-right">Reported by Staff</th>
-                        <th class="px-4 py-3 text-right">System Qty</th>
-                        <th class="px-4 py-3 text-right">SPV Correction</th>
-                        <th class="px-4 py-3 text-right">Difference</th>
-                        <th class="px-4 py-3 text-left">Staff Notes</th>
-                        <th class="px-4 py-3 text-left">Supervisor Notes</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach($entries as $entry)
-                        @php
-                            $variance = $entry->variance;
-                            $hasVariance = $variance !== null && abs($variance) > 0.0001;
-                        @endphp
-                        <tr wire:key="entry-{{ $entry->id }}" class="align-top">
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-gray-800 dark:text-gray-200">{{ $entry->product_name }}</p>
-                                <p class="text-xs text-gray-400">{{ $entry->product_code }} &middot; {{ $entry->product_category ?: 'Tanpa Kategori' }} &middot; {{ $entry->system_unit }}</p>
-                            </td>
-                            <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $fmtQty($entry->reported_qty) }}</td>
-                            <td class="px-4 py-3 text-right font-mono text-gray-500">{{ $entry->system_qty === null ? '-' : $fmtQty($entry->system_qty) }}</td>
-                            <td class="px-4 py-3 text-right">
-                                @if($isSupervisorInput)
-                                    <input type="number" min="0" step="0.0001" wire:model="entryRows.{{ $entry->id }}.actual_qty" class="w-32 rounded-lg border border-gray-300 bg-white px-3 py-2 text-right text-sm dark:border-gray-700 dark:bg-gray-900">
-                                    @error("entryRows.{$entry->id}.actual_qty") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                @else
-                                    <span class="font-mono font-semibold text-gray-800 dark:text-gray-200">{{ $fmtQty($entry->actual_qty) }}</span>
-                                @endif
-                            </td>
-                            <td @class(['px-4 py-3 text-right font-mono font-semibold', 'text-amber-600' => $hasVariance, 'text-gray-400' => ! $hasVariance])>
-                                {{ $variance === null ? '—' : (($variance > 0 ? '+' : '').$fmtQty($variance)) }}
-                            </td>
-                            <td class="px-4 py-3 text-gray-500">{{ $entry->notes ?: '-' }}</td>
-                            <td class="px-4 py-3">
-                                @if($isSupervisorInput)
-                                    <textarea rows="2" wire:model="entryRows.{{ $entry->id }}.supervisor_notes" class="w-52 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Correction notes"></textarea>
-                                    @error("entryRows.{$entry->id}.supervisor_notes") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                                @else
-                                    <p class="max-w-52 text-gray-500">{{ $entry->supervisor_notes ?? '-' }}</p>
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-
-        @if($isSupervisorInput || $isFinanceInput)
-            <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
-                <div @class(['grid gap-5', 'lg:grid-cols-2' => $isFinanceInput])>
-                    @if($isFinanceInput)
-                        <div>
-                            <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Review Notes <span class="font-normal normal-case text-gray-400">(optional)</span></label>
-                            <textarea wire:model="reviewNote" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Add review notes if needed"></textarea>
-                            @error('reviewNote') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                        </div>
-                        <div>
-                            <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Rejection Reason <span class="font-normal normal-case text-gray-400">(required when returning to Supervisor)</span></label>
-                            <textarea wire:model="rejectionReason" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Explain what must be corrected"></textarea>
-                            @error('rejectionReason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                        </div>
-                    @endif
-                </div>
-                <div class="mt-4 flex flex-wrap justify-end gap-2">
-                    @if($isFinanceInput)
-                        <button type="button" wire:click="rejectFinance" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-arrow-uturn-left class="h-4 w-4" />Return to Supervisor</button>
-                    @endif
-                    <button type="button"
-                            wire:click="{{ $isSupervisorInput ? 'approveSupervisor' : 'approveFinance' }}"
-                            wire:loading.attr="disabled"
-                            @disabled($isSupervisorInput && ! $record->system_fetched_at)
-                            class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 dark:border-blue-900 dark:bg-gray-900">
-                        <x-heroicon-o-check class="h-4 w-4" />{{ $isSupervisorInput ? 'Set as Finance Review' : 'Set as Completed' }}
-                    </button>
-                </div>
-            </div>
-        @endif
-    </section>
+    @include('filament.helpdesk.stock-cards.movement-table', ['movementDateLabel' => $record->report_date->toDateString()])
 
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700"><h2 class="text-sm font-semibold text-gray-900 dark:text-white">Review History</h2></div>

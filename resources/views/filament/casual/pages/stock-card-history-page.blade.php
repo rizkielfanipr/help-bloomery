@@ -142,7 +142,7 @@
                                         <div class="flex items-start justify-between gap-3">
                                             <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Sumber Produk</p>
                                             <p class="text-right text-xs text-gray-700 dark:text-gray-300">
-                                                Daily Usage {{ $card->report_date->copy()->subMonthNoOverflow()->format('d M') }}–{{ $card->report_date->format('d M Y') }}
+                                                Stock Movement {{ $card->report_date->format('d M Y') }}
                                             </p>
                                         </div>
                                         @if($card->revision_number > 0)

@@ -40,7 +40,7 @@
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'whatsapp-settings')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'basket-size') || str_contains($path, 'compliment-type')) { $initialOpen[] = 'finance'; }
-    if (str_contains($path, 'stock-card') || str_contains($path, 'location') || str_contains($path, 'product-list-page') || str_contains($path, 'marketing-material-fulfillments/diterima')) { $initialOpen[] = 'inventory'; }
+    if (str_contains($path, 'stock-card') || str_contains($path, 'goods-receipts') || str_contains($path, 'location') || str_contains($path, 'product-list-page') || str_contains($path, 'marketing-material-fulfillments/diterima')) { $initialOpen[] = 'inventory'; }
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions')) { $initialOpen[] = 'it'; }
@@ -159,6 +159,7 @@
             'items' => [
                 ['label' => 'Stock Card', 'icon' => 'clipboard-list', 'perm' => 'view stock cards', 'href' => $r('filament.helpdesk.resources.stock-cards.index'), 'active' => $active($r('filament.helpdesk.resources.stock-cards.index'))],
                 ['label' => 'Receiving', 'icon' => 'package-check', 'perm' => 'view goods receipts', 'href' => $r('filament.helpdesk.resources.goods-receipts.index'), 'active' => $active($r('filament.helpdesk.resources.goods-receipts.index'))],
+                ['label' => 'Stock Card Settings', 'icon' => 'settings-2', 'perm' => 'view stock card settings', 'href' => $r('filament.helpdesk.pages.stock-card-settings-page'), 'active' => $active($r('filament.helpdesk.pages.stock-card-settings-page'))],
                 ['label' => 'Lokasi', 'icon' => 'map', 'perm' => 'view locations', 'href' => $r('filament.helpdesk.resources.locations.index'), 'active' => $active($r('filament.helpdesk.resources.locations.index'))],
                 ['label' => 'Tipe Lokasi', 'icon' => 'tag', 'perm' => 'view location types', 'href' => $r('filament.helpdesk.resources.location-types.index'), 'active' => $active($r('filament.helpdesk.resources.location-types.index'))],
                 ['label' => 'Product List', 'icon' => 'box', 'perm' => 'view product list', 'href' => $r('filament.helpdesk.pages.product-list-page'), 'active' => $active($r('filament.helpdesk.pages.product-list-page'))],

@@ -10,6 +10,7 @@ use App\Models\StockCardEntry;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -56,26 +57,19 @@ function actingSupervisor(Branch $branch): User
     return $supervisor;
 }
 
-function fakeEsbMaterialUsage(float $totalQty = 5.0): void
+function fakeEsbStockMovement(float $totalQty = 5.0): void
 {
-    config()->set([
-        'esb.base_url' => 'https://sales-esb.test',
-        'esb.tokens.COM01' => 'branch-token',
-    ]);
-
+    config()->set('esb.core.base_url', 'https://core-esb.test');
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
     Http::fake([
-        'https://sales-esb.test/corev1/sales/get-daily-sales-material-usage*' => Http::response([
-            [
-                'branchCode' => 'TST01',
-                'branch' => 'Test Branch',
-                'salesDate' => today()->toDateString(),
-                'productCode' => 'MAT-001',
-                'productName' => 'Ayam',
-                'totalQty' => $totalQty,
-                'unit' => 'KG',
-                'totalConversionQty' => $totalQty,
-                'unitConversion' => 'KG',
-            ],
+        'https://core-esb.test/report/stock-movement*' => Http::response([
+            'status' => 'ok',
+            'result' => ['count' => 1, 'next' => '', 'data' => [[
+                'branchCode' => 'TST01', 'location' => 'Kitchen',
+                'documentDate' => today()->toDateString(), 'createdDate' => today()->toDateTimeString(),
+                'productCode' => 'MAT-001', 'productName' => 'Ayam',
+                'qtyBalance' => $totalQty, 'UOM' => 'KG',
+            ]]],
         ]),
     ]);
 }
@@ -114,7 +108,7 @@ it('blocks approveSupervisor until system data has been fetched from ESB', funct
 });
 
 it('fetches system data from ESB and stores it on the entries', function () {
-    fakeEsbMaterialUsage(totalQty: 4.0);
+    fakeEsbStockMovement(totalQty: 4.0);
     actingSupervisor($this->branch);
 
     Livewire::test(ViewStockCard::class, ['record' => $this->card])
@@ -129,12 +123,12 @@ it('fetches system data from ESB and stores it on the entries', function () {
 });
 
 it('tells the supervisor when ESB has no data yet instead of silently zeroing every entry', function () {
-    config()->set([
-        'esb.base_url' => 'https://sales-esb.test',
-        'esb.tokens.COM01' => 'branch-token',
-    ]);
+    config()->set('esb.core.base_url', 'https://core-esb.test');
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
     Http::fake([
-        'https://sales-esb.test/corev1/sales/get-daily-sales-material-usage*' => Http::response([]),
+        'https://core-esb.test/report/stock-movement*' => Http::response([
+            'status' => 'ok', 'result' => ['data' => [], 'count' => 0, 'next' => ''],
+        ]),
     ]);
     actingSupervisor($this->branch);
 
@@ -150,7 +144,7 @@ it('tells the supervisor when ESB has no data yet instead of silently zeroing ev
 });
 
 it('moves a stock card from supervisor approval through finance review once system data is fetched', function () {
-    fakeEsbMaterialUsage(totalQty: 5.0);
+    fakeEsbStockMovement(totalQty: 5.0);
     $supervisor = actingSupervisor($this->branch);
 
     Livewire::test(ViewStockCard::class, ['record' => $this->card])
@@ -176,7 +170,7 @@ it('moves a stock card from supervisor approval through finance review once syst
 });
 
 it('requires supervisor notes when correcting a qty away from system data', function () {
-    fakeEsbMaterialUsage(totalQty: 5.0);
+    fakeEsbStockMovement(totalQty: 5.0);
     actingSupervisor($this->branch);
 
     $page = Livewire::test(ViewStockCard::class, ['record' => $this->card])
@@ -190,7 +184,7 @@ it('requires supervisor notes when correcting a qty away from system data', func
 });
 
 it('lets the supervisor correct the qty and persists it once notes are provided', function () {
-    fakeEsbMaterialUsage(totalQty: 5.0);
+    fakeEsbStockMovement(totalQty: 5.0);
     actingSupervisor($this->branch);
 
     Livewire::test(ViewStockCard::class, ['record' => $this->card])
@@ -209,7 +203,7 @@ it('lets the supervisor correct the qty and persists it once notes are provided'
 });
 
 it('returns a finance rejection to the supervisor with an audit trail and increments revision_number', function () {
-    fakeEsbMaterialUsage(totalQty: 5.0);
+    fakeEsbStockMovement(totalQty: 5.0);
     actingSupervisor($this->branch);
 
     Livewire::test(ViewStockCard::class, ['record' => $this->card])
@@ -284,7 +278,7 @@ it('shows status tabs with counts on the stock card index', function () {
 });
 
 it('allows a superadmin to test both supervisor and finance approval stages', function () {
-    fakeEsbMaterialUsage(totalQty: 5.0);
+    fakeEsbStockMovement(totalQty: 5.0);
 
     $superadmin = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $superadmin->assignRole('SUPERADMIN');
@@ -310,4 +304,265 @@ it('uses concise English labels throughout the stock card workflow', function ()
         ->and(StockCardStatus::PendingSupervisor->getLabel())->toBe('Supervisor Review')
         ->and(StockCardStatus::PendingFinance->getLabel())->toBe('Finance Review')
         ->and(StockCardStatus::Completed->getLabel())->toBe('Completed');
+});
+
+it('leaves all system quantities unverified when a mapped company fails', function () {
+    fakeEsbStockMovement();
+    $this->branch->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6', 'is_active' => true]);
+    Cache::put('esb_core.access_token.BLO6', 'blo6-token', 300);
+    Http::fake(function ($request) {
+        if ($request['branchCode'] === 'BL6') {
+            return Http::response(['status' => 'fail', 'message' => 'Company unavailable'], 503);
+        }
+
+        return Http::response(['status' => 'ok', 'result' => [
+            'data' => [[
+                'branchCode' => 'TST01', 'productCode' => 'MAT-001', 'UOM' => 'KG',
+                'location' => 'Kitchen', 'documentDate' => today()->toDateString(), 'qtyBalance' => 5,
+            ]], 'count' => 1, 'next' => '',
+        ]]);
+    });
+    actingSupervisor($this->branch);
+
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('refetchEsb')
+        ->assertNotified('Gagal mengambil Stock Movement');
+
+    expect($this->card->refresh()->system_fetched_at)->toBeNull()
+        ->and($this->entry->refresh()->system_qty)->toBeNull();
+});
+
+it('shows every API transaction type without changing saved quantities or approval', function () {
+    config()->set('esb.core.base_url', 'https://core-esb.test');
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
+    Http::preventStrayRequests();
+    $row = [
+        'branchCode' => 'TST01', 'productCode' => 'MAT-001', 'productName' => 'Ayam', 'UOM' => 'KG',
+        'location' => 'Kitchen', 'documentDate' => today()->toDateString(), 'qtyBalance' => 10,
+    ];
+    Http::fake(['*stock-movement*' => Http::response(['status' => 'ok', 'result' => [
+        'data' => [
+            $row + ['transactionType' => 'Goods Receipt', 'qtyIn' => 2, 'qtyOut' => 0],
+            $row + ['transactionType' => 'Goods Receipt', 'qtyIn' => 3, 'qtyOut' => 0],
+            $row + ['transactionType' => 'Item Journal', 'qtyIn' => 0, 'qtyOut' => 1.5],
+            array_replace($row, ['productCode' => 'OTHER', 'transactionType' => 'New API Type', 'qtyIn' => 1, 'qtyOut' => 0]),
+        ], 'next' => '', 'count' => 4,
+    ]])]);
+    $this->card->update(['status' => StockCardStatus::Completed->value]);
+    $this->entry->update(['system_qty' => 99]);
+    actingSupervisor($this->branch);
+
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('loadTransactionBreakdown')
+        ->assertSet('transactionTypes', ['Beginning', 'Goods Delivery', 'Goods Receipt', 'Item Journal', 'New API Type', 'POS Sales', 'Purchase Invoice Adjustment'])
+        ->assertSet('transactionQuantities.MAT-001.Goods Receipt.qty_in', 5.0)
+        ->assertSet('transactionQuantities.MAT-001.Item Journal.qty_out', 1.5)
+        ->assertSee('Qty Utama')
+        ->assertSee('Goods Receipt')
+        ->assertSee('New API Type')
+        ->assertSee('Masuk 5')
+        ->assertSee('Keluar 1.5')
+        ->assertSee('Refresh Rincian Transaksi');
+
+    expect((float) $this->entry->refresh()->system_qty)->toBe(99.0)
+        ->and($this->card->refresh()->status)->toBe(StockCardStatus::Completed)
+        ->and($this->card->system_fetched_at)->toBeNull();
+    Http::assertSentCount(1);
+    Http::assertSent(fn ($request): bool => $request['startPeriod'] === today()->toDateString()
+        && $request['endPeriod'] === today()->toDateString());
+});
+
+it('clears stale transaction columns when refreshing the breakdown fails', function () {
+    config()->set('esb.core.base_url', 'https://core-esb.test');
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
+    Http::fake(['*stock-movement*' => Http::sequence()
+        ->push(['status' => 'ok', 'result' => ['data' => [[
+            'branchCode' => 'TST01', 'productCode' => 'MAT-001', 'UOM' => 'KG',
+            'transactionType' => 'Goods Receipt', 'qtyIn' => 5, 'qtyBalance' => 5,
+        ]], 'next' => '', 'count' => 1]])
+        ->push(['status' => 'fail', 'message' => 'Unavailable'], 503),
+    ]);
+    actingSupervisor($this->branch);
+    $page = Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('loadTransactionBreakdown')
+        ->assertSet('transactionsLoaded', true);
+
+    $page->call('loadTransactionBreakdown')
+        ->assertSet('transactionsLoaded', false)
+        ->assertSet('transactionTypes', [])
+        ->assertSet('transactionQuantities', [])
+        ->assertSee('Unavailable');
+});
+
+it('refreshes ESB quantities and transaction snapshots only from the detail', function () {
+    config()->set('esb.core.base_url', 'https://core-esb.test');
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
+    Http::preventStrayRequests();
+    Http::fake(['*stock-movement*' => Http::response(['status' => 'ok', 'result' => [
+        'data' => [[
+            'branchCode' => 'TST01', 'productCode' => 'MAT-001', 'UOM' => 'KG', 'location' => 'Kitchen',
+            'documentDate' => today()->toDateString(), 'transactionType' => 'Goods Receipt',
+            'qtyIn' => 7, 'qtyOut' => 0, 'qtyBalance' => 7,
+        ]], 'next' => '', 'count' => 1,
+    ]])]);
+    actingSupervisor($this->branch);
+
+    Livewire::test(ListStockCards::class)
+        ->assertTableActionDoesNotExist('refreshEsb')
+        ->assertDontSee('Browse Stock Movement ESB');
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('refetchEsb')
+        ->assertNotified('Data sistem berhasil diperbarui dari ESB')
+        ->assertSee('Qty Utama')
+        ->assertSee('Goods Receipt')
+        ->assertSee('Qty Staff')
+        ->assertSeeHtml('wire:model="entryRows.'.$this->entry->id.'.actual_qty"')
+        ->assertSee('Masuk 7');
+
+    expect((float) $this->entry->refresh()->system_qty)->toBe(7.0)
+        ->and($this->card->refresh()->movement_snapshot['types'])->toBe(['Beginning', 'Goods Delivery', 'Goods Receipt', 'POS Sales', 'Purchase Invoice Adjustment'])
+        ->and($this->card->movement_snapshot['transactions']['MAT-001']['Goods Receipt']['qty_in'])->toEqual(7)
+        ->and($this->card->system_fetched_at)->not->toBeNull()
+        ->and($this->card->status)->toBe(StockCardStatus::PendingSupervisor)
+        ->and($this->card->approvals()->count())->toBe(0);
+
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->assertSet('transactionTypes', ['Beginning', 'Goods Delivery', 'Goods Receipt', 'POS Sales', 'Purchase Invoice Adjustment'])
+        ->assertSee('Masuk 7');
+});
+
+it('blocks detail system refresh for users without review permission', function () {
+    $viewer = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
+    $viewer->givePermissionTo('view stock cards');
+    actingAs($viewer);
+
+    Livewire::test(ListStockCards::class)->assertTableActionDoesNotExist('refreshEsb');
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('refetchEsb')->assertForbidden();
+});
+
+it('shows paginated ESB products even when the draft has no saved entries', function () {
+    $this->card->update(['status' => StockCardStatus::Draft->value]);
+    $this->card->entries()->delete();
+    config()->set('esb.core.base_url', 'https://core-esb.test');
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
+    Http::preventStrayRequests();
+    $rows = collect(range(1, 26))->map(fn (int $number): array => [
+        'branchCode' => 'TST01', 'productCode' => sprintf('ESB-%02d', $number),
+        'productName' => sprintf('Produk ESB %02d', $number), 'UOM' => 'KG', 'location' => 'Kitchen',
+        'documentDate' => today()->toDateString(), 'transactionType' => 'Beginning',
+        'qtyIn' => $number, 'qtyOut' => 0, 'qtyBalance' => $number,
+    ])->all();
+    Http::fake(['*stock-movement*' => Http::response(['status' => 'ok', 'result' => [
+        'data' => $rows, 'next' => '', 'count' => count($rows),
+    ]])]);
+    actingSupervisor($this->branch);
+
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('loadTransactionBreakdown')
+        ->assertSee('Stock Movement ESB')
+        ->assertDontSee('Beginning')
+        ->assertSee('Produk ESB 01')
+        ->assertDontSee('Produk ESB 26')
+        ->assertSee('Menampilkan 1–25 dari 26 produk ESB')
+        ->call('goToMovementPage', 2)
+        ->assertSee('Produk ESB 26')
+        ->assertDontSee('Produk ESB 01')
+        ->set('movementSearch', 'ESB-26')
+        ->assertSet('movementPage', 1)
+        ->assertSee('Produk ESB 26')
+        ->assertSee('Menampilkan 1–1 dari 1 produk ESB');
+
+    expect($this->card->entries()->count())->toBe(0)
+        ->and($this->card->refresh()->status)->toBe(StockCardStatus::Draft)
+        ->and($this->card->system_fetched_at)->toBeNull();
+    Http::assertSentCount(1);
+});
+
+it('keeps the index report only and browses all ESB products in detail without saved entries', function () {
+    config()->set('esb.core.base_url', 'https://core-esb.test');
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
+    Http::preventStrayRequests();
+    $this->card->entries()->delete();
+    $rows = collect(range(1, 26))->map(fn (int $number): array => [
+        'branchCode' => 'TST01', 'productCode' => sprintf('ALL-%02d', $number),
+        'productName' => sprintf('All Product %02d', $number), 'UOM' => 'KG', 'location' => 'Kitchen',
+        'documentDate' => today()->toDateString(), 'transactionType' => $number === 26 ? 'Special API Type' : 'POS Sales',
+        'qtyIn' => 0, 'qtyOut' => 2, 'qtyBalance' => 8,
+    ])->all();
+    Http::fake(['*stock-movement*' => Http::response(['status' => 'ok', 'result' => [
+        'data' => $rows, 'next' => '', 'count' => 26,
+    ]])]);
+    actingSupervisor($this->branch);
+
+    Livewire::test(ListStockCards::class)->assertDontSee('Browse Stock Movement ESB')->assertDontSee('Refresh Rincian Transaksi');
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('loadTransactionBreakdown')
+        ->assertSee('Stock Movement ESB')
+        ->assertSee('All Product 01')
+        ->assertSee('POS Sales')
+        ->assertSee('Special API Type')
+        ->assertSee('Keluar 2')
+        ->assertDontSee('All Product 26')
+        ->call('goToMovementPage', 2)
+        ->assertSee('All Product 26')
+        ->assertSee('Qty Staff');
+
+    expect($this->card->entries()->count())->toBe(0);
+    Http::assertSentCount(1);
+    Http::assertSent(fn ($request): bool => $request['branchCode'] === 'TST01' && $request['startPeriod'] === today()->toDateString());
+});
+
+it('blocks detail movement browsing outside the users accessible branches', function () {
+    $otherBranch = Branch::factory()->create();
+    $otherBranch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'OTHER']);
+    $viewer = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
+    $viewer->givePermissionTo('view stock cards');
+    actingAs($viewer);
+    Http::preventStrayRequests();
+    Http::fake();
+
+    $otherCard = StockCard::factory()->create(['branch_id' => $otherBranch->id]);
+    Livewire::test(ViewStockCard::class, ['record' => $otherCard])->assertForbidden();
+
+    Http::assertNothingSent();
+});
+
+it('loads all movements for the detail report date', function () {
+    fakeEsbStockMovement();
+    actingSupervisor($this->branch);
+    $date = today()->subDay()->toDateString();
+
+    $this->card->update(['report_date' => $date]);
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('loadTransactionBreakdown')
+        ->assertSet('transactionsLoaded', true)
+        ->assertSee('Ayam');
+
+    Http::assertSent(fn ($request): bool => $request['startPeriod'] === $date && $request['endPeriod'] === $date
+        && $request['branchCode'] === 'TST01');
+});
+
+it('hides beginning and invoice adjustment columns while preserving their data and main balance', function () {
+    config()->set('esb.core.base_url', 'https://core-esb.test');
+    Cache::put('esb_core.access_token.COM01', 'branch-token', 300);
+    Http::fake(['*stock-movement*' => Http::response(['status' => 'ok', 'result' => [
+        'data' => [[
+            'branchCode' => 'TST01', 'productCode' => 'MAT-001', 'productName' => 'Ayam', 'UOM' => 'KG',
+            'location' => 'Kitchen', 'documentDate' => today()->toDateString(),
+            'transactionType' => 'Beginning', 'qtyIn' => 5, 'qtyOut' => 0, 'qtyBalance' => 5,
+        ]], 'count' => 1, 'next' => '',
+    ]])]);
+    actingSupervisor($this->branch);
+
+    Livewire::test(ViewStockCard::class, ['record' => $this->card])
+        ->call('loadTransactionBreakdown')
+        ->assertSet('transactionTypes', ['Beginning', 'Goods Delivery', 'Goods Receipt', 'POS Sales', 'Purchase Invoice Adjustment'])
+        ->assertDontSee('Beginning')->assertSee('Goods Delivery')->assertSee('Goods Receipt')
+        ->assertSee('POS Sales')->assertDontSee('Purchase Invoice Adjustment')
+        ->assertSee('3 tipe transaksi')
+        ->assertSet('movementBalances.0.totalQty', 5.0)
+        ->assertSet('transactionQuantities.MAT-001.Beginning.qty_in', 5.0)
+        ->assertSee('Masuk 0')->assertSee('Keluar 0')
+        ->assertDontSee('Masuk 5');
 });

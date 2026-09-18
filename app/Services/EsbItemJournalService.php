@@ -125,17 +125,17 @@ class EsbItemJournalService
         $this->successfulResult($this->request($companyCode, 'delete', '/inventory/item-journal/'.rawurlencode($journalNumber).'/attachment'), 'menghapus attachment Item Journal');
     }
 
-    private function request(string $companyCode, string $method, string $path, array $data = []): Response
+    protected function request(string $companyCode, string $method, string $path, array $data = [], bool $refreshToken = true): Response
     {
         $response = match ($method) {
             'get' => $this->authenticatedRequest($companyCode)->get($this->baseUrl().$path, $data),
             'delete' => $this->authenticatedRequest($companyCode)->delete($this->baseUrl().$path, $data),
             default => $this->authenticatedRequest($companyCode)->post($this->baseUrl().$path, $data),
         };
-        if ($response->status() === 401) {
+        if ($response->status() === 401 && $refreshToken) {
             Cache::forget($this->tokenCacheKey($companyCode));
 
-            return $this->request($companyCode, $method, $path, $data);
+            return $this->request($companyCode, $method, $path, $data, false);
         }
 
         return $response;
@@ -156,7 +156,7 @@ class EsbItemJournalService
         if (blank($credentials['username'] ?? null) || blank($credentials['password'] ?? null)) {
             throw new RuntimeException("Credential ESB Core {$companyCode} belum dikonfigurasi.");
         }
-        $response = Http::acceptJson()->asJson()->post($this->baseUrl().'/auth/login', $credentials);
+        $response = Http::acceptJson()->asJson()->connectTimeout(10)->timeout((int) config('esb.core.timeout', 60))->post($this->baseUrl().'/auth/login', $credentials);
         $token = (string) data_get($response->json(), 'result.accessToken', '');
         if ($response->failed() || $token === '') {
             throw new RuntimeException($this->errorMessage($response, "login ke ESB Core {$companyCode}"));
@@ -166,7 +166,7 @@ class EsbItemJournalService
         return $token;
     }
 
-    private function successfulResult(Response $response, string $action): array
+    protected function successfulResult(Response $response, string $action): array
     {
         $payload = $response->json();
         if ($response->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'ok') {

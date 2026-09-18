@@ -54,6 +54,7 @@ return [
     ],
 
     'Inventory' => [
+        'Stock Card Settings' => ['view stock card settings', 'edit stock card settings'],
         'Stock Card' => ['view stock cards', 'create stock cards', 'edit stock cards', 'delete stock cards', 'review stock cards as supervisor', 'review stock cards as finance'],
         'Penerimaan' => ['view goods receipts'],
         'Product List' => ['view product list', 'edit product list'],

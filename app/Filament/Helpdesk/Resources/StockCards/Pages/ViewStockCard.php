@@ -3,22 +3,39 @@
 namespace App\Filament\Helpdesk\Resources\StockCards\Pages;
 
 use App\Enums\StockCardStatus;
+use App\Filament\Helpdesk\Concerns\HasStockMovementTable;
 use App\Filament\Helpdesk\Resources\StockCards\StockCardResource;
+use App\Models\Branch;
 use App\Models\StockCard;
 use App\Models\StockCardApproval;
-use App\Services\EsbService;
+use App\Services\EsbStockMovementService;
+use App\Services\StockCardCategoryFilter;
+use App\Services\StockCardEsbSynchronizer;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 
 class ViewStockCard extends Page
 {
+    use HasStockMovementTable;
+
     protected static string $resource = StockCardResource::class;
 
     protected string $view = 'filament.helpdesk.stock-cards.view';
 
     public StockCard $record;
+
+    #[Locked]
+    public array $detailCategoryRules = [];
+
+    #[Locked]
+    public array $detailCategoryMappings = [];
+
+    #[Locked]
+    public array $categoryMappingFailures = [];
 
     public string $reviewNote = '';
 
@@ -27,6 +44,87 @@ class ViewStockCard extends Page
     /** @var array<int, array{actual_qty: string, supervisor_notes: string}> */
     public array $entryRows = [];
 
+    protected function authorizeMovementAccess(): void
+    {
+        abort_unless(StockCardResource::canView($this->record), 403);
+    }
+
+    protected function movementBranch(): Branch
+    {
+        return $this->record->branch;
+    }
+
+    protected function movementDate(): string
+    {
+        return $this->record->report_date->toDateString();
+    }
+
+    protected function movementUnit(): string
+    {
+        return $this->record->flag_unit;
+    }
+
+    public function hasDetailCategoryFilter(): bool
+    {
+        return collect($this->detailCategoryRules)->contains(fn (array $rule): bool => ! ($rule['all_categories'] ?? true) || ! ($rule['show_uncategorized'] ?? true));
+    }
+
+    protected function prepareMovementProducts(): void
+    {
+        $this->detailCategoryMappings = [];
+        $this->categoryMappingFailures = [];
+        if (! $this->hasDetailCategoryFilter()) {
+            return;
+        }
+        foreach (array_keys($this->detailCategoryRules) as $company) {
+            try {
+                $this->detailCategoryMappings[$company] = app(EsbStockMovementService::class)->categories($company);
+            } catch (\Throwable $exception) {
+                report($exception);
+                $this->categoryMappingFailures[] = $company;
+            }
+        }
+    }
+
+    /** @return Collection<int, array<string, mixed>> */
+    protected function movementProducts(): Collection
+    {
+        $entries = $this->record->entries->keyBy('product_code');
+        $products = $entries->mapWithKeys(fn ($entry): array => [
+            $entry->product_code => [
+                'productCode' => $entry->product_code, 'productName' => $entry->product_name,
+                'unit' => $entry->system_unit, 'totalQty' => $entry->system_qty, 'live' => false,
+            ],
+        ]);
+        foreach ($this->movementBalances as $product) {
+            $products->put($product['productCode'], $product + ['live' => true]);
+        }
+        if (! $this->hasDetailCategoryFilter()) {
+            return $products->values();
+        }
+        $filter = app(StockCardCategoryFilter::class);
+
+        return $products->filter(function (array $product, string $code) use ($entries, $filter): bool {
+            $entry = $entries->get($code);
+            if ($entry && ($entry->actual_qty !== null || $entry->reported_qty !== null || filled($entry->notes) || filled($entry->supervisor_notes))) {
+                return true;
+            }
+            $sources = [];
+            foreach ($product['companies'] ?? array_keys($this->detailCategoryRules) as $company) {
+                if (isset($this->detailCategoryMappings[$company])) {
+                    $sources[$company] = $this->detailCategoryMappings[$company][$code] ?? '';
+                } elseif (! ($product['live'] ?? false) && $entry) {
+                    $sources[$company] = $entry->product_category ?? '';
+                }
+            }
+            if ($sources === []) {
+                return false;
+            }
+
+            return $filter->filter([['category_sources' => $sources]], $this->detailCategoryRules) !== [];
+        })->values();
+    }
+
     private const VARIANCE_TOLERANCE = 0.0001;
 
     public function mount(StockCard $record): void
@@ -34,7 +132,12 @@ class ViewStockCard extends Page
         abort_unless(StockCardResource::canView($record), 403);
 
         $this->record = $this->loadRecord($record);
+        $this->detailCategoryRules = $this->record->category_settings_snapshot ?? app(StockCardCategoryFilter::class)->snapshot($this->record->branch);
         $this->loadEntryRows();
+        if ($this->record->movement_snapshot !== null) {
+            $this->applyTransactionBreakdown($this->record->movement_snapshot);
+            $this->transactionsFetchedAt = $this->record->system_fetched_at?->format('d M Y H:i:s');
+        }
     }
 
     public function getTitle(): string
@@ -67,61 +170,22 @@ class ViewStockCard extends Page
 
     public function canRefetchEsb(): bool
     {
-        return in_array($this->record->status, [StockCardStatus::PendingSupervisor, StockCardStatus::PendingFinance], true)
-            && ($this->canReviewAsSupervisor() || $this->canReviewAsFinance());
+        return app(StockCardEsbSynchronizer::class)->canRefresh($this->record);
     }
 
     public function refetchEsb(): void
     {
         abort_unless($this->canRefetchEsb(), 403);
-
-        $branch = $this->record->branch;
-
-        if (! $branch?->hasEsbIntegration()) {
-            Notification::make()->title('Branch belum memiliki konfigurasi ESB')->warning()->send();
-
-            return;
-        }
-
-        $result = (new EsbService)->getDailySalesMaterialUsageForBranch(
-            $branch,
-            $this->record->report_date->toDateString(),
-            $this->record->flag_unit,
-        );
-
-        if (empty($result['rows'])) {
-            // ESB only computes this report after the branch's daily closing —
-            // an empty result usually means closing hasn't happened yet, not
-            // that every product truly had zero usage. Leave system_qty and
-            // system_fetched_at untouched so approval stays gated and the
-            // Supervisor knows to come back and refresh again after closing.
-            Notification::make()
-                ->title('Belum ada data ESB untuk tanggal ini')
-                ->body('Kemungkinan toko belum melakukan closing harian. Coba refresh lagi setelah closing dilakukan.')
-                ->warning()
-                ->send();
-
-            return;
-        }
-
-        $usageByCode = collect($result['rows'])->keyBy('productCode');
-
-        foreach ($this->record->entries as $entry) {
-            $usage = $usageByCode->get($entry->product_code);
-            $entry->update(['system_qty' => $usage ? (float) $usage['totalQty'] : 0]);
-        }
-
-        $this->record->update(['system_fetched_at' => now()]);
-        $this->refreshRecord();
-
-        if ($result['ok']) {
+        try {
+            $result = app(StockCardEsbSynchronizer::class)->refresh($this->record);
+            $this->applyTransactionBreakdown($result);
+            $this->refreshRecord();
             Notification::make()->title('Data sistem berhasil diperbarui dari ESB')->success()->send();
-        } else {
-            Notification::make()
-                ->title('Data sistem dimuat sebagian')
-                ->body('Salah satu atau lebih pasangan kode ESB branch ini gagal diambil.')
-                ->warning()
-                ->send();
+        } catch (ValidationException $exception) {
+            Notification::make()->title($exception->errors()['esb'][0])->warning()->send();
+        } catch (\Throwable $exception) {
+            report($exception);
+            Notification::make()->title('Gagal mengambil Stock Movement')->body($exception->getMessage())->danger()->send();
         }
     }
 

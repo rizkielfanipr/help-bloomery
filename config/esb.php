@@ -36,6 +36,16 @@ return [
         ],
     ],
 
+    'stock_movement' => [
+        'transaction_types' => [
+            'Beginning',
+            'Goods Delivery',
+            'Goods Receipt',
+            'POS Sales',
+            'Purchase Invoice Adjustment',
+        ],
+    ],
+
     'master_product' => [
         'base_url' => env('ESB_MASTER_PRODUCT_BASE_URL', 'https://core-api.esb.co.id'),
         'token' => env('ESB_MASTER_PRODUCT_TOKEN', env('ESB_TOKEN_BLO7', '')),

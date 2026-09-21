@@ -230,6 +230,28 @@ it('keeps the current category selectable when editing a material outside its se
         ->assertDontSee('Marketing Materials (6)');
 });
 
+it('shows the pull from ESB action of a synced material as an icon button', function () {
+    [$page, $product] = materialCategoryTestPage();
+    $product->esbMaterials()->create([
+        'category_id' => 1,
+        'category_name' => 'Bahan Baku Makanan',
+        'sub_category_id' => 21,
+        'uom_id' => 5,
+        'uom_name' => 'PCS',
+        'product_code' => 'BBMK-SYNCED-01',
+        'product_name' => 'Bahan Sudah Sinkron',
+        'sku' => 'BBMK-SYNCED-01-PCS',
+        'status' => 'synced',
+        'esb_product_id' => 9001,
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $product->rnd_project_id, 'product' => $product->id])
+        ->assertSee('Bahan Sudah Sinkron')
+        ->assertSeeHtml('aria-label="Tarik nama dan data terbaru dari ESB"')
+        ->assertDontSee('Tarik dari ESB');
+});
+
 it('edits project information from the project detail modal', function () {
     $project = RndProject::query()->create([
         'name' => 'Project Lama',

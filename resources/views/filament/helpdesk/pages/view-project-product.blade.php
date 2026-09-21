@@ -223,9 +223,9 @@
                                             </button>
                                             <button type="button" wire:click="deleteEsbMaterial({{ $esbMaterial->id }})" wire:confirm="Hapus draft bahan ini?" class="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" title="Hapus"><x-heroicon-o-trash class="h-4 w-4" /></button>
                                         @else
-                                            <button type="button" wire:click="refreshEsbMaterial({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="refreshEsbMaterial({{ $esbMaterial->id }})" class="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50" title="Tarik nama dan data terbaru dari ESB">
-                                                <span wire:loading.remove wire:target="refreshEsbMaterial({{ $esbMaterial->id }})">Tarik dari ESB</span>
-                                                <span wire:loading wire:target="refreshEsbMaterial({{ $esbMaterial->id }})">Memuat...</span>
+                                            <button type="button" wire:click="refreshEsbMaterial({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="refreshEsbMaterial({{ $esbMaterial->id }})" title="Tarik nama dan data terbaru dari ESB" aria-label="Tarik nama dan data terbaru dari ESB" class="inline-flex items-center justify-center rounded-lg border border-emerald-200 p-2 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">
+                                                <x-heroicon-o-cloud-arrow-down wire:loading.remove wire:target="refreshEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4" />
+                                                <x-heroicon-o-arrow-path wire:loading wire:target="refreshEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4 animate-spin" />
                                             </button>
                                         @endif
                                     </div>

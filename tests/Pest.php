@@ -1,6 +1,12 @@
 <?php
 
+use App\Actions\CalculateBasketSizeAction;
+use App\Models\BasketSizeRecord;
+use App\Models\Branch;
+use App\Models\Employee;
+use App\Models\SalesReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /*
@@ -47,4 +53,50 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/*
+|--------------------------------------------------------------------------
+| Basket size helpers
+|--------------------------------------------------------------------------
+*/
+
+function finalizeSale(string $number, string $dateOut, int $pax, int $revenue): array
+{
+    return [
+        'salesNum' => $number,
+        'salesDateOut' => $dateOut,
+        'paxTotal' => $pax,
+        'grandTotal' => $revenue,
+        'salesPayments' => [[
+            'paymentMethodName' => 'QRIS',
+            'paymentMethodTypeName' => 'E-Wallet',
+            'paymentAmount' => $revenue,
+        ]],
+    ];
+}
+
+function fakeEsbSales(array $sales, int $status = 200): void
+{
+    Http::fake(['https://esb.test/*' => Http::response($sales, $status, ['X-Pagination-Page-Count' => '1'])]);
+}
+
+/**
+ * A shift whose sales report was submitted early, so its basket size only covers part of the shift.
+ */
+function submittedShift(Branch $branch, string $date, string $start, string $end, array $partialSales = []): BasketSizeRecord
+{
+    $branch->salesShifts()->firstOrCreate(['shift_number' => 1], ['name' => 'Shift 1', 'start_time' => $start, 'end_time' => $end, 'is_active' => true]);
+    $report = SalesReport::factory()->create(['branch_id' => $branch->id, 'report_date' => $date]);
+    $employee = Employee::factory()->create(['branch_id' => $branch->id]);
+    $report->employees()->create([
+        'shift_number' => 1,
+        'employee_id' => $employee->id,
+        'employee_code' => $employee->employee_code,
+        'employee_name' => $employee->name,
+        'employee_position' => $employee->position,
+    ]);
+    $report->replaceEsbTransactions(1, $partialSales);
+
+    return app(CalculateBasketSizeAction::class)->execute($report->refresh(), 1);
 }

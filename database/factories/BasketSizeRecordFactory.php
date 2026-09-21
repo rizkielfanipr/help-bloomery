@@ -32,6 +32,12 @@ class BasketSizeRecordFactory extends Factory
             'basket_size' => 40000,
             'staff_count' => 1,
             'calculated_at' => now(),
+            'finalized_at' => now(),
         ];
+    }
+
+    public function provisional(): static
+    {
+        return $this->state(fn (): array => ['finalized_at' => null]);
     }
 }

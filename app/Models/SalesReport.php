@@ -86,6 +86,27 @@ class SalesReport extends Model
         return $this->hasMany(SalesReportEsbTransaction::class);
     }
 
+    /**
+     * Replace the stored ESB transactions of a shift with a fresh snapshot.
+     *
+     * @param  array<int, array<string, mixed>>  $transactions
+     */
+    public function replaceEsbTransactions(int $shiftNumber, array $transactions): void
+    {
+        $this->esbTransactions()->where('shift_number', $shiftNumber)->delete();
+        $this->esbTransactions()->createMany(collect($transactions)->map(fn (array $transaction): array => [
+            'shift_number' => $shiftNumber,
+            'source_branch_code' => $transaction['source_branch_code'] ?? null,
+            'source_comcode' => $transaction['source_comcode'] ?? null,
+            'sales_num' => $transaction['sales_num'],
+            'sales_date_out' => $transaction['sales_date_out'],
+            'payment_total' => $transaction['payment_total'],
+            'pax_total' => $transaction['pax_total'] ?? 0,
+            'revenue_total' => $transaction['revenue_total'] ?? $transaction['payment_total'],
+        ])->all());
+        $this->unsetRelation('esbTransactions');
+    }
+
     public function basketSizeRecords(): HasMany
     {
         return $this->hasMany(BasketSizeRecord::class);

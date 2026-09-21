@@ -128,6 +128,26 @@ class Branch extends Model
         return $this->hasMany(Employee::class);
     }
 
+    /**
+     * Start and end time of a shift as configured on the branch, with the defaults for branches without shifts.
+     *
+     * @return array{0: string, 1: string}
+     */
+    public function salesShiftWindow(int $shiftNumber): array
+    {
+        $shift = $this->configuredSalesShift($shiftNumber);
+
+        if ($shift) {
+            return [$shift->start_time, $shift->end_time];
+        }
+
+        return match ($shiftNumber) {
+            1 => ['07:00:00', '15:00:00'],
+            2 => ['15:00:00', '23:00:00'],
+            default => ['00:00:00', '23:59:59'],
+        };
+    }
+
     public function hasSalesShift(int $shiftNumber): bool
     {
         return $this->activeSalesShifts->isNotEmpty()

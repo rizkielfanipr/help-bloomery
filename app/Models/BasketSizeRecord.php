@@ -16,7 +16,7 @@ class BasketSizeRecord extends Model
     protected $fillable = [
         'sales_report_id', 'branch_id', 'branch_sales_shift_id', 'report_date',
         'shift_number', 'shift_name', 'shift_start_time', 'shift_end_time',
-        'revenue', 'total_pax', 'basket_size', 'staff_count', 'calculated_at',
+        'revenue', 'total_pax', 'basket_size', 'staff_count', 'calculated_at', 'finalized_at',
     ];
 
     protected function casts(): array
@@ -26,7 +26,16 @@ class BasketSizeRecord extends Model
             'revenue' => 'decimal:2',
             'basket_size' => 'decimal:2',
             'calculated_at' => 'datetime',
+            'finalized_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Whether the values come from the complete shift window rather than a submit-time snapshot.
+     */
+    public function isFinal(): bool
+    {
+        return $this->finalized_at !== null;
     }
 
     public function salesReport(): BelongsTo

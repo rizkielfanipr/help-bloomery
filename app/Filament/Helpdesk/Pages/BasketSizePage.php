@@ -6,14 +6,20 @@ use App\Filament\Helpdesk\Resources\SalesReports\SalesReportResource;
 use App\Models\BasketSizeEmployeeRecord;
 use App\Models\BasketSizeRecord;
 use App\Models\Branch;
+use App\Services\BasketSizeFinalizer;
 use BackedEnum;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
 use UnitEnum;
 
 class BasketSizePage extends Page
 {
+    /** Shifts recalculated per click; every shift pulls its sales from ESB. */
+    public const RECALCULATE_LIMIT = 30;
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shopping-cart';
 
     protected static string|UnitEnum|null $navigationGroup = 'Finance';
@@ -49,9 +55,97 @@ class BasketSizePage extends Page
         return auth()->user()?->can('view basket sizes') ?? false;
     }
 
+    public function canRecalculate(): bool
+    {
+        return auth()->user()?->can('recalculate basket sizes') ?? false;
+    }
+
+    public function recalculableCount(): int
+    {
+        return $this->recordsInScope()->count();
+    }
+
+    public function recalculate(BasketSizeFinalizer $finalizer): void
+    {
+        abort_unless($this->canRecalculate(), 403);
+
+        $this->validate([
+            'dateFrom' => ['required', 'date'],
+            'dateTo' => ['required', 'date', 'after_or_equal:dateFrom'],
+        ], attributes: ['dateFrom' => 'Dari Tanggal', 'dateTo' => 'Sampai Tanggal']);
+
+        $count = $this->recordsInScope()->count();
+
+        if ($count === 0) {
+            Notification::make()->title('Tidak ada data basket size pada filter ini')->warning()->send();
+
+            return;
+        }
+
+        if ($count > self::RECALCULATE_LIMIT) {
+            Notification::make()
+                ->title('Terlalu banyak shift untuk dihitung ulang sekaligus')
+                ->body("Filter ini mencakup {$count} shift, maksimal ".self::RECALCULATE_LIMIT.' per proses. Persempit rentang tanggal atau pilih cabang.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $result = $finalizer->process(
+            $this->recordsInScope()
+                ->with(['salesReport.branch.activeSalesShifts', 'salesReport.branch.esbCodes'])
+                ->orderBy('report_date')
+                ->orderBy('id')
+                ->get(),
+        );
+
+        $summary = collect([
+            "{$result['finalized']} shift dihitung ulang",
+            $result['waiting'] ? "{$result['waiting']} dilewati karena shift belum berakhir" : null,
+            $result['skipped'] ? "{$result['skipped']} dilewati karena cabang tanpa ESB" : null,
+            $result['failed'] ? "{$result['failed']} gagal (data ESB belum dapat dimuat)" : null,
+        ])->filter()->join(', ');
+
+        Notification::make()
+            ->title('Hitung ulang basket size selesai')
+            ->body($summary.'.')
+            ->color($result['failed'] > 0 ? 'warning' : 'success')
+            ->icon($result['failed'] > 0 ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle')
+            ->send();
+    }
+
+    /**
+     * @return Builder<BasketSizeRecord>
+     */
+    private function recordsInScope(): Builder
+    {
+        return $this->limitToAccessibleBranches(BasketSizeRecord::query())
+            ->when($this->branchId, fn ($query) => $query->where('branch_id', $this->branchId))
+            ->whereDate('report_date', '>=', $this->dateFrom)
+            ->whereDate('report_date', '<=', $this->dateTo);
+    }
+
     public function branches(): Collection
     {
-        return Branch::query()->orderBy('name')->get(['id', 'name']);
+        return $this->limitToAccessibleBranches(Branch::query(), 'id')->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
+     * Users without access to every branch only see the branches they can access.
+     *
+     * @param  Builder<*>  $query
+     * @return Builder<*>
+     */
+    private function limitToAccessibleBranches(Builder $query, string $column = 'branch_id'): Builder
+    {
+        $user = auth()->user();
+
+        if ($user === null || $user->canAccessAllBranches()) {
+            return $query;
+        }
+
+        return $query->whereIn($column, $user->accessibleBranchIds());
     }
 
     public function ranking(): Collection
@@ -59,7 +153,7 @@ class BasketSizePage extends Page
         $employeeTable = (new BasketSizeEmployeeRecord)->getTable();
         $recordTable = (new BasketSizeRecord)->getTable();
 
-        return BasketSizeEmployeeRecord::query()
+        return $this->limitToAccessibleBranches(BasketSizeEmployeeRecord::query(), "{$recordTable}.branch_id")
             ->join($recordTable, "{$recordTable}.id", '=', "{$employeeTable}.basket_size_record_id")
             ->when($this->branchId, fn ($query) => $query->where("{$recordTable}.branch_id", $this->branchId))
             ->whereDate("{$recordTable}.report_date", '>=', $this->dateFrom)
@@ -85,7 +179,7 @@ class BasketSizePage extends Page
 
         return BasketSizeEmployeeRecord::query()
             ->where('employee_id', $this->employee)
-            ->whereHas('basketSizeRecord', fn ($query) => $query
+            ->whereHas('basketSizeRecord', fn ($query) => $this->limitToAccessibleBranches($query)
                 ->when($this->branchId, fn ($q) => $q->where('branch_id', $this->branchId))
                 ->whereDate('report_date', '>=', $this->dateFrom)
                 ->whereDate('report_date', '<=', $this->dateTo))

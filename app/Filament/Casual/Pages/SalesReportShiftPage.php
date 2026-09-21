@@ -475,17 +475,7 @@ class SalesReportShiftPage extends Page
 
                 $report->compliments()->createMany($preparedCompliments);
 
-                $report->esbTransactions()->where('shift_number', $this->shiftNumber)->delete();
-                $report->esbTransactions()->createMany(collect($this->transactionSnapshots)->map(fn (array $transaction): array => [
-                    'shift_number' => $this->shiftNumber,
-                    'source_branch_code' => $transaction['source_branch_code'] ?? null,
-                    'source_comcode' => $transaction['source_comcode'] ?? null,
-                    'sales_num' => $transaction['sales_num'],
-                    'sales_date_out' => $transaction['sales_date_out'],
-                    'payment_total' => $transaction['payment_total'],
-                    'pax_total' => $transaction['pax_total'] ?? 0,
-                    'revenue_total' => $transaction['revenue_total'] ?? $transaction['payment_total'],
-                ])->all());
+                $report->replaceEsbTransactions($this->shiftNumber, $this->transactionSnapshots);
 
                 $calculateBasketSize->execute($report, $this->shiftNumber);
 
@@ -530,16 +520,7 @@ class SalesReportShiftPage extends Page
     /** @return array{0:string,1:string} */
     private function shiftWindow($branch): array
     {
-        $shift = $branch->configuredSalesShift($this->shiftNumber);
-        if ($shift) {
-            return [$shift->start_time, $shift->end_time];
-        }
-
-        return match ($this->shiftNumber) {
-            1 => ['07:00:00', '15:00:00'],
-            2 => ['15:00:00', '23:00:00'],
-            default => ['00:00:00', '23:59:59'],
-        };
+        return $branch->salesShiftWindow($this->shiftNumber);
     }
 
     #[Computed]

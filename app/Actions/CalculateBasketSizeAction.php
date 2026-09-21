@@ -11,6 +11,7 @@ class CalculateBasketSizeAction
     {
         $report->loadMissing(['branch.activeSalesShifts', 'employees', 'esbTransactions']);
         $shift = $report->branch?->configuredSalesShift($shiftNumber);
+        [$startTime, $endTime] = $report->branch?->salesShiftWindow($shiftNumber) ?? ['07:00:00', '15:00:00'];
         $employees = $report->employees->where('shift_number', $shiftNumber);
         $transactions = $report->esbTransactions->where('shift_number', $shiftNumber);
         $revenue = (float) $transactions->sum('revenue_total');
@@ -25,8 +26,8 @@ class CalculateBasketSizeAction
                 'branch_sales_shift_id' => $shift?->id,
                 'report_date' => $report->report_date,
                 'shift_name' => $shift?->name ?? 'Shift '.$shiftNumber,
-                'shift_start_time' => $shift?->start_time ?? ($shiftNumber === 1 ? '07:00:00' : '15:00:00'),
-                'shift_end_time' => $shift?->end_time ?? ($shiftNumber === 1 ? '15:00:00' : '23:00:00'),
+                'shift_start_time' => $startTime,
+                'shift_end_time' => $endTime,
                 'revenue' => $revenue,
                 'total_pax' => $totalPax,
                 'basket_size' => $basketSize,

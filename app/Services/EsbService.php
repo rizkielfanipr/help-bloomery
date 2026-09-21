@@ -580,6 +580,24 @@ class EsbService
      *
      * @return array{rows: array<int, array{name: string, type: string, total: float}>, transactions: array<int, array{sales_num: string, sales_date_out: string, payment_total: float, pax_total: int, revenue_total: float}>}
      */
+    /**
+     * The concrete window of a shift on a report date; a shift ending at or before its start ends the next day.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public function shiftBounds(string $reportDate, string $startTime, string $endTime): array
+    {
+        $timezone = (string) config('app.timezone', 'Asia/Jakarta');
+        $startedAt = CarbonImmutable::parse($reportDate.' '.$startTime, $timezone);
+        $endedAt = CarbonImmutable::parse($reportDate.' '.$endTime, $timezone);
+
+        if ($endedAt->lessThanOrEqualTo($startedAt)) {
+            $endedAt = $endedAt->addDay();
+        }
+
+        return [$startedAt, $endedAt];
+    }
+
     public function getShiftPaymentSummary(
         string $branchCode,
         string $reportDate,
@@ -588,12 +606,7 @@ class EsbService
         ?string $token = null,
     ): array {
         $timezone = (string) config('app.timezone', 'Asia/Jakarta');
-        $startedAt = CarbonImmutable::parse($reportDate.' '.$startTime, $timezone);
-        $endedAt = CarbonImmutable::parse($reportDate.' '.$endTime, $timezone);
-
-        if ($endedAt->lessThanOrEqualTo($startedAt)) {
-            $endedAt = $endedAt->addDay();
-        }
+        [$startedAt, $endedAt] = $this->shiftBounds($reportDate, $startTime, $endTime);
 
         $sales = $this->getRawSales(
             $branchCode,

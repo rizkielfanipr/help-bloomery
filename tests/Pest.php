@@ -100,3 +100,17 @@ function submittedShift(Branch $branch, string $date, string $start, string $end
 
     return app(CalculateBasketSizeAction::class)->execute($report->refresh(), 1);
 }
+
+/**
+ * Drives the batched recalculation the way the browser does: start, then process batches until the queue is empty.
+ */
+function runRecalculation($page)
+{
+    $page->call('startRecalculation');
+
+    for ($guard = 0; $guard < 100 && $page->get('recalculationQueue') !== []; $guard++) {
+        $page->call('processRecalculationBatch');
+    }
+
+    return $page;
+}

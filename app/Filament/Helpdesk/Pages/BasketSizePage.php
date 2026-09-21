@@ -17,8 +17,11 @@ use UnitEnum;
 
 class BasketSizePage extends Page
 {
-    /** Shifts recalculated per click; every shift pulls its sales from ESB. */
-    public const RECALCULATE_LIMIT = 30;
+    /** Shifts recalculated per request; every shift pulls its sales from ESB, so batches stay short. */
+    public const RECALCULATE_BATCH_SIZE = 10;
+
+    /** Shifts accepted per recalculation; larger ranges belong to the basket-size:finalize command. */
+    public const RECALCULATE_LIMIT = 200;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-shopping-cart';
 
@@ -44,6 +47,14 @@ class BasketSizePage extends Page
     #[Url]
     public ?int $employee = null;
 
+    /** @var array<int, int> */
+    public array $recalculationQueue = [];
+
+    public int $recalculationTotal = 0;
+
+    /** @var array{finalized: int, waiting: int, skipped: int, failed: int} */
+    public array $recalculationResult = ['finalized' => 0, 'waiting' => 0, 'skipped' => 0, 'failed' => 0];
+
     public function mount(): void
     {
         $this->dateFrom = $this->dateFrom ?: now()->startOfMonth()->toDateString();
@@ -65,7 +76,7 @@ class BasketSizePage extends Page
         return $this->recordsInScope()->count();
     }
 
-    public function recalculate(BasketSizeFinalizer $finalizer): void
+    public function startRecalculation(): void
     {
         abort_unless($this->canRecalculate(), 403);
 
@@ -74,31 +85,60 @@ class BasketSizePage extends Page
             'dateTo' => ['required', 'date', 'after_or_equal:dateFrom'],
         ], attributes: ['dateFrom' => 'Dari Tanggal', 'dateTo' => 'Sampai Tanggal']);
 
-        $count = $this->recordsInScope()->count();
+        $this->resetRecalculation();
+        $ids = $this->recordsInScope()->orderBy('report_date')->orderBy('id')->pluck('id')->map(fn ($id): int => (int) $id)->all();
 
-        if ($count === 0) {
+        if ($ids === []) {
             Notification::make()->title('Tidak ada data basket size pada filter ini')->warning()->send();
 
             return;
         }
 
-        if ($count > self::RECALCULATE_LIMIT) {
+        if (count($ids) > self::RECALCULATE_LIMIT) {
             Notification::make()
                 ->title('Terlalu banyak shift untuk dihitung ulang sekaligus')
-                ->body("Filter ini mencakup {$count} shift, maksimal ".self::RECALCULATE_LIMIT.' per proses. Persempit rentang tanggal atau pilih cabang.')
+                ->body('Filter ini mencakup '.count($ids).' shift, maksimal '.self::RECALCULATE_LIMIT.' per proses. Persempit rentang tanggal atau pilih cabang, atau jalankan command basket-size:finalize.')
                 ->warning()
                 ->send();
 
             return;
         }
 
+        $this->recalculationQueue = $ids;
+        $this->recalculationTotal = count($ids);
+    }
+
+    public function processRecalculationBatch(BasketSizeFinalizer $finalizer): void
+    {
+        abort_unless($this->canRecalculate(), 403);
+
+        if ($this->recalculationQueue === []) {
+            return;
+        }
+
+        $batch = array_map('intval', array_splice($this->recalculationQueue, 0, self::RECALCULATE_BATCH_SIZE));
+
         $result = $finalizer->process(
-            $this->recordsInScope()
+            $this->limitToAccessibleBranches(BasketSizeRecord::query())
+                ->whereIn('id', $batch)
                 ->with(['salesReport.branch.activeSalesShifts', 'salesReport.branch.esbCodes'])
                 ->orderBy('report_date')
                 ->orderBy('id')
                 ->get(),
         );
+
+        foreach (['finalized', 'waiting', 'skipped', 'failed'] as $key) {
+            $this->recalculationResult[$key] += $result[$key];
+        }
+
+        if ($this->recalculationQueue === []) {
+            $this->finishRecalculation();
+        }
+    }
+
+    private function finishRecalculation(): void
+    {
+        $result = $this->recalculationResult;
 
         $summary = collect([
             "{$result['finalized']} shift dihitung ulang",
@@ -113,6 +153,15 @@ class BasketSizePage extends Page
             ->color($result['failed'] > 0 ? 'warning' : 'success')
             ->icon($result['failed'] > 0 ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-check-circle')
             ->send();
+
+        $this->resetRecalculation();
+    }
+
+    private function resetRecalculation(): void
+    {
+        $this->recalculationQueue = [];
+        $this->recalculationTotal = 0;
+        $this->recalculationResult = ['finalized' => 0, 'waiting' => 0, 'skipped' => 0, 'failed' => 0];
     }
 
     /**

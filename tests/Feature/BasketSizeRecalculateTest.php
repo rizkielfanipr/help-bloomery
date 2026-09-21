@@ -43,10 +43,7 @@ it('recalculates recorded shifts with the current master shift hours after the h
         finalizeSale('LATE', '2026-09-10 16:00:00', 10, 400_000),
     ]);
 
-    recalculablePage()
-        ->assertSee('Hitung Ulang')
-        ->assertSee('1 shift pada filter ini')
-        ->call('recalculate')
+    runRecalculation(recalculablePage()->assertSee('Hitung Ulang')->assertSee('1 shift pada filter ini'))
         ->assertHasNoErrors()
         ->assertNotified('Hitung ulang basket size selesai');
 
@@ -66,9 +63,7 @@ it('only recalculates the selected branch and date range', function () {
     $otherBranchRecord = submittedShift($otherBranch, '2026-09-10', '08:00', '17:00');
     fakeEsbSales([finalizeSale('A', '2026-09-10 10:00:00', 10, 100_000)]);
 
-    recalculablePage(['from' => '2026-09-08', 'to' => '2026-09-12', 'branch' => $this->branch->id])
-        ->assertSee('1 shift pada filter ini')
-        ->call('recalculate')
+    runRecalculation(recalculablePage(['from' => '2026-09-08', 'to' => '2026-09-12', 'branch' => $this->branch->id])->assertSee('1 shift pada filter ini'))
         ->assertNotified('Hitung ulang basket size selesai');
 
     expect($inScope->fresh()->isFinal())->toBeTrue()
@@ -80,9 +75,7 @@ it('skips shifts that have not ended yet and reports it', function () {
     $record = submittedShift($this->branch, '2026-09-12', '08:00', '23:00');
     fakeEsbSales([finalizeSale('A', '2026-09-12 10:00:00', 10, 100_000)]);
 
-    recalculablePage()
-        ->call('recalculate')
-        ->assertNotified('Hitung ulang basket size selesai');
+    runRecalculation(recalculablePage())->assertNotified('Hitung ulang basket size selesai');
 
     Http::assertNothingSent();
     expect($record->fresh()->isFinal())->toBeFalse();
@@ -92,36 +85,35 @@ it('reports shifts that failed because ESB could not be loaded and keeps them pr
     $record = submittedShift($this->branch, '2026-09-10', '08:00', '17:00');
     fakeEsbSales([], 500);
 
-    recalculablePage()
-        ->call('recalculate')
-        ->assertNotified('Hitung ulang basket size selesai');
+    runRecalculation(recalculablePage())->assertNotified('Hitung ulang basket size selesai');
 
     expect($record->fresh()->isFinal())->toBeFalse();
 });
 
 it('refuses to recalculate more shifts than the limit in a single run', function () {
     foreach (range(0, BasketSizePage::RECALCULATE_LIMIT) as $offset) {
-        $date = today()->subDays(40 - $offset)->toDateString();
+        $date = today()->subDays(400 - $offset)->toDateString();
         $report = SalesReport::factory()->create(['branch_id' => $this->branch->id, 'report_date' => $date]);
         BasketSizeRecord::factory()->create(['sales_report_id' => $report->id, 'branch_id' => $this->branch->id, 'report_date' => $date]);
     }
     fakeEsbSales([]);
 
-    recalculablePage(['from' => today()->subDays(60)->toDateString()])
+    recalculablePage(['from' => today()->subDays(500)->toDateString()])
         ->assertSee('maksimal '.BasketSizePage::RECALCULATE_LIMIT.' per proses')
-        ->call('recalculate')
-        ->assertNotified('Terlalu banyak shift untuk dihitung ulang sekaligus');
+        ->call('startRecalculation')
+        ->assertNotified('Terlalu banyak shift untuk dihitung ulang sekaligus')
+        ->assertSet('recalculationQueue', []);
 
     Http::assertNothingSent();
 });
 
 it('validates the date range and reports an empty filter', function () {
     recalculablePage(['from' => '2026-09-12', 'to' => '2026-09-01'])
-        ->call('recalculate')
+        ->call('startRecalculation')
         ->assertHasErrors(['dateTo']);
 
     recalculablePage()
-        ->call('recalculate')
+        ->call('startRecalculation')
         ->assertNotified('Tidak ada data basket size pada filter ini');
 });
 
@@ -134,9 +126,37 @@ it('hides and forbids the recalculation for users without the permission', funct
 
     recalculablePage()
         ->assertDontSee('Hitung Ulang')
-        ->call('recalculate')
+        ->call('startRecalculation')
         ->assertForbidden();
+
+    recalculablePage()->call('processRecalculationBatch')->assertForbidden();
 
     Http::assertNothingSent();
     expect($record->fresh()->isFinal())->toBeFalse();
+});
+
+it('recalculates more shifts than the old per-click limit by working through the queue in batches', function () {
+    $records = collect(range(0, 38))->map(fn (int $offset) => submittedShift($this->branch, today()->subDays(50 - $offset)->toDateString(), '08:00', '17:00'));
+    fakeEsbSales([finalizeSale('A', today()->subDays(20)->toDateString().' 10:00:00', 10, 100_000)]);
+
+    $page = recalculablePage(['from' => today()->subDays(60)->toDateString()])
+        ->assertSee('39 shift pada filter ini')
+        ->assertDontSee('maksimal')
+        ->call('startRecalculation')
+        ->assertSet('recalculationTotal', 39);
+
+    expect($page->get('recalculationQueue'))->toHaveCount(39);
+
+    $page->call('processRecalculationBatch');
+    expect($page->get('recalculationQueue'))->toHaveCount(39 - BasketSizePage::RECALCULATE_BATCH_SIZE);
+
+    while ($page->get('recalculationQueue') !== []) {
+        $page->call('processRecalculationBatch');
+    }
+    $page->assertNotified('Hitung ulang basket size selesai');
+
+    expect($page->get('recalculationQueue'))->toBe([])
+        ->and($page->get('recalculationTotal'))->toBe(0)
+        ->and($records->every(fn ($record): bool => $record->fresh()->isFinal()))->toBeTrue();
+    Http::assertSentCount(39);
 });

@@ -26,25 +26,48 @@
                         @php
                             $recalculableCount = $this->recalculableCount();
                             $recalculateScope = $this->branchId ? ($this->branches()->firstWhere('id', $this->branchId)?->name ?? 'cabang terpilih') : 'semua cabang';
-                            $canRecalculateNow = $recalculableCount > 0 && $recalculableCount <= \App\Filament\Helpdesk\Pages\BasketSizePage::RECALCULATE_LIMIT;
+                            $recalculateLimit = \App\Filament\Helpdesk\Pages\BasketSizePage::RECALCULATE_LIMIT;
+                            $canRecalculateNow = $recalculableCount > 0 && $recalculableCount <= $recalculateLimit;
+                            $confirmText = "Hitung ulang {$recalculableCount} shift ({$dateFrom} – {$dateTo}, {$recalculateScope})? Transaksi ESB ditarik ulang memakai jam shift di master cabang saat ini, lalu basket size dan kredit staff pada periode ini diperbarui. Proses berjalan bertahap, biarkan halaman ini tetap terbuka.";
                         @endphp
-                        <button type="button" wire:click="recalculate" wire:loading.attr="disabled" wire:target="recalculate" @disabled(! $canRecalculateNow)
-                            wire:confirm="Hitung ulang {{ $recalculableCount }} shift ({{ $dateFrom }} – {{ $dateTo }}, {{ $recalculateScope }})? Transaksi ESB ditarik ulang memakai jam shift di master cabang saat ini, lalu basket size dan kredit staff pada periode ini diperbarui."
-                            class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900 dark:bg-gray-900 dark:text-blue-300 dark:hover:bg-blue-950/40">
-                            <x-heroicon-o-arrow-path wire:loading.remove wire:target="recalculate" class="h-4 w-4" />
-                            <x-heroicon-o-arrow-path wire:loading wire:target="recalculate" class="h-4 w-4 animate-spin" />
-                            <span wire:loading.remove wire:target="recalculate">Hitung Ulang</span>
-                            <span wire:loading wire:target="recalculate">Menghitung ulang...</span>
-                        </button>
-                        <p class="max-w-xs text-xs leading-5 text-gray-500 dark:text-gray-400 md:text-right">
-                            @if($recalculableCount === 0)
-                                Tidak ada shift pada filter ini.
-                            @elseif($recalculableCount > \App\Filament\Helpdesk\Pages\BasketSizePage::RECALCULATE_LIMIT)
-                                {{ $recalculableCount }} shift pada filter ini, maksimal {{ \App\Filament\Helpdesk\Pages\BasketSizePage::RECALCULATE_LIMIT }} per proses. Persempit tanggal atau pilih cabang.
-                            @else
-                                {{ $recalculableCount }} shift pada filter ini. Gunakan setelah jam shift di master cabang diubah.
-                            @endif
-                        </p>
+                        <div
+                            class="flex flex-col items-start gap-2 md:items-end"
+                            x-data="{
+                                running: false,
+                                done() { return $wire.recalculationTotal - $wire.recalculationQueue.length; },
+                                async run() {
+                                    if (this.running) return;
+                                    this.running = true;
+                                    try {
+                                        await $wire.startRecalculation();
+                                        while ($wire.recalculationQueue.length > 0) {
+                                            await $wire.processRecalculationBatch();
+                                        }
+                                    } finally {
+                                        this.running = false;
+                                    }
+                                },
+                            }"
+                        >
+                            <button type="button" x-on:click="if (confirm(@js($confirmText))) run()" x-bind:disabled="running || {{ $canRecalculateNow ? 'false' : 'true' }}"
+                                class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900 dark:bg-gray-900 dark:text-blue-300 dark:hover:bg-blue-950/40">
+                                <x-heroicon-o-arrow-path class="h-4 w-4" x-bind:class="running ? 'animate-spin' : ''" />
+                                <span x-show="! running">Hitung Ulang</span>
+                                <span x-show="running" x-cloak x-text="$wire.recalculationTotal > 0 ? `Menghitung ulang ${done()} / ${$wire.recalculationTotal}` : 'Menghitung ulang...'"></span>
+                            </button>
+                            <div x-show="running && $wire.recalculationTotal > 0" x-cloak class="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700" role="progressbar" aria-label="Progres hitung ulang basket size">
+                                <div class="h-1.5 rounded-full bg-blue-600 transition-all" x-bind:style="`width: ${$wire.recalculationTotal > 0 ? Math.round(done() / $wire.recalculationTotal * 100) : 0}%`"></div>
+                            </div>
+                            <p class="max-w-xs text-xs leading-5 text-gray-500 dark:text-gray-400 md:text-right">
+                                @if($recalculableCount === 0)
+                                    Tidak ada shift pada filter ini.
+                                @elseif($recalculableCount > $recalculateLimit)
+                                    {{ $recalculableCount }} shift pada filter ini, maksimal {{ $recalculateLimit }} per proses. Persempit tanggal atau pilih cabang.
+                                @else
+                                    {{ $recalculableCount }} shift pada filter ini, dihitung bertahap. Gunakan setelah jam shift di master cabang diubah.
+                                @endif
+                            </p>
+                        </div>
                     @endif
                 </div>
             </div>

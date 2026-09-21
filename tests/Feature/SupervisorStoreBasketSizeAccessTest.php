@@ -77,12 +77,11 @@ it('lets a supervisor recalculate basket size only for their own branches', func
     $recordB = submittedShift($this->branchB, '2026-09-10', '08:00', '17:00');
     fakeEsbSales([finalizeSale('A', '2026-09-10 10:00:00', 10, 100_000)]);
 
-    Livewire::test(BasketSizePage::class)
+    runRecalculation(Livewire::test(BasketSizePage::class)
         ->set('dateFrom', '2026-09-01')
         ->set('dateTo', '2026-09-12')
         ->assertSee('Hitung Ulang')
-        ->assertSee('1 shift pada filter ini')
-        ->call('recalculate')
+        ->assertSee('1 shift pada filter ini'))
         ->assertNotified('Hitung ulang basket size selesai');
 
     expect($recordA->fresh()->isFinal())->toBeTrue()
@@ -181,4 +180,21 @@ it('grants the supervisor permissions on deploy without touching other roles', f
 
     expect(Role::findByName('SUPERVISOR_STORE')->hasAllPermissions(['view basket sizes', 'recalculate basket sizes', 'view branches', 'edit branch shifts']))->toBeTrue()
         ->and($otherRole->fresh()->permissions()->count())->toBe($before);
+});
+
+it('ignores queued shifts outside the accessible branches when a supervisor tampers with the queue', function () {
+    $recordA = submittedShift($this->branchA, '2026-09-10', '08:00', '17:00');
+    $recordB = submittedShift($this->branchB, '2026-09-10', '08:00', '17:00');
+    fakeEsbSales([finalizeSale('A', '2026-09-10 10:00:00', 10, 100_000)]);
+
+    Livewire::test(BasketSizePage::class)
+        ->set('dateFrom', '2026-09-01')
+        ->set('dateTo', '2026-09-12')
+        ->set('recalculationQueue', [$recordB->id, $recordA->id])
+        ->set('recalculationTotal', 2)
+        ->call('processRecalculationBatch');
+
+    expect($recordA->fresh()->isFinal())->toBeTrue()
+        ->and($recordB->fresh()->isFinal())->toBeFalse();
+    Http::assertSentCount(1);
 });

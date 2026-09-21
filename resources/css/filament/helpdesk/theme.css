@@ -3,6 +3,8 @@
 @source '../../../../app/Filament/Helpdesk/**/*';
 @source '../../../../app/Filament/Resources/**/*';
 @source '../../../../resources/views/filament/helpdesk/**/*';
+@source '../../../../resources/views/filament/schemas/**/*';
+@source '../../../../resources/views/filament/forms/**/*';
 @source '../../../../resources/views/components/helpdesk/**/*';
 @source '../../../../resources/views/components/layouts/**/*';
 @source '../../../../resources/views/vendor/filament-panels/**/*';
@@ -538,6 +540,53 @@ body.fi-body {
 .fi-in-section {
     @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm
            dark:border-white/[0.08] dark:bg-[#0F172A];
+}
+
+/* Workspace forms (create/edit): a single card with flat groups and a footer for the actions */
+.fi-workspace-form .fi-section {
+    @apply rounded-2xl shadow-none;
+}
+
+.fi-workspace-form .fi-section > .fi-section-content-ctn {
+    @apply p-5 sm:p-6;
+}
+
+.fi-workspace-form .fi-section > .fi-section-content-ctn > .fi-section-content {
+    @apply p-0;
+}
+
+/* Inputs stay flat: no drop shadow, only the thin border (Filament draws it as a ring) */
+.fi-workspace-form .fi-input-wrp {
+    @apply shadow-none ring-gray-300 dark:ring-gray-600;
+}
+
+.fi-workspace-form .fi-section-footer {
+    @apply border-t border-gray-200 bg-gray-50/60 px-5 py-4 dark:border-gray-700 dark:bg-gray-800/30 sm:px-6;
+}
+
+.fi-workspace-form .fi-section-footer > .fi-sc {
+    @apply justify-end;
+}
+
+.fi-workspace-form .fi-section.fi-section-not-contained {
+    @apply overflow-visible rounded-none border-0 bg-transparent shadow-none dark:bg-transparent;
+}
+
+.fi-workspace-form .fi-section.fi-section-not-contained > .fi-section-header {
+    @apply flex items-start gap-3 border-0 p-0 pb-4;
+}
+
+.fi-workspace-form .fi-section.fi-section-not-contained > .fi-section-header > svg {
+    @apply mt-0.5 h-5 w-5 shrink-0 text-blue-500;
+}
+
+.fi-workspace-form .fi-section.fi-section-not-contained > .fi-section-header .fi-section-header-description {
+    @apply mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400;
+}
+
+.fi-workspace-form .fi-section.fi-section-not-contained > .fi-section-content-ctn,
+.fi-workspace-form .fi-section.fi-section-not-contained > .fi-section-content-ctn > .fi-section-content {
+    @apply p-0;
 }
 
 .fi-section-header,

@@ -114,6 +114,31 @@
                     if (isset($nameToId[$perm])) $groupIds[] = $nameToId[$perm];
                 }
             }
+
+            // Standard actions get their own column (first permission wins); every other permission goes to "Izin Khusus".
+            $placePermissions = function (array $permissions) use ($nameToId, $groupActionLabels): array {
+                $byAction = [];
+                $extra = [];
+                foreach ($permissions as $perm) {
+                    if (! isset($nameToId[$perm])) continue;
+                    $placed = false;
+                    foreach (array_keys($groupActionLabels) as $action) {
+                        if (str_starts_with($perm, $action . ' ') && ! isset($byAction[$action])) {
+                            $byAction[$action] = $nameToId[$perm];
+                            $placed = true;
+                            break;
+                        }
+                    }
+                    if (! $placed) $extra[$perm] = $nameToId[$perm];
+                }
+
+                return [$byAction, $extra];
+            };
+            $groupHasExtra = collect($resources)->contains(fn ($permissions) => $placePermissions($permissions)[1] !== []);
+            $isRnd = $groupName === 'Research & Development';
+            $firstColWidth = $isRnd ? ($groupHasExtra ? 'w-[20%]' : 'w-[28%]') : ($groupHasExtra ? 'w-[22%]' : 'w-[40%]');
+            $actionColWidth = $isRnd ? ($groupHasExtra ? 'w-[8%]' : 'w-[9%]') : ($groupHasExtra ? 'w-[10%]' : 'w-[12%]');
+            $tableMinWidth = $isRnd ? ($groupHasExtra ? 'min-w-[1240px]' : 'min-w-[1080px]') : ($groupHasExtra ? 'min-w-[980px]' : 'min-w-[760px]');
         @endphp
 
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-gray-900">
@@ -144,12 +169,15 @@
 
             {{-- Table --}}
             <div class="overflow-x-auto">
-            <table class="w-full {{ $groupName === 'Research & Development' ? 'min-w-[1080px]' : 'min-w-[760px]' }} table-fixed text-sm">
+            <table class="w-full {{ $tableMinWidth }} table-fixed text-sm">
                 <colgroup>
-                    <col class="{{ $groupName === 'Research & Development' ? 'w-[28%]' : 'w-[40%]' }}">
+                    <col class="{{ $firstColWidth }}">
                     @foreach ($groupActionLabels as $action => $label)
-                        <col class="{{ $groupName === 'Research & Development' ? 'w-[9%]' : 'w-[12%]' }}">
+                        <col class="{{ $actionColWidth }}">
                     @endforeach
+                    @if ($groupHasExtra)
+                        <col>
+                    @endif
                 </colgroup>
                 <thead>
                     <tr class="h-11 border-b border-gray-100 bg-white dark:border-white/5 dark:bg-gray-900">
@@ -157,21 +185,14 @@
                         @foreach ($groupActionLabels as $action => $label)
                             <th class="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ $label }}</th>
                         @endforeach
+                        @if ($groupHasExtra)
+                            <th class="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Izin Khusus</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-50 dark:divide-white/[0.03]">
                     @foreach ($resources as $resourceName => $permissions)
-                        @php
-                            $permByAction = [];
-                            foreach ($permissions as $perm) {
-                                if (!isset($nameToId[$perm])) continue;
-                                foreach (array_keys($groupActionLabels) as $action) {
-                                    if (str_starts_with($perm, $action . ' ')) {
-                                        $permByAction[$action] = $nameToId[$perm];
-                                    }
-                                }
-                            }
-                        @endphp
+                        @php [$permByAction, $extraPerms] = $placePermissions($permissions); @endphp
                         <tr class="h-14 hover:bg-gray-50/60 dark:hover:bg-white/[0.02]">
                             <td class="px-4 py-3 align-middle font-medium text-gray-700 dark:text-gray-200">
                                 {{ $resourceName }}
@@ -194,6 +215,28 @@
                                     @endif
                                 </td>
                             @endforeach
+                            @if ($groupHasExtra)
+                                <td class="px-4 py-3 align-middle">
+                                    @if ($extraPerms !== [])
+                                        <div class="space-y-1">
+                                            @foreach ($extraPerms as $permName => $permId)
+                                                <label class="flex cursor-pointer items-start gap-2 rounded-lg px-1.5 py-1 text-xs text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5">
+                                                    <input
+                                                        type="checkbox"
+                                                        value="{{ $permId }}"
+                                                        :checked="isChecked({{ $permId }})"
+                                                        @change="toggle({{ $permId }})"
+                                                        class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 shadow-sm focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                                    />
+                                                    <span>{{ ucfirst($permName) }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <span class="text-gray-300 dark:text-gray-600">—</span>
+                                    @endif
+                                </td>
+                            @endif
                         </tr>
                     @endforeach
                 </tbody>

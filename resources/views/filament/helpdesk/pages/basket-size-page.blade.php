@@ -1,5 +1,7 @@
 <x-filament-panels::page>
     @php
+        $shiftsRequired = $this->mustFillShiftsFirst();
+        $missingShiftBranches = $this->branchesMissingShifts();
         $ranking = $this->ranking();
         $totalCredit = $ranking->sum('total_credit');
         $inputClass = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
@@ -17,6 +19,7 @@
                         <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400">Pantau kredit basket size karyawan per shift dan telusuri Sales Report sumbernya dalam satu workspace.</p>
                     </div>
                 </div>
+                @unless($shiftsRequired)
                 <div class="flex shrink-0 flex-col items-start gap-2 self-start md:items-end">
                     <div class="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300">
                         <x-heroicon-o-calendar-days class="h-4 w-4" />
@@ -70,9 +73,42 @@
                         </div>
                     @endif
                 </div>
+                @endunless
             </div>
             <div class="flex items-start gap-2 border-t border-gray-200 bg-gray-50/60 px-5 py-3 text-xs leading-5 text-gray-500 dark:border-gray-700 dark:bg-gray-800/30 dark:text-gray-400 sm:px-6"><x-heroicon-o-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-500" /><span>Peringkat mengikuti rata-rata kredit per shift pada periode dan cabang yang dipilih. Pilih karyawan untuk melihat rincian setiap shift.</span></div>
         </section>
+
+        @if($shiftsRequired)
+            <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30 sm:p-6" role="alert">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-exclamation-triangle class="mt-0.5 h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div class="min-w-0 flex-1">
+                        <h3 class="text-base font-bold text-amber-900 dark:text-amber-100">Isi Shift Basket Size terlebih dahulu</h3>
+                        <p class="mt-1 text-sm leading-6 text-amber-800 dark:text-amber-200">Data Basket Size tampil setelah setiap cabang aktif Anda punya pengaturan shift. Jam shift menentukan transaksi mana yang dihitung ke tiap shift.</p>
+                        <ul class="mt-4 divide-y divide-amber-100 overflow-hidden rounded-xl border border-amber-200 bg-white dark:divide-amber-900 dark:border-amber-900 dark:bg-gray-900">
+                            @foreach($missingShiftBranches as $missingBranch)
+                                <li class="flex items-center justify-between gap-3 px-4 py-3">
+                                    <span class="min-w-0 truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $missingBranch->name }}</span>
+                                    <a href="{{ \App\Filament\Helpdesk\Resources\Branches\BranchResource::getUrl('edit', ['record' => $missingBranch->id]) }}" class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
+                                        <x-heroicon-o-clock class="h-4 w-4" />
+                                        Isi Shift
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        @else
+        @if($missingShiftBranches->isNotEmpty())
+            <div class="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
+                <x-heroicon-o-information-circle class="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+                <div class="min-w-0 text-sm leading-6 text-blue-900 dark:text-blue-100">
+                    <p class="font-semibold">{{ $missingShiftBranches->count() }} cabang aktif belum punya pengaturan Shift Basket Size</p>
+                    <p class="text-blue-800 dark:text-blue-200">Cabang ini memakai shift bawaan (07:00–15:00 dan 15:00–23:00): @foreach($missingShiftBranches->take(5) as $missingBranch)@if(\App\Filament\Helpdesk\Resources\Branches\BranchResource::canEdit($missingBranch))<a href="{{ \App\Filament\Helpdesk\Resources\Branches\BranchResource::getUrl('edit', ['record' => $missingBranch->id]) }}" class="font-semibold underline">{{ $missingBranch->name }}</a>@else<span class="font-semibold">{{ $missingBranch->name }}</span>@endif{{ ! $loop->last ? ', ' : '' }}@endforeach{{ $missingShiftBranches->count() > 5 ? ' dan '.($missingShiftBranches->count() - 5).' cabang lainnya' : '' }}. Isi lewat Edit Branch agar jam shift sesuai.</p>
+                </div>
+            </div>
+        @endif
 
         <section class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2 sm:p-5 lg:grid-cols-[1fr_1fr_1fr_2fr]">
                 <div><label for="basket-date-from" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Dari Tanggal</label><input id="basket-date-from" wire:model.live="dateFrom" type="date" class="{{ $inputClass }}"></div>
@@ -122,10 +158,11 @@
                 </table>
             </div>
         </section>
+        @endif
 
     </div>
 
-    @if($employee)
+    @if($employee && ! $shiftsRequired)
         @php($closeUrl = \App\Filament\Helpdesk\Pages\BasketSizePage::getUrl(['dateFrom' => $dateFrom, 'dateTo' => $dateTo, 'branchId' => $branchId]))
         <div id="basket-size-history" x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window="window.location.href = @js($closeUrl)" class="fixed inset-0 z-[130] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Rincian Shift Karyawan">
             <a href="{{ $closeUrl }}" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup rincian shift"></a>

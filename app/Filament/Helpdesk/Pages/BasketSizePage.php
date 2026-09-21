@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
+use App\Filament\Helpdesk\Resources\Branches\BranchResource;
 use App\Filament\Helpdesk\Resources\SalesReports\SalesReportResource;
 use App\Models\BasketSizeEmployeeRecord;
 use App\Models\BasketSizeRecord;
@@ -66,9 +67,33 @@ class BasketSizePage extends Page
         return auth()->user()?->can('view basket sizes') ?? false;
     }
 
+    private ?Collection $missingShiftBranches = null;
+
+    /**
+     * Active branches the user can access that have no active shift configured.
+     *
+     * @return Collection<int, Branch>
+     */
+    public function branchesMissingShifts(): Collection
+    {
+        return $this->missingShiftBranches ??= $this->limitToAccessibleBranches(Branch::query(), 'id')
+            ->where('is_active', true)
+            ->whereDoesntHave('activeSalesShifts')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    /**
+     * Supervisors who maintain shifts must fill them in before the basket size data opens.
+     */
+    public function mustFillShiftsFirst(): bool
+    {
+        return BranchResource::isShiftEditorOnly() && $this->branchesMissingShifts()->isNotEmpty();
+    }
+
     public function canRecalculate(): bool
     {
-        return auth()->user()?->can('recalculate basket sizes') ?? false;
+        return ! $this->mustFillShiftsFirst() && (auth()->user()?->can('recalculate basket sizes') ?? false);
     }
 
     public function recalculableCount(): int
@@ -170,6 +195,7 @@ class BasketSizePage extends Page
     private function recordsInScope(): Builder
     {
         return $this->limitToAccessibleBranches(BasketSizeRecord::query())
+            ->when($this->mustFillShiftsFirst(), fn ($query) => $query->whereRaw('1 = 0'))
             ->when($this->branchId, fn ($query) => $query->where('branch_id', $this->branchId))
             ->whereDate('report_date', '>=', $this->dateFrom)
             ->whereDate('report_date', '<=', $this->dateTo);
@@ -199,6 +225,10 @@ class BasketSizePage extends Page
 
     public function ranking(): Collection
     {
+        if ($this->mustFillShiftsFirst()) {
+            return collect();
+        }
+
         $employeeTable = (new BasketSizeEmployeeRecord)->getTable();
         $recordTable = (new BasketSizeRecord)->getTable();
 
@@ -222,7 +252,7 @@ class BasketSizePage extends Page
 
     public function history(): Collection
     {
-        if (! $this->employee) {
+        if (! $this->employee || $this->mustFillShiftsFirst()) {
             return collect();
         }
 

@@ -63,6 +63,8 @@ class ViewProject extends ViewRecord
 
     public array $salesProjections = [];
 
+    public string $forecastType = 'kitchen';
+
     public array $ccpDocumentUploads = [];
 
     public bool $ccpUploadModalOpen = false;
@@ -853,10 +855,21 @@ class ViewProject extends ViewRecord
         }
     }
 
+    public function setForecastType(string $forecastType): void
+    {
+        abort_unless(auth()->user()?->can('view bill of materials'), 403);
+
+        if (! in_array($forecastType, ['kitchen', 'store'], true)) {
+            return;
+        }
+
+        $this->forecastType = $forecastType;
+    }
+
     /** @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, product_count: int}>, projected_units: float, projected_products: int, warnings: list<string>} */
     public function materialForecast(): array
     {
-        return app(RndProjectMaterialForecastService::class)->calculate($this->record);
+        return app(RndProjectMaterialForecastService::class)->calculate($this->record, $this->forecastType);
     }
 
     private function reloadProject(): void

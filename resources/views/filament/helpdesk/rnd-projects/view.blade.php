@@ -52,7 +52,7 @@
                 </div>
                 <div class="flex items-start gap-3 p-5">
                     <x-heroicon-o-cube class="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
-                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Product Release</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $project->products->count() }} Produk</p><p class="mt-1 text-xs text-gray-500">Produk yang terdaftar di project</p></div>
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Menu Release</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $project->products->count() }} Menu</p><p class="mt-1 text-xs text-gray-500">Menu yang terdaftar di project</p></div>
                 </div>
                 <div class="flex items-start gap-3 border-t border-gray-200 p-5 dark:border-gray-700 sm:border-l-0 xl:border-l xl:border-t-0">
                     <x-heroicon-o-user-circle class="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
@@ -207,6 +207,11 @@
         @can('view bill of materials')
             @php $materialForecast = $this->materialForecast(); @endphp
             <section class="overflow-hidden rounded-2xl border border-emerald-200 bg-white dark:border-emerald-900/70 dark:bg-gray-900">
+                <div class="flex flex-wrap gap-2 border-b border-gray-200 bg-white px-5 py-3 dark:border-gray-700 dark:bg-gray-900" role="group" aria-label="Jenis Material Forecast">
+                    <button type="button" wire:click="setForecastType('kitchen')" aria-pressed="{{ $forecastType === 'kitchen' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition', 'bg-emerald-600 text-white' => $forecastType === 'kitchen', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'kitchen'])><x-heroicon-o-building-storefront class="h-4 w-4" />Forecast Kitchen</button>
+                    <button type="button" wire:click="setForecastType('store')" aria-pressed="{{ $forecastType === 'store' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition', 'bg-blue-600 text-white' => $forecastType === 'store', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'store'])><x-heroicon-o-shopping-bag class="h-4 w-4" />Forecast Store</button>
+                    <span wire:loading wire:target="setForecastType" role="status" class="self-center text-xs text-gray-500">Menghitung forecast…</span>
+                </div>
                 <div class="border-b border-emerald-200 bg-emerald-50/70 p-5 dark:border-emerald-900/70 dark:bg-emerald-950/20">
                     <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
                         <div class="flex items-start gap-3">
@@ -215,13 +220,13 @@
                             </div>
                             <div>
                                 <p class="text-xs font-bold uppercase tracking-wider text-emerald-600">Purchasing Preparation</p>
-                                <h3 class="mt-1 text-xl font-bold text-gray-900 dark:text-white">Material Forecast</h3>
-                                <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">Perkiraan total bahan baku yang perlu disiapkan Purchasing berdasarkan proyeksi penjualan seluruh produk dalam project.</p>
+                                <h3 class="mt-1 text-xl font-bold text-gray-900 dark:text-white">Material Forecast · {{ $forecastType === 'store' ? 'Store' : 'Kitchen' }}</h3>
+                                <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">Perkiraan total bahan baku yang perlu disiapkan Purchasing berdasarkan proyeksi penjualan seluruh produk dalam project dan {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}.</p>
                                 <div class="mt-3 inline-flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-gray-900 dark:text-emerald-200">
                                     <x-heroicon-o-variable class="h-4 w-4 shrink-0" />
-                                    <span><strong>Rumus:</strong> Sales Projection × Qty Main Recipe + Tolerance bahan</span>
+                                    <span><strong>Rumus:</strong> Sales Projection × Qty {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}{{ $forecastType === 'store' ? '' : ' + Tolerance bahan' }}</span>
                                 </div>
-                                <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Component dan WIP ditelusuri sampai bahan baku terakhir. Bahan dengan kode dan unit yang sama otomatis dijumlahkan.</p>
+                                <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Component dan WIP ditelusuri sampai bahan baku terakhir. Bahan dengan kode dan unit yang sama otomatis dijumlahkan. {{ $forecastType === 'store' ? 'Jika satu produk memiliki beberapa BOM Menu, setiap BOM Menu dihitung memakai seluruh proyeksi produk tersebut.' : '' }}</p>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -232,7 +237,7 @@
                                 <div>
                                     <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Produk Terhitung</p>
                                     <p class="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">{{ number_format($materialForecast['projected_products']) }}</p>
-                                    <p class="text-[10px] text-gray-500">memiliki projection &amp; Main Recipe</p>
+                                    <p class="text-[10px] text-gray-500">memiliki projection &amp; {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-white p-3.5 dark:border-emerald-800 dark:bg-gray-900">
@@ -287,7 +292,7 @@
                                     <td class="px-5 py-3 text-center text-gray-500">{{ $row['product_count'] }} produk</td>
                                 </tr>
                             @empty
-                                <tr><td colspan="5" class="px-5 py-10 text-center text-gray-500">Belum ada forecast. Isi Sales Projection dan Main Recipe pada produk project ini.</td></tr>
+                                <tr><td colspan="5" class="px-5 py-10 text-center text-gray-500">Belum ada forecast. Isi Sales Projection dan {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }} pada produk project ini.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -299,8 +304,8 @@
             <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                 <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
                     <div>
-                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Product Release</h3>
-                        <p class="text-sm text-gray-500">Daftar produk yang dikembangkan dan akan dirilis dalam project ini.</p>
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Menu Release</h3>
+                        <p class="text-sm text-gray-500">Daftar menu yang dikembangkan dan akan dirilis dalam project ini.</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         @if($canExportKitchenBom)
@@ -315,7 +320,7 @@
                         @endif
                         @if($canManage)
                             <button type="button" wire:click="openCreateProduct" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
-                                <x-heroicon-o-plus class="h-4 w-4" /> Tambah Product
+                                <x-heroicon-o-plus class="h-4 w-4" /> Tambah Menu
                             </button>
                         @endif
                     </div>
@@ -354,7 +359,7 @@
                             </div>
                             <p class="mt-3 font-mono text-xs font-bold text-blue-600">{{ $product->product_code ?: 'Belum ada kode' }}</p>
                             <h4 class="mt-1 text-base font-bold text-gray-900 dark:text-white">{{ $product->name }}</h4>
-                            <p class="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-gray-500">{{ $product->description ?: 'Tidak ada deskripsi produk.' }}</p>
+                            <p class="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-gray-500">{{ $product->description ?: 'Tidak ada deskripsi menu.' }}</p>
 
                             <div class="mt-3 grid grid-cols-2 gap-2">
                                 <div class="rounded-lg bg-gray-50 p-2.5 dark:bg-gray-800/60">
@@ -398,14 +403,14 @@
 
                             <div class="mt-auto flex items-center gap-2 pt-4">
                                 <a href="{{ \App\Filament\Helpdesk\Pages\ViewProjectProductPage::getUrl(['project' => $project->id, 'product' => $product->id]) }}" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
-                                    Buka Product
+                                    Buka Menu
                                     <x-heroicon-o-arrow-right class="h-4 w-4" />
                                 </a>
                                 @if($canManage)
-                                    <button type="button" wire:click="editProduct({{ $product->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Product">
+                                    <button type="button" wire:click="editProduct({{ $product->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Menu">
                                         <x-heroicon-o-pencil-square class="h-4 w-4" />
                                     </button>
-                                    <button type="button" wire:click="deleteProduct({{ $product->id }})" wire:confirm="Hapus product ini?" class="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30" title="Hapus Product">
+                                    <button type="button" wire:click="deleteProduct({{ $product->id }})" wire:confirm="Hapus menu ini?" class="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30" title="Hapus Menu">
                                         <x-heroicon-o-trash class="h-4 w-4" />
                                     </button>
                                 @endif
@@ -414,8 +419,8 @@
                     @empty
                         <div class="col-span-full rounded-xl border border-dashed border-gray-300 py-14 text-center dark:border-gray-700">
                             <x-heroicon-o-cake class="mx-auto h-11 w-11 text-gray-300" />
-                            <h4 class="mt-3 font-bold text-gray-700 dark:text-gray-200">Belum ada Product Release</h4>
-                            <p class="mt-1 text-sm text-gray-500">Tambahkan produk sebelum membuat atau mengimport BOM.</p>
+                            <h4 class="mt-3 font-bold text-gray-700 dark:text-gray-200">Belum ada Menu Release</h4>
+                            <p class="mt-1 text-sm text-gray-500">Tambahkan menu sebelum membuat atau mengimport BOM.</p>
                         </div>
                     @endforelse
                 </div>
@@ -429,20 +434,20 @@
                 <div x-show="productFormOpen" x-transition class="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                     <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                         <div>
-                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $editingProductId ? 'Edit Product Release' : 'Tambah Product Release' }}</h3>
-                            <p class="text-sm text-gray-500">Lengkapi informasi produk dan harga penjualan.</p>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $editingProductId ? 'Edit Menu Release' : 'Tambah Menu Release' }}</h3>
+                            <p class="text-sm text-gray-500">Lengkapi informasi menu dan harga penjualan.</p>
                         </div>
                         <button type="button" @click="productFormOpen = false" class="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
                     </div>
                     <form wire:submit="saveProduct" class="space-y-4 p-5">
                         <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                            <label class="{{ $label }}">Foto Product</label>
+                            <label class="{{ $label }}">Foto Menu</label>
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
                                 <div class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
                                     @if($productPhoto)
-                                        <img src="{{ $productPhoto->temporaryUrl() }}" alt="Preview foto product" class="h-full w-full object-cover">
+                                        <img src="{{ $productPhoto->temporaryUrl() }}" alt="Preview foto menu" class="h-full w-full object-cover">
                                     @elseif($this->productImageUrl())
-                                        <img src="{{ $this->productImageUrl() }}" alt="Foto product" class="h-full w-full object-cover">
+                                        <img src="{{ $this->productImageUrl() }}" alt="Foto menu" class="h-full w-full object-cover">
                                     @else
                                         <x-heroicon-o-photo class="h-9 w-9 text-gray-300" />
                                     @endif
@@ -458,12 +463,12 @@
                         </div>
                         <div class="grid gap-4 md:grid-cols-2">
                             <div>
-                                <label class="{{ $label }}">Nama Product *</label>
+                                <label class="{{ $label }}">Nama Menu *</label>
                                 <input wire:model="productName" class="{{ $input }}" placeholder="Contoh: Strawberry Croissant">
                                 @error('productName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                             </div>
                             <div>
-                                <label class="{{ $label }}">Product Code / SKU</label>
+                                <label class="{{ $label }}">Kode Menu / SKU</label>
                                 <input wire:model="productCode" class="{{ $input }}" placeholder="Contoh: PRD-STB-001">
                                 @error('productCode')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                             </div>
@@ -482,15 +487,15 @@
                                 @error('productStatus')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                             </div>
                             <div class="md:col-span-2">
-                                <label class="{{ $label }}">Deskripsi Product</label>
-                                <textarea wire:model="productDescription" rows="4" class="{{ $input }}" placeholder="Deskripsi, positioning, atau catatan pengembangan product..."></textarea>
+                                <label class="{{ $label }}">Deskripsi Menu</label>
+                                <textarea wire:model="productDescription" rows="4" class="{{ $input }}" placeholder="Deskripsi, positioning, atau catatan pengembangan menu..."></textarea>
                                 @error('productDescription')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                             </div>
                         </div>
                         <section class="rounded-xl border border-gray-200 dark:border-gray-700">
                             <div class="border-b border-gray-200 p-4 dark:border-gray-700">
                                 <h4 class="font-bold text-gray-900 dark:text-white">Shelf Life & Storage</h4>
-                                <p class="text-xs text-gray-500">Informasi ketahanan dan kondisi penyimpanan produk.</p>
+                                <p class="text-xs text-gray-500">Informasi ketahanan dan kondisi penyimpanan menu.</p>
                             </div>
                             <div class="grid gap-4 p-4 md:grid-cols-3">
                                 <div>
@@ -562,7 +567,7 @@
                                             <div class="md:col-span-3">
                                                 <div class="mb-3">
                                                     <label class="{{ $label }}">Target Quantity per Branch *</label>
-                                                    <p class="text-xs text-gray-500">Centang store tempat produk aktif pada projection ini, lalu isi target masing-masing.</p>
+                                                    <p class="text-xs text-gray-500">Centang store tempat menu aktif pada projection ini, lalu isi target masing-masing.</p>
                                                 </div>
                                                 <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
                                                     @forelse($projection['branch_targets'] as $targetIndex => $branchTarget)
@@ -686,7 +691,7 @@
                         <div class="flex justify-end gap-2 border-t border-gray-200 pt-4 dark:border-gray-700">
                             <button type="button" @click="productFormOpen = false" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200">Batal</button>
                             <button type="submit" wire:loading.attr="disabled" wire:target="saveProduct" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                                <span wire:loading.remove wire:target="saveProduct">{{ $editingProductId ? 'Simpan Perubahan' : 'Tambah Product' }}</span>
+                                <span wire:loading.remove wire:target="saveProduct">{{ $editingProductId ? 'Simpan Perubahan' : 'Tambah Menu' }}</span>
                                 <span wire:loading wire:target="saveProduct">Menyimpan...</span>
                             </button>
                         </div>

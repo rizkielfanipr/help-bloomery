@@ -77,6 +77,80 @@ it('aggregates projected raw materials and expands attached component BOMs', fun
         ->and(collect($forecast['rows'])->firstWhere('code', 'RAW-SUGAR')['quantity'])->toBe(1000.0);
 });
 
+it('calculates Store from menu BOMs on all projected products without mixing Kitchen materials', function () {
+    $user = User::factory()->create();
+    $project = RndProject::query()->create([
+        'name' => 'Store Forecast Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-12-31',
+        'created_by' => $user->id,
+    ]);
+    $region = SalesRegion::query()->create([
+        'name' => 'Jakarta',
+        'code' => 'JKT-STORE',
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+
+    foreach ([['Store Cake', 10, 2], ['Store Drink', 5, 3], ['No Menu', 7, null]] as [$name, $target, $menuQuantity]) {
+        $product = $project->products()->create([
+            'name' => $name,
+            'status' => 'development',
+            'created_by' => $user->id,
+        ]);
+        $product->salesProjections()->create([
+            'sales_region_id' => $region->id,
+            'projection_month' => '2026-10-01',
+            'channel' => 'all',
+            'target_quantity' => $target,
+            'target_revenue' => 1000000,
+            'created_by' => $user->id,
+        ]);
+
+        if ($menuQuantity === null) {
+            continue;
+        }
+
+        $menuBom = $project->boms()->create([
+            'esb_bom_id' => $name === 'Store Cake' ? 8101 : 8102,
+            'bom_name' => $name.' Menu',
+            'detail_snapshot' => [
+                'bomDetails' => [
+                    ['productCode' => 'RAW-MILK', 'productName' => 'Susu', 'uomName' => 'ML', 'qty' => $menuQuantity],
+                ],
+            ],
+            'created_by' => $user->id,
+        ]);
+        $product->boms()->attach($menuBom->id, ['usage_type' => 'menu']);
+
+        if ($name === 'Store Cake') {
+            $mainBom = $project->boms()->create([
+                'esb_bom_id' => 8103,
+                'bom_name' => 'Kitchen Cake',
+                'detail_snapshot' => [
+                    'bomDetails' => [
+                        ['productCode' => 'RAW-FLOUR', 'productName' => 'Tepung', 'uomName' => 'GR', 'qty' => 100],
+                    ],
+                ],
+                'created_by' => $user->id,
+            ]);
+            $product->boms()->attach($mainBom->id, ['usage_type' => 'main']);
+        }
+    }
+
+    $project->load(['products.boms.documentMaterials', 'products.salesProjections', 'boms.documentMaterials']);
+
+    $storeForecast = app(RndProjectMaterialForecastService::class)->calculate($project, 'store');
+    $kitchenForecast = app(RndProjectMaterialForecastService::class)->calculate($project);
+
+    expect($storeForecast['projected_products'])->toBe(2)
+        ->and($storeForecast['projected_units'])->toBe(15.0)
+        ->and(collect($storeForecast['rows'])->firstWhere('code', 'RAW-MILK')['quantity'])->toBe(35.0)
+        ->and(collect($storeForecast['rows'])->pluck('code'))->not->toContain('RAW-FLOUR')
+        ->and($kitchenForecast['projected_products'])->toBe(1)
+        ->and(collect($kitchenForecast['rows'])->firstWhere('code', 'RAW-FLOUR')['quantity'])->toBe(1000.0);
+});
+
 it('expands ESB auto-mapped WIP and does not count the WIP itself', function () {
     config()->set('cache.default', 'array');
     $core = Mockery::mock(EsbCoreService::class);
@@ -162,9 +236,15 @@ it('shows the material forecast on the Project page for BOM viewers', function (
         ->assertSee('Critical Control Point (CCP)')
         ->assertSee('Dokumen pendukung titik kendali kritis')
         ->assertSee('Material Forecast')
+        ->assertSee('Forecast Kitchen')
+        ->assertSee('Forecast Store')
         ->assertSee('Purchasing Preparation')
         ->assertSee('Produk Terhitung')
         ->assertSee('Total Proyeksi Penjualan')
         ->assertSee('Sales Projection × Qty Main Recipe + Tolerance bahan')
+        ->assertSee('Belum ada forecast')
+        ->call('setForecastType', 'store')
+        ->assertSet('forecastType', 'store')
+        ->assertSee('Sales Projection × Qty BOM Menu')
         ->assertSee('Belum ada forecast');
 });

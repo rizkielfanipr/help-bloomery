@@ -12,8 +12,9 @@ class RndProjectMaterialForecastService
     /**
      * @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, product_count: int}>, projected_units: float, projected_products: int, warnings: list<string>}
      */
-    public function calculate(RndProject $project): array
+    public function calculate(RndProject $project, string $forecastType = 'kitchen'): array
     {
+        $usageType = $forecastType === 'store' ? 'menu' : 'main';
         $materials = [];
         $projectedUnits = 0.0;
         $projectedProducts = 0;
@@ -26,24 +27,24 @@ class RndProjectMaterialForecastService
                 continue;
             }
 
-            $mainBoms = $product->boms->filter(fn ($bom): bool => $bom->pivot->usage_type === 'main');
+            $rootBoms = $product->boms->filter(fn ($bom): bool => $bom->pivot->usage_type === $usageType);
 
-            if ($mainBoms->isEmpty()) {
+            if ($rootBoms->isEmpty()) {
                 continue;
             }
 
             $projectedUnits += $targetQuantity;
             $projectedProducts++;
-            foreach ($mainBoms as $mainBom) {
+            foreach ($rootBoms as $rootBom) {
                 $this->addBomMaterials(
-                    $mainBom,
+                    $rootBom,
                     $targetQuantity,
                     $project->boms,
                     $materials,
                     $product->id,
                     $warnings,
                     $product->name,
-                    [$mainBom->bom_name],
+                    [$rootBom->bom_name],
                 );
             }
         }

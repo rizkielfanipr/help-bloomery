@@ -31,7 +31,7 @@
                     <div class="flex items-start justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
                         <div>
                             <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $editingProjectId ? 'Edit Project' : 'Buat Project Baru' }}</h3>
-                            <p class="mt-1 text-sm text-gray-500">{{ $editingProjectId ? 'Perbarui informasi utama dan periode pelaksanaan project.' : 'Lengkapi informasi utama dan periode pelaksanaan project R&D.' }}</p>
+                            <p class="mt-1 text-sm text-gray-500">{{ $editingProjectId ? 'Perbarui informasi utama dan periode pelaksanaan project.' : 'Lengkapi informasi utama dan target tanggal rilis project R&D.' }}</p>
                         </div>
                         <button type="button" wire:click="closeCreateProjectModal" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200" aria-label="Tutup">
                             <x-heroicon-o-x-mark class="h-5 w-5" />
@@ -48,14 +48,16 @@
                             <textarea wire:model="projectDescription" rows="4" class="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Jelaskan tujuan, ruang lingkup, dan hasil yang diharapkan..."></textarea>
                             @error('projectDescription')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                         </div>
-                        <div>
-                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Start Date *</label>
-                            <input wire:model="projectStartDate" type="date" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                            @error('projectStartDate')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                        </div>
-                        <div>
-                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">End Date *</label>
-                            <input wire:model="projectEndDate" type="date" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                        @if($editingProjectId)
+                            <div>
+                                <label for="project-start-date" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Start Date *</label>
+                                <input id="project-start-date" wire:model="projectStartDate" type="date" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                @error('projectStartDate')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        @endif
+                        <div @class(['sm:col-span-2' => ! $editingProjectId])>
+                            <label for="project-end-date" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $editingProjectId ? 'End Date' : 'Tanggal Rilis' }} *</label>
+                            <input id="project-end-date" wire:model="projectEndDate" type="date" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                             @error('projectEndDate')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                         </div>
                     </div>
@@ -102,9 +104,9 @@
                     <div>
                         <div class="flex items-center gap-2">
                             <x-heroicon-o-calendar-days class="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Timeline Project</h3>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Kalender Rilis Project</h3>
                         </div>
-                        <p class="mt-1 text-sm text-gray-500">Setiap blok menunjukkan periode project dari tanggal mulai sampai tanggal selesai.</p>
+                        <p class="mt-1 text-sm text-gray-500">Setiap project muncul hanya pada tanggal rilisnya.</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <button type="button" wire:click="previousCalendarMonth" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" aria-label="Bulan sebelumnya">
@@ -146,8 +148,8 @@
                                         @endphp
                                         <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project]) }}"
                                            class="mx-0.5 truncate rounded-md border px-2 py-1.5 text-xs font-bold hover:brightness-95 {{ $barClass }}"
-                                           style="grid-column: {{ $segment['startColumn'] }} / span {{ $segment['daySpan'] }}"
-                                           title="{{ $project->name }} · {{ $project->start_date->format('d M Y') }} – {{ $project->end_date->format('d M Y') }}">
+                                           style="grid-column: {{ $segment['dayColumn'] }} / span 1"
+                                           title="{{ $project->name }} · Rilis {{ $project->end_date->format('d M Y') }}">
                                             {{ $project->name }}
                                         </a>
                                     @endforeach

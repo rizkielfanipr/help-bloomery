@@ -16,12 +16,52 @@ class RndProductEsbMaterial extends Model
         'failed' => 'Failed',
     ];
 
+    /**
+     * The section an ESB category belongs to, judged by its name alone.
+     */
+    public static function sectionForCategoryName(?string $categoryName): string
+    {
+        $category = mb_strtolower(trim((string) $categoryName));
+
+        return match (true) {
+            str_contains($category, 'wip') => 'wip',
+            str_contains($category, 'marketing') => 'marketing',
+            str_contains($category, 'packaging'), str_contains($category, 'kemasan') => 'packaging',
+            default => 'raw',
+        };
+    }
+
+    public function materialSection(): string
+    {
+        $categorySection = self::sectionForCategoryName($this->category_name);
+        $code = strtoupper(trim((string) $this->product_code));
+
+        if ($this->material_section === 'marketing') {
+            return 'marketing';
+        }
+
+        if ($categorySection === 'wip' || str_starts_with($code, 'BW')) {
+            return 'wip';
+        }
+
+        if ($categorySection === 'marketing') {
+            return 'marketing';
+        }
+
+        if ($categorySection === 'packaging' || str_starts_with($code, 'PKG') || str_starts_with($code, 'PAM')) {
+            return 'packaging';
+        }
+
+        return 'raw';
+    }
+
     protected $fillable = [
         'rnd_project_product_id',
         'category_id',
         'category_name',
         'sub_category_id',
         'sub_category_name',
+        'material_section',
         'uom_id',
         'uom_name',
         'product_code',

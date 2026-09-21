@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use OpenSpout\Reader\XLSX\Reader;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -40,6 +41,193 @@ it('uses dry as the shelf life storage option', function () {
     expect(RndProjectProduct::STORAGE_CONDITIONS)
         ->toHaveKey('dry', 'Dry')
         ->not->toHaveKey('ambient');
+});
+
+it('separates ESB master materials into raw WIP packaging and marketing sections', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Material Sections Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Material Sections Menu',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    foreach ([
+        ['RAW-TEST', 'Raw Test Item', 'Bahan Baku Makanan'],
+        ['UNC-TEST', 'Uncategorized Test Item', null],
+        ['WIP-TEST', 'WIP Test Item', 'Barang WIP'],
+        ['PKG-TEST', 'Packaging Test Item', 'Packaging'],
+        ['MKT-TEST', 'Marketing Test Item', 'Marketing Material'],
+    ] as [$code, $name, $category]) {
+        $product->esbMaterials()->create([
+            'category_id' => 1,
+            'category_name' => $category,
+            'sub_category_id' => 1,
+            'uom_id' => 1,
+            'uom_name' => 'PCS',
+            'product_code' => $code,
+            'product_name' => $name,
+            'sku' => $code.'-PCS',
+            'created_by' => auth()->id(),
+        ]);
+    }
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->assertSeeInOrder([
+            'RAW Items', 'Raw Test Item', 'Uncategorized Test Item',
+            'WIP Items', 'WIP Test Item',
+            'Packaging Items', 'Packaging Test Item',
+            'Marketing Material Items', 'Marketing Test Item',
+        ])
+        ->call('openEsbMaterialForm', null, 'wip')
+        ->assertSet('esbMaterialSection', 'wip')
+        ->assertSee('Tambah WIP Item');
+
+    foreach (['raw' => 'Raw Test Item', 'wip' => 'WIP Test Item', 'packaging' => 'Packaging Test Item', 'marketing' => 'Marketing Test Item'] as $section => $expectedName) {
+        $response = $this->get(route('helpdesk.rnd-products.esb-materials-export', [
+            'project' => $project->id,
+            'product' => $product->id,
+            'format' => 'xlsx',
+            'section' => $section,
+        ]));
+        $response->assertOk();
+
+        $reader = new Reader;
+        $reader->open($response->baseResponse->getFile()->getPathname());
+        $rows = [];
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $rows[] = $row->toArray();
+            }
+        }
+        $reader->close();
+
+        $values = collect($rows)->flatten()->all();
+        expect($values)->toContain($expectedName);
+        foreach (array_diff(['Raw Test Item', 'WIP Test Item', 'Packaging Test Item', 'Marketing Test Item'], [$expectedName]) as $excludedName) {
+            expect($values)->not->toContain($excludedName);
+        }
+    }
+});
+
+it('keeps a material created from the marketing section there whatever its ESB category is', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Marketing Section Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Marketing Section Menu',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->call('openEsbMaterialForm', null, 'marketing')
+        ->assertSet('esbMaterialSection', 'marketing')
+        ->assertSee('Tambah Marketing Material Item')
+        ->set('esbMaterialProductName', 'Sticker Label Promo')
+        ->set('esbMaterialCategoryId', 11)
+        ->set('esbMaterialSubCategoryId', 21)
+        ->set('esbMaterialProductCode', 'STK-PROMO-01')
+        ->set('esbMaterialUnits', [[
+            'uom_id' => 5,
+            'uom_name' => 'PCS',
+            'sku' => '',
+            'conversion_factor' => '1',
+            'base_price' => '500',
+            'is_base' => true,
+        ]])
+        ->call('saveEsbMaterial')
+        ->assertHasNoErrors();
+
+    $material = $product->esbMaterials()->sole();
+    expect($material->material_section)->toBe('marketing')
+        ->and($material->materialSection())->toBe('marketing');
+
+    $this->get(route('helpdesk.rnd-products.esb-materials-export', [
+        'project' => $project->id,
+        'product' => $product->id,
+        'format' => 'xlsx',
+        'section' => 'marketing',
+    ]))->assertOk();
+});
+
+dataset('material section categories', [
+    'raw' => ['raw', ['Bahan Baku Makanan (1)', 'Bahan Baku Minuman (2)'], ['Barang WIP (3)', 'Packaging (4)', 'New Packaging Non Inv (5)', 'Marketing Materials (6)']],
+    'wip' => ['wip', ['Barang WIP (3)'], ['Bahan Baku Makanan (1)', 'Bahan Baku Minuman (2)', 'Packaging (4)', 'New Packaging Non Inv (5)', 'Marketing Materials (6)']],
+    'packaging' => ['packaging', ['Packaging (4)', 'New Packaging Non Inv (5)'], ['Bahan Baku Makanan (1)', 'Bahan Baku Minuman (2)', 'Barang WIP (3)', 'Marketing Materials (6)']],
+    'marketing' => ['marketing', ['Marketing Materials (6)'], ['Bahan Baku Makanan (1)', 'Bahan Baku Minuman (2)', 'Barang WIP (3)', 'Packaging (4)', 'New Packaging Non Inv (5)']],
+]);
+
+function materialCategoryTestPage(): array
+{
+    $project = RndProject::query()->create([
+        'name' => 'Category Filter Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Category Filter Menu',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->set('esbCategoryOptions', [
+            1 => 'Bahan Baku Makanan',
+            2 => 'Bahan Baku Minuman',
+            3 => 'Barang WIP',
+            4 => 'Packaging',
+            5 => 'New Packaging Non Inv',
+            6 => 'Marketing Materials',
+        ])
+        ->set('esbSubCategoryOptions', [21 => 'Umum']);
+
+    return [$page, $product];
+}
+
+it('only offers the ESB categories that belong to the section being added', function (string $section, array $offered, array $hidden) {
+    [$page] = materialCategoryTestPage();
+
+    $page->call('openEsbMaterialForm', null, $section)->assertSet('esbMaterialSection', $section);
+
+    foreach ($offered as $option) {
+        $page->assertSee($option);
+    }
+    foreach ($hidden as $option) {
+        $page->assertDontSee($option);
+    }
+})->with('material section categories');
+
+it('keeps the current category selectable when editing a material outside its section categories', function () {
+    [$page, $product] = materialCategoryTestPage();
+    $material = $product->esbMaterials()->create([
+        'category_id' => 1,
+        'category_name' => 'Bahan Baku Makanan',
+        'sub_category_id' => 21,
+        'uom_id' => 5,
+        'uom_name' => 'PCS',
+        'product_code' => 'PKG-ODD-01',
+        'product_name' => 'Kemasan Kode PKG',
+        'sku' => 'PKG-ODD-01-PCS',
+        'created_by' => auth()->id(),
+    ]);
+
+    expect($material->materialSection())->toBe('packaging');
+
+    $page->call('openEsbMaterialForm', $material->id)
+        ->assertSet('esbMaterialSection', 'packaging')
+        ->assertSee('Bahan Baku Makanan (1)')
+        ->assertSee('Packaging (4)')
+        ->assertDontSee('Barang WIP (3)')
+        ->assertDontSee('Marketing Materials (6)');
 });
 
 it('edits project information from the project detail modal', function () {
@@ -136,24 +324,37 @@ it('renders the R&D project list and create modal', function () {
         ->call('openCreateProjectModal')
         ->assertSet('createProjectModalOpen', true)
         ->assertSee('Buat Project Baru')
-        ->assertSee('Nama Project');
+        ->assertSee('Nama Project')
+        ->assertSee('Tanggal Rilis')
+        ->assertDontSee('Start Date');
 });
 
-it('shows project date ranges in the monthly timeline calendar', function () {
+it('shows each project only on its release date in the monthly calendar', function () {
     RndProject::query()->create([
         'name' => 'Project Calendar Seasonal',
-        'start_date' => '2026-09-14',
+        'start_date' => '2026-08-14',
         'end_date' => '2026-09-24',
         'created_by' => auth()->id(),
     ]);
 
-    Livewire::test(ListProjects::class)
+    $page = Livewire::test(ListProjects::class)
         ->call('showProjectCalendar')
-        ->set('calendarMonth', '2026-09')
+        ->set('calendarMonth', '2026-08')
         ->assertSet('projectView', 'calendar')
-        ->assertSee('Timeline Project')
+        ->assertDontSee('Project Calendar Seasonal')
+        ->set('calendarMonth', '2026-09')
+        ->assertSee('Kalender Rilis Project')
         ->assertSee('September 2026')
-        ->assertSee('Project Calendar Seasonal')
+        ->assertSee('Project Calendar Seasonal');
+
+    $releaseEvents = collect($page->instance()->calendar()['weeks'])
+        ->flatMap(fn (array $week): array => $week['projects'])
+        ->values();
+
+    expect($releaseEvents)->toHaveCount(1)
+        ->and($releaseEvents[0]['dayColumn'])->toBe(4);
+
+    $page
         ->call('nextCalendarMonth')
         ->assertSet('calendarMonth', '2026-10')
         ->assertDontSee('Project Calendar Seasonal')
@@ -163,20 +364,32 @@ it('shows project date ranges in the monthly timeline calendar', function () {
 });
 
 it('creates a project', function () {
+    $releaseDate = today()->addMonth()->toDateString();
+
     Livewire::test(ListProjects::class)
         ->call('openCreateProjectModal')
         ->set('projectName', 'Seasonal Product Development')
         ->set('projectDescription', 'Project pengembangan menu seasonal.')
-        ->set('projectStartDate', '2026-08-01')
-        ->set('projectEndDate', '2026-08-31')
+        ->set('projectEndDate', $releaseDate)
         ->call('createProject')
         ->assertHasNoErrors();
 
     $project = RndProject::query()->where('name', 'Seasonal Product Development')->firstOrFail();
 
     expect($project->description)->toBe('Project pengembangan menu seasonal.')
-        ->and($project->start_date->toDateString())->toBe('2026-08-01')
-        ->and($project->end_date->toDateString())->toBe('2026-08-31');
+        ->and($project->start_date->toDateString())->toBe(today()->toDateString())
+        ->and($project->end_date->toDateString())->toBe($releaseDate);
+});
+
+it('requires a release date that is not before today when creating a project', function () {
+    Livewire::test(ListProjects::class)
+        ->call('openCreateProjectModal')
+        ->set('projectName', 'Project Tanggal Lampau')
+        ->set('projectEndDate', today()->subDay()->toDateString())
+        ->call('saveProject')
+        ->assertHasErrors(['projectEndDate']);
+
+    expect(RndProject::query()->where('name', 'Project Tanggal Lampau')->exists())->toBeFalse();
 });
 
 it('updates a project from the project list modal', function () {
@@ -192,6 +405,8 @@ it('updates a project from the project list modal', function () {
         ->assertSet('createProjectModalOpen', true)
         ->assertSet('editingProjectId', $project->id)
         ->assertSee('Edit Project')
+        ->assertSee('Start Date')
+        ->assertSee('End Date')
         ->set('projectName', 'Project Setelah Edit')
         ->set('projectDescription', 'Deskripsi telah diperbarui.')
         ->set('projectEndDate', '2026-09-30')
@@ -499,7 +714,7 @@ it('uploads and deletes product marketing materials on Cloudflare storage', func
         ->call('saveMaterial')
         ->assertHasNoErrors()
         ->assertSee('Final Packaging Design')
-        ->assertSee('Marketing Materials')
+        ->assertSee('Marketing Materials Design')
         ->assertSee('Download');
 
     $material = $product->marketingMaterials()->firstOrFail();
@@ -574,10 +789,16 @@ it('shows marketing fulfillment and approved supplier details on the product pag
     ])
         ->assertSee('Sudah Dipesan')
         ->assertSee('CV Print Bloomery')
+        ->assertSee('Detail Sourcing')
+        ->assertDontSee('Supplier Disetujui')
+        ->call('openSourcingDetail', $esbMaterial->id)
+        ->assertSet('sourcingDetailMaterialId', $esbMaterial->id)
         ->assertSee('Disetujui')
         ->assertSee('PT Supplier Terpilih')
         ->assertSee('100 kg')
-        ->assertSee('08123456789');
+        ->assertSee('08123456789')
+        ->call('closeModal', 'sourcingDetail')
+        ->assertSet('sourcingDetailMaterialId', null);
 });
 
 it('stores a new material draft and creates its Master Product in ESB', function () {
@@ -645,7 +866,7 @@ it('stores a new material draft and creates its Master Product in ESB', function
         ->call('saveEsbMaterial')
         ->assertHasNoErrors()
         ->assertSee('Matcha Powder Premium')
-        ->assertSee('Create to ESB');
+        ->assertSee('Kirim data ke ESB');
 
     $material = $product->esbMaterials()->firstOrFail();
     expect($material->status)->toBe('draft')
@@ -957,7 +1178,7 @@ it('renders project cards and the individual project workspace', function () {
         ->assertSee('Menu Lebaran 2027')
         ->assertSee('Lebaran Cookies')
         ->assertSee('Harga Offline')
-        ->assertSee('Buka Product')
+        ->assertSee('Buka Menu')
         ->assertDontSee('Marketing Materials')
         ->assertDontSee('Bill of Materials');
 

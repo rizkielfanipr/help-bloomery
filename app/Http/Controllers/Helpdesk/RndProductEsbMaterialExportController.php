@@ -9,6 +9,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Color;
 use OpenSpout\Common\Entity\Style\Style;
@@ -24,7 +25,21 @@ class RndProductEsbMaterialExportController
 
         $projectRecord = RndProject::query()->findOrFail($project);
         $productRecord = $projectRecord->products()->findOrFail($product);
+        $validated = $request->validate([
+            'section' => ['nullable', Rule::in(['raw', 'wip', 'packaging', 'marketing'])],
+        ]);
+        $section = $validated['section'] ?? null;
+        $sectionLabel = match ($section) {
+            'raw' => 'RAW Items',
+            'wip' => 'WIP Items',
+            'packaging' => 'Packaging Items',
+            'marketing' => 'Marketing Material Items',
+            default => null,
+        };
         $materials = $productRecord->esbMaterials()->with('units')->oldest()->get();
+        if ($section !== null) {
+            $materials = $materials->filter(fn (RndProductEsbMaterial $material): bool => $material->materialSection() === $section)->values();
+        }
         $format = $request->string('format')->lower()->value();
 
         if ($format === 'pdf') {
@@ -32,13 +47,14 @@ class RndProductEsbMaterialExportController
                 'projectRecord',
                 'productRecord',
                 'materials',
-            ))->setPaper('a4', 'landscape')->download($this->filename($productRecord, 'pdf'));
+                'sectionLabel',
+            ))->setPaper('a4', 'landscape')->download($this->filename($productRecord, 'pdf', $section));
         }
 
-        return $this->excel($projectRecord, $productRecord, $materials);
+        return $this->excel($projectRecord, $productRecord, $materials, $section, $sectionLabel);
     }
 
-    private function excel(RndProject $project, RndProjectProduct $product, $materials): BinaryFileResponse
+    private function excel(RndProject $project, RndProjectProduct $product, $materials, ?string $section, ?string $sectionLabel): BinaryFileResponse
     {
         $path = tempnam(sys_get_temp_dir(), 'rnd_esb_material_').'.xlsx';
         $writer = new Writer;
@@ -51,6 +67,9 @@ class RndProductEsbMaterialExportController
         $writer->addRow(Row::fromValues(['DAFTAR BAHAN BARU R&D', '', '', '', '', '', '', '', '', '', '', ''], $title));
         $writer->addRow(Row::fromValues(['Project', $project->name], $info));
         $writer->addRow(Row::fromValues(['Product Release', $product->name], $info));
+        if ($sectionLabel !== null) {
+            $writer->addRow(Row::fromValues(['Section', $sectionLabel], $info));
+        }
         $writer->addRow(Row::fromValues(['Dicetak', now()->format('d/m/Y H:i')], $info));
         $writer->addRow(Row::fromValues([]));
         $writer->addRow(Row::fromValues([
@@ -78,13 +97,13 @@ class RndProductEsbMaterialExportController
 
         $writer->close();
 
-        return response()->download($path, $this->filename($product, 'xlsx'), [
+        return response()->download($path, $this->filename($product, 'xlsx', $section), [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ])->deleteFileAfterSend(true);
     }
 
-    private function filename(RndProjectProduct $product, string $extension): string
+    private function filename(RndProjectProduct $product, string $extension, ?string $section = null): string
     {
-        return 'daftar-bahan-'.Str::slug($product->name).'.'.$extension;
+        return 'daftar-bahan-'.($section !== null ? $section.'-' : '').Str::slug($product->name).'.'.$extension;
     }
 }

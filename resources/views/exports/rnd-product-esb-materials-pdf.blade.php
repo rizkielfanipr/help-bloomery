@@ -19,6 +19,7 @@
     <div class="meta">
         Project: <strong>{{ $projectRecord->name }}</strong><br>
         Product Release: <strong>{{ $productRecord->name }}</strong><br>
+        @if($sectionLabel)Section: <strong>{{ $sectionLabel }}</strong><br>@endif
         Dicetak: {{ now()->format('d M Y H:i') }}
     </div>
     <table>

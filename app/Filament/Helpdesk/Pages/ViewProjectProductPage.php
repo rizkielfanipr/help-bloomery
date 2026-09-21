@@ -83,6 +83,8 @@ class ViewProjectProductPage extends Page
 
     public bool $esbMaterialModalOpen = false;
 
+    public ?int $sourcingDetailMaterialId = null;
+
     public bool $exportPinModalOpen = false;
 
     public bool $inlineProductModalOpen = false;
@@ -109,6 +111,8 @@ class ViewProjectProductPage extends Page
     public array $exportBomComponentKeys = [];
 
     public ?int $materialDraftId = null;
+
+    public string $esbMaterialSection = 'raw';
 
     public string $esbMaterialProductName = '';
 
@@ -231,10 +235,19 @@ class ViewProjectProductPage extends Page
             'import' => $this->importModalOpen = false,
             'material' => $this->materialModalOpen = false,
             'esbMaterial' => $this->esbMaterialModalOpen = false,
+            'sourcingDetail' => $this->sourcingDetailMaterialId = null,
             'exportPin' => $this->exportPinModalOpen = false,
             'inlineProduct' => $this->inlineProductModalOpen = false,
             default => abort(422),
         };
+    }
+
+    public function openSourcingDetail(int $materialId): void
+    {
+        abort_unless(auth()->user()?->can('view bill of materials'), 403);
+        abort_unless($this->productRecord->esbMaterials->contains('id', $materialId), 404);
+
+        $this->sourcingDetailMaterialId = $materialId;
     }
 
     public function editBomInstructionAction(): Action
@@ -1618,17 +1631,20 @@ class ViewProjectProductPage extends Page
         Notification::make()->title('Marketing material berhasil dihapus')->success()->send();
     }
 
-    public function openEsbMaterialForm(?int $materialId = null): void
+    public function openEsbMaterialForm(?int $materialId = null, ?string $section = null): void
     {
         $this->authorizeProjectManagement();
+        abort_if($section !== null && ! in_array($section, ['raw', 'wip', 'packaging', 'marketing'], true), 422);
         $this->resetValidation();
         $this->loadEsbTaxonomy();
         $this->loadPrefixCategoryOptions();
         $this->loadPrefixNameOptions();
         $this->materialDraftId = $materialId;
+        $this->esbMaterialSection = $section ?? 'raw';
 
         if ($materialId) {
             $material = $this->productRecord->esbMaterials()->with('units')->findOrFail($materialId);
+            $this->esbMaterialSection = $material->materialSection();
             $this->esbMaterialProductName = $material->product_name;
             $this->hydrateEsbMaterialNaming($material->product_name);
             $this->esbMaterialProductCode = $material->product_code;
@@ -1746,6 +1762,7 @@ class ViewProjectProductPage extends Page
             'category_name' => $this->esbCategoryOptions[$validated['esbMaterialCategoryId']] ?? null,
             'sub_category_id' => $validated['esbMaterialSubCategoryId'],
             'sub_category_name' => $this->esbSubCategoryOptions[$validated['esbMaterialSubCategoryId']] ?? null,
+            'material_section' => $this->esbMaterialSection === 'marketing' ? 'marketing' : null,
             'uom_id' => $baseUnit['uom_id'],
             'uom_name' => $baseUnit['uom_name'],
             'product_code' => trim($validated['esbMaterialProductCode']),
@@ -1907,6 +1924,21 @@ class ViewProjectProductPage extends Page
     public function esbMaterialNamePrefixOptions(): array
     {
         return $this->prefixNameOptions;
+    }
+
+    /**
+     * ESB categories that belong to the section being edited; the current category always stays selectable.
+     *
+     * @return array<int|string, string>
+     */
+    public function esbCategoryOptionsForSection(): array
+    {
+        return array_filter(
+            $this->esbCategoryOptions,
+            fn (string $name, int|string $id): bool => RndProductEsbMaterial::sectionForCategoryName($name) === $this->esbMaterialSection
+                || (int) $id === $this->esbMaterialCategoryId,
+            ARRAY_FILTER_USE_BOTH,
+        );
     }
 
     public function esbMaterialPrefixCategoryOptions(): array

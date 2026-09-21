@@ -140,28 +140,36 @@
             </div>
         </section>
 
+        @php
+            $esbMaterialGroups = $product->esbMaterials->groupBy(fn ($material) => $material->materialSection());
+            $esbMaterialSections = [
+                'raw' => ['title' => 'RAW Items', 'description' => 'Bahan baku untuk pembuatan menu.', 'icon' => 'heroicon-o-beaker'],
+                'wip' => ['title' => 'WIP Items', 'description' => 'Bahan setengah jadi yang diproses lebih lanjut.', 'icon' => 'heroicon-o-cube'],
+                'packaging' => ['title' => 'Packaging Items', 'description' => 'Kemasan dan perlengkapan pengemasan.', 'icon' => 'heroicon-o-archive-box'],
+                'marketing' => ['title' => 'Marketing Material Items', 'description' => 'Materi dan perlengkapan promosi produk.', 'icon' => 'heroicon-o-megaphone'],
+            ];
+        @endphp
+        <div class="space-y-4">
+        @foreach($esbMaterialSections as $sectionKey => $section)
+        @php
+            $groupMaterials = $esbMaterialGroups->get($sectionKey, collect());
+        @endphp
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 lg:flex-row lg:items-center">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Master Bahan ESB</h3>
-                    <p class="text-sm text-gray-500">Daftar bahan baru yang perlu dibuat sebagai Master Product ESB untuk product release ini.</p>
+            <div class="flex flex-col gap-3 border-b border-gray-200 p-5 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300"><x-dynamic-component :component="$section['icon']" class="h-5 w-5" /></div>
+                    <div><h4 class="font-bold text-gray-900 dark:text-white">{{ $section['title'] }}</h4><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $section['description'] }}</p></div>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <a href="{{ route('helpdesk.rnd-products.esb-materials-export', ['project' => $project->id, 'product' => $product->id, 'format' => 'xlsx']) }}" class="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100">
-                        <x-heroicon-o-table-cells class="h-4 w-4" /> Excel
-                    </a>
-                    <a href="{{ route('helpdesk.rnd-products.esb-materials-export', ['project' => $project->id, 'product' => $product->id, 'format' => 'pdf']) }}" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-sm font-bold text-red-700 hover:bg-red-100">
-                        <x-heroicon-o-document-arrow-down class="h-4 w-4" /> PDF
-                    </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{{ route('helpdesk.rnd-products.esb-materials-export', ['project' => $project->id, 'product' => $product->id, 'format' => 'xlsx', 'section' => $sectionKey]) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"><x-heroicon-o-table-cells class="h-4 w-4" />Excel</a>
+                    <a href="{{ route('helpdesk.rnd-products.esb-materials-export', ['project' => $project->id, 'product' => $product->id, 'format' => 'pdf', 'section' => $sectionKey]) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-100"><x-heroicon-o-document-arrow-down class="h-4 w-4" />PDF</a>
                     @if($canManageProject)
-                        <button type="button" wire:click="openEsbMaterialForm" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                            <x-heroicon-o-plus class="h-4 w-4" /> Tambah Bahan
-                        </button>
+                        <button type="button" wire:click="openEsbMaterialForm(null, '{{ $sectionKey }}')" wire:loading.attr="disabled" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"><x-heroicon-o-plus class="h-4 w-4" />Tambah</button>
                     @endif
                 </div>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[1450px] text-sm">
+                <table class="w-full min-w-[950px] text-sm">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-800">
                     <tr>
                         <th class="px-4 py-3 text-left">Kode & Nama</th>
@@ -169,14 +177,13 @@
                         <th class="px-4 py-3 text-left">Unit</th>
                         <th class="px-4 py-3 text-left">SKU</th>
                         <th class="px-4 py-3 text-left">Status ESB</th>
-                        <th class="px-4 py-3 text-left">Status Sourcing</th>
-                        <th class="px-4 py-3 text-left">Supplier Disetujui</th>
+                        <th class="px-4 py-3 text-left">Sourcing</th>
                         <th class="px-4 py-3 text-left">Keterangan</th>
                         <th class="px-4 py-3 text-right">Aksi</th>
                     </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @forelse($product->esbMaterials as $esbMaterial)
+                    @forelse($groupMaterials as $esbMaterial)
                         @php
                             $esbStatusStyle = match($esbMaterial->status) {
                                 'synced' => 'bg-emerald-50 text-emerald-700',
@@ -184,15 +191,6 @@
                                 'syncing' => 'bg-blue-50 text-blue-700',
                                 default => 'bg-gray-100 text-gray-700',
                             };
-                            $sourcingStatus = $esbMaterial->sourcing_status ?? \App\Enums\MaterialSourcingStatus::NotStarted;
-                            $sourcingStatusStyle = match($sourcingStatus) {
-                                \App\Enums\MaterialSourcingStatus::Approved => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-                                \App\Enums\MaterialSourcingStatus::PendingRndReview,
-                                \App\Enums\MaterialSourcingStatus::PendingFinanceReview => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-                                \App\Enums\MaterialSourcingStatus::Rejected => 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-                                default => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-                            };
-                            $selectedSupplier = $esbMaterial->selectedSourcing;
                         @endphp
                         <tr class="align-top">
                             <td class="px-4 py-3">
@@ -208,32 +206,7 @@
                             <td class="px-4 py-3 font-mono text-xs">{{ $esbMaterial->sku }}</td>
                             <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $esbStatusStyle }}">{{ \App\Models\RndProductEsbMaterial::STATUSES[$esbMaterial->status] ?? ucfirst($esbMaterial->status) }}</span></td>
                             <td class="px-4 py-3">
-                                <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $sourcingStatusStyle }}">{{ $sourcingStatus->getLabel() }}</span>
-                                @if($esbMaterial->rndReviewer)
-                                    <p class="mt-2 text-[11px] text-gray-500">RnD: {{ $esbMaterial->rndReviewer->name }}</p>
-                                @endif
-                                @if($esbMaterial->financeReviewer)
-                                    <p class="mt-1 text-[11px] text-gray-500">Finance: {{ $esbMaterial->financeReviewer->name }}</p>
-                                @endif
-                            </td>
-                            <td class="min-w-72 px-4 py-3">
-                                @if($selectedSupplier)
-                                    <p class="font-bold text-gray-900 dark:text-white">{{ $selectedSupplier->supplier_name }}</p>
-                                    <div class="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-500">
-                                        <span>Harga</span><span class="text-right font-bold text-gray-800 dark:text-gray-200">Rp {{ number_format((float) $selectedSupplier->price, 2, ',', '.') }}</span>
-                                        <span>MOQ</span><span class="text-right">{{ $selectedSupplier->moq ?: '—' }}</span>
-                                        <span>Lead Time</span><span class="text-right">{{ $selectedSupplier->lead_time_days !== null ? $selectedSupplier->lead_time_days.' hari' : '—' }}</span>
-                                    </div>
-                                    @if($selectedSupplier->contact_name || $selectedSupplier->contact_phone)
-                                        <p class="mt-2 text-xs text-gray-500">{{ $selectedSupplier->contact_name ?: 'Kontak' }}{{ $selectedSupplier->contact_phone ? ' · '.$selectedSupplier->contact_phone : '' }}</p>
-                                    @endif
-                                    @if($selectedSupplier->notes)<p class="mt-1 line-clamp-2 text-xs text-gray-500" title="{{ $selectedSupplier->notes }}">{{ $selectedSupplier->notes }}</p>@endif
-                                    @if($selectedSupplier->attachment_path)
-                                        <a href="{{ $selectedSupplier->attachmentUrl() }}" target="_blank" class="mt-2 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline"><x-heroicon-o-paper-clip class="h-3.5 w-3.5" /> Dokumen Supplier</a>
-                                    @endif
-                                @else
-                                    <span class="text-xs text-gray-400">Belum ada supplier terpilih</span>
-                                @endif
+                                <button type="button" wire:click="openSourcingDetail({{ $esbMaterial->id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/30"><x-heroicon-o-eye class="h-4 w-4" />Detail Sourcing</button>
                             </td>
                             <td class="max-w-72 px-4 py-3 text-xs">
                                 @if($esbMaterial->sync_error)<p class="line-clamp-3 text-red-600" title="{{ $esbMaterial->sync_error }}">{{ $esbMaterial->sync_error }}</p>
@@ -244,8 +217,9 @@
                                     <div class="flex justify-end gap-1.5">
                                         <button type="button" wire:click="openEsbMaterialForm({{ $esbMaterial->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50" title="{{ $esbMaterial->status === 'synced' ? 'Edit dan sinkronkan ke ESB' : 'Edit' }}"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
                                         @if($esbMaterial->status !== 'synced')
-                                            <button type="button" wire:click="syncEsbMaterial({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="syncEsbMaterial({{ $esbMaterial->id }})" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">
-                                                {{ $esbMaterial->status === 'failed' ? 'Retry' : 'Create to ESB' }}
+                                            <button type="button" wire:click="syncEsbMaterial({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="syncEsbMaterial({{ $esbMaterial->id }})" title="{{ $esbMaterial->status === 'failed' ? 'Coba kirim ulang ke ESB' : 'Kirim data ke ESB' }}" aria-label="{{ $esbMaterial->status === 'failed' ? 'Coba kirim ulang ke ESB' : 'Kirim data ke ESB' }}" class="inline-flex items-center justify-center rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700 disabled:opacity-50">
+                                                <x-heroicon-o-cloud-arrow-up wire:loading.remove wire:target="syncEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4" />
+                                                <x-heroicon-o-arrow-path wire:loading wire:target="syncEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4 animate-spin" />
                                             </button>
                                             <button type="button" wire:click="deleteEsbMaterial({{ $esbMaterial->id }})" wire:confirm="Hapus draft bahan ini?" class="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50" title="Hapus"><x-heroicon-o-trash class="h-4 w-4" /></button>
                                         @else
@@ -259,24 +233,32 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="px-5 py-12 text-center"><x-heroicon-o-cube-transparent class="mx-auto h-10 w-10 text-gray-300" /><p class="mt-3 font-bold text-gray-700 dark:text-gray-200">Belum ada bahan baru</p><p class="mt-1 text-sm text-gray-500">Tambahkan daftar bahan yang perlu dibuat ke Master Product ESB.</p></td></tr>
+                        <tr><td colspan="8" class="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">Belum ada {{ $section['title'] }} untuk menu ini.</td></tr>
                     @endforelse
                     </tbody>
                 </table>
             </div>
         </section>
+        @endforeach
+        </div>
 
         <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-            <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
-                <div>
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Marketing Materials</h3>
-                    <p class="text-sm text-gray-500">Design packaging, sticker, foto produk, katalog, dan aset promosi lainnya.</p>
+            <div class="flex flex-col gap-3 border-b border-gray-200 p-5 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300"><x-heroicon-o-photo class="h-5 w-5" /></div>
+                    <div>
+                        <h3 class="font-bold text-gray-900 dark:text-white">Marketing Materials Design</h3>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Design packaging, sticker, foto produk, katalog, dan aset promosi lainnya.</p>
+                    </div>
                 </div>
-                @if($canManageMaterials)
-                    <button type="button" wire:click="openMaterialForm" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                        <x-heroicon-o-arrow-up-tray class="h-4 w-4" /> Upload Material
-                    </button>
-                @endif
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{{ $product->marketingMaterials->count() }} Item</span>
+                    @if($canManageMaterials)
+                        <button type="button" wire:click="openMaterialForm" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
+                            <x-heroicon-o-arrow-up-tray class="h-4 w-4" /> Upload Material
+                        </button>
+                    @endif
+                </div>
             </div>
             <div class="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
                 @forelse($product->marketingMaterials as $material)
@@ -753,12 +735,57 @@
             </div>
         @endif
 
+        @if($sourcingDetailMaterialId && ($sourcingMaterial = $product->esbMaterials->firstWhere('id', $sourcingDetailMaterialId)))
+            @php
+                $sourcingStatus = $sourcingMaterial->sourcing_status ?? \App\Enums\MaterialSourcingStatus::NotStarted;
+                $approvedSupplier = $sourcingMaterial->selectedSourcing;
+            @endphp
+            <div class="fixed inset-0 z-[140] flex items-center justify-center p-3 sm:p-6">
+                <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/55" wire:click="closeModal('sourcingDetail')"></button>
+                <div role="dialog" aria-modal="true" aria-labelledby="sourcing-detail-title" class="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                    <div class="flex items-start justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
+                        <div>
+                            <h3 id="sourcing-detail-title" class="text-lg font-bold text-gray-900 dark:text-white">Detail Sourcing</h3>
+                            <p class="mt-1 text-sm text-gray-500">{{ $sourcingMaterial->product_code }} · {{ $sourcingMaterial->product_name }}</p>
+                        </div>
+                        <button type="button" wire:click="closeModal('sourcingDetail')" aria-label="Tutup detail sourcing" class="rounded-lg border border-gray-200 p-2 text-gray-500 dark:border-gray-700"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
+                    </div>
+                    <div class="space-y-4 p-5 text-sm">
+                        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                            <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Status Sourcing</p>
+                            <p class="mt-1 font-semibold text-gray-900 dark:text-white">{{ $sourcingStatus->getLabel() }}</p>
+                            @if($sourcingMaterial->rndReviewer || $sourcingMaterial->financeReviewer)
+                                <p class="mt-2 text-xs text-gray-500">@if($sourcingMaterial->rndReviewer)RnD: {{ $sourcingMaterial->rndReviewer->name }}@endif @if($sourcingMaterial->financeReviewer)· Finance: {{ $sourcingMaterial->financeReviewer->name }}@endif</p>
+                            @endif
+                        </div>
+                        @if($approvedSupplier)
+                            <div>
+                                <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Supplier Disetujui</p>
+                                <p class="mt-1 text-base font-bold text-gray-900 dark:text-white">{{ $approvedSupplier->supplier_name }}</p>
+                                @if($approvedSupplier->brand)<p class="mt-1 text-gray-500">Brand: {{ $approvedSupplier->brand }}</p>@endif
+                            </div>
+                            <dl class="grid gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-700 sm:grid-cols-2">
+                                <div><dt class="text-xs text-gray-500">Harga</dt><dd class="mt-1 font-semibold">Rp {{ number_format((float) $approvedSupplier->price, 2, ',', '.') }}</dd></div>
+                                <div><dt class="text-xs text-gray-500">MOQ</dt><dd class="mt-1 font-semibold">{{ $approvedSupplier->moq ?: '—' }}</dd></div>
+                                <div><dt class="text-xs text-gray-500">Lead Time</dt><dd class="mt-1 font-semibold">{{ $approvedSupplier->lead_time_days !== null ? $approvedSupplier->lead_time_days.' hari' : '—' }}</dd></div>
+                                <div><dt class="text-xs text-gray-500">Kontak</dt><dd class="mt-1 font-semibold">{{ $approvedSupplier->contact_name ?: '—' }}{{ $approvedSupplier->contact_phone ? ' · '.$approvedSupplier->contact_phone : '' }}</dd></div>
+                            </dl>
+                            @if($approvedSupplier->notes)<div><p class="text-xs font-bold uppercase tracking-wide text-gray-500">Catatan Supplier</p><p class="mt-1 whitespace-pre-line text-gray-700 dark:text-gray-300">{{ $approvedSupplier->notes }}</p></div>@endif
+                            @if($approvedSupplier->attachment_path)<a href="{{ $approvedSupplier->attachmentUrl() }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-sm font-bold text-blue-600 hover:underline"><x-heroicon-o-paper-clip class="h-4 w-4" />Lihat Dokumen Supplier</a>@endif
+                        @else
+                            <p class="rounded-xl border border-dashed border-gray-200 p-4 text-gray-500 dark:border-gray-700">Belum ada supplier yang disetujui untuk item ini.</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        @endif
+
         @if($esbMaterialModalOpen)
             <div class="fixed inset-0 z-[140] flex items-center justify-center p-3 sm:p-6">
                 <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/55" wire:click="closeModal('esbMaterial')"></button>
                 <div class="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                     <div class="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4 dark:border-gray-700 dark:bg-gray-900">
-                        <div><h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $materialDraftId ? 'Edit Draft Bahan' : 'Tambah Bahan Baru' }}</h3><p class="text-sm text-gray-500">Simpan sebagai draft sebelum dibuat ke Master Product ESB.</p></div>
+                        <div><h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $materialDraftId ? 'Edit Draft Bahan' : 'Tambah '.(['raw' => 'RAW', 'wip' => 'WIP', 'packaging' => 'Packaging', 'marketing' => 'Marketing Material'][$esbMaterialSection] ?? 'RAW').' Item' }}</h3><p class="text-sm text-gray-500">Simpan sebagai draft sebelum dibuat ke Master Product ESB.</p></div>
                         <button type="button" wire:click="closeModal('esbMaterial')" class="rounded-lg border border-gray-200 p-2 text-gray-500"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
                     </div>
                     <form wire:submit="saveEsbMaterial" class="relative p-5">
@@ -777,9 +804,9 @@
                                 <label class="mb-1.5 block text-sm font-semibold">Category *</label>
                                 <select wire:model.live="esbMaterialCategoryId" class="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800">
                                     <option value="">Pilih Category</option>
-                                    @foreach($esbCategoryOptions as $id => $name)<option value="{{ $id }}">{{ $name }} ({{ $id }})</option>@endforeach
+                                    @foreach($this->esbCategoryOptionsForSection() as $id => $name)<option value="{{ $id }}">{{ $name }} ({{ $id }})</option>@endforeach
                                 </select>
-                                <p class="mt-1 text-xs text-gray-500">Pilih kategori terlebih dahulu agar kode dan aturan naming dapat disiapkan.</p>
+                                <p class="mt-1 text-xs text-gray-500">Pilih kategori terlebih dahulu agar kode dan aturan naming dapat disiapkan. Kategori menentukan section item setelah disimpan.</p>
                                 @error('esbMaterialCategoryId')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                             </div>
                             <div>

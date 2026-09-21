@@ -54,7 +54,7 @@ class ListProjects extends ListRecords
     }
 
     /**
-     * @return array{monthLabel: string, weeks: array<int, array{dates: array<int, array{date: Carbon, isCurrentMonth: bool, isToday: bool}>, projects: array<int, array{project: RndProject, startColumn: int, daySpan: int}>}>}
+     * @return array{monthLabel: string, weeks: array<int, array{dates: array<int, array{date: Carbon, isCurrentMonth: bool, isToday: bool}>, projects: array<int, array{project: RndProject, dayColumn: int}>}>}
      */
     public function calendar(): array
     {
@@ -62,7 +62,7 @@ class ListProjects extends ListRecords
         $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
         $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
         $projects = $this->projects()
-            ->filter(fn (RndProject $project): bool => $project->start_date->lte($calendarEnd) && $project->end_date->gte($calendarStart));
+            ->filter(fn (RndProject $project): bool => $project->end_date->betweenIncluded($calendarStart, $calendarEnd));
         $weeks = [];
 
         for ($weekStart = $calendarStart->copy(); $weekStart->lte($calendarEnd); $weekStart->addWeek()) {
@@ -78,18 +78,12 @@ class ListProjects extends ListRecords
             }
 
             $segments = $projects
-                ->filter(fn (RndProject $project): bool => $project->start_date->lte($weekEnd) && $project->end_date->gte($weekStart))
-                ->sortBy(fn (RndProject $project): string => $project->start_date->format('Y-m-d').'|'.$project->end_date->format('Y-m-d').'|'.str_pad((string) $project->id, 10, '0', STR_PAD_LEFT))
-                ->map(function (RndProject $project) use ($weekStart, $weekEnd): array {
-                    $segmentStart = $project->start_date->greaterThan($weekStart) ? $project->start_date : $weekStart;
-                    $segmentEnd = $project->end_date->lessThan($weekEnd) ? $project->end_date : $weekEnd;
-
-                    return [
-                        'project' => $project,
-                        'startColumn' => (int) $weekStart->diffInDays($segmentStart) + 1,
-                        'daySpan' => (int) $segmentStart->diffInDays($segmentEnd) + 1,
-                    ];
-                })
+                ->filter(fn (RndProject $project): bool => $project->end_date->betweenIncluded($weekStart, $weekEnd))
+                ->sortBy(fn (RndProject $project): string => $project->end_date->format('Y-m-d').'|'.str_pad((string) $project->id, 10, '0', STR_PAD_LEFT))
+                ->map(fn (RndProject $project): array => [
+                    'project' => $project,
+                    'dayColumn' => (int) $weekStart->diffInDays($project->end_date) + 1,
+                ])
                 ->values()
                 ->all();
 
@@ -182,17 +176,20 @@ class ListProjects extends ListRecords
 
     public function saveProject(): void
     {
+        $isEditing = $this->editingProjectId !== null;
         $validated = $this->validate([
             'projectName' => ['required', 'string', 'max:255'],
             'projectDescription' => ['nullable', 'string'],
-            'projectStartDate' => ['required', 'date'],
-            'projectEndDate' => ['required', 'date', 'after_or_equal:projectStartDate'],
+            'projectStartDate' => $isEditing ? ['required', 'date'] : ['nullable'],
+            'projectEndDate' => $isEditing
+                ? ['required', 'date', 'after_or_equal:projectStartDate']
+                : ['required', 'date', 'after_or_equal:today'],
         ]);
 
         $projectData = [
             'name' => trim($validated['projectName']),
             'description' => trim($validated['projectDescription']) ?: null,
-            'start_date' => $validated['projectStartDate'],
+            'start_date' => $isEditing ? $validated['projectStartDate'] : today()->toDateString(),
             'end_date' => $validated['projectEndDate'],
         ];
 

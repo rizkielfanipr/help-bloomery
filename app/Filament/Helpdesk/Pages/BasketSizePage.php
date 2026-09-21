@@ -72,7 +72,8 @@ class BasketSizePage extends Page
                 "{$employeeTable}.employee_name",
                 "{$employeeTable}.employee_position",
             ])
-            ->orderByDesc('total_credit')
+            ->orderByDesc('average_credit')
+            ->orderBy("{$employeeTable}.employee_id")
             ->get();
     }
 

@@ -120,3 +120,45 @@ it('shows finance the ranking and employee sales report history', function () {
         ->assertSee('Bloomery Kemang')
         ->assertSee('Sales Report');
 });
+
+it('ranks employees by average credit instead of total credit', function () {
+    $finance = User::factory()->create(['is_active' => true]);
+    $finance->assignRole('FINANCE_STAFF');
+    $this->actingAs($finance);
+
+    $branch = Branch::factory()->create();
+    $report = SalesReport::factory()->create(['branch_id' => $branch->id, 'report_date' => '2026-09-01']);
+    $higherAverage = Employee::factory()->create(['branch_id' => $branch->id, 'name' => 'Higher Average']);
+    $higherTotal = Employee::factory()->create(['branch_id' => $branch->id, 'name' => 'Higher Total']);
+
+    foreach ([1 => [$higherAverage, 60000], 2 => [$higherTotal, 40000], 3 => [$higherTotal, 40000]] as $shiftNumber => [$employee, $credit]) {
+        $record = $report->basketSizeRecords()->create([
+            'branch_id' => $branch->id,
+            'report_date' => '2026-09-01',
+            'shift_number' => $shiftNumber,
+            'shift_name' => 'Shift '.$shiftNumber,
+            'shift_start_time' => '07:00',
+            'shift_end_time' => '15:00',
+            'revenue' => 1000000,
+            'total_pax' => 20,
+            'basket_size' => $credit,
+            'staff_count' => 1,
+        ]);
+        $record->employeeRecords()->create([
+            'sales_report_id' => $report->id,
+            'employee_id' => $employee->id,
+            'employee_name' => $employee->name,
+            'basket_size_credit' => $credit,
+        ]);
+    }
+
+    $ranking = Livewire::test(BasketSizePage::class)
+        ->set('dateFrom', '2026-09-01')
+        ->set('dateTo', '2026-09-01')
+        ->instance()
+        ->ranking();
+
+    expect($ranking->pluck('employee_id')->all())->toBe([$higherAverage->id, $higherTotal->id])
+        ->and((float) $ranking[0]->average_credit)->toBe(60000.0)
+        ->and((float) $ranking[1]->total_credit)->toBe(80000.0);
+});

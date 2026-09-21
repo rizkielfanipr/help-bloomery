@@ -9,6 +9,7 @@ use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\CreateServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\EditServiceRequest;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ViewServiceRequest;
+use App\Models\Branch;
 use App\Models\ServiceRequest;
 use App\Models\ServiceRequestRepair;
 use App\Models\TechnicianSettings;
@@ -21,6 +22,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
@@ -63,6 +65,19 @@ class ServiceRequestResource extends Resource
     {
         return $schema->components([
             Section::make('Detail Permintaan')->schema([
+                Select::make('branch_id')
+                    ->label('Cabang')
+                    ->options(fn (): array => Branch::query()
+                        ->whereIn('id', auth()->user()->accessibleBranchIds())
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->default(fn (): ?int => auth()->user()?->primaryBranchId())
+                    ->searchable()
+                    ->required()
+                    ->visibleOn('create')
+                    ->helperText('Permintaan masuk ke logbook teknisi yang menangani cabang ini.'),
+
                 DatePicker::make('scheduled_date')
                     ->label('Tanggal Penjadwalan')
                     ->nullable()
@@ -112,7 +127,7 @@ class ServiceRequestResource extends Resource
                     TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),
                 ]),
                 Grid::make(2)->schema([
-                    TextEntry::make('technician.name')->label('Teknisi')->placeholder('Belum ditugaskan'),
+                    TextEntry::make('technician.display_username')->label('Teknisi')->placeholder('Belum ditugaskan'),
                     TextEntry::make('warranty_expires_at')->label('Garansi Hingga')->dateTime('d M Y H:i')->placeholder('-'),
                 ]),
                 TextEntry::make('requestor_notes')->label('Catatan Pemohon')->placeholder('-'),
@@ -139,7 +154,7 @@ class ServiceRequestResource extends Resource
                                 ->size(TextSize::Large),
 
                             Grid::make(2)->schema([
-                                TextEntry::make('technician.name')
+                                TextEntry::make('technician.display_username')
                                     ->label('Teknisi')
                                     ->placeholder('-'),
                                 TextEntry::make('started_at')
@@ -213,7 +228,8 @@ class ServiceRequestResource extends Resource
                     ->placeholder('Manual')
                     ->searchable(),
 
-                TextColumn::make('technician.name')
+                TextColumn::make('technician.username')
+                    ->getStateUsing(fn (ServiceRequest $record): ?string => $record->technician?->display_username)
                     ->label('TEKNISI')
                     ->placeholder('Belum ditugaskan')
                     ->searchable()
@@ -267,7 +283,7 @@ class ServiceRequestResource extends Resource
 
                 SelectFilter::make('technician_id')
                     ->label('TEKNISI')
-                    ->options(fn () => User::whereHas('roles', fn ($q) => $q->whereIn('name', ['TECHNICIAN', 'technician', 'Technician']))->pluck('name', 'id'))
+                    ->options(fn () => User::whereHas('roles', fn ($q) => $q->whereIn('name', ['TECHNICIAN', 'technician', 'Technician']))->get()->pluck('display_username', 'id'))
                     ->searchable(),
             ], layout: FiltersLayout::AboveContent)
             ->deferFilters(false)

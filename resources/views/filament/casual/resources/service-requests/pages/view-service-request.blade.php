@@ -48,7 +48,7 @@
                     <div><dt class="text-[10px] font-semibold text-slate-400">Jadwal Pengerjaan</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->scheduled_date?->format('d M Y') ?? 'Belum Dijadwalkan' }}</dd></div>
                     <div><dt class="text-[10px] font-semibold text-slate-400">Prioritas</dt><dd class="mt-1 text-xs font-semibold {{ in_array($record->priority, ['high', 'urgent']) ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-gray-200' }}">{{ ucfirst($record->priority ?? 'normal') }}</dd></div>
                     <div><dt class="text-[10px] font-semibold text-slate-400">Pelapor</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->scheduledBy?->name ?? 'Belum Diatur' }}</dd></div>
-                    <div><dt class="text-[10px] font-semibold text-slate-400">Teknisi</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->technician?->name ?? 'Belum Ditugaskan' }}</dd></div>
+                    <div><dt class="text-[10px] font-semibold text-slate-400">Teknisi</dt><dd class="mt-1 text-xs font-semibold text-slate-700 dark:text-gray-200">{{ $record->technician?->display_username ?? 'Belum Ditugaskan' }}</dd></div>
                 </dl>
             </div>
             @if($record->warranty_expires_at)
@@ -129,7 +129,7 @@
                                     <p class="text-xs font-bold uppercase tracking-wider text-red-500">Pengaduan Ulang #{{ $cycleNum - 1 }}</p>
                                 @endif
                                 @if($repair->technician)
-                                    <p class="ml-auto text-xs text-gray-400">{{ $repair->technician->name }}</p>
+                                    <p class="ml-auto text-xs text-gray-400">{{ $repair->technician->display_username }}</p>
                                 @endif
                             </div>
 

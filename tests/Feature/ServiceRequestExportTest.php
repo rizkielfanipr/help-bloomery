@@ -50,7 +50,7 @@ it('exports service requests to xlsx with all data and proper formatting', funct
     expect($dataRow[0])->toBe($request->id);
     expect($dataRow[1])->toBe($request->code);
     expect($dataRow[5])->toBe('Store Staff');
-    expect($dataRow[8])->toBe('Alex Tech');
+    expect($dataRow[8])->toBe('alextech');
     expect($dataRow[9])->toBe("'=FormulaNotes");
     expect($dataRow[10])->toBe('photos/before.jpg');
     expect($dataRow[11])->toBe('Submitted');

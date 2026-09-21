@@ -48,7 +48,7 @@ class ViewServiceRequest extends ViewRecord
                     TextEntry::make('scheduled_date')->label('Tanggal Penjadwalan')->date('d M Y'),
                 ]),
                 Grid::make(2)->schema([
-                    TextEntry::make('technician.name')->label('Teknisi')->placeholder('Belum ditugaskan'),
+                    TextEntry::make('technician.display_username')->label('Teknisi')->placeholder('Belum ditugaskan'),
                     TextEntry::make('warranty_expires_at')->label('Garansi Hingga')->dateTime('d M Y H:i')->placeholder('-'),
                 ]),
                 TextEntry::make('requestor_notes')->label('Catatan Pemohon')->placeholder('-'),
@@ -75,7 +75,7 @@ class ViewServiceRequest extends ViewRecord
                                 ->size(TextSize::Large),
 
                             Grid::make(2)->schema([
-                                TextEntry::make('technician.name')
+                                TextEntry::make('technician.display_username')
                                     ->label('Teknisi')
                                     ->placeholder('-'),
                                 TextEntry::make('started_at')

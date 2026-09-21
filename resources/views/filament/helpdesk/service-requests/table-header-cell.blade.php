@@ -9,7 +9,7 @@
         'code' => '12%',
         'scheduled_date' => '18%',
         'scheduledBy.name' => '16%',
-        'technician.name' => '18%',
+        'technician.username' => '18%',
         'status' => '16%',
         'warranty_expires_at' => '15%',
         default => null,
@@ -244,10 +244,10 @@
             <input wire:model.live.debounce.500ms="tableFilters.scheduled_by_name.value" type="search" placeholder="Cari pemohon..." class="{{ $inputClass }}">
             @break
 
-        @case('technician.name')
+        @case('technician.username')
             <select wire:model.live="tableFilters.technician_id.value" class="{{ $inputClass }}">
                 <option value="">- Semua Teknisi -</option>
-                @foreach(User::whereHas('roles', fn ($q) => $q->whereIn('name', ['TECHNICIAN', 'technician', 'Technician']))->orderBy('name')->pluck('name', 'id') as $techId => $techName)
+                @foreach(User::whereHas('roles', fn ($q) => $q->whereIn('name', ['TECHNICIAN', 'technician', 'Technician']))->orderBy('username')->get()->pluck('display_username', 'id') as $techId => $techName)
                     <option value="{{ $techId }}">{{ $techName }}</option>
                 @endforeach
             </select>

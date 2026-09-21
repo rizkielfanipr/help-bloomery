@@ -126,7 +126,7 @@
                                 </p>
                                 @if($request->technician)
                                     <p class="mt-0.5 text-xs text-slate-400">
-                                        Teknisi: {{ $request->technician->name }}
+                                        Teknisi: {{ $request->technician->display_username }}
                                     </p>
                                 @else
                                     <p class="mt-0.5 text-xs text-slate-400">Menunggu teknisi...</p>
@@ -204,7 +204,7 @@
                                             <p class="text-[10px] font-bold uppercase tracking-widest text-red-500">Pengaduan Ulang #{{ $cycleNum - 1 }}</p>
                                         @endif
                                         @if($repair->technician)
-                                            <p class="ml-auto text-[10px] text-gray-400">{{ $repair->technician->name }}</p>
+                                            <p class="ml-auto text-[10px] text-gray-400">{{ $repair->technician->display_username }}</p>
                                         @endif
                                     </div>
 

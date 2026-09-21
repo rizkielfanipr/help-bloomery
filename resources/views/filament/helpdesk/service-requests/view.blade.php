@@ -42,7 +42,7 @@
 
         <div class="grid gap-x-8 gap-y-5 px-6 py-5 sm:grid-cols-2 lg:grid-cols-4">
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Pemohon</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->scheduledBy?->name ?? '-' }}</p></div>
-            <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Teknisi</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->technician?->name ?? 'Belum ditugaskan' }}</p></div>
+            <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Teknisi</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->technician?->display_username ?? 'Belum ditugaskan' }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Tanggal Penjadwalan</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->scheduled_date?->format('d M Y') ?? '-' }}</p></div>
             <div><p class="text-xs font-medium uppercase tracking-wide text-gray-400">Garansi Hingga</p><p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $record->warranty_expires_at?->format('d M Y H:i') ?? '-' }}</p></div>
         </div>
@@ -156,7 +156,7 @@
                         <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div>
                                 <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Teknisi</p>
-                                <p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $repair->technician?->name ?? '-' }}</p>
+                                <p class="mt-1 text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $repair->technician?->display_username ?? '-' }}</p>
                             </div>
                             <div>
                                 <p class="text-xs font-medium uppercase tracking-wide text-gray-400">Waktu Mulai</p>

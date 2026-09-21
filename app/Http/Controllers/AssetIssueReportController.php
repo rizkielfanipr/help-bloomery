@@ -57,7 +57,7 @@ class AssetIssueReportController extends Controller
 
         Notification::make()
             ->title('Laporan asset berhasil dikirim')
-            ->body($serviceRequest->code.($technician ? ' ditugaskan kepada '.$technician->name.'.' : ' sedang menunggu teknisi.'))
+            ->body($serviceRequest->code.($technician ? ' ditugaskan kepada '.$technician->display_username.'.' : ' sedang menunggu teknisi.'))
             ->success()
             ->sendToDatabase($request->user());
 

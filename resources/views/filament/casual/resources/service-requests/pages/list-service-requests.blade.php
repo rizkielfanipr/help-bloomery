@@ -90,7 +90,7 @@
                         <div class="mt-4 grid gap-2 border-t border-slate-100 pt-3 text-[11px] text-slate-500 dark:border-gray-800 dark:text-gray-400">
                             <div class="flex items-center gap-2"><x-heroicon-o-building-office-2 class="h-4 w-4 shrink-0" /><span class="truncate">{{ $job->branch?->name ?? 'Cabang Belum Diatur' }}</span></div>
                             <div class="flex items-center gap-2"><x-heroicon-o-calendar-days class="h-4 w-4 shrink-0" /><span>{{ $job->scheduled_date?->format('d M Y') ?? 'Menunggu Penjadwalan Teknisi' }}</span></div>
-                            <div class="flex items-center gap-2"><x-heroicon-o-user-circle class="h-4 w-4 shrink-0" /><span class="truncate">{{ $job->technician?->name ?? 'Belum Ditugaskan' }}</span></div>
+                            <div class="flex items-center gap-2"><x-heroicon-o-user-circle class="h-4 w-4 shrink-0" /><span class="truncate">{{ $job->technician?->display_username ?? 'Belum Ditugaskan' }}</span></div>
                         </div>
                     </div>
                     <div class="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/30">

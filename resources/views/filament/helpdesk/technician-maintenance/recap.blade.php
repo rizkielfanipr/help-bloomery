@@ -2,7 +2,7 @@
     <div class="grid gap-3 rounded-xl bg-gray-50 p-4 text-sm dark:bg-gray-800 sm:grid-cols-2">
         <div><p class="text-xs text-gray-500">Nomor Maintenance</p><p class="font-semibold text-gray-900 dark:text-white">{{ $maintenance->maintenance_number }}</p></div>
         <div><p class="text-xs text-gray-500">Status</p><p class="font-semibold text-gray-900 dark:text-white">{{ $maintenance->status === 'submitted' ? 'Terkirim' : 'Draft' }}</p></div>
-        <div><p class="text-xs text-gray-500">Teknisi</p><p class="font-semibold text-gray-900 dark:text-white">{{ $maintenance->technician?->name ?? '—' }}</p></div>
+        <div><p class="text-xs text-gray-500">Teknisi</p><p class="font-semibold text-gray-900 dark:text-white">{{ $maintenance->technician?->display_username ?? '—' }}</p></div>
         <div><p class="text-xs text-gray-500">Cabang</p><p class="font-semibold text-gray-900 dark:text-white">{{ $maintenance->branch?->name ?? '—' }}</p></div>
         <div><p class="text-xs text-gray-500">Tanggal pengecekan</p><p class="font-semibold text-gray-900 dark:text-white">{{ $maintenance->checked_at?->format('d M Y') ?? '—' }}</p></div>
         <div><p class="text-xs text-gray-500">Dikirim</p><p class="font-semibold text-gray-900 dark:text-white">{{ $maintenance->submitted_at?->format('d M Y, H:i') ?? 'Belum dikirim' }}</p></div>

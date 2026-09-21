@@ -2,7 +2,7 @@
     @forelse($requests as $request)
         <section class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
             <p class="font-bold">{{ $request->code }} · {{ $request->status->getLabel() }}</p>
-            <p class="mt-1 text-sm text-gray-500">{{ $request->created_at->format('d M Y') }} · {{ $request->technician?->name ?? 'Belum ditugaskan' }}</p>
+            <p class="mt-1 text-sm text-gray-500">{{ $request->created_at->format('d M Y') }} · {{ $request->technician?->display_username ?? 'Belum ditugaskan' }}</p>
             <p class="mt-2 text-sm">{{ $request->requestor_notes }}</p>
             <p class="mt-2 text-sm text-gray-500">Diagnosis: {{ $request->diagnosis ?: 'Belum diperiksa' }}</p>
             @foreach($request->repairs as $repair)

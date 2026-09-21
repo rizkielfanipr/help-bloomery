@@ -59,7 +59,7 @@ class ExportServiceRequestsXlsxAction
             $this->safeText($request->scheduledBy?->name),
             $this->safeText($request->scheduledBy?->username),
             $request->technician_id ?? '',
-            $this->safeText($request->technician?->name ?? 'Belum ditugaskan'),
+            $this->safeText($request->technician?->display_username ?? 'Belum ditugaskan'),
             $this->safeText($request->requestor_notes),
             $this->safeText(is_array($request->attachments) ? implode(' | ', $request->attachments) : (string) ($request->attachments ?? '')),
             $request->status instanceof ServiceRequestStatus ? $request->status->getLabel() : (string) $request->status,

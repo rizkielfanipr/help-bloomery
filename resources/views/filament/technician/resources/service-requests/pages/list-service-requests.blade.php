@@ -64,7 +64,7 @@
                         <p class="truncate font-semibold text-gray-900 dark:text-white">SR-{{ str_pad($job->id, 4, '0', STR_PAD_LEFT) }}</p>
                         <p class="mt-0.5 text-xs text-gray-500">
                             {{ $job->scheduled_date?->format('d M Y') ?? '-' }}
-                            @if($job->technician) · {{ $job->technician->name }}@endif
+                            @if($job->technician) · {{ $job->technician->display_username }}@endif
                         </p>
                     </div>
                     <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold {{ $statusConfig['bg'] }} {{ $statusConfig['text'] }} {{ $statusConfig['dark'] }}">

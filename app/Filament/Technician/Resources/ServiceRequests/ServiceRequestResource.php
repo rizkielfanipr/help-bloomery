@@ -59,7 +59,8 @@ class ServiceRequestResource extends Resource
                     ->label('ASSET')
                     ->placeholder('Manual'),
 
-                TextColumn::make('technician.name')
+                TextColumn::make('technician.username')
+                    ->getStateUsing(fn (ServiceRequest $record): ?string => $record->technician?->display_username)
                     ->label('TEKNISI')
                     ->placeholder('Belum ditugaskan')
                     ->searchable()

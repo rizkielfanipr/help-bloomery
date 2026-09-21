@@ -47,7 +47,8 @@ class ServiceRequestResource extends Resource
                     ->date('d M Y')
                     ->sortable(),
 
-                TextColumn::make('technician.name')
+                TextColumn::make('technician.username')
+                    ->getStateUsing(fn (ServiceRequest $record): ?string => $record->technician?->display_username)
                     ->label('Teknisi')
                     ->placeholder('Belum ditugaskan'),
 

@@ -6,8 +6,10 @@ use App\Enums\ServiceRequestStatus;
 use App\Filament\Helpdesk\Resources\ServiceRequests\ServiceRequestResource;
 use App\Models\ServiceRequest;
 use App\Models\TechnicianSettings;
+use App\Services\AssetServiceRequestAssigner;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Validation\ValidationException;
 
 class CreateServiceRequest extends CreateRecord
 {
@@ -15,8 +17,13 @@ class CreateServiceRequest extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        if (! auth()->user()->canAccessBranch((int) ($data['branch_id'] ?? 0))) {
+            throw ValidationException::withMessages(['data.branch_id' => 'Pilih cabang yang dapat Anda akses.']);
+        }
+
         $max = TechnicianSettings::instance()->max_jobs_per_day;
-        $booked = ServiceRequest::whereDate('scheduled_date', $data['scheduled_date'])->count();
+        $date = $data['scheduled_date'] ?? null;
+        $booked = $date ? ServiceRequest::whereDate('scheduled_date', $date)->count() : 0;
 
         if (! empty($data['scheduled_date']) && $booked >= $max) {
             Notification::make()
@@ -33,5 +40,10 @@ class CreateServiceRequest extends CreateRecord
         $data['scheduled_by'] = auth()->id();
 
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        app(AssetServiceRequestAssigner::class)->assign($this->record->load(['asset', 'branch']));
     }
 }

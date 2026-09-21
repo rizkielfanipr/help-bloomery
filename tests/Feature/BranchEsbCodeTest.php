@@ -159,6 +159,9 @@ it('allows adding multiple ESB code pairs to a branch through the admin form', f
                 ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO16', 'label' => 'NO LABEL', 'is_active' => true],
                 ['esb_branch_code' => 'BPL', 'esb_comcode' => 'BLO3', 'label' => 'DINE IN', 'is_active' => true],
             ],
+            'salesShifts' => [
+                ['shift_number' => 1, 'name' => 'Shift 1', 'start_time' => '07:00', 'end_time' => '15:00', 'is_active' => true],
+            ],
         ])
         ->call('create')
         ->assertHasNoFormErrors();

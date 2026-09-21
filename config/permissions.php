@@ -162,6 +162,7 @@ return [
         'Employee' => ['view employees', 'create employees', 'edit employees', 'delete employees'],
         'Brand' => ['view brands', 'create brands', 'edit brands', 'delete brands'],
         'Cabang' => ['view branches', 'create branches', 'edit branches', 'delete branches'],
+        'Shift Basket Size' => ['edit branch shifts'],
         'WhatsApp' => ['edit whatsapp settings'],
     ],
 

@@ -18,12 +18,14 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
@@ -31,6 +33,8 @@ use Filament\Support\Enums\Alignment;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
 class BranchResource extends Resource
@@ -51,11 +55,52 @@ class BranchResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Branch';
 
+    /**
+     * Full editors change every field of any branch; the others may only edit the shifts of the branches they can access.
+     */
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+
+        if ($user?->can('edit branches')) {
+            return true;
+        }
+
+        return $user?->can('edit branch shifts') === true && $user->canAccessBranch((int) $record->getKey());
+    }
+
+    public static function isShiftEditorOnly(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && $user->can('edit branch shifts') && ! $user->can('edit branches');
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (static::isShiftEditorOnly()) {
+            $query->whereIn('id', auth()->user()->accessibleBranchIds());
+        }
+
+        return $query;
+    }
+
     public static function form(Schema $schema): Schema
     {
+        $divider = fn (): array => static::isShiftEditorOnly() ? [] : ['class' => 'border-t border-gray-200 pt-6 dark:border-gray-700'];
+        $fullEditorOnly = fn (): bool => ! static::isShiftEditorOnly();
+
         return $schema
+            ->columns(1)
             ->components([
                 Section::make('Informasi Branch')
+                    ->description('Data dasar dan status branch.')
+                    ->icon('heroicon-o-building-office-2')
+                    ->contained(false)
+                    ->visible($fullEditorOnly)
+                    ->columns(2)
                     ->schema([
                         Select::make('brand_id')
                             ->label('Brand')
@@ -77,21 +122,26 @@ class BranchResource extends Resource
 
                         Toggle::make('is_active')
                             ->label('Aktif')
+                            ->helperText('Branch nonaktif tidak tampil sebagai pilihan aktif.')
                             ->default(true),
-
-                        Toggle::make('location_required')
-                            ->label('Wajib Validasi Lokasi')
-                            ->helperText('Jika aktif, karyawan wajib berada di dalam radius titik absen saat clock in/out')
-                            ->default(false),
-                    ])
-                    ->columns(2),
+                    ]),
 
                 Section::make('Kode ESB')
-                    ->description('Branch bisa punya lebih dari satu pasangan Branch Code + Comcode (mis. tercatat di beberapa company ESB). Data yang di-fetch akan dijumlahkan dari semua pasangan yang aktif.')
+                    ->description('Satu branch bisa punya beberapa pasangan Branch Code + Comcode (mis. tercatat di beberapa company ESB). Data yang di-fetch dijumlahkan dari semua pasangan yang aktif.')
+                    ->icon('heroicon-o-link')
+                    ->contained(false)
+                    ->visible($fullEditorOnly)
+                    ->extraAttributes($divider)
                     ->schema([
                         Repeater::make('esbCodes')
                             ->relationship()
                             ->hiddenLabel()
+                            ->table([
+                                TableColumn::make('ESB Branch Code')->markAsRequired(),
+                                TableColumn::make('ESB Comcode')->markAsRequired(),
+                                TableColumn::make('Label')->markAsRequired(),
+                                TableColumn::make('Aktif'),
+                            ])
                             ->schema([
                                 TextInput::make('esb_branch_code')
                                     ->label('ESB Branch Code')
@@ -119,19 +169,28 @@ class BranchResource extends Resource
                                     ->label('Aktif')
                                     ->default(true),
                             ])
-                            ->columns(4)
-                            ->defaultItems(0)
+                            ->defaultItems(1)
                             ->addActionLabel('Tambah Kode ESB')
                             ->reorderable(false)
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('Shift Sales Report')
-                    ->description('Atur beberapa shift untuk pembagian transaksi, pax, dan Basket Size. Shift yang melewati tengah malam didukung.')
+                Section::make('Shift Basket Size')
+                    ->description('Atur shift untuk pembagian transaksi, pax, dan Basket Size. Shift yang melewati tengah malam didukung.')
+                    ->icon('heroicon-o-clock')
+                    ->contained(false)
+                    ->extraAttributes($divider)
                     ->schema([
                         Repeater::make('salesShifts')
                             ->relationship()
                             ->hiddenLabel()
+                            ->table([
+                                TableColumn::make('Urutan')->markAsRequired(),
+                                TableColumn::make('Nama Shift')->markAsRequired(),
+                                TableColumn::make('Jam Mulai')->markAsRequired(),
+                                TableColumn::make('Jam Selesai')->markAsRequired(),
+                                TableColumn::make('Aktif'),
+                            ])
                             ->schema([
                                 TextInput::make('shift_number')
                                     ->label('Urutan')
@@ -139,11 +198,13 @@ class BranchResource extends Resource
                                     ->integer()
                                     ->distinct()
                                     ->minValue(1)
-                                    ->required(),
+                                    ->required()
+                                    ->placeholder('mis. 1'),
                                 TextInput::make('name')
                                     ->label('Nama Shift')
                                     ->required()
-                                    ->maxLength(50),
+                                    ->maxLength(50)
+                                    ->placeholder('mis. Shift 1'),
                                 TimePicker::make('start_time')
                                     ->label('Jam Mulai')
                                     ->seconds(false)
@@ -157,27 +218,38 @@ class BranchResource extends Resource
                                     ->label('Aktif')
                                     ->default(true),
                             ])
-                            ->columns(5)
-                            ->default([
-                                ['shift_number' => 1, 'name' => 'Shift 1', 'start_time' => '07:00', 'end_time' => '15:00', 'is_active' => true],
-                                ['shift_number' => 2, 'name' => 'Shift 2', 'start_time' => '15:00', 'end_time' => '23:00', 'is_active' => true],
-                            ])
+                            ->defaultItems(1)
                             ->addActionLabel('Tambah Shift')
                             ->reorderable(false)
                             ->columnSpanFull(),
+
+                        Callout::make('Mengubah jam shift tidak menghitung ulang Basket Size yang sudah final.')
+                            ->description('Jam baru berlaku untuk perhitungan berikutnya. Untuk memperbarui data yang sudah ada, buka Basket Size lalu klik Hitung Ulang.')
+                            ->info()
+                            ->icon('heroicon-o-information-circle')
+                            ->visibleOn('edit'),
                     ]),
 
-                Section::make('Titik Lokasi Absen')
-                    ->description('Tentukan koordinat dan radius titik absen untuk branch ini. Kosongkan jika tidak perlu validasi lokasi.')
+                Section::make('Lokasi Absen')
+                    ->description('Tentukan titik dan radius absen untuk branch ini. Kosongkan jika tidak perlu validasi lokasi.')
+                    ->icon('heroicon-o-map-pin')
+                    ->contained(false)
+                    ->visible($fullEditorOnly)
+                    ->extraAttributes($divider)
+                    ->columns(1)
                     ->schema([
                         Hidden::make('lat'),
                         Hidden::make('lng'),
                         Hidden::make('radius_meters')->default(100),
 
+                        Toggle::make('location_required')
+                            ->label('Wajib Validasi Lokasi')
+                            ->helperText('Jika aktif, karyawan wajib berada di dalam radius titik absen saat clock in/out.')
+                            ->default(false),
+
                         View::make('filament.schemas.components.branch-location-picker')
                             ->columnSpanFull(),
-                    ])
-                    ->columns(1),
+                    ]),
             ]);
     }
 
@@ -228,6 +300,7 @@ class BranchResource extends Resource
             ->recordActions([
                 EditAction::make()->iconButton()->tooltip('Edit'),
                 Action::make('toggle_active')
+                    ->visible(fn (): bool => ! static::isShiftEditorOnly())
                     ->iconButton()
                     ->icon(fn (Branch $record): string => $record->is_active ? 'heroicon-o-no-symbol' : 'heroicon-o-check-circle')
                     ->color(fn (Branch $record): string => $record->is_active ? 'warning' : 'success')
@@ -285,7 +358,7 @@ class BranchResource extends Resource
                     ->visible(fn () => static::canCreate())
                     ->url(static::getUrl('create')),
 
-                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(BranchExporter::class),
+                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(BranchExporter::class)->visible(fn (): bool => ! static::isShiftEditorOnly()),
 
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),

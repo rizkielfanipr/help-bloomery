@@ -149,6 +149,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view compliment types',
                 'view stock cards', 'review stock cards as supervisor',
                 'view employees', 'create employees', 'edit employees', 'delete employees',
+                'view basket sizes', 'recalculate basket sizes',
+                'view branches', 'edit branch shifts',
             ]);
 
         Role::firstOrCreate(['name' => 'FINANCE_STAFF', 'guard_name' => 'web'])

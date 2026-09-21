@@ -41,7 +41,7 @@ it('shows the branch identity and a Basket Size hint on the edit page', function
         ->assertSee('Kitchen Jateng')
         ->assertSee('Aktif')
         ->assertSee('Simpan Perubahan')
-        ->assertSee('Mengubah jam shift tidak menghitung ulang Basket Size yang sudah final.')
+        ->assertSee('Setelah jam shift diubah, Basket Size yang sudah final perlu dihitung ulang.')
         ->assertSee('Hitung Ulang');
 
     $branch->update(['is_active' => false]);

@@ -22,6 +22,21 @@ class BranchSalesShift extends Model
         return ['shift_number' => 'integer', 'is_active' => 'boolean'];
     }
 
+    protected static function booted(): void
+    {
+        static::created(fn (self $shift) => $shift->markBranchShiftsChanged());
+        static::updated(fn (self $shift) => $shift->markBranchShiftsChanged());
+        static::deleted(fn (self $shift) => $shift->markBranchShiftsChanged());
+    }
+
+    /**
+     * Basket size calculated before this moment has to be recalculated with the new shift hours.
+     */
+    public function markBranchShiftsChanged(): void
+    {
+        Branch::query()->whereKey($this->branch_id)->update(['shifts_changed_at' => now()]);
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

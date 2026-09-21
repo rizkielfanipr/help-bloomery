@@ -49,7 +49,7 @@ class ClearBranchSalesShiftsCommand extends Command
             ])->values()->all(),
         );
 
-        $this->warn('Cabang tanpa pengaturan shift memakai jumlah shift bawaan dengan jam 07:00–15:00 dan 15:00–23:00, sehingga jumlah shift yang wajib di-submit dan jendela jam ESB Sales Report ikut berubah.');
+        $this->warn('Cabang tanpa pengaturan shift memakai jumlah shift bawaan dengan jam 07:00–15:00 dan 15:00–23:00, sehingga jumlah shift yang wajib di-submit staff pada Sales Report dan jam yang dipakai untuk menghitung Basket Size ikut berubah.');
         $this->line('Sebaiknya jalankan saat tidak ada laporan berjalan (Draft), dan setelah `php artisan basket-size:finalize` untuk Basket Size sementara agar dihitung dengan jam yang lama.');
 
         if ($this->option('dry-run')) {
@@ -66,7 +66,10 @@ class ClearBranchSalesShiftsCommand extends Command
 
         $path = $this->backup($shifts);
 
-        DB::transaction(fn () => BranchSalesShift::query()->whereIn('id', $shifts->pluck('id'))->delete());
+        DB::transaction(function () use ($shifts, $branches): void {
+            BranchSalesShift::query()->whereIn('id', $shifts->pluck('id'))->delete();
+            Branch::query()->whereIn('id', $branches->keys())->update(['shifts_changed_at' => now()]);
+        });
 
         $this->info("{$shifts->count()} pengaturan shift di {$branches->count()} cabang dihapus.");
         $this->line("Cadangan: {$path}");

@@ -223,8 +223,8 @@ class BranchResource extends Resource
                             ->reorderable(false)
                             ->columnSpanFull(),
 
-                        Callout::make('Mengubah jam shift tidak menghitung ulang Basket Size yang sudah final.')
-                            ->description('Jam baru berlaku untuk perhitungan berikutnya. Untuk memperbarui data yang sudah ada, buka Basket Size lalu klik Hitung Ulang.')
+                        Callout::make('Setelah jam shift diubah, Basket Size yang sudah final perlu dihitung ulang.')
+                            ->description('Buka Basket Size lalu klik Hitung Ulang. Sebelum itu, supervisor cabang ini belum bisa melihat datanya.')
                             ->info()
                             ->icon('heroicon-o-information-circle')
                             ->visibleOn('edit'),

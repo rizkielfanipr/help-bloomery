@@ -91,6 +91,24 @@ class BasketSizePage extends Page
         return BranchResource::isShiftEditorOnly() && $this->branchesMissingShifts()->isNotEmpty();
     }
 
+    private ?int $staleRecordCount = null;
+
+    /**
+     * Final shifts in the selected filter that were calculated before their branch shifts last changed.
+     */
+    public function staleRecordCount(): int
+    {
+        return $this->staleRecordCount ??= $this->recordsInScope()->staleAfterShiftChange()->count();
+    }
+
+    /**
+     * Supervisors who maintain shifts have to recalculate the outdated basket size before the data opens.
+     */
+    public function mustRecalculateFirst(): bool
+    {
+        return BranchResource::isShiftEditorOnly() && $this->canRecalculate() && $this->staleRecordCount() > 0;
+    }
+
     public function canRecalculate(): bool
     {
         return ! $this->mustFillShiftsFirst() && (auth()->user()?->can('recalculate basket sizes') ?? false);
@@ -225,7 +243,7 @@ class BasketSizePage extends Page
 
     public function ranking(): Collection
     {
-        if ($this->mustFillShiftsFirst()) {
+        if ($this->mustFillShiftsFirst() || $this->mustRecalculateFirst()) {
             return collect();
         }
 
@@ -252,7 +270,7 @@ class BasketSizePage extends Page
 
     public function history(): Collection
     {
-        if (! $this->employee || $this->mustFillShiftsFirst()) {
+        if (! $this->employee || $this->mustFillShiftsFirst() || $this->mustRecalculateFirst()) {
             return collect();
         }
 

@@ -2,6 +2,8 @@
     @php
         $shiftsRequired = $this->mustFillShiftsFirst();
         $missingShiftBranches = $this->branchesMissingShifts();
+        $staleRequired = $this->mustRecalculateFirst();
+        $staleCount = $this->staleRecordCount();
         $ranking = $this->ranking();
         $totalCredit = $ranking->sum('total_credit');
         $inputClass = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
@@ -35,8 +37,10 @@
                         @endphp
                         <div
                             class="flex flex-col items-start gap-2 md:items-end"
+                            x-on:recalculate-basket.window="start()"
                             x-data="{
                                 running: false,
+                                start() { if (confirm(@js($confirmText))) { this.run(); } },
                                 done() { return $wire.recalculationTotal - $wire.recalculationQueue.length; },
                                 async run() {
                                     if (this.running) return;
@@ -52,7 +56,7 @@
                                 },
                             }"
                         >
-                            <button type="button" x-on:click="if (confirm(@js($confirmText))) run()" x-bind:disabled="running || {{ $canRecalculateNow ? 'false' : 'true' }}"
+                            <button type="button" x-on:click="start()" x-bind:disabled="running || {{ $canRecalculateNow ? 'false' : 'true' }}"
                                 class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-900 dark:bg-gray-900 dark:text-blue-300 dark:hover:bg-blue-950/40">
                                 <x-heroicon-o-arrow-path class="h-4 w-4" x-bind:class="running ? 'animate-spin' : ''" />
                                 <span x-show="! running">Hitung Ulang</span>
@@ -110,6 +114,16 @@
             </div>
         @endif
 
+        @if($staleCount > 0 && ! $staleRequired)
+            <div class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
+                <x-heroicon-o-arrow-path class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div class="min-w-0 text-sm leading-6 text-amber-900 dark:text-amber-100">
+                    <p class="font-semibold">{{ $staleCount }} shift pada filter ini dihitung sebelum jam shift cabang terakhir diubah</p>
+                    <p class="text-amber-800 dark:text-amber-200">Angkanya belum mengikuti jam shift terbaru.@if($this->canRecalculate()) Klik <strong>Hitung Ulang</strong> untuk memperbaruinya.@endif</p>
+                </div>
+            </div>
+        @endif
+
         <section class="grid gap-4 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:grid-cols-2 sm:p-5 lg:grid-cols-[1fr_1fr_1fr_2fr]">
                 <div><label for="basket-date-from" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Dari Tanggal</label><input id="basket-date-from" wire:model.live="dateFrom" type="date" class="{{ $inputClass }}"></div>
                 <div><label for="basket-date-to" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Sampai Tanggal</label><input id="basket-date-to" wire:model.live="dateTo" type="date" class="{{ $inputClass }}"></div>
@@ -117,6 +131,26 @@
                 <div class="flex items-center gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-500 dark:bg-gray-800/50 dark:text-gray-400 sm:col-span-2 lg:col-span-1"><x-heroicon-o-calculator class="h-5 w-5 shrink-0 text-blue-500" /><div><p class="font-semibold text-gray-700 dark:text-gray-200">Rata-rata kredit per shift</p><p class="mt-1 text-xs leading-5">Total kredit dan jumlah shift tetap tersedia pada tabel peringkat.</p></div></div>
         </section>
 
+        @if($staleRequired)
+            <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30 sm:p-6" role="alert">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex min-w-0 items-start gap-3">
+                        <x-heroicon-o-arrow-path class="mt-0.5 h-6 w-6 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <div class="min-w-0">
+                            <h3 class="text-base font-bold text-amber-900 dark:text-amber-100">Hitung ulang dulu sebelum melihat data</h3>
+                            <p class="mt-1 text-sm leading-6 text-amber-800 dark:text-amber-200">Jam shift cabang diubah setelah {{ $staleCount }} shift pada filter ini dihitung, jadi angkanya belum sesuai jam shift terbaru. Hitung ulang, lalu datanya tampil.@if($recalculableCount > $recalculateLimit) Filter ini mencakup {{ $recalculableCount }} shift, maksimal {{ $recalculateLimit }} per proses. Persempit tanggal atau pilih cabang.@endif</p>
+                        </div>
+                    </div>
+                    <div x-data class="shrink-0">
+                        <button type="button" x-on:click="$dispatch('recalculate-basket')" @disabled($recalculableCount > $recalculateLimit)
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">
+                            <x-heroicon-o-arrow-path class="h-4 w-4" />
+                            Hitung Ulang Sekarang
+                        </button>
+                    </div>
+                </div>
+            </section>
+        @else
         <section class="grid gap-4 lg:grid-cols-[1fr_2fr]">
             <div class="rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-900 dark:bg-blue-950/30"><div class="flex items-center gap-2 text-sm font-semibold text-blue-700 dark:text-blue-300"><x-heroicon-o-presentation-chart-line class="h-5 w-5" />Total Kredit</div><p class="mt-3 break-words text-3xl font-bold tracking-tight text-blue-900 dark:text-blue-100 sm:text-4xl">Rp {{ number_format((float) $totalCredit, 0, ',', '.') }}</p><p class="mt-3 text-xs leading-5 text-blue-700 dark:text-blue-300">Akumulasi kredit {{ $ranking->count() }} karyawan pada periode dan cabang yang dipilih.</p></div>
             <div class="grid grid-cols-2 gap-3">
@@ -159,10 +193,11 @@
             </div>
         </section>
         @endif
+        @endif
 
     </div>
 
-    @if($employee && ! $shiftsRequired)
+    @if($employee && ! $shiftsRequired && ! $staleRequired)
         @php($closeUrl = \App\Filament\Helpdesk\Pages\BasketSizePage::getUrl(['dateFrom' => $dateFrom, 'dateTo' => $dateTo, 'branchId' => $branchId]))
         <div id="basket-size-history" x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window="window.location.href = @js($closeUrl)" class="fixed inset-0 z-[130] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Rincian Shift Karyawan">
             <a href="{{ $closeUrl }}" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup rincian shift"></a>

@@ -35,6 +35,7 @@ class Branch extends Model
             'is_active' => 'boolean',
             'location_required' => 'boolean',
             'sales_shift_count' => 'integer',
+            'shifts_changed_at' => 'datetime',
             'sales_assessment_started_at' => 'immutable_date',
             'sales_assessment_excluded_dates' => 'array',
         ];

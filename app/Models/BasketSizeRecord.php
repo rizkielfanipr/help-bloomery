@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\BasketSizeRecordFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,6 +34,27 @@ class BasketSizeRecord extends Model
     /**
      * Whether the values come from the complete shift window rather than a submit-time snapshot.
      */
+    /**
+     * Final records that were calculated before the shifts of their branch last changed and that can be recalculated.
+     *
+     * @param  Builder<BasketSizeRecord>  $query
+     * @return Builder<BasketSizeRecord>
+     */
+    public function scopeStaleAfterShiftChange(Builder $query): Builder
+    {
+        return $query->whereNotNull('finalized_at')->whereExists(fn ($branch) => $branch
+            ->selectRaw('1')
+            ->from('branches')
+            ->whereColumn('branches.id', 'basket_size_records.branch_id')
+            ->whereNotNull('branches.shifts_changed_at')
+            ->whereColumn('basket_size_records.calculated_at', '<', 'branches.shifts_changed_at')
+            ->whereExists(fn ($esb) => $esb
+                ->selectRaw('1')
+                ->from('branch_esb_codes')
+                ->whereColumn('branch_esb_codes.branch_id', 'branches.id')
+                ->where('branch_esb_codes.is_active', true)));
+    }
+
     public function isFinal(): bool
     {
         return $this->finalized_at !== null;

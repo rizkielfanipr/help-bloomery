@@ -64,6 +64,15 @@ class ViewSalesReport extends Page
             && ($user->canAccessAllBranches() || ! $this->record->shiftSubmissions->contains('submitted_by', $user->id));
     }
 
+    public function canRejectCompleted(): bool
+    {
+        $user = auth()->user();
+
+        return $this->record->status === SalesReportStatus::Completed
+            && $user?->can('review sales reports as finance')
+            && ($user->canAccessAllBranches() || ! $this->record->shiftSubmissions->contains('submitted_by', $user->id));
+    }
+
     public function canRefetchEsb(): bool
     {
         return in_array($this->record->status, [SalesReportStatus::PendingSupervisor, SalesReportStatus::PendingFinance], true)
@@ -181,6 +190,31 @@ class ViewSalesReport extends Page
         Notification::make()->title('Sales Report rejected')->danger()->send();
     }
 
+    public function rejectCompleted(): void
+    {
+        abort_unless($this->canRejectCompleted(), 403);
+        $this->validate(['rejectionReason' => ['required', 'string', 'min:5', 'max:2000']]);
+
+        $this->transitionReview(
+            expected: SalesReportStatus::Completed,
+            next: SalesReportStatus::Rejected,
+            stage: 'finance',
+            action: 'rejected',
+            notes: trim($this->rejectionReason),
+            values: [
+                'finance_reviewed_by' => auth()->id(),
+                'finance_reviewed_at' => now(),
+            ],
+            metadata: ['previous_status' => SalesReportStatus::Completed->value],
+        );
+
+        Notification::make()->title('Completed Sales Report rejected')->danger()->send();
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     * @param  array<string, mixed>  $metadata
+     */
     private function transitionReview(
         SalesReportStatus $expected,
         SalesReportStatus $next,
@@ -188,19 +222,23 @@ class ViewSalesReport extends Page
         string $action,
         ?string $notes,
         array $values,
+        array $metadata = [],
     ): void {
-        DB::transaction(function () use ($expected, $next, $stage, $action, $notes, $values): void {
+        DB::transaction(function () use ($expected, $next, $stage, $action, $notes, $values, $metadata): void {
             $report = SalesReport::query()->lockForUpdate()->findOrFail($this->record->id);
             abort_unless($report->status === $expected, 409);
             $report->update(array_merge($values, ['status' => $next->value]));
-            $this->recordApproval($report, $stage, $action, $notes);
+            $this->recordApproval($report, $stage, $action, $notes, $metadata);
         });
 
         $this->refreshRecord();
         $this->reset(['reviewNote', 'rejectionReason']);
     }
 
-    private function recordApproval(SalesReport $report, string $stage, string $action, ?string $notes): void
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function recordApproval(SalesReport $report, string $stage, string $action, ?string $notes, array $metadata = []): void
     {
         SalesReportApproval::create([
             'sales_report_id' => $report->id,
@@ -209,6 +247,7 @@ class ViewSalesReport extends Page
             'actor_id' => auth()->id(),
             'notes' => $notes,
             'revision_number' => $report->revision_number,
+            'metadata' => $metadata ?: null,
         ]);
     }
 

@@ -243,6 +243,18 @@
                 </div>
             </div>
         @endif
+
+        @if($this->canRejectCompleted())
+            <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
+                <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Rejection Reason <span class="font-normal normal-case text-gray-400">(required)</span></label>
+                <textarea wire:model="rejectionReason" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Explain why this completed report is rejected"></textarea>
+                @error('rejectionReason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p class="max-w-xl text-xs leading-5 text-gray-500 dark:text-gray-400">This report is already Completed. Rejecting it changes the status to Rejected, and this date counts as rejected in the branch score.</p>
+                    <button type="button" wire:click="rejectCompleted" wire:confirm="Reject this completed report? The status will change to Rejected." wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-x-circle class="h-4 w-4" />Reject Report</button>
+                </div>
+            </div>
+        @endif
     </section>
 
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">

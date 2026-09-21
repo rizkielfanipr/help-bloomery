@@ -14,6 +14,7 @@ use App\Models\SalesReportEntry;
 use App\Models\SalesReportReconciliation;
 use App\Models\SalesReportShiftSubmission;
 use App\Models\User;
+use App\Services\SalesReportScoreCalculator;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -242,6 +243,94 @@ it('makes a finance rejection final with an audit trail', function () {
         ->assertDontSee('Set as Finance Review')
         ->assertDontSee('Set as Completed')
         ->assertDontSee('Return to Supervisor');
+});
+
+it('lets finance reject a completed report with a required reason and an audit trail', function () {
+    $this->report->update(['status' => SalesReportStatus::Completed->value]);
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $finance->assignRole('FINANCE_STAFF');
+    $this->actingAs($finance);
+
+    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+        ->assertSee('Reject Report')
+        ->call('rejectCompleted')
+        ->assertHasErrors(['rejectionReason' => 'required']);
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed);
+
+    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+        ->set('rejectionReason', 'Nominal QRIS tidak sesuai mutasi bank.')
+        ->call('rejectCompleted')
+        ->assertHasNoErrors()
+        ->assertDontSee('Reject Report');
+
+    $approval = $this->report->approvals()->where('stage', 'finance')->where('action', 'rejected')->sole();
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Rejected)
+        ->and($this->report->finance_reviewed_by)->toBe($finance->id)
+        ->and($approval->actor_id)->toBe($finance->id)
+        ->and($approval->notes)->toBe('Nominal QRIS tidak sesuai mutasi bank.')
+        ->and($approval->metadata)->toBe(['previous_status' => 'completed']);
+});
+
+it('only offers rejecting a report once it is completed', function () {
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $finance->assignRole('FINANCE_STAFF');
+    $this->actingAs($finance);
+
+    foreach ([SalesReportStatus::Draft, SalesReportStatus::PendingSupervisor, SalesReportStatus::PendingFinance, SalesReportStatus::Rejected] as $status) {
+        $this->report->update(['status' => $status->value]);
+
+        Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+            ->assertDontSee('Reject Report')
+            ->call('rejectCompleted')
+            ->assertForbidden();
+    }
+});
+
+it('does not let supervisors or the submitter without full access reject a completed report', function () {
+    $this->report->update(['status' => SalesReportStatus::Completed->value]);
+    $supervisor = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
+    $supervisor->assignRole('SUPERVISOR_STORE');
+    $financeSubmitter = User::factory()->create(['is_active' => true]);
+    $financeSubmitter->assignRole('FINANCE_STAFF');
+    $financeSubmitter->syncBranchAccess([$this->branch->id], $this->branch->id);
+    SalesReportShiftSubmission::create([
+        'sales_report_id' => $this->report->id,
+        'shift_number' => 2,
+        'submitted_by' => $financeSubmitter->id,
+        'submitted_at' => now(),
+    ]);
+
+    foreach ([$supervisor, $financeSubmitter] as $user) {
+        $this->actingAs($user);
+
+        Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+            ->assertDontSee('Reject Report')
+            ->set('rejectionReason', 'Coba reject tanpa hak akses.')
+            ->call('rejectCompleted')
+            ->assertForbidden();
+    }
+
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed);
+});
+
+it('counts a rejected completed report as rejected in the branch score', function () {
+    $yesterday = today()->subDay();
+    $this->branch->update(['sales_assessment_started_at' => $yesterday->toDateString()]);
+    $this->report->update(['report_date' => $yesterday->toDateString(), 'status' => SalesReportStatus::Completed->value]);
+    $calculate = fn (): array => app(SalesReportScoreCalculator::class)
+        ->calculate(Branch::query()->whereKey($this->branch->id)->get(), $yesterday->format('Y-m'))[$this->branch->id];
+
+    expect($calculate())->passed->toBe(1)->rejected->toBe(0)->score->toBe(100.0);
+
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $finance->assignRole('FINANCE_STAFF');
+    $this->actingAs($finance);
+    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+        ->set('rejectionReason', 'Data tidak valid.')
+        ->call('rejectCompleted')
+        ->assertHasNoErrors();
+
+    expect($calculate())->passed->toBe(0)->rejected->toBe(1)->score->toBe(0.0);
 });
 
 it('migrates a legacy finance rejection returned to supervisor into final rejected status', function () {

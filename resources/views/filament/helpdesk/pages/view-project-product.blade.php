@@ -260,6 +260,13 @@
                     @endif
                 </div>
             </div>
+            <div class="mx-5 mt-5 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100">
+                <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div class="text-sm leading-6">
+                    <p class="font-bold">Harap upload design, bukan nama item.</p>
+                    <p>Section ini khusus untuk file design (packaging, sticker, foto produk, katalog, dan aset promosi). Nama item atau product marketing material diinput di section <strong class="rounded bg-amber-200/70 px-1.5 py-0.5 dark:bg-amber-800/50">Marketing Material Items</strong> di atas.</p>
+                </div>
+            </div>
             <div class="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
                 @forelse($product->marketingMaterials as $material)
                     @php
@@ -271,7 +278,7 @@
                         };
                         $requiresFulfillment = in_array($material->type, \App\Models\RndProjectMarketingMaterial::PHYSICAL_TYPES, true);
                     @endphp
-                    <article class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                    <article class="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
                         @if($material->isImage())
                             <a href="{{ $material->fileUrl() }}" target="_blank"><img src="{{ $material->fileUrl() }}" alt="{{ $material->title }}" class="h-44 w-full object-cover"></a>
                         @else
@@ -279,7 +286,7 @@
                                 <x-heroicon-o-document class="h-14 w-14" />
                             </a>
                         @endif
-                        <div class="p-4">
+                        <div class="flex flex-1 flex-col p-4">
                             <div class="flex flex-wrap items-center gap-2">
                                 <span class="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">{{ \App\Models\RndProjectMarketingMaterial::TYPES[$material->type] ?? $material->type }}</span>
                                 <span class="rounded-full px-2 py-1 text-[11px] font-bold {{ $requiresFulfillment ? $fulfillmentStyle : 'bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300' }}">
@@ -288,6 +295,7 @@
                             </div>
                             <a href="{{ $material->fileUrl() }}" target="_blank" class="mt-2 block truncate font-bold text-gray-900 hover:text-blue-600 dark:text-white">{{ $material->title }}</a>
                             <p class="mt-1 truncate text-xs text-gray-500">{{ $material->original_name }} · {{ number_format($material->file_size / 1024, 0, ',', '.') }} KB</p>
+                            <p class="mt-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400"><x-heroicon-o-user-circle class="h-4 w-4 shrink-0" /><span class="truncate">Diunggah oleh <span class="font-semibold text-gray-700 dark:text-gray-200">{{ $material->creator?->display_username ?? '-' }}</span></span></p>
                             @if($material->notes)<p class="mt-2 line-clamp-2 text-xs leading-5 text-gray-500">{{ $material->notes }}</p>@endif
                             @if($requiresFulfillment && $material->fulfillment)
                                 <div class="mt-3 rounded-lg bg-gray-50 p-2.5 text-xs text-gray-500 dark:bg-gray-800/60">
@@ -297,7 +305,7 @@
                                     @if($material->fulfillment->location)<p class="mt-1">Lokasi: {{ $material->fulfillment->location->branch?->name }} — {{ $material->fulfillment->location->name }}</p>@endif
                                 </div>
                             @endif
-                            <div class="mt-3 flex gap-2">
+                            <div class="mt-auto flex gap-2 pt-4">
                                 <a href="{{ $material->fileUrl() }}" target="_blank" class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-center text-xs font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200">Lihat File</a>
                                 <a href="{{ $material->downloadUrl() }}" download="{{ $material->original_name }}" class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
                                     <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Download

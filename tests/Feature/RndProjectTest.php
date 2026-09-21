@@ -752,6 +752,44 @@ it('uploads and deletes product marketing materials on Cloudflare storage', func
     $this->assertDatabaseMissing('rnd_project_marketing_materials', ['id' => $material->id]);
 });
 
+it('tells uploaders to add designs here and shows who uploaded each design by username', function () {
+    Storage::fake('b2');
+    $project = RndProject::query()->create([
+        'name' => 'Design Upload Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Design Upload Product',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $uploader = User::factory()->create(['name' => 'Rina Desainer', 'username' => 'BLODESIGN1']);
+    foreach (['Sticker Promo', 'Foto Produk Utama'] as $title) {
+        $product->marketingMaterials()->create([
+            'type' => 'sticker',
+            'title' => $title,
+            'file_path' => 'rnd/marketing-materials/'.Str::slug($title).'.pdf',
+            'original_name' => Str::slug($title).'.pdf',
+            'mime_type' => 'application/pdf',
+            'file_size' => 2048,
+            'created_by' => $uploader->id,
+        ]);
+    }
+
+    $html = Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->assertSee('Harap upload design, bukan nama item.')
+        ->assertSee('Marketing Material Items')
+        ->assertSee('Sticker Promo')
+        ->assertSee('Foto Produk Utama')
+        ->assertDontSee('Rina Desainer')
+        ->html();
+
+    expect(substr_count($html, 'Diunggah oleh'))->toBe(2)
+        ->and(substr_count($html, 'BLODESIGN1'))->toBe(2);
+});
+
 it('shows marketing fulfillment and approved supplier details on the product page', function () {
     Storage::fake('b2');
     $project = RndProject::query()->create([

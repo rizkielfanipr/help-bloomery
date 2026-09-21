@@ -2490,6 +2490,7 @@ class ViewProjectProductPage extends Page
     {
         $this->productRecord->refresh()->load([
             'boms',
+            'marketingMaterials.creator',
             'marketingMaterials.fulfillment.location.branch',
             'marketingMaterials.fulfillment.orderedBy',
             'marketingMaterials.fulfillment.receivedBy',

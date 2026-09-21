@@ -2,8 +2,8 @@
 
 namespace App\Filament\Helpdesk\Resources\SalesReports;
 
+use App\Actions\ExportSalesReportsXlsxAction;
 use App\Enums\SalesReportStatus;
-use App\Filament\Exports\SalesReportExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
@@ -11,10 +11,10 @@ use App\Models\Branch;
 use App\Models\SalesReport;
 use BackedEnum;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
@@ -24,6 +24,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use UnitEnum;
 
 class SalesReportResource extends Resource
@@ -161,7 +162,28 @@ class SalesReportResource extends Resource
                     ->modalDescription('Sales report beserta detail terkait akan dihapus secara permanen.'),
             ])
             ->toolbarActions([
-                ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(SalesReportExporter::class),
+                Action::make('export_sales_reports')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('success')
+                    ->iconButton()
+                    ->tooltip('Export Excel berdasarkan rentang tanggal')
+                    ->modalHeading('Export Sales Report')
+                    ->modalDescription('Rentang tanggal mengikuti tanggal laporan. Kosongkan untuk mengekspor seluruh data.')
+                    ->form([
+                        DatePicker::make('date_from')
+                            ->label('Tanggal Mulai')
+                            ->native(false),
+                        DatePicker::make('date_until')
+                            ->label('Tanggal Akhir')
+                            ->native(false)
+                            ->afterOrEqual('date_from'),
+                    ])
+                    ->modalSubmitActionLabel('Download Excel')
+                    ->action(fn (array $data): BinaryFileResponse => app(ExportSalesReportsXlsxAction::class)->execute(
+                        static::getEloquentQuery(),
+                        $data['date_from'] ?? null,
+                        $data['date_until'] ?? null,
+                    )),
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->visible(fn (): bool => static::canDeleteAny())

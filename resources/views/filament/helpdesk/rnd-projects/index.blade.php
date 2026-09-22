@@ -213,7 +213,7 @@
                         <div class="mt-5 flex items-center gap-2">
                             @if($project->trashed())
                                 @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canRestore($project))
-                                    <button type="button" wire:click="restoreProject({{ $project->id }})" wire:confirm="Pulihkan project ini ke daftar aktif?" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700">
+                                    <button type="button" x-on:click="window.BloomeryConfirm.show({ title: 'Pulihkan Project?', text: @js('Project '.$project->name.' akan dikembalikan ke daftar aktif.'), confirmText: 'Pulihkan Project', icon: 'question', confirmColor: '#059669' }).then((confirmed) => { if (confirmed) $wire.restoreProject({{ $project->id }}) })" wire:loading.attr="disabled" wire:target="restoreProject({{ $project->id }})" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
                                         <x-heroicon-o-arrow-path class="h-4 w-4" /> Pulihkan Project
                                     </button>
                                 @endif
@@ -228,7 +228,7 @@
                                     </button>
                                 @endif
                                 @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canDelete($project))
-                                    <button type="button" wire:click="archiveProject({{ $project->id }})" wire:confirm="Arsipkan project ini? Seluruh Menu, BOM, dan attachment tetap tersimpan serta dapat dipulihkan." class="rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30" title="Arsipkan Project">
+                                    <button type="button" x-on:click="window.BloomeryConfirm.show({ title: 'Arsipkan Project?', text: @js('Project '.$project->name.' akan disembunyikan dari daftar aktif. Seluruh Menu, BOM, dan attachment tetap tersimpan.'), confirmText: 'Arsipkan Project' }).then((confirmed) => { if (confirmed) $wire.archiveProject({{ $project->id }}) })" wire:loading.attr="disabled" wire:target="archiveProject({{ $project->id }})" class="rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30" title="Arsipkan Project">
                                         <x-heroicon-o-archive-box class="h-5 w-5" />
                                     </button>
                                 @endif

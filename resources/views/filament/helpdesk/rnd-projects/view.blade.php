@@ -46,7 +46,7 @@
                                 </button>
                             @endif
                             @if($canDelete)
-                                <button type="button" wire:click="archiveProject" wire:confirm="Arsipkan project ini? Project akan disembunyikan dari daftar aktif, tetapi seluruh Menu, BOM, dan attachment tetap tersimpan serta dapat dipulihkan." class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-200 px-4 py-2.5 text-sm font-bold text-amber-700 transition hover:bg-amber-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30">
+                                <button type="button" x-on:click="window.BloomeryConfirm.show({ title: 'Arsipkan Project?', text: @js('Project '.$project->name.' akan disembunyikan dari daftar aktif. Seluruh Menu, BOM, dan attachment tetap tersimpan.'), confirmText: 'Arsipkan Project' }).then((confirmed) => { if (confirmed) $wire.archiveProject() })" wire:loading.attr="disabled" wire:target="archiveProject" class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-200 px-4 py-2.5 text-sm font-bold text-amber-700 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30">
                                     <x-heroicon-o-archive-box class="h-5 w-5" /> Arsipkan Project
                                 </button>
                             @endif

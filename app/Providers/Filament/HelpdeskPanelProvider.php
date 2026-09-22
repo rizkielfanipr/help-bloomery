@@ -59,7 +59,9 @@ class HelpdeskPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn (): string => Blade::render(
-                    '<script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).then(function (registration) { registration.update(); }); }</script>'
+                    '<script>window.BloomeryConfirm ||= { show: async function (options) { return window.confirm(options.title + "\n\n" + options.text); } };</script>
+                     @vite(\'resources/js/helpdesk.js\')
+                     <script>if ("serviceWorker" in navigator) { navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).then(function (registration) { registration.update(); }); }</script>'
                 ),
             )
             ->navigationGroups([

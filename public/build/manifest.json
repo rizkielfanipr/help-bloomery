@@ -1,6 +1,10 @@
 {
+  "_chunk-bqFK08oC.js": {
+    "file": "assets/chunk-bqFK08oC.js",
+    "name": "chunk"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-WqyvngM2.css",
+    "file": "assets/app-BV11XGKx.css",
     "name": "app",
     "names": [
       "app.css"
@@ -27,7 +31,7 @@
     "isEntry": true
   },
   "resources/css/filament/helpdesk/theme.css": {
-    "file": "assets/theme-uOTIhVJA.css",
+    "file": "assets/theme-BQt80KDI.css",
     "name": "theme",
     "names": [
       "theme.css"
@@ -45,9 +49,24 @@
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-hXBokQ4a.js",
+    "file": "assets/app-BTabu4EL.js",
     "name": "app",
     "src": "resources/js/app.js",
-    "isEntry": true
+    "isEntry": true,
+    "imports": [
+      "_chunk-bqFK08oC.js"
+    ]
+  },
+  "resources/js/helpdesk.js": {
+    "file": "assets/helpdesk-XXT4ZWf2.js",
+    "name": "helpdesk",
+    "src": "resources/js/helpdesk.js",
+    "isEntry": true,
+    "imports": [
+      "_chunk-bqFK08oC.js"
+    ],
+    "css": [
+      "assets/helpdesk-DmHed3W8.css"
+    ]
   }
 }

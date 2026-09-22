@@ -697,3 +697,76 @@ body.fi-body {
     outline: 2px solid #3b82f6 !important;
     outline-offset: 2px !important;
 }
+
+/* SweetAlert confirmations follow the Helpdesk visual language. */
+.bloomery-swal-container {
+    padding: 1rem !important;
+    backdrop-filter: blur(3px);
+}
+
+.bloomery-swal-popup {
+    width: min(100%, 28rem) !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 1rem !important;
+    padding: 1.5rem !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif !important;
+}
+
+.bloomery-swal-title {
+    padding: 0 !important;
+    color: #0f172a !important;
+    font-size: 1.125rem !important;
+    font-weight: 700 !important;
+    line-height: 1.5 !important;
+}
+
+.bloomery-swal-text {
+    margin: .5rem 0 0 !important;
+    padding: 0 !important;
+    color: #64748b !important;
+    font-size: .875rem !important;
+    line-height: 1.5rem !important;
+}
+
+.bloomery-swal-actions {
+    width: 100% !important;
+    margin: 1.5rem 0 0 !important;
+    gap: .5rem !important;
+}
+
+.bloomery-swal-confirm,
+.bloomery-swal-cancel {
+    min-width: 7rem !important;
+    margin: 0 !important;
+    border-radius: .5rem !important;
+    padding: .625rem 1rem !important;
+    box-shadow: none !important;
+    font-size: .875rem !important;
+    font-weight: 700 !important;
+}
+
+.bloomery-swal-cancel {
+    border: 1px solid #cbd5e1 !important;
+    color: #475569 !important;
+}
+
+.dark .bloomery-swal-popup {
+    border-color: #334155 !important;
+    background: #0f172a !important;
+}
+
+.dark .bloomery-swal-title {
+    color: #f8fafc !important;
+}
+
+.dark .bloomery-swal-text {
+    color: #94a3b8 !important;
+}
+
+.dark .bloomery-swal-cancel {
+    border-color: #475569 !important;
+    background: #1e293b !important;
+    color: #e2e8f0 !important;
+}

@@ -1,7 +1,6 @@
 @php
     use App\Enums\PurchaseRequestStatus;
     use App\Enums\PurchaseType;
-    use App\Models\Branch;
 
     $name = $column->getName();
     $label = $column->getLabel();
@@ -246,7 +245,7 @@
         @case('branch.name')
             <select wire:model.live="tableFilters.branch_id.value" class="{{ $inputClass }}">
                 <option value="">- Semua Cabang -</option>
-                @foreach(Branch::query()->orderBy('name')->pluck('name', 'id') as $branchId => $branchName)
+                @foreach($branchOptions as $branchId => $branchName)
                     <option value="{{ $branchId }}">{{ $branchName }}</option>
                 @endforeach
             </select>

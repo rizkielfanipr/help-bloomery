@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Observers\AssetObserver;
 use App\Observers\LocationObserver;
 use App\Observers\ProductSettingObserver;
+use App\Services\TableFilterOptions;
 use Filament\Support\Facades\FilamentView;
 use Filament\Tables\View\TablesRenderHook;
 use Illuminate\Support\Facades\Gate;
@@ -29,7 +30,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void {}
 
-    public function boot(): void
+    public function boot(TableFilterOptions $filterOptions): void
     {
         Gate::before(function (User $user): ?bool {
             return $user->hasRole('SUPERADMIN') ? true : null;
@@ -43,13 +44,19 @@ class AppServiceProvider extends ServiceProvider
 
         FilamentView::registerRenderHook(
             TablesRenderHook::HEADER_CELL,
-            fn (array $data) => view('filament.helpdesk.purchase-requests.table-header-cell', $data),
+            fn (array $data) => view('filament.helpdesk.purchase-requests.table-header-cell', $data + [
+                'branchOptions' => $data['column']->getName() === 'branch.name' ? $filterOptions->branches() : [],
+            ]),
             scopes: ListPurchaseRequests::class,
         );
 
         FilamentView::registerRenderHook(
             TablesRenderHook::HEADER_CELL,
-            fn (array $data) => view('filament.helpdesk.erp-repair-requests.table-header-cell', $data),
+            fn (array $data) => view('filament.helpdesk.erp-repair-requests.table-header-cell', $data + [
+                'branchOptions' => $data['column']->getName() === 'branch.name' ? $filterOptions->branches() : [],
+                'erpModuleOptions' => $data['column']->getName() === 'module.name' ? $filterOptions->erpModules() : [],
+                'requestTypeOptions' => $data['column']->getName() === 'requestType.name' ? $filterOptions->itRequestTypes() : [],
+            ]),
             scopes: [
                 ListErpRepairRequests::class,
                 ListMaterialSourcings::class,

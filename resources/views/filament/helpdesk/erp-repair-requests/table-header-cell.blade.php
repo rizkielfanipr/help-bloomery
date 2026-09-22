@@ -1,9 +1,6 @@
 @php
     use App\Enums\ItRequestStatus;
     use App\Enums\MaterialSourcingStatus;
-    use App\Models\Branch;
-    use App\Models\ErpModule;
-    use App\Models\ItRequestType;
 
     $name = $column->getName();
     $label = $column->getLabel();
@@ -287,7 +284,7 @@
         @case('branch.name')
             <select wire:model.live="tableFilters.branch_id.value" class="{{ $inputClass }}">
                 <option value="">- Semua Cabang -</option>
-                @foreach(Branch::query()->orderBy('name')->pluck('name', 'id') as $branchId => $branchName)
+                @foreach($branchOptions as $branchId => $branchName)
                     <option value="{{ $branchId }}">{{ $branchName }}</option>
                 @endforeach
             </select>
@@ -296,7 +293,7 @@
         @case('module.name')
             <select wire:model.live="tableFilters.erp_module_id.value" class="{{ $inputClass }}">
                 <option value="">- Semua Modul -</option>
-                @foreach(ErpModule::query()->where('is_active', true)->orderBy('sort_order')->pluck('name', 'id') as $moduleId => $moduleName)
+                @foreach($erpModuleOptions as $moduleId => $moduleName)
                     <option value="{{ $moduleId }}">{{ $moduleName }}</option>
                 @endforeach
             </select>
@@ -305,7 +302,7 @@
         @case('requestType.name')
             <select wire:model.live="tableFilters.request_type_id.value" class="{{ $inputClass }}">
                 <option value="">- Semua Tipe -</option>
-                @foreach(ItRequestType::query()->where('is_active', true)->orderBy('sort_order')->pluck('name', 'id') as $typeId => $typeName)
+                @foreach($requestTypeOptions as $typeId => $typeName)
                     <option value="{{ $typeId }}">{{ $typeName }}</option>
                 @endforeach
             </select>

@@ -178,3 +178,43 @@ Pemindahan query tersebut sebaiknya dilakukan per modul dengan test filter masin
 - Policy baru baru mencakup Stock Card; resource lain masih menggunakan permission check masing-masing.
 - Branch filter option pada beberapa tabel lain masih dapat mengambil data langsung dari Blade.
 - Perubahan Phase 2, Phase 3, dan perubahan Stock Card UI existing masih berada pada working tree yang sama dan belum di-commit.
+
+## 10. Scope lanjutan — Query opsi filter table
+
+Setelah fondasi Policy Stock Card dipush, Phase 3 dilanjutkan dengan memindahkan query opsi filter dari Blade aktif.
+
+### Service reusable
+
+File `app/Services/TableFilterOptions.php` menyediakan dan mememoisasi selama satu request:
+
+- seluruh opsi cabang yang diurutkan berdasarkan nama;
+- modul ERP aktif yang diurutkan berdasarkan `sort_order`;
+- tipe request IT aktif yang diurutkan berdasarkan `sort_order`.
+
+Service hanya dipanggil untuk kolom header yang membutuhkan opsi tersebut, sehingga header lain tidak memicu query yang tidak diperlukan.
+
+### Purchase Requests
+
+`purchase-requests/table-header-cell.blade.php` tidak lagi menjalankan query `Branch`. Data `branchOptions` diberikan dari render hook pada `AppServiceProvider`.
+
+### ERP Requests dan Material Sourcing
+
+`erp-repair-requests/table-header-cell.blade.php` tidak lagi menjalankan query untuk `Branch`, `ErpModule`, dan `ItRequestType`. Render hook yang digunakan bersama Material Sourcing memasok data berdasarkan nama kolom yang sedang dirender.
+
+### Test
+
+`tests/Feature/TableFilterOptionsTest.php` memverifikasi:
+
+1. cabang diurutkan berdasarkan nama;
+2. pemanggilan kedua dalam request yang sama tidak mengulang query;
+3. hanya modul ERP aktif yang ditampilkan sesuai `sort_order`;
+4. hanya tipe request aktif yang ditampilkan sesuai `sort_order`.
+
+Validasi scope:
+
+```text
+Purchase Requests dan service: 15 test lulus, 75 assertions
+ERP/Material Sourcing dan service: 34 test lulus, 198 assertions
+Full suite final: 752 test lulus, 4.355 assertions, 0 gagal
+Pint: lulus
+```

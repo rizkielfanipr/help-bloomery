@@ -218,3 +218,21 @@ ERP/Material Sourcing dan service: 34 test lulus, 198 assertions
 Full suite final: 752 test lulus, 4.355 assertions, 0 gagal
 Pint: lulus
 ```
+
+## 11. Dead-code removal — Header Content dan Design
+
+Dua file berikut dihapus:
+
+- `resources/views/filament/helpdesk/content-requests/table-header-cell.blade.php`;
+- `resources/views/filament/helpdesk/design-requests/table-header-cell.blade.php`.
+
+Bukti penghapusan:
+
+1. tidak ada reference runtime terhadap nama view;
+2. tidak ada `TablesRenderHook::HEADER_CELL` yang scope-nya mengarah ke `ListContentRequests` atau `ListDesignRequests`;
+3. kedua Resource aktif menggunakan table dan filter Filament bawaan;
+4. history Git menunjukkan file berasal dari implementasi UI index lama;
+5. test Content/Design terkait lulus 32/32 setelah penghapusan;
+6. full suite tetap lulus 752/752 dengan 4.355 assertions.
+
+Dengan penghapusan ini, empat query Blade yang dicatat pada audit Phase 1 telah diselesaikan: query aktif Purchase/ERP dipindah ke service, sedangkan view Content/Design yang tidak aktif dihapus berdasarkan bukti penggunaan.

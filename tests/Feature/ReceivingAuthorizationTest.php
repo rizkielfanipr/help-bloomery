@@ -22,9 +22,9 @@ it('requires the employee Receiving permission to access and submit goods receip
 });
 
 it('keeps the back office Receiving resource read only', function () {
-    $viewer = User::factory()->create(['is_active' => true]);
+    $viewer = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $viewer->givePermissionTo('view goods receipts');
-    $receipt = GoodsReceipt::factory()->create(['branch_id' => 999999]);
+    $receipt = GoodsReceipt::factory()->create();
 
     expect($viewer->can('viewAny', GoodsReceipt::class))->toBeTrue()
         ->and($viewer->can('view', $receipt))->toBeTrue()

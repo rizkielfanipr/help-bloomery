@@ -164,7 +164,7 @@ test('employee app loads purchase orders that ESB allows to receive', function (
 test('receiving saves calculated shelf life for form batches', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
-    $user = User::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);
     $this->travelTo(now()->setDate(2026, 9, 16));

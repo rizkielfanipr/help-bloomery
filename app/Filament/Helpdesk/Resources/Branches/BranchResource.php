@@ -138,6 +138,7 @@ class BranchResource extends Resource
                             ->hiddenLabel()
                             ->table([
                                 TableColumn::make('ESB Branch Code')->markAsRequired(),
+                                TableColumn::make('ESB Branch ID'),
                                 TableColumn::make('ESB Comcode')->markAsRequired(),
                                 TableColumn::make('Label')->markAsRequired(),
                                 TableColumn::make('Aktif'),
@@ -148,6 +149,13 @@ class BranchResource extends Resource
                                     ->required()
                                     ->maxLength(50)
                                     ->placeholder('mis. BPL'),
+
+                                TextInput::make('esb_branch_id')
+                                    ->label('ESB Branch ID')
+                                    ->numeric()
+                                    ->minValue(1)
+                                    ->placeholder('mis. 17')
+                                    ->helperText('ID numerik dari API Master Company - Branch.'),
 
                                 TextInput::make('esb_comcode')
                                     ->label('ESB Comcode')

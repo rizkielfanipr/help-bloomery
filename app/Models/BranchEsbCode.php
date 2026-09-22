@@ -9,6 +9,7 @@ class BranchEsbCode extends Model
 {
     protected $fillable = [
         'branch_id',
+        'esb_branch_id',
         'esb_branch_code',
         'esb_comcode',
         'label',
@@ -18,6 +19,7 @@ class BranchEsbCode extends Model
     protected function casts(): array
     {
         return [
+            'esb_branch_id' => 'integer',
             'is_active' => 'boolean',
         ];
     }

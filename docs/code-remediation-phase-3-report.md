@@ -305,3 +305,35 @@ Receiving/Vendor Compliance dan Policy: 11 test lulus, 117 assertions
 Full suite: 760 test lulus, 4.379 assertions, 0 gagal
 Pint: lulus
 ```
+
+## 14. Mapping Cabang Lokal dan ESB untuk Receiving
+
+Receiving sekarang membedakan identitas cabang secara eksplisit:
+
+- `goods_receipts.esb_branch_id` menyimpan numeric Branch ID dari ESB;
+- `goods_receipts.local_branch_id` menyimpan foreign key cabang lokal;
+- `branch_esb_codes.esb_branch_id` melengkapi pasangan ESB Company Code dan Branch Code yang sudah ada.
+
+Migration mempertahankan nilai `goods_receipts.branch_id` lama dengan mengganti nama kolomnya menjadi `esb_branch_id`. Tidak ada ID transaksi lama yang dibuang.
+
+### Resolver bersama
+
+`EsbBranchMappingResolver` mencari mapping dengan kombinasi Company Code dan numeric ESB Branch ID. Jika respons ESB juga membawa Branch Code, resolver dapat melengkapi numeric ID pada mapping lama yang sebelumnya hanya menyimpan Company Code dan Branch Code.
+
+### Pembatasan akses Receiving
+
+- Goods Receipt baru menyimpan local branch hasil mapping ketika dibuat.
+- User cabang hanya dapat membuat Receiving untuk cabang PO yang terhubung dan dapat diakses.
+- List dan detail Back Office memakai `local_branch_id`, bukan membandingkan numeric ESB ID dengan primary key cabang lokal.
+- Receipt historis yang belum mempunyai `local_branch_id` tetap dapat ditemukan melalui master mapping Company Code + ESB Branch ID.
+- User dengan akses seluruh cabang tetap dapat melihat receipt historis yang belum terpetakan sehingga data tersebut dapat diperbaiki.
+
+Master Branch sekarang menyediakan kolom `ESB Branch ID` pada daftar mapping ESB. Nilainya berasal dari API Master Company - Branch.
+
+### Validasi
+
+```text
+Mapping/Receiving/Vendor Compliance: 23 test lulus, 152 assertions
+Full suite: 766 test lulus, 4.392 assertions, 0 gagal
+Pint: lulus
+```

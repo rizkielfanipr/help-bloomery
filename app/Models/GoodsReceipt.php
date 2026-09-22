@@ -27,7 +27,7 @@ class GoodsReceipt extends Model
 
     protected $fillable = [
         'company_code', 'reference_number', 'esb_goods_receipt_number', 'purchase_date',
-        'goods_receipt_date', 'branch_id', 'branch_name', 'supplier_id', 'supplier_name',
+        'goods_receipt_date', 'esb_branch_id', 'local_branch_id', 'branch_name', 'supplier_id', 'supplier_name',
         'location_id', 'location_name', 'delivery_number', 'additional_info', 'selected_asset_ids',
         'auto_close_po', 'status', 'submitted_by', 'submitted_at', 'synced_at', 'esb_code',
         'esb_message', 'request_payload', 'response_payload', 'sync_error', 'delivery_date',
@@ -51,6 +51,11 @@ class GoodsReceipt extends Model
     public function submittedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'submitted_by');
+    }
+
+    public function localBranch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'local_branch_id');
     }
 
     public function items(): HasMany

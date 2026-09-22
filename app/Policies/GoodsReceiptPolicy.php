@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\GoodsReceipt;
 use App\Models\User;
+use App\Services\EsbBranchMappingResolver;
 
 class GoodsReceiptPolicy
 {
@@ -14,7 +15,10 @@ class GoodsReceiptPolicy
 
     public function view(User $user, GoodsReceipt $goodsReceipt): bool
     {
-        return $this->viewAny($user);
+        return $this->viewAny($user)
+            && ($user->canAccessAllBranches() || $user->canAccessBranch(
+                app(EsbBranchMappingResolver::class)->localBranchIdForReceipt($goodsReceipt),
+            ));
     }
 
     public function accessEmployeeApp(User $user): bool

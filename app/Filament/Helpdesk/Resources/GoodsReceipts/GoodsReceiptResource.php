@@ -16,6 +16,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class GoodsReceiptResource extends Resource
 {
@@ -50,6 +51,29 @@ class GoodsReceiptResource extends Resource
     {
         return $record instanceof GoodsReceipt
             && (auth()->user()?->can('view', $record) ?? false);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if (! $user || ! $user->canAccessAllBranches()) {
+            $branchIds = $user?->accessibleBranchIds() ?? collect();
+            $query->where(function (Builder $branchQuery) use ($branchIds): void {
+                $branchQuery->whereIn('local_branch_id', $branchIds)
+                    ->orWhereExists(function ($mappingQuery) use ($branchIds): void {
+                        $mappingQuery->selectRaw('1')
+                            ->from('branch_esb_codes')
+                            ->whereColumn('branch_esb_codes.esb_comcode', 'goods_receipts.company_code')
+                            ->whereColumn('branch_esb_codes.esb_branch_id', 'goods_receipts.esb_branch_id')
+                            ->where('branch_esb_codes.is_active', true)
+                            ->whereIn('branch_esb_codes.branch_id', $branchIds);
+                    });
+            });
+        }
+
+        return $query;
     }
 
     public static function canCreate(): bool

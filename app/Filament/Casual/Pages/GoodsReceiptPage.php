@@ -4,6 +4,7 @@ namespace App\Filament\Casual\Pages;
 
 use App\Models\GoodsReceipt;
 use App\Models\User;
+use App\Services\EsbBranchMappingResolver;
 use App\Services\EsbGoodsReceiptService;
 use App\Services\InboundGoodsReceiptQcService;
 use Filament\Notifications\Notification;
@@ -375,9 +376,18 @@ class GoodsReceiptPage extends Page
         $accepted = (float) $items->sum('acceptedQty');
         $hold = (float) $items->sum('holdQty');
         $rejected = (float) $items->sum('rejectedQty');
+        $esbBranchId = (int) data_get($this->purchaseOrder, 'branchID');
+        $branchMapping = app(EsbBranchMappingResolver::class)->resolve(
+            EsbGoodsReceiptService::COMPANY_CODE,
+            $esbBranchId,
+            data_get($this->purchaseOrder, 'branchCode'),
+        );
+        $user = auth()->user();
+        abort_unless($user instanceof User && ($user->canAccessAllBranches() || ($branchMapping && $user->canAccessBranch($branchMapping->branch_id))), 403, 'Cabang PO belum terhubung atau tidak dapat diakses oleh akun Anda.');
+
         $receipt = GoodsReceipt::create([
             'company_code' => 'BLSS', 'reference_number' => $po, 'purchase_date' => data_get($this->purchaseOrder, 'purchaseDate'), 'goods_receipt_date' => $this->goodsReceiptDate,
-            'branch_id' => data_get($this->purchaseOrder, 'branchID'), 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
+            'esb_branch_id' => $esbBranchId, 'local_branch_id' => $branchMapping?->branch_id, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
             'supplier_id' => data_get($this->purchaseOrder, 'supplierID'), 'supplier_name' => data_get($this->purchaseOrder, 'supplierName'),
             'location_id' => $location['locationID'], 'location_name' => $location['locationName'], 'delivery_number' => $this->deliveryNumber, 'delivery_date' => $this->deliveryDate,
             'invoice_status' => $this->invoiceStatus, 'invoice_number' => $this->invoiceNumber ?: null, 'invoice_date' => $this->invoiceDate ?: null,

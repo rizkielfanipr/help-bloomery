@@ -12,6 +12,9 @@ class ListMarketingMaterialFulfillments extends ListRecords
 {
     protected static string $resource = MarketingMaterialFulfillmentResource::class;
 
+    /** @var array<string, mixed>|null */
+    public ?array $tableFilters = null;
+
     public function getTitle(): string|Htmlable
     {
         return 'Perlu Dipesan (Purchasing)';

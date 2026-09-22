@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Filament\Casual\Resources\ServiceRequests\Pages\ListServiceRequests as CasualListServiceRequests;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
+use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillments;
+use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillmentsToReceive;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests as HelpdeskListServiceRequests;
@@ -51,6 +53,15 @@ class AppServiceProvider extends ServiceProvider
             scopes: [
                 ListErpRepairRequests::class,
                 ListMaterialSourcings::class,
+            ],
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.marketing-material-fulfillments.table-header-cell', $data),
+            scopes: [
+                ListMarketingMaterialFulfillments::class,
+                ListMarketingMaterialFulfillmentsToReceive::class,
             ],
         );
 

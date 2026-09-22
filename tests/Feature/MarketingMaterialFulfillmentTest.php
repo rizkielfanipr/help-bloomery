@@ -61,6 +61,28 @@ it('only lists physical material types, not purely digital ones', function () {
         ->assertDontSee('Post Instagram');
 });
 
+it('shows the request date and uses the sourcing table action style', function () {
+    $this->actingAs($this->purchasing);
+
+    Livewire::test(ListMarketingMaterialFulfillments::class)
+        ->assertTableColumnExists('created_at')
+        ->assertTableFilterExists('project_name')
+        ->assertTableFilterExists('product_name_filter')
+        ->assertTableFilterExists('material_name')
+        ->assertTableFilterExists('type')
+        ->assertTableFilterExists('fulfillment_status')
+        ->assertTableFilterExists('created_at')
+        ->assertSee('Cari project...')
+        ->assertSee('Cari produk...')
+        ->assertSee('Cari material...')
+        ->assertSee('- Semua Tipe -')
+        ->assertSee('- Semua Status -')
+        ->assertSee('Pilih rentang tanggal')
+        ->assertSee($this->physicalMaterial->created_at->format('d M Y'))
+        ->assertTableActionExists('view_detail', fn ($action): bool => $action->isIconButton(), $this->physicalMaterial)
+        ->assertTableActionExists('mark_ordered', fn ($action): bool => $action->isIconButton(), $this->physicalMaterial);
+});
+
 it('lets purchasing mark a physical material as ordered', function () {
     $this->actingAs($this->purchasing);
 
@@ -95,6 +117,8 @@ it('lets inventory mark an ordered material as received with a storage location'
     $this->actingAs($this->inventory);
 
     Livewire::test(ListMarketingMaterialFulfillmentsToReceive::class)
+        ->assertTableActionExists('view_detail', fn ($action): bool => $action->isIconButton(), $this->physicalMaterial)
+        ->assertTableActionExists('mark_received', fn ($action): bool => $action->isIconButton(), $this->physicalMaterial)
         ->callTableAction('mark_received', $this->physicalMaterial, data: [
             'received_quantity' => 500,
             'received_date' => now()->toDateString(),

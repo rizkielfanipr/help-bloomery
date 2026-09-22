@@ -19,6 +19,9 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
@@ -51,37 +54,115 @@ class MarketingMaterialFulfillmentResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('product.project.name')
-                    ->label('Project')
+                    ->label('PROJECT')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('product.name')
-                    ->label('Produk')
-                    ->searchable(),
+                    ->label('PRODUK')
+                    ->searchable()
+                    ->sortable(),
 
                 TextColumn::make('title')
-                    ->label('Material')
+                    ->label('MATERIAL')
                     ->searchable()
                     ->wrap(),
 
                 TextColumn::make('type')
-                    ->label('Tipe')
+                    ->label('TIPE')
                     ->badge()
                     ->color('gray')
                     ->formatStateUsing(fn (string $state): string => RndProjectMarketingMaterial::TYPES[$state] ?? $state),
 
                 TextColumn::make('fulfillment_status')
-                    ->label('Status')
+                    ->label('STATUS')
                     ->badge()
                     ->state(fn (RndProjectMarketingMaterial $record): MarketingMaterialFulfillmentStatus => $record->fulfillment?->status ?? MarketingMaterialFulfillmentStatus::NotStarted),
+
+                TextColumn::make('created_at')
+                    ->label('TANGGAL REQUEST')
+                    ->date('d M Y')
+                    ->sortable(),
             ])
+            ->filters([
+                Filter::make('project_name')
+                    ->label('PROJECT')
+                    ->form([TextInput::make('value')->label('Project')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->whereHas('product.project', fn (Builder $query) => $query
+                                ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
+
+                Filter::make('product_name_filter')
+                    ->label('PRODUK')
+                    ->form([TextInput::make('value')->label('Produk')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->whereHas('product', fn (Builder $query) => $query
+                                ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
+
+                Filter::make('material_name')
+                    ->label('MATERIAL')
+                    ->form([TextInput::make('value')->label('Material')])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                            ->where('title', 'like', '%'.trim((string) $data['value']).'%'))),
+
+                SelectFilter::make('type')
+                    ->label('TIPE')
+                    ->options(array_intersect_key(
+                        RndProjectMarketingMaterial::TYPES,
+                        array_flip(RndProjectMarketingMaterial::PHYSICAL_TYPES),
+                    )),
+
+                SelectFilter::make('fulfillment_status')
+                    ->label('STATUS')
+                    ->options(MarketingMaterialFulfillmentStatus::class)
+                    ->query(function (Builder $query, array $data): Builder {
+                        $status = $data['value'] ?? null;
+
+                        if ($status === MarketingMaterialFulfillmentStatus::NotStarted->value) {
+                            return $query->where(function (Builder $query): void {
+                                $query->whereDoesntHave('fulfillment')
+                                    ->orWhereHas('fulfillment', fn (Builder $query) => $query
+                                        ->where('status', MarketingMaterialFulfillmentStatus::NotStarted));
+                            });
+                        }
+
+                        return $query->when(
+                            filled($status),
+                            fn (Builder $query): Builder => $query->whereHas(
+                                'fulfillment',
+                                fn (Builder $query): Builder => $query->where('status', $status),
+                            ),
+                        );
+                    }),
+
+                Filter::make('created_at')
+                    ->label('TANGGAL REQUEST')
+                    ->form([
+                        DatePicker::make('from')->label('Dari Tanggal'),
+                        DatePicker::make('until')->label('Sampai Tanggal'),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query
+                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('created_at', '>=', $date))
+                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('created_at', '<=', $date))),
+            ], layout: FiltersLayout::AboveContent)
+            ->deferFilters(false)
             ->defaultSort('updated_at', 'desc')
+            ->defaultPaginationPageOption(10)
+            ->paginationPageOptions([10, 25, 50, 100])
             ->recordActions([
                 Action::make('view_detail')
                     ->label('Lihat Detail')
                     ->icon('heroicon-o-eye')
-                    ->color('gray')
-                    ->modalWidth(Width::TwoExtraLarge)
+                    ->tooltip('Lihat Detail')
+                    ->color('info')
+                    ->iconButton()
+                    ->modalWidth(Width::ThreeExtraLarge)
+                    ->stickyModalHeader()
+                    ->stickyModalFooter()
+                    ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Tutup')
                     ->modalContent(fn (RndProjectMarketingMaterial $record) => view('filament.helpdesk.marketing-material-fulfillments.view-detail', [
@@ -91,7 +172,13 @@ class MarketingMaterialFulfillmentResource extends Resource
                 Action::make('mark_ordered')
                     ->label('Tandai Dipesan')
                     ->icon('heroicon-o-shopping-cart')
+                    ->tooltip('Tandai Dipesan')
                     ->color('warning')
+                    ->iconButton()
+                    ->modalWidth(Width::ThreeExtraLarge)
+                    ->stickyModalHeader()
+                    ->stickyModalFooter()
+                    ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
                     ->visible(fn (RndProjectMarketingMaterial $record): bool => auth()->user()?->can('process marketing material as purchasing')
                         && ($record->fulfillment?->status ?? MarketingMaterialFulfillmentStatus::NotStarted) === MarketingMaterialFulfillmentStatus::NotStarted)
                     ->form([
@@ -115,7 +202,13 @@ class MarketingMaterialFulfillmentResource extends Resource
                 Action::make('mark_received')
                     ->label('Tandai Diterima')
                     ->icon('heroicon-o-check-badge')
+                    ->tooltip('Tandai Diterima')
                     ->color('success')
+                    ->iconButton()
+                    ->modalWidth(Width::ThreeExtraLarge)
+                    ->stickyModalHeader()
+                    ->stickyModalFooter()
+                    ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
                     ->visible(fn (RndProjectMarketingMaterial $record): bool => auth()->user()?->can('process marketing material as inventory')
                         && $record->fulfillment?->status === MarketingMaterialFulfillmentStatus::Ordered)
                     ->form([

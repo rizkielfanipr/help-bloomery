@@ -410,7 +410,7 @@
                                     <button type="button" wire:click="editProduct({{ $product->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Menu">
                                         <x-heroicon-o-pencil-square class="h-4 w-4" />
                                     </button>
-                                    <button type="button" wire:click="deleteProduct({{ $product->id }})" wire:confirm="Hapus menu ini?" class="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30" title="Hapus Menu">
+                                    <button type="button" wire:click="deleteProduct({{ $product->id }})" wire:confirm="Hapus menu ini? Relasi BOM akan dilepas otomatis dan data BOM tidak akan dihapus." class="rounded-lg border border-red-200 p-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30" title="Hapus Menu">
                                         <x-heroicon-o-trash class="h-4 w-4" />
                                     </button>
                                 @endif

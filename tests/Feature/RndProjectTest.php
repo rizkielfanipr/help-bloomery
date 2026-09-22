@@ -43,6 +43,39 @@ it('uses dry as the shelf life storage option', function () {
         ->not->toHaveKey('ambient');
 });
 
+it('automatically detaches BOM relations when deleting a menu', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Menu Deletion Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Menu with BOM',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $bom = $project->boms()->create([
+        'esb_bom_id' => 987654,
+        'bom_code' => 'BOM-DELETE-MENU',
+        'bom_name' => 'Reusable BOM',
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($bom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('deleteProduct', $product->id)
+        ->assertHasNoErrors()
+        ->assertDontSee('Menu with BOM');
+
+    $this->assertModelMissing($product);
+    $this->assertModelExists($bom);
+    $this->assertDatabaseMissing('rnd_project_product_boms', [
+        'rnd_project_product_id' => $product->id,
+        'rnd_project_bom_id' => $bom->id,
+    ]);
+});
+
 it('separates ESB master materials into raw WIP packaging and marketing sections', function () {
     $project = RndProject::query()->create([
         'name' => 'Material Sections Project',

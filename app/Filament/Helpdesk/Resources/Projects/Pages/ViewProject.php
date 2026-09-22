@@ -486,20 +486,15 @@ class ViewProject extends ViewRecord
     {
         abort_unless(ProjectResource::canEdit($this->record), 403);
         $product = $this->record->products()->findOrFail($productId);
-
-        if ($product->boms()->exists()) {
-            Notification::make()
-                ->title('Product masih memiliki BOM')
-                ->body('Lepas seluruh BOM dari product sebelum menghapusnya.')
-                ->warning()
-                ->send();
-
-            return;
-        }
-
         $imagePath = $product->image_path;
         $materialPaths = $product->marketingMaterials()->pluck('file_path')->all();
-        $product->delete();
+        $detachedBomCount = $product->boms()->count();
+
+        DB::transaction(function () use ($product): void {
+            $product->boms()->detach();
+            $product->delete();
+        });
+
         if ($imagePath) {
             Storage::disk('b2')->delete($imagePath);
         }
@@ -507,7 +502,11 @@ class ViewProject extends ViewRecord
             Storage::disk('b2')->delete($materialPaths);
         }
         $this->reloadProject();
-        Notification::make()->title('Product berhasil dihapus')->success()->send();
+        Notification::make()
+            ->title('Menu berhasil dihapus')
+            ->body($detachedBomCount > 0 ? $detachedBomCount.' relasi BOM otomatis dilepas. Data BOM tetap tersimpan.' : null)
+            ->success()
+            ->send();
     }
 
     public function openProjectBomExport(string $scope): void

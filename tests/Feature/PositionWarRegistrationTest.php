@@ -18,7 +18,7 @@ beforeEach(function () {
 function casualUser(): User
 {
     $user = User::factory()->create(['is_active' => true]);
-    $user->assignRole('casual_staff');
+    $user->assignRole('CASUAL_STAFF');
 
     return $user;
 }

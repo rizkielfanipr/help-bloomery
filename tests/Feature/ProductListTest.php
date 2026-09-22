@@ -225,6 +225,8 @@ it('downloads a bulk product labels pdf', function () {
 });
 
 it('renders the product list menu link in the custom helpdesk sidebar', function () {
+    fakeEsbProductPage([]);
+
     $response = $this->get(route('filament.helpdesk.pages.product-list-page'));
 
     $response->assertOk()

@@ -3,44 +3,29 @@
 use App\Models\User;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\URL;
 
-test('email verification screen can be rendered', function () {
+test('legacy email verification screen remains unavailable', function () {
     $user = User::factory()->unverified()->create();
 
-    $response = $this->actingAs($user)->get('/verify-email');
-
-    $response->assertStatus(200);
+    $this->actingAs($user)->get('/verify-email')->assertNotFound();
 });
 
-test('email can be verified', function () {
+test('legacy signed email verification endpoint remains unavailable', function () {
     $user = User::factory()->unverified()->create();
+    Event::fake([Verified::class]);
 
-    Event::fake();
+    $this->actingAs($user)->get("/verify-email/{$user->id}/valid-looking-hash")->assertNotFound();
 
-    $verificationUrl = URL::temporarySignedRoute(
-        'verification.verify',
-        now()->addMinutes(60),
-        ['id' => $user->id, 'hash' => sha1($user->email)]
-    );
-
-    $response = $this->actingAs($user)->get($verificationUrl);
-
-    Event::assertDispatched(Verified::class);
-    expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
-    $response->assertRedirect(route('dashboard', absolute: false).'?verified=1');
+    Event::assertNotDispatched(Verified::class);
+    expect($user->fresh()->hasVerifiedEmail())->toBeFalse();
 });
 
-test('email is not verified with invalid hash', function () {
+test('legacy email verification endpoint does not accept an invalid hash', function () {
     $user = User::factory()->unverified()->create();
+    Event::fake([Verified::class]);
 
-    $verificationUrl = URL::temporarySignedRoute(
-        'verification.verify',
-        now()->addMinutes(60),
-        ['id' => $user->id, 'hash' => sha1('wrong-email')]
-    );
+    $this->actingAs($user)->get("/verify-email/{$user->id}/invalid-hash")->assertNotFound();
 
-    $this->actingAs($user)->get($verificationUrl);
-
+    Event::assertNotDispatched(Verified::class);
     expect($user->fresh()->hasVerifiedEmail())->toBeFalse();
 });

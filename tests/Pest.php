@@ -24,6 +24,12 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
+beforeEach(function (): void {
+    if ($this instanceof TestCase) {
+        Http::preventStrayRequests();
+    }
+});
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

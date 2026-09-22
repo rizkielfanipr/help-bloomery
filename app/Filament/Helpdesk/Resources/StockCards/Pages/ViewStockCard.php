@@ -93,11 +93,19 @@ class ViewStockCard extends Page
         $products = $entries->mapWithKeys(fn ($entry): array => [
             $entry->product_code => [
                 'productCode' => $entry->product_code, 'productName' => $entry->product_name,
+                'productCategory' => $entry->product_category ?: 'Tanpa Kategori',
                 'unit' => $entry->system_unit, 'totalQty' => $entry->system_qty, 'live' => false,
             ],
         ]);
         foreach ($this->movementBalances as $product) {
-            $products->put($product['productCode'], $product + ['live' => true]);
+            $entry = $entries->get($product['productCode']);
+            $category = $entry?->product_category
+                ?: ($product['productCategory'] ?? $product['category'] ?? $this->mappedProductCategory($product));
+
+            $products->put($product['productCode'], $product + [
+                'live' => true,
+                'productCategory' => filled($category) ? $category : 'Tanpa Kategori',
+            ]);
         }
         if (! $this->hasDetailCategoryFilter()) {
             return $products->values();
@@ -123,6 +131,20 @@ class ViewStockCard extends Page
 
             return $filter->filter([['category_sources' => $sources]], $this->detailCategoryRules) !== [];
         })->values();
+    }
+
+    /** @param array<string, mixed> $product */
+    private function mappedProductCategory(array $product): ?string
+    {
+        foreach ($product['companies'] ?? [] as $company) {
+            $category = trim((string) ($this->detailCategoryMappings[$company][$product['productCode']] ?? ''));
+
+            if ($category !== '') {
+                return $category;
+            }
+        }
+
+        return null;
     }
 
     private const VARIANCE_TOLERANCE = 0.0001;
@@ -153,19 +175,14 @@ class ViewStockCard extends Page
     {
         $user = auth()->user();
 
-        return $this->record->status === StockCardStatus::PendingSupervisor
-            && $user?->can('review stock cards as supervisor')
-            && ($user->canAccessAllBranches() || $user->id !== $this->record->submitted_by)
-            && ($user->canAccessAllBranches() || $user->canAccessBranch($this->record->branch_id));
+        return $user?->can('reviewAsSupervisor', $this->record) ?? false;
     }
 
     public function canReviewAsFinance(): bool
     {
         $user = auth()->user();
 
-        return $this->record->status === StockCardStatus::PendingFinance
-            && $user?->can('review stock cards as finance')
-            && ($user->canAccessAllBranches() || $user->id !== $this->record->submitted_by);
+        return $user?->can('reviewAsFinance', $this->record) ?? false;
     }
 
     public function canRefetchEsb(): bool

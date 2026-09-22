@@ -7,10 +7,14 @@
      @if(! $isSubmitted) wire:init="loadProductCatalog" @endif
      x-data="{
          search: '',
+         categoryPage: 0,
          matchesSearch(name, code) {
              if (this.search === '') return true;
              const q = this.search.toLowerCase();
              return name.toLowerCase().includes(q) || code.toLowerCase().includes(q);
+         },
+         groupMatches(products) {
+             return products.some((product) => this.matchesSearch(product.name, product.code));
          }
      }"
      x-init="$wire.on('stock-card-fetch-next', () => $wire.call('fetchNextCatalogMovement'))">
@@ -200,7 +204,22 @@
             {{-- Product rows --}}
             @if(! empty($rows))
 
-                @php $filledCount = collect($rows)->filter(fn ($r) => $r['actual_qty'] !== '')->count(); @endphp
+                @php
+                    $filledCount = collect($rows)->filter(fn ($r) => $r['actual_qty'] !== '')->count();
+                    $groupedRows = collect($rows)
+                        ->map(fn (array $row, int $index): array => ['index' => $index, 'row' => $row])
+                        ->sort(function (array $left, array $right): int {
+                            $categoryComparison = strnatcasecmp(
+                                trim((string) ($left['row']['product_category'] ?? '')) ?: 'Tanpa Kategori',
+                                trim((string) ($right['row']['product_category'] ?? '')) ?: 'Tanpa Kategori',
+                            );
+
+                            return $categoryComparison !== 0
+                                ? $categoryComparison
+                                : strnatcasecmp($left['row']['product_name'], $right['row']['product_name']);
+                        })
+                        ->groupBy(fn (array $item): string => trim((string) ($item['row']['product_category'] ?? '')) ?: 'Tanpa Kategori');
+                @endphp
 
                 {{-- Search bar --}}
                 <div class="relative">
@@ -213,46 +232,96 @@
 
                 <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
-                    {{-- Rows --}}
-                    @foreach($rows as $idx => $row)
-                        <div wire:key="row-{{ $idx }}"
-                             x-show="matchesSearch('{{ addslashes($row['product_name']) }}', '{{ addslashes($row['product_code']) }}')"
-                             class="border-b border-gray-100 px-4 py-3 last:border-0 dark:border-gray-800">
+                    {{-- Rows grouped by product category --}}
+                    @foreach($groupedRows as $category => $categoryRows)
+                        <div x-show="categoryPage === {{ $loop->index }}" data-stock-category-page="{{ $loop->index }}">
+                            <div
+                                data-stock-category="{{ $category }}"
+                                class="border-b border-gray-200 bg-slate-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/70"
+                            >
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Kategori {{ $loop->iteration }} dari {{ $groupedRows->count() }}</p>
+                                        <p class="mt-0.5 text-sm font-bold text-slate-700 dark:text-slate-200">{{ $category }}</p>
+                                    </div>
+                                    <span class="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500 dark:border-gray-700 dark:bg-gray-900 dark:text-slate-400">{{ $categoryRows->count() }} Produk</span>
+                                </div>
+                            </div>
 
-                            <div class="grid grid-cols-[1fr_140px] items-center gap-3">
-                                <div class="min-w-0">
-                                    <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['product_name'] }}</p>
-                                    <p class="text-[10px] text-slate-400 dark:text-slate-500">
-                                        {{ $row['product_code'] }} &middot; {{ $row['product_category'] ?? 'Tanpa Kategori' }}@if($row['system_unit']) &middot; {{ $row['system_unit'] }}@endif
-                                    </p>
+                            @foreach($categoryRows as $item)
+                                @php
+                                    $idx = $item['index'];
+                                    $row = $item['row'];
+                                @endphp
+                                <div wire:key="row-{{ $idx }}"
+                                 x-show="matchesSearch('{{ addslashes($row['product_name']) }}', '{{ addslashes($row['product_code']) }}')"
+                                 class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+
+                                <div class="grid grid-cols-[1fr_140px] items-center gap-3">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $row['product_name'] }}</p>
+                                        <p class="text-[10px] text-slate-400 dark:text-slate-500">
+                                            {{ $row['product_code'] }} &middot; {{ $row['product_category'] ?? 'Tanpa Kategori' }}@if($row['system_unit']) &middot; {{ $row['system_unit'] }}@endif
+                                        </p>
+                                    </div>
+
+                                    @if($isSubmitted)
+                                        <div class="text-right text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
+                                            {{ $row['actual_qty'] !== '' ? rtrim(rtrim(number_format((float)$row['actual_qty'], 4, '.', ''), '0'), '.') : '—' }}
+                                        </div>
+                                    @else
+                                        <input type="number"
+                                               inputmode="decimal"
+                                               wire:model.live.debounce.600ms="rows.{{ $idx }}.actual_qty"
+                                               min="0" step="0.0001" placeholder="0"
+                                               class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-right text-base font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                    @endif
                                 </div>
 
                                 @if($isSubmitted)
-                                    <div class="text-right text-xs font-mono font-semibold text-slate-700 dark:text-slate-200">
-                                        {{ $row['actual_qty'] !== '' ? rtrim(rtrim(number_format((float)$row['actual_qty'], 4, '.', ''), '0'), '.') : '—' }}
-                                    </div>
+                                    @if(! empty($row['notes']))
+                                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ $row['notes'] }}</p>
+                                    @endif
                                 @else
-                                    <input type="number"
-                                           inputmode="decimal"
-                                           wire:model.live.debounce.600ms="rows.{{ $idx }}.actual_qty"
-                                           min="0" step="0.0001" placeholder="0"
-                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-right text-base font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                    <input type="text"
+                                           wire:model.live.debounce.600ms="rows.{{ $idx }}.notes"
+                                           placeholder="Catatan (opsional)"
+                                           class="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base text-slate-600 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300">
                                 @endif
-                            </div>
 
-                            @if($isSubmitted)
-                                @if(! empty($row['notes']))
-                                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{{ $row['notes'] }}</p>
-                                @endif
-                            @else
-                                <input type="text"
-                                       wire:model.live.debounce.600ms="rows.{{ $idx }}.notes"
-                                       placeholder="Catatan (opsional)"
-                                       class="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-base text-slate-600 placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-300">
-                            @endif
-
+                                </div>
+                            @endforeach
                         </div>
                     @endforeach
+
+                    @if($groupedRows->count() > 1)
+                        <div class="flex items-center justify-center gap-3 border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-900">
+                            <button
+                                type="button"
+                                x-on:click="search = ''; categoryPage--"
+                                x-bind:disabled="categoryPage === 0"
+                                aria-label="Kategori sebelumnya"
+                                title="Kategori sebelumnya"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35 dark:border-gray-700 dark:text-slate-300 dark:hover:border-blue-900 dark:hover:bg-blue-950/40 dark:hover:text-blue-300"
+                            >
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 19.5-7.5-7.5 7.5-7.5"/></svg>
+                            </button>
+                            <div class="min-w-20 text-center">
+                                <p class="text-xs font-semibold text-slate-600 dark:text-slate-300"><span x-text="categoryPage + 1"></span> / {{ $groupedRows->count() }}</p>
+                                <p class="mt-0.5 text-[10px] text-slate-400">Kategori</p>
+                            </div>
+                            <button
+                                type="button"
+                                x-on:click="search = ''; categoryPage++"
+                                x-bind:disabled="categoryPage === {{ $groupedRows->count() - 1 }}"
+                                aria-label="Kategori selanjutnya"
+                                title="Kategori selanjutnya"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-35 dark:border-gray-700 dark:text-slate-300 dark:hover:border-blue-900 dark:hover:bg-blue-950/40 dark:hover:text-blue-300"
+                            >
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+                            </button>
+                        </div>
+                    @endif
 
                     {{-- Progress footer --}}
                     <div class="border-t border-gray-100 bg-gray-50 px-4 py-2.5 dark:border-gray-800 dark:bg-gray-800/50">

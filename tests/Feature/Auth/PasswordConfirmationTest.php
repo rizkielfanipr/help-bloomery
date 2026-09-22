@@ -2,31 +2,20 @@
 
 use App\Models\User;
 
-test('confirm password screen can be rendered', function () {
+test('legacy password confirmation screen remains unavailable', function () {
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->get('/confirm-password');
-
-    $response->assertStatus(200);
+    $this->actingAs($user)->get('/confirm-password')->assertNotFound();
 });
 
-test('password can be confirmed', function () {
+test('legacy password confirmation endpoint remains unavailable for a valid password', function () {
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->post('/confirm-password', [
-        'password' => 'password',
-    ]);
-
-    $response->assertRedirect();
-    $response->assertSessionHasNoErrors();
+    $this->actingAs($user)->post('/confirm-password', ['password' => 'password'])->assertNotFound();
 });
 
-test('password is not confirmed with invalid password', function () {
+test('legacy password confirmation endpoint remains unavailable for an invalid password', function () {
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->post('/confirm-password', [
-        'password' => 'wrong-password',
-    ]);
-
-    $response->assertSessionHasErrors();
+    $this->actingAs($user)->post('/confirm-password', ['password' => 'wrong-password'])->assertNotFound();
 });

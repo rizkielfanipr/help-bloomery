@@ -17,6 +17,7 @@ use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
     $this->branch = Branch::factory()->create();
     $this->pic = User::factory()->create(['phone' => '081234567890', 'is_active' => true]);
     $this->user = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
@@ -146,7 +147,6 @@ it('shows the WhatsApp CTA for a service request when enabled with a PIC, withou
     $this->actingAs($this->user);
 
     $page = Livewire::test(TechnicianRequestPage::class)
-        ->set('scheduledDate', now()->addDay()->toDateString())
         ->set('requestorNotes', 'AC bocor di ruang meeting.')
         ->call('submit')
         ->assertHasNoErrors()

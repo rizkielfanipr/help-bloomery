@@ -3,38 +3,29 @@
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
-test('password can be updated', function () {
+test('legacy standalone password update endpoint remains unavailable', function () {
     $user = User::factory()->create();
+    $originalPassword = $user->password;
 
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
-            'current_password' => 'password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
-        ]);
+    $this->actingAs($user)->put('/password', [
+        'current_password' => 'password',
+        'password' => 'new-password',
+        'password_confirmation' => 'new-password',
+    ])->assertNotFound();
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
-
-    $this->assertTrue(Hash::check('new-password', $user->refresh()->password));
+    expect($user->fresh()->password)->toBe($originalPassword);
 });
 
-test('correct password must be provided to update password', function () {
+test('legacy standalone password update endpoint does not mutate data for an invalid current password', function () {
     $user = User::factory()->create();
+    $originalPassword = $user->password;
 
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->put('/password', [
-            'current_password' => 'wrong-password',
-            'password' => 'new-password',
-            'password_confirmation' => 'new-password',
-        ]);
+    $this->actingAs($user)->put('/password', [
+        'current_password' => 'wrong-password',
+        'password' => 'new-password',
+        'password_confirmation' => 'new-password',
+    ])->assertNotFound();
 
-    $response
-        ->assertSessionHasErrorsIn('updatePassword', 'current_password')
-        ->assertRedirect('/profile');
+    expect($user->fresh()->password)->toBe($originalPassword)
+        ->and(Hash::check('new-password', $user->password))->toBeFalse();
 });

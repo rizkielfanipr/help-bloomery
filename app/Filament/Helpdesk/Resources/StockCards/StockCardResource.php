@@ -172,18 +172,28 @@ class StockCardResource extends Resource
         $query = parent::getEloquentQuery()->with(['branch', 'submittedBy', 'supervisorReviewer', 'financeReviewer', 'entries', 'employees']);
         $user = auth()->user();
 
-        if ($user && ! $user->canAccessAllBranches()) {
-            $query->whereIn('branch_id', $user->accessibleBranchIds());
-        }
+        return $user ? $query->accessibleTo($user) : $query->whereRaw('1 = 0');
+    }
 
-        return $query;
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->can('viewAny', StockCard::class) ?? false;
     }
 
     public static function canView($record): bool
     {
-        $user = auth()->user();
+        return $record instanceof StockCard
+            && (auth()->user()?->can('view', $record) ?? false);
+    }
 
-        return parent::canView($record)
-            && $user?->canAccessBranch($record->branch_id);
+    public static function canDelete($record): bool
+    {
+        return $record instanceof StockCard
+            && (auth()->user()?->can('delete', $record) ?? false);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->can('deleteAny', StockCard::class) ?? false;
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\StockCardStatus;
 use App\Models\StockCard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,12 +14,7 @@ class StockCardEsbSynchronizer
     {
         $user = auth()->user();
 
-        return $user !== null
-            && $user->can('view stock cards')
-            && $user->canAccessBranch($card->branch_id)
-            && ($user->canAccessAllBranches() || $user->id !== $card->submitted_by)
-            && (($card->status === StockCardStatus::PendingSupervisor && $user->can('review stock cards as supervisor'))
-                || ($card->status === StockCardStatus::PendingFinance && $user->can('review stock cards as finance')));
+        return $user?->can('refreshEsb', $card) ?? false;
     }
 
     /** @return array<string, mixed> */

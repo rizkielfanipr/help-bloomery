@@ -58,7 +58,19 @@ trait HasStockMovementTable
 
         return $this->movementProducts()->filter(fn (array $row): bool => $search === ''
             || str_contains(mb_strtolower($row['productCode'].' '.($row['productName'] ?? '')), $search))
-            ->sortBy('productName', SORT_NATURAL | SORT_FLAG_CASE)->values();
+            ->sort(function (array $left, array $right): int {
+                $categoryComparison = strnatcasecmp(
+                    (string) ($left['productCategory'] ?? 'Tanpa Kategori'),
+                    (string) ($right['productCategory'] ?? 'Tanpa Kategori'),
+                );
+
+                return $categoryComparison !== 0
+                    ? $categoryComparison
+                    : strnatcasecmp(
+                        (string) ($left['productName'] ?? $left['productCode']),
+                        (string) ($right['productName'] ?? $right['productCode']),
+                    );
+            })->values();
     }
 
     /** @return Collection<int, array<string, mixed>> */

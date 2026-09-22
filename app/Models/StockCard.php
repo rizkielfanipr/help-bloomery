@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\StockCardStatus;
 use Database\Factories\StockCardFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -81,6 +82,15 @@ class StockCard extends Model
     public function approvals(): HasMany
     {
         return $this->hasMany(StockCardApproval::class)->latest();
+    }
+
+    public function scopeAccessibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->canAccessAllBranches()) {
+            return $query;
+        }
+
+        return $query->whereIn('branch_id', $user->accessibleBranchIds());
     }
 
     /** Entries where the working qty differs from ESB's system qty. */

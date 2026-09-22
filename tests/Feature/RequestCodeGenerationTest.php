@@ -13,10 +13,12 @@ use App\Models\ItRequestType;
 use App\Models\PurchaseRequest;
 use App\Models\ServiceRequest;
 use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
     $this->branch = Branch::factory()->create();
     $this->user = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
@@ -73,7 +75,6 @@ it('generates a random PR- code for a purchase request and shows it on the succe
 
 it('generates a random SR- code for a service request and shows it on the success card', function () {
     $page = Livewire::test(TechnicianRequestPage::class)
-        ->set('scheduledDate', now()->addDay()->toDateString())
         ->set('requestorNotes', 'AC bocor di ruang meeting.')
         ->call('submit')
         ->assertHasNoErrors();
@@ -88,6 +89,6 @@ it('offers manual and QR Code modes on the technician request page', function ()
     Livewire::test(TechnicianRequestPage::class)
         ->assertSee('Manual')
         ->assertSee('QR Code')
-        ->assertSee('Scan QR Asset')
+        ->assertSee('Scan atau upload QR asset.')
         ->assertSee('Buka Kamera');
 });

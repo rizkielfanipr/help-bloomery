@@ -1,85 +1,71 @@
 <?php
 
+use App\Filament\Casual\Pages\ProfilePage;
 use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Facades\Filament;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 
-test('profile page is displayed', function () {
-    $user = User::factory()->create();
+beforeEach(function (): void {
+    Storage::fake('b2');
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
 
-    $response = $this
-        ->actingAs($user)
-        ->get('/profile');
-
-    $response->assertOk();
+    $this->user = User::factory()->create([
+        'is_active' => true,
+        'name' => 'Test Casual',
+        'phone' => '081234567890',
+    ]);
+    $this->user->assignRole('CASUAL_STAFF');
+    $this->actingAs($this->user);
 });
 
-test('profile information can be updated', function () {
-    $user = User::factory()->create();
-
-    $response = $this
-        ->actingAs($user)
-        ->patch('/profile', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
-
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
-
-    $user->refresh();
-
-    $this->assertSame('Test User', $user->name);
-    $this->assertSame('test@example.com', $user->email);
-    $this->assertNull($user->email_verified_at);
+test('casual profile page displays the current user information', function () {
+    Livewire::test(ProfilePage::class)
+        ->assertOk()
+        ->assertSee('Test Casual')
+        ->assertSee('081234567890')
+        ->assertSee($this->user->email);
 });
 
-test('email verification status is unchanged when the email address is unchanged', function () {
-    $user = User::factory()->create();
+test('casual user can update their profile photo', function () {
+    $photo = UploadedFile::fake()->image('avatar.jpg', 400, 400);
 
-    $response = $this
-        ->actingAs($user)
-        ->patch('/profile', [
-            'name' => 'Test User',
-            'email' => $user->email,
-        ]);
+    Livewire::test(ProfilePage::class)
+        ->set('photo', $photo)
+        ->call('savePhoto')
+        ->assertHasNoErrors();
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/profile');
+    $path = $this->user->fresh()->avatar;
 
-    $this->assertNotNull($user->refresh()->email_verified_at);
+    expect($path)->not->toBeNull();
+    Storage::disk('b2')->assertExists($path);
 });
 
-test('user can delete their account', function () {
-    $user = User::factory()->create();
+test('replacing a profile photo removes the previous object', function () {
+    Storage::disk('b2')->put('avatars/old.jpg', 'old-avatar');
+    $this->user->update(['avatar' => 'avatars/old.jpg']);
 
-    $response = $this
-        ->actingAs($user)
-        ->delete('/profile', [
-            'password' => 'password',
-        ]);
+    Livewire::test(ProfilePage::class)
+        ->set('photo', UploadedFile::fake()->image('new-avatar.jpg', 400, 400))
+        ->call('savePhoto')
+        ->assertHasNoErrors();
 
-    $response
-        ->assertSessionHasNoErrors()
-        ->assertRedirect('/');
+    Storage::disk('b2')->assertMissing('avatars/old.jpg');
+    Storage::disk('b2')->assertExists($this->user->fresh()->avatar);
+});
+
+test('casual user can logout from the profile page', function () {
+    Livewire::test(ProfilePage::class)->call('logout');
 
     $this->assertGuest();
-    $this->assertNull($user->fresh());
 });
 
-test('correct password must be provided to delete account', function () {
-    $user = User::factory()->create();
+test('guest is redirected from the casual profile page to login', function () {
+    auth()->logout();
 
-    $response = $this
-        ->actingAs($user)
-        ->from('/profile')
-        ->delete('/profile', [
-            'password' => 'wrong-password',
-        ]);
-
-    $response
-        ->assertSessionHasErrorsIn('userDeletion', 'password')
-        ->assertRedirect('/profile');
-
-    $this->assertNotNull($user->fresh());
+    $this->get(ProfilePage::getUrl(panel: 'casual'))
+        ->assertRedirect(route('filament.casual.auth.login'));
 });

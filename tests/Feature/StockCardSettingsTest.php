@@ -256,3 +256,65 @@ it('reports category lookup failure in detail without displaying unclassified mo
         ->assertSet('categoryMappingFailures', ['COM01'])->assertSee('Kategori produk gagal dimuat')
         ->assertDontSee('Unclassified Product')->assertSee('Saved Staff Product');
 });
+
+it('groups and sorts products by category on the staff entry page', function () {
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->staff);
+
+    $page = Livewire::test(StockCardEntryPage::class)
+        ->set('rows', [
+            ['product_code' => 'PKG-01', 'product_name' => 'Zebra Box', 'product_category' => 'Packaging', 'system_unit' => 'PCS', 'actual_qty' => '', 'notes' => ''],
+            ['product_code' => 'RAW-02', 'product_name' => 'Banana', 'product_category' => 'Bahan Baku', 'system_unit' => 'KG', 'actual_qty' => '', 'notes' => ''],
+            ['product_code' => 'RAW-01', 'product_name' => 'Apple', 'product_category' => 'Bahan Baku', 'system_unit' => 'KG', 'actual_qty' => '', 'notes' => ''],
+        ])
+        ->set('rows.2.actual_qty', '7')
+        ->set('rows.2.notes', 'Sudah dihitung')
+        ->assertSet('rows.2.actual_qty', '7')
+        ->assertSet('rows.2.notes', 'Sudah dihitung')
+        ->assertSee('aria-label="Kategori sebelumnya"', escape: false)
+        ->assertSee('aria-label="Kategori selanjutnya"', escape: false);
+
+    expect($page->html())
+        ->toMatch('/data-stock-category-page="0".*data-stock-category="Bahan Baku".*Apple.*Banana.*data-stock-category-page="1".*data-stock-category="Packaging".*Zebra Box/s');
+});
+
+it('groups and sorts products by category on the back office detail page', function () {
+    $this->admin->assignRole('SUPERADMIN');
+    $this->actingAs($this->admin);
+
+    $card = StockCard::factory()->create([
+        'branch_id' => $this->branch->id,
+        'movement_snapshot' => [
+            'rows' => [
+                ['productCode' => 'PKG-01', 'productName' => 'Zebra Box', 'unit' => 'PCS', 'totalQty' => 2],
+                ['productCode' => 'RAW-02', 'productName' => 'Banana', 'unit' => 'KG', 'totalQty' => 3],
+                ['productCode' => 'RAW-01', 'productName' => 'Apple', 'unit' => 'KG', 'totalQty' => 4],
+            ],
+            'types' => [],
+            'transactions' => [],
+            'units' => [],
+        ],
+    ]);
+
+    foreach ([
+        ['code' => 'PKG-01', 'name' => 'Zebra Box', 'category' => 'Packaging'],
+        ['code' => 'RAW-02', 'name' => 'Banana', 'category' => 'Bahan Baku'],
+        ['code' => 'RAW-01', 'name' => 'Apple', 'category' => 'Bahan Baku'],
+    ] as $product) {
+        StockCardEntry::factory()->create([
+            'stock_card_id' => $card->id,
+            'product_code' => $product['code'],
+            'product_name' => $product['name'],
+            'product_category' => $product['category'],
+        ]);
+    }
+
+    Livewire::test(ViewStockCard::class, ['record' => $card])
+        ->assertSeeInOrder([
+            'data-stock-category-row="Bahan Baku"',
+            'Apple',
+            'Banana',
+            'data-stock-category-row="Packaging"',
+            'Zebra Box',
+        ], escape: false);
+});

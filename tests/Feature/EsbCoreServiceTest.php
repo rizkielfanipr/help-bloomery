@@ -71,7 +71,7 @@ it('refreshes the access token once after an unauthorized response', function ()
         && $request->hasHeader('Authorization', 'Bearer fresh-token'));
 });
 
-it('forces Assembly type when creating a recipe', function () {
+it('defaults a recipe to Assembly while preserving an explicit BOM type', function () {
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response([
             'status' => 'ok',
@@ -83,9 +83,14 @@ it('forces Assembly type when creating a recipe', function () {
         ]),
     ]);
 
-    $id = app(EsbCoreService::class)->createAssembly([
-        'bomTypeID' => 99,
+    $service = app(EsbCoreService::class);
+    $id = $service->createAssembly([
         'bomName' => 'Assembly Croissant',
+        'bomDetails' => [],
+    ]);
+    $service->createAssembly([
+        'bomTypeID' => 3,
+        'bomName' => 'Croissant Menu',
         'bomDetails' => [],
     ]);
 
@@ -93,6 +98,8 @@ it('forces Assembly type when creating a recipe', function () {
 
     Http::assertSent(fn ($request) => $request->url() === 'https://core-esb.test/product/bom'
         && $request['bomTypeID'] === 1);
+    Http::assertSent(fn ($request) => $request->url() === 'https://core-esb.test/product/bom'
+        && $request['bomTypeID'] === 3);
 });
 
 it('gets and updates a Bill of Material detail', function () {

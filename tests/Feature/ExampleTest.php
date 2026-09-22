@@ -1,7 +1,5 @@
 <?php
 
-it('returns a successful response', function () {
-    $response = $this->get('/');
-
-    $response->assertStatus(200);
+it('redirects the helpdesk root to its login page for guests', function () {
+    $this->get('/')->assertRedirect(route('filament.helpdesk.auth.login'));
 });

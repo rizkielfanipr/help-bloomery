@@ -40,6 +40,8 @@
             $movementLastPage = max(1, (int) ceil($movementTotal / 25));
             $movementCurrentPage = min(max(1, $movementPage), $movementLastPage);
             $movementOffset = ($movementCurrentPage - 1) * 25;
+            $pagedMovementProducts = $movementProducts->slice($movementOffset, 25);
+            $previousCategory = null;
         @endphp
         <div class="px-6 py-3">
             <input type="search" wire:model.live.debounce.300ms="movementSearch" aria-label="Cari Produk ESB" placeholder="Cari nama atau kode produk ESB…" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
@@ -62,10 +64,23 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @forelse($movementProducts->slice($movementOffset, 25) as $product)
-                        @php $staffEntry = $staffEntries->get($product['productCode']); @endphp
+                    @forelse($pagedMovementProducts as $product)
+                        @php
+                            $staffEntry = $staffEntries->get($product['productCode']);
+                            $productCategory = trim((string) ($product['productCategory'] ?? $staffEntry?->product_category ?? '')) ?: 'Tanpa Kategori';
+                        @endphp
+                        @if($productCategory !== $previousCategory)
+                            <tr data-stock-category-row="{{ $productCategory }}" class="bg-blue-50/70 dark:bg-blue-950/20">
+                                <td colspan="{{ 8 + count($visibleTransactionTypes) }}" class="px-4 py-2.5">
+                                    <span class="text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">{{ $productCategory }}</span>
+                                </td>
+                            </tr>
+                            @php
+                                $previousCategory = $productCategory;
+                            @endphp
+                        @endif
                         <tr wire:key="esb-product-{{ $product['productCode'] }}" class="align-top">
-                            <td class="px-4 py-3"><p class="font-medium text-gray-800 dark:text-gray-200">{{ $product['productName'] ?? $product['productCode'] }}</p><p class="text-xs text-gray-400">{{ $product['productCode'] }}</p></td>
+                            <td class="px-4 py-3"><p class="font-medium text-gray-800 dark:text-gray-200">{{ $product['productName'] ?? $product['productCode'] }}</p><p class="text-xs text-gray-400">{{ $product['productCode'] }} · {{ $productCategory }}</p></td>
                             <td class="px-4 py-3 text-right font-mono font-semibold">
                                 {{ $fmtQty($product['totalQty']) }}
                                 @if(! ($product['live'] ?? false) && $product['totalQty'] !== null)<p class="mt-1 text-[10px] font-normal text-gray-400">Saldo tersimpan</p>@endif

@@ -83,6 +83,7 @@
                     <option value="upcoming">Upcoming</option>
                     <option value="active">Active</option>
                     <option value="completed">Completed</option>
+                    <option value="archived">Diarsipkan</option>
                 </select>
                 <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1 dark:border-gray-600 dark:bg-gray-800">
                     <button type="button" wire:click="showProjectList" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'list' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
@@ -169,10 +170,11 @@
             <section class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
             @forelse($projects as $project)
                 @php
-                    $status = today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active');
+                    $status = $project->trashed() ? 'Archived' : (today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active'));
                     $statusClass = match($status) {
                         'Active' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
                         'Completed' => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+                        'Archived' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
                         default => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
                     };
                     $duration = max(1, $project->start_date->diffInDays($project->end_date) + 1);
@@ -209,14 +211,27 @@
                         </div>
 
                         <div class="mt-5 flex items-center gap-2">
-                            <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project]) }}" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                                Buka Project
-                                <x-heroicon-o-arrow-right class="h-4 w-4" />
-                            </a>
-                            @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project))
-                                <button type="button" wire:click="openEditProjectModal({{ $project->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Project">
-                                    <x-heroicon-o-pencil-square class="h-5 w-5" />
-                                </button>
+                            @if($project->trashed())
+                                @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canRestore($project))
+                                    <button type="button" wire:click="restoreProject({{ $project->id }})" wire:confirm="Pulihkan project ini ke daftar aktif?" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700">
+                                        <x-heroicon-o-arrow-path class="h-4 w-4" /> Pulihkan Project
+                                    </button>
+                                @endif
+                            @else
+                                <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project]) }}" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                                    Buka Project
+                                    <x-heroicon-o-arrow-right class="h-4 w-4" />
+                                </a>
+                                @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project))
+                                    <button type="button" wire:click="openEditProjectModal({{ $project->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Project">
+                                        <x-heroicon-o-pencil-square class="h-5 w-5" />
+                                    </button>
+                                @endif
+                                @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canDelete($project))
+                                    <button type="button" wire:click="archiveProject({{ $project->id }})" wire:confirm="Arsipkan project ini? Seluruh Menu, BOM, dan attachment tetap tersimpan serta dapat dipulihkan." class="rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30" title="Arsipkan Project">
+                                        <x-heroicon-o-archive-box class="h-5 w-5" />
+                                    </button>
+                                @endif
                             @endif
                         </div>
                     </div>

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
+use App\Actions\ArchiveRndProjectAction;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Models\Branch;
@@ -507,6 +508,21 @@ class ViewProject extends ViewRecord
             ->body($detachedBomCount > 0 ? $detachedBomCount.' relasi BOM otomatis dilepas. Data BOM tetap tersimpan.' : null)
             ->success()
             ->send();
+    }
+
+    public function archiveProject(ArchiveRndProjectAction $archiveProject): mixed
+    {
+        abort_unless(ProjectResource::canDelete($this->record), 403);
+
+        $archiveProject->execute($this->record);
+
+        Notification::make()
+            ->title('Project berhasil diarsipkan')
+            ->body('Seluruh data dan attachment tetap tersimpan dan dapat dipulihkan.')
+            ->success()
+            ->send();
+
+        return $this->redirect(ProjectResource::getUrl('index'), navigate: true);
     }
 
     public function openProjectBomExport(string $scope): void

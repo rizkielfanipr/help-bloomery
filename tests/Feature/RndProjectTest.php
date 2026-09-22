@@ -76,6 +76,117 @@ it('automatically detaches BOM relations when deleting a menu', function () {
     ]);
 });
 
+it('archives and restores a project without deleting its local data or attachments', function () {
+    Storage::fake('b2');
+    Http::preventStrayRequests();
+
+    $project = RndProject::query()->create([
+        'name' => 'Project to Delete',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Menu to Delete',
+        'status' => 'development',
+        'image_path' => 'rnd/products/menu-to-delete.jpg',
+        'created_by' => auth()->id(),
+    ]);
+    $bom = $project->boms()->create([
+        'esb_bom_id' => 987655,
+        'bom_code' => 'BOM-DELETE-PROJECT',
+        'bom_name' => 'Project BOM Snapshot',
+        'created_by' => auth()->id(),
+    ]);
+    $product->boms()->attach($bom->id, ['usage_type' => 'main']);
+    $project->documents()->create([
+        'name' => 'CCP Project',
+        'file_path' => 'rnd/projects/ccp-delete.pdf',
+        'original_name' => 'ccp-delete.pdf',
+        'mime_type' => 'application/pdf',
+        'file_size' => 100,
+        'created_by' => auth()->id(),
+    ]);
+    $product->marketingMaterials()->create([
+        'type' => 'product_photo',
+        'title' => 'Marketing Project',
+        'file_path' => 'rnd/marketing-materials/delete.jpg',
+        'original_name' => 'delete.jpg',
+        'mime_type' => 'image/jpeg',
+        'file_size' => 100,
+        'created_by' => auth()->id(),
+    ]);
+    $esbMaterial = $product->esbMaterials()->create([
+        'category_id' => 1,
+        'sub_category_id' => 1,
+        'uom_id' => 1,
+        'uom_name' => 'KG',
+        'product_code' => 'DELETE-PROJECT-MATERIAL',
+        'product_name' => 'Delete Project Material',
+        'sku' => 'DELETE-PROJECT-MATERIAL-KG',
+        'created_by' => auth()->id(),
+    ]);
+    $esbMaterial->sourcings()->create([
+        'supplier_name' => 'Supplier Project',
+        'price' => 10000,
+        'attachment_path' => 'rnd/material-sourcing/delete.pdf',
+        'submitted_by' => auth()->id(),
+    ]);
+    RndBomInstruction::query()->create([
+        'rnd_project_id' => $project->id,
+        'rnd_project_product_id' => $product->id,
+        'esb_bom_id' => $bom->esb_bom_id,
+        'content_html' => '<p>Instruction</p>',
+        'image_paths' => ['rnd/bom-instructions/delete.jpg'],
+        'updated_by' => auth()->id(),
+    ]);
+
+    foreach ([
+        'rnd/products/menu-to-delete.jpg',
+        'rnd/projects/ccp-delete.pdf',
+        'rnd/marketing-materials/delete.jpg',
+        'rnd/bom-instructions/delete.jpg',
+        'rnd/material-sourcing/delete.pdf',
+    ] as $path) {
+        Storage::disk('b2')->put($path, 'test');
+    }
+
+    $page = Livewire::test(ListProjects::class)
+        ->assertSee('Arsipkan Project')
+        ->call('archiveProject', $project->id)
+        ->assertHasNoErrors()
+        ->assertDontSee('Project to Delete');
+
+    $this->assertSoftDeleted($project);
+    $this->assertModelExists($product);
+    $this->assertModelExists($bom);
+    foreach ([
+        'rnd/products/menu-to-delete.jpg',
+        'rnd/projects/ccp-delete.pdf',
+        'rnd/marketing-materials/delete.jpg',
+        'rnd/bom-instructions/delete.jpg',
+        'rnd/material-sourcing/delete.pdf',
+    ] as $path) {
+        Storage::disk('b2')->assertExists($path);
+    }
+
+    $page
+        ->set('projectStatus', 'archived')
+        ->assertSee('Project to Delete')
+        ->assertSee('Pulihkan Project')
+        ->call('restoreProject', $project->id)
+        ->assertHasNoErrors()
+        ->assertDontSee('Project to Delete');
+
+    $this->assertNotSoftDeleted($project);
+    $this->assertModelExists($product);
+    $this->assertModelExists($bom);
+    $this->assertDatabaseHas('rnd_project_product_boms', [
+        'rnd_project_product_id' => $product->id,
+        'rnd_project_bom_id' => $bom->id,
+    ]);
+});
+
 it('separates ESB master materials into raw WIP packaging and marketing sections', function () {
     $project = RndProject::query()->create([
         'name' => 'Material Sections Project',

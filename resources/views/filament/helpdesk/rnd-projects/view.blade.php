@@ -3,6 +3,7 @@
         $project = $this->record;
         $status = today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active');
         $canManage = \App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project);
+        $canDelete = \App\Filament\Helpdesk\Resources\Projects\ProjectResource::canDelete($project);
         $canExportKitchenBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export kitchen bill of materials');
         $canExportStoreBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export store bill of materials');
         $input = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
@@ -37,10 +38,19 @@
                             <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $project->description ?: 'Deskripsi project belum ditambahkan.' }}</p>
                         </div>
                     </div>
-                    @if($canManage)
-                        <button type="button" wire:click="openEditProjectModal" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
-                            <x-heroicon-o-pencil-square class="h-5 w-5" /> Edit Project
-                        </button>
+                    @if($canManage || $canDelete)
+                        <div class="flex shrink-0 flex-wrap gap-2">
+                            @if($canManage)
+                                <button type="button" wire:click="openEditProjectModal" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
+                                    <x-heroicon-o-pencil-square class="h-5 w-5" /> Edit Project
+                                </button>
+                            @endif
+                            @if($canDelete)
+                                <button type="button" wire:click="archiveProject" wire:confirm="Arsipkan project ini? Project akan disembunyikan dari daftar aktif, tetapi seluruh Menu, BOM, dan attachment tetap tersimpan serta dapat dipulihkan." class="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-200 px-4 py-2.5 text-sm font-bold text-amber-700 transition hover:bg-amber-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30">
+                                    <x-heroicon-o-archive-box class="h-5 w-5" /> Arsipkan Project
+                                </button>
+                            @endif
+                        </div>
                     @endif
                 </div>
             </div>

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
+use App\Actions\ArchiveRndProjectAction;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Models\RndProject;
 use Filament\Notifications\Notification;
@@ -38,6 +39,7 @@ class ListProjects extends ListRecords
     public function projects(): Collection
     {
         return RndProject::query()
+            ->when($this->projectStatus === 'archived', fn ($query) => $query->onlyTrashed())
             ->withCount('products')
             ->when($this->projectSearch !== '', fn ($query) => $query->where(function ($query): void {
                 $query
@@ -103,6 +105,10 @@ class ListProjects extends ListRecords
 
     public function showProjectCalendar(): void
     {
+        if ($this->projectStatus === 'archived') {
+            return;
+        }
+
         $this->projectView = 'calendar';
         $this->ensureCalendarMonthIsSet();
     }
@@ -167,6 +173,30 @@ class ListProjects extends ListRecords
     {
         $this->resetValidation();
         $this->createProjectModalOpen = false;
+    }
+
+    public function archiveProject(int $projectId, ArchiveRndProjectAction $archiveProject): void
+    {
+        $project = RndProject::query()->findOrFail($projectId);
+        abort_unless(ProjectResource::canDelete($project), 403);
+
+        $archiveProject->execute($project);
+
+        Notification::make()
+            ->title('Project berhasil diarsipkan')
+            ->body('Seluruh data dan attachment tetap tersimpan dan dapat dipulihkan.')
+            ->success()
+            ->send();
+    }
+
+    public function restoreProject(int $projectId): void
+    {
+        $project = RndProject::onlyTrashed()->findOrFail($projectId);
+        abort_unless(ProjectResource::canRestore($project), 403);
+
+        $project->restore();
+
+        Notification::make()->title('Project berhasil dipulihkan')->success()->send();
     }
 
     public function createProject(): void

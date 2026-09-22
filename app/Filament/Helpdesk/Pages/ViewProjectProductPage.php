@@ -2227,14 +2227,23 @@ class ViewProjectProductPage extends Page
         }
     }
 
+    /**
+     * A material stays deletable while it is a draft, failed a sync, or is a broken Synced link
+     * (its Master Product ESB was removed or deactivated). A healthy Synced material is not.
+     */
     public function deleteEsbMaterial(int $materialId): void
     {
         $this->authorizeProjectManagement();
         $material = $this->productRecord->esbMaterials()->findOrFail($materialId);
-        abort_if($material->status === 'synced', 422, 'Data yang sudah tersinkron tidak dapat dihapus.');
+        abort_if($material->status === 'synced' && $material->sync_error === null, 422, 'Data yang sudah tersinkron tidak dapat dihapus.');
+        $sourcingCount = $material->sourcings()->count();
         $material->delete();
         $this->reloadProduct();
-        Notification::make()->title('Draft bahan berhasil dihapus')->success()->send();
+        Notification::make()
+            ->title('Bahan berhasil dihapus')
+            ->body($sourcingCount > 0 ? "{$sourcingCount} data sourcing terkait ikut terhapus." : null)
+            ->success()
+            ->send();
     }
 
     public function refreshEsbMaterial(int $materialId): void
@@ -2494,6 +2503,7 @@ class ViewProjectProductPage extends Page
             'marketingMaterials.fulfillment.location.branch',
             'marketingMaterials.fulfillment.orderedBy',
             'marketingMaterials.fulfillment.receivedBy',
+            'esbMaterials.sourcings',
             'esbMaterials.selectedSourcing.submittedBy',
             'esbMaterials.rndReviewer',
             'esbMaterials.financeReviewer',

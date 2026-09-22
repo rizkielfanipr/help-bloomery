@@ -7,6 +7,7 @@ use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\Branch;
+use App\Models\MaterialSourcing;
 use App\Models\PrefixCategory;
 use App\Models\PrefixName;
 use App\Models\RndBomInstruction;
@@ -394,6 +395,60 @@ it('shows the pull from ESB action of a synced material as an icon button', func
         ->assertSee('Bahan Sudah Sinkron')
         ->assertSeeHtml('aria-label="Tarik nama dan data terbaru dari ESB"')
         ->assertDontSee('Tarik dari ESB');
+});
+
+it('lets a broken Synced material (missing or deactivated ESB product) be deleted', function () {
+    $project = RndProject::query()->create(['name' => 'Broken Material Project', 'start_date' => '2026-09-01', 'end_date' => '2026-10-31', 'created_by' => auth()->id()]);
+    $product = $project->products()->create(['name' => 'Broken Material Menu', 'status' => 'development', 'created_by' => auth()->id()]);
+    $material = $product->esbMaterials()->create([
+        'category_id' => 1,
+        'category_name' => 'Bahan Baku Makanan',
+        'sub_category_id' => 21,
+        'uom_id' => 5,
+        'uom_name' => 'PCS',
+        'product_code' => 'BBMK-BROKEN-01',
+        'product_name' => 'Bahan ESB Hilang',
+        'sku' => 'BBMK-BROKEN-01-PCS',
+        'status' => 'synced',
+        'esb_product_id' => 9002,
+        'sync_error' => 'Master Product ESB ID 9002 tidak ditemukan atau sudah tidak aktif.',
+        'created_by' => auth()->id(),
+    ]);
+    $material->sourcings()->create(['supplier_name' => 'Supplier A', 'price' => 1000]);
+    $material->sourcings()->create(['supplier_name' => 'Supplier B', 'price' => 1200]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->assertSeeHtml('wire:confirm="Hapus bahan ini? 2 data sourcing terkait akan ikut terhapus permanen."')
+        ->call('deleteEsbMaterial', $material->id)
+        ->assertHasNoErrors();
+
+    expect(RndProductEsbMaterial::find($material->id))->toBeNull()
+        ->and(MaterialSourcing::where('rnd_product_esb_material_id', $material->id)->count())->toBe(0);
+});
+
+it('refuses to delete a healthy Synced material', function () {
+    $project = RndProject::query()->create(['name' => 'Healthy Material Project', 'start_date' => '2026-09-01', 'end_date' => '2026-10-31', 'created_by' => auth()->id()]);
+    $product = $project->products()->create(['name' => 'Healthy Material Menu', 'status' => 'development', 'created_by' => auth()->id()]);
+    $material = $product->esbMaterials()->create([
+        'category_id' => 1,
+        'category_name' => 'Bahan Baku Makanan',
+        'sub_category_id' => 21,
+        'uom_id' => 5,
+        'uom_name' => 'PCS',
+        'product_code' => 'BBMK-HEALTHY-01',
+        'product_name' => 'Bahan ESB Sehat',
+        'sku' => 'BBMK-HEALTHY-01-PCS',
+        'status' => 'synced',
+        'esb_product_id' => 9003,
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
+        ->assertDontSeeHtml('wire:click="deleteEsbMaterial('.$material->id.')"')
+        ->call('deleteEsbMaterial', $material->id)
+        ->assertStatus(422);
+
+    expect(RndProductEsbMaterial::find($material->id))->not->toBeNull();
 });
 
 it('edits project information from the project detail modal', function () {

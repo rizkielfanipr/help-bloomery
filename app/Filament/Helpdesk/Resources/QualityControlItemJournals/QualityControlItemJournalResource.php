@@ -35,13 +35,13 @@ class QualityControlItemJournalResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view quality control item journals') ?? false;
+        return auth()->user()?->can('viewAny', QualityControlItemJournal::class) ?? false;
     }
 
     public static function canView(Model $record): bool
     {
-        return static::canViewAny()
-            && (auth()->user()?->can('view all quality control item journals') || $record->created_by === auth()->id());
+        return $record instanceof QualityControlItemJournal
+            && (auth()->user()?->can('view', $record) ?? false);
     }
 
     public static function canCreate(): bool
@@ -62,12 +62,9 @@ class QualityControlItemJournalResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['creator', 'details', 'attachments']);
+        $user = auth()->user();
 
-        if (! auth()->user()?->can('view all quality control item journals')) {
-            $query->where('created_by', auth()->id());
-        }
-
-        return $query;
+        return $user ? $query->visibleTo($user) : $query->whereRaw('1 = 0');
     }
 
     public static function infolist(Schema $schema): Schema

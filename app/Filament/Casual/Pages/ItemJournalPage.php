@@ -72,7 +72,7 @@ class ItemJournalPage extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view quality control item journals') ?? false;
+        return auth()->user()?->can('viewAny', QualityControlItemJournal::class) ?? false;
     }
 
     public function mount(): void
@@ -94,12 +94,14 @@ class ItemJournalPage extends Page
     #[Computed]
     public function journals(): Collection
     {
-        $query = QualityControlItemJournal::query()->with(['details', 'attachments', 'branch'])->latest();
-        if (! auth()->user()?->can('view all quality control item journals')) {
-            $query->where('created_by', auth()->id());
-        }
+        $user = auth()->user();
 
-        return $query->limit(50)->get();
+        return QualityControlItemJournal::query()
+            ->with(['details', 'attachments', 'branch'])
+            ->visibleTo($user)
+            ->latest()
+            ->limit(50)
+            ->get();
     }
 
     /** @return array<string, string> */
@@ -112,7 +114,7 @@ class ItemJournalPage extends Page
 
     public function openForm(): void
     {
-        abort_unless(auth()->user()?->can('create quality control item journals'), 403);
+        abort_unless(auth()->user()?->can('create', QualityControlItemJournal::class), 403);
         $this->resetValidation();
         $this->reset(['companyCode', 'branchId', 'locationId', 'additionalInfo', 'esbBranches', 'locations', 'purposes', 'productOptions', 'selectedProducts', 'items', 'attachments', 'loadError', 'productSearch', 'productCodeSearch', 'productPickerOpen', 'productPickerItemIndex', 'productPage', 'productTotal', 'productHasNext']);
         $this->journalDate = today()->toDateString();
@@ -278,7 +280,7 @@ class ItemJournalPage extends Page
 
     public function submit(): void
     {
-        abort_unless(auth()->user()?->can('submit quality control item journals'), 403);
+        abort_unless(auth()->user()?->can('submit', QualityControlItemJournal::class), 403);
         $availableProducts = collect($this->selectedProducts)->merge($this->productOptions);
         $productIds = $availableProducts->pluck('productDetailID')->map(fn ($id): int => (int) $id)->all();
         $purposeIds = collect($this->purposes)->pluck('purposeID')->map(fn ($id): int => (int) $id)->all();
@@ -330,6 +332,7 @@ class ItemJournalPage extends Page
     public function retryAttachments(int $journalId): void
     {
         $journal = $this->authorizedJournal($journalId);
+        abort_unless(auth()->user()?->can('retryAttachments', $journal), 403);
         abort_unless(filled($journal->item_journal_number), 422);
         try {
             $this->uploadStoredAttachments($journal, app(EsbItemJournalService::class));
@@ -343,8 +346,8 @@ class ItemJournalPage extends Page
 
     public function deleteAllAttachments(int $journalId): void
     {
-        abort_unless(auth()->user()?->can('delete quality control item journal attachments'), 403);
         $journal = $this->authorizedJournal($journalId);
+        abort_unless(auth()->user()?->can('deleteAttachments', $journal), 403);
         app(EsbItemJournalService::class)->deleteAttachments($journal->esb_comcode, $journal->item_journal_number);
         foreach ($journal->attachments as $attachment) {
             Storage::disk('b2')->delete($attachment->file_path);
@@ -369,7 +372,7 @@ class ItemJournalPage extends Page
     private function authorizedJournal(int $id): QualityControlItemJournal
     {
         $journal = QualityControlItemJournal::query()->with('attachments')->findOrFail($id);
-        abort_unless(auth()->user()?->can('view all quality control item journals') || $journal->created_by === auth()->id(), 403);
+        abort_unless(auth()->user()?->can('view', $journal), 403);
 
         return $journal;
     }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -33,5 +34,14 @@ class QualityControlItemJournal extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(QualityControlItemJournalAttachment::class);
+    }
+
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->can('view all quality control item journals')) {
+            return $query;
+        }
+
+        return $query->where('created_by', $user->id);
     }
 }

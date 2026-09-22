@@ -236,3 +236,37 @@ Bukti penghapusan:
 6. full suite tetap lulus 752/752 dengan 4.355 assertions.
 
 Dengan penghapusan ini, empat query Blade yang dicatat pada audit Phase 1 telah diselesaikan: query aktif Purchase/ERP dipindah ke service, sedangkan view Content/Design yang tidak aktif dihapus berdasarkan bukti penggunaan.
+
+## 12. Authorization Item Journal
+
+Item Journal kini mempunyai policy yang digunakan bersama oleh Employee App dan Back Office.
+
+### Aturan terpusat
+
+`QualityControlItemJournalPolicy` mengatur:
+
+- `viewAny`: memerlukan permission view Item Journal;
+- `view`: hanya journal milik sendiri, kecuali user memiliki permission view all;
+- `create`: memerlukan view dan create;
+- `submit`: memerlukan view, create, dan submit;
+- `retryAttachments`: mengikuti akses view terhadap journal;
+- `deleteAttachments`: mengikuti akses view dan permission delete attachment;
+- update dan delete journal tetap ditolak karena Resource bersifat read-only.
+
+### Query scope
+
+Model menyediakan `visibleTo($user)` agar Employee App dan Back Office menggunakan aturan own-vs-all yang sama. Query tanpa user pada Resource menghasilkan hasil kosong.
+
+### Integrasi workflow
+
+`ItemJournalPage` sekarang memakai Policy untuk membuka halaman/form, submit, retry attachment, menghapus attachment, dan mengambil journal yang diizinkan. Validasi Company Code, ESB branch, location, product, purpose, serta payload tidak diubah.
+
+### Validasi
+
+```text
+Test Item Journal dan Policy: 10 lulus, 45 assertions
+Full suite: 756 lulus, 4.365 assertions, 0 gagal
+Pint: lulus
+```
+
+Satu kegagalan awal diklasifikasikan sebagai test fixture defect: record test baru belum mengisi `location_name` yang wajib. Fixture diperbaiki tanpa mengubah production schema atau requirement.

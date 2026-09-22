@@ -270,3 +270,38 @@ Pint: lulus
 ```
 
 Satu kegagalan awal diklasifikasikan sebagai test fixture defect: record test baru belum mengisi `location_name` yang wajib. Fixture diperbaiki tanpa mengubah production schema atau requirement.
+
+## 13. Authorization Receiving dan Vendor Compliance
+
+### Goods Receipt
+
+`GoodsReceiptPolicy` menjadi sumber authorization untuk:
+
+- akses tile/page Receiving pada Employee App;
+- submit Goods Receipt;
+- list dan detail Receiving di Back Office;
+- menjaga Back Office Receiving tetap read-only.
+
+Method `submit()` pada Livewire sekarang melakukan authorization tersendiri sebelum validasi dan mutation. Dengan demikian, akses tidak hanya bergantung pada `mount()` atau visibilitas UI.
+
+### Vendor Compliance
+
+`VendorComplianceIncidentPolicy` mengatur:
+
+- melihat daftar dan detail incident;
+- mengedit tindak lanjut Purchasing;
+- menolak create dan delete manual karena incident dibuat otomatis dari rejected quantity Receiving.
+
+Resource mendelegasikan `viewAny`, `view`, dan `edit` kepada Policy.
+
+### Batasan branch yang ditemukan
+
+`goods_receipts.branch_id` menyimpan numeric branch ID dari ESB, bukan foreign key local `branches.id`. Karena itu `User::canAccessBranch()` tidak diterapkan pada record ini agar tidak menciptakan pembatasan yang salah. Penyelarasan akses cabang Receiving menunggu shared mapping local branch → Company Code → ESB Branch ID/Code pada scope berikutnya.
+
+### Validasi
+
+```text
+Receiving/Vendor Compliance dan Policy: 11 test lulus, 117 assertions
+Full suite: 760 test lulus, 4.379 assertions, 0 gagal
+Pint: lulus
+```

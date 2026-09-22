@@ -41,6 +41,32 @@ class GoodsReceiptResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'reference_number';
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->can('viewAny', GoodsReceipt::class) ?? false;
+    }
+
+    public static function canView($record): bool
+    {
+        return $record instanceof GoodsReceipt
+            && (auth()->user()?->can('view', $record) ?? false);
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema

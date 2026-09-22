@@ -50,6 +50,23 @@ class VendorComplianceIncidentResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'incident_number';
 
+    public static function canViewAny(): bool
+    {
+        return auth()->user()?->can('viewAny', VendorComplianceIncident::class) ?? false;
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return $record instanceof VendorComplianceIncident
+            && (auth()->user()?->can('view', $record) ?? false);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return $record instanceof VendorComplianceIncident
+            && (auth()->user()?->can('update', $record) ?? false);
+    }
+
     public static function canCreate(): bool
     {
         return false;

@@ -73,7 +73,7 @@ class GoodsReceiptPage extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('access employee app goods receipt') ?? false;
+        return auth()->user()?->can('accessEmployeeApp', GoodsReceipt::class) ?? false;
     }
 
     public function mount(): void
@@ -232,6 +232,7 @@ class GoodsReceiptPage extends Page
 
     public function submit(): void
     {
+        abort_unless(auth()->user()?->can('submit', GoodsReceipt::class), 403);
         $this->validate($this->rules());
         $purchaseNumber = (string) data_get($this->purchaseOrder, 'purchaseNum');
         abort_if($purchaseNumber === '', 422, 'Purchase Order belum dipilih.');

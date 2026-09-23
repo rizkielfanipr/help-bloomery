@@ -10,6 +10,7 @@ use App\Services\InboundGoodsReceiptQcService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -145,14 +146,38 @@ class GoodsReceiptPage extends Page
     {
         $needle = mb_strtolower(trim($this->search));
 
-        return collect($this->purchaseOrders)->filter(fn (array $purchaseOrder): bool => $needle === '' || str_contains(
-            mb_strtolower(implode(' ', [
-                $purchaseOrder['purchaseNum'] ?? '',
-                $purchaseOrder['supplierName'] ?? '',
-                $purchaseOrder['branchName'] ?? '',
-            ])),
-            $needle,
-        ))->values();
+        return collect($this->purchaseOrders)
+            ->filter(fn (array $purchaseOrder): bool => $needle === '' || str_contains(
+                mb_strtolower(implode(' ', [
+                    $purchaseOrder['purchaseNum'] ?? '',
+                    $purchaseOrder['supplierName'] ?? '',
+                    $purchaseOrder['branchName'] ?? '',
+                ])),
+                $needle,
+            ))
+            ->sort(function (array $left, array $right): int {
+                $dateComparison = $this->requiredDateSortValue($left) <=> $this->requiredDateSortValue($right);
+
+                return $dateComparison !== 0
+                    ? $dateComparison
+                    : strnatcasecmp((string) ($left['purchaseNum'] ?? ''), (string) ($right['purchaseNum'] ?? ''));
+            })
+            ->values();
+    }
+
+    /** @param array<string, mixed> $purchaseOrder */
+    private function requiredDateSortValue(array $purchaseOrder): int
+    {
+        $requiredDate = $purchaseOrder['requiredDate'] ?? null;
+        if (blank($requiredDate)) {
+            return PHP_INT_MAX;
+        }
+
+        try {
+            return Carbon::parse($requiredDate)->startOfDay()->getTimestamp();
+        } catch (Throwable) {
+            return PHP_INT_MAX;
+        }
     }
 
     public function selectPurchaseOrder(string $purchaseNumber): void

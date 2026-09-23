@@ -26,6 +26,27 @@ test('goods receipt menus use the Receiving label', function () {
         ->and(GoodsReceiptResource::getNavigationLabel())->toBe('Receiving');
 });
 
+test('purchase orders are ordered by the nearest required date with undated orders last', function () {
+    $page = app(GoodsReceiptPage::class);
+    $page->purchaseOrders = [
+        ['purchaseNum' => 'PO-NO-DATE', 'requiredDate' => null],
+        ['purchaseNum' => 'PO-LATER', 'requiredDate' => '2026-10-10T00:00:00+07:00'],
+        ['purchaseNum' => 'PO-NEAREST-B', 'requiredDate' => '2026-09-24T00:00:00+07:00'],
+        ['purchaseNum' => 'PO-NEAREST-A', 'requiredDate' => '2026-09-24T00:00:00+07:00'],
+        ['purchaseNum' => 'PO-EARLIEST', 'requiredDate' => '2026-09-23T00:00:00+07:00'],
+        ['purchaseNum' => 'PO-INVALID', 'requiredDate' => 'not-a-date'],
+    ];
+
+    expect($page->filteredPurchaseOrders()->pluck('purchaseNum')->all())->toBe([
+        'PO-EARLIEST',
+        'PO-NEAREST-A',
+        'PO-NEAREST-B',
+        'PO-LATER',
+        'PO-INVALID',
+        'PO-NO-DATE',
+    ]);
+});
+
 test('employee app loads purchase orders that ESB allows to receive', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));

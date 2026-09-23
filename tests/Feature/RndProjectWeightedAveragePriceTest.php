@@ -6,6 +6,7 @@ use App\Models\EsbPurchaseOrderItem;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
 use App\Models\RndProjectProduct;
+use App\Models\SalesRegion;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -119,6 +120,76 @@ it('recomputes the weighted average total when the date filter changes', functio
 
     // Filtered to July only: WA = 500,000 / 100 = 5,000/GR -> 500,000 (+ fallback 20,000)
     expect($page->instance()->bomWeightedAverageTotal($this->projectBom->id)['total'])->toBe(520000.0);
+});
+
+it('recommends and applies selling prices from the selected store bom hpp', function () {
+    seedWaPurchase('2026-07-15', 501, 100, 500_000);
+
+    $menuBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 84,
+        'bom_code' => 'BOM-MENU',
+        'bom_name' => 'Menu Test',
+        'bom_type_name' => 'Menu',
+        'detail_snapshot' => [
+            'bomID' => 84,
+            'bomCode' => 'BOM-MENU',
+            'bomName' => 'Menu Test',
+            'bomTypeName' => 'Menu',
+            'bomDetails' => [[
+                'ID' => 10,
+                'productDetailID' => 501,
+                'productCode' => 'BBMK001',
+                'productName' => 'Tepung Premium',
+                'uomName' => 'GR',
+                'qty' => 4,
+                'lastHPP' => 4_000,
+            ]],
+        ],
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($menuBom->id, ['usage_type' => 'menu']);
+
+    $region = SalesRegion::query()->firstOrFail();
+    $regionalPrice = $this->product->regionalPrices()->create([
+        'sales_region_id' => $region->id,
+        'offline_price' => 50_000,
+        'dine_in_price' => 50_000,
+        'takeaway_price' => 50_000,
+        'online_price' => 60_000,
+        'gofood_price' => 60_000,
+        'grabfood_price' => 60_000,
+        'shopeefood_price' => 60_000,
+        'effective_from' => today(),
+        'status' => 'active',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('loadAllBomComponents')
+        ->set('pricingTargetFoodCost', '30')
+        ->set('pricingRoundingIncrement', '1000')
+        ->set('pricingOnlineAdjustment', '20');
+
+    $analysis = $page->instance()->menuPricingAnalysis();
+    expect($analysis['hpp'])->toBe(20_000.0)
+        ->and($analysis['offline']['recommended_price'])->toBe(67_000.0)
+        ->and($analysis['online']['recommended_price'])->toBe(81_000.0);
+
+    $page->assertSee('Analisis HPP &amp; Harga', false)
+        ->call('applyRecommendedMenuPrices')
+        ->assertHasNoErrors();
+
+    $regionalPrice->refresh();
+    expect((float) $regionalPrice->dine_in_price)->toBe(67_000.0)
+        ->and((float) $regionalPrice->takeaway_price)->toBe(67_000.0)
+        ->and((float) $regionalPrice->gofood_price)->toBe(81_000.0)
+        ->and((float) $regionalPrice->grabfood_price)->toBe(81_000.0)
+        ->and((float) $regionalPrice->shopeefood_price)->toBe(81_000.0)
+        ->and((float) $this->product->fresh()->offline_price)->toBe(67_000.0)
+        ->and((float) $this->product->fresh()->online_price)->toBe(81_000.0);
 });
 
 it('shows an estimated HPP badge on the collapsed auto-detected WIP recipe card', function () {

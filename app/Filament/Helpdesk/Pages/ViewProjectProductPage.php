@@ -15,6 +15,7 @@ use App\Models\RndProjectProduct;
 use App\Services\EsbCoreService;
 use App\Services\EsbService;
 use App\Services\ProductPriceIndexService;
+use App\Services\Rnd\MenuPricingCalculator;
 use App\Services\SyncRndEsbMaterialFromRemote;
 use Filament\Actions\Action;
 use Filament\Forms\Components\RichEditor;
@@ -177,6 +178,14 @@ class ViewProjectProductPage extends Page
 
     /** @var array<int, array{average_price: float, po_count: int}> */
     public array $waPrices = [];
+
+    public ?int $pricingBomId = null;
+
+    public string $pricingTargetFoodCost = '30';
+
+    public string $pricingRoundingIncrement = '1000';
+
+    public string $pricingOnlineAdjustment = '0';
 
     public array $bomInstructions = [];
 
@@ -912,6 +921,102 @@ class ViewProjectProductPage extends Page
     public function bomWeightedAverageTotal(int $projectBomId): array
     {
         return $this->weightedAverageTotalForRows($this->bomComponentDetails[$projectBomId]['bomDetails'] ?? []);
+    }
+
+    /** @return array{available: bool, hpp: float, hasFallback: bool, offline: array<string, float>, online: array<string, float>} */
+    public function menuPricingAnalysis(): array
+    {
+        $bom = $this->selectedPricingBom();
+        $total = $bom ? $this->bomWeightedAverageTotal($bom->id) : ['total' => 0.0, 'hasFallback' => false];
+        $calculator = app(MenuPricingCalculator::class);
+        $offline = $calculator->fromTargetFoodCost(
+            (float) $total['total'],
+            (float) $this->pricingTargetFoodCost,
+            (int) $this->pricingRoundingIncrement,
+        );
+        $online = $calculator->withAdjustment(
+            (float) $total['total'],
+            (float) $offline['recommended_price'],
+            (float) $this->pricingOnlineAdjustment,
+            (int) $this->pricingRoundingIncrement,
+        );
+
+        return [
+            'available' => $bom !== null && $offline['recommended_price'] > 0,
+            'hpp' => (float) $total['total'],
+            'hasFallback' => (bool) $total['hasFallback'],
+            'offline' => $offline,
+            'online' => $online,
+        ];
+    }
+
+    public function pricingFoodCost(float $sellingPrice): ?float
+    {
+        return app(MenuPricingCalculator::class)->foodCostPercentage(
+            $this->menuPricingAnalysis()['hpp'],
+            $sellingPrice,
+        );
+    }
+
+    public function applyRecommendedMenuPrices(): void
+    {
+        $this->authorizeProjectManagement();
+        $this->validate([
+            'pricingBomId' => ['required', 'integer'],
+            'pricingTargetFoodCost' => ['required', 'numeric', 'min:1', 'max:99'],
+            'pricingRoundingIncrement' => ['required', Rule::in(['1', '100', '500', '1000'])],
+            'pricingOnlineAdjustment' => ['required', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        abort_unless($this->selectedPricingBom(), 422);
+
+        $analysis = $this->menuPricingAnalysis();
+        if (! $analysis['available']) {
+            $this->addError('pricingTargetFoodCost', 'HPP Final BOM Store belum tersedia. Muat komponen BOM terlebih dahulu.');
+
+            return;
+        }
+
+        $activePrices = $this->productRecord->currentRegionalPrices->unique('sales_region_id');
+        if ($activePrices->isEmpty()) {
+            Notification::make()
+                ->title('Harga belum dapat diterapkan')
+                ->body('Menu ini belum memiliki harga regional aktif.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $offlinePrice = (float) $analysis['offline']['recommended_price'];
+        $onlinePrice = (float) $analysis['online']['recommended_price'];
+
+        DB::transaction(function () use ($activePrices, $offlinePrice, $onlinePrice): void {
+            foreach ($activePrices as $price) {
+                $price->update([
+                    'offline_price' => $offlinePrice,
+                    'dine_in_price' => $offlinePrice,
+                    'takeaway_price' => $offlinePrice,
+                    'online_price' => $onlinePrice,
+                    'gofood_price' => $onlinePrice,
+                    'grabfood_price' => $onlinePrice,
+                    'shopeefood_price' => $onlinePrice,
+                ]);
+            }
+
+            $this->productRecord->update([
+                'offline_price' => $offlinePrice,
+                'online_price' => $onlinePrice,
+            ]);
+        });
+
+        $this->reloadProduct();
+
+        Notification::make()
+            ->title('Rekomendasi harga diterapkan')
+            ->body($activePrices->count().' region aktif diperbarui berdasarkan HPP Final BOM Store.')
+            ->success()
+            ->send();
     }
 
     /**
@@ -2519,6 +2624,17 @@ class ViewProjectProductPage extends Page
             }
         }
 
+        $menuBoms = $this->productRecord->boms->where('pivot.usage_type', 'menu');
+        if (! $menuBoms->contains('id', $this->pricingBomId)) {
+            $this->pricingBomId = $menuBoms->first()?->id;
+        }
+
         $this->loadBomInstructions();
+    }
+
+    private function selectedPricingBom(): ?RndProjectBom
+    {
+        return $this->productRecord->boms
+            ->first(fn (RndProjectBom $bom): bool => $bom->id === $this->pricingBomId && $bom->pivot->usage_type === 'menu');
     }
 }

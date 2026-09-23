@@ -124,11 +124,25 @@
                         @forelse($product->currentRegionalPrices->unique('sales_region_id')->sortBy('region.sort_order') as $price)
                             <tr>
                                 <td class="px-5 py-3"><p class="font-bold text-gray-900 dark:text-white">{{ $price->region->name }}</p><p class="font-mono text-xs text-gray-400">{{ $price->region->code }}</p></td>
-                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->dine_in_price ?? $price->offline_price), 0, ',', '.') }}</td>
-                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->takeaway_price ?? $price->offline_price), 0, ',', '.') }}</td>
-                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->gofood_price ?? $price->online_price), 0, ',', '.') }}</td>
-                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->grabfood_price ?? $price->online_price), 0, ',', '.') }}</td>
-                                <td class="px-5 py-3 text-right font-bold">Rp {{ number_format((float) ($price->shopeefood_price ?? $price->online_price), 0, ',', '.') }}</td>
+                                @foreach([
+                                    $price->dine_in_price ?? $price->offline_price,
+                                    $price->takeaway_price ?? $price->offline_price,
+                                    $price->gofood_price ?? $price->online_price,
+                                    $price->grabfood_price ?? $price->online_price,
+                                    $price->shopeefood_price ?? $price->online_price,
+                                ] as $channelPrice)
+                                    @php
+                                        $foodCost = $this->pricingFoodCost((float) $channelPrice);
+                                    @endphp
+                                    <td class="px-5 py-3 text-right">
+                                        <p class="font-bold">Rp {{ number_format((float) $channelPrice, 0, ',', '.') }}</p>
+                                        @can('view bill of materials')
+                                            @if($foodCost !== null)
+                                                <p class="mt-1 text-[10px] font-semibold {{ $foodCost <= 30 ? 'text-emerald-600' : ($foodCost <= 35 ? 'text-amber-600' : 'text-red-600') }}">Food Cost {{ number_format($foodCost, 2, ',', '.') }}%</p>
+                                            @endif
+                                        @endcan
+                                    </td>
+                                @endforeach
                                 <td class="px-5 py-3">{{ $price->effective_from->format('d M Y') }}</td>
                                 <td class="px-5 py-3"><span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">Active</span></td>
                             </tr>
@@ -139,6 +153,112 @@
                 </table>
             </div>
         </section>
+
+        @can('view bill of materials')
+            @php
+                $pricingAnalysis = $this->menuPricingAnalysis();
+            @endphp
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="flex flex-col gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-start sm:justify-between">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            <x-heroicon-o-calculator class="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Analisis HPP &amp; Harga</h3>
+                            <p class="mt-1 text-sm text-gray-500">Tentukan rekomendasi harga jual berdasarkan HPP Final BOM Store dan target Food Cost.</p>
+                        </div>
+                    </div>
+                    @if($pricingAnalysis['hasFallback'])
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                            <x-heroicon-o-exclamation-triangle class="h-4 w-4" /> Sebagian harga memakai HPP ESB
+                        </span>
+                    @endif
+                </div>
+
+                <div class="grid gap-5 p-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+                    <div class="grid content-start gap-4 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">BOM Store Sumber HPP</label>
+                            <select wire:model.live="pricingBomId" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                @forelse($product->boms->where('pivot.usage_type', 'menu') as $menuPricingBom)
+                                    <option value="{{ $menuPricingBom->id }}">{{ $menuPricingBom->bom_code ?: 'BOM-'.$menuPricingBom->esb_bom_id }} · {{ $menuPricingBom->bom_name }}</option>
+                                @empty
+                                    <option value="">Belum ada BOM Store</option>
+                                @endforelse
+                            </select>
+                            @error('pricingBomId')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Target Food Cost</label>
+                            <div class="flex overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800">
+                                <input wire:model.live.debounce.300ms="pricingTargetFoodCost" type="number" min="1" max="99" step="0.01" class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm focus:ring-0" placeholder="30">
+                                <span class="flex items-center border-l border-gray-300 px-3 text-sm font-bold text-gray-500 dark:border-gray-600">%</span>
+                            </div>
+                            @error('pricingTargetFoodCost')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Pembulatan Harga</label>
+                            <select wire:model.live="pricingRoundingIncrement" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                <option value="1">Tanpa pembulatan</option>
+                                <option value="100">Ke atas Rp100</option>
+                                <option value="500">Ke atas Rp500</option>
+                                <option value="1000">Ke atas Rp1.000</option>
+                            </select>
+                            @error('pricingRoundingIncrement')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">Penyesuaian Harga Online</label>
+                            <div class="flex overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800">
+                                <input wire:model.live.debounce.300ms="pricingOnlineAdjustment" type="number" min="0" max="100" step="0.01" class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm focus:ring-0" placeholder="0">
+                                <span class="flex items-center border-l border-gray-300 px-3 text-sm font-bold text-gray-500 dark:border-gray-600">%</span>
+                            </div>
+                            <p class="mt-1.5 text-xs leading-5 text-gray-500">Ditambahkan dari rekomendasi harga offline untuk GoFood, GrabFood, dan ShopeeFood.</p>
+                            @error('pricingOnlineAdjustment')<p class="mt-1 text-xs font-semibold text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
+                        <p class="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Simulasi Harga</p>
+                        @if($pricingAnalysis['available'])
+                            <div class="mt-4 grid grid-cols-2 gap-3">
+                                <div class="col-span-2 rounded-lg border border-emerald-200 bg-white p-3 dark:border-emerald-900 dark:bg-gray-900">
+                                    <p class="text-xs text-gray-500">HPP Final BOM Store</p>
+                                    <p class="mt-1 text-xl font-bold text-gray-950 dark:text-white">Rp {{ number_format($pricingAnalysis['hpp'], 0, ',', '.') }}</p>
+                                </div>
+                                <div class="rounded-lg border border-emerald-200 bg-white p-3 dark:border-emerald-900 dark:bg-gray-900">
+                                    <p class="text-xs text-gray-500">Harga Offline</p>
+                                    <p class="mt-1 text-lg font-bold text-emerald-700 dark:text-emerald-300">Rp {{ number_format($pricingAnalysis['offline']['recommended_price'], 0, ',', '.') }}</p>
+                                    <p class="mt-1 text-[11px] text-gray-500">Food Cost {{ number_format($pricingAnalysis['offline']['food_cost_percentage'], 2, ',', '.') }}%</p>
+                                </div>
+                                <div class="rounded-lg border border-emerald-200 bg-white p-3 dark:border-emerald-900 dark:bg-gray-900">
+                                    <p class="text-xs text-gray-500">Harga Online</p>
+                                    <p class="mt-1 text-lg font-bold text-emerald-700 dark:text-emerald-300">Rp {{ number_format($pricingAnalysis['online']['recommended_price'], 0, ',', '.') }}</p>
+                                    <p class="mt-1 text-[11px] text-gray-500">Food Cost {{ number_format($pricingAnalysis['online']['food_cost_percentage'], 2, ',', '.') }}%</p>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex items-center justify-between gap-3 border-t border-emerald-200 pt-3 text-xs text-gray-600 dark:border-emerald-900 dark:text-gray-300">
+                                <span>Gross Margin Offline</span>
+                                <strong>Rp {{ number_format($pricingAnalysis['offline']['gross_margin'], 0, ',', '.') }} · {{ number_format($pricingAnalysis['offline']['gross_margin_percentage'], 2, ',', '.') }}%</strong>
+                            </div>
+                            @if($canManageProject)
+                                <button type="button" wire:click="applyRecommendedMenuPrices" wire:confirm="Terapkan rekomendasi ini ke seluruh harga region aktif? Harga channel yang sekarang akan diperbarui." wire:loading.attr="disabled" wire:target="applyRecommendedMenuPrices" class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+                                    <x-heroicon-o-check-circle wire:loading.remove wire:target="applyRecommendedMenuPrices" class="h-4 w-4" />
+                                    <x-heroicon-o-arrow-path wire:loading wire:target="applyRecommendedMenuPrices" class="h-4 w-4 animate-spin" />
+                                    Terapkan ke Harga Aktif
+                                </button>
+                            @endif
+                        @else
+                            <div class="mt-4 rounded-lg border border-dashed border-emerald-300 bg-white px-4 py-8 text-center dark:border-emerald-800 dark:bg-gray-900">
+                                <x-heroicon-o-information-circle class="mx-auto h-7 w-7 text-emerald-500" />
+                                <p class="mt-2 text-sm font-bold text-gray-700 dark:text-gray-200">HPP Final belum tersedia</p>
+                                <p class="mt-1 text-xs leading-5 text-gray-500">Tambahkan BOM Store dan muat komponennya untuk menghitung rekomendasi harga.</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </section>
+        @endcan
 
         @php
             $esbMaterialGroups = $product->esbMaterials->groupBy(fn ($material) => $material->materialSection());

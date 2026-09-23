@@ -14,6 +14,7 @@ class BranchEsbCode extends Model
         'esb_comcode',
         'label',
         'is_active',
+        'esb_synced_at',
     ];
 
     protected function casts(): array
@@ -21,6 +22,7 @@ class BranchEsbCode extends Model
         return [
             'esb_branch_id' => 'integer',
             'is_active' => 'boolean',
+            'esb_synced_at' => 'datetime',
         ];
     }
 

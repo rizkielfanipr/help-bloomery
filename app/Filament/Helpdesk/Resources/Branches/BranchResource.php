@@ -142,6 +142,7 @@ class BranchResource extends Resource
                                 TableColumn::make('ESB Comcode')->markAsRequired(),
                                 TableColumn::make('Label')->markAsRequired(),
                                 TableColumn::make('Aktif'),
+                                TableColumn::make('Terakhir Sync'),
                             ])
                             ->schema([
                                 TextInput::make('esb_branch_code')
@@ -176,6 +177,12 @@ class BranchResource extends Resource
                                 Toggle::make('is_active')
                                     ->label('Aktif')
                                     ->default(true),
+
+                                TextInput::make('esb_synced_at')
+                                    ->label('Terakhir Sync')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->placeholder('Belum pernah'),
                             ])
                             ->defaultItems(1)
                             ->addActionLabel('Tambah Kode ESB')

@@ -20,6 +20,14 @@ class EsbItemJournalService
         });
     }
 
+    /** @return array<int, array<string, mixed>> */
+    public function refreshBranches(string $companyCode): array
+    {
+        Cache::forget("esb_item_journal.branches.{$companyCode}");
+
+        return $this->branches($companyCode);
+    }
+
     /** @return array<string, mixed> */
     public function branchByCode(string $companyCode, string $branchCode): array
     {

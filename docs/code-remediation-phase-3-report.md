@@ -337,3 +337,36 @@ Mapping/Receiving/Vendor Compliance: 23 test lulus, 152 assertions
 Full suite: 766 test lulus, 4.392 assertions, 0 gagal
 Pint: lulus
 ```
+
+## 15. Sinkronisasi Master Branch ESB
+
+Master Branch sekarang menyediakan action `Sync Branch ESB` bagi user yang memiliki permission `edit branches`.
+
+### Alur sinkronisasi
+
+1. Sistem mengelompokkan mapping aktif berdasarkan Company Code.
+2. Setiap Company Code mengambil data terbaru dari `GET /branch` menggunakan access token ESB Core.
+3. Cache daftar branch lama dihapus sebelum request agar sync tidak memakai data stale.
+4. Data dicocokkan secara case-insensitive menggunakan Company Code + Branch Code.
+5. Numeric Branch ID dan waktu sinkronisasi disimpan pada `branch_esb_codes`.
+
+Satu request `/branch` digunakan untuk seluruh mapping dalam Company Code yang sama. Kegagalan satu Company Code tidak menghentikan sinkronisasi Company Code lainnya.
+
+### Perlindungan data
+
+- Branch Code yang tidak ditemukan hanya dilaporkan.
+- Hasil duplikat dianggap ambigu dan tidak mengubah mapping.
+- Branch ID kosong atau tidak valid tidak menimpa nilai lama.
+- Credential yang belum dikonfigurasi dilaporkan per Company Code.
+- Action menampilkan ringkasan jumlah diperbarui, tetap, tidak ditemukan, ambigu, dan gagal.
+
+Kolom `esb_synced_at` ditambahkan untuk menunjukkan kapan setiap mapping terakhir berhasil diverifikasi. Form Master Branch menampilkan nilai tersebut sebagai informasi read-only.
+
+### Validasi
+
+```text
+Sync Branch ESB dan integrasi Receiving: 25 test lulus, 181 assertions
+Full suite: 770 test lulus, 4.434 assertions, 0 gagal
+Pint: lulus
+Network eksternal dalam test: diblokir; seluruh respons ESB memakai HTTP fake
+```

@@ -206,7 +206,7 @@ it('loads the rolling Stock Movement catalog into the stock card application', f
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
-    (new EsbStockMovementService)->cacheStockCardCatalog($this->branch, now(), 'stockUnit', [
+    app(EsbStockMovementService::class)->cacheStockCardCatalog($this->branch, now(), 'stockUnit', [
         'products' => [[
             'product_code' => 'WIP-001',
             'product_name' => 'Adonan Croissant',
@@ -323,7 +323,7 @@ it('uses the report day only and keeps every product without category or quantit
         ]),
     ]);
 
-    $catalog = (new EsbStockMovementService)->getRollingStockCardProductsForBranch(
+    $catalog = app(EsbStockMovementService::class)->getRollingStockCardProductsForBranch(
         $this->branch,
         '2026-08-10',
     );

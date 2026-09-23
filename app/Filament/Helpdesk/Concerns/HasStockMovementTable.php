@@ -90,7 +90,7 @@ trait HasStockMovementTable
         $this->reset(['transactionTypes', 'transactionQuantities', 'transactionUnits', 'transactionsLoaded', 'transactionsFetchedAt', 'transactionError', 'movementBalances', 'movementPage']);
         $this->authorizeMovementAccess();
         try {
-            $result = (new EsbStockMovementService)->balancesForBranch(
+            $result = app(EsbStockMovementService::class)->balancesForBranch(
                 $this->movementBranch(),
                 $this->movementDate(),
                 $this->movementUnit(),

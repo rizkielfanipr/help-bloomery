@@ -190,7 +190,7 @@ class StockCardEntryPage extends Page
             return;
         }
 
-        $service = new EsbStockMovementService;
+        $service = app(EsbStockMovementService::class);
         $cachedCatalog = $service->getCachedStockCardCatalog($user->branch, $this->reportDate, self::FLAG_UNIT);
         if ($cachedCatalog !== null) {
             $this->applyProductCatalog($cachedCatalog);
@@ -241,7 +241,7 @@ class StockCardEntryPage extends Page
         $this->catalogCurrentCode = $pair->esb_branch_code;
         $this->catalogCurrentDate = $to;
         try {
-            $service = new EsbStockMovementService;
+            $service = app(EsbStockMovementService::class);
             $products = $service->mergeCatalogRows(
                 Cache::get($this->catalogFetchKey, []),
                 $service->movements($pair, $from, $to, self::FLAG_UNIT),
@@ -273,7 +273,7 @@ class StockCardEntryPage extends Page
         }
 
         try {
-            $service = new EsbStockMovementService;
+            $service = app(EsbStockMovementService::class);
             $catalog = $service->buildStockCardProductCatalog(
                 $products,
                 $this->catalogPeriodFrom,

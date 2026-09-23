@@ -370,3 +370,48 @@ Full suite: 770 test lulus, 4.434 assertions, 0 gagal
 Pint: lulus
 Network eksternal dalam test: diblokir; seluruh respons ESB memakai HTTP fake
 ```
+
+## 16. Fondasi Client ESB Core — Item Journal
+
+Audit service ESB membagi integrasi menjadi empat keluarga:
+
+| Keluarga | Contoh | Keputusan |
+| --- | --- | --- |
+| ESB Core multi-company | Item Journal, Goods Receipt, Stock Movement, Company Product | Dipindahkan bertahap ke `EsbCoreClient` |
+| ESB Core credential global lama | BOM dan sebagian Master Product pada `EsbCoreService` | Belum diubah dalam scope ini |
+| API sales legacy dengan token statis | Sales, payment, promotion legacy | Tidak dicampur dengan ESB Core |
+| Master Product API terpisah | Picker katalog Master Product | Tidak dicampur dengan ESB Core |
+
+### EsbCoreClient
+
+`EsbCoreClient` sekarang menjadi fondasi komunikasi ESB Core multi-company untuk:
+
+- normalisasi Company Code;
+- pembacaan credential hanya melalui `config/esb.php` yang bersumber dari environment;
+- login dan cache access token per Company Code;
+- atomic lock saat token belum tersedia;
+- refresh token maksimal satu kali setelah respons `401`;
+- connect timeout dan request timeout terpusat;
+- request JSON untuk GET, POST, PUT, PATCH, dan DELETE;
+- request multipart yang dapat dibangun ulang setelah `401`;
+- parsing respons dan error dengan context Company Code + endpoint;
+- konversi connection error menjadi pesan operasional yang konsisten.
+
+Konfigurasi `ESB_CORE_CONNECT_TIMEOUT` ditambahkan dengan default 10 detik. Credential tetap berada di environment dan tidak dipindahkan ke database.
+
+### Migrasi Item Journal
+
+`EsbItemJournalService` tetap mempertahankan seluruh kontrak method, filter, pagination, payload, hasil create, dan attachment. Kode login, token cache, retry `401`, HTTP request, dan parsing error dipindahkan ke client bersama.
+
+`EsbStockMovementService` merupakan turunan Item Journal service sehingga memperoleh transport client yang sama. Semua instansiasi langsung di Stock Card diganti dengan container Laravel agar dependency injection bekerja dan service dapat di-mock pada test.
+
+### Validasi
+
+```text
+Client/Item Journal/Stock Movement/Stock Card: 80 test lulus, 387 assertions
+Full suite: 777 test lulus, 4.453 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; test client memakai HTTP fake termasuk connection failure
+```
+
+Satu kelompok kegagalan sementara ditemukan setelah constructor injection: delapan test Stock Card gagal karena production dan fixture lama memakai `new EsbStockMovementService`. Kegagalan diklasifikasikan sebagai direct-instantiation dependency defect dan diperbaiki dengan resolusi melalui service container; requirement production tidak diubah.

@@ -17,6 +17,7 @@ return [
         'base_url' => env('ESB_CORE_BASE_URL', 'https://services.esb.co.id/core'),
         'username' => env('ESB_CORE_USERNAME'),
         'password' => env('ESB_CORE_PASSWORD'),
+        'connect_timeout' => (int) env('ESB_CORE_CONNECT_TIMEOUT', 10),
         'timeout' => (int) env('ESB_CORE_TIMEOUT', 60),
         'token_ttl' => (int) env('ESB_CORE_TOKEN_TTL', 3300),
         'companies' => [

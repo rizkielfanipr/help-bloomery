@@ -49,14 +49,14 @@ class EsbStockMovementService extends EsbItemJournalService
             throw new RuntimeException('Periode Stock Movement tidak valid.');
         }
 
-        $result = $this->successfulResult($this->request($pair->esb_comcode, 'get', '/report/stock-movement', [
+        $result = $this->requestResult($pair->esb_comcode, 'get', '/report/stock-movement', [
             'startPeriod' => $start->toDateString(),
             'endPeriod' => $end->toDateString(),
             'branchCode' => $pair->esb_branch_code,
             'unitToShow' => $this->unitToShow($unit),
             'page' => max(1, $page),
             'limit' => 100,
-        ]), 'mengambil Stock Movement '.$pair->esb_branch_code);
+        ], 'mengambil Stock Movement '.$pair->esb_branch_code);
         if (! is_array($result['data'] ?? null)) {
             throw new RuntimeException('Format respons Stock Movement tidak valid.');
         }

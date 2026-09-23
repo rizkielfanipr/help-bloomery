@@ -415,3 +415,25 @@ Network eksternal: diblokir; test client memakai HTTP fake termasuk connection f
 ```
 
 Satu kelompok kegagalan sementara ditemukan setelah constructor injection: delapan test Stock Card gagal karena production dan fixture lama memakai `new EsbStockMovementService`. Kegagalan diklasifikasikan sebagai direct-instantiation dependency defect dan diperbaiki dengan resolusi melalui service container; requirement production tidak diubah.
+
+## 17. Migrasi Goods Receipt ke EsbCoreClient
+
+`EsbGoodsReceiptService` sekarang memakai transport bersama untuk:
+
+- daftar Purchase Order;
+- detail Purchase Order;
+- daftar Location berdasarkan ESB Branch ID;
+- create Goods Receipt.
+
+Kontrak method, Company Code `BLSS`, filter, endpoint, payload, hasil create, dan raw response yang disimpan untuk audit tidak berubah. Duplikasi login, token cache, atomic lock, refresh `401`, timeout, dan parsing error dihapus dari service ini.
+
+Test transport baru memastikan seluruh kontrak tersebut tetap sama dan error menyertakan Company Code serta endpoint terkait.
+
+### Validasi
+
+```text
+Goods Receipt dan shared client: 19 test lulus, 134 assertions
+Full suite: 780 test lulus, 4.464 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; transport Goods Receipt memakai HTTP fake
+```

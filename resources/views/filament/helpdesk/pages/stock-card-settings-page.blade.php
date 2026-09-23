@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div wire:init="loadCategories">
+    <div wire:init="loadCategories" x-data x-init="$wire.on('stock-card-category-fetch-next', () => $wire.call('fetchNextCategorySource'))">
         <x-filament::section heading="Product Category Visibility" description="Satu pengaturan kategori untuk seluruh cabang. Kategori dari semua Company Code digabung berdasarkan nama; perbedaan huruf besar/kecil dan spasi diabaikan. Rincian Stock Movement tetap lengkap.">
             <form wire:submit="save" class="space-y-6">
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -7,17 +7,64 @@
                         <h2 class="text-sm font-semibold">Product Categories</h2>
                         <p class="text-sm text-gray-500">{{ count($categoryOptions) }} kategori tersedia · {{ count($selectedCategories) }} kategori dipilih</p>
                     </div>
-                    <x-filament::button type="button" color="gray" icon="heroicon-o-arrow-path" wire:click="refreshCategories" wire:loading.attr="disabled" wire:target="loadCategories,refreshCategories,save">
+                    <x-filament::button type="button" color="gray" icon="heroicon-o-arrow-path" wire:click="refreshCategories" wire:loading.attr="disabled" wire:target="loadCategories,refreshCategories,save" :disabled="$categoriesRefreshing">
                         Refresh Categories
                     </x-filament::button>
                 </div>
-                <div wire:loading.flex wire:target="loadCategories,refreshCategories" role="status" class="items-center gap-2 text-sm text-gray-500">
-                    <x-filament::loading-indicator class="h-5 w-5" /> Memuat kategori produk dari seluruh Company Code…
-                </div>
-                @if($failedCompanies !== [])
-                    <p role="alert" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-                        Kategori gagal diperbarui untuk {{ implode(', ', $failedCompanies) }}. Kategori terakhir yang tersedia tetap dipertahankan. Coba Refresh Categories.
-                    </p>
+
+                @if($categoriesRefreshing)
+                    @php
+                        $refreshTotal = max(1, count($refreshCompanyCodes));
+                        $refreshCompleted = min($refreshCompanyIndex, $refreshTotal);
+                        $refreshProgress = max(3, (int) round(($refreshCompleted / $refreshTotal) * 100));
+                    @endphp
+                    <div role="status" class="rounded-xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
+                        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <x-filament::loading-indicator class="h-4 w-4 text-blue-500" />
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Mengambil kategori Master Product ESB</span>
+                            </div>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ $refreshCurrentCompany ?: 'Menyiapkan sumber' }} · {{ $refreshCompleted }}/{{ $refreshTotal }} sumber</span>
+                        </div>
+                        <div class="h-1.5 w-full overflow-hidden rounded-full bg-blue-100 dark:bg-blue-950" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $refreshProgress }}">
+                            <div class="h-full rounded-full bg-blue-500 transition-all duration-300" style="width: {{ $refreshProgress }}%"></div>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-500">Kategori diproses satu per satu berdasarkan Company Code aktif. Branch yang memakai Company Code sama menggunakan hasil kategori yang sama.</p>
+                    </div>
+                @endif
+
+                @if($categoriesLoaded && $categoryRefreshSummary !== [])
+                    <div class="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">Refresh Categories Selesai</p>
+                                <p class="mt-1 text-xs text-gray-500">{{ $categoryRefreshSummary['successful_sources'] }} sumber berhasil · {{ $categoryRefreshSummary['failed_sources'] }} gagal · diperbarui {{ $categoriesRefreshedAt }}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-semibold text-blue-600 dark:text-blue-400">{{ $categoryRefreshSummary['merged_categories'] }}</p>
+                                <p class="text-xs text-gray-500">kategori hasil merge</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+                            <div class="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"><p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $categoryRefreshSummary['raw_categories'] }}</p><p class="text-[11px] text-gray-500">kategori sumber</p></div>
+                            <div class="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"><p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $categoryRefreshSummary['duplicate_categories'] }}</p><p class="text-[11px] text-gray-500">duplikat digabung</p></div>
+                            <div class="rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-900"><p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $categoryRefreshSummary['merged_categories'] }}</p><p class="text-[11px] text-gray-500">kategori unik</p></div>
+                        </div>
+                        <div class="mt-3 divide-y divide-gray-200 border-t border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+                            @foreach($categoryRefreshResults as $result)
+                                <div class="flex flex-wrap items-start justify-between gap-3 py-3 text-xs">
+                                    <div class="min-w-0">
+                                        <p class="font-semibold text-gray-700 dark:text-gray-300">{{ $result['company_code'] }}</p>
+                                        <p class="mt-0.5 text-gray-500">{{ $result['branches'] !== [] ? implode(', ', $result['branches']) : 'Belum ditautkan ke Master Branch' }}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p @class(['font-semibold', 'text-emerald-600 dark:text-emerald-400' => $result['status'] === 'success', 'text-amber-600 dark:text-amber-400' => $result['status'] !== 'success'])>{{ $result['status'] === 'success' ? 'Berhasil' : 'Gagal' }} · {{ $result['category_count'] }} kategori</p>
+                                        @if($result['message'])<p class="mt-0.5 text-gray-500">{{ $result['message'] }}</p>@endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
                 @endif
                 <fieldset @disabled(! auth()->user()?->can('edit stock card settings')) class="space-y-4">
                     <label class="flex items-center gap-3 text-sm"><input type="checkbox" wire:model.live="allCategories" class="rounded border-gray-300">All Categories</label>
@@ -38,8 +85,37 @@
                     @endif
                     <label class="flex items-center gap-3 text-sm"><input type="checkbox" wire:model="showUncategorized" class="rounded border-gray-300">Show Uncategorized Products</label>
                 </fieldset>
+                <div class="space-y-4 border-t border-gray-200 pt-6 dark:border-gray-700">
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Daily Count per Category</h2>
+                        <p class="mt-1 text-sm text-gray-500">Atur seluruh produk atau jumlah tertentu yang wajib dihitung setiap hari. Rotasi memilih produk yang paling lama belum muncul lebih dahulu.</p>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+                        <table class="w-full min-w-[760px] text-sm">
+                            <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800">
+                                <tr><th class="px-4 py-3">Category</th><th class="w-48 px-4 py-3">Display Rule</th><th class="w-44 px-4 py-3">Products per Day</th><th class="w-56 px-4 py-3">Daily Rotation</th></tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @forelse($categoryOptions as $category)
+                                    @php($ruleKey = sha1(app(\App\Services\StockCardCategoryFilter::class)->normalizeName($category)))
+                                    <tr wire:key="category-rule-{{ $ruleKey }}" class="align-top">
+                                        <td class="px-4 py-4 font-medium text-gray-800 dark:text-gray-200">{{ $category }}</td>
+                                        <td class="px-4 py-3"><select wire:model.live="categoryRules.{{ $ruleKey }}.mode" @disabled(! auth()->user()?->can('edit stock card settings')) class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900"><option value="all">All Products</option><option value="limited">Limited Count</option></select></td>
+                                        <td class="px-4 py-3">
+                                            <input type="number" min="1" max="5000" wire:model="categoryRules.{{ $ruleKey }}.daily_count" @disabled(($categoryRules[$ruleKey]['mode'] ?? 'all') !== 'limited' || ! auth()->user()?->can('edit stock card settings')) placeholder="e.g. 10" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:disabled:bg-gray-800">
+                                            @error("categoryRules.{$ruleKey}.daily_count") <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                                        </td>
+                                        <td class="px-4 py-4"><label class="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300"><input type="checkbox" wire:model="categoryRules.{{ $ruleKey }}.rotate_daily" @disabled(($categoryRules[$ruleKey]['mode'] ?? 'all') !== 'limited' || ! auth()->user()?->can('edit stock card settings')) class="mt-0.5 rounded border-gray-300"><span>Use different products each day</span></label></td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">Category data is being loaded from ESB.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 <div class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200">
-                    Pengaturan global berlaku untuk laporan baru dan dicatat saat laporan dibuat. Pengaturan dan input laporan lama tetap dipertahankan. Produk tetap diambil sesuai cabang staff.
+                    Pengaturan global berlaku untuk laporan baru dan disimpan sebagai snapshot. Daftar produk draft dan laporan lama tetap dipertahankan. Jika jumlah target melebihi produk yang tersedia, seluruh produk tersedia akan ditampilkan.
                 </div>
                 @can('edit stock card settings')
                     <div class="flex justify-end"><x-filament::button type="submit" icon="heroicon-o-check" wire:loading.attr="disabled" wire:target="save,loadCategories,refreshCategories">Save Settings</x-filament::button></div>

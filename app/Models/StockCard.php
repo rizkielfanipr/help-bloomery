@@ -31,6 +31,7 @@ class StockCard extends Model
         'system_fetched_at',
         'movement_snapshot',
         'category_settings_snapshot',
+        'selection_snapshot',
         'revision_number',
     ];
 
@@ -44,6 +45,7 @@ class StockCard extends Model
             'system_fetched_at' => 'datetime',
             'movement_snapshot' => 'array',
             'category_settings_snapshot' => 'array',
+            'selection_snapshot' => 'array',
             'status' => StockCardStatus::class,
             'revision_number' => 'integer',
         ];

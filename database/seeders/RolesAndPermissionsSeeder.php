@@ -115,6 +115,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view shelf life', 'edit shelf life',
                 'view product price index', 'sync product price index',
                 'view material sourcings', 'review material sourcing as rnd',
+                'view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo',
+                'update rnd internal memo', 'sync rnd internal memo', 'download rnd internal memo pdf',
+                'delete rnd internal memo',
+                'manage rnd product shelf life',
             ]);
 
         Role::firstOrCreate(['name' => 'PURCHASING_STAFF', 'guard_name' => 'web'])

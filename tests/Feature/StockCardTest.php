@@ -24,7 +24,8 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
 
     $this->branch = Branch::factory()->create();
-    $this->branch->esbCodes()->create(['esb_branch_code' => 'TST01', 'esb_comcode' => 'COM01']);
+    $mapping = $this->branch->esbCodes()->create(['esb_branch_code' => 'TST01', 'esb_comcode' => 'COM01']);
+    $this->branch->update(['stock_card_esb_code_id' => $mapping->id]);
 
     $this->storeUser = User::factory()->create([
         'branch_id' => $this->branch->id,
@@ -349,7 +350,7 @@ it('uses the report day only and keeps every product without category or quantit
         ->assertSet('catalogLoaded', true)
         ->assertCount('rows', 39)
         ->assertSee('Product 39')
-        ->assertSee('tanpa batas jumlah atau kategori');
+        ->assertSee('39 produk wajib dihitung hari ini');
 });
 
 it('preserves filled draft rows that are no longer returned by the rolling catalog', function () {
@@ -513,10 +514,11 @@ it('shows the staff in charge in the back office list and detail view', function
         ->assertSee('Staff Gudang');
 });
 
-it('blocks the catalog when any active branch mapping is incomplete', function () {
+it('blocks the catalog when the selected Stock Card source is incomplete', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
-    $this->branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => '', 'is_active' => true]);
+    $incomplete = $this->branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => '', 'is_active' => true]);
+    $this->branch->update(['stock_card_esb_code_id' => $incomplete->id]);
     Http::preventStrayRequests();
     Http::fake();
 

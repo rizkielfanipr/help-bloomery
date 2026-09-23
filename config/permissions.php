@@ -124,6 +124,20 @@ return [
             'sync product price index',
         ],
         'Sourcing Bahan' => ['review material sourcing as rnd'],
+        'Memo Internal' => [
+            'view any rnd internal memo',
+            'view rnd internal memo',
+            'create rnd internal memo',
+            'update rnd internal memo',
+            'sync rnd internal memo',
+            'finalize rnd internal memo',
+            'create rnd internal memo revision',
+            'generate rnd internal memo pdf',
+            'download rnd internal memo pdf',
+            'archive rnd internal memo',
+            'delete rnd internal memo',
+        ],
+        'Master Shelf Life Menu' => ['manage rnd product shelf life'],
     ],
 
     'Sales & Growth' => [

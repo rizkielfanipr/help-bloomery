@@ -118,14 +118,10 @@ class EsbStockMovementService extends EsbItemJournalService
         $from = CarbonImmutable::parse($reportDate)->toDateString();
 
         return Cache::remember($this->stockCardCatalogCacheKey($branch, $reportDate, $flagUnit), now()->addMinutes(5), function () use ($branch, $from, $to, $flagUnit): array {
-            if ($branch->activeEsbCodes()->isEmpty()) {
-                throw new RuntimeException('Branch belum memiliki konfigurasi ESB aktif.');
-            }
+            $pair = $this->stockCardSource($branch);
             $products = [];
-            foreach ($branch->activeEsbCodes() as $pair) {
-                $categories = $this->categories($pair->esb_comcode);
-                $products = $this->mergeCatalogRows($products, $this->movements($pair, $from, $to, $flagUnit), $categories, $pair->esb_comcode);
-            }
+            $categories = $this->categories($pair->esb_comcode);
+            $products = $this->mergeCatalogRows($products, $this->movements($pair, $from, $to, $flagUnit), $categories, $pair->esb_comcode);
 
             return $this->buildStockCardProductCatalog($products, $from, $to);
         });
@@ -161,49 +157,45 @@ class EsbStockMovementService extends EsbItemJournalService
     /** @return array{rows:list<array<string, mixed>>,ok:bool,types:list<string>,transactions:array<string, array<string, array{qty_in:float,qty_out:float}>>,units:array<string,string>} */
     public function balancesForBranch(Branch $branch, string $date, string $unit): array
     {
-        if ($branch->activeEsbCodes()->isEmpty()) {
-            throw new RuntimeException('Branch belum memiliki konfigurasi ESB aktif.');
-        }
+        $pair = $this->stockCardSource($branch);
         $totals = [];
         $types = [];
         $transactions = [];
         $units = [];
-        foreach ($branch->activeEsbCodes() as $pair) {
-            $rows = $this->movements($pair, CarbonImmutable::parse($date)->toDateString(), $date, $unit);
-            $latest = [];
-            foreach ($rows as $row) {
-                $type = trim((string) ($row['transactionType'] ?? '')) ?: 'Tanpa Tipe';
-                $types[$type] = true;
-                $code = trim((string) ($row['productCode'] ?? ''));
-                if ($code !== '') {
-                    $rowUnit = (string) ($row['UOM'] ?? '');
-                    if (isset($units[$code]) && $units[$code] !== $rowUnit) {
-                        throw new RuntimeException("Satuan saldo produk {$code} berbeda; qty tidak dapat digabungkan.");
-                    }
-                    $units[$code] = $rowUnit;
-                    $transactions[$code][$type] ??= ['qty_in' => 0.0, 'qty_out' => 0.0];
-                    $transactions[$code][$type]['qty_in'] += (float) ($row['qtyIn'] ?? 0);
-                    $transactions[$code][$type]['qty_out'] += (float) ($row['qtyOut'] ?? 0);
-                }
-                if ($code === '' || ! is_numeric($row['qtyBalance'] ?? null)) {
-                    continue;
-                }
-                $key = $code.'|'.($row['location'] ?? '').'|'.($row['UOM'] ?? '');
-                $order = [(string) ($row['documentDate'] ?? ''), (string) ($row['createdDate'] ?? '')];
-                if (! isset($latest[$key]) || $order >= $latest[$key]['order']) {
-                    $latest[$key] = ['row' => $row, 'order' => $order];
-                }
-            }
-            foreach ($latest as $balance) {
-                $row = $balance['row'];
-                $code = (string) $row['productCode'];
-                if (isset($totals[$code]) && $totals[$code]['unit'] !== $row['UOM']) {
+        $rows = $this->movements($pair, CarbonImmutable::parse($date)->toDateString(), $date, $unit);
+        $latest = [];
+        foreach ($rows as $row) {
+            $type = trim((string) ($row['transactionType'] ?? '')) ?: 'Tanpa Tipe';
+            $types[$type] = true;
+            $code = trim((string) ($row['productCode'] ?? ''));
+            if ($code !== '') {
+                $rowUnit = (string) ($row['UOM'] ?? '');
+                if (isset($units[$code]) && $units[$code] !== $rowUnit) {
                     throw new RuntimeException("Satuan saldo produk {$code} berbeda; qty tidak dapat digabungkan.");
                 }
-                $totals[$code] ??= ['productCode' => $code, 'productName' => (string) ($row['productName'] ?? $code), 'unit' => $row['UOM'], 'totalQty' => 0.0];
-                $totals[$code]['companies'] = array_values(array_unique([...($totals[$code]['companies'] ?? []), $pair->esb_comcode]));
-                $totals[$code]['totalQty'] += (float) $row['qtyBalance'];
+                $units[$code] = $rowUnit;
+                $transactions[$code][$type] ??= ['qty_in' => 0.0, 'qty_out' => 0.0];
+                $transactions[$code][$type]['qty_in'] += (float) ($row['qtyIn'] ?? 0);
+                $transactions[$code][$type]['qty_out'] += (float) ($row['qtyOut'] ?? 0);
             }
+            if ($code === '' || ! is_numeric($row['qtyBalance'] ?? null)) {
+                continue;
+            }
+            $key = $code.'|'.($row['location'] ?? '').'|'.($row['UOM'] ?? '');
+            $order = [(string) ($row['documentDate'] ?? ''), (string) ($row['createdDate'] ?? '')];
+            if (! isset($latest[$key]) || $order >= $latest[$key]['order']) {
+                $latest[$key] = ['row' => $row, 'order' => $order];
+            }
+        }
+        foreach ($latest as $balance) {
+            $row = $balance['row'];
+            $code = (string) $row['productCode'];
+            if (isset($totals[$code]) && $totals[$code]['unit'] !== $row['UOM']) {
+                throw new RuntimeException("Satuan saldo produk {$code} berbeda; qty tidak dapat digabungkan.");
+            }
+            $totals[$code] ??= ['productCode' => $code, 'productName' => (string) ($row['productName'] ?? $code), 'unit' => $row['UOM'], 'totalQty' => 0.0];
+            $totals[$code]['companies'] = array_values(array_unique([...($totals[$code]['companies'] ?? []), $pair->esb_comcode]));
+            $totals[$code]['totalQty'] += (float) $row['qtyBalance'];
         }
 
         $transactionTypes = $this->transactionTypes(array_keys($types));
@@ -214,9 +206,24 @@ class EsbStockMovementService extends EsbItemJournalService
 
     public function stockCardCatalogCacheKey(Branch $branch, CarbonInterface|string $reportDate, string $flagUnit = 'stockUnit'): string
     {
-        $mapping = $branch->activeEsbCodes()->map(fn (BranchEsbCode $pair): string => $pair->esb_comcode.'|'.$pair->esb_branch_code)->sort()->implode(',');
+        $pair = $branch->activeStockCardEsbCode();
+        $mapping = $pair ? $pair->esb_comcode.'|'.$pair->esb_branch_code : 'unconfigured';
 
         return 'stock-movement.catalog.v4:'.$branch->id.':'.CarbonImmutable::parse($reportDate)->toDateString().':'.$flagUnit.':'.sha1($mapping);
+    }
+
+    private function stockCardSource(Branch $branch): BranchEsbCode
+    {
+        $pair = $branch->activeStockCardEsbCode();
+        if (! $pair) {
+            throw new RuntimeException('Sumber Stock Card belum diatur untuk Branch ini. Pilih satu mapping ESB aktif pada Master Branch.');
+        }
+
+        if (blank($pair->esb_comcode) || blank($pair->esb_branch_code)) {
+            throw new RuntimeException('Mapping Company Code dan ESB Branch Code untuk sumber Stock Card belum lengkap.');
+        }
+
+        return $pair;
     }
 
     public function getCachedStockCardCatalog(Branch $branch, CarbonInterface|string $reportDate, string $flagUnit = 'stockUnit'): ?array

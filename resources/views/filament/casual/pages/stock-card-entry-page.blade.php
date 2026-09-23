@@ -159,7 +159,9 @@
                             </p>
                             <p class="mt-1 text-xs leading-5 text-blue-700 dark:text-blue-300">
                                 Tanggal {{ \Carbon\Carbon::parse($catalogPeriodTo)->format('d M Y') }}.
-                                @if(collect($this->categorySettingsSnapshot)->contains(fn ($rule) => ! $rule['all_categories'] || ! $rule['show_uncategorized']))
+                                @if($selectionSnapshot !== [])
+                                    {{ count($rows) }} produk wajib dihitung hari ini berdasarkan pengaturan kategori yang tersimpan.
+                                @elseif(collect($this->categorySettingsSnapshot)->contains(fn ($rule) => ! $rule['all_categories'] || ! $rule['show_uncategorized']))
                                     Produk mengikuti kategori yang ditetapkan saat laporan dibuat. Rincian transaksi ESB tetap tersedia lengkap.
                                 @else
                                     Seluruh produk dari Stock Movement ESB ditampilkan tanpa batas jumlah atau kategori.
@@ -191,6 +193,9 @@
                                     </div>
                                 </div>
                             @endif
+                            @foreach($selectionSnapshot['warnings'] ?? [] as $warning)
+                                <p class="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">{{ $warning }}</p>
+                            @endforeach
                             @if($catalogError)
                                 <p class="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{{ $catalogError }}</p>
                             @elseif($catalogFailedRequests > 0)

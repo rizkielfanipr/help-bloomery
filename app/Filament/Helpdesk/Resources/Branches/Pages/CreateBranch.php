@@ -13,6 +13,14 @@ class CreateBranch extends CreateRecord
 
     protected static string $resource = BranchResource::class;
 
+    protected function afterCreate(): void
+    {
+        $activeMappings = $this->getRecord()->esbCodes()->where('is_active', true)->get();
+        if ($activeMappings->count() === 1) {
+            $this->getRecord()->update(['stock_card_esb_code_id' => $activeMappings->first()->id]);
+        }
+    }
+
     protected function workspaceHero(): array
     {
         return [

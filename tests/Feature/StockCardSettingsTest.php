@@ -21,8 +21,9 @@ beforeEach(function () {
     config(['esb.core.companies' => []]);
     $this->seed(RolesAndPermissionsSeeder::class);
     $this->branch = Branch::factory()->create();
-    $this->branch->esbCodes()->create(['esb_comcode' => 'COM01', 'esb_branch_code' => 'B01', 'is_active' => true]);
+    $mapping = $this->branch->esbCodes()->create(['esb_comcode' => 'COM01', 'esb_branch_code' => 'B01', 'is_active' => true]);
     $this->branch->esbCodes()->create(['esb_comcode' => 'COM02', 'esb_branch_code' => 'B02', 'is_active' => true]);
+    $this->branch->update(['stock_card_esb_code_id' => $mapping->id]);
     $this->admin = User::factory()->create(['is_active' => true]);
     $this->admin->givePermissionTo(['access backoffice', 'view stock card settings', 'edit stock card settings']);
     $this->staff = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
@@ -31,6 +32,16 @@ beforeEach(function () {
     Cache::put('stock-movement.categories.COM02', ['RAW' => 'Packaging'], now()->addHour());
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 });
+
+function completeStockCardCategoryRefresh($page, string $method = 'loadCategories')
+{
+    $page->call($method);
+    while ($page->get('categoriesRefreshing')) {
+        $page->call('fetchNextCategorySource');
+    }
+
+    return $page;
+}
 
 it('shows settings in the inventory sidebar only for permitted users', function () {
     $this->actingAs($this->admin)->get(StockCardSettingsPage::getUrl())
@@ -42,27 +53,76 @@ it('merges all companies by normalized category name and saves global settings',
     $this->actingAs($this->admin);
     Cache::put('stock-movement.categories.COM02', ['RAW' => '  BAHAN   BAKU ', 'PKG' => 'Packaging'], now()->addHour());
     StockCardSetting::factory()->create(['company_code' => 'COM02', 'categories' => ['Packaging'], 'all_categories' => false]);
-    Livewire::test(StockCardSettingsPage::class)->assertDontSee('stock-card-company')
-        ->call('loadCategories')->assertSet('categoryOptions', ['Bahan Baku', 'Barang WIP', 'Packaging'])
+    completeStockCardCategoryRefresh(Livewire::test(StockCardSettingsPage::class)->assertDontSee('stock-card-company'))
+        ->assertSet('categoryOptions', ['Bahan Baku', 'Barang WIP', 'Packaging'])
         ->set('allCategories', false)->set('selectedCategories', ['Bahan Baku'])
         ->set('showUncategorized', false)->call('save')->assertHasNoErrors();
     expect(StockCardSetting::where('company_code', StockCardSetting::GLOBAL_COMPANY)->first()->categories)->toBe(['Bahan Baku']);
     expect(StockCardSetting::where('company_code', 'COM02')->first()->categories)->toBe(['Packaging']);
 });
 
+it('saves a required daily count and rotation rule for each category', function () {
+    $this->actingAs($this->admin);
+    $key = sha1('bahan baku');
+
+    completeStockCardCategoryRefresh(Livewire::test(StockCardSettingsPage::class))
+        ->set("categoryRules.{$key}.mode", 'limited')
+        ->set("categoryRules.{$key}.daily_count", null)
+        ->call('save')
+        ->assertHasErrors(["categoryRules.{$key}.daily_count"])
+        ->set("categoryRules.{$key}.daily_count", 1)
+        ->set("categoryRules.{$key}.rotate_daily", true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $rule = collect(StockCardSetting::where('company_code', StockCardSetting::GLOBAL_COMPANY)->firstOrFail()->category_rules)
+        ->firstWhere('category_name', 'Bahan Baku');
+
+    expect($rule)->toMatchArray(['mode' => 'limited', 'daily_count' => 1, 'rotate_daily' => true]);
+});
+
+it('shows progressive source status and merged category details while refreshing', function () {
+    $this->actingAs($this->admin);
+    $this->mock(EsbStockMovementService::class, function ($mock) {
+        $mock->shouldReceive('categories')->with('COM01')->once()->andReturn(['RAW' => 'Bahan Baku', 'WIP' => 'Barang WIP']);
+        $mock->shouldReceive('categories')->with('COM02')->once()->andReturn(['PKG' => 'Packaging']);
+    });
+
+    $page = Livewire::test(StockCardSettingsPage::class)
+        ->call('refreshCategories')
+        ->assertSet('categoriesRefreshing', true)
+        ->assertSet('refreshCompanyIndex', 0)
+        ->assertSet('refreshCurrentCompany', 'COM01')
+        ->assertSee('Mengambil kategori Master Product ESB')
+        ->call('fetchNextCategorySource')
+        ->assertSet('refreshCompanyIndex', 1)
+        ->assertSet('categoryRefreshResults.0.status', 'success')
+        ->assertSet('categoryRefreshResults.0.branches.0', $this->branch->name)
+        ->call('fetchNextCategorySource')
+        ->assertSet('categoriesRefreshing', false)
+        ->assertSet('categoryRefreshSummary.successful_sources', 2)
+        ->assertSet('categoryRefreshSummary.merged_categories', 3)
+        ->assertSet('categoryRefreshSummary.duplicate_categories', 0)
+        ->assertSee('Refresh Categories Selesai')
+        ->assertSee($this->branch->name)
+        ->assertSee('kategori hasil merge');
+
+    expect($page->get('categoriesRefreshedAt'))->not->toBeNull();
+});
+
 it('allows viewing settings but forbids saving without edit permission', function () {
     $this->admin->revokePermissionTo('edit stock card settings');
     $this->actingAs($this->admin);
-    Livewire::test(StockCardSettingsPage::class)->call('loadCategories')
+    completeStockCardCategoryRefresh(Livewire::test(StockCardSettingsPage::class))
         ->assertDontSee('Save Settings')->call('save')->assertForbidden();
     expect(StockCardSetting::count())->toBe(0);
 });
 
 it('rejects invalid or empty selected categories', function () {
     $this->actingAs($this->admin);
-    Livewire::test(StockCardSettingsPage::class)->call('loadCategories')
+    completeStockCardCategoryRefresh(Livewire::test(StockCardSettingsPage::class))
         ->set('allCategories', false)->set('selectedCategories', [])->call('save')->assertHasErrors(['selectedCategories']);
-    Livewire::test(StockCardSettingsPage::class)->call('loadCategories')
+    completeStockCardCategoryRefresh(Livewire::test(StockCardSettingsPage::class))
         ->set('allCategories', false)->set('selectedCategories', ['Unknown Category'])->call('save')->assertHasErrors(['selectedCategories.0']);
     expect(StockCardSetting::where('company_code', StockCardSetting::GLOBAL_COMPANY)->first()->all_categories)->toBeTrue();
 });
@@ -77,9 +137,9 @@ it('refreshes all category caches and retains failed company categories and save
         $mock->shouldReceive('categories')->with('COM01')->once()->andThrow(new RuntimeException('ESB unavailable'));
         $mock->shouldReceive('categories')->with('COM02')->once()->andReturn(['PKG' => 'Packaging']);
     });
-    Livewire::test(StockCardSettingsPage::class)->call('refreshCategories')
+    completeStockCardCategoryRefresh(Livewire::test(StockCardSettingsPage::class), 'refreshCategories')
         ->assertSet('categoryOptions', ['Bahan Baku', 'Packaging'])->assertSet('failedCompanies', ['COM01'])
-        ->assertSee('Kategori gagal diperbarui')->call('save')->assertHasNoErrors();
+        ->assertSee('Gagal')->assertSee('Kategori terakhir tetap digunakan')->call('save')->assertHasNoErrors();
     expect($setting->fresh()->categories)->toBe(['Bahan Baku']);
     expect($setting->fresh()->category_sources)->toBe(['COM01' => ['Bahan Baku'], 'COM02' => ['Packaging']]);
     expect(Cache::has('stock-movement.categories.COM01'))->toBeFalse();
@@ -137,7 +197,8 @@ it('keeps legacy reports unfiltered and preserves existing staff entries', funct
     cacheSettingsTestCatalog($this->branch);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     $this->actingAs($this->staff);
-    Livewire::test(StockCardEntryPage::class)->call('loadProductCatalog')->assertCount('rows', 3);
+    Livewire::test(StockCardEntryPage::class)->call('loadProductCatalog')->assertCount('rows', 1)
+        ->assertSet('rows.0.product_code', 'OLD');
     expect($card->fresh()->category_settings_snapshot)->toBeNull();
     expect($card->entries()->where('product_code', 'OLD')->first()->actual_qty)->toBe('7.0000');
 });
@@ -148,6 +209,34 @@ it('uses all categories by default for new reports', function () {
     $this->actingAs($this->staff);
     Livewire::test(StockCardEntryPage::class)->call('loadProductCatalog')->assertCount('rows', 2);
     expect(StockCard::firstOrFail()->category_settings_snapshot['COM01']['all_categories'])->toBeTrue();
+});
+
+it('persists the limited daily selection so user and back office use the same products', function () {
+    StockCardSetting::factory()->create([
+        'company_code' => StockCardSetting::GLOBAL_COMPANY,
+        'category_rules' => [[
+            'category_name' => 'Bahan Baku',
+            'mode' => 'limited',
+            'daily_count' => 1,
+            'rotate_daily' => true,
+        ]],
+    ]);
+    cacheSettingsTestCatalog($this->branch);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($this->staff);
+
+    Livewire::test(StockCardEntryPage::class)->call('loadProductCatalog')->assertCount('rows', 2);
+
+    $card = StockCard::with('entries')->firstOrFail();
+    expect($card->entries->where('product_category', 'Bahan Baku'))->toHaveCount(1)
+        ->and($card->selection_snapshot['categories']['bahan baku']['selected'])->toBe(1);
+
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $this->admin->assignRole('SUPERADMIN');
+    $this->actingAs($this->admin);
+    Livewire::test(ViewStockCard::class, ['record' => $card])
+        ->assertSee('Daily Product Selection')
+        ->assertSee($card->entries->firstWhere('product_category', 'Bahan Baku')->product_name);
 });
 
 it('registers settings permissions without changing role assignments or removing existing permissions', function () {
@@ -163,7 +252,7 @@ it('includes configured companies without branch mappings and searches merged ca
     config(['esb.core.companies' => ['COM03' => ['username' => 'test', 'password' => 'test']]]);
     Cache::put('stock-movement.categories.COM03', ['OTHER' => 'Other Category'], now()->addHour());
     $this->actingAs($this->admin);
-    $page = Livewire::test(StockCardSettingsPage::class)->call('loadCategories')
+    $page = completeStockCardCategoryRefresh(Livewire::test(StockCardSettingsPage::class))
         ->assertSet('categoryOptions', ['Bahan Baku', 'Barang WIP', 'Other Category', 'Packaging'])
         ->set('allCategories', false)->set('selectedCategories', ['Packaging'])->set('categorySearch', 'bahan');
     expect($page->instance()->visibleCategories())->toBe(['Bahan Baku']);
@@ -182,8 +271,8 @@ it('applies global normalized categories to every company while preserving histo
         ['product_code' => 'B', 'category_sources' => ['COM02' => ' bahan baku ']],
         ['product_code' => 'C', 'category_sources' => ['COM02' => 'Packaging']],
     ];
-    expect(array_column($filter->filter($products, $snapshot), 'product_code'))->toBe(['A', 'B']);
-    unset($snapshot['COM01']['normalize_names'], $snapshot['COM02']['normalize_names']);
+    expect(array_column($filter->filter($products, $snapshot), 'product_code'))->toBe(['A']);
+    unset($snapshot['COM01']['normalize_names']);
     expect($filter->filter($products, $snapshot))->toBe([]);
 });
 

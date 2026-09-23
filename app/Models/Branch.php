@@ -21,6 +21,7 @@ class Branch extends Model
         'lng',
         'radius_meters',
         'is_active',
+        'stock_card_esb_code_id',
         'location_required',
         'sales_shift_count',
         'sales_assessment_started_at',
@@ -44,6 +45,18 @@ class Branch extends Model
     public function esbCodes(): HasMany
     {
         return $this->hasMany(BranchEsbCode::class);
+    }
+
+    public function stockCardEsbCode(): BelongsTo
+    {
+        return $this->belongsTo(BranchEsbCode::class, 'stock_card_esb_code_id');
+    }
+
+    public function activeStockCardEsbCode(): ?BranchEsbCode
+    {
+        $mapping = $this->stockCardEsbCode;
+
+        return $mapping?->branch_id === $this->id && $mapping->is_active ? $mapping : null;
     }
 
     /** @return Collection<int, BranchEsbCode> */

@@ -120,3 +120,99 @@ function runRecalculation($page)
 
     return $page;
 }
+
+/*
+|--------------------------------------------------------------------------
+| R&D Internal Memo BOM fixtures (docs/rnd-internal-memo-prd.md Phase 0 contract report)
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Phase 0 (docs/rnd-internal-memo-prd.md §19) — Contract validation.
+ *
+ * No live ESB Master Menu / ESB Core BOM response was available to sample directly from
+ * this environment. These fixtures are reconstructed only from fields already read or
+ * asserted by production consumers of `GET {ESB_CORE_BASE_URL}/product/bom/{bomID}`:
+ *
+ * - app/Services/EsbCoreService.php (getBillOfMaterial, createAssembly bomTypeID)
+ * - app/Filament/Helpdesk/Pages/CreateBomRecipePage.php / EditBomRecipePage.php
+ * - app/Services/RndProjectMaterialForecastService.php (recursive WIP/Assembly resolution)
+ * - tests/Feature/EsbCoreServiceTest.php, tests/Feature/RndProjectMaterialForecastTest.php
+ *
+ * Fields NOT present anywhere in those consumers (output quantity/yield for the whole BOM,
+ * a separate waste percentage, component-level `yieldPercent` read back from a GET response)
+ * are deliberately left out of the "confirmed" fixtures below rather than invented. See the
+ * Phase 0 report for the full list of open items that still require a real sample response.
+ */
+function internalMemoBomDetailFixture(string $bomTypeName, array $overrides = []): array
+{
+    return array_replace_recursive([
+        'bomID' => 42,
+        'bomCode' => 'BOM-000042',
+        'bomName' => 'Croissant Butter',
+        'bomTypeName' => $bomTypeName,
+        'productID' => 9001,
+        'productDetailID' => 15001,
+        'productCode' => 'FG-CROBUT',
+        'bomDetails' => [
+            [
+                'productDetailID' => 15002,
+                'productID' => 9002,
+                'productCode' => 'RAW-FLOUR',
+                'productName' => 'Tepung Terigu Protein Tinggi',
+                'categoryName' => 'Bahan Baku Makanan',
+                'qty' => 250.0,
+                'uomName' => 'GR',
+                'tolerancePercent' => 2.0,
+            ],
+        ],
+    ], $overrides);
+}
+
+/** BOM detail response for a Menu's own BOM (bomTypeID 3 per EsbCoreService::createAssembly/CreateBomRecipePage). */
+function internalMemoMenuBomDetailFixture(array $overrides = []): array
+{
+    return internalMemoBomDetailFixture('Menu', array_replace_recursive([
+        'bomID' => 501,
+        'bomCode' => 'BOM-000501',
+        'bomName' => 'Croissant Butter - Menu',
+        'productID' => 9101,
+        'productDetailID' => 15101,
+        'productCode' => 'MENU-CROBUT',
+        'bomDetails' => [
+            [
+                'productDetailID' => 15002,
+                'productID' => 9002,
+                'productCode' => 'RAW-FLOUR',
+                'productName' => 'Tepung Terigu Protein Tinggi',
+                'categoryName' => 'Bahan Baku Makanan',
+                'qty' => 250.0,
+                'uomName' => 'GR',
+                'tolerancePercent' => 2.0,
+            ],
+            [
+                'productDetailID' => 15003,
+                'productID' => 9003,
+                'productCode' => 'BW1356',
+                'productName' => 'Croissant Dough WIP',
+                'categoryName' => 'Barang WIP',
+                'qty' => 1.0,
+                'uomName' => 'PCS',
+                'tolerancePercent' => 0.0,
+            ],
+        ],
+    ], $overrides));
+}
+
+/** BOM detail response for a WIP/Assembly's own BOM (bomTypeID 1, the "main" type used elsewhere in the app). */
+function internalMemoAssemblyBomDetailFixture(array $overrides = []): array
+{
+    return internalMemoBomDetailFixture('Main', array_replace_recursive([
+        'bomID' => 7301,
+        'bomCode' => 'BOM-007301',
+        'bomName' => 'Croissant Dough WIP',
+        'productID' => 9003,
+        'productDetailID' => 15003,
+        'productCode' => 'BW1356',
+    ], $overrides));
+}

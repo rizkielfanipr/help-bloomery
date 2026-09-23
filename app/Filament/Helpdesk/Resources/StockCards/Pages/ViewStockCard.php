@@ -90,6 +90,7 @@ class ViewStockCard extends Page
     protected function movementProducts(): Collection
     {
         $entries = $this->record->entries->keyBy('product_code');
+        $usesSavedSelection = $this->record->selection_snapshot !== null;
         $products = $entries->mapWithKeys(fn ($entry): array => [
             $entry->product_code => [
                 'productCode' => $entry->product_code, 'productName' => $entry->product_name,
@@ -99,6 +100,9 @@ class ViewStockCard extends Page
         ]);
         foreach ($this->movementBalances as $product) {
             $entry = $entries->get($product['productCode']);
+            if ($usesSavedSelection && ! $entry) {
+                continue;
+            }
             $category = $entry?->product_category
                 ?: ($product['productCategory'] ?? $product['category'] ?? $this->mappedProductCategory($product));
 

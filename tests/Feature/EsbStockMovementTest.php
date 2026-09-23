@@ -13,6 +13,7 @@ beforeEach(function () {
     $this->pair = $this->branch->esbCodes()->create([
         'esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLA', 'is_active' => true,
     ]);
+    $this->branch->update(['stock_card_esb_code_id' => $this->pair->id]);
     Cache::put('esb_core.access_token.BLSS', 'blss-token', 300);
 });
 
@@ -55,8 +56,9 @@ it('takes the latest balance per location instead of adding historical balances'
     Http::assertSent(fn ($request): bool => $request['startPeriod'] === '2026-09-17' && $request['endPeriod'] === '2026-09-17');
 });
 
-it('uses separate company tokens for multiple active mappings', function () {
-    $this->branch->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6', 'is_active' => true]);
+it('uses only the explicitly selected Stock Card source when multiple mappings are active', function () {
+    $selected = $this->branch->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6', 'is_active' => true]);
+    $this->branch->update(['stock_card_esb_code_id' => $selected->id]);
     Cache::put('esb_core.access_token.BLO6', 'blo6-token', 300);
     Http::fake(fn ($request) => Http::response(['status' => 'ok', 'result' => [
         'data' => [[
@@ -67,10 +69,11 @@ it('uses separate company tokens for multiple active mappings', function () {
 
     $result = app(EsbStockMovementService::class)->balancesForBranch($this->branch, '2026-09-17', 'stockUnit');
 
-    expect($result['rows'][0]['totalQty'])->toBe(10.0);
+    expect($result['rows'][0]['totalQty'])->toBe(5.0);
+    Http::assertSentCount(1);
     Http::assertSent(fn ($request): bool => $request['startPeriod'] === '2026-09-17' && $request['endPeriod'] === '2026-09-17');
     Http::assertSent(fn ($request): bool => $request['branchCode'] === 'BL6' && $request->hasHeader('Authorization', 'Bearer blo6-token'));
-    Http::assertSent(fn ($request): bool => $request['branchCode'] === 'BLA' && $request->hasHeader('Authorization', 'Bearer blss-token'));
+    Http::assertNotSent(fn ($request): bool => $request['branchCode'] === 'BLA');
 });
 
 it('rejects responses outside the mapped branch', function () {
@@ -115,9 +118,7 @@ it('does not combine balances with different units', function () {
         ->toThrow(RuntimeException::class, 'Satuan saldo');
 });
 
-it('aggregates all transaction types across pages and company mappings', function () {
-    $this->branch->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6', 'is_active' => true]);
-    Cache::put('esb_core.access_token.BLO6', 'blo6-token', 300);
+it('aggregates all transaction types across pages from the selected mapping', function () {
     Http::fake(function ($request) {
         $page = (int) $request['page'];
         $row = [
@@ -135,8 +136,15 @@ it('aggregates all transaction types across pages and company mappings', functio
     $result = app(EsbStockMovementService::class)->balancesForBranch($this->branch, '2026-09-17', 'stockUnit');
 
     expect($result['types'])->toBe(['Beginning', 'Goods Delivery', 'Goods Receipt', 'POS Sales', 'Purchase Invoice Adjustment', 'Waste'])
-        ->and($result['transactions']['P-1']['Goods Receipt']['qty_in'])->toBe(20.0)
-        ->and($result['transactions']['P-1']['Waste']['qty_out'])->toBe(4.0)
-        ->and($result['rows'][0]['totalQty'])->toBe(10.0);
-    Http::assertSentCount(4);
+        ->and($result['transactions']['P-1']['Goods Receipt']['qty_in'])->toBe(10.0)
+        ->and($result['transactions']['P-1']['Waste']['qty_out'])->toBe(2.0)
+        ->and($result['rows'][0]['totalQty'])->toBe(5.0);
+    Http::assertSentCount(2);
+});
+
+it('requires an explicit active Stock Card source', function () {
+    $this->branch->update(['stock_card_esb_code_id' => null]);
+
+    expect(fn () => app(EsbStockMovementService::class)->balancesForBranch($this->branch->fresh(), '2026-09-17', 'stockUnit'))
+        ->toThrow(RuntimeException::class, 'Sumber Stock Card belum diatur');
 });

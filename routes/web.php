@@ -15,6 +15,7 @@ use App\Http\Controllers\Helpdesk\DriverMealAllowanceExportController;
 use App\Http\Controllers\Helpdesk\LocationLabelPdfController;
 use App\Http\Controllers\Helpdesk\ProductLabelPdfController;
 use App\Http\Controllers\Helpdesk\RndBomInstructionImageController;
+use App\Http\Controllers\Helpdesk\RndInternalMemoPdfController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
@@ -96,6 +97,9 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/rnd-projects/{project}/bom/export-pdf', RndProjectBomPdfController::class)
         ->name('helpdesk.rnd-projects.bom-pdf');
+
+    Route::get('/rnd-internal-memos/{memo}/documents/{document}/download', RndInternalMemoPdfController::class)
+        ->name('helpdesk.rnd-internal-memos.download-pdf');
 
     Route::get('/rnd-projects/{project}/products/{product}/materials/export', RndProductEsbMaterialExportController::class)
         ->name('helpdesk.rnd-products.esb-materials-export');

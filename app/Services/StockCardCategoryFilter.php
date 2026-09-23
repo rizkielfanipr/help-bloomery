@@ -11,7 +11,8 @@ class StockCardCategoryFilter
     /** @return array<string, array{all_categories:bool,categories:list<string>,show_uncategorized:bool,normalize_names:bool}> */
     public function snapshot(Branch $branch): array
     {
-        $companies = $branch->activeEsbCodes()->pluck('esb_comcode')->filter()->unique();
+        $company = $branch->activeStockCardEsbCode()?->esb_comcode;
+        $companies = collect($company ? [$company] : []);
         $setting = StockCardSetting::where('company_code', StockCardSetting::GLOBAL_COMPANY)->first();
 
         return $companies->mapWithKeys(fn (string $company): array => [$company => [
@@ -19,6 +20,7 @@ class StockCardCategoryFilter
             'categories' => $setting?->categories ?? [],
             'show_uncategorized' => $setting?->show_uncategorized ?? true,
             'normalize_names' => true,
+            'category_rules' => $setting?->category_rules ?? [],
         ]])->all();
     }
 

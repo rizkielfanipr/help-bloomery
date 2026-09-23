@@ -64,6 +64,38 @@
         @endif
     </section>
 
+    @if($record->selection_snapshot)
+        @php
+            $selectionCategories = collect($record->selection_snapshot['categories'] ?? []);
+            $selectionSource = $record->selection_snapshot['source'] ?? [];
+        @endphp
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Daily Product Selection</h2>
+                <p class="mt-1 text-xs text-gray-500">{{ $record->entries->count() }} products saved for this report · {{ $selectionSource['company_code'] ?? '-' }} / {{ $selectionSource['branch_code'] ?? '-' }}</p>
+            </div>
+            <div class="grid gap-3 px-6 py-5 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach($selectionCategories as $category)
+                    <div class="rounded-lg border border-gray-200 px-4 py-3 dark:border-gray-700">
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $category['category'] }}</p>
+                        <p class="mt-1 text-xs text-gray-500">
+                            {{ $category['selected'] }} of {{ $category['available'] }} products
+                            @if($category['mode'] === 'limited')
+                                · target {{ $category['target'] }}
+                            @endif
+                        </p>
+                        @if($category['rotate_daily'])
+                            <p class="mt-1 text-xs font-medium text-blue-600 dark:text-blue-400">Daily rotation active</p>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+            @foreach($record->selection_snapshot['warnings'] ?? [] as $warning)
+                <p class="border-t border-amber-200 bg-amber-50 px-6 py-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">{{ $warning }}</p>
+            @endforeach
+        </section>
+    @endif
+
     @include('filament.helpdesk.stock-cards.movement-table', ['movementDateLabel' => $record->report_date->toDateString()])
 
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">

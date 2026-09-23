@@ -44,7 +44,7 @@
     if (str_contains($path, 'sales-information') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions')) { $initialOpen[] = 'it'; }
-    if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'shelf-life') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names')) { $initialOpen[] = 'rnd'; }
+    if (str_contains($path, 'bill-of-material') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'shelf-life') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names') || str_contains($path, 'rnd-internal-memos') || str_contains($path, 'rnd-product-shelf-lives')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'store-sops') || str_contains($path, 'store-sop-categories')) { $initialOpen[] = 'operational'; }
     if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || str_contains($path, 'vendor-compliance') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
@@ -129,6 +129,8 @@
                 ['label' => 'Product Price Index', 'icon' => 'chart-no-axes-combined', 'perm' => 'view product price index', 'href' => $r('filament.helpdesk.pages.product-price-index'), 'active' => $active($r('filament.helpdesk.pages.product-price-index'))],
                 ['label' => 'Prefix Category', 'icon' => 'tag', 'perm' => 'view prefix categories', 'href' => $r('filament.helpdesk.resources.prefix-categories.index'), 'active' => $active($r('filament.helpdesk.resources.prefix-categories.index'))],
                 ['label' => 'Prefix Name', 'icon' => 'tag', 'perm' => 'view prefix names', 'href' => $r('filament.helpdesk.resources.prefix-names.index'), 'active' => $active($r('filament.helpdesk.resources.prefix-names.index'))],
+                ['label' => 'Memo Internal', 'icon' => 'file-text', 'perm' => 'view any rnd internal memo', 'href' => $r('filament.helpdesk.resources.rnd-internal-memos.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-internal-memos.index'))],
+                ['label' => 'Master Shelf Life Menu', 'icon' => 'calendar-clock', 'perm' => 'manage rnd product shelf life', 'href' => $r('filament.helpdesk.resources.rnd-product-shelf-lives.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-product-shelf-lives.index'))],
             ],
         ],
         [

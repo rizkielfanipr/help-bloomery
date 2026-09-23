@@ -127,7 +127,7 @@ class BranchResource extends Resource
                     ]),
 
                 Section::make('Kode ESB')
-                    ->description('Satu branch bisa punya beberapa pasangan Branch Code + Comcode (mis. tercatat di beberapa company ESB). Data yang di-fetch dijumlahkan dari semua pasangan yang aktif.')
+                    ->description('Satu branch dapat memiliki beberapa mapping ESB. Pilih satu mapping aktif sebagai sumber Stock Movement untuk Stock Card; mapping lainnya tetap digunakan oleh integrasi lain.')
                     ->icon('heroicon-o-link')
                     ->contained(false)
                     ->visible($fullEditorOnly)
@@ -187,6 +187,24 @@ class BranchResource extends Resource
                             ->defaultItems(1)
                             ->addActionLabel('Tambah Kode ESB')
                             ->reorderable(false)
+                            ->columnSpanFull(),
+
+                        Select::make('stock_card_esb_code_id')
+                            ->label('Sumber Stock Card')
+                            ->options(fn (?Branch $record): array => $record?->esbCodes()
+                                ->where('is_active', true)
+                                ->orderBy('esb_comcode')
+                                ->orderBy('esb_branch_code')
+                                ->get()
+                                ->mapWithKeys(fn ($mapping): array => [
+                                    $mapping->id => $mapping->esb_comcode.' · '.$mapping->esb_branch_code.($mapping->label ? ' · '.$mapping->label : ''),
+                                ])->all() ?? [])
+                            ->placeholder('— Pilih Sumber Stock Card —')
+                            ->helperText(fn (?Branch $record): string => $record
+                                ? 'Hanya mapping ini yang digunakan oleh Stock Card. Mapping harus aktif.'
+                                : 'Simpan Branch terlebih dahulu, lalu pilih sumber Stock Card pada halaman Edit.')
+                            ->disabled(fn (?Branch $record): bool => $record === null)
+                            ->searchable()
                             ->columnSpanFull(),
                     ]),
 

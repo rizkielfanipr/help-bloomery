@@ -21,7 +21,8 @@ beforeEach(function () {
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 
     $this->branch = Branch::factory()->create();
-    $this->branch->esbCodes()->create(['esb_branch_code' => 'TST01', 'esb_comcode' => 'COM01']);
+    $mapping = $this->branch->esbCodes()->create(['esb_branch_code' => 'TST01', 'esb_comcode' => 'COM01']);
+    $this->branch->update(['stock_card_esb_code_id' => $mapping->id]);
 
     $this->staff = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
     $this->staff->assignRole('STORE_STAFF');
@@ -306,7 +307,7 @@ it('uses concise English labels throughout the stock card workflow', function ()
         ->and(StockCardStatus::Completed->getLabel())->toBe('Completed');
 });
 
-it('leaves all system quantities unverified when a mapped company fails', function () {
+it('ignores failures from active mappings that are not selected for Stock Card', function () {
     fakeEsbStockMovement();
     $this->branch->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6', 'is_active' => true]);
     Cache::put('esb_core.access_token.BLO6', 'blo6-token', 300);
@@ -326,10 +327,10 @@ it('leaves all system quantities unverified when a mapped company fails', functi
 
     Livewire::test(ViewStockCard::class, ['record' => $this->card])
         ->call('refetchEsb')
-        ->assertNotified('Gagal mengambil Stock Movement');
+        ->assertNotified('Data sistem berhasil diperbarui dari ESB');
 
-    expect($this->card->refresh()->system_fetched_at)->toBeNull()
-        ->and($this->entry->refresh()->system_qty)->toBeNull();
+    expect($this->card->refresh()->system_fetched_at)->not->toBeNull()
+        ->and((float) $this->entry->refresh()->system_qty)->toBe(5.0);
 });
 
 it('shows every API transaction type without changing saved quantities or approval', function () {

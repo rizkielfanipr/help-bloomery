@@ -71,6 +71,7 @@ it('keeps saving every group of the branch form with the reorganised layout', fu
     expect($branch->location_required)->toBeTrue()
         ->and($branch->address)->toBe('Jl. Contoh No. 1')
         ->and($branch->esbCodes()->count())->toBe(1)
+        ->and($branch->stock_card_esb_code_id)->toBe($branch->esbCodes()->sole()->id)
         ->and($branch->salesShifts()->orderBy('shift_number')->pluck('name')->all())->toBe(['Shift 1']);
 
     Livewire::test(EditBranch::class, ['record' => $branch->id])
@@ -123,6 +124,22 @@ it('does not force an empty row on the edit page of a branch without ESB codes o
         ->assertHasNoFormErrors();
 
     expect($branch->fresh()->name)->toBe('Cabang Lama Baru');
+});
+
+it('lets an administrator select exactly one active ESB mapping as the Stock Card source', function () {
+    $branch = Branch::factory()->create(['name' => 'Multi Company']);
+    $first = $branch->esbCodes()->create(['esb_branch_code' => 'BLS', 'esb_comcode' => 'BLSS', 'label' => 'NO LABEL', 'is_active' => true]);
+    $second = $branch->esbCodes()->create(['esb_branch_code' => 'BL6', 'esb_comcode' => 'BLO6', 'label' => 'NO LABEL', 'is_active' => true]);
+
+    Livewire::test(EditBranch::class, ['record' => $branch->id])
+        ->assertSee('Sumber Stock Card')
+        ->fillForm(['stock_card_esb_code_id' => $second->id])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect($branch->fresh()->stock_card_esb_code_id)->toBe($second->id)
+        ->and($branch->fresh()->activeStockCardEsbCode()?->id)->toBe($second->id)
+        ->and($branch->fresh()->stock_card_esb_code_id)->not->toBe($first->id);
 });
 
 it('offers the current location as a floating icon button on the map instead of a GPS text button', function () {

@@ -12,6 +12,7 @@ use App\Models\StockCardEntry;
 use App\Models\User;
 use App\Services\EsbStockMovementService;
 use App\Services\StockCardCategoryFilter;
+use App\Services\StockCardDailySelectionService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -29,6 +30,9 @@ class StockCardEntryPage extends Page
 {
     #[Locked]
     public array $categorySettingsSnapshot = [];
+
+    #[Locked]
+    public array $selectionSnapshot = [];
 
     protected static bool $shouldRegisterNavigation = false;
 
@@ -141,6 +145,7 @@ class StockCardEntryPage extends Page
         }
 
         $this->categorySettingsSnapshot = $card->category_settings_snapshot ?? [];
+        $this->selectionSnapshot = $card->selection_snapshot ?? [];
         $this->status = $card->status;
         $this->isSubmitted = ! $card->status->canBeEditedBySubmitter();
 
@@ -184,8 +189,8 @@ class StockCardEntryPage extends Page
         }
 
         $user = auth()->user();
-        if (! $user?->branch_id || ! $user->branch?->hasEsbIntegration()) {
-            $this->catalogError = 'Branch belum memiliki konfigurasi ESB aktif.';
+        if (! $user?->branch_id || ! $user->branch?->activeStockCardEsbCode()) {
+            $this->catalogError = 'Sumber Stock Card belum diatur untuk Branch ini.';
 
             return;
         }
@@ -198,7 +203,7 @@ class StockCardEntryPage extends Page
             return;
         }
 
-        $pairs = $user->branch->activeEsbCodes()->values();
+        $pairs = collect([$user->branch->activeStockCardEsbCode()])->filter()->values();
         if ($pairs->contains(fn (BranchEsbCode $pair): bool => blank($pair->esb_comcode) || blank($pair->esb_branch_code))) {
             $this->catalogError = 'Mapping Company Code dan ESB Branch Code belum lengkap.';
 
@@ -295,9 +300,46 @@ class StockCardEntryPage extends Page
     /** @param array<string, mixed> $catalog */
     private function applyProductCatalog(array $catalog): void
     {
-        $catalog['products'] = app(StockCardCategoryFilter::class)->filter($catalog['products'], $this->categorySettingsSnapshot);
         $existingRows = collect($this->rows)->keyBy('product_code');
-        if (empty($catalog['products']) && $existingRows->isEmpty()) {
+
+        if ($existingRows->isNotEmpty()) {
+            $this->catalogPeriodFrom = $catalog['period_from'];
+            $this->catalogPeriodTo = $catalog['period_to'];
+            $this->catalogFailedRequests = $catalog['failed_requests'];
+            $this->catalogLoading = false;
+            $this->catalogLoaded = true;
+
+            return;
+        }
+
+        $filteredProducts = app(StockCardCategoryFilter::class)->filter($catalog['products'], $this->categorySettingsSnapshot);
+        $branch = auth()->user()?->branch;
+        if (! $branch) {
+            $this->failProductCatalog('Branch pengguna tidak ditemukan.');
+
+            return;
+        }
+
+        $selection = app(StockCardDailySelectionService::class)->select(
+            $branch,
+            $this->reportDate,
+            $filteredProducts,
+            $this->categorySettingsSnapshot,
+        );
+        $catalog['products'] = $selection['products'];
+        $source = $branch->activeStockCardEsbCode();
+        $this->selectionSnapshot = [
+            'source' => [
+                'branch_esb_code_id' => $source?->id,
+                'company_code' => $source?->esb_comcode,
+                'branch_code' => $source?->esb_branch_code,
+            ],
+            'categories' => $selection['summary'],
+            'warnings' => $selection['warnings'],
+            'generated_at' => now()->toIso8601String(),
+        ];
+
+        if (empty($catalog['products'])) {
             $this->catalogLoading = false;
             $this->catalogLoaded = true;
             $this->catalogError = 'Tidak ada produk Stock Movement yang sesuai kategori pada tanggal laporan.';
@@ -306,22 +348,17 @@ class StockCardEntryPage extends Page
             return;
         }
 
-        $catalogRows = collect($catalog['products'])->map(function (array $product) use ($existingRows): array {
-            $existing = $existingRows->get($product['product_code']);
-
+        $catalogRows = collect($catalog['products'])->map(function (array $product): array {
             return [
                 'product_code' => $product['product_code'],
                 'product_name' => $product['product_name'],
                 'product_category' => $product['category'],
                 'system_unit' => $product['unit'],
-                'actual_qty' => $existing['actual_qty'] ?? '',
-                'notes' => $existing['notes'] ?? '',
+                'actual_qty' => '',
+                'notes' => '',
             ];
         });
-        $catalogCodes = $catalogRows->pluck('product_code');
-        $preservedDraftRows = $existingRows->reject(fn (array $row, string $code): bool => $catalogCodes->contains($code));
-
-        $this->rows = $catalogRows->concat($preservedDraftRows)->values()->all();
+        $this->rows = $catalogRows->values()->all();
         $this->catalogPeriodFrom = $catalog['period_from'];
         $this->catalogPeriodTo = $catalog['period_to'];
         $this->catalogFailedRequests = $catalog['failed_requests'];
@@ -387,6 +424,7 @@ class StockCardEntryPage extends Page
                     'flag_unit' => self::FLAG_UNIT,
                     'status' => StockCardStatus::Draft->value,
                     'category_settings_snapshot' => $this->categorySettingsSnapshot,
+                    'selection_snapshot' => $this->selectionSnapshot,
                 ]);
             } catch (QueryException) {
                 // Another persistDraft() call within the same request already created it.
@@ -394,6 +432,10 @@ class StockCardEntryPage extends Page
                     ->whereDate('report_date', $this->reportDate)
                     ->firstOrFail();
             }
+        }
+
+        if ($card->selection_snapshot === null && $this->selectionSnapshot !== []) {
+            $card->update(['selection_snapshot' => $this->selectionSnapshot]);
         }
 
         $currentCodes = collect($this->rows)->pluck('product_code')->all();

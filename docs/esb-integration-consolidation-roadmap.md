@@ -240,19 +240,29 @@ Network eksternal: diblokir; seluruh request memakai HTTP fake
 
 **Selesai jika:** tidak ada god service ESB dan seluruh endpoint mempunyai owner domain yang jelas.
 
-**Status implementasi:** subphase C1 Purchase Order selesai. `EsbPurchaseOrderService` sekarang memiliki kontrak list dan detail Purchase Order, sedangkan `PurchaseOrderPriceSyncService` tidak lagi bergantung pada `EsbCoreService`. Transport credential global lama dipisahkan ke `EsbGlobalCoreClient` dengan cache key dan perilaku autentikasi existing. Method PO pada `EsbCoreService` sementara menjadi compatibility delegation sampai seluruh consumer lama selesai dimigrasikan.
+**Status implementasi:** subphase C1 Purchase Order dan C2 Master Product selesai. `EsbPurchaseOrderService` sekarang memiliki kontrak list dan detail Purchase Order, sedangkan `PurchaseOrderPriceSyncService` tidak lagi bergantung pada `EsbCoreService`. `EsbMasterProductService` memiliki list, pagination, lookup, taxonomy, code suggestion, create, dan update Product. Transport credential global lama dipisahkan ke `EsbGlobalCoreClient` dengan cache key dan perilaku autentikasi existing. Method PO dan Product pada `EsbCoreService` sementara menjadi compatibility delegation sampai seluruh consumer lama selesai dimigrasikan.
 
 Kelompok yang masih berada pada `EsbCoreService`:
 
-1. Master Product: list, all products, exact-name lookup, ID lookup, taxonomy, code suggestion, create, dan update.
-2. Bill of Material: list, all BOM, detail, create, dan update.
-3. Transport global lama untuk dua kelompok tersebut, termasuk pool taxonomy.
+1. Bill of Material: list, all BOM, detail, create, dan update.
+2. Transport global lama untuk BOM.
+3. Compatibility delegation untuk Purchase Order dan Master Product sampai consumer migration selesai.
 
 Validasi C1:
 
 ```text
 Purchase Order, compatibility facade, dan Product Price consumer: 14 test lulus, 44 assertions
 Full suite (memory_limit=512M): 913 test lulus, 4.972 assertions, 0 gagal
+Pint: lulus
+```
+
+Implementasi C2 mempertahankan concurrent pool taxonomy per 10 halaman, cache key `esb_core.product_taxonomy`, batas pagination, algoritma code suggestion, payload mutation, dan response mapping existing.
+
+Validasi C2:
+
+```text
+Master Product dan seluruh consumer Product/R&D terkait: 68 test lulus, 416 assertions
+Full suite (memory_limit=512M): 921 test lulus, 4.993 assertions, 0 gagal
 Pint: lulus
 ```
 

@@ -15,8 +15,10 @@ class EsbCoreService
 
     private int $timeout;
 
-    public function __construct(private readonly EsbPurchaseOrderService $purchaseOrders)
-    {
+    public function __construct(
+        private readonly EsbPurchaseOrderService $purchaseOrders,
+        private readonly EsbMasterProductService $products,
+    ) {
         $this->baseUrl = rtrim((string) config('esb.core.base_url'), '/');
         $this->timeout = (int) config('esb.core.timeout', 60);
     }
@@ -68,61 +70,28 @@ class EsbCoreService
      */
     public function createProduct(array $payload): array
     {
-        $response = $this->request('post', '/product', $payload);
-        $result = $this->successfulResult($response, 'membuat Master Product');
-        $productId = (int) ($result['productID'] ?? 0);
-
-        if ($productId < 1) {
-            throw new RuntimeException('ESB tidak mengembalikan Product ID.');
-        }
-
-        return [
-            'productID' => $productId,
-            'isTemp' => (bool) ($result['isTemp'] ?? false),
-        ];
+        return $this->products->createProduct($payload);
     }
 
     public function updateProduct(int $productId, array $payload): void
     {
-        $response = $this->request('put', '/product/'.$productId, $payload);
-        $this->successfulResult($response, 'memperbarui Master Product');
+        $this->products->updateProduct($productId, $payload);
     }
 
     public function findProductByExactName(string $productName): ?array
     {
-        $products = $this->getProducts([
-            'limit' => 100,
-            'productName' => $productName,
-        ]);
-
-        return collect($products['data'])->first(
-            fn (array $product): bool => mb_strtolower(trim((string) ($product['productName'] ?? '')))
-                === mb_strtolower(trim($productName))
-        );
+        return $this->products->findProductByExactName($productName);
     }
 
     /** @return array<int, array> */
     public function getAllProducts(): array
     {
-        $all = [];
-        $page = 1;
-
-        do {
-            $result = $this->getProducts(['page' => $page, 'limit' => 100]);
-            array_push($all, ...$result['data']);
-            $hasNext = filled($result['next'])
-                || (($result['page'] * $result['limit']) < $result['count']);
-            $page++;
-        } while ($hasNext && $page <= 500);
-
-        return $all;
+        return $this->products->getAllProducts();
     }
 
     public function findProductById(int $productId): ?array
     {
-        return collect($this->getAllProducts())->first(
-            fn (array $product): bool => (int) ($product['productID'] ?? 0) === $productId
-        );
+        return $this->products->findProductById($productId);
     }
 
     public function getBillOfMaterial(int $bomId): array
@@ -175,26 +144,7 @@ class EsbCoreService
      */
     public function getProducts(array $filters = []): array
     {
-        $response = $this->request('get', '/product/list', array_filter([
-            'page' => max(1, (int) ($filters['page'] ?? 1)),
-            'limit' => min(100, max(1, (int) ($filters['limit'] ?? 20))),
-            'productName' => $filters['productName'] ?? null,
-            'productCode' => $filters['productCode'] ?? null,
-            'categoryID' => $filters['categoryID'] ?? null,
-            'subCategoryID' => $filters['subCategoryID'] ?? null,
-            'flagActive' => 1,
-        ], fn ($value) => $value !== null && $value !== ''));
-
-        $result = $this->successfulResult($response, 'mengambil daftar produk');
-
-        return [
-            'page' => (int) ($result['page'] ?? 1),
-            'limit' => (int) ($result['limit'] ?? 20),
-            'count' => (int) ($result['count'] ?? 0),
-            'data' => is_array($result['data'] ?? null) ? $result['data'] : [],
-            'prev' => $result['prev'] ?: null,
-            'next' => $result['next'] ?: null,
-        ];
+        return $this->products->getProducts($filters);
     }
 
     /**
@@ -204,70 +154,7 @@ class EsbCoreService
      */
     public function getProductTaxonomy(): array
     {
-        return Cache::remember('esb_core.product_taxonomy', now()->addHours(6), function (): array {
-            $first = $this->getProducts(['page' => 1, 'limit' => 100]);
-            $rows = $first['data'];
-            $lastPage = max(1, (int) ceil($first['count'] / max(1, $first['limit'])));
-            $token = $this->accessToken();
-
-            $remainingPages = $lastPage > 1 ? range(2, $lastPage) : [];
-
-            foreach (array_chunk($remainingPages, 10) as $pages) {
-                $responses = Http::pool(fn ($pool): array => array_map(
-                    fn (int $page) => $pool
-                        ->as((string) $page)
-                        ->withToken($token)
-                        ->acceptJson()
-                        ->timeout($this->timeout)
-                        ->get($this->baseUrl.'/product/list', [
-                            'page' => $page,
-                            'limit' => 100,
-                            'flagActive' => 1,
-                        ]),
-                    $pages,
-                ));
-
-                foreach ($responses as $response) {
-                    if (! $response || $response->failed()) {
-                        continue;
-                    }
-
-                    $pageRows = data_get($response->json(), 'result.data', []);
-                    if (is_array($pageRows)) {
-                        array_push($rows, ...$pageRows);
-                    }
-                }
-            }
-
-            $categories = [];
-            $subCategories = [];
-            foreach ($rows as $product) {
-                $categoryId = (int) ($product['categoryID'] ?? 0);
-                $categoryName = (string) (
-                    $product['categoryName']
-                    ?? $product['categoryNameCategory']
-                    ?? ''
-                );
-
-                if ($categoryId > 0 && $categoryName !== '') {
-                    $categories[$categoryId] = $categoryName;
-                }
-
-                $subCategoryId = (int) ($product['subCategoryID'] ?? 0);
-                $subCategoryName = (string) ($product['subCategoryName'] ?? '');
-                if ($subCategoryId > 0 && $subCategoryName !== '') {
-                    $subCategories[$subCategoryId] = $subCategoryName;
-                }
-            }
-
-            asort($categories, SORT_NATURAL | SORT_FLAG_CASE);
-            asort($subCategories, SORT_NATURAL | SORT_FLAG_CASE);
-
-            return [
-                'categories' => $categories,
-                'subCategories' => $subCategories,
-            ];
-        });
+        return $this->products->getProductTaxonomy();
     }
 
     /**
@@ -276,86 +163,7 @@ class EsbCoreService
      */
     public function suggestNextProductCode(int $categoryId): ?string
     {
-        if ($categoryId < 1) {
-            return null;
-        }
-
-        $codes = [];
-        $page = 1;
-
-        do {
-            $result = $this->getProducts([
-                'page' => $page,
-                'limit' => 100,
-                'categoryID' => $categoryId,
-            ]);
-
-            foreach ($result['data'] as $product) {
-                $code = trim((string) ($product['productCode'] ?? ''));
-                if ($code !== '') {
-                    $codes[] = $code;
-                }
-            }
-
-            $hasNext = filled($result['next'])
-                || (($result['page'] * $result['limit']) < $result['count']);
-            $page++;
-        } while ($hasNext && $page <= 100);
-
-        $sequences = collect($codes)
-            ->map(function (string $code): ?array {
-                if (! preg_match('/^(.*?)(\d+)$/', $code, $matches)) {
-                    return null;
-                }
-
-                return [
-                    'prefix' => $matches[1],
-                    'number' => (int) $matches[2],
-                    'padding' => strlen($matches[2]),
-                    'code' => $code,
-                ];
-            })
-            ->filter()
-            ->groupBy('prefix')
-            ->sortByDesc(fn ($items): int => $items->count());
-
-        $dominantSequence = $sequences->first();
-        if (! $dominantSequence) {
-            return null;
-        }
-
-        $numbers = $dominantSequence
-            ->pluck('number')
-            ->unique()
-            ->sortDesc()
-            ->values();
-
-        // Ignore isolated outliers such as BW11203 among the continuous
-        // BW0001–BW1300 sequence. A valid latest number should have at least
-        // three nearby predecessors in the previous 20 numbers.
-        $candidateNumber = $numbers->first(function (int $number) use ($numbers): bool {
-            if ($numbers->count() < 4) {
-                return true;
-            }
-
-            return $numbers
-                ->filter(fn (int $other): bool => $other < $number && $other >= ($number - 20))
-                ->count() >= 3;
-        }) ?? $numbers->first();
-
-        $candidate = $dominantSequence
-            ->first(fn (array $item): bool => $item['number'] === $candidateNumber);
-
-        if (! is_array($candidate)) {
-            return null;
-        }
-
-        return $candidate['prefix'].str_pad(
-            (string) ($candidate['number'] + 1),
-            $candidate['padding'],
-            '0',
-            STR_PAD_LEFT,
-        );
+        return $this->products->suggestNextProductCode($categoryId);
     }
 
     private function request(string $method, string $path, array $data): Response

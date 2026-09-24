@@ -570,3 +570,43 @@ Full suite (php -d memory_limit=512M artisan test --compact): 913 test lulus, 4.
 Pint: lulus
 Network eksternal: diblokir; seluruh request test memakai HTTP fake
 ```
+
+## 21. Phase C2 — Ekstraksi Master Product dari EsbCoreService
+
+`EsbMasterProductService` sekarang menjadi pemilik kontrak Master Product credential global lama:
+
+- list dan filter produk;
+- pagination seluruh produk maksimal 500 halaman;
+- lookup exact name dan Product ID;
+- taxonomy category/subcategory;
+- suggestion kode produk dan perlindungan terhadap numeric outlier;
+- create dan update Master Product.
+
+`EsbGlobalCoreClient` memperoleh operasi concurrent GET pool. Perilaku taxonomy existing dipertahankan: halaman pertama menentukan jumlah halaman, halaman berikutnya diambil dalam kelompok maksimal sepuluh request, halaman pool yang gagal dilewati, dan hasil disimpan selama enam jam dengan cache key `esb_core.product_taxonomy`.
+
+Method Product pada `EsbCoreService` sekarang hanya compatibility delegation. Consumer production belum dipindahkan dalam C2 agar perubahan domain ownership dan migrasi consumer dapat direview terpisah. Tidak ada perubahan route, UI, payload, response, credential, atau environment.
+
+### Characterization test C2
+
+Test baru mengunci:
+
+1. seluruh filter, batas limit, pagination, dan normalization list;
+2. compatibility delegation dari `EsbCoreService`;
+3. pagination semua produk, exact-name lookup, dan ID lookup;
+4. concurrent taxonomy pool dan cache key existing;
+5. create/update payload dan response mapping;
+6. refresh token satu kali setelah `401`;
+7. connection failure dan validation `422` tanpa retry mutation;
+8. respons sukses create tanpa Product ID tetap ditolak.
+
+Phase C masih berjalan. Berikutnya adalah C3 ekstraksi Bill of Material, lalu C4 migrasi seluruh consumer serta penghapusan compatibility facade.
+
+### Validasi C2
+
+```text
+EsbMasterProductService dan compatibility facade: 12 test lulus, 34 assertions
+Master Product dan seluruh consumer Product/R&D terkait: 68 test lulus, 416 assertions
+Full suite (php -d memory_limit=512M artisan test --compact): 921 test lulus, 4.993 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; seluruh request test memakai HTTP fake
+```

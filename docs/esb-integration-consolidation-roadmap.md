@@ -196,7 +196,7 @@ Pint: lulus
 Network eksternal: diblokir; seluruh request memakai HTTP fake
 ```
 
-### Phase B — Migrasikan Company Product
+### Phase B — Migrasikan Company Product — selesai
 
 **Target:** `EsbCompanyProductService`.
 
@@ -208,7 +208,21 @@ Network eksternal: diblokir; seluruh request memakai HTTP fake
 4. Verifikasi create/update tidak otomatis di-retry setelah respons tidak pasti.
 5. Tambahkan test credential kosong, `401`, validation error ESB, dan raw response.
 
-**Selesai jika:** tidak ada duplikasi autentikasi ESB Core dalam Company Product.
+**Hasil:** `EsbCompanyProductService` sekarang meng-inject `EsbCoreClient`. Duplikasi login, token cache, refresh `401`, timeout, transport HTTP, dan parsing error telah dihapus. Public method, taxonomy/cache key, Company Code dinamis, payload `productDetails`, hasil create, dan perilaku UI tetap dipertahankan. Consumer Resource yang sebelumnya membuat service secara langsung sekarang memakai service container.
+
+API Company Product existing tidak mempunyai public method atau endpoint read detail tersendiri. Cakupan “detail” dikarakterisasi pada `productDetails`, `productDetailID`, `uomID`, dan SKU dalam payload create/update. Tidak ada kontrak produksi baru yang ditambahkan.
+
+Create/update hanya diulang satu kali setelah respons eksplisit `401`. Connection failure atau timeout dengan hasil mutation yang tidak pasti langsung dihentikan dan tidak di-retry.
+
+**Validasi:**
+
+```text
+EsbCompanyProductService: 8 test lulus, 21 assertions
+Seluruh test consumer R&D/Product: 197 test lulus, 1.073 assertions
+Full suite (memory_limit=512M): 907 test lulus, 4.957 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; seluruh request memakai HTTP fake
+```
 
 ### Phase C — Audit dan pecah `EsbCoreService`
 
@@ -428,14 +442,14 @@ Konsolidasi ESB selesai ketika:
 
 ## 12. Langkah berikutnya yang direkomendasikan
 
-Lanjutkan ke **Phase B — Migrasikan Company Product**. Phase A telah menyelesaikan ketergantungan Stock Movement terhadap domain Item Journal tanpa mengubah UI, payload, cache key, atau perilaku error.
+Lanjutkan ke **Phase C — Audit dan pecah `EsbCoreService`**. Phase B telah memindahkan Company Product ke shared client tanpa mengubah kontrak publik, payload, response, cache taxonomy, UI, atau Company Code dinamis.
 
 Prompt kerja yang dapat digunakan:
 
 ```text
-Implementasikan Phase B dari docs/esb-integration-consolidation-roadmap.md.
-Migrasikan EsbCompanyProductService ke EsbCoreClient setelah membuat characterization test untuk list, create, update, unit mapping, raw response, dan error behavior.
-Pertahankan seluruh kontrak Company Product dan pastikan mutation tidak di-retry setelah hasil request yang tidak pasti.
-Tambahkan characterization test, jalankan test terkait, Pint, lalu full suite dengan memory 512 MB.
+Implementasikan Phase C dari docs/esb-integration-consolidation-roadmap.md.
+Audit seluruh public method dan consumer EsbCoreService, lalu kelompokkan endpoint berdasarkan domain tanpa mengubah kontrak produksi.
+Buat characterization test sebelum mengekstrak satu kelompok domain dan pastikan model credential-nya kompatibel sebelum memakai EsbCoreClient.
+Jalankan test terkait, Pint, lalu full suite dengan memory 512 MB.
 Perbarui laporan implementasi dan buat commit terpisah setelah seluruh test lulus.
 ```

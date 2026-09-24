@@ -270,7 +270,7 @@ class BulkProductSubmissionResource extends Resource
         }
 
         try {
-            return (new EsbCompanyProductService)->taxonomy($comcode);
+            return resolve(EsbCompanyProductService::class)->taxonomy($comcode);
         } catch (Throwable $exception) {
             report($exception);
 
@@ -294,7 +294,7 @@ class BulkProductSubmissionResource extends Resource
         }
 
         try {
-            return (new EsbCompanyProductService)->suggestNextProductCode($comcode, $categoryId);
+            return resolve(EsbCompanyProductService::class)->suggestNextProductCode($comcode, $categoryId);
         } catch (Throwable $exception) {
             report($exception);
 

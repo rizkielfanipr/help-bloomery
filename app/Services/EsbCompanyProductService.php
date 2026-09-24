@@ -3,13 +3,13 @@
 namespace App\Services;
 
 use App\Models\BulkProductSubmission;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 class EsbCompanyProductService
 {
+    public function __construct(private readonly EsbCoreClient $client) {}
+
     /** @return array{categories:array<int,string>,subCategoriesByCategory:array<int,array<int,string>>,productCodesByCategory:array<int,array<int,string>>} */
     public function taxonomy(string $comcode): array
     {
@@ -21,7 +21,10 @@ class EsbCompanyProductService
 
             do {
                 $result = $this->successfulResult(
-                    $this->request($comcode, 'get', '/product/list', ['page' => $page, 'limit' => 100, 'flagActive' => 1]),
+                    $comcode,
+                    'get',
+                    '/product/list',
+                    ['page' => $page, 'limit' => 100, 'flagActive' => 1],
                     "mengambil kategori produk {$comcode}",
                 );
                 array_push($rows, ...(is_array($result['data'] ?? null) ? $result['data'] : []));
@@ -124,7 +127,7 @@ class EsbCompanyProductService
     /** @return array{productID:int,isTemp:bool} */
     public function create(string $comcode, array $payload): array
     {
-        $result = $this->successfulResult($this->request($comcode, 'post', '/product', $payload), 'membuat produk');
+        $result = $this->successfulResult($comcode, 'post', '/product', $payload, 'membuat produk');
         $productId = (int) ($result['productID'] ?? 0);
 
         if ($productId < 1) {
@@ -139,7 +142,10 @@ class EsbCompanyProductService
     public function update(string $comcode, int $productId, array $payload): void
     {
         $this->successfulResult(
-            $this->request($comcode, 'put', '/product/'.$productId, $payload),
+            $comcode,
+            'put',
+            '/product/'.$productId,
+            $payload,
             'memperbarui produk',
         );
     }
@@ -149,91 +155,12 @@ class EsbCompanyProductService
         return 'esb_core.product_taxonomy.v3.'.$comcode;
     }
 
-    private function request(string $comcode, string $method, string $path, array $payload): Response
+    private function successfulResult(string $comcode, string $method, string $path, array $payload, string $action): array
     {
         $this->ensureSupported($comcode);
-        $response = $this->send($method, $path, $payload, $this->accessToken($comcode));
+        $response = $this->client->request($comcode, $method, $path, $payload);
 
-        if ($response->status() === 401) {
-            Cache::forget($this->tokenCacheKey($comcode));
-            $response = $this->send($method, $path, $payload, $this->accessToken($comcode));
-        }
-
-        return $response;
-    }
-
-    private function send(string $method, string $path, array $payload, string $token): Response
-    {
-        $request = Http::acceptJson()
-            ->asJson()
-            ->withToken($token)
-            ->connectTimeout(10)
-            ->timeout((int) config('esb.core.timeout', 60));
-
-        return match ($method) {
-            'get' => $request->get($this->baseUrl().$path, $payload),
-            'put' => $request->put($this->baseUrl().$path, $payload),
-            default => $request->post($this->baseUrl().$path, $payload),
-        };
-    }
-
-    private function accessToken(string $comcode): string
-    {
-        $cached = Cache::get($this->tokenCacheKey($comcode));
-        if (is_string($cached) && $cached !== '') {
-            return $cached;
-        }
-
-        return Cache::lock('esb_core.login_lock.'.$comcode, 15)->block(10, function () use ($comcode): string {
-            $cached = Cache::get($this->tokenCacheKey($comcode));
-            if (is_string($cached) && $cached !== '') {
-                return $cached;
-            }
-
-            $username = (string) config("esb.core.companies.{$comcode}.username");
-            $password = (string) config("esb.core.companies.{$comcode}.password");
-            if ($username === '' || $password === '') {
-                throw new RuntimeException("Credential ESB Core {$comcode} belum dikonfigurasi.");
-            }
-
-            $response = Http::acceptJson()
-                ->asJson()
-                ->connectTimeout(10)
-                ->timeout((int) config('esb.core.timeout', 60))
-                ->post($this->baseUrl().'/auth/login', [
-                    'username' => $username,
-                    'password' => $password,
-                ]);
-            $payload = $response->json();
-            $token = is_array($payload) ? (string) data_get($payload, 'result.accessToken', '') : '';
-
-            if ($response->failed() || $token === '') {
-                throw new RuntimeException($this->errorMessage($response, "login ke ESB Core {$comcode}"));
-            }
-
-            Cache::put($this->tokenCacheKey($comcode), $token, max(60, (int) config('esb.core.token_ttl', 3300)));
-
-            return $token;
-        });
-    }
-
-    private function successfulResult(Response $response, string $action): array
-    {
-        $payload = $response->json();
-        if ($response->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'ok') {
-            throw new RuntimeException($this->errorMessage($response, $action));
-        }
-
-        return is_array($payload['result'] ?? null) ? $payload['result'] : [];
-    }
-
-    private function errorMessage(Response $response, string $action): string
-    {
-        $payload = $response->json();
-        $messages = collect(is_array($payload) ? ($payload['errors'] ?? []) : [])->pluck('message')->filter();
-        $detail = $messages->isNotEmpty() ? $messages->implode('; ') : (is_array($payload) ? ($payload['message'] ?? null) : null);
-
-        return 'Gagal '.$action.($detail ? ': '.$detail : ' (HTTP '.$response->status().').');
+        return $this->client->successfulResult($response, $action, $comcode, $path);
     }
 
     private function ensureSupported(string $comcode): void
@@ -241,15 +168,5 @@ class EsbCompanyProductService
         if (! in_array($comcode, BulkProductSubmission::COMCODES, true)) {
             throw new RuntimeException("Comcode {$comcode} tidak didukung.");
         }
-    }
-
-    private function baseUrl(): string
-    {
-        return rtrim((string) config('esb.core.base_url'), '/');
-    }
-
-    private function tokenCacheKey(string $comcode): string
-    {
-        return 'esb_core.access_token.'.$comcode;
     }
 }

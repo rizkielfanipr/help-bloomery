@@ -482,3 +482,43 @@ Network eksternal: diblokir; seluruh request ESB pada test memakai HTTP fake
 ```
 
 Tidak ada migration, perubahan environment, atau langkah deployment khusus pada Phase A. Deployment mengikuti prosedur aplikasi biasa dan rollback dapat dilakukan dengan me-revert commit Phase A tanpa mengubah data.
+
+## 19. Phase B — Migrasi Company Product ke EsbCoreClient
+
+`EsbCompanyProductService` sekarang menerima `EsbCoreClient` melalui constructor injection. Login, cache access token per Company Code, refresh satu kali setelah `401`, timeout, transport JSON, connection failure, serta parsing respons/error tidak lagi diduplikasi di service Company Product.
+
+### Kontrak yang dipertahankan
+
+- public method `taxonomy`, `suggestNextProductCode`, `create`, dan `update`;
+- Company Code dinamis dengan allowlist yang sama;
+- endpoint `GET /product/list`, `POST /product`, dan `PUT /product/{id}`;
+- pagination katalog `limit=100`, `flagActive=1`, serta guard maksimum 100 halaman;
+- cache key `esb_core.product_taxonomy.v3.{comcode}` dengan TTL enam jam;
+- pemetaan category, subcategory, product code, dan algoritma suggestion;
+- payload create/update termasuk `productDetails`, `productDetailID`, `uomID`, dan SKU;
+- hasil create berbentuk `productID` dan `isTemp`, serta return `void` untuk update;
+- UI dan alur `SubmitBulkProductAction`.
+
+Resource Filament sebelumnya memakai `new EsbCompanyProductService`. Pemanggilan tersebut diubah ke Laravel service container agar dependency injection bekerja tanpa mengubah perilaku form.
+
+Service existing tidak memiliki endpoint read detail produk tersendiri. Requirement detail diuji pada isi `productDetails` create/update dan ID detail per Company Code. Tidak ada public method baru yang dibuat.
+
+### Kebijakan mutation dan error
+
+- Respons eksplisit `401` tetap memicu refresh token dan satu pengiriman ulang.
+- Connection failure atau timeout tidak memicu retry mutation karena hasil create/update dapat tidak pasti.
+- Error validasi ESB mempertahankan seluruh pesan dan sekarang memiliki context Company Code serta endpoint.
+- Credential kosong gagal sebelum request produk dikirim.
+- Seluruh network eksternal diblokir pada test.
+
+### Validasi
+
+```text
+EsbCompanyProductService: 8 test lulus, 21 assertions
+Bulk Product consumer langsung: 17 test lulus, 124 assertions
+Seluruh test consumer R&D/Product: 197 test lulus, 1.073 assertions
+Full suite (php -d memory_limit=512M artisan test --compact): 907 test lulus, 4.957 assertions, 0 gagal
+Pint: lulus
+```
+
+Tidak ada migration atau perubahan environment pada Phase B. Deployment mengikuti prosedur aplikasi biasa. Rollback dilakukan dengan me-revert commit Phase B; tidak ada data yang perlu dikembalikan.

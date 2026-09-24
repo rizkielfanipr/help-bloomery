@@ -11,7 +11,7 @@ class PurchaseOrderPriceSyncService
 {
     private const VALID_STATUS_IDS = [8, 11, 25];
 
-    public function __construct(private readonly EsbCoreService $esb) {}
+    public function __construct(private readonly EsbPurchaseOrderService $esb) {}
 
     /**
      * @return array{orders:int, items:int, failed:int, errors:array<int,string>}

@@ -522,3 +522,51 @@ Pint: lulus
 ```
 
 Tidak ada migration atau perubahan environment pada Phase B. Deployment mengikuti prosedur aplikasi biasa. Rollback dilakukan dengan me-revert commit Phase B; tidak ada data yang perlu dikembalikan.
+
+## 20. Phase C1 — Ekstraksi Purchase Order dari EsbCoreService
+
+Audit `EsbCoreService` menemukan tiga kelompok domain dengan credential global lama:
+
+| Domain | Public method |
+| --- | --- |
+| Purchase Order | `getPurchaseOrders`, `getPurchaseOrder` |
+| Master Product | `getProducts`, `getAllProducts`, `findProductByExactName`, `findProductById`, `getProductTaxonomy`, `suggestNextProductCode`, `createProduct`, `updateProduct` |
+| Bill of Material | `getBillOfMaterials`, `getAllBillOfMaterials`, `getBillOfMaterial`, `createAssembly`, `updateBillOfMaterial` |
+
+Credential global `esb.core.username/password` belum terbukti mewakili Company Code tertentu. Karena itu credential tersebut tidak dipaksakan ke `EsbCoreClient` multi-company.
+
+### Perubahan C1
+
+- `EsbGlobalCoreClient` menjadi transport kompatibel untuk credential global lama.
+- Cache token tetap memakai `esb_core.access_token` dan lock `esb_core.login_lock`.
+- Login, timeout, bearer token, refresh satu kali setelah `401`, parsing result, dan error text Purchase Order dipertahankan.
+- `EsbPurchaseOrderService` memiliki endpoint list dan detail Purchase Order.
+- `PurchaseOrderPriceSyncService` sekarang meng-inject `EsbPurchaseOrderService`.
+- Method Purchase Order pada `EsbCoreService` tetap tersedia sebagai compatibility delegation selama Phase C berjalan.
+- Tidak ada perubahan route, UI, schema, payload, filter, pagination, atau data lokal.
+
+### Characterization test C1
+
+Test mencakup:
+
+1. credential global dan bearer token;
+2. filter, default sort, batas pagination, dan normalisasi response list;
+3. raw detail Purchase Order dan URL encoding nomor PO;
+4. cache key token existing;
+5. refresh token satu kali setelah `401`;
+6. validation error `422` tanpa retry;
+7. credential kosong sebelum request;
+8. connection failure tanpa retry tersembunyi;
+9. consumer Product Price Index dengan dependency domain baru;
+10. compatibility method pada `EsbCoreService`.
+
+Phase C belum selesai. Langkah berikutnya adalah mengekstrak Master Product, lalu Bill of Material, memigrasikan seluruh consumer, dan menghapus compatibility facade setelah reference audit serta full suite lulus.
+
+### Validasi C1
+
+```text
+Purchase Order, compatibility facade, dan Product Price consumer: 14 test lulus, 44 assertions
+Full suite (php -d memory_limit=512M artisan test --compact): 913 test lulus, 4.972 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; seluruh request test memakai HTTP fake
+```

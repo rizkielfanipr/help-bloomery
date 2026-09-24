@@ -4,7 +4,7 @@ use App\Filament\Helpdesk\Pages\ProductPriceIndexDetailPage;
 use App\Filament\Helpdesk\Pages\ProductPriceIndexPage;
 use App\Models\EsbPurchaseOrderItem;
 use App\Models\User;
-use App\Services\EsbCoreService;
+use App\Services\EsbPurchaseOrderService;
 use App\Services\PurchaseOrderPriceSyncService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -19,7 +19,7 @@ beforeEach(function () {
 });
 
 it('synchronizes PO details and calculates normalized net prices', function () {
-    $esb = Mockery::mock(EsbCoreService::class);
+    $esb = Mockery::mock(EsbPurchaseOrderService::class);
     $esb->shouldReceive('getPurchaseOrders')->once()->andReturn([
         'page' => 1,
         'limit' => 50,

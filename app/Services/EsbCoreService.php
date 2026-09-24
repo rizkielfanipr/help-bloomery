@@ -15,7 +15,7 @@ class EsbCoreService
 
     private int $timeout;
 
-    public function __construct()
+    public function __construct(private readonly EsbPurchaseOrderService $purchaseOrders)
     {
         $this->baseUrl = rtrim((string) config('esb.core.base_url'), '/');
         $this->timeout = (int) config('esb.core.timeout', 60);
@@ -137,35 +137,12 @@ class EsbCoreService
      */
     public function getPurchaseOrders(array $filters = []): array
     {
-        $response = $this->request('get', '/purchase/purchase-order', array_filter([
-            'page' => max(1, (int) ($filters['page'] ?? 1)),
-            'limit' => min(100, max(1, (int) ($filters['limit'] ?? 100))),
-            'sort' => $filters['sort'] ?? '-purchaseDate',
-            'purchaseNum' => $filters['purchaseNum'] ?? null,
-            'branchID' => $filters['branchID'] ?? null,
-            'supplierID' => $filters['supplierID'] ?? null,
-            'statusID' => $filters['statusID'] ?? null,
-            'dateFrom' => $filters['dateFrom'] ?? null,
-            'dateTo' => $filters['dateTo'] ?? null,
-        ], fn ($value) => $value !== null && $value !== ''));
-
-        $result = $this->successfulResult($response, 'mengambil daftar Purchase Order');
-
-        return [
-            'page' => (int) ($result['page'] ?? 1),
-            'limit' => (int) ($result['limit'] ?? 100),
-            'count' => (int) ($result['count'] ?? 0),
-            'data' => is_array($result['data'] ?? null) ? $result['data'] : [],
-            'prev' => ($result['prev'] ?? null) ?: null,
-            'next' => ($result['next'] ?? null) ?: null,
-        ];
+        return $this->purchaseOrders->getPurchaseOrders($filters);
     }
 
     public function getPurchaseOrder(string $purchaseNum): array
     {
-        $response = $this->request('get', '/purchase/purchase-order/'.rawurlencode($purchaseNum), []);
-
-        return $this->successfulResult($response, 'mengambil detail Purchase Order '.$purchaseNum);
+        return $this->purchaseOrders->getPurchaseOrder($purchaseNum);
     }
 
     public function updateBillOfMaterial(int $bomId, array $payload): void

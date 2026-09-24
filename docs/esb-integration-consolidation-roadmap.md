@@ -224,7 +224,7 @@ Pint: lulus
 Network eksternal: diblokir; seluruh request memakai HTTP fake
 ```
 
-### Phase C — Audit dan pecah `EsbCoreService`
+### Phase C — Audit dan pecah `EsbCoreService` — berjalan
 
 **Masalah:** class ini menangani terlalu banyak endpoint dengan credential global lama.
 
@@ -239,6 +239,22 @@ Network eksternal: diblokir; seluruh request memakai HTTP fake
 7. Hapus method lama setelah tidak ada reference dan full suite lulus.
 
 **Selesai jika:** tidak ada god service ESB dan seluruh endpoint mempunyai owner domain yang jelas.
+
+**Status implementasi:** subphase C1 Purchase Order selesai. `EsbPurchaseOrderService` sekarang memiliki kontrak list dan detail Purchase Order, sedangkan `PurchaseOrderPriceSyncService` tidak lagi bergantung pada `EsbCoreService`. Transport credential global lama dipisahkan ke `EsbGlobalCoreClient` dengan cache key dan perilaku autentikasi existing. Method PO pada `EsbCoreService` sementara menjadi compatibility delegation sampai seluruh consumer lama selesai dimigrasikan.
+
+Kelompok yang masih berada pada `EsbCoreService`:
+
+1. Master Product: list, all products, exact-name lookup, ID lookup, taxonomy, code suggestion, create, dan update.
+2. Bill of Material: list, all BOM, detail, create, dan update.
+3. Transport global lama untuk dua kelompok tersebut, termasuk pool taxonomy.
+
+Validasi C1:
+
+```text
+Purchase Order, compatibility facade, dan Product Price consumer: 14 test lulus, 44 assertions
+Full suite (memory_limit=512M): 913 test lulus, 4.972 assertions, 0 gagal
+Pint: lulus
+```
 
 ### Phase D — Standardisasi retry mutation dan idempotency
 

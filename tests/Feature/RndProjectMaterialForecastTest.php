@@ -5,7 +5,7 @@ use App\Models\RndProductSalesProjection;
 use App\Models\RndProject;
 use App\Models\SalesRegion;
 use App\Models\User;
-use App\Services\EsbCoreService;
+use App\Services\EsbBillOfMaterialService;
 use App\Services\RndProjectMaterialForecastService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -153,7 +153,7 @@ it('calculates Store from menu BOMs on all projected products without mixing Kit
 
 it('expands ESB auto-mapped WIP and does not count the WIP itself', function () {
     config()->set('cache.default', 'array');
-    $core = Mockery::mock(EsbCoreService::class);
+    $core = Mockery::mock(EsbBillOfMaterialService::class);
     $core->shouldReceive('getBillOfMaterials')->twice()->andReturn(
         ['data' => [['bomID' => 7301, 'bomCode' => 'BOM-WIP-7301']]],
         ['data' => []],
@@ -166,7 +166,7 @@ it('expands ESB auto-mapped WIP and does not count the WIP itself', function () 
             ['productCode' => 'BBM002', 'productName' => 'Tepung WIP', 'categoryName' => 'Bahan Baku', 'uomName' => 'GR', 'qty' => 3],
         ],
     ]);
-    app()->instance(EsbCoreService::class, $core);
+    app()->instance(EsbBillOfMaterialService::class, $core);
 
     $user = User::factory()->create();
     $project = RndProject::query()->create([

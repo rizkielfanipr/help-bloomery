@@ -6,7 +6,8 @@ use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
 use App\Models\RndProjectProduct;
-use App\Services\EsbCoreService;
+use App\Services\EsbBillOfMaterialService;
+use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
 use BackedEnum;
 use Filament\Notifications\Notification;
@@ -134,14 +135,14 @@ class CreateBomRecipePage extends Page
 
         try {
             if ($this->categoryOptions === []) {
-                $taxonomy = app(EsbCoreService::class)->getProductTaxonomy();
+                $taxonomy = app(EsbMasterProductService::class)->getProductTaxonomy();
                 $this->categoryOptions = $taxonomy['categories'];
                 $this->subCategoryOptions = $taxonomy['subCategories'];
                 $this->unitOptions = app(EsbService::class)->getAllActiveProductUnits();
             }
 
             if (filled($this->productSearch) || filled($this->productCodeSearch) || filled($this->productCategoryId) || filled($this->productSubCategoryId)) {
-                $list = app(EsbCoreService::class)->getProducts([
+                $list = app(EsbMasterProductService::class)->getProducts([
                     'page' => $this->productPage,
                     'limit' => 20,
                     'productName' => trim($this->productSearch),
@@ -259,7 +260,7 @@ class CreateBomRecipePage extends Page
         }
 
         try {
-            $this->importBomOptions = app(EsbCoreService::class)->getAllBillOfMaterials();
+            $this->importBomOptions = app(EsbBillOfMaterialService::class)->getAllBillOfMaterials();
             $this->importBomPage = 1;
         } catch (\RuntimeException $exception) {
             Notification::make()->title('Daftar BOM belum dapat dimuat')->body($exception->getMessage())->warning()->send();
@@ -304,7 +305,7 @@ class CreateBomRecipePage extends Page
         $this->validate(['importBomId' => ['required', 'integer', 'min:1']]);
 
         try {
-            $detail = app(EsbCoreService::class)->getBillOfMaterial((int) $this->importBomId);
+            $detail = app(EsbBillOfMaterialService::class)->getBillOfMaterial((int) $this->importBomId);
             $this->data['bomDetails'] = array_map(
                 fn (array $item): array => $this->materialFromBomDetail($item, false),
                 $detail['bomDetails'] ?? [],
@@ -448,7 +449,7 @@ class CreateBomRecipePage extends Page
 
     protected function persistBom(array $payload): int
     {
-        return app(EsbCoreService::class)->createAssembly($payload);
+        return app(EsbBillOfMaterialService::class)->createAssembly($payload);
     }
 
     protected function successRedirectUrl(int $bomId): string

@@ -3,7 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
-use App\Services\EsbCoreService;
+use App\Services\EsbBillOfMaterialService;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -87,7 +87,7 @@ class BillOfMaterialPage extends Page
     public function fetch(): void
     {
         try {
-            $result = app(EsbCoreService::class)->getBillOfMaterials([
+            $result = app(EsbBillOfMaterialService::class)->getBillOfMaterials([
                 'page' => $this->page,
                 'limit' => $this->limit,
                 'productName' => trim($this->productName),

@@ -1,7 +1,6 @@
 <?php
 
 use App\Services\EsbBillOfMaterialService;
-use App\Services\EsbCoreService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
@@ -27,7 +26,7 @@ it('preserves BOM filters pagination and compatibility delegation', function () 
         ]]),
     ]);
 
-    $result = app(EsbCoreService::class)->getBillOfMaterials([
+    $result = app(EsbBillOfMaterialService::class)->getBillOfMaterials([
         'page' => 2, 'limit' => 9000, 'bomID' => 8, 'productName' => 'Cake',
         'uomName' => 'PCS', 'sort' => 'bomName', 'flagActive' => 0,
     ]);

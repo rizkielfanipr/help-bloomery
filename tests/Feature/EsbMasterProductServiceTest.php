@@ -1,6 +1,5 @@
 <?php
 
-use App\Services\EsbCoreService;
 use App\Services\EsbMasterProductService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -27,7 +26,7 @@ it('preserves list filters pagination and compatibility delegation', function ()
         ]]),
     ]);
 
-    $result = app(EsbCoreService::class)->getProducts([
+    $result = app(EsbMasterProductService::class)->getProducts([
         'page' => 2, 'limit' => 500, 'productName' => 'Tepung', 'productCode' => 'BB01',
         'categoryID' => 10, 'subCategoryID' => 11,
     ]);

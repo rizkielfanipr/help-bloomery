@@ -5,7 +5,7 @@ namespace App\Filament\Helpdesk\Pages;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
 use App\Models\RndProjectProduct;
-use App\Services\EsbCoreService;
+use App\Services\EsbBillOfMaterialService;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -110,6 +110,6 @@ class ViewBomPage extends Page
 
     private function loadDetail(): void
     {
-        $this->detail = app(EsbCoreService::class)->getBillOfMaterial($this->bomId);
+        $this->detail = app(EsbBillOfMaterialService::class)->getBillOfMaterial($this->bomId);
     }
 }

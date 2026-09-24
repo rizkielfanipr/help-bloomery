@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\EsbCoreService;
+use App\Services\EsbBillOfMaterialService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -36,7 +36,7 @@ it('logs in automatically and reuses the cached access token', function () {
         ]),
     ]);
 
-    $service = app(EsbCoreService::class);
+    $service = app(EsbBillOfMaterialService::class);
     $first = $service->getBillOfMaterials();
     $second = $service->getBillOfMaterials();
 
@@ -62,7 +62,7 @@ it('refreshes the access token once after an unauthorized response', function ()
             ]),
     ]);
 
-    $result = app(EsbCoreService::class)->getBillOfMaterials();
+    $result = app(EsbBillOfMaterialService::class)->getBillOfMaterials();
 
     expect($result['data'])->toBeEmpty();
 
@@ -83,7 +83,7 @@ it('defaults a recipe to Assembly while preserving an explicit BOM type', functi
         ]),
     ]);
 
-    $service = app(EsbCoreService::class);
+    $service = app(EsbBillOfMaterialService::class);
     $id = $service->createAssembly([
         'bomName' => 'Assembly Croissant',
         'bomDetails' => [],
@@ -119,7 +119,7 @@ it('gets and updates a Bill of Material detail', function () {
             ]),
     ]);
 
-    $service = app(EsbCoreService::class);
+    $service = app(EsbBillOfMaterialService::class);
     $detail = $service->getBillOfMaterial(42);
     $service->updateBillOfMaterial(42, ['bomTypeID' => 1, 'bomName' => 'Updated']);
 

@@ -224,7 +224,7 @@ Pint: lulus
 Network eksternal: diblokir; seluruh request memakai HTTP fake
 ```
 
-### Phase C — Audit dan pecah `EsbCoreService` — berjalan
+### Phase C — Audit dan pecah `EsbCoreService` — selesai
 
 **Masalah:** class ini menangani terlalu banyak endpoint dengan credential global lama.
 
@@ -247,6 +247,14 @@ Kelompok yang masih berada pada `EsbCoreService`:
 1. Compatibility delegation untuk Purchase Order, Master Product, dan Bill of Material.
 2. Migrasi consumer ke service domain masing-masing.
 3. Penghapusan `EsbCoreService` setelah reference audit dan full suite lulus.
+
+**Hasil C4:** seluruh production consumer dan test sudah memakai `EsbPurchaseOrderService`, `EsbMasterProductService`, atau `EsbBillOfMaterialService`. Compatibility facade `EsbCoreService` telah dihapus dan reference audit pada `app/` serta `tests/` bersih.
+
+```text
+Migrasi consumer: 78 test lulus, 461 assertions
+Full suite (memory_limit=512M): 927 test lulus, 5.008 assertions, 0 gagal
+Pint: lulus
+```
 
 Validasi C3:
 
@@ -476,7 +484,7 @@ Konsolidasi ESB selesai ketika:
 
 ## 12. Langkah berikutnya yang direkomendasikan
 
-Lanjutkan ke **Phase C — Audit dan pecah `EsbCoreService`**. Phase B telah memindahkan Company Product ke shared client tanpa mengubah kontrak publik, payload, response, cache taxonomy, UI, atau Company Code dinamis.
+Lanjutkan ke **Phase D — Standardisasi retry mutation dan idempotency**. Phase C telah memisahkan Purchase Order, Master Product, dan Bill of Material serta menghapus compatibility facade.
 
 Prompt kerja yang dapat digunakan:
 

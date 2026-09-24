@@ -8,7 +8,7 @@ use RuntimeException;
 
 class SyncRndEsbMaterialFromRemote
 {
-    public function __construct(private EsbCoreService $esb) {}
+    public function __construct(private EsbMasterProductService $esb) {}
 
     public function execute(RndProductEsbMaterial $material, ?array $remoteProduct = null): void
     {

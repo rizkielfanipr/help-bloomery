@@ -3,7 +3,7 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\RndProjectBom;
-use App\Services\EsbCoreService;
+use App\Services\EsbBillOfMaterialService;
 
 class EditBomRecipePage extends CreateBomRecipePage
 {
@@ -35,7 +35,7 @@ class EditBomRecipePage extends CreateBomRecipePage
         );
         $this->isEditing = true;
         $this->bomId = $bom;
-        $detail = app(EsbCoreService::class)->getBillOfMaterial($bom);
+        $detail = app(EsbBillOfMaterialService::class)->getBillOfMaterial($bom);
         $this->usageType = mb_strtolower(trim((string) ($detail['bomTypeName'] ?? ''))) === 'menu' ? 'menu' : 'main';
 
         $this->data = [
@@ -80,7 +80,7 @@ class EditBomRecipePage extends CreateBomRecipePage
 
     protected function persistBom(array $payload): int
     {
-        app(EsbCoreService::class)->updateBillOfMaterial($this->bomId, $payload);
+        app(EsbBillOfMaterialService::class)->updateBillOfMaterial($this->bomId, $payload);
 
         return $this->bomId;
     }

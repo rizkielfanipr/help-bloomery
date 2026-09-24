@@ -12,7 +12,8 @@ use App\Models\RndProject;
 use App\Models\RndProjectBom;
 use App\Models\RndProjectMarketingMaterial;
 use App\Models\RndProjectProduct;
-use App\Services\EsbCoreService;
+use App\Services\EsbBillOfMaterialService;
+use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
 use App\Services\ProductPriceIndexService;
 use App\Services\Rnd\MenuPricingCalculator;
@@ -588,7 +589,7 @@ class ViewProjectProductPage extends Page
             $excluded = array_merge($attachedToProduct, $ownedByOtherProjects);
 
             $this->importBomOptions = array_values(array_filter(
-                app(EsbCoreService::class)->getAllBillOfMaterials(),
+                app(EsbBillOfMaterialService::class)->getAllBillOfMaterials(),
                 fn (array $bom): bool => ! in_array((int) ($bom['bomID'] ?? 0), $excluded, true),
             ));
         } catch (\RuntimeException $exception) {
@@ -711,7 +712,7 @@ class ViewProjectProductPage extends Page
         }
 
         try {
-            $detail = app(EsbCoreService::class)->getBillOfMaterial($bomId);
+            $detail = app(EsbBillOfMaterialService::class)->getBillOfMaterial($bomId);
 
             if (! $projectBom) {
                 $projectBom = $this->projectRecord->boms()->create([
@@ -785,7 +786,7 @@ class ViewProjectProductPage extends Page
         abort_unless($this->isAttachedMainBom($mainBomId), 422);
 
         try {
-            $detail = app(EsbCoreService::class)->getBillOfMaterial($esbBomId);
+            $detail = app(EsbBillOfMaterialService::class)->getBillOfMaterial($esbBomId);
             $projectBom = RndProjectBom::query()->where('esb_bom_id', $esbBomId)->first();
 
             if ($projectBom && $projectBom->rnd_project_id !== $this->projectId) {
@@ -844,7 +845,7 @@ class ViewProjectProductPage extends Page
         try {
             $detail = ! $force && $projectBom->detail_snapshot
                 ? $projectBom->detail_snapshot
-                : app(EsbCoreService::class)->getBillOfMaterial($projectBom->esb_bom_id);
+                : app(EsbBillOfMaterialService::class)->getBillOfMaterial($projectBom->esb_bom_id);
             $detail['bomDetails'] = $this->hydrateMissingBomRowMetadata($detail['bomDetails'] ?? []);
 
             $projectBom->update([
@@ -1069,7 +1070,7 @@ class ViewProjectProductPage extends Page
         $this->autoWipComponentError = null;
 
         try {
-            $core = app(EsbCoreService::class);
+            $core = app(EsbBillOfMaterialService::class);
             $mainBoms = $this->productRecord->boms->filter(
                 fn (RndProjectBom $bom): bool => $bom->pivot->usage_type === 'main',
             );
@@ -1258,14 +1259,14 @@ class ViewProjectProductPage extends Page
 
         try {
             if ($this->inlineProductCategoryOptions === []) {
-                $taxonomy = app(EsbCoreService::class)->getProductTaxonomy();
+                $taxonomy = app(EsbMasterProductService::class)->getProductTaxonomy();
                 $this->inlineProductCategoryOptions = $taxonomy['categories'];
                 $this->inlineProductSubCategoryOptions = $taxonomy['subCategories'];
                 $this->inlineProductUnitOptions = app(EsbService::class)->getAllActiveProductUnits();
             }
 
             if (filled($this->inlineProductNameSearch) || filled($this->inlineProductCodeSearch) || filled($this->inlineProductCategoryId) || filled($this->inlineProductSubCategoryId)) {
-                $list = app(EsbCoreService::class)->getProducts([
+                $list = app(EsbMasterProductService::class)->getProducts([
                     'page' => $this->inlineProductPage,
                     'limit' => 20,
                     'productName' => trim($this->inlineProductNameSearch),
@@ -1424,7 +1425,7 @@ class ViewProjectProductPage extends Page
         }
 
         try {
-            $latest = app(EsbCoreService::class)->getBillOfMaterial($projectBom->esb_bom_id);
+            $latest = app(EsbBillOfMaterialService::class)->getBillOfMaterial($projectBom->esb_bom_id);
             $loadedEditedDate = data_get($this->bomComponentDetails, "$projectBomId.editedDate");
             $latestEditedDate = $latest['editedDate'] ?? null;
 
@@ -1439,7 +1440,7 @@ class ViewProjectProductPage extends Page
 
             $payload = $this->inlineBomPayload($latest, $draft);
             $projectBom->update(['sync_status' => 'syncing']);
-            app(EsbCoreService::class)->updateBillOfMaterial($projectBom->esb_bom_id, $payload);
+            app(EsbBillOfMaterialService::class)->updateBillOfMaterial($projectBom->esb_bom_id, $payload);
 
             $snapshot = $latest;
             $snapshot['productDetailID'] = (int) $draft['productDetailID'];
@@ -1908,7 +1909,7 @@ class ViewProjectProductPage extends Page
 
                 if ($wasSynced && $material->esb_product_id) {
                     $payload = $material->fresh('units')->toEsbPayload();
-                    app(EsbCoreService::class)->updateProduct($material->esb_product_id, $payload);
+                    app(EsbMasterProductService::class)->updateProduct($material->esb_product_id, $payload);
                     $material->update([
                         'last_payload' => $payload,
                         'last_response' => ['productID' => $material->esb_product_id, 'updated' => true],
@@ -2159,7 +2160,7 @@ class ViewProjectProductPage extends Page
         }
 
         try {
-            $remoteSuggestion = app(EsbCoreService::class)
+            $remoteSuggestion = app(EsbMasterProductService::class)
                 ->suggestNextProductCode($this->esbMaterialCategoryId);
             $localCodes = RndProductEsbMaterial::query()
                 ->where('category_id', $this->esbMaterialCategoryId)
@@ -2277,7 +2278,7 @@ class ViewProjectProductPage extends Page
         ]);
 
         try {
-            $esb = app(EsbCoreService::class);
+            $esb = app(EsbMasterProductService::class);
             $existingProduct = $esb->findProductByExactName($material->product_name);
             $existingProductId = (int) ($existingProduct['productID'] ?? 0);
             $result = $existingProductId > 0
@@ -2374,7 +2375,7 @@ class ViewProjectProductPage extends Page
         }
 
         try {
-            $taxonomy = app(EsbCoreService::class)->getProductTaxonomy();
+            $taxonomy = app(EsbMasterProductService::class)->getProductTaxonomy();
             $this->esbCategoryOptions = $taxonomy['categories'];
             $this->esbSubCategoryOptions = $taxonomy['subCategories'];
         } catch (Throwable $exception) {

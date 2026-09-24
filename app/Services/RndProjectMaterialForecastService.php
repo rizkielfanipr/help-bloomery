@@ -161,7 +161,7 @@ class RndProjectMaterialForecastService
 
         try {
             return Cache::remember($cacheKey, now()->addMinutes(30), function () use ($sourceBomId, $productDetailId, $productId, $productCode, $productName): array {
-                $core = app(EsbCoreService::class);
+                $core = app(EsbBillOfMaterialService::class);
                 $candidates = $core->getBillOfMaterials([
                     'productName' => $productName,
                     'limit' => 100,

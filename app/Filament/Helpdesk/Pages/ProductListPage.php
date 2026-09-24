@@ -4,7 +4,7 @@ namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\Location;
 use App\Models\ProductSetting;
-use App\Services\EsbCoreService;
+use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
 use BackedEnum;
 use Filament\Forms\Components\Select;
@@ -131,7 +131,7 @@ class ProductListPage extends Page
                 // strict/prefix match, while the core product-list endpoint
                 // (getProducts) does the fuzzy search users expect — the same
                 // split CreateBomRecipePage's product picker modal uses.
-                $list = app(EsbCoreService::class)->getProducts([
+                $list = app(EsbMasterProductService::class)->getProducts([
                     'page' => $this->productPage,
                     'limit' => 20,
                     'productName' => trim($this->productSearch),

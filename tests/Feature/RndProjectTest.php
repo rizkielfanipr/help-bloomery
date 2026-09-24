@@ -17,7 +17,7 @@ use App\Models\RndProjectBom;
 use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
 use App\Models\User;
-use App\Services\EsbCoreService;
+use App\Services\EsbMasterProductService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
@@ -1394,7 +1394,7 @@ it('suggests the next ESB product code from the highest code in its category', f
         ]),
     ]);
 
-    expect(app(EsbCoreService::class)->suggestNextProductCode(11))->toBe('BBMK0103');
+    expect(app(EsbMasterProductService::class)->suggestNextProductCode(11))->toBe('BBMK0103');
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), '/product/list')
         && (int) $request['categoryID'] === 11);

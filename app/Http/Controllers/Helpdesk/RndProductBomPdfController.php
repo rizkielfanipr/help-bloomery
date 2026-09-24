@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Helpdesk;
 use App\Http\Controllers\Controller;
 use App\Models\RndBomInstruction;
 use App\Models\RndProject;
-use App\Services\EsbCoreService;
+use App\Services\EsbBillOfMaterialService;
 use App\Services\EsbService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -61,7 +61,7 @@ class RndProductBomPdfController extends Controller
 
     public function buildExportData(RndProject $projectRecord, $productRecord, string $exportScope, ?array $selectedBomIds = null, ?array $selectedComponents = null, ?array $selectedAutoBoms = null): array
     {
-        $esb = app(EsbCoreService::class);
+        $esb = app(EsbBillOfMaterialService::class);
         $exportBoms = $productRecord->boms->filter(fn ($bom): bool => match ($exportScope) {
             'kitchen' => $bom->pivot->usage_type !== 'menu',
             'store' => $bom->pivot->usage_type === 'menu',
@@ -271,7 +271,7 @@ class RndProductBomPdfController extends Controller
         }
     }
 
-    private function autoWipBoms($mainBoms, $details, EsbCoreService $esb): array
+    private function autoWipBoms($mainBoms, $details, EsbBillOfMaterialService $esb): array
     {
         $products = app(EsbService::class);
         $result = [];

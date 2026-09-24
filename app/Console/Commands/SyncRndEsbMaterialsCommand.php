@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\RndProductEsbMaterial;
-use App\Services\EsbCoreService;
+use App\Services\EsbMasterProductService;
 use App\Services\SyncRndEsbMaterialFromRemote;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
 #[Description('Tarik perubahan Master Product ESB ke bahan RnD yang sudah tertaut')]
 class SyncRndEsbMaterialsCommand extends Command
 {
-    public function handle(EsbCoreService $esb, SyncRndEsbMaterialFromRemote $sync): int
+    public function handle(EsbMasterProductService $esb, SyncRndEsbMaterialFromRemote $sync): int
     {
         $remoteProducts = collect($esb->getAllProducts())->keyBy(
             fn (array $product): int => (int) ($product['productID'] ?? 0)

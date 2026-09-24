@@ -134,10 +134,10 @@ function runRecalculation($page)
  * this environment. These fixtures are reconstructed only from fields already read or
  * asserted by production consumers of `GET {ESB_CORE_BASE_URL}/product/bom/{bomID}`:
  *
- * - app/Services/EsbCoreService.php (getBillOfMaterial, createAssembly bomTypeID)
+ * - app/Services/EsbBillOfMaterialService.php (getBillOfMaterial, createAssembly bomTypeID)
  * - app/Filament/Helpdesk/Pages/CreateBomRecipePage.php / EditBomRecipePage.php
  * - app/Services/RndProjectMaterialForecastService.php (recursive WIP/Assembly resolution)
- * - tests/Feature/EsbCoreServiceTest.php, tests/Feature/RndProjectMaterialForecastTest.php
+ * - tests/Feature/EsbBillOfMaterialServiceTest.php, tests/Feature/RndProjectMaterialForecastTest.php
  *
  * Fields NOT present anywhere in those consumers (output quantity/yield for the whole BOM,
  * a separate waste percentage, component-level `yieldPercent` read back from a GET response)
@@ -169,7 +169,7 @@ function internalMemoBomDetailFixture(string $bomTypeName, array $overrides = []
     ], $overrides);
 }
 
-/** BOM detail response for a Menu's own BOM (bomTypeID 3 per EsbCoreService::createAssembly/CreateBomRecipePage). */
+/** BOM detail response for a Menu's own BOM (bomTypeID 3 per EsbBillOfMaterialService::createAssembly/CreateBomRecipePage). */
 function internalMemoMenuBomDetailFixture(array $overrides = []): array
 {
     return internalMemoBomDetailFixture('Menu', array_replace_recursive([

@@ -588,6 +588,22 @@ Network eksternal: diblokir; seluruh request test memakai HTTP fake
 
 Phase C masih berjalan. C4 akan memigrasikan seluruh consumer dari compatibility facade ke service domain, lalu menghapus `EsbCoreService`.
 
+## 23. Phase C4 — Migrasi Consumer dan Penghapusan Compatibility Facade
+
+Seluruh consumer production sekarang memakai service domain secara langsung. Consumer campuran pada halaman R&D memakai `EsbMasterProductService` untuk Product dan `EsbBillOfMaterialService` untuk BOM. Command sinkronisasi, Product List, forecasting, PDF export, serta halaman create/edit/view BOM juga sudah dimigrasikan.
+
+`EsbCoreService` telah dihapus setelah reference audit pada `app/` dan `tests/` menghasilkan nol pemakaian. Test lama dipertahankan dan direname menjadi `EsbGlobalCoreClientTest.php`; test tidak dihapus.
+
+Test terfokus migrasi consumer: **78 test lulus, 461 assertions**.
+
+```text
+Full suite (php -d memory_limit=512M artisan test --compact): 927 test lulus, 5.008 assertions, 0 gagal
+Pint: lulus
+Reference EsbCoreService pada app/ dan tests/: 0
+```
+
+Phase C selesai.
+
 ## 21. Phase C2 — Ekstraksi Master Product dari EsbCoreService
 
 `EsbMasterProductService` sekarang menjadi pemilik kontrak Master Product credential global lama:

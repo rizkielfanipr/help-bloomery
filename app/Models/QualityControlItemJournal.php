@@ -13,7 +13,13 @@ class QualityControlItemJournal extends Model
 
     protected function casts(): array
     {
-        return ['journal_date' => 'date', 'request_payload' => 'array', 'response_payload' => 'array', 'submitted_at' => 'datetime'];
+        return [
+            'journal_date' => 'date',
+            'request_payload' => 'array',
+            'response_payload' => 'array',
+            'attempted_at' => 'datetime',
+            'submitted_at' => 'datetime',
+        ];
     }
 
     public function branch(): BelongsTo

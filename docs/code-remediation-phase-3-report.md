@@ -604,6 +604,31 @@ Reference EsbCoreService pada app/ dan tests/: 0
 
 Phase C selesai.
 
+## 24. Phase D1 — Idempotency dan Reconciliation Item Journal
+
+Submission Item Journal sekarang mempunyai UUID lokal yang dibuat setiap kali form dibuka. UUID tersebut disimpan sebagai unique `submission_key`, sehingga pengiriman ulang dari form yang sama tidak membuat record lokal baru dan tidak mengulang mutation ke ESB. Record juga menyimpan SHA-256 payload pada `payload_hash` dan waktu percobaan pada `attempted_at` untuk kebutuhan audit serta rekonsiliasi.
+
+Connection failure atau timeout tidak di-retry otomatis karena server ESB mungkin sudah menerima transaksi sebelum koneksi terputus. Kondisi tersebut disimpan sebagai status `unknown` dan ditampilkan sebagai **Perlu Rekonsiliasi** di back office. Error eksplisit ESB tetap memakai status `verification_required`, sedangkan kegagalan attachment setelah nomor jurnal diterima tetap memakai `attachment_failed`.
+
+Migration baru hanya menambahkan tiga kolom nullable sehingga data Item Journal existing tetap valid:
+
+- `submission_key` UUID nullable dan unique;
+- `payload_hash` SHA-256 nullable dan indexed;
+- `attempted_at` timestamp nullable.
+
+### Validasi D1
+
+```text
+Item Journal terfokus: 11 test lulus, 54 assertions
+Full suite (php -d memory_limit=512M artisan test --compact): 928 test lulus, 5.017 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; seluruh request ESB pada test memakai HTTP fake
+```
+
+Deployment D1 wajib menjalankan `php artisan migrate --force`. Rollback aplikasi dilakukan dengan me-revert commit D1. Rollback migration hanya dilakukan setelah memastikan tidak ada proses Item Journal aktif karena ketiga metadata rekonsiliasi akan dihapus.
+
+Phase D masih berjalan. Langkah berikutnya adalah D2 untuk mutation Goods Receipt, kemudian audit duplicate guard mutation Product dan BOM.
+
 ## 21. Phase C2 — Ekstraksi Master Product dari EsbCoreService
 
 `EsbMasterProductService` sekarang menjadi pemilik kontrak Master Product credential global lama:

@@ -1,5 +1,5 @@
 @php
-    $statusLabels = ['submitting' => 'Mengirim', 'succeeded' => 'Berhasil', 'attachment_failed' => 'Attachment Gagal', 'verification_required' => 'Perlu Verifikasi'];
+    $statusLabels = ['submitting' => 'Mengirim', 'unknown' => 'Perlu Rekonsiliasi', 'succeeded' => 'Berhasil', 'attachment_failed' => 'Attachment Gagal', 'verification_required' => 'Perlu Verifikasi'];
 @endphp
 <div class="flex min-h-dvh flex-col bg-blue-600 dark:bg-blue-900">
     <header class="flex-shrink-0 px-5 pb-8 pt-14 text-white">

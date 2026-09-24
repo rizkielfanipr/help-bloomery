@@ -18,6 +18,7 @@ class QualityControlItemJournalInfolist
                     TextEntry::make('item_journal_number')->label('Nomor Item Journal')->copyable()->placeholder('Menunggu nomor ESB'),
                     TextEntry::make('status')->label('Status')->badge()->formatStateUsing(fn (string $state): string => match ($state) {
                         'submitting' => 'Mengirim',
+                        'unknown' => 'Perlu Rekonsiliasi',
                         'succeeded' => 'Berhasil',
                         'attachment_failed' => 'Attachment Gagal',
                         'verification_required' => 'Perlu Verifikasi',
@@ -25,7 +26,7 @@ class QualityControlItemJournalInfolist
                     })->color(fn (string $state): string => match ($state) {
                         'succeeded' => 'success',
                         'submitting' => 'warning',
-                        'attachment_failed', 'verification_required' => 'danger',
+                        'unknown', 'attachment_failed', 'verification_required' => 'danger',
                         default => 'gray',
                     }),
                     TextEntry::make('journal_date')->label('Tanggal')->date('d M Y'),

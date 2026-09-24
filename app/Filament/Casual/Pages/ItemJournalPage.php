@@ -9,8 +9,10 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\WithFileUploads;
@@ -27,6 +29,8 @@ class ItemJournalPage extends Page
     protected string $view = 'filament.casual.pages.item-journal-page';
 
     public bool $formOpen = false;
+
+    public string $submissionKey = '';
 
     public string $journalDate = '';
 
@@ -79,6 +83,7 @@ class ItemJournalPage extends Page
     {
         abort_unless(static::canAccess(), 403);
         $this->journalDate = today()->toDateString();
+        $this->submissionKey = (string) Str::uuid();
     }
 
     public function getTitle(): string|Htmlable
@@ -117,6 +122,7 @@ class ItemJournalPage extends Page
         abort_unless(auth()->user()?->can('create', QualityControlItemJournal::class), 403);
         $this->resetValidation();
         $this->reset(['companyCode', 'branchId', 'locationId', 'additionalInfo', 'esbBranches', 'locations', 'purposes', 'productOptions', 'selectedProducts', 'items', 'attachments', 'loadError', 'productSearch', 'productCodeSearch', 'productPickerOpen', 'productPickerItemIndex', 'productPage', 'productTotal', 'productHasNext']);
+        $this->submissionKey = (string) Str::uuid();
         $this->journalDate = today()->toDateString();
         $this->items = [$this->blankItem()];
         $this->formOpen = true;
@@ -285,6 +291,7 @@ class ItemJournalPage extends Page
         $productIds = $availableProducts->pluck('productDetailID')->map(fn ($id): int => (int) $id)->all();
         $purposeIds = collect($this->purposes)->pluck('purposeID')->map(fn ($id): int => (int) $id)->all();
         $validated = $this->validate([
+            'submissionKey' => ['required', 'uuid'],
             'journalDate' => ['required', 'date'], 'companyCode' => ['required', Rule::in(array_keys($this->companyOptions()))], 'branchId' => ['required', 'integer'], 'locationId' => ['required', 'integer'],
             'additionalInfo' => ['nullable', 'string', 'max:1000', 'regex:/^[\x20-\x7E\r\n]*$/'],
             'items' => ['required', 'array', 'min:1'], 'items.*.productDetailID' => ['required', 'integer', Rule::in($productIds), 'distinct'],
@@ -299,8 +306,15 @@ class ItemJournalPage extends Page
         abort_unless(is_array($location), 422, 'Lokasi tidak valid untuk cabang ini.');
         $payloadDetails = collect($validated['items'])->map(fn (array $item): array => ['ID' => -1, 'productDetailID' => (int) $item['productDetailID'], 'purposeID' => (int) $item['purposeID'], 'qty' => (float) $item['qty'], 'hpp' => filled($item['hpp'] ?? null) ? (float) $item['hpp'] : 0])->all();
         $payload = ['itemJournalDate' => $validated['journalDate'], 'branchID' => (int) $esbBranch['branchID'], 'locationID' => (int) $validated['locationId'], 'requestTemplateID' => null, 'additionalInfo' => trim($validated['additionalInfo']) ?: null, 'itemJournalDetails' => $payloadDetails];
-        $journal = DB::transaction(function () use ($validated, $payload, $esbBranch, $location, $availableProducts): QualityControlItemJournal {
-            $journal = QualityControlItemJournal::query()->create(['branch_id' => null, 'created_by' => auth()->id(), 'esb_branch_id' => $esbBranch['branchID'], 'esb_branch_code' => $esbBranch['branchCode'], 'esb_branch_name' => $esbBranch['branchName'] ?? null, 'esb_comcode' => $validated['companyCode'], 'location_id' => $validated['locationId'], 'location_name' => $location['locationName'] ?? 'Location '.$validated['locationId'], 'journal_date' => $validated['journalDate'], 'additional_info' => trim($validated['additionalInfo']) ?: null, 'status' => 'submitting', 'request_payload' => $payload]);
+        $payloadHash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+        $journal = DB::transaction(function () use ($validated, $payload, $payloadHash, $esbBranch, $location, $availableProducts): QualityControlItemJournal {
+            $journal = QualityControlItemJournal::query()->createOrFirst(
+                ['submission_key' => $validated['submissionKey']],
+                ['branch_id' => null, 'created_by' => auth()->id(), 'esb_branch_id' => $esbBranch['branchID'], 'esb_branch_code' => $esbBranch['branchCode'], 'esb_branch_name' => $esbBranch['branchName'] ?? null, 'esb_comcode' => $validated['companyCode'], 'location_id' => $validated['locationId'], 'location_name' => $location['locationName'] ?? 'Location '.$validated['locationId'], 'journal_date' => $validated['journalDate'], 'additional_info' => trim($validated['additionalInfo']) ?: null, 'status' => 'submitting', 'payload_hash' => $payloadHash, 'attempted_at' => now(), 'request_payload' => $payload],
+            );
+            if (! $journal->wasRecentlyCreated) {
+                return $journal;
+            }
             foreach ($validated['items'] as $item) {
                 $product = $availableProducts->firstWhere('productDetailID', (int) $item['productDetailID']);
                 $purpose = collect($this->purposes)->firstWhere('purposeID', (int) $item['purposeID']);
@@ -313,6 +327,11 @@ class ItemJournalPage extends Page
 
             return $journal;
         });
+        if (! $journal->wasRecentlyCreated) {
+            Notification::make()->warning()->title('Item Journal sudah sedang diproses')->send();
+
+            return;
+        }
         try {
             $result = $service->create($validated['companyCode'], $payload);
             $journal->update(['item_journal_number' => $result['itemJournalNum'], 'response_payload' => $result['response'], 'submitted_at' => now(), 'status' => 'succeeded']);
@@ -324,9 +343,22 @@ class ItemJournalPage extends Page
             Notification::make()->success()->title('Item Journal berhasil dibuat')->body($result['itemJournalNum'])->send();
         } catch (Throwable $exception) {
             report($exception);
-            $journal->update(['status' => $journal->item_journal_number ? 'attachment_failed' : 'verification_required', 'last_error' => $exception->getMessage()]);
+            $journal->update(['status' => $journal->item_journal_number ? 'attachment_failed' : ($this->isConnectionFailure($exception) ? 'unknown' : 'verification_required'), 'last_error' => $exception->getMessage()]);
             Notification::make()->danger()->title('Item Journal perlu diperiksa')->body($exception->getMessage())->send();
         }
+    }
+
+    private function isConnectionFailure(Throwable $exception): bool
+    {
+        do {
+            if ($exception instanceof ConnectionException) {
+                return true;
+            }
+
+            $exception = $exception->getPrevious();
+        } while ($exception instanceof Throwable);
+
+        return false;
     }
 
     public function retryAttachments(int $journalId): void

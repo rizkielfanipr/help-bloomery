@@ -134,7 +134,7 @@ it('creates a non-template item journal from the quality control app', function 
         'https://esb.test/core/inventory/item-journal' => Http::response(['status' => 'ok', 'result' => ['itemJournalNum' => 'IU202609160001']]),
     ]);
 
-    Livewire::test(ItemJournalPage::class)
+    $component = Livewire::test(ItemJournalPage::class)
         ->call('openForm')
         ->assertSee('Informasi Pengisian')
         ->assertSee('Tambah Foto / PDF')
@@ -150,17 +150,50 @@ it('creates a non-template item journal from the quality control app', function 
         ->call('submit')
         ->assertHasNoErrors();
 
+    $component->call('submit')->assertHasNoErrors();
+
     $journal = QualityControlItemJournal::query()->with('details')->sole();
     expect($journal->item_journal_number)->toBe('IU202609160001')
         ->and($journal->status)->toBe('succeeded')
         ->and($journal->esb_branch_id)->toBe(373)
         ->and($journal->branch_id)->toBeNull()
+        ->and($journal->submission_key)->not->toBeNull()
+        ->and($journal->payload_hash)->toHaveLength(64)
+        ->and($journal->attempted_at)->not->toBeNull()
         ->and((float) $journal->details->sole()->qty)->toBe(-2.0);
+
+    expect(QualityControlItemJournal::query()->count())->toBe(1);
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://esb.test/core/inventory/item-journal'
         && $request['requestTemplateID'] === null
         && $request['branchID'] === 373
         && $request['itemJournalDetails'][0]['productDetailID'] === 2112);
+    Http::assertSentCount(5);
+});
+
+it('marks a connection failure as unknown for reconciliation', function () {
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
+        'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 373, 'branchCode' => 'BLA', 'branchName' => 'Bloomery Test']]]),
+        'https://esb.test/core/location*' => Http::response(['status' => 'ok', 'result' => [['locationID' => 964, 'locationName' => 'Kitchen']]]),
+        'https://esb.test/core/purpose*' => Http::response(['status' => 'ok', 'result' => ['data' => [['purposeID' => 10, 'purposeName' => 'Sampling QC', 'purposeAppliedTo' => ['ITEM JOURNAL'], 'flagActive' => true]], 'next' => '']]),
+        'https://esb.test/core/inventory/item-journal' => Http::failedConnection('connection reset after send'),
+    ]);
+
+    Livewire::test(ItemJournalPage::class)
+        ->call('openForm')
+        ->set('companyCode', 'BLSS')
+        ->set('branchId', '373')
+        ->set('productOptions', [['productDetailID' => 2112, 'productCode' => 'BB001', 'productName' => 'Whipping Cream', 'unit' => 'GR']])
+        ->set('items.0.productDetailID', 2112)
+        ->set('items.0.purposeID', 10)
+        ->set('items.0.qty', -2)
+        ->call('submit');
+
+    $journal = QualityControlItemJournal::query()->sole();
+    expect($journal->status)->toBe('unknown')
+        ->and($journal->item_journal_number)->toBeNull()
+        ->and($journal->payload_hash)->toHaveLength(64);
 });
 
 it('uploads and deletes item journal attachments through ESB', function () {

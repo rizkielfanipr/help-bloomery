@@ -23,6 +23,7 @@ class QualityControlItemJournalsTable
                 TextColumn::make('creator.name')->label('Dibuat Oleh')->searchable(),
                 TextColumn::make('status')->label('Status')->badge()->formatStateUsing(fn (string $state): string => match ($state) {
                     'submitting' => 'Mengirim',
+                    'unknown' => 'Perlu Rekonsiliasi',
                     'succeeded' => 'Berhasil',
                     'attachment_failed' => 'Attachment Gagal',
                     'verification_required' => 'Perlu Verifikasi',
@@ -30,7 +31,7 @@ class QualityControlItemJournalsTable
                 })->color(fn (string $state): string => match ($state) {
                     'succeeded' => 'success',
                     'submitting' => 'warning',
-                    'attachment_failed', 'verification_required' => 'danger',
+                    'unknown', 'attachment_failed', 'verification_required' => 'danger',
                     default => 'gray',
                 }),
                 TextColumn::make('submitted_at')->label('Dikirim Pada')->dateTime('d M Y H:i')->placeholder('—')->sortable()->toggleable(),
@@ -38,6 +39,7 @@ class QualityControlItemJournalsTable
             ->filters([
                 SelectFilter::make('status')->options([
                     'submitting' => 'Mengirim',
+                    'unknown' => 'Perlu Rekonsiliasi',
                     'succeeded' => 'Berhasil',
                     'attachment_failed' => 'Attachment Gagal',
                     'verification_required' => 'Perlu Verifikasi',

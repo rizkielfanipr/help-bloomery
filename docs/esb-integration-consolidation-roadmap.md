@@ -282,7 +282,7 @@ Full suite (memory_limit=512M): 921 test lulus, 4.993 assertions, 0 gagal
 Pint: lulus
 ```
 
-### Phase D — Standardisasi retry mutation dan idempotency
+### Phase D — Standardisasi retry mutation dan idempotency — berjalan
 
 **Target awal:** Create Item Journal, Create Goods Receipt, Create/Update Product, Create/Update BOM.
 
@@ -301,6 +301,8 @@ Pint: lulus
 3. Tambahkan status `unknown` atau reconciliation state bila hasil timeout tidak pasti.
 4. Buat command/job untuk memeriksa transaksi yang hasilnya tidak diketahui.
 5. Uji double-click, duplicate job, timeout sesudah request terkirim, dan retry worker.
+
+**Status implementasi:** D1 Item Journal selesai. Setiap form memperoleh UUID submission baru, database menahan submission key duplikat, dan record menyimpan hash payload serta waktu percobaan. Submission kedua dengan key yang sama tidak mengirim mutation ulang. Connection failure sebelum hasil ESB dapat dipastikan diberi status `unknown` untuk rekonsiliasi manual. D2 Goods Receipt dan mutation Product/BOM masih tersisa.
 
 ### Phase E — Error taxonomy dan result object
 
@@ -484,7 +486,7 @@ Konsolidasi ESB selesai ketika:
 
 ## 12. Langkah berikutnya yang direkomendasikan
 
-Lanjutkan ke **Phase D — Standardisasi retry mutation dan idempotency**. Phase C telah memisahkan Purchase Order, Master Product, dan Bill of Material serta menghapus compatibility facade.
+Lanjutkan ke **Phase D2 — Rekonsiliasi mutation Goods Receipt**. Phase D1 telah menambahkan duplicate guard dan status hasil tidak pasti pada Item Journal.
 
 Prompt kerja yang dapat digunakan:
 

@@ -571,6 +571,23 @@ Pint: lulus
 Network eksternal: diblokir; seluruh request test memakai HTTP fake
 ```
 
+## 22. Phase C3 — Ekstraksi Bill of Material dari EsbCoreService
+
+`EsbBillOfMaterialService` sekarang memiliki list dan filter BOM, pagination seluruh BOM, raw detail, create Assembly/Menu, serta update BOM. Default `bomTypeID=1` dan tipe eksplisit seperti Menu `3` tetap dipertahankan.
+
+Seluruh HTTP transport dan proses bisnis telah dihapus dari `EsbCoreService`. Class tersebut sekarang hanya compatibility facade yang mendelegasikan ke service Purchase Order, Master Product, dan Bill of Material. Tidak ada perubahan route, UI, payload, response, credential, cache key, atau environment.
+
+Characterization test C3 mencakup filter dan batas pagination, seluruh halaman, raw detail, payload create/update, default dan explicit BOM type, validation error, connection failure tanpa retry mutation, serta respons create tanpa BOM ID.
+
+```text
+Bill of Material dan seluruh consumer R&D/BOM utama: 87 test lulus, 389 assertions
+Full suite (php -d memory_limit=512M artisan test --compact): 927 test lulus, 5.008 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; seluruh request test memakai HTTP fake
+```
+
+Phase C masih berjalan. C4 akan memigrasikan seluruh consumer dari compatibility facade ke service domain, lalu menghapus `EsbCoreService`.
+
 ## 21. Phase C2 — Ekstraksi Master Product dari EsbCoreService
 
 `EsbMasterProductService` sekarang menjadi pemilik kontrak Master Product credential global lama:

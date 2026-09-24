@@ -2,72 +2,29 @@
 
 namespace App\Services;
 
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
-use RuntimeException;
-
+/**
+ * Compatibility facade while consumers migrate to domain-specific ESB services.
+ */
 class EsbCoreService
 {
-    private const TOKEN_CACHE_KEY = 'esb_core.access_token';
-
-    private string $baseUrl;
-
-    private int $timeout;
-
     public function __construct(
+        private readonly EsbBillOfMaterialService $billOfMaterials,
         private readonly EsbPurchaseOrderService $purchaseOrders,
         private readonly EsbMasterProductService $products,
-    ) {
-        $this->baseUrl = rtrim((string) config('esb.core.base_url'), '/');
-        $this->timeout = (int) config('esb.core.timeout', 60);
-    }
+    ) {}
 
-    /**
-     * @return array{page:int, limit:int, count:int, data:array<int, mixed>, prev:?string, next:?string}
-     */
+    /** @return array{page:int,limit:int,count:int,data:array<int,mixed>,prev:?string,next:?string} */
     public function getBillOfMaterials(array $filters = []): array
     {
-        $response = $this->request('get', '/product/bom', array_filter([
-            'page' => max(1, (int) ($filters['page'] ?? 1)),
-            'limit' => min(5000, max(1, (int) ($filters['limit'] ?? 20))),
-            'bomID' => $filters['bomID'] ?? null,
-            'productName' => $filters['productName'] ?? null,
-            'uomName' => $filters['uomName'] ?? null,
-            'sort' => $filters['sort'] ?? null,
-            'flagActive' => $filters['flagActive'] ?? 1,
-        ], fn ($value) => $value !== null && $value !== ''));
-
-        $result = $this->successfulResult($response, 'mengambil daftar Bill of Material');
-
-        return [
-            'page' => (int) ($result['page'] ?? 1),
-            'limit' => (int) ($result['limit'] ?? 20),
-            'count' => (int) ($result['count'] ?? 0),
-            'data' => is_array($result['data'] ?? null) ? $result['data'] : [],
-            'prev' => $result['prev'] ?: null,
-            'next' => $result['next'] ?: null,
-        ];
+        return $this->billOfMaterials->getBillOfMaterials($filters);
     }
 
     public function createAssembly(array $payload): int
     {
-        $payload['bomTypeID'] ??= 1;
-
-        $response = $this->request('post', '/product/bom', $payload);
-        $result = $this->successfulResult($response, 'membuat Bill of Material');
-        $bomId = (int) ($result['bomID'] ?? 0);
-
-        if ($bomId < 1) {
-            throw new RuntimeException('ESB tidak mengembalikan ID Bill of Material.');
-        }
-
-        return $bomId;
+        return $this->billOfMaterials->createAssembly($payload);
     }
 
-    /**
-     * @return array{productID:int, isTemp:bool}
-     */
+    /** @return array{productID:int,isTemp:bool} */
     public function createProduct(array $payload): array
     {
         return $this->products->createProduct($payload);
@@ -94,21 +51,19 @@ class EsbCoreService
         return $this->products->findProductById($productId);
     }
 
+    /** @return array<string, mixed> */
     public function getBillOfMaterial(int $bomId): array
     {
-        $response = $this->request('get', '/product/bom/'.$bomId, []);
-
-        return $this->successfulResult($response, 'mengambil detail Bill of Material');
+        return $this->billOfMaterials->getBillOfMaterial($bomId);
     }
 
-    /**
-     * @return array{page:int, limit:int, count:int, data:array<int, mixed>, prev:?string, next:?string}
-     */
+    /** @return array{page:int,limit:int,count:int,data:array<int,mixed>,prev:?string,next:?string} */
     public function getPurchaseOrders(array $filters = []): array
     {
         return $this->purchaseOrders->getPurchaseOrders($filters);
     }
 
+    /** @return array<string, mixed> */
     public function getPurchaseOrder(string $purchaseNum): array
     {
         return $this->purchaseOrders->getPurchaseOrder($purchaseNum);
@@ -116,149 +71,29 @@ class EsbCoreService
 
     public function updateBillOfMaterial(int $bomId, array $payload): void
     {
-        $response = $this->request('put', '/product/bom/'.$bomId, $payload);
-        $this->successfulResult($response, 'memperbarui Bill of Material');
+        $this->billOfMaterials->updateBillOfMaterial($bomId, $payload);
     }
 
-    /**
-     * @return array<int, array>
-     */
+    /** @return array<int, array> */
     public function getAllBillOfMaterials(): array
     {
-        $all = [];
-        $page = 1;
-
-        do {
-            $result = $this->getBillOfMaterials(['page' => $page, 'limit' => 100]);
-            array_push($all, ...$result['data']);
-            $page++;
-            $hasNext = filled($result['next'])
-                || (($result['page'] * $result['limit']) < $result['count']);
-        } while ($hasNext && $page <= 100);
-
-        return $all;
+        return $this->billOfMaterials->getAllBillOfMaterials();
     }
 
-    /**
-     * @return array{page:int, limit:int, count:int, data:array<int, mixed>, prev:?string, next:?string}
-     */
+    /** @return array{page:int,limit:int,count:int,data:array<int,mixed>,prev:?string,next:?string} */
     public function getProducts(array $filters = []): array
     {
         return $this->products->getProducts($filters);
     }
 
-    /**
-     * Return every active category and subcategory from Product List.
-     *
-     * @return array{categories:array<int, string>, subCategories:array<int, string>}
-     */
+    /** @return array{categories:array<int,string>,subCategories:array<int,string>} */
     public function getProductTaxonomy(): array
     {
         return $this->products->getProductTaxonomy();
     }
 
-    /**
-     * Suggest the next code by incrementing the largest numeric suffix used in
-     * an active product code for the selected category.
-     */
     public function suggestNextProductCode(int $categoryId): ?string
     {
         return $this->products->suggestNextProductCode($categoryId);
-    }
-
-    private function request(string $method, string $path, array $data): Response
-    {
-        $response = $this->send($method, $path, $data, $this->accessToken());
-
-        if ($response->status() === 401) {
-            Cache::forget(self::TOKEN_CACHE_KEY);
-            $response = $this->send($method, $path, $data, $this->accessToken());
-        }
-
-        return $response;
-    }
-
-    private function send(string $method, string $path, array $data, string $token): Response
-    {
-        $request = Http::acceptJson()
-            ->asJson()
-            ->withToken($token)
-            ->timeout($this->timeout);
-
-        return match ($method) {
-            'get' => $request->get($this->baseUrl.$path, $data),
-            'put' => $request->put($this->baseUrl.$path, $data),
-            default => $request->post($this->baseUrl.$path, $data),
-        };
-    }
-
-    private function accessToken(): string
-    {
-        $cached = Cache::get(self::TOKEN_CACHE_KEY);
-        if (is_string($cached) && $cached !== '') {
-            return $cached;
-        }
-
-        return Cache::lock('esb_core.login_lock', 15)->block(10, function (): string {
-            $cached = Cache::get(self::TOKEN_CACHE_KEY);
-            if (is_string($cached) && $cached !== '') {
-                return $cached;
-            }
-
-            $username = (string) config('esb.core.username');
-            $password = (string) config('esb.core.password');
-
-            if ($this->baseUrl === '' || $username === '' || $password === '') {
-                throw new RuntimeException('Konfigurasi koneksi ESB Core belum lengkap.');
-            }
-
-            $response = Http::acceptJson()
-                ->asJson()
-                ->timeout($this->timeout)
-                ->post($this->baseUrl.'/auth/login', [
-                    'username' => $username,
-                    'password' => $password,
-                ]);
-
-            $payload = $response->json();
-            $token = is_array($payload) ? (string) data_get($payload, 'result.accessToken', '') : '';
-
-            if ($response->failed() || $token === '') {
-                throw new RuntimeException($this->errorMessage($response, 'login ke ESB Core'));
-            }
-
-            Cache::put(
-                self::TOKEN_CACHE_KEY,
-                $token,
-                max(60, (int) config('esb.core.token_ttl', 3300)),
-            );
-
-            return $token;
-        });
-    }
-
-    private function successfulResult(Response $response, string $action): array
-    {
-        $payload = $response->json();
-
-        if ($response->failed() || ! is_array($payload) || ($payload['status'] ?? null) !== 'ok') {
-            throw new RuntimeException($this->errorMessage($response, $action));
-        }
-
-        return is_array($payload['result'] ?? null) ? $payload['result'] : [];
-    }
-
-    private function errorMessage(Response $response, string $action): string
-    {
-        $payload = $response->json();
-        $messages = collect(is_array($payload) ? ($payload['errors'] ?? []) : [])
-            ->pluck('message')
-            ->filter()
-            ->values();
-
-        $message = is_array($payload) ? ($payload['message'] ?? null) : null;
-        $detail = $messages->isNotEmpty() ? $messages->implode('; ') : $message;
-
-        return 'Gagal '.$action.($detail ? ': '.$detail : ' (HTTP '.$response->status().').');
     }
 }

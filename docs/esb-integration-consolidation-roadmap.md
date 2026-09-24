@@ -240,13 +240,21 @@ Network eksternal: diblokir; seluruh request memakai HTTP fake
 
 **Selesai jika:** tidak ada god service ESB dan seluruh endpoint mempunyai owner domain yang jelas.
 
-**Status implementasi:** subphase C1 Purchase Order dan C2 Master Product selesai. `EsbPurchaseOrderService` sekarang memiliki kontrak list dan detail Purchase Order, sedangkan `PurchaseOrderPriceSyncService` tidak lagi bergantung pada `EsbCoreService`. `EsbMasterProductService` memiliki list, pagination, lookup, taxonomy, code suggestion, create, dan update Product. Transport credential global lama dipisahkan ke `EsbGlobalCoreClient` dengan cache key dan perilaku autentikasi existing. Method PO dan Product pada `EsbCoreService` sementara menjadi compatibility delegation sampai seluruh consumer lama selesai dimigrasikan.
+**Status implementasi:** subphase C1 Purchase Order, C2 Master Product, dan C3 Bill of Material selesai. Ketiga domain memakai `EsbGlobalCoreClient` dengan credential, cache token, dan perilaku autentikasi global existing. `EsbCoreService` tidak lagi memiliki HTTP transport atau proses bisnis dan hanya menjadi compatibility facade sampai seluruh consumer dimigrasikan.
 
 Kelompok yang masih berada pada `EsbCoreService`:
 
-1. Bill of Material: list, all BOM, detail, create, dan update.
-2. Transport global lama untuk BOM.
-3. Compatibility delegation untuk Purchase Order dan Master Product sampai consumer migration selesai.
+1. Compatibility delegation untuk Purchase Order, Master Product, dan Bill of Material.
+2. Migrasi consumer ke service domain masing-masing.
+3. Penghapusan `EsbCoreService` setelah reference audit dan full suite lulus.
+
+Validasi C3:
+
+```text
+Bill of Material dan seluruh consumer R&D/BOM utama: 87 test lulus, 389 assertions
+Full suite (memory_limit=512M): 927 test lulus, 5.008 assertions, 0 gagal
+Pint: lulus
+```
 
 Validasi C1:
 

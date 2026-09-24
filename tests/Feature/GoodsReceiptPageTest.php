@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\EsbGoodsReceiptService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Http\Client\ConnectionException;
 use Livewire\Livewire;
 
 test('goods receipt records store their items and expiry details', function () {
@@ -222,8 +223,52 @@ test('receiving saves calculated shelf life for form batches', function () {
     $receipt = GoodsReceipt::where('reference_number', 'PO-BATCH')->sole();
     $expiry = $receipt->items()->sole()->expiries()->sole();
     expect($receipt->status)->toBe(GoodsReceipt::STATUS_SUCCEEDED)
+        ->and($receipt->submission_key)->not->toBeNull()
+        ->and($receipt->payload_hash)->toHaveLength(64)
+        ->and($receipt->attempted_at)->not->toBeNull()
         ->and((float) $expiry->shelf_life_remaining_percentage)->toBe(95.89)
         ->and($expiry->qc_result)->toBe('pass');
+});
+
+test('receiving guards duplicate submissions and marks an uncertain connection result for reconciliation', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+    $this->travelTo(now()->setDate(2026, 9, 16));
+
+    $order = [
+        'purchaseNum' => 'PO-UNKNOWN',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 10,
+        'purchaseDetails' => [[
+            'ID' => 11, 'productID' => 12, 'productDetailID' => 13, 'productCode' => 'BB001',
+            'productName' => 'Bahan Test', 'uomID' => 1, 'uomName' => 'GR', 'qty' => 2,
+        ]],
+    ];
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('PO-UNKNOWN')->times(3)->andReturn($order);
+    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('create')->once()->andThrow(new ConnectionException('connection reset after send'));
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    $component = Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-UNKNOWN')
+        ->set('deliveryNumber', 'DO-UNKNOWN')
+        ->set('invoiceNumber', 'INV-UNKNOWN')
+        ->set('invoiceDate', '2026-09-16')
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $component->call('submit')->assertHasNoErrors();
+
+    $receipt = GoodsReceipt::query()->where('reference_number', 'PO-UNKNOWN')->sole();
+    expect($receipt->status)->toBe(GoodsReceipt::STATUS_UNKNOWN)
+        ->and($receipt->esb_goods_receipt_number)->toBeNull()
+        ->and($receipt->payload_hash)->toHaveLength(64)
+        ->and(GoodsReceipt::query()->where('reference_number', 'PO-UNKNOWN')->count())->toBe(1);
 });
 
 test('inventory stays expanded on receiving index and detail', function () {

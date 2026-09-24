@@ -19,6 +19,8 @@ class GoodsReceipt extends Model
 
     public const STATUS_FAILED = 'failed';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
     public const STATUS_QC_HOLD = 'qc_hold';
 
     public const STATUS_QC_REJECTED = 'qc_rejected';
@@ -29,7 +31,7 @@ class GoodsReceipt extends Model
         'company_code', 'reference_number', 'esb_goods_receipt_number', 'purchase_date',
         'goods_receipt_date', 'esb_branch_id', 'local_branch_id', 'branch_name', 'supplier_id', 'supplier_name',
         'location_id', 'location_name', 'delivery_number', 'additional_info', 'selected_asset_ids',
-        'auto_close_po', 'status', 'submitted_by', 'submitted_at', 'synced_at', 'esb_code',
+        'auto_close_po', 'status', 'submission_key', 'payload_hash', 'attempted_at', 'submitted_by', 'submitted_at', 'synced_at', 'esb_code',
         'esb_message', 'request_payload', 'response_payload', 'sync_error', 'delivery_date',
         'invoice_status', 'invoice_number', 'invoice_date', 'po_document_match',
         'delivery_document_match', 'invoice_document_match', 'price_match', 'document_notes',
@@ -40,7 +42,7 @@ class GoodsReceipt extends Model
     {
         return [
             'purchase_date' => 'date', 'goods_receipt_date' => 'date', 'auto_close_po' => 'boolean',
-            'submitted_at' => 'datetime', 'synced_at' => 'datetime', 'request_payload' => 'array',
+            'attempted_at' => 'datetime', 'submitted_at' => 'datetime', 'synced_at' => 'datetime', 'request_payload' => 'array',
             'response_payload' => 'array', 'delivery_date' => 'date', 'invoice_date' => 'date',
             'po_document_match' => 'boolean', 'delivery_document_match' => 'boolean',
             'invoice_document_match' => 'boolean', 'price_match' => 'boolean',

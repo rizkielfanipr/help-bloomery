@@ -629,6 +629,25 @@ Deployment D1 wajib menjalankan `php artisan migrate --force`. Rollback aplikasi
 
 Phase D masih berjalan. Langkah berikutnya adalah D2 untuk mutation Goods Receipt, kemudian audit duplicate guard mutation Product dan BOM.
 
+## 25. Phase D2 — Idempotency dan Reconciliation Goods Receipt
+
+Goods Receipt sekarang memakai submission UUID lokal yang diperbarui setiap kali Purchase Order dibuka. Unique constraint mencegah dua request dengan submission key yang sama membuat penerimaan, detail QC, expiry, atau Vendor Compliance Incident ganda.
+
+Record menyimpan `payload_hash` dan `attempted_at`. Connection failure atau timeout setelah mutation dikirim tidak di-retry dan disimpan sebagai status `unknown`, karena ESB mungkin sudah membuat Goods Receipt walaupun aplikasi tidak menerima respons. Back office menampilkan status tersebut sebagai **Perlu Rekonsiliasi**.
+
+File bukti yang sempat tersimpan oleh request duplikat dibersihkan sebelum alur dihentikan. Data existing tetap kompatibel karena kolom baru nullable.
+
+### Validasi D2
+
+```text
+Goods Receipt terfokus: 12 test lulus, 119 assertions
+Full suite (php -d memory_limit=512M artisan test --compact): 929 test lulus, 5.029 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; service ESB pada test memakai mock atau HTTP fake
+```
+
+Deployment D2 wajib menjalankan `php artisan migrate --force`. Phase D masih berjalan dan dilanjutkan dengan audit mutation Product serta BOM.
+
 ## 21. Phase C2 — Ekstraksi Master Product dari EsbCoreService
 
 `EsbMasterProductService` sekarang menjadi pemilik kontrak Master Product credential global lama:

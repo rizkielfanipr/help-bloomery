@@ -10,10 +10,12 @@ use App\Services\InboundGoodsReceiptQcService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
@@ -36,6 +38,8 @@ class GoodsReceiptPage extends Page
     public int $purchaseOrderPage = 1;
 
     public ?array $purchaseOrder = null;
+
+    public string $submissionKey = '';
 
     public array $locations = [];
 
@@ -82,6 +86,7 @@ class GoodsReceiptPage extends Page
     {
         abort_unless(static::canAccess(), 403);
         $this->goodsReceiptDate = $this->deliveryDate = now()->toDateString();
+        $this->submissionKey = (string) Str::uuid();
         $this->loadPurchaseOrders();
     }
 
@@ -191,6 +196,7 @@ class GoodsReceiptPage extends Page
                 ->whereIn('status', [GoodsReceipt::STATUS_SUCCEEDED, GoodsReceipt::STATUS_PARTIAL_SUCCEEDED])
                 ->with('items')->get()->flatMap->items->groupBy('product_detail_id')->map->sum('accepted_qty');
             $this->purchaseOrder = $order;
+            $this->submissionKey = (string) Str::uuid();
             $this->locations = $service->locations((int) data_get($order, 'branchID'));
             $this->locationId = count($this->locations) === 1 ? (string) data_get($this->locations, '0.locationID') : '';
             $this->items = collect($details)->map(function (array $detail) use ($received): array {
@@ -289,6 +295,12 @@ class GoodsReceiptPage extends Page
             Storage::disk('b2')->delete($paths);
             throw $exception;
         }
+        if (! $receipt->wasRecentlyCreated) {
+            Storage::disk('b2')->delete($paths);
+            Notification::make()->warning()->title('Penerimaan sudah sedang diproses')->send();
+
+            return;
+        }
         $this->notifyPurchasing($receipt);
         if ($payload['goodsReceiptDetail'] === []) {
             Notification::make()->warning()->title('QC tersimpan')->body('Tidak ada qty Accepted yang dikirim ke ESB.')->send();
@@ -307,7 +319,7 @@ class GoodsReceiptPage extends Page
             $this->loadPurchaseOrders();
         } catch (Throwable $exception) {
             report($exception);
-            $receipt->update(['status' => GoodsReceipt::STATUS_FAILED, 'sync_error' => $exception->getMessage()]);
+            $receipt->update(['status' => $this->isConnectionFailure($exception) ? GoodsReceipt::STATUS_UNKNOWN : GoodsReceipt::STATUS_FAILED, 'sync_error' => $exception->getMessage()]);
             Notification::make()->danger()->title('Penerimaan gagal dikirim')->body($exception->getMessage())->persistent()->send();
         }
     }
@@ -315,6 +327,7 @@ class GoodsReceiptPage extends Page
     private function rules(): array
     {
         return [
+            'submissionKey' => ['required', 'uuid'],
             'goodsReceiptDate' => ['required', 'date', 'before_or_equal:today'], 'deliveryDate' => ['required', 'date', 'before_or_equal:today'],
             'locationId' => ['required', 'integer'], 'deliveryNumber' => ['required', 'string', 'max:255'],
             'invoiceStatus' => ['required', 'in:received,not_received'], 'invoiceNumber' => ['required_if:invoiceStatus,received', 'nullable', 'string', 'max:255'],
@@ -410,7 +423,8 @@ class GoodsReceiptPage extends Page
         $user = auth()->user();
         abort_unless($user instanceof User && ($user->canAccessAllBranches() || ($branchMapping && $user->canAccessBranch($branchMapping->branch_id))), 403, 'Cabang PO belum terhubung atau tidak dapat diakses oleh akun Anda.');
 
-        $receipt = GoodsReceipt::create([
+        $payloadHash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+        $receipt = GoodsReceipt::query()->createOrFirst(['submission_key' => $this->submissionKey], [
             'company_code' => 'BLSS', 'reference_number' => $po, 'purchase_date' => data_get($this->purchaseOrder, 'purchaseDate'), 'goods_receipt_date' => $this->goodsReceiptDate,
             'esb_branch_id' => $esbBranchId, 'local_branch_id' => $branchMapping?->branch_id, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
             'supplier_id' => data_get($this->purchaseOrder, 'supplierID'), 'supplier_name' => data_get($this->purchaseOrder, 'supplierName'),
@@ -421,8 +435,12 @@ class GoodsReceiptPage extends Page
             'document_evidence_photos' => $documentPhotos, 'qc_outcome' => $qc->disposition($accepted, $hold, $rejected), 'qc_completed_at' => now(),
             'additional_info' => $this->additionalInfo, 'auto_close_po' => $this->autoClosePo,
             'status' => $accepted > 0 ? GoodsReceipt::STATUS_PROCESSING : ($rejected > 0 && $hold <= 0 ? GoodsReceipt::STATUS_QC_REJECTED : GoodsReceipt::STATUS_QC_HOLD),
+            'payload_hash' => $payloadHash, 'attempted_at' => now(),
             'submitted_by' => auth()->id(), 'submitted_at' => now(), 'request_payload' => $payload,
         ]);
+        if (! $receipt->wasRecentlyCreated) {
+            return $receipt;
+        }
         foreach ($items as $item) {
             $record = $receipt->items()->create([
                 'purchase_detail_id' => $item['purchaseDetailID'], 'product_id' => $item['productID'], 'product_detail_id' => $item['productDetailID'],
@@ -456,6 +474,19 @@ class GoodsReceiptPage extends Page
         }
 
         return $receipt;
+    }
+
+    private function isConnectionFailure(Throwable $exception): bool
+    {
+        do {
+            if ($exception instanceof ConnectionException) {
+                return true;
+            }
+
+            $exception = $exception->getPrevious();
+        } while ($exception instanceof Throwable);
+
+        return false;
     }
 
     private function storePhotos(array $photos, string $directory, array &$paths): array

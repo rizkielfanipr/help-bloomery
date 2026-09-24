@@ -104,9 +104,9 @@ class GoodsReceiptResource extends Resource
                 TextEntry::make('reference_number')->label('Nomor PO'),
                 TextEntry::make('esb_goods_receipt_number')->label('Nomor GR')->placeholder('-'),
                 TextEntry::make('status')->badge()->formatStateUsing(fn (string $state): string => match ($state) {
-                    GoodsReceipt::STATUS_SUCCEEDED => 'Berhasil', GoodsReceipt::STATUS_FAILED => 'Gagal', default => 'Diproses',
+                    GoodsReceipt::STATUS_SUCCEEDED => 'Berhasil', GoodsReceipt::STATUS_FAILED => 'Gagal', GoodsReceipt::STATUS_UNKNOWN => 'Perlu Rekonsiliasi', default => 'Diproses',
                 })->color(fn (string $state): string => match ($state) {
-                    GoodsReceipt::STATUS_SUCCEEDED => 'success', GoodsReceipt::STATUS_FAILED => 'danger', default => 'warning',
+                    GoodsReceipt::STATUS_SUCCEEDED => 'success', GoodsReceipt::STATUS_FAILED, GoodsReceipt::STATUS_UNKNOWN => 'danger', default => 'warning',
                 }),
                 TextEntry::make('goods_receipt_date')->label('Tanggal')->date('d M Y'),
                 TextEntry::make('supplier_name')->label('Supplier'),
@@ -139,16 +139,16 @@ class GoodsReceiptResource extends Resource
                 TextColumn::make('branch_name')->label('Cabang')->searchable(),
                 TextColumn::make('location_name')->label('Lokasi'),
                 TextColumn::make('status')->badge()->formatStateUsing(fn (string $state): string => match ($state) {
-                    GoodsReceipt::STATUS_SUCCEEDED => 'Berhasil', GoodsReceipt::STATUS_FAILED => 'Gagal', default => 'Diproses',
+                    GoodsReceipt::STATUS_SUCCEEDED => 'Berhasil', GoodsReceipt::STATUS_FAILED => 'Gagal', GoodsReceipt::STATUS_UNKNOWN => 'Perlu Rekonsiliasi', default => 'Diproses',
                 })->color(fn (string $state): string => match ($state) {
-                    GoodsReceipt::STATUS_SUCCEEDED => 'success', GoodsReceipt::STATUS_FAILED => 'danger', default => 'warning',
+                    GoodsReceipt::STATUS_SUCCEEDED => 'success', GoodsReceipt::STATUS_FAILED, GoodsReceipt::STATUS_UNKNOWN => 'danger', default => 'warning',
                 }),
                 TextColumn::make('submittedBy.name')->label('Dikirim oleh'),
                 TextColumn::make('submitted_at')->label('Waktu')->dateTime('d M Y H:i')->sortable(),
             ])
             ->filters([
                 SelectFilter::make('status')->options([
-                    GoodsReceipt::STATUS_SUCCEEDED => 'Berhasil', GoodsReceipt::STATUS_FAILED => 'Gagal', GoodsReceipt::STATUS_PROCESSING => 'Diproses',
+                    GoodsReceipt::STATUS_SUCCEEDED => 'Berhasil', GoodsReceipt::STATUS_FAILED => 'Gagal', GoodsReceipt::STATUS_UNKNOWN => 'Perlu Rekonsiliasi', GoodsReceipt::STATUS_PROCESSING => 'Diproses',
                 ]),
             ])
             ->recordActions([

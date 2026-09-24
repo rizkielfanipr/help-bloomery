@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Branch;
+use App\Services\EsbCoreClient;
+use App\Services\EsbItemJournalService;
 use App\Services\EsbStockMovementService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -15,6 +17,15 @@ beforeEach(function () {
     ]);
     $this->branch->update(['stock_card_esb_code_id' => $this->pair->id]);
     Cache::put('esb_core.access_token.BLSS', 'blss-token', 300);
+});
+
+it('uses EsbCoreClient directly without inheriting the Item Journal domain service', function () {
+    $constructor = (new ReflectionClass(EsbStockMovementService::class))->getConstructor();
+
+    expect(is_subclass_of(EsbStockMovementService::class, EsbItemJournalService::class))->toBeFalse()
+        ->and($constructor)->not->toBeNull()
+        ->and($constructor->getParameters())->toHaveCount(1)
+        ->and($constructor->getParameters()[0]->getType()?->getName())->toBe(EsbCoreClient::class);
 });
 
 it('uses the mapped company token and branch with explicit numeric pagination', function () {
@@ -104,6 +115,74 @@ it('refreshes an expired company token once and stops if authorization keeps fai
         ->toThrow(RuntimeException::class, 'Unauthorized');
     Http::assertSentCount(3);
     Http::assertSent(fn ($request): bool => str_contains($request->url(), 'stock-movement') && $request->hasHeader('Authorization', 'Bearer fresh-token'));
+});
+
+it('preserves ESB validation errors with company and endpoint context', function () {
+    Http::fake([
+        '*stock-movement*' => Http::response([
+            'status' => 'fail',
+            'message' => 'Validation failed',
+            'errors' => [['attribute' => 'branchCode', 'message' => 'Branch Code tidak ditemukan']],
+        ], 422),
+    ]);
+
+    expect(fn () => app(EsbStockMovementService::class)->movements($this->pair, '2026-09-01', '2026-09-17'))
+        ->toThrow(RuntimeException::class, 'Gagal mengambil Stock Movement BLA [BLSS /report/stock-movement]: Branch Code tidak ditemukan');
+});
+
+it('preserves connection failure behavior from the shared ESB client', function () {
+    Http::fake([
+        '*stock-movement*' => Http::failedConnection('origin timeout'),
+    ]);
+
+    expect(fn () => app(EsbStockMovementService::class)->movements($this->pair, '2026-09-01', '2026-09-17'))
+        ->toThrow(RuntimeException::class, 'Gagal menghubungi ESB Core [BLSS /report/stock-movement]: origin timeout');
+});
+
+it('returns an empty Stock Movement result without inventing transactions', function () {
+    Http::fake([
+        '*stock-movement*' => Http::response(['status' => 'ok', 'result' => [
+            'data' => [], 'next' => '', 'count' => 0,
+        ]]),
+    ]);
+
+    $result = app(EsbStockMovementService::class)->balancesForBranch($this->branch, '2026-09-17', 'stockUnit');
+
+    expect($result['ok'])->toBeTrue()
+        ->and($result['rows'])->toBe([])
+        ->and($result['transactions'])->toBe([])
+        ->and($result['units'])->toBe([])
+        ->and($result['types'])->toBe(app(EsbStockMovementService::class)->transactionTypes());
+});
+
+it('paginates all Master Product pages and preserves the category cache mapping', function () {
+    Http::fake(function ($request) {
+        $page = (int) $request['page'];
+
+        return Http::response(['status' => 'ok', 'result' => [
+            'page' => $page,
+            'limit' => 100,
+            'count' => 101,
+            'data' => [[
+                'productCode' => 'P-'.$page,
+                'categoryName' => $page === 1 ? 'Raw Material' : 'Packaging',
+            ]],
+            'prev' => $page === 1 ? '' : 'previous',
+            'next' => $page === 1 ? 'next' : '',
+        ]]);
+    });
+
+    $service = app(EsbStockMovementService::class);
+    $categories = $service->categories('BLSS');
+
+    expect($categories)->toBe(['P-1' => 'Raw Material', 'P-2' => 'Packaging'])
+        ->and(Cache::get('stock-movement.categories.BLSS'))->toBe($categories)
+        ->and($service->categories('BLSS'))->toBe($categories);
+    Http::assertSentCount(2);
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/product/list')
+        && (int) $request['page'] === 2
+        && (int) $request['limit'] === 100
+        && (int) $request['flagActive'] === 1);
 });
 
 it('does not combine balances with different units', function () {

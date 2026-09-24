@@ -9,8 +9,10 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
-class EsbStockMovementService extends EsbItemJournalService
+class EsbStockMovementService
 {
+    public function __construct(private readonly EsbCoreClient $client) {}
+
     /** @param list<string> $observedTypes
      * @return list<string>
      */
@@ -49,14 +51,14 @@ class EsbStockMovementService extends EsbItemJournalService
             throw new RuntimeException('Periode Stock Movement tidak valid.');
         }
 
-        $result = $this->requestResult($pair->esb_comcode, 'get', '/report/stock-movement', [
+        $result = $this->client->successfulResult($this->client->request($pair->esb_comcode, 'get', '/report/stock-movement', [
             'startPeriod' => $start->toDateString(),
             'endPeriod' => $end->toDateString(),
             'branchCode' => $pair->esb_branch_code,
             'unitToShow' => $this->unitToShow($unit),
             'page' => max(1, $page),
             'limit' => 100,
-        ], 'mengambil Stock Movement '.$pair->esb_branch_code);
+        ]), 'mengambil Stock Movement '.$pair->esb_branch_code, $pair->esb_comcode, '/report/stock-movement');
         if (! is_array($result['data'] ?? null)) {
             throw new RuntimeException('Format respons Stock Movement tidak valid.');
         }
@@ -95,7 +97,7 @@ class EsbStockMovementService extends EsbItemJournalService
         return Cache::remember('stock-movement.categories.'.$company, now()->addHours(6), function () use ($company): array {
             $categories = [];
             for ($page = 1; $page <= 1000; $page++) {
-                $result = $this->products($company, ['page' => $page, 'limit' => 100]);
+                $result = $this->productPage($company, $page);
                 foreach ($result['data'] as $product) {
                     $categories[(string) ($product['productCode'] ?? '')] = (string) ($product['categoryName'] ?? '');
                 }
@@ -261,6 +263,30 @@ class EsbStockMovementService extends EsbItemJournalService
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
             'failed_requests' => $failedRequests,
+        ];
+    }
+
+    /** @return array{page:int,limit:int,count:int,data:array<int, mixed>,prev:?string,next:?string} */
+    private function productPage(string $companyCode, int $page): array
+    {
+        $result = $this->client->successfulResult(
+            $this->client->request($companyCode, 'get', '/product/list', [
+                'page' => max(1, $page),
+                'limit' => 100,
+                'flagActive' => 1,
+            ]),
+            'mengambil daftar produk',
+            $companyCode,
+            '/product/list',
+        );
+
+        return [
+            'page' => (int) ($result['page'] ?? 1),
+            'limit' => (int) ($result['limit'] ?? 20),
+            'count' => (int) ($result['count'] ?? 0),
+            'data' => is_array($result['data'] ?? null) ? $result['data'] : [],
+            'prev' => filled($result['prev'] ?? null) ? (string) $result['prev'] : null,
+            'next' => filled($result['next'] ?? null) ? (string) $result['next'] : null,
         ];
     }
 }

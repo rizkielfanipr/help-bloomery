@@ -122,7 +122,16 @@ Company Code `BLSS`, endpoint, payload, raw response audit, dan perilaku UI dipe
 
 #### Stock Movement
 
-Stock Movement sudah melewati transport `EsbCoreClient` karena masih mewarisi `EsbItemJournalService`. Semua instansiasi langsung di production sudah diganti dengan Laravel service container. Pemisahan inheritance masih menjadi pekerjaan tersisa.
+Phase A selesai. `EsbStockMovementService` sekarang meng-inject `EsbCoreClient` secara langsung dan tidak lagi mewarisi `EsbItemJournalService`. Transport Stock Movement dan katalog Master Product berada di service domain Stock Movement, sedangkan seluruh consumer production tetap menggunakan Laravel service container.
+
+Kontrak berikut dipertahankan:
+
+- cache key kategori `stock-movement.categories.{company}`;
+- cache key katalog rolling `stock-movement.catalog.v4:*`;
+- pagination numerik maksimal 100 halaman per request dan guard 1.000 halaman;
+- mapping `productCode` ke `categoryName`;
+- filter Company Code, Branch Code, unit, periode, dan batas 100 data;
+- aggregation saldo, tipe transaksi, serta error operasional existing.
 
 ### 4.6 Commit terkait
 
@@ -163,7 +172,7 @@ Perubahan kontrak hanya boleh dilakukan dengan requirement terpisah dan test mig
 
 ## 6. Pekerjaan tersisa dan urutannya
 
-### Phase A — Pisahkan Stock Movement dari Item Journal
+### Phase A — Pisahkan Stock Movement dari Item Journal — selesai
 
 **Masalah:** `EsbStockMovementService` mewarisi `EsbItemJournalService` hanya untuk memakai HTTP transport dan category endpoint. Hubungan domain ini tidak tepat.
 
@@ -176,7 +185,16 @@ Perubahan kontrak hanya boleh dilakukan dengan requirement terpisah dan test mig
 5. Pastikan semua consumer tetap memakai container.
 6. Tambahkan contract test untuk pagination hingga semua halaman, category mapping, transaksi kosong, `401`, `422`, dan connection failure.
 
-**Selesai jika:** Stock Movement tidak bergantung pada Item Journal dan seluruh test Stock Card tetap hijau.
+**Hasil:** Stock Movement tidak lagi bergantung pada Item Journal. Characterization test mencakup direct dependency, pagination seluruh halaman, category mapping/cache, transaksi kosong, refresh `401`, validasi `422`, dan connection failure. Seluruh test Stock Card tetap hijau.
+
+**Validasi:**
+
+```text
+Stock Movement dan seluruh consumer Stock Card: 57 test lulus, 233 assertions
+Full suite (memory_limit=512M): 899 test lulus, 4.936 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; seluruh request memakai HTTP fake
+```
 
 ### Phase B — Migrasikan Company Product
 
@@ -410,14 +428,14 @@ Konsolidasi ESB selesai ketika:
 
 ## 12. Langkah berikutnya yang direkomendasikan
 
-Mulai dari **Phase A — Pisahkan Stock Movement dari Item Journal**. Scope ini tidak mengubah UI atau payload dan menyelesaikan ketergantungan domain yang masih tersisa setelah transport dipusatkan.
+Lanjutkan ke **Phase B — Migrasikan Company Product**. Phase A telah menyelesaikan ketergantungan Stock Movement terhadap domain Item Journal tanpa mengubah UI, payload, cache key, atau perilaku error.
 
 Prompt kerja yang dapat digunakan:
 
 ```text
-Implementasikan Phase A dari docs/esb-integration-consolidation-roadmap.md.
-Pisahkan EsbStockMovementService dari inheritance EsbItemJournalService dan inject EsbCoreClient secara langsung.
-Pertahankan seluruh kontrak Stock Card, cache key, category mapping, pagination, dan error behavior.
+Implementasikan Phase B dari docs/esb-integration-consolidation-roadmap.md.
+Migrasikan EsbCompanyProductService ke EsbCoreClient setelah membuat characterization test untuk list, create, update, unit mapping, raw response, dan error behavior.
+Pertahankan seluruh kontrak Company Product dan pastikan mutation tidak di-retry setelah hasil request yang tidak pasti.
 Tambahkan characterization test, jalankan test terkait, Pint, lalu full suite dengan memory 512 MB.
 Perbarui laporan implementasi dan buat commit terpisah setelah seluruh test lulus.
 ```

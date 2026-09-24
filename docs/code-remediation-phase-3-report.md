@@ -437,3 +437,48 @@ Full suite: 780 test lulus, 4.464 assertions, 0 gagal
 Pint: lulus
 Network eksternal: diblokir; transport Goods Receipt memakai HTTP fake
 ```
+
+## 18. Phase A — Pemisahan Stock Movement dari Item Journal
+
+`EsbStockMovementService` tidak lagi mewarisi `EsbItemJournalService`. Service tersebut sekarang menerima `EsbCoreClient` langsung melalui constructor injection sehingga hubungan domain Stock Movement dan Item Journal sudah dipisahkan.
+
+### Perubahan transport dan katalog
+
+- Request `GET /report/stock-movement` dipanggil langsung melalui `EsbCoreClient`.
+- Request katalog `GET /product/list` dimiliki oleh helper private Stock Movement.
+- Login, cache token per Company Code, refresh satu kali setelah `401`, timeout, connection failure, dan parsing error tetap ditangani client bersama.
+- Tidak ada perubahan pada consumer Filament, `StockCardEsbSynchronizer`, route, UI, atau payload.
+
+### Kontrak yang dipertahankan
+
+- cache kategori `stock-movement.categories.{company}` dengan TTL enam jam;
+- cache rolling catalog `stock-movement.catalog.v4:*` dengan TTL lima menit;
+- pagination eksplisit `page` dan `limit=100`, termasuk guard data kosong serta batas 1.000 halaman;
+- category mapping `productCode → categoryName`;
+- filter `flagActive=1` pada Master Product;
+- pemilihan satu mapping Company Code dan Branch Code aktif dari Master Branch;
+- agregasi saldo terakhir per lokasi, pemisahan unit, dan seluruh tipe transaksi;
+- pesan validasi mapping, pagination, branch mismatch, respons ESB, dan connection failure.
+
+### Characterization test
+
+Test baru membuktikan:
+
+1. Stock Movement meng-inject `EsbCoreClient` dan bukan subclass Item Journal.
+2. Seluruh halaman Master Product diambil dan hasil kategori masuk ke cache key existing.
+3. Hasil Stock Movement kosong tetap menghasilkan struktur rows, transactions, units, dan types yang kompatibel.
+4. Respons `422` mempertahankan detail ESB, Company Code, dan endpoint.
+5. Connection failure mempertahankan error operasional dari shared client.
+6. Test `401`, pagination Stock Movement, mapping cabang, cache katalog, dan seluruh consumer existing tetap lulus.
+
+### Validasi
+
+```text
+EsbStockMovementService: 14 test lulus, 46 assertions
+Stock Movement dan seluruh consumer Stock Card: 57 test lulus, 233 assertions
+Full suite (php -d memory_limit=512M artisan test --compact): 899 test lulus, 4.936 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; seluruh request ESB pada test memakai HTTP fake
+```
+
+Tidak ada migration, perubahan environment, atau langkah deployment khusus pada Phase A. Deployment mengikuti prosedur aplikasi biasa dan rollback dapat dilakukan dengan me-revert commit Phase A tanpa mengubah data.

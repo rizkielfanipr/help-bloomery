@@ -648,6 +648,25 @@ Network eksternal: diblokir; service ESB pada test memakai mock atau HTTP fake
 
 Deployment D2 wajib menjalankan `php artisan migrate --force`. Phase D masih berjalan dan dilanjutkan dengan audit mutation Product serta BOM.
 
+## 26. Phase D3 — Reconciliation Mutation Product
+
+Bulk Product Submission sekarang membedakan error eksplisit dengan connection failure. Error eksplisit tetap `failed` dan boleh dicoba ulang, sedangkan koneksi terputus setelah create/update menjadi `unknown`. Eksekusi submission berikutnya hanya mengambil item `pending` atau `failed`, sehingga item `unknown` tidak dikirim kembali.
+
+Material ESB pada R&D memakai aturan yang sama. Create atau update dengan hasil koneksi tidak pasti diberi status **Perlu Rekonsiliasi**. Tombol kirim tidak ditampilkan untuk status tersebut dan pemeriksaan server-side juga menolak pengiriman ulang, termasuk melalui pemanggilan Livewire langsung.
+
+Tidak ada retry otomatis baru. Refresh token satu kali setelah respons eksplisit `401` tetap dipertahankan karena request pertama ditolak sebelum diproses.
+
+### Validasi D3
+
+```text
+Product dan seluruh consumer terkait: 78 test lulus, 514 assertions
+Full suite (php -d memory_limit=512M artisan test --compact): 931 test lulus, 5.037 assertions, 0 gagal
+Pint: lulus
+Network eksternal: diblokir; seluruh request test memakai HTTP fake
+```
+
+Phase D dilanjutkan dengan D4. Create BOM membutuhkan attempt record lokal karena `RndProjectBom` baru dapat ditautkan setelah ESB mengembalikan BOM ID.
+
 ## 21. Phase C2 — Ekstraksi Master Product dari EsbCoreService
 
 `EsbMasterProductService` sekarang menjadi pemilik kontrak Master Product credential global lama:

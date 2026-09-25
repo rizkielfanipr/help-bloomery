@@ -14,6 +14,7 @@ class RndProductEsbMaterial extends Model
         'syncing' => 'Syncing',
         'synced' => 'Synced',
         'failed' => 'Failed',
+        'unknown' => 'Perlu Rekonsiliasi',
     ];
 
     /**

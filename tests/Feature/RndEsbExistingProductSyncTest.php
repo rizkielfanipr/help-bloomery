@@ -35,6 +35,33 @@ beforeEach(function () {
     ]);
 });
 
+it('does not resend an R&D material whose previous ESB result is unknown', function () {
+    Http::fake();
+    $material = $this->product->esbMaterials()->create([
+        'category_id' => 11,
+        'sub_category_id' => 21,
+        'uom_id' => 5,
+        'uom_name' => 'GR',
+        'product_code' => 'BBMK-UNKNOWN',
+        'product_name' => 'Produk Belum Pasti',
+        'sku' => 'BBMK-UNKNOWN-GR',
+        'conversion_factor' => 1,
+        'base_price' => 100,
+        'status' => 'unknown',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->product->rnd_project_id,
+        'product' => $this->product->id,
+    ])->assertSee('Perlu Rekonsiliasi')
+        ->call('syncEsbMaterial', $material->id)
+        ->assertHasNoErrors();
+
+    expect($material->refresh()->status)->toBe('unknown');
+    Http::assertNothingSent();
+});
+
 it('links an exact existing ESB product instead of creating a duplicate', function () {
     Http::fake([
         'https://services.esb.co.id/core/auth/login' => Http::response([

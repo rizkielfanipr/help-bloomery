@@ -124,6 +124,25 @@ it('refreshes only the affected company token after a 401', function () {
         ->and(Cache::get('esb_core.access_token.BLSS'))->toBe('fresh-token');
 });
 
+it('marks an uncertain product mutation and does not submit it again', function () {
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'blss-token']]),
+        'https://core-esb.test/product' => Http::failedConnection('connection reset after send'),
+    ]);
+
+    $submission = BulkProductSubmission::factory()->create(['target_comcodes' => ['BLSS'], 'payload' => bulkProductPayload()]);
+    $action = app(SubmitBulkProductAction::class);
+    $action->execute($submission);
+    $action->execute($submission->refresh());
+
+    $item = $submission->items()->sole();
+    expect($submission->refresh()->status)->toBe('unknown')
+        ->and($item->status)->toBe('unknown')
+        ->and($item->attempts)->toBe(1);
+
+    Http::assertSentCount(2);
+});
+
 it('loads and caches category names grouped with their subcategories', function () {
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'blss-token']]),

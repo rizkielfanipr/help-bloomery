@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Models\BulkProductSubmission;
 use App\Models\BulkProductSubmissionItem;
 use App\Services\EsbCompanyProductService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -64,7 +65,7 @@ class SubmitBulkProductAction
         } catch (Throwable $exception) {
             report($exception);
             $item->update([
-                'status' => 'failed', 'error_message' => $exception->getMessage(),
+                'status' => $this->isConnectionFailure($exception) ? 'unknown' : 'failed', 'error_message' => $exception->getMessage(),
                 'response_payload' => ['message' => $exception->getMessage()], 'completed_at' => now(),
             ]);
         }
@@ -86,6 +87,7 @@ class SubmitBulkProductAction
     {
         $statuses = $submission->items()->pluck('status');
         $status = match (true) {
+            $statuses->contains('unknown') => 'unknown',
             $statuses->every(fn (string $value): bool => $value === 'succeeded') => 'succeeded',
             $statuses->every(fn (string $value): bool => $value === 'failed') => 'failed',
             $statuses->contains('succeeded') && $statuses->contains('failed') => 'partial',
@@ -94,7 +96,20 @@ class SubmitBulkProductAction
 
         $submission->update([
             'status' => $status,
-            'completed_at' => in_array($status, ['succeeded', 'failed', 'partial'], true) ? now() : null,
+            'completed_at' => in_array($status, ['succeeded', 'failed', 'partial', 'unknown'], true) ? now() : null,
         ]);
+    }
+
+    private function isConnectionFailure(Throwable $exception): bool
+    {
+        do {
+            if ($exception instanceof ConnectionException) {
+                return true;
+            }
+
+            $exception = $exception->getPrevious();
+        } while ($exception instanceof Throwable);
+
+        return false;
     }
 }

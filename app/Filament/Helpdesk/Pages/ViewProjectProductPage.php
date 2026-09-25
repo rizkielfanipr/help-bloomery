@@ -24,6 +24,7 @@ use Filament\Forms\Components\RichEditor\RichContentRenderer;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -1803,7 +1804,13 @@ class ViewProjectProductPage extends Page
         $material = $this->materialDraftId
             ? $this->productRecord->esbMaterials()->findOrFail($this->materialDraftId)
             : null;
+        if ($material?->status === 'unknown') {
+            Notification::make()->title('Periksa produk di ESB terlebih dahulu')->body('Perubahan sebelumnya belum dapat dipastikan berhasil atau gagal.')->danger()->send();
+
+            return;
+        }
         $wasSynced = $material?->status === 'synced';
+        $attemptedPayload = null;
 
         $validated = $this->validate([
             'esbMaterialProductName' => ['required', 'string', 'max:100'],
@@ -1882,7 +1889,7 @@ class ViewProjectProductPage extends Page
         ];
 
         try {
-            DB::transaction(function () use (&$material, $values, $validated, $wasSynced): void {
+            DB::transaction(function () use (&$material, &$attemptedPayload, $values, $validated, $wasSynced): void {
                 $existingDetailIds = $material?->units()->pluck('esb_product_detail_id', 'uom_id') ?? collect();
 
                 if ($material) {
@@ -1909,6 +1916,7 @@ class ViewProjectProductPage extends Page
 
                 if ($wasSynced && $material->esb_product_id) {
                     $payload = $material->fresh('units')->toEsbPayload();
+                    $attemptedPayload = $payload;
                     app(EsbMasterProductService::class)->updateProduct($material->esb_product_id, $payload);
                     $material->update([
                         'last_payload' => $payload,
@@ -1919,6 +1927,14 @@ class ViewProjectProductPage extends Page
                 }
             });
         } catch (Throwable $exception) {
+            if ($material && $this->isConnectionFailure($exception)) {
+                $material->refresh()->update([
+                    'status' => 'unknown',
+                    'last_payload' => $attemptedPayload,
+                    'last_response' => ['message' => $exception->getMessage()],
+                    'sync_error' => $exception->getMessage(),
+                ]);
+            }
             $this->addError('esbMaterialProductName', $exception->getMessage());
             Notification::make()->title('Perubahan gagal disinkronkan ke ESB')->body($exception->getMessage())->danger()->send();
 
@@ -2269,6 +2285,11 @@ class ViewProjectProductPage extends Page
 
             return;
         }
+        if ($material->status === 'unknown') {
+            Notification::make()->title('Periksa produk di ESB terlebih dahulu')->body('Hasil pengiriman sebelumnya belum diketahui dan tidak boleh dikirim ulang.')->danger()->send();
+
+            return;
+        }
 
         $payload = $material->toEsbPayload();
         $material->update([
@@ -2305,7 +2326,7 @@ class ViewProjectProductPage extends Page
                 ->send();
         } catch (Throwable $exception) {
             $material->update([
-                'status' => 'failed',
+                'status' => $this->isConnectionFailure($exception) ? 'unknown' : 'failed',
                 'sync_error' => $exception->getMessage(),
                 'last_response' => ['message' => $exception->getMessage()],
             ]);
@@ -2313,6 +2334,19 @@ class ViewProjectProductPage extends Page
         }
 
         $this->reloadProduct();
+    }
+
+    private function isConnectionFailure(Throwable $exception): bool
+    {
+        do {
+            if ($exception instanceof ConnectionException) {
+                return true;
+            }
+
+            $exception = $exception->getPrevious();
+        } while ($exception instanceof Throwable);
+
+        return false;
     }
 
     private function syncEsbProductDetailIds(RndProductEsbMaterial $material, ?array $esbProduct): void

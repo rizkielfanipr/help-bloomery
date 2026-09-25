@@ -308,6 +308,7 @@
                             $esbStatusStyle = match($esbMaterial->status) {
                                 'synced' => 'bg-emerald-50 text-emerald-700',
                                 'failed' => 'bg-red-50 text-red-700',
+                                'unknown' => 'bg-red-50 text-red-700',
                                 'syncing' => 'bg-blue-50 text-blue-700',
                                 default => 'bg-gray-100 text-gray-700',
                             };
@@ -336,7 +337,7 @@
                                 @if($canManageProject)
                                     <div class="flex justify-end gap-1.5">
                                         <button type="button" wire:click="openEsbMaterialForm({{ $esbMaterial->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50" title="{{ $esbMaterial->status === 'synced' ? 'Edit dan sinkronkan ke ESB' : 'Edit' }}"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
-                                        @if($esbMaterial->status !== 'synced')
+                                        @if(in_array($esbMaterial->status, ['draft', 'failed'], true))
                                             <button type="button" wire:click="syncEsbMaterial({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="syncEsbMaterial({{ $esbMaterial->id }})" title="{{ $esbMaterial->status === 'failed' ? 'Coba kirim ulang ke ESB' : 'Kirim data ke ESB' }}" aria-label="{{ $esbMaterial->status === 'failed' ? 'Coba kirim ulang ke ESB' : 'Kirim data ke ESB' }}" class="inline-flex items-center justify-center rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700 disabled:opacity-50">
                                                 <x-heroicon-o-cloud-arrow-up wire:loading.remove wire:target="syncEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4" />
                                                 <x-heroicon-o-arrow-path wire:loading wire:target="syncEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4 animate-spin" />

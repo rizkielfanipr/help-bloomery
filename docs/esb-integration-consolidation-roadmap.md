@@ -302,7 +302,7 @@ Pint: lulus
 4. Buat command/job untuk memeriksa transaksi yang hasilnya tidak diketahui.
 5. Uji double-click, duplicate job, timeout sesudah request terkirim, dan retry worker.
 
-**Status implementasi:** D1 Item Journal dan D2 Goods Receipt selesai. Kedua form memperoleh UUID submission baru, database menahan submission key duplikat, dan record menyimpan hash payload serta waktu percobaan. Submission kedua dengan key yang sama tidak mengirim mutation ulang. Connection failure sebelum hasil ESB dapat dipastikan diberi status `unknown` untuk rekonsiliasi manual. Audit mutation Product/BOM masih tersisa.
+**Status implementasi:** D1 Item Journal, D2 Goods Receipt, dan D3 Product selesai. Item Journal dan Goods Receipt memakai submission key, payload hash, serta waktu percobaan. Bulk Product dan material R&D memakai record proses existing untuk menahan hasil mutation Product yang tidak pasti pada status `unknown`; status tersebut tidak dapat dikirim ulang sebelum rekonsiliasi. D4 mutation BOM masih tersisa.
 
 ### Phase E — Error taxonomy dan result object
 
@@ -486,7 +486,7 @@ Konsolidasi ESB selesai ketika:
 
 ## 12. Langkah berikutnya yang direkomendasikan
 
-Lanjutkan ke **Phase D3 — Audit idempotency mutation Product dan BOM**. Phase D1 dan D2 telah menambahkan duplicate guard serta status hasil tidak pasti pada Item Journal dan Goods Receipt.
+Lanjutkan ke **Phase D4 — Idempotency dan reconciliation mutation BOM**. Phase D1 sampai D3 telah mengamankan Item Journal, Goods Receipt, dan Product.
 
 Prompt kerja yang dapat digunakan:
 

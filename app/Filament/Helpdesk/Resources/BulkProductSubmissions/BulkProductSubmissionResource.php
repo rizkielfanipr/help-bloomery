@@ -181,14 +181,14 @@ class BulkProductSubmissionResource extends Resource
                 TextEntry::make('operation')->badge()->formatStateUsing(fn (string $state): string => strtoupper($state)),
                 TextEntry::make('product_code')->label('Product Code')->placeholder('—'),
                 TextEntry::make('product_name')->label('Product Name'),
-                TextEntry::make('status')->badge()->color(fn (string $state): string => self::statusColor($state)),
+                TextEntry::make('status')->badge()->formatStateUsing(fn (string $state): string => self::statusLabel($state))->color(fn (string $state): string => self::statusColor($state)),
                 TextEntry::make('creator.name')->label('Dibuat oleh')->placeholder('—'),
                 TextEntry::make('submitted_at')->dateTime('d M Y H:i'),
             ])->columns(3),
             Section::make('Hasil per Comcode')->schema([
                 RepeatableEntry::make('items')->label('')->schema([
                     TextEntry::make('comcode')->badge(),
-                    TextEntry::make('status')->badge()->color(fn (string $state): string => self::statusColor($state)),
+                    TextEntry::make('status')->badge()->formatStateUsing(fn (string $state): string => self::statusLabel($state))->color(fn (string $state): string => self::statusColor($state)),
                     TextEntry::make('remote_product_id')->label('Product ID')->placeholder('—'),
                     TextEntry::make('attempts')->label('Percobaan'),
                     TextEntry::make('error_message')->label('Error')->placeholder('—')->columnSpanFull(),
@@ -212,7 +212,7 @@ class BulkProductSubmissionResource extends Resource
             TextColumn::make('product_code')->label('Product Code')->searchable()->placeholder('—'),
             TextColumn::make('product_name')->label('Product Name')->searchable()->limit(40),
             TextColumn::make('target_comcodes')->label('Comcode')->badge()->separator(','),
-            TextColumn::make('status')->badge()->color(fn (string $state): string => self::statusColor($state)),
+            TextColumn::make('status')->badge()->formatStateUsing(fn (string $state): string => self::statusLabel($state))->color(fn (string $state): string => self::statusColor($state)),
             TextColumn::make('creator.name')->label('Dibuat oleh')->placeholder('—'),
             TextColumn::make('created_at')->label('Dibuat')->dateTime('d M Y H:i')->sortable(),
         ])->defaultSort('id', 'desc')->recordActions([ViewAction::make()->iconButton()]);
@@ -240,9 +240,14 @@ class BulkProductSubmissionResource extends Resource
     public static function statusColor(string $status): string
     {
         return match ($status) {
-            'succeeded' => 'success', 'partial' => 'warning', 'failed' => 'danger',
+            'succeeded' => 'success', 'partial' => 'warning', 'failed', 'unknown' => 'danger',
             'processing' => 'info', default => 'gray',
         };
+    }
+
+    public static function statusLabel(string $status): string
+    {
+        return $status === 'unknown' ? 'Perlu Rekonsiliasi' : ucfirst($status);
     }
 
     private static function taxonomyOptions(Get $get, string $key): array

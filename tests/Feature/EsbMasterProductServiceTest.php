@@ -103,6 +103,29 @@ it('preserves create and update payloads and mapped create response', function (
     Http::assertSent(fn (Request $request): bool => $request->data() === $payload);
 });
 
+it('filters modal product units using the authoritative product detail status', function () {
+    Cache::put('esb_core.access_token', 'token');
+    Http::fake([
+        'https://core-esb.test/product/4215' => Http::response(['status' => 'ok', 'result' => [
+            'productDetails' => [
+                ['productDetailID' => 4890, 'flagActive' => true],
+                ['productDetailID' => 4891, 'flagActive' => false],
+                ['productDetailID' => 7310, 'flagActive' => true],
+            ],
+        ]]),
+    ]);
+
+    $details = [
+        4890 => ['productID' => 4215, 'productDetailID' => 4890, 'unit' => 'GR'],
+        4891 => ['productID' => 4215, 'productDetailID' => 4891, 'unit' => 'Resep Lama'],
+        7310 => ['productID' => 4215, 'productDetailID' => 7310, 'unit' => 'Toples'],
+    ];
+
+    $result = app(EsbMasterProductService::class)->filterActiveProductDetails($details);
+
+    expect(array_keys($result))->toBe([4890, 7310]);
+});
+
 it('refreshes a token once after an explicit 401', function () {
     Cache::put('esb_core.access_token', 'expired');
     Http::fake([

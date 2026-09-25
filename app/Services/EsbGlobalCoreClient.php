@@ -42,6 +42,22 @@ class EsbGlobalCoreClient
             ->all());
     }
 
+    /** @param array<int|string, string> $paths */
+    public function poolGetPaths(array $paths): array
+    {
+        $token = $this->accessToken();
+        $baseUrl = rtrim((string) config('esb.core.base_url'), '/');
+
+        return Http::pool(fn ($pool): array => collect($paths)
+            ->map(fn (string $path, int|string $key) => $pool
+                ->as((string) $key)
+                ->withToken($token)
+                ->acceptJson()
+                ->timeout((int) config('esb.core.timeout', 60))
+                ->get($baseUrl.'/'.ltrim($path, '/')))
+            ->all());
+    }
+
     /** @return array<string, mixed> */
     public function successfulResult(Response $response, string $action): array
     {

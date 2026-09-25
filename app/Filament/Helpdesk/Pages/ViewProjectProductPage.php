@@ -1291,6 +1291,7 @@ class ViewProjectProductPage extends Page
                 $this->inlineProductPerPage = $result['perPage'];
                 $this->inlineProductHasNext = $result['hasNext'];
             }
+            $this->inlineProductOptions = app(EsbMasterProductService::class)->filterActiveProductDetails($this->inlineProductOptions);
         } catch (Throwable $exception) {
             $this->inlineProductOptions = [];
             Notification::make()

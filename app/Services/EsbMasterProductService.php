@@ -63,6 +63,45 @@ class EsbMasterProductService
         );
     }
 
+    /** @param array<int, array<string, mixed>> $details */
+    public function filterActiveProductDetails(array $details): array
+    {
+        $productIds = collect($details)->pluck('productID')->map(fn ($id): int => (int) $id)->filter()->unique();
+        $activeIdsByProduct = [];
+        $missingPaths = [];
+
+        foreach ($productIds as $productId) {
+            $cached = Cache::get("esb.master_product.active_details.{$productId}");
+            if (is_array($cached)) {
+                $activeIdsByProduct[$productId] = $cached;
+            } else {
+                $missingPaths[$productId] = '/product/'.$productId;
+            }
+        }
+
+        $responses = $missingPaths === [] ? [] : $this->client->poolGetPaths($missingPaths);
+        foreach ($responses as $productId => $response) {
+            if (! $response || $response->failed() || data_get($response->json(), 'status') !== 'ok') {
+                continue;
+            }
+
+            $activeIds = collect(data_get($response->json(), 'result.productDetails', []))
+                ->filter(fn (array $detail): bool => (bool) ($detail['flagActive'] ?? false))
+                ->pluck('productDetailID')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+            $activeIdsByProduct[(int) $productId] = $activeIds;
+            Cache::put("esb.master_product.active_details.{$productId}", $activeIds, now()->addHours(6));
+        }
+
+        return collect($details)->filter(function (array $detail) use ($activeIdsByProduct): bool {
+            $productId = (int) ($detail['productID'] ?? 0);
+
+            return ! isset($activeIdsByProduct[$productId])
+                || in_array((int) ($detail['productDetailID'] ?? 0), $activeIdsByProduct[$productId], true);
+        })->all();
+    }
+
     /** @return array{productID:int,isTemp:bool} */
     public function createProduct(array $payload): array
     {

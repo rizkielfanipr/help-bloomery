@@ -166,6 +166,7 @@ class CreateBomRecipePage extends Page
                 $this->productPerPage = $result['perPage'];
                 $this->productHasNext = $result['hasNext'];
             }
+            $this->products = app(EsbMasterProductService::class)->filterActiveProductDetails($this->products);
         } catch (\RuntimeException $exception) {
             $this->products = [];
             Notification::make()

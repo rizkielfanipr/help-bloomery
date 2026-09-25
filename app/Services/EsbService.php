@@ -55,7 +55,7 @@ class EsbService
             foreach ($result['data'] ?? [] as $product) {
                 foreach ($product['productDetails'] ?? [] as $detail) {
                     $detailId = (int) ($detail['productDetailID'] ?? 0);
-                    if ($detailId < 1) {
+                    if ($detailId < 1 || ! $this->isActiveProductDetail($detail)) {
                         continue;
                     }
 
@@ -149,7 +149,7 @@ class EsbService
         foreach ($result['data'] ?? [] as $product) {
             foreach ($product['productDetails'] ?? [] as $detail) {
                 $detailId = (int) ($detail['productDetailID'] ?? 0);
-                if ($detailId < 1) {
+                if ($detailId < 1 || ! $this->isActiveProductDetail($detail)) {
                     continue;
                 }
 
@@ -241,13 +241,29 @@ class EsbService
     private function resolveBaseUnit(array $product): string
     {
         foreach ($product['productDetails'] ?? [] as $detail) {
+            if (! $this->isActiveProductDetail($detail)) {
+                continue;
+            }
+
             $baseUnitFlag = strtolower((string) data_get($detail, 'defaultUnit.baseUnit', ''));
             if (in_array($baseUnitFlag, ['yes', '1', 'true'], true)) {
                 return (string) ($detail['unit'] ?? '');
             }
         }
 
-        return (string) data_get($product, 'productDetails.0.unit', '');
+        $firstActiveDetail = collect($product['productDetails'] ?? [])
+            ->first(fn (array $detail): bool => $this->isActiveProductDetail($detail));
+
+        return (string) ($firstActiveDetail['unit'] ?? '');
+    }
+
+    private function isActiveProductDetail(array $detail): bool
+    {
+        if (! array_key_exists('flagActive', $detail)) {
+            return true;
+        }
+
+        return in_array(strtolower((string) $detail['flagActive']), ['1', 'true', 'yes'], true);
     }
 
     /**
@@ -318,7 +334,7 @@ class EsbService
             foreach (data_get($payload, 'result.data', []) as $product) {
                 foreach ($product['productDetails'] ?? [] as $detail) {
                     $detailId = (int) ($detail['productDetailID'] ?? 0);
-                    if ($detailId > 0) {
+                    if ($detailId > 0 && $this->isActiveProductDetail($detail)) {
                         $products[$detailId] = $this->mapProductDetail($product, $detail);
                     }
                 }
@@ -376,7 +392,9 @@ class EsbService
             }
 
             $units = collect($rows)
-                ->flatMap(fn (array $product) => collect($product['productDetails'] ?? [])->pluck('unit'))
+                ->flatMap(fn (array $product) => collect($product['productDetails'] ?? [])
+                    ->filter(fn (array $detail): bool => $this->isActiveProductDetail($detail))
+                    ->pluck('unit'))
                 ->filter()
                 ->unique()
                 ->sort(SORT_NATURAL | SORT_FLAG_CASE)

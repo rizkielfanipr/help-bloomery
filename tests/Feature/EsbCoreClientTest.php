@@ -5,11 +5,15 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-it('declares the BLO15 company credential configuration', function () {
-    expect(config('esb.core.companies'))
-        ->toHaveKey('BLO15')
-        ->and(config('esb.core.companies.BLO15'))
-        ->toHaveKeys(['username', 'password']);
+it('declares credential configuration for every ESB company code', function () {
+    $companies = ['BLSS', 'BLO6', 'BLO7', 'BLO10', 'BLO15', 'BLMN', 'BLAR', 'BLO3', 'BLO11', 'BLO12', 'BLO13', 'BLO14', 'BLO16', 'BLO18'];
+
+    foreach ($companies as $company) {
+        expect(config('esb.core.companies'))
+            ->toHaveKey($company)
+            ->and(config("esb.core.companies.{$company}"))
+            ->toHaveKeys(['username', 'password']);
+    }
 });
 
 beforeEach(function (): void {

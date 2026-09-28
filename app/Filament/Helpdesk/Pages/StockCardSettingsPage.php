@@ -191,7 +191,7 @@ class StockCardSettingsPage extends Page
                 'branches' => $branches,
                 'status' => 'failed',
                 'category_count' => count($this->categorySources[$company] ?? []),
-                'message' => 'Kategori terakhir tetap digunakan.',
+                'message' => $exception->getMessage().' Kategori terakhir tetap digunakan.',
             ];
         }
 

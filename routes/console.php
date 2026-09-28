@@ -12,6 +12,9 @@ Schedule::command('service-requests:complete-warranty')->daily();
 Schedule::command('briefing:auto-reject')->everyMinute()->withoutOverlapping();
 Schedule::command('briefing:compute-scores')->monthlyOn(1, '02:00');
 Schedule::command('rnd:sync-esb-materials')->dailyAt('02:30')->withoutOverlapping(30);
+Schedule::command('product-price-index:sync --days=90')
+    ->weeklyOn(1, '01:00')
+    ->withoutOverlapping(180);
 
 Schedule::command('sales-reports:auto-reject')->everyMinute()->withoutOverlapping();
 Schedule::command('basket-size:finalize')->everyTenMinutes()->withoutOverlapping(30);

@@ -16,7 +16,7 @@
         ])->all();
     $inlineResult = $inlineEditing ? $inlineDraft : $inlineDetail;
     $inlineIsMenu = $this->isMenuBomDetail($inlineDetail ?? []);
-    $inlineColumnCount = $inlineIsMenu ? 7 : 8;
+    $inlineColumnCount = 5;
 @endphp
 
 <div class="border-t border-gray-200 bg-white/70 dark:border-gray-700 dark:bg-gray-900/60">
@@ -75,18 +75,13 @@
             </div>
 
             <div class="overflow-x-auto">
-            <table class="w-full min-w-[880px] table-fixed text-xs">
+            <table class="w-full min-w-[640px] table-fixed text-xs">
                 <colgroup>
-                    <col class="w-[28%]">
-                    <col class="w-[9%]">
+                    <col class="w-[42%]">
                     <col class="w-[12%]">
+                    <col class="w-[18%]">
+                    <col class="w-[18%]">
                     <col class="w-[10%]">
-                    <col class="w-[10%]">
-                    @unless($inlineIsMenu)
-                        <col class="w-[11%]">
-                    @endunless
-                    <col class="w-[14%]">
-                    <col class="w-[6%]">
                 </colgroup>
                 <thead class="bg-gray-50 text-[10px] uppercase text-gray-500 dark:bg-gray-800">
                     <tr>
@@ -94,11 +89,6 @@
                         <th class="px-3 py-2 text-left">Unit</th>
                         <th class="px-3 py-2 text-right" title="Harga rata-rata tertimbang dari histori pembelian (Product Price Index)">Harga WA</th>
                         <th class="px-3 py-2 text-right">Qty</th>
-                        <th class="px-3 py-2 text-right">Waste %</th>
-                        @unless($inlineIsMenu)
-                            <th class="px-3 py-2 text-right">Tolerance %</th>
-                        @endunless
-                        <th class="px-3 py-2 text-left">Print Group</th>
                         <th class="px-2 py-2 text-right">
                             @if($inlineEditing)
                                 Aksi
@@ -132,29 +122,6 @@
                                     @error("bomComponentDrafts.$inlineBomId.bomDetails.$componentIndex.qty")<p class="mt-1 text-[10px] text-red-600">{{ $message }}</p>@enderror
                                 @else
                                     <p class="text-right font-bold">{{ rtrim(rtrim(number_format((float) $component['qty'], 4, '.', ''), '0'), '.') }}</p>
-                                @endif
-                            </td>
-                            <td class="px-3 py-2">
-                                @if($inlineEditing)
-                                    <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.bomDetails.{{ $componentIndex }}.yieldPercent" type="number" min="0" max="100" step="0.01" class="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-right text-xs dark:border-gray-600 dark:bg-gray-800">
-                                @else
-                                    <p class="text-right">{{ $component['yieldPercent'] }}</p>
-                                @endif
-                            </td>
-                            @unless($inlineIsMenu)
-                                <td class="px-3 py-2">
-                                    @if($inlineEditing)
-                                        <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.bomDetails.{{ $componentIndex }}.tolerancePercent" type="number" min="0" max="100" step="0.01" class="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-right text-xs dark:border-gray-600 dark:bg-gray-800">
-                                    @else
-                                        <p class="text-right">{{ $component['tolerancePercent'] }}</p>
-                                    @endif
-                                </td>
-                            @endunless
-                            <td class="px-3 py-2">
-                                @if($inlineEditing)
-                                    <input wire:model="bomComponentDrafts.{{ $inlineBomId }}.bomDetails.{{ $componentIndex }}.printGroup" maxlength="100" class="block w-full min-w-0 rounded-md border border-gray-300 px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-800">
-                                @else
-                                    {{ $component['printGroup'] ?: '-' }}
                                 @endif
                             </td>
                             <td class="px-2 py-2 text-right">

@@ -6,6 +6,7 @@
         $pageEnd = min($lastPage, $pageStart + 6);
         $pageStart = max(1, $pageEnd - 6);
         $lastSync = $this->lastSyncedAt();
+        $lastAutomaticRun = $this->lastAutomaticRun();
     @endphp
 
     <div class="space-y-5">
@@ -23,9 +24,17 @@
             </div>
         </section>
 
+        <div class="inline-flex rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
+            <button type="button" wire:click="$set('tab', 'materials')" class="rounded-lg px-4 py-2 text-sm font-bold {{ $tab === 'materials' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800' }}">Harga Bahan</button>
+            <button type="button" wire:click="$set('tab', 'wip')" class="rounded-lg px-4 py-2 text-sm font-bold {{ $tab === 'wip' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800' }}">Harga WIP</button>
+        </div>
+
         @if(auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('sync product price index'))
         <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-            <div class="mb-4 flex items-center gap-2"><x-heroicon-o-arrow-path class="h-5 w-5 text-blue-600" /><h3 class="font-bold">Sinkronisasi Purchase Order ESB</h3></div>
+            <div class="mb-4 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                <div class="flex items-center gap-2"><x-heroicon-o-arrow-path class="h-5 w-5 text-blue-600" /><h3 class="font-bold">Sinkronisasi Purchase Order ESB</h3></div>
+                <p class="text-xs text-gray-500">Otomatis setiap Senin 01.00 · rolling 90 hari</p>
+            </div>
             <div class="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
                 <div><label class="mb-1 block text-xs font-semibold text-gray-500">Dari tanggal</label><input wire:model="syncFrom" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"></div>
                 <div><label class="mb-1 block text-xs font-semibold text-gray-500">Sampai tanggal</label><input wire:model="syncTo" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"></div>
@@ -37,9 +46,13 @@
                 <span class="h-5 w-5 animate-spin rounded-full border-2 border-blue-200 border-r-blue-600"></span>
                 Mengambil PO dan detail produknya. Jangan tutup halaman sampai proses selesai.
             </div>
+            @if($lastAutomaticRun)
+                <p class="mt-3 text-xs text-gray-500">Proses otomatis terakhir: {{ $lastAutomaticRun->started_at->format('d M Y, H:i') }} · {{ ucfirst($lastAutomaticRun->status) }} · {{ $lastAutomaticRun->products_snapshotted }} produk</p>
+            @endif
         </section>
         @endif
 
+        @if($tab === 'materials')
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="grid gap-3 border-b border-gray-200 p-4 md:grid-cols-2 xl:grid-cols-5 dark:border-gray-700">
                 <input wire:model.live.debounce.500ms="search" type="search" placeholder="Cari kode atau nama produk..." class="rounded-lg border border-gray-300 px-3 py-2 text-sm xl:col-span-2 dark:border-gray-600 dark:bg-gray-800">
@@ -84,5 +97,34 @@
                 </div>
             </div>
         </section>
+        @else
+            @php $wipRows = $this->wipRows(); @endphp
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="border-b border-gray-200 p-5 dark:border-gray-700">
+                    <h3 class="font-bold text-gray-900 dark:text-white">Index Harga WIP</h3>
+                    <p class="mt-1 text-sm text-gray-500">Harga dihitung dari qty bahan pada BOM × harga purchase snapshot terbaru. WIP bertingkat diuraikan sampai bahan dasarnya.</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[760px] text-sm">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-800">
+                            <tr><th class="px-4 py-3 text-left">WIP</th><th class="px-4 py-3 text-left">Unit</th><th class="px-4 py-3 text-right">Harga WIP</th><th class="px-4 py-3 text-center">Bahan Dasar</th><th class="px-4 py-3 text-left">Status</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @forelse($wipRows as $row)
+                                <tr>
+                                    <td class="px-4 py-3"><p class="font-bold text-gray-900 dark:text-white">{{ $row['product_name'] }}</p><p class="font-mono text-xs font-semibold text-blue-600">{{ $row['product_code'] ?: 'PD-'.$row['product_detail_id'] }}</p></td>
+                                    <td class="px-4 py-3">{{ $row['uom_name'] ?: '-' }}</td>
+                                    <td class="px-4 py-3 text-right font-bold {{ $row['complete'] ? 'text-blue-700' : 'text-gray-400' }}">{{ $row['complete'] ? 'Rp '.number_format($row['price'], 0, ',', '.') : '-' }}</td>
+                                    <td class="px-4 py-3 text-center font-bold">{{ $row['material_count'] }}</td>
+                                    <td class="px-4 py-3"><span class="inline-flex rounded-full px-2 py-1 text-xs font-bold {{ $row['complete'] ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">{{ $row['complete'] ? 'Lengkap' : 'Perlu Data' }}</span><p class="mt-1 max-w-lg text-xs text-gray-500">{{ $row['message'] }}</p></td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="px-5 py-16 text-center text-gray-500">Belum ada BOM WIP lokal yang dapat dihitung.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endif
     </div>
 </x-filament-panels::page>

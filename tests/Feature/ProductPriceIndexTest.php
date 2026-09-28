@@ -79,7 +79,12 @@ it('synchronizes PO details and calculates normalized net prices', function () {
 
     Livewire::test(ProductPriceIndexPage::class)
         ->assertSee('Tepung Premium')
-        ->assertSee('Supplier A');
+        ->assertSee('Supplier A')
+        ->assertSee('Harga Bahan')
+        ->assertSee('Harga WIP')
+        ->set('tab', 'wip')
+        ->assertSee('Index Harga WIP')
+        ->assertSee('Belum ada BOM WIP lokal yang dapat dihitung.');
 
     Livewire::test(ProductPriceIndexDetailPage::class, ['productDetail' => 501])
         ->assertSee('PO-TEST-001')

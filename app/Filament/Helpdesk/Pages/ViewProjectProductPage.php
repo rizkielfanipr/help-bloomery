@@ -849,11 +849,21 @@ class ViewProjectProductPage extends Page
                 : app(EsbBillOfMaterialService::class)->getBillOfMaterial($projectBom->esb_bom_id);
             $detail['bomDetails'] = $this->hydrateMissingBomRowMetadata($detail['bomDetails'] ?? []);
 
-            $projectBom->update([
+            $syncedAttributes = [
+                'bom_code' => $detail['bomCode'] ?? $projectBom->bom_code,
+                'bom_name' => $detail['bomName'] ?? $projectBom->bom_name,
+                'product_name' => $detail['productName'] ?? $projectBom->product_name,
+                'uom_name' => $detail['uomName'] ?? $projectBom->uom_name,
+                'bom_type_name' => $detail['bomTypeName'] ?? $projectBom->bom_type_name,
+                'is_active' => (int) ($detail['flagActive'] ?? $projectBom->is_active) === 1,
                 'detail_snapshot' => $detail,
                 'sync_status' => 'synced',
                 'last_synced_at' => now(),
-            ]);
+            ];
+            $projectBom->update($syncedAttributes);
+            $this->productRecord->boms
+                ->firstWhere('id', $projectBomId)
+                ?->forceFill($syncedAttributes);
             $this->setBomComponentState($projectBomId, $detail);
             $this->bomComponentExpanded[$projectBomId] = true;
         } catch (Throwable $exception) {

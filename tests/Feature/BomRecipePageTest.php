@@ -1,8 +1,6 @@
 <?php
 
 use App\Filament\Helpdesk\Pages\CreateBomRecipePage;
-use App\Filament\Helpdesk\Pages\EditBomRecipePage;
-use App\Filament\Helpdesk\Pages\ViewBomPage;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\RndBomInstruction;
@@ -110,63 +108,6 @@ it('keeps the BOM name input visible when creating a Store BOM', function () {
         ->assertDontSeeHtml('wire:model="data.bomCode"')
         ->assertDontSeeHtml('wire:model.live="data.accessType"')
         ->assertDontSeeHtml('wire:model="data.selectedUserAccess"');
-});
-
-it('renders the BOM view and update workspaces', function () {
-    config()->set([
-        'cache.default' => 'array',
-        'rnd.bom_pin' => '246810',
-        'esb.core.base_url' => 'https://core-esb.test',
-        'esb.core.username' => 'integration-user',
-        'esb.core.password' => 'integration-password',
-    ]);
-    Cache::flush();
-
-    Http::fake([
-        'https://core-esb.test/auth/login' => Http::response([
-            'status' => 'ok',
-            'result' => ['accessToken' => 'access-token'],
-        ]),
-        'https://core-esb.test/product/bom/42' => Http::response([
-            'status' => 'ok',
-            'result' => bomDetail(),
-        ]),
-    ]);
-
-    $projectBom = RndProjectBom::query()->create([
-        'rnd_project_id' => $this->project->id,
-        'esb_bom_id' => 42,
-        'bom_code' => 'BOM-CRS',
-        'bom_name' => 'Croissant Assembly',
-        'product_name' => 'Croissant',
-        'uom_name' => 'PCS',
-        'created_by' => auth()->id(),
-    ]);
-    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
-
-    $view = Livewire::test(ViewBomPage::class, ['project' => $this->project->id, 'product' => $this->product->id, 'bom' => 42])
-        ->assertSee('Resep Dilindungi PIN')
-        ->assertDontSee('Croissant Assembly');
-
-    Http::assertNothingSent();
-
-    $view->set('pin', '000000')
-        ->call('verifyPin')
-        ->assertHasErrors('pin')
-        ->assertDontSee('Croissant Assembly');
-
-    Http::assertNothingSent();
-
-    $view->set('pin', '246810')
-        ->call('verifyPin')
-        ->assertHasNoErrors()
-        ->assertSee('Croissant Assembly')
-        ->assertSee('Butter');
-
-    Livewire::test(EditBomRecipePage::class, ['project' => $this->project->id, 'product' => $this->product->id, 'bom' => 42])
-        ->assertSet('isEditing', true)
-        ->assertSet('data.bomName', 'Croissant Assembly')
-        ->assertSee('Update Bill of Material');
 });
 
 it('stores a newly created ESB BOM inside its project', function () {
@@ -499,12 +440,21 @@ it('loads and updates BOM components inline from the product release page', func
         ->assertSee('Butter')
         ->assertSee('Product Hasil')
         ->assertSee('Edit BOM')
+        ->assertDontSee('View Recipe')
+        ->assertDontSee('Waste %')
+        ->assertDontSee('Tolerance %')
+        ->assertDontSee('Print Group')
+        ->assertDontSee('/bom/42/view', false)
+        ->assertDontSee('/bom/42/edit', false)
         ->assertDontSee('Muat Komponen')
         ->assertDontSee('Tutup Komponen')
         ->call('editBomComponents', $projectBom->id)
         ->assertSee('Tambah Komponen')
         ->assertSee('Bahan Khusus SOP')
         ->assertSee('Ganti Product Hasil')
+        ->assertDontSeeHtml("wire:model=\"bomComponentDrafts.{$projectBom->id}.bomDetails.0.yieldPercent\"")
+        ->assertDontSeeHtml("wire:model=\"bomComponentDrafts.{$projectBom->id}.bomDetails.0.tolerancePercent\"")
+        ->assertDontSeeHtml("wire:model=\"bomComponentDrafts.{$projectBom->id}.bomDetails.0.printGroup\"")
         ->call('addInlineDocumentMaterial', $projectBom->id)
         ->set("bomComponentDrafts.{$projectBom->id}.documentMaterials.0.name", 'Air')
         ->set("bomComponentDrafts.{$projectBom->id}.documentMaterials.0.quantity", 200)
@@ -568,6 +518,66 @@ it('loads and updates BOM components inline from the product release page', func
         'quantity' => 200,
         'unit' => 'ml',
     ]);
+});
+
+it('refreshes the displayed BOM result metadata from ESB', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    $updatedDetail = array_replace(bomDetail(), [
+        'productDetailID' => 1367,
+        'productName' => 'WIP | Hot Cocoa Mix Updated',
+        'productCode' => 'BW1367',
+        'uomName' => 'Resep',
+    ]);
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/42' => Http::response([
+            'status' => 'ok',
+            'result' => $updatedDetail,
+        ]),
+    ]);
+
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 42,
+        'bom_code' => 'BOM-OLD',
+        'bom_name' => 'Old Recipe',
+        'product_name' => 'Old Result Product',
+        'uom_name' => 'GR',
+        'bom_type_name' => 'Assembly',
+        'sync_status' => 'synced',
+        'detail_snapshot' => array_replace(bomDetail(), [
+            'productName' => 'Old Result Product',
+            'uomName' => 'GR',
+        ]),
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])
+        ->assertSee('Old Result Product')
+        ->call('loadBomComponents', $projectBom->id, true)
+        ->assertSee('WIP | Hot Cocoa Mix Updated')
+        ->assertDontSee('Old Result Product');
+
+    expect($projectBom->fresh())
+        ->product_name->toBe('WIP | Hot Cocoa Mix Updated')
+        ->uom_name->toBe('Resep')
+        ->bom_name->toBe('Croissant Assembly')
+        ->bom_code->toBe('BOM-CRS');
 });
 
 it('backfills missing component metadata from master product ESB', function () {

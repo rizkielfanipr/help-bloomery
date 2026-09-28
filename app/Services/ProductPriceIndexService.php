@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\EsbPurchaseOrderItem;
+use App\Models\ProductPriceSnapshot;
 use Illuminate\Support\Collection;
 
 class ProductPriceIndexService
@@ -32,6 +33,22 @@ class ProductPriceIndexService
 
         if ($productDetailIds === []) {
             return collect();
+        }
+
+        if (! $dateFrom && ! $dateTo) {
+            $latestSnapshot = ProductPriceSnapshot::query()->max('snapshot_date');
+            if ($latestSnapshot) {
+                return ProductPriceSnapshot::query()
+                    ->where('snapshot_date', $latestSnapshot)
+                    ->whereIn('product_detail_id', $productDetailIds)
+                    ->get()
+                    ->map(fn (ProductPriceSnapshot $snapshot): object => (object) [
+                        'product_detail_id' => $snapshot->product_detail_id,
+                        'average_price' => (float) $snapshot->weighted_average_price,
+                        'po_count' => $snapshot->purchase_count,
+                    ])
+                    ->keyBy('product_detail_id');
+            }
         }
 
         $baseQuantity = self::baseQuantitySql();

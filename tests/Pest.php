@@ -135,7 +135,7 @@ function runRecalculation($page)
  * asserted by production consumers of `GET {ESB_CORE_BASE_URL}/product/bom/{bomID}`:
  *
  * - app/Services/EsbBillOfMaterialService.php (getBillOfMaterial, createAssembly bomTypeID)
- * - app/Filament/Helpdesk/Pages/CreateBomRecipePage.php / EditBomRecipePage.php
+ * - app/Filament/Helpdesk/Pages/CreateBomRecipePage.php
  * - app/Services/RndProjectMaterialForecastService.php (recursive WIP/Assembly resolution)
  * - tests/Feature/EsbBillOfMaterialServiceTest.php, tests/Feature/RndProjectMaterialForecastTest.php
  *

@@ -1,7 +1,6 @@
 <?php
 
-use App\Filament\Helpdesk\Pages\EditBomRecipePage;
-use App\Filament\Helpdesk\Pages\ViewBomPage;
+use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Http\Controllers\AssetIssueReportController;
 use App\Http\Controllers\AssetScanController;
@@ -124,7 +123,7 @@ Route::middleware(['auth'])->group(function (): void {
         $product = $projectBom?->products->first();
 
         return redirect()->to($projectBom && $product
-            ? ViewBomPage::getUrl(['project' => $projectBom->rnd_project_id, 'product' => $product->id, 'bom' => $bom])
+            ? ViewProjectProductPage::getUrl(['project' => $projectBom->rnd_project_id, 'product' => $product->id])
             : ProjectResource::getUrl());
     })->name('legacy.bill-of-material.view');
 
@@ -134,7 +133,7 @@ Route::middleware(['auth'])->group(function (): void {
         $product = $projectBom?->products->first();
 
         return redirect()->to($projectBom && $product
-            ? EditBomRecipePage::getUrl(['project' => $projectBom->rnd_project_id, 'product' => $product->id, 'bom' => $bom])
+            ? ViewProjectProductPage::getUrl(['project' => $projectBom->rnd_project_id, 'product' => $product->id])
             : ProjectResource::getUrl());
     })->name('legacy.bill-of-material.edit');
 
@@ -158,9 +157,10 @@ Route::middleware(['auth'])->group(function (): void {
             return redirect()->to(ProjectResource::getUrl('view', ['record' => $project]));
         }
 
-        return redirect()->to($action === 'edit'
-            ? EditBomRecipePage::getUrl(['project' => $project, 'product' => $product->id, 'bom' => $bom])
-            : ViewBomPage::getUrl(['project' => $project, 'product' => $product->id, 'bom' => $bom]));
+        return redirect()->to(ViewProjectProductPage::getUrl([
+            'project' => $project,
+            'product' => $product->id,
+        ]));
     })->name('legacy.rnd-projects.bom.action');
 });
 

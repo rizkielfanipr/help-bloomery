@@ -534,9 +534,7 @@
                                 <p class="truncate text-xs text-gray-500">{{ $mainBom->product_name ?: '-' }} · {{ $mainBom->uom_name ?: '-' }}</p>
                             </div>
                             <div class="flex shrink-0 gap-2">
-                                <a href="{{ \App\Filament\Helpdesk\Pages\ViewBomPage::getUrl(['project' => $project->id, 'product' => $product->id, 'bom' => $mainBom->esb_bom_id]) }}" class="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 dark:border-blue-800 dark:bg-gray-900">View Recipe</a>
                                 @if($canManageBom)
-                                    <a href="{{ \App\Filament\Helpdesk\Pages\EditBomRecipePage::getUrl(['project' => $project->id, 'product' => $product->id, 'bom' => $mainBom->esb_bom_id]) }}" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">Update</a>
                                     <button wire:click="detachBom({{ $mainBom->esb_bom_id }})" wire:confirm="Lepas Main Recipe ini? Item di bawahnya akan masuk kelompok Belum Ditentukan." class="rounded-lg border border-red-200 bg-white p-2 text-red-600 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-link-slash class="h-4 w-4" /></button>
                                 @endif
                             </div>
@@ -653,7 +651,6 @@
                                                 <p class="truncate text-xs font-bold text-gray-900 dark:text-white">{{ $bom->bom_name }}</p>
                                                 <p class="truncate font-mono text-[10px] text-gray-500">{{ $bom->bom_code ?: 'BOM-'.$bom->esb_bom_id }} · {{ $bom->uom_name ?: '-' }}</p>
                                                 <div class="mt-2 flex gap-1.5">
-                                                    <a href="{{ \App\Filament\Helpdesk\Pages\ViewBomPage::getUrl(['project' => $project->id, 'product' => $product->id, 'bom' => $bom->esb_bom_id]) }}" class="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-center text-[10px] font-bold text-gray-700 dark:border-gray-600 dark:text-gray-200">View</a>
                                                     @if($canManageBom)
                                                         <select wire:change="assignBomToMain({{ $bom->esb_bom_id }}, $event.target.value)" title="Pindahkan ke Main Recipe lain" class="min-w-0 max-w-24 rounded-md border border-gray-300 px-1 text-[10px] dark:border-gray-600 dark:bg-gray-800">
                                                             @foreach($mainBoms as $mainOption)<option value="{{ $mainOption->id }}" @selected($mainOption->id === $mainBom->id)>{{ $mainOption->bom_name }}</option>@endforeach
@@ -745,9 +742,7 @@
                                 <p class="truncate text-xs text-gray-500">{{ count($bomComponentDetails[$menuBom->id]['bomDetails'] ?? []) }} item pada Menu ini</p>
                             </div>
                             <div class="flex shrink-0 gap-2">
-                                <a href="{{ \App\Filament\Helpdesk\Pages\ViewBomPage::getUrl(['project' => $project->id, 'product' => $product->id, 'bom' => $menuBom->esb_bom_id]) }}" class="rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700 dark:border-blue-800 dark:bg-gray-900">View Recipe</a>
                                 @if($canManageBom)
-                                    <a href="{{ \App\Filament\Helpdesk\Pages\EditBomRecipePage::getUrl(['project' => $project->id, 'product' => $product->id, 'bom' => $menuBom->esb_bom_id]) }}" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white">Update</a>
                                     <button wire:click="detachBom({{ $menuBom->esb_bom_id }})" wire:confirm="Lepas BOM Menu ini?" class="rounded-lg border border-red-200 bg-white p-2 text-red-600 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-link-slash class="h-4 w-4" /></button>
                                 @endif
                             </div>

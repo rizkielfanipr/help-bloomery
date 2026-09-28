@@ -4,14 +4,19 @@ namespace App\Filament\Helpdesk\Pages;
 
 use App\Models\EsbPurchaseOrder;
 use App\Models\EsbPurchaseOrderItem;
+use App\Models\ProductPriceSyncRun;
 use App\Services\ProductPriceIndexService;
+use App\Services\ProductPriceSnapshotService;
 use App\Services\PurchaseOrderPriceSyncService;
+use App\Services\WipPriceIndexService;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Livewire\Attributes\Url;
 use UnitEnum;
 
 class ProductPriceIndexPage extends Page
@@ -31,6 +36,9 @@ class ProductPriceIndexPage extends Page
     protected string $view = 'filament.helpdesk.pages.product-price-index';
 
     public string $search = '';
+
+    #[Url]
+    public string $tab = 'materials';
 
     public string $supplier = '';
 
@@ -86,7 +94,13 @@ class ProductPriceIndexPage extends Page
         try {
             $result = app(PurchaseOrderPriceSyncService::class)
                 ->sync($this->syncFrom, $this->syncTo, 10, 20);
+            $products = app(ProductPriceSnapshotService::class)->create(
+                today(),
+                Carbon::parse($this->syncFrom),
+                Carbon::parse($this->syncTo),
+            );
             $body = "{$result['orders']} PO dan {$result['items']} item disinkronkan.";
+            $body .= " {$products} harga bahan disimpan ke snapshot lokal.";
             if ($result['failed'] > 0) {
                 $body .= " {$result['failed']} PO gagal dan dapat dicoba kembali.";
             }
@@ -162,5 +176,15 @@ class ProductPriceIndexPage extends Page
         return EsbPurchaseOrder::query()->max('last_synced_at')
             ? Carbon::parse(EsbPurchaseOrder::query()->max('last_synced_at'))
             : null;
+    }
+
+    public function lastAutomaticRun(): ?ProductPriceSyncRun
+    {
+        return ProductPriceSyncRun::query()->latest('started_at')->first();
+    }
+
+    public function wipRows(): Collection
+    {
+        return app(WipPriceIndexService::class)->prices();
     }
 }

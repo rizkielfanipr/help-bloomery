@@ -81,3 +81,64 @@ it('calculates WIP price from the latest material price snapshot', function () {
         ->and($row['complete'])->toBeTrue()
         ->and($row['material_count'])->toBe(1);
 });
+
+it('calculates a parent WIP price proportionally from the child recipe output', function () {
+    ProductPriceSnapshot::factory()->create([
+        'snapshot_date' => '2026-09-21',
+        'product_detail_id' => 501,
+        'weighted_average_price' => 20,
+    ]);
+    $user = User::factory()->create();
+    $project = RndProject::query()->create([
+        'name' => 'Nested WIP Price',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-30',
+        'created_by' => $user->id,
+    ]);
+    RndProjectBom::query()->create([
+        'rnd_project_id' => $project->id,
+        'esb_bom_id' => 101,
+        'bom_name' => 'Froyo Mix',
+        'product_name' => 'WIP Froyo Mix',
+        'is_active' => true,
+        'created_by' => $user->id,
+        'detail_snapshot' => [
+            'productDetailID' => 901,
+            'productCode' => 'BW901',
+            'productName' => 'WIP Froyo Mix',
+            'categoryName' => 'Barang WIP',
+            'conversionFactor' => 6000,
+            'bomDetails' => [[
+                'productDetailID' => 501,
+                'productCode' => 'BBMK001',
+                'productName' => 'Susu',
+                'qty' => 3000,
+            ]],
+        ],
+    ]);
+    RndProjectBom::query()->create([
+        'rnd_project_id' => $project->id,
+        'esb_bom_id' => 102,
+        'bom_name' => 'Parent',
+        'product_name' => 'WIP Parent',
+        'is_active' => true,
+        'created_by' => $user->id,
+        'detail_snapshot' => [
+            'productDetailID' => 902,
+            'productCode' => 'BW902',
+            'productName' => 'WIP Parent',
+            'categoryName' => 'Barang WIP',
+            'bomDetails' => [[
+                'productDetailID' => 901,
+                'productCode' => 'BW901',
+                'productName' => 'WIP Froyo Mix',
+                'categoryName' => 'Barang WIP',
+                'qty' => 130,
+            ]],
+        ],
+    ]);
+
+    $parent = app(WipPriceIndexService::class)->prices()->firstWhere('product_code', 'BW902');
+
+    expect($parent['price'])->toBe(1300.0);
+});

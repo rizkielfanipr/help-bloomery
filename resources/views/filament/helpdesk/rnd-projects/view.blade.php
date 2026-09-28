@@ -218,9 +218,15 @@
             @php $materialForecast = $this->materialForecast(); @endphp
             <section class="overflow-hidden rounded-2xl border border-emerald-200 bg-white dark:border-emerald-900/70 dark:bg-gray-900">
                 <div class="flex flex-wrap gap-2 border-b border-gray-200 bg-white px-5 py-3 dark:border-gray-700 dark:bg-gray-900" role="group" aria-label="Jenis Material Forecast">
-                    <button type="button" wire:click="setForecastType('kitchen')" aria-pressed="{{ $forecastType === 'kitchen' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition', 'bg-emerald-600 text-white' => $forecastType === 'kitchen', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'kitchen'])><x-heroicon-o-building-storefront class="h-4 w-4" />Forecast Kitchen</button>
-                    <button type="button" wire:click="setForecastType('store')" aria-pressed="{{ $forecastType === 'store' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition', 'bg-blue-600 text-white' => $forecastType === 'store', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'store'])><x-heroicon-o-shopping-bag class="h-4 w-4" />Forecast Store</button>
-                    <span wire:loading wire:target="setForecastType" role="status" class="self-center text-xs text-gray-500">Menghitung forecast…</span>
+                    <button type="button" wire:click="setForecastType('kitchen')" wire:loading.attr="disabled" wire:target="setForecastType" aria-pressed="{{ $forecastType === 'kitchen' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60', 'bg-emerald-600 text-white' => $forecastType === 'kitchen', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'kitchen'])><x-heroicon-o-building-storefront class="h-4 w-4" />Forecast Kitchen</button>
+                    <button type="button" wire:click="setForecastType('store')" wire:loading.attr="disabled" wire:target="setForecastType" aria-pressed="{{ $forecastType === 'store' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60', 'bg-blue-600 text-white' => $forecastType === 'store', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'store'])><x-heroicon-o-shopping-bag class="h-4 w-4" />Forecast Store</button>
+                    <a href="{{ route('helpdesk.rnd-projects.material-forecast-export', ['project' => $project->id]) }}" class="ml-auto inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                        <x-heroicon-o-arrow-down-tray class="h-4 w-4" />Export Excel
+                    </a>
+                    <span wire:loading.flex wire:target="setForecastType" role="status" class="items-center gap-2 self-center text-xs font-medium text-gray-500">
+                        <x-filament::loading-indicator class="h-4 w-4" />
+                        Menghitung forecast…
+                    </span>
                 </div>
                 <div class="border-b border-emerald-200 bg-emerald-50/70 p-5 dark:border-emerald-900/70 dark:bg-emerald-950/20">
                     <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
@@ -234,30 +240,62 @@
                                 <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">Perkiraan total bahan baku yang perlu disiapkan Purchasing berdasarkan proyeksi penjualan seluruh produk dalam project dan {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}.</p>
                                 <div class="mt-3 inline-flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-gray-900 dark:text-emerald-200">
                                     <x-heroicon-o-variable class="h-4 w-4 shrink-0" />
-                                    <span><strong>Rumus:</strong> Sales Projection × Qty {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}{{ $forecastType === 'store' ? '' : ' + Tolerance bahan' }}</span>
+                                    <span><strong>Rumus:</strong> Sales Projection × Qty {{ $forecastType === 'store' ? 'BOM Menu. Komponen ditampilkan langsung tanpa menguraikan WIP.' : 'Main Recipe + Tolerance bahan. WIP dihitung proporsional: kebutuhan WIP ÷ hasil per resep × bahan resep.' }}</span>
                                 </div>
-                                <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">Component dan WIP ditelusuri sampai bahan baku terakhir. Bahan dengan kode dan unit yang sama otomatis dijumlahkan. {{ $forecastType === 'store' ? 'Jika satu produk memiliki beberapa BOM Menu, setiap BOM Menu dihitung memakai seluruh proyeksi produk tersebut.' : '' }}</p>
+                                <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $forecastType === 'store' ? 'Forecast berhenti pada komponen langsung BOM Menu. WIP tetap ditampilkan sebagai WIP dan tidak dibuka menjadi bahan resep.' : 'Component dan WIP ditelusuri sampai bahan baku terakhir.' }} Bahan dengan kode dan unit yang sama otomatis dijumlahkan. {{ $forecastType === 'store' ? 'Jika satu produk memiliki beberapa BOM Menu, setiap BOM Menu dihitung memakai seluruh proyeksi produk tersebut.' : '' }}</p>
+                                <form wire:submit="saveForecastPercentage" class="mt-3 flex flex-wrap items-end gap-2">
+                                    <label class="block">
+                                        <span class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Persentase Forecast</span>
+                                        <span class="mt-1 flex w-36 overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
+                                            <input type="number" min="1" max="100" step="0.01" wire:model="forecastPercentage" @disabled(! \App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project)) class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm focus:ring-0 disabled:bg-gray-100 dark:disabled:bg-gray-800">
+                                            <span class="flex items-center border-l border-gray-200 px-3 text-sm font-semibold text-gray-500 dark:border-gray-700">%</span>
+                                        </span>
+                                    </label>
+                                    @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project))
+                                        <x-filament::button type="submit" size="sm" wire:loading.attr="disabled" wire:target="saveForecastPercentage">
+                                            <span wire:loading.remove wire:target="saveForecastPercentage">Terapkan</span>
+                                            <span wire:loading.flex wire:target="saveForecastPercentage" class="items-center gap-2"><x-filament::loading-indicator class="h-4 w-4" />Menyimpan</span>
+                                        </x-filament::button>
+                                    @endif
+                                    @error('forecastPercentage')<p class="w-full text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+                                </form>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-                            <div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-white p-3.5 dark:border-emerald-800 dark:bg-gray-900">
-                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                                    <x-heroicon-o-cube class="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Produk Terhitung</p>
-                                    <p class="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">{{ number_format($materialForecast['projected_products']) }}</p>
-                                    <p class="text-[10px] text-gray-500">memiliki projection &amp; {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-white p-3.5 dark:border-emerald-800 dark:bg-gray-900">
-                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                        <div>
+                            <div class="flex items-start gap-3 rounded-xl border border-emerald-200 bg-white p-4 dark:border-emerald-800 dark:bg-gray-900">
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                                     <x-heroicon-o-chart-bar class="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Total Proyeksi Penjualan</p>
-                                    <p class="mt-0.5 text-xl font-bold text-gray-900 dark:text-white">{{ number_format($materialForecast['projected_units'], 0, ',', '.') }}</p>
-                                    <p class="text-[10px] text-gray-500">unit produk dalam project</p>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Sales Projection Project</p>
+                                    <div class="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                        <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($materialForecast['projected_units'], 0, ',', '.') }}</p>
+                                        <p class="text-xs font-medium text-gray-500">unit dari {{ number_format($materialForecast['projection_products']) }} menu</p>
+                                    </div>
+                                    <div class="mt-2 inline-flex items-center gap-2 rounded-md bg-emerald-50 px-2.5 py-1.5 text-xs text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                        <span>{{ number_format($materialForecast['forecast_percentage'], 2, ',', '.') }}% digunakan</span>
+                                        <span aria-hidden="true">·</span>
+                                        <strong>{{ number_format($materialForecast['effective_projected_units'], 2, ',', '.') }} unit forecast efektif</strong>
+                                    </div>
+                                    <p class="mt-1.5 text-xs leading-5 text-gray-500">
+                                        {{ number_format($materialForecast['projected_products']) }} dari {{ number_format($materialForecast['projection_products']) }} menu dapat dihitung pada Forecast {{ $forecastType === 'store' ? 'Store karena memiliki BOM Menu' : 'Kitchen karena memiliki Main Recipe' }}.
+                                    </p>
+                                    @if($materialForecast['projection_details'] !== [])
+                                        <div class="mt-3 divide-y divide-gray-100 border-t border-gray-100 dark:divide-gray-800 dark:border-gray-800">
+                                            @foreach($materialForecast['projection_details'] as $projection)
+                                                <div class="flex items-center justify-between gap-3 py-2.5">
+                                                    <div class="min-w-0">
+                                                        <p class="truncate text-xs font-semibold text-gray-800 dark:text-gray-200">{{ $projection['name'] }}</p>
+                                                        <p class="mt-0.5 text-[10px] text-gray-500">{{ $projection['is_calculated'] ? 'Masuk perhitungan '.($forecastType === 'store' ? 'BOM Menu' : 'Main Recipe') : 'Belum memiliki '.($forecastType === 'store' ? 'BOM Menu' : 'Main Recipe') }}</p>
+                                                    </div>
+                                                    <div class="shrink-0 text-right">
+                                                        <p class="text-sm font-bold text-gray-900 dark:text-white">{{ number_format($projection['quantity'], 0, ',', '.') }}</p>
+                                                        <p class="text-[10px] text-gray-500">{{ number_format($projection['effective_quantity'], 2, ',', '.') }} unit efektif</p>
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
                                 </div>
                             </div>
                         </div>

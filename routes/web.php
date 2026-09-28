@@ -18,6 +18,7 @@ use App\Http\Controllers\Helpdesk\RndInternalMemoPdfController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
+use App\Http\Controllers\Helpdesk\RndProjectMaterialForecastExportController;
 use App\Http\Controllers\Helpdesk\ShelfLifeExportController;
 use App\Models\Asset;
 use App\Models\RndProjectBom;
@@ -96,6 +97,9 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/rnd-projects/{project}/bom/export-pdf', RndProjectBomPdfController::class)
         ->name('helpdesk.rnd-projects.bom-pdf');
+
+    Route::get('/rnd-projects/{project}/material-forecast/export', RndProjectMaterialForecastExportController::class)
+        ->name('helpdesk.rnd-projects.material-forecast-export');
 
     Route::get('/rnd-internal-memos/{memo}/documents/{document}/download', RndInternalMemoPdfController::class)
         ->name('helpdesk.rnd-internal-memos.download-pdf');

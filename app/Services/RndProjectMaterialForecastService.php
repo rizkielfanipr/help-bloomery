@@ -3,42 +3,66 @@
 namespace App\Services;
 
 use App\Models\RndProject;
+use App\Services\Rnd\BomCalculationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
 class RndProjectMaterialForecastService
 {
+    /** @var array<int, float> */
+    private array $outputConversionFactors = [];
+
+    public function __construct(
+        private readonly EsbService $esbService,
+        private readonly BomCalculationService $bomCalculation,
+    ) {}
+
     /**
-     * @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, product_count: int}>, projected_units: float, projected_products: int, warnings: list<string>}
+     * @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, effective_quantity: float, is_calculated: bool}>, projection_details: list<array{name: string, quantity: float, effective_quantity: float, is_calculated: bool}>, forecast_percentage: float, projected_units: float, effective_projected_units: float, projection_products: int, projected_products: int, warnings: list<string>}
      */
     public function calculate(RndProject $project, string $forecastType = 'kitchen'): array
     {
+        $this->outputConversionFactors = [];
         $usageType = $forecastType === 'store' ? 'menu' : 'main';
         $materials = [];
+        $projectionDetails = [];
         $projectedUnits = 0.0;
+        $effectiveProjectedUnits = 0.0;
+        $projectionProducts = 0;
         $projectedProducts = 0;
         $warnings = [];
+        $forecastPercentage = min(100, max(1, (float) ($project->forecast_percentage ?? 100)));
 
         foreach ($project->products as $product) {
-            $targetQuantity = (float) $product->salesProjections->sum('target_quantity');
+            $projectedQuantity = (float) $product->salesProjections->sum('target_quantity');
 
-            if ($targetQuantity <= 0) {
+            if ($projectedQuantity <= 0) {
                 continue;
             }
 
+            $targetQuantity = $projectedQuantity * ($forecastPercentage / 100);
+            $projectedUnits += $projectedQuantity;
+            $effectiveProjectedUnits += $targetQuantity;
+            $projectionProducts++;
             $rootBoms = $product->boms->filter(fn ($bom): bool => $bom->pivot->usage_type === $usageType);
+            $projectionDetails[] = [
+                'name' => $product->name,
+                'quantity' => $projectedQuantity,
+                'effective_quantity' => $targetQuantity,
+                'is_calculated' => $rootBoms->isNotEmpty(),
+            ];
 
             if ($rootBoms->isEmpty()) {
                 continue;
             }
 
-            $projectedUnits += $targetQuantity;
             $projectedProducts++;
             foreach ($rootBoms as $rootBom) {
                 $this->addBomMaterials(
                     $rootBom,
                     $targetQuantity,
+                    $forecastType !== 'store',
                     $project->boms,
                     $materials,
                     $product->id,
@@ -62,7 +86,11 @@ class RndProjectMaterialForecastService
 
         return [
             'rows' => $rows,
+            'projection_details' => $projectionDetails,
+            'forecast_percentage' => $forecastPercentage,
             'projected_units' => $projectedUnits,
+            'effective_projected_units' => $effectiveProjectedUnits,
+            'projection_products' => $projectionProducts,
             'projected_products' => $projectedProducts,
             'warnings' => array_values(array_unique($warnings)),
         ];
@@ -72,7 +100,7 @@ class RndProjectMaterialForecastService
      * @param  array<string, array{code: string, name: string, unit: string, quantity: float, product_ids: array<int, bool>}>  $materials
      * @param  list<string>  $warnings
      */
-    private function addBomMaterials(object $bom, float $multiplier, Collection $recipeBoms, array &$materials, int $productId, array &$warnings, string $productName, array $bomPath, array $visitedBomIds = []): void
+    private function addBomMaterials(object $bom, float $multiplier, bool $expandComponents, Collection $recipeBoms, array &$materials, int $productId, array &$warnings, string $productName, array $bomPath, array $visitedBomIds = []): void
     {
         if (in_array((int) $bom->id, $visitedBomIds, true)) {
             return;
@@ -82,10 +110,22 @@ class RndProjectMaterialForecastService
         $details = data_get($bom->detail_snapshot, 'bomDetails', []);
 
         foreach ($details as $detail) {
-            $quantity = (float) ($detail['qty'] ?? 0) * $multiplier;
-            $tolerance = max(0, (float) ($detail['tolerancePercent'] ?? 0));
-            $quantity *= 1 + ($tolerance / 100);
+            $quantity = $this->bomCalculation->componentRequirement($detail, $multiplier, true);
             $code = trim((string) ($detail['productCode'] ?? ''));
+
+            if (! $expandComponents) {
+                $this->addMaterial(
+                    $materials,
+                    $code,
+                    (string) ($detail['productName'] ?? 'Bahan tanpa nama'),
+                    (string) ($detail['uomName'] ?? '-'),
+                    $quantity,
+                    $productId,
+                );
+
+                continue;
+            }
+
             $componentBom = $recipeBoms->first(function ($candidate) use ($code, $visitedBomIds): bool {
                 if (in_array((int) $candidate->id, $visitedBomIds, true)) {
                     return false;
@@ -97,7 +137,18 @@ class RndProjectMaterialForecastService
             });
 
             if ($componentBom) {
-                $this->addBomMaterials($componentBom, $quantity, $recipeBoms, $materials, $productId, $warnings, $productName, [...$bomPath, $componentBom->bom_name], $visitedBomIds);
+                $this->addBomMaterials(
+                    $componentBom,
+                    $this->childRecipeMultiplier($detail, $componentBom, $quantity, $warnings, $productName, $bomPath),
+                    true,
+                    $recipeBoms,
+                    $materials,
+                    $productId,
+                    $warnings,
+                    $productName,
+                    [...$bomPath, $componentBom->bom_name],
+                    $visitedBomIds,
+                );
 
                 continue;
             }
@@ -115,7 +166,18 @@ class RndProjectMaterialForecastService
                         'detail_snapshot' => $selectedRecipe,
                         'documentMaterials' => collect(),
                     ];
-                    $this->addBomMaterials($remoteBom, $quantity, $recipeBoms, $materials, $productId, $warnings, $productName, [...$bomPath, (string) ($selectedRecipe['bomName'] ?? $selectedRecipe['bomCode'])], $visitedBomIds);
+                    $this->addBomMaterials(
+                        $remoteBom,
+                        $this->childRecipeMultiplier($detail, $remoteBom, $quantity, $warnings, $productName, $bomPath),
+                        true,
+                        $recipeBoms,
+                        $materials,
+                        $productId,
+                        $warnings,
+                        $productName,
+                        [...$bomPath, (string) ($selectedRecipe['bomName'] ?? $selectedRecipe['bomCode'])],
+                        $visitedBomIds,
+                    );
 
                     continue;
                 }
@@ -147,6 +209,59 @@ class RndProjectMaterialForecastService
                 $productId,
             );
         }
+    }
+
+    /** @param list<string> $warnings
+     * @param  list<string>  $bomPath
+     */
+    private function childRecipeMultiplier(array $component, object $childBom, float $requiredQuantity, array &$warnings, string $productName, array $bomPath): float
+    {
+        $result = $this->bomCalculation->childRecipeMultiplier(
+            $component,
+            (array) ($childBom->detail_snapshot ?? []),
+            $requiredQuantity,
+            fn (): ?float => $this->resolveOutputConversionFromMasterProduct($childBom),
+        );
+
+        if (! $result['is_proportional']) {
+            $code = trim((string) ($component['productCode'] ?? ''));
+            $name = trim((string) ($component['productName'] ?? 'WIP tanpa nama'));
+            $label = $code !== '' ? $name.' ('.$code.')' : $name;
+            $warnings[] = 'Hasil per resep WIP '.$label.' pada produk '.$productName.' · '.implode(' → ', $bomPath).' belum tersedia; perhitungan sementara memakai 1 unit hasil per resep.';
+
+        }
+
+        return $result['multiplier'];
+    }
+
+    private function resolveOutputConversionFromMasterProduct(object $bom): ?float
+    {
+        $snapshot = (array) ($bom->detail_snapshot ?? []);
+        $productDetailId = (int) ($snapshot['productDetailID'] ?? 0);
+        if ($productDetailId < 1) {
+            return null;
+        }
+
+        if (array_key_exists($productDetailId, $this->outputConversionFactors)) {
+            return $this->outputConversionFactors[$productDetailId] ?: null;
+        }
+
+        try {
+            $detail = $this->esbService->findActiveProductDetail(
+                $productDetailId,
+                (string) ($snapshot['productCode'] ?? ''),
+                (string) ($snapshot['productName'] ?? ''),
+            );
+            $factor = is_numeric($detail['conversionFactor'] ?? null) && (float) $detail['conversionFactor'] > 0
+                ? (float) $detail['conversionFactor']
+                : 0.0;
+        } catch (RuntimeException) {
+            $factor = 0.0;
+        }
+
+        $this->outputConversionFactors[$productDetailId] = $factor;
+
+        return $factor > 0 ? $factor : null;
     }
 
     /** @return list<array<string, mixed>> */

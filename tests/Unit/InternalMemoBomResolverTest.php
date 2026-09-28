@@ -2,10 +2,12 @@
 
 use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
+use App\Services\EsbService;
 use App\Services\Rnd\InternalMemo\InternalMemoBomResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Mockery\MockInterface;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
@@ -14,6 +16,9 @@ beforeEach(function (): void {
     Cache::flush();
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
+    $this->mock(EsbService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('findActiveProductDetail')->zeroOrMoreTimes()->andReturnNull();
+    });
     Http::fake(['https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']])]);
     $memo = RndInternalMemo::factory()->create();
     $this->menu = RndInternalMemoMenu::factory()->create(['rnd_internal_memo_id' => $memo->id, 'esb_bom_id' => 501]);
@@ -99,6 +104,36 @@ it('recurses into a one-level WIP/Assembly and multiplies quantities through it'
         ->and($raw->source_bom_id)->toBe(7301)
         ->and((float) $raw->quantity_per_menu)->toBe(500.0) // 250 (per Assembly) x 2 (Assembly needed per Menu)
         ->and($raw->source_path)->toBe(['Croissant Butter - Menu', 'Croissant Dough WIP']);
+});
+
+it('expands a WIP proportionally to its recipe output conversion', function () {
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
+        'https://esb.test/core/product/bom/501' => Http::response(['status' => 'ok', 'result' => internalMemoBomDetailFixture('Menu', [
+            'bomID' => 501,
+            'bomDetails' => [
+                ['productDetailID' => 15003, 'productCode' => 'BW-FROYO', 'productName' => 'Froyo Mix', 'categoryName' => 'Barang WIP', 'qty' => 130.0, 'uomName' => 'GR'],
+            ],
+        ])]),
+        'https://esb.test/core/product/bom?*' => Http::response(['status' => 'ok', 'result' => ['data' => [['bomID' => 7301]]]]),
+        'https://esb.test/core/product/bom/7301' => Http::response(['status' => 'ok', 'result' => internalMemoAssemblyBomDetailFixture([
+            'bomID' => 7301,
+            'productDetailID' => 15003,
+            'productCode' => 'BW-FROYO',
+            'conversionFactor' => 6000,
+            'bomDetails' => [
+                ['productDetailID' => 15002, 'productCode' => 'RAW-MILK', 'productName' => 'Susu', 'categoryName' => 'Bahan Baku Makanan', 'qty' => 3000.0, 'uomName' => 'ML'],
+            ],
+        ])]),
+    ]);
+
+    app(InternalMemoBomResolver::class)->resolve($this->menu);
+
+    $wip = $this->menu->materials()->where('product_code', 'BW-FROYO')->sole();
+    $milk = $this->menu->materials()->where('product_code', 'RAW-MILK')->sole();
+
+    expect((float) $wip->quantity_per_menu)->toBe(130.0)
+        ->and((float) $milk->quantity_per_menu)->toBe(65.0);
 });
 
 it('recurses through two Assembly levels and multiplies the full chain', function () {

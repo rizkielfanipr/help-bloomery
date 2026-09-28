@@ -16,6 +16,7 @@ use App\Services\EsbBillOfMaterialService;
 use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
 use App\Services\ProductPriceIndexService;
+use App\Services\Rnd\BomCalculationService;
 use App\Services\Rnd\MenuPricingCalculator;
 use App\Services\SyncRndEsbMaterialFromRemote;
 use Filament\Actions\Action;
@@ -1047,7 +1048,6 @@ class ViewProjectProductPage extends Page
 
         foreach ($bomDetails as $component) {
             $productDetailId = (int) ($component['productDetailID'] ?? 0);
-            $qty = (float) ($component['qty'] ?? 0);
             $waPrice = $this->waPrices[$productDetailId]['average_price'] ?? null;
 
             if ($waPrice === null) {
@@ -1055,7 +1055,7 @@ class ViewProjectProductPage extends Page
                 $hasFallback = true;
             }
 
-            $total += $qty * $waPrice;
+            $total += app(BomCalculationService::class)->lineCost($component, $waPrice);
         }
 
         return ['total' => $total, 'hasFallback' => $hasFallback];

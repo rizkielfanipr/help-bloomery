@@ -4,10 +4,13 @@ namespace App\Services;
 
 use App\Models\ProductPriceSnapshot;
 use App\Models\RndProjectBom;
+use App\Services\Rnd\BomCalculationService;
 use Illuminate\Support\Collection;
 
 class WipPriceIndexService
 {
+    public function __construct(private readonly BomCalculationService $bomCalculation) {}
+
     /** @return Collection<int, array<string, mixed>> */
     public function prices(): Collection
     {
@@ -57,7 +60,7 @@ class WipPriceIndexService
         $messages = [];
 
         foreach (data_get($bom->detail_snapshot, 'bomDetails', []) as $component) {
-            $qty = (float) ($component['qty'] ?? 0);
+            $qty = $this->bomCalculation->componentRequirement($component);
             $detailId = (int) ($component['productDetailID'] ?? 0);
             $code = strtoupper(trim((string) ($component['productCode'] ?? '')));
             $child = $byProductDetail->get($detailId) ?: $byProductCode->get($code);
@@ -70,7 +73,12 @@ class WipPriceIndexService
                     continue;
                 }
                 $childResult = $this->calculate($child, $materialPrices, $byProductDetail, $byProductCode, $visited);
-                $total += $qty * $childResult['price'];
+                $recipeMultiplier = $this->bomCalculation->childRecipeMultiplier(
+                    $component,
+                    (array) $child->detail_snapshot,
+                    $qty,
+                );
+                $total += $recipeMultiplier['multiplier'] * $childResult['price'];
                 $materialCount += $childResult['material_count'];
                 $complete = $complete && $childResult['complete'];
                 if (! $childResult['complete']) {
@@ -87,7 +95,7 @@ class WipPriceIndexService
 
                 continue;
             }
-            $total += $qty * (float) $snapshot->weighted_average_price;
+            $total += $this->bomCalculation->lineCost($component, (float) $snapshot->weighted_average_price);
             $materialCount++;
         }
 

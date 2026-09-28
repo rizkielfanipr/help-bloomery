@@ -66,6 +66,8 @@ class ViewProject extends ViewRecord
 
     public string $forecastType = 'kitchen';
 
+    public string $forecastPercentage = '100';
+
     public array $ccpDocumentUploads = [];
 
     public bool $ccpUploadModalOpen = false;
@@ -100,6 +102,7 @@ class ViewProject extends ViewRecord
     {
         parent::mount($record);
         $this->reloadProject();
+        $this->forecastPercentage = (string) (float) ($this->record->forecast_percentage ?? 100);
     }
 
     public function getTitle(): string
@@ -881,7 +884,27 @@ class ViewProject extends ViewRecord
         $this->forecastType = $forecastType;
     }
 
-    /** @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, product_count: int}>, projected_units: float, projected_products: int, warnings: list<string>} */
+    public function saveForecastPercentage(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        $validated = $this->validate([
+            'forecastPercentage' => ['required', 'numeric', 'min:1', 'max:100'],
+        ]);
+
+        $this->record->update([
+            'forecast_percentage' => (float) $validated['forecastPercentage'],
+        ]);
+        $this->reloadProject();
+        $this->forecastPercentage = (string) (float) $this->record->forecast_percentage;
+
+        Notification::make()
+            ->title('Persentase forecast berhasil disimpan')
+            ->body('Kebutuhan Kitchen dan Store dihitung dari '.$this->forecastPercentage.'% total Sales Projection.')
+            ->success()
+            ->send();
+    }
+
+    /** @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, product_count: int}>, projection_details: list<array{name: string, quantity: float, effective_quantity: float, is_calculated: bool}>, forecast_percentage: float, projected_units: float, effective_projected_units: float, projection_products: int, projected_products: int, warnings: list<string>} */
     public function materialForecast(): array
     {
         return app(RndProjectMaterialForecastService::class)->calculate($this->record, $this->forecastType);

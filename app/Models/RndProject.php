@@ -16,6 +16,7 @@ class RndProject extends Model
         'description',
         'start_date',
         'end_date',
+        'forecast_percentage',
         'created_by',
     ];
 
@@ -24,6 +25,7 @@ class RndProject extends Model
         return [
             'start_date' => 'date',
             'end_date' => 'date',
+            'forecast_percentage' => 'decimal:2',
         ];
     }
 

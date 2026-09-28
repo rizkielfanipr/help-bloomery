@@ -6,11 +6,8 @@ use App\Models\RndInternalMemoMenu;
 use Illuminate\Support\Facades\DB;
 
 /**
- * docs/rnd-internal-memo-prd.md §10.1-10.2, simplified on explicit user instruction: no output
- * yield division and no waste/tolerance/gross calculation. Every material row's
- * `quantity_per_menu` is already the fully propagated per-one-unit-of-Menu quantity (computed by
- * InternalMemoBomResolver), so the only remaining step is multiplying it by the Menu's own
- * Forecast Quantity.
+ * Every material row's `quantity_per_menu` is already the centrally calculated, fully propagated
+ * per-one-unit-of-Menu quantity. This final step multiplies it by the Menu Forecast Quantity.
  */
 class InternalMemoForecastCalculator
 {

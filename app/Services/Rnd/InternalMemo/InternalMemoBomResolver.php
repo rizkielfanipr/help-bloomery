@@ -5,6 +5,8 @@ namespace App\Services\Rnd\InternalMemo;
 use App\Models\RndInternalMemoMaterial;
 use App\Models\RndInternalMemoMenu;
 use App\Services\EsbCoreClient;
+use App\Services\EsbService;
+use App\Services\Rnd\BomCalculationService;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
@@ -13,23 +15,29 @@ use RuntimeException;
  * App\Models\RndInternalMemoMaterial rows, recursing into WIP/Assembly components until base
  * materials and packaging are reached (docs/rnd-internal-memo-prd.md §7.4, §9).
  *
- * Simplified on explicit user instruction: only the material and its BOM quantity are used.
- * There is no output-yield division and no waste/tolerance calculation (see the Phase 0
- * contract report — those fields are not proven to exist on the BOM detail response).
- * `quantity_per_menu` on every row is already propagated through every Assembly level it
- * passed through, for exactly one unit of the Menu.
+ * `quantity_per_menu` on every row is propagated through every Assembly level for exactly one
+ * unit of the Menu. WIP requirements are divided by the active output-unit conversion when ESB
+ * provides it; tolerance remains excluded from Memo forecasting.
  */
 class InternalMemoBomResolver
 {
     private const COMPANY_CODE = 'BLSS';
 
-    public function __construct(private EsbCoreClient $esbCore) {}
+    /** @var array<int, float> */
+    private array $outputConversionFactors = [];
+
+    public function __construct(
+        private EsbCoreClient $esbCore,
+        private EsbService $esbService,
+        private BomCalculationService $bomCalculation,
+    ) {}
 
     /**
      * @return array{blockers: list<string>, warnings: list<string>, bom_snapshot: array<string, mixed>}
      */
     public function resolve(RndInternalMemoMenu $menu): array
     {
+        $this->outputConversionFactors = [];
         $menu->materials()->delete();
 
         $bomDetail = $this->fetchBom($menu->esb_bom_id);
@@ -68,12 +76,10 @@ class InternalMemoBomResolver
                 continue;
             }
 
-            $qty = (float) ($component['qty'] ?? 0);
-            if ($qty <= 0) {
+            $propagatedQty = $this->bomCalculation->componentRequirement($component, $multiplier);
+            if ($propagatedQty <= 0) {
                 continue;
             }
-
-            $propagatedQty = $qty * $multiplier;
             $identity = $this->identity($component);
             if ($identity['productDetailID'] === null && $identity['productID'] === null && $identity['productCode'] === null) {
                 $warnings[] = "Bahan \"{$identity['productName']}\" pada jalur ".implode(' → ', $path).' tidak mempunyai Product Code, Product ID, maupun Product Detail ID; dicocokkan lewat nama dan UOM.';
@@ -114,11 +120,21 @@ class InternalMemoBomResolver
             }
 
             $wipRow = $this->createMaterialRow($menu, $parentMaterialId, $currentBomId, $currentBomCode, $path, $depth, $component, $propagatedQty, true, false);
+            $recipeMultiplier = $this->bomCalculation->childRecipeMultiplier(
+                $component,
+                $childBom,
+                $propagatedQty,
+                fn (array $bom): ?float => $this->resolveOutputConversionFromMasterProduct($bom),
+            );
+
+            if (! $recipeMultiplier['is_proportional']) {
+                $warnings[] = "Hasil per resep WIP \"{$identity['productName']}\" pada jalur ".implode(' → ', [...$path, $this->bomLabel($childBom, $childBomId)]).' belum tersedia; perhitungan sementara memakai 1 unit hasil per resep.';
+            }
 
             $this->walk(
                 menu: $menu,
                 bomDetail: $childBom,
-                multiplier: $propagatedQty,
+                multiplier: $recipeMultiplier['multiplier'],
                 parentMaterialId: $wipRow->id,
                 depth: $depth + 1,
                 visitedBomIds: [...$visitedBomIds, $childBomId],
@@ -234,6 +250,36 @@ class InternalMemoBomResolver
 
             return $this->esbCore->successfulResult($response, 'mengambil detail BOM', self::COMPANY_CODE, '/product/bom/'.$bomId);
         });
+    }
+
+    /** @param array<string, mixed> $bom */
+    private function resolveOutputConversionFromMasterProduct(array $bom): ?float
+    {
+        $productDetailId = (int) ($bom['productDetailID'] ?? 0);
+        if ($productDetailId < 1) {
+            return null;
+        }
+
+        if (array_key_exists($productDetailId, $this->outputConversionFactors)) {
+            return $this->outputConversionFactors[$productDetailId] ?: null;
+        }
+
+        try {
+            $detail = $this->esbService->findActiveProductDetail(
+                $productDetailId,
+                (string) ($bom['productCode'] ?? ''),
+                (string) ($bom['productName'] ?? ''),
+            );
+            $factor = is_numeric($detail['conversionFactor'] ?? null) && (float) $detail['conversionFactor'] > 0
+                ? (float) $detail['conversionFactor']
+                : 0.0;
+        } catch (RuntimeException) {
+            $factor = 0.0;
+        }
+
+        $this->outputConversionFactors[$productDetailId] = $factor;
+
+        return $factor > 0 ? $factor : null;
     }
 
     private function bomLabel(array $bomDetail, int $bomId): string

@@ -25,6 +25,7 @@ return [
             'BLO6' => ['username' => env('ESB_CORE_BLO6_USERNAME'), 'password' => env('ESB_CORE_BLO6_PASSWORD')],
             'BLO7' => ['username' => env('ESB_CORE_BLO7_USERNAME'), 'password' => env('ESB_CORE_BLO7_PASSWORD')],
             'BLO10' => ['username' => env('ESB_CORE_BLO10_USERNAME'), 'password' => env('ESB_CORE_BLO10_PASSWORD')],
+            'BLO15' => ['username' => env('ESB_CORE_BLO15_USERNAME'), 'password' => env('ESB_CORE_BLO15_PASSWORD')],
             'BLMN' => ['username' => env('ESB_CORE_BLMN_USERNAME'), 'password' => env('ESB_CORE_BLMN_PASSWORD')],
         ],
         'uoms' => [

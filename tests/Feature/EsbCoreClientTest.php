@@ -5,6 +5,13 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
+it('declares the BLO15 company credential configuration', function () {
+    expect(config('esb.core.companies'))
+        ->toHaveKey('BLO15')
+        ->and(config('esb.core.companies.BLO15'))
+        ->toHaveKeys(['username', 'password']);
+});
+
 beforeEach(function (): void {
     Cache::flush();
     config()->set('esb.core.base_url', 'https://esb.test/core');

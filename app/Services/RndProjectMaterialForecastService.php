@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\RndProject;
+use App\Models\RndProjectProduct;
 use App\Services\Rnd\BomCalculationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -19,7 +20,7 @@ class RndProjectMaterialForecastService
     ) {}
 
     /**
-     * @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, effective_quantity: float, is_calculated: bool}>, projection_details: list<array{name: string, quantity: float, effective_quantity: float, is_calculated: bool}>, forecast_percentage: float, projected_units: float, effective_projected_units: float, projection_products: int, projected_products: int, warnings: list<string>}
+     * @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, effective_quantity: float, is_calculated: bool, calculation_notes: list<string>}>, projection_details: list<array{name: string, quantity: float, effective_quantity: float, is_calculated: bool}>, forecast_percentage: float, projected_units: float, effective_projected_units: float, projection_products: int, projected_products: int, warnings: list<string>, recipe_notes: list<string>}
      */
     public function calculate(RndProject $project, string $forecastType = 'kitchen'): array
     {
@@ -32,6 +33,7 @@ class RndProjectMaterialForecastService
         $projectionProducts = 0;
         $projectedProducts = 0;
         $warnings = [];
+        $recipeNotes = [];
         $forecastPercentage = min(100, max(1, (float) ($project->forecast_percentage ?? 100)));
 
         foreach ($project->products as $product) {
@@ -59,9 +61,13 @@ class RndProjectMaterialForecastService
 
             $projectedProducts++;
             foreach ($rootBoms as $rootBom) {
+                $multiplier = $forecastType === 'store'
+                    ? $targetQuantity
+                    : $this->rootRecipeMultiplier($rootBom, $product, $targetQuantity, $warnings, $recipeNotes, $product->name);
+
                 $this->addBomMaterials(
                     $rootBom,
-                    $targetQuantity,
+                    $multiplier,
                     $forecastType !== 'store',
                     $project->boms,
                     $materials,
@@ -93,6 +99,7 @@ class RndProjectMaterialForecastService
             'projection_products' => $projectionProducts,
             'projected_products' => $projectedProducts,
             'warnings' => array_values(array_unique($warnings)),
+            'recipe_notes' => array_values(array_unique($recipeNotes)),
         ];
     }
 
@@ -121,6 +128,7 @@ class RndProjectMaterialForecastService
                     (string) ($detail['uomName'] ?? '-'),
                     $quantity,
                     $productId,
+                    $this->calculationNote($productName, $bomPath, $detail, $multiplier, $quantity, (string) ($detail['uomName'] ?? '-')),
                 );
 
                 continue;
@@ -196,19 +204,123 @@ class RndProjectMaterialForecastService
                 (string) ($detail['uomName'] ?? '-'),
                 $quantity,
                 $productId,
+                $this->calculationNote($productName, $bomPath, $detail, $multiplier, $quantity, (string) ($detail['uomName'] ?? '-')),
             );
         }
 
         foreach ($bom->documentMaterials as $material) {
+            $sopQuantity = (float) $material->quantity * $multiplier;
             $this->addMaterial(
                 $materials,
                 '',
                 $material->name,
                 $material->unit,
-                (float) $material->quantity * $multiplier,
+                $sopQuantity,
                 $productId,
+                sprintf(
+                    '%s · %s (Bahan Khusus SOP): %s %s/resep × %s = %s %s',
+                    $productName,
+                    implode(' → ', $bomPath),
+                    $this->formatNumber((float) $material->quantity),
+                    $material->unit,
+                    $this->formatNumber($multiplier),
+                    $this->formatNumber($sopQuantity),
+                    $material->unit,
+                ),
             );
         }
+    }
+
+    /** @param list<string> $bomPath
+     * @param  array<string, mixed>  $detail
+     */
+    private function calculationNote(string $productName, array $bomPath, array $detail, float $multiplier, float $quantity, string $unit): string
+    {
+        $qtyPerLine = (float) ($detail['qty'] ?? 0);
+        $tolerance = (float) ($detail['tolerancePercent'] ?? 0);
+        $toleranceText = $tolerance > 0 ? ' × (1 + '.$this->formatNumber($tolerance).'% toleransi)' : '';
+
+        return sprintf(
+            '%s · %s: %s %s/resep × %s%s = %s %s',
+            $productName,
+            implode(' → ', $bomPath),
+            $this->formatNumber($qtyPerLine),
+            $unit,
+            $this->formatNumber($multiplier),
+            $toleranceText,
+            $this->formatNumber($quantity),
+            $unit,
+        );
+    }
+
+    private function formatNumber(float $value): string
+    {
+        $formatted = rtrim(rtrim(number_format($value, 4, ',', '.'), '0'), ',');
+
+        return $formatted === '' ? '0' : $formatted;
+    }
+
+    /**
+     * A Main Recipe attached directly to a product may itself be a shared batch WIP (e.g. a
+     * 6000 GR "Froyo Mix" recipe of which a single sold unit only consumes 130 GR via the
+     * product's own BOM Menu) rather than a "1 recipe run per sold unit" preparation. When the
+     * root recipe's own result product code is also consumed as an ingredient in the product's
+     * Menu BOM(s), scale it the same proportional way nested WIPs already are — total quantity
+     * needed across all sold units ÷ the recipe's own yield — instead of treating every unit
+     * sold as requiring one full recipe run.
+     *
+     * @param  list<string>  $warnings
+     * @param  list<string>  $recipeNotes
+     */
+    private function rootRecipeMultiplier(object $rootBom, RndProjectProduct $product, float $targetQuantity, array &$warnings, array &$recipeNotes, string $productName): float
+    {
+        $resultCode = trim((string) data_get($rootBom->detail_snapshot, 'productCode', ''));
+
+        if ($resultCode === '') {
+            return $targetQuantity;
+        }
+
+        $menuBoms = $product->boms->filter(fn ($bom): bool => $bom->pivot->usage_type === 'menu');
+        $requiredQuantity = 0.0;
+        $matchedUsage = null;
+
+        foreach ($menuBoms as $menuBom) {
+            foreach (data_get($menuBom->detail_snapshot, 'bomDetails', []) as $detail) {
+                if (trim((string) ($detail['productCode'] ?? '')) !== $resultCode) {
+                    continue;
+                }
+
+                $requiredQuantity += $this->bomCalculation->componentRequirement($detail, $targetQuantity, true);
+                $matchedUsage ??= $detail;
+            }
+        }
+
+        if ($matchedUsage === null) {
+            return $targetQuantity;
+        }
+
+        $yield = $this->bomCalculation->outputConversionFactor((array) ($rootBom->detail_snapshot ?? []))
+            ?? $this->resolveOutputConversionFromMasterProduct($rootBom);
+        $multiplier = $this->childRecipeMultiplier($matchedUsage, $rootBom, $requiredQuantity, $warnings, $productName, [$rootBom->bom_name]);
+
+        if ($yield !== null) {
+            $unit = (string) ($matchedUsage['uomName'] ?? '');
+            $recipeNotes[] = sprintf(
+                '%s · %s: %s unit terjual × %s %s/unit (dari BOM Menu) = %s %s dibutuhkan ÷ %s %s hasil per resep = %s kali resep.',
+                $productName,
+                $rootBom->bom_name,
+                $this->formatNumber($targetQuantity),
+                $this->formatNumber((float) ($matchedUsage['qty'] ?? 0)),
+                $unit,
+                $this->formatNumber($requiredQuantity),
+                $unit,
+                $this->formatNumber($yield),
+                $unit,
+                $this->formatNumber($multiplier),
+            );
+        }
+
+        return $multiplier;
     }
 
     /** @param list<string> $warnings
@@ -310,8 +422,8 @@ class RndProjectMaterialForecastService
         }
     }
 
-    /** @param array<string, array{code: string, name: string, unit: string, quantity: float, product_ids: array<int, bool>}> $materials */
-    private function addMaterial(array &$materials, string $code, string $name, string $unit, float $quantity, int $productId): void
+    /** @param array<string, array{code: string, name: string, unit: string, quantity: float, product_ids: array<int, bool>, calculation_notes: list<string>}> $materials */
+    private function addMaterial(array &$materials, string $code, string $name, string $unit, float $quantity, int $productId, string $calculationNote): void
     {
         if ($quantity <= 0) {
             return;
@@ -324,8 +436,10 @@ class RndProjectMaterialForecastService
             'unit' => $unit,
             'quantity' => 0.0,
             'product_ids' => [],
+            'calculation_notes' => [],
         ];
         $materials[$key]['quantity'] += $quantity;
         $materials[$key]['product_ids'][$productId] = true;
+        $materials[$key]['calculation_notes'][] = $calculationNote;
     }
 }

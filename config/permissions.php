@@ -138,6 +138,7 @@ return [
             'delete rnd internal memo',
         ],
         'Master Shelf Life Menu' => ['manage rnd product shelf life'],
+        'Material Forecast' => ['view material forecast'],
     ],
 
     'Sales & Growth' => [

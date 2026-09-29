@@ -17,7 +17,7 @@ class RndProjectMaterialForecastExportController extends Controller
 {
     public function __invoke(Request $request, RndProject $project, RndProjectMaterialForecastService $forecastService): BinaryFileResponse
     {
-        abort_unless($request->user()?->can('view bill of materials'), 403);
+        abort_unless($request->user()?->can('view material forecast'), 403);
 
         $project->load([
             'products.boms.documentMaterials',

@@ -875,7 +875,7 @@ class ViewProject extends ViewRecord
 
     public function setForecastType(string $forecastType): void
     {
-        abort_unless(auth()->user()?->can('view bill of materials'), 403);
+        abort_unless(auth()->user()?->can('view material forecast'), 403);
 
         if (! in_array($forecastType, ['kitchen', 'store'], true)) {
             return;
@@ -907,6 +907,8 @@ class ViewProject extends ViewRecord
     /** @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, product_count: int}>, projection_details: list<array{name: string, quantity: float, effective_quantity: float, is_calculated: bool}>, forecast_percentage: float, projected_units: float, effective_projected_units: float, projection_products: int, projected_products: int, warnings: list<string>} */
     public function materialForecast(): array
     {
+        abort_unless(auth()->user()?->can('view material forecast'), 403);
+
         return app(RndProjectMaterialForecastService::class)->calculate($this->record, $this->forecastType);
     }
 

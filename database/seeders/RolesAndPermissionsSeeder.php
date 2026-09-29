@@ -119,6 +119,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'update rnd internal memo', 'sync rnd internal memo', 'download rnd internal memo pdf',
                 'delete rnd internal memo',
                 'manage rnd product shelf life',
+                'view material forecast',
             ]);
 
         Role::firstOrCreate(['name' => 'PURCHASING_STAFF', 'guard_name' => 'web'])

@@ -214,7 +214,7 @@
             </div>
         @endif
 
-        @can('view bill of materials')
+        @can('view material forecast')
             @php $materialForecast = $this->materialForecast(); @endphp
             <section class="overflow-hidden rounded-2xl border border-emerald-200 bg-white dark:border-emerald-900/70 dark:bg-gray-900">
                 <div class="flex flex-wrap gap-2 border-b border-gray-200 bg-white px-5 py-3 dark:border-gray-700 dark:bg-gray-900" role="group" aria-label="Jenis Material Forecast">
@@ -243,6 +243,18 @@
                                     <span><strong>Rumus:</strong> Sales Projection × Qty {{ $forecastType === 'store' ? 'BOM Menu. Komponen ditampilkan langsung tanpa menguraikan WIP.' : 'Main Recipe + Tolerance bahan. WIP dihitung proporsional: kebutuhan WIP ÷ hasil per resep × bahan resep.' }}</span>
                                 </div>
                                 <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $forecastType === 'store' ? 'Forecast berhenti pada komponen langsung BOM Menu. WIP tetap ditampilkan sebagai WIP dan tidak dibuka menjadi bahan resep.' : 'Component dan WIP ditelusuri sampai bahan baku terakhir.' }} Bahan dengan kode dan unit yang sama otomatis dijumlahkan. {{ $forecastType === 'store' ? 'Jika satu produk memiliki beberapa BOM Menu, setiap BOM Menu dihitung memakai seluruh proyeksi produk tersebut.' : '' }}</p>
+                                <div class="mt-3 rounded-lg border border-dashed border-emerald-300 bg-emerald-50/60 px-3 py-2.5 text-xs leading-5 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-100">
+                                    <p class="font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Perhitungan Project Ini</p>
+                                    <p class="mt-1">Sales Projection {{ number_format($materialForecast['projected_units'], 2, ',', '.') }} unit × Persentase Forecast {{ number_format($materialForecast['forecast_percentage'], 2, ',', '.') }}% = <strong>{{ number_format($materialForecast['effective_projected_units'], 2, ',', '.') }} unit forecast efektif</strong> yang dipakai pada rumus di atas untuk seluruh {{ $materialForecast['projected_products'] }} menu yang punya {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}.</p>
+                                    @if($materialForecast['recipe_notes'] !== [])
+                                        <p class="mt-2 font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Resep WIP Bersama (Proporsional)</p>
+                                        <ul class="mt-1 space-y-1.5">
+                                            @foreach($materialForecast['recipe_notes'] as $recipeNote)
+                                                <li class="rounded-md bg-white/70 px-2.5 py-1.5 dark:bg-gray-900/40">{{ $recipeNote }}</li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </div>
                                 <form wire:submit="saveForecastPercentage" class="mt-3 flex flex-wrap items-end gap-2">
                                     <label class="block">
                                         <span class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Persentase Forecast</span>
@@ -328,6 +340,7 @@
                                 <th class="px-5 py-3 text-right">Kebutuhan Gross</th>
                                 <th class="px-5 py-3 text-left">Unit</th>
                                 <th class="px-5 py-3 text-center">Sumber Produk</th>
+                                <th class="px-5 py-3 text-center">Cara Hitung</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -338,9 +351,21 @@
                                     <td class="px-5 py-3 text-right text-base font-bold text-gray-900 dark:text-white">{{ number_format($row['quantity'], 2, ',', '.') }}</td>
                                     <td class="px-5 py-3 font-bold text-gray-500">{{ $row['unit'] }}</td>
                                     <td class="px-5 py-3 text-center text-gray-500">{{ $row['product_count'] }} produk</td>
+                                    <td class="px-5 py-3 text-center">
+                                        @if(($row['calculation_notes'] ?? []) !== [])
+                                            <details class="inline-block text-left">
+                                                <summary class="cursor-pointer list-none rounded-md border border-gray-200 px-2 py-1 text-[11px] font-bold text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">Lihat</summary>
+                                                <ul class="mt-2 max-w-sm space-y-1.5 rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-[11px] leading-5 text-gray-600 dark:border-gray-700 dark:bg-gray-800/70 dark:text-gray-300">
+                                                    @foreach($row['calculation_notes'] as $note)
+                                                        <li>{{ $note }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </details>
+                                        @endif
+                                    </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="5" class="px-5 py-10 text-center text-gray-500">Belum ada forecast. Isi Sales Projection dan {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }} pada produk project ini.</td></tr>
+                                <tr><td colspan="6" class="px-5 py-10 text-center text-gray-500">Belum ada forecast. Isi Sales Projection dan {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }} pada produk project ini.</td></tr>
                             @endforelse
                         </tbody>
                     </table>

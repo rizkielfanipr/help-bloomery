@@ -119,6 +119,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'update rnd internal memo', 'sync rnd internal memo', 'download rnd internal memo pdf',
                 'delete rnd internal memo',
                 'manage rnd product shelf life',
+                'view bom adjustment history', 'reconcile bom adjustments',
                 'view material forecast',
             ]);
 

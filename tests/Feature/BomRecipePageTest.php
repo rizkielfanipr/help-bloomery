@@ -410,15 +410,28 @@ it('loads and updates BOM components inline from the product release page', func
     ]);
     Cache::flush();
 
+    $verifiedAfterDetail = array_merge(bomDetail(), [
+        'productDetailID' => 101,
+        'productCode' => 'ATL',
+        'productName' => 'Adonan Bitterballen',
+        'uomName' => 'Resep',
+        'editedDate' => '2026-07-30T11:00:00+07:00',
+        'bomDetails' => [
+            ['ID' => 7, 'productID' => 2, 'productDetailID' => 200, 'productName' => 'Butter', 'productCode' => 'BTR', 'uomName' => 'GRAM', 'qty' => 125, 'lastHpp' => 125, 'yieldPercent' => 2, 'tolerancePercent' => 3, 'printGroup' => ''],
+            ['ID' => 8, 'productID' => 0, 'productDetailID' => 201, 'productName' => 'Tepung Premium', 'productCode' => 'BBM-201', 'uomName' => 'GR', 'qty' => 1, 'lastHpp' => 10, 'yieldPercent' => 0, 'tolerancePercent' => 2, 'printGroup' => ''],
+        ],
+    ]);
+
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response([
             'status' => 'ok',
             'result' => ['accessToken' => 'access-token'],
         ]),
-        'https://core-esb.test/product/bom/42' => Http::response([
-            'status' => 'ok',
-            'result' => bomDetail(),
-        ]),
+        'https://core-esb.test/product/bom/42' => Http::sequence()
+            ->push(['status' => 'ok', 'result' => bomDetail()])
+            ->push(['status' => 'ok', 'result' => bomDetail()])
+            ->push(['status' => 'ok', 'result' => null])
+            ->push(['status' => 'ok', 'result' => $verifiedAfterDetail]),
     ]);
 
     $projectBom = RndProjectBom::query()->create([
@@ -518,6 +531,268 @@ it('loads and updates BOM components inline from the product release page', func
         'quantity' => 200,
         'unit' => 'ml',
     ]);
+});
+
+it('preserves ESB Assembly payload fields the user did not edit', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    $detail = bomDetail();
+    $detail['accessType'] = 2;
+    $detail['selectedUserAccess'] = [10, 20];
+    $detail['bomCosts'] = [['costID' => 1, 'amount' => 500]];
+    $detail['bomCostTotal'] = 999.5;
+    $detail['notes'] = 'Catatan ESB asli';
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/42' => Http::sequence()
+            ->push(['status' => 'ok', 'result' => $detail])
+            ->push(['status' => 'ok', 'result' => $detail])
+            ->push(['status' => 'ok', 'result' => null]),
+    ]);
+
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 42,
+        'bom_code' => 'BOM-CRS',
+        'bom_name' => 'Croissant Assembly',
+        'sync_status' => 'synced',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('loadAllBomComponents')
+        ->call('editBomComponents', $projectBom->id)
+        ->set("bomComponentDrafts.{$projectBom->id}.bomDetails.0.qty", 175)
+        ->call('updateInlineBom', $projectBom->id)
+        ->assertHasNoErrors();
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
+        && data_get($request->data(), 'accessType') === 2
+        && data_get($request->data(), 'selectedUserAccess') === [10, 20]
+        && data_get($request->data(), 'bomCosts.0.amount') === 500
+        && (float) data_get($request->data(), 'bomCostTotal') === 999.5
+        && data_get($request->data(), 'notes') === 'Catatan ESB asli'
+        && (float) data_get($request->data(), 'bomDetails.0.qty') === 175.0);
+});
+
+it('blocks updateInlineBom for a user missing edit bill of materials or edit rnd projects', function (array $permissions) {
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 42,
+        'bom_code' => 'BOM-CRS',
+        'bom_name' => 'Croissant Assembly',
+        'sync_status' => 'synced',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    $restrictedUser = User::factory()->create(['is_active' => true]);
+    $restrictedUser->givePermissionTo(array_merge(
+        ['access backoffice', 'view rnd projects', 'view bill of materials'],
+        $permissions,
+    ));
+    $this->actingAs($restrictedUser);
+
+    Http::fake();
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('updateInlineBom', $projectBom->id)
+        ->assertForbidden();
+
+    Http::assertNothingSent();
+})->with([
+    'missing edit bill of materials' => [['edit rnd projects']],
+    'missing edit rnd projects' => [['edit bill of materials']],
+]);
+
+it('stops updateInlineBom without sending a PUT when editedDate changed in ESB since load', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    $loadedDetail = bomDetail();
+    $changedDetail = bomDetail();
+    $changedDetail['editedDate'] = '2026-08-01T09:00:00+07:00';
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/42' => Http::sequence()
+            ->push(['status' => 'ok', 'result' => $loadedDetail])
+            ->push(['status' => 'ok', 'result' => $changedDetail]),
+    ]);
+
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 42,
+        'bom_code' => 'BOM-CRS',
+        'bom_name' => 'Croissant Assembly',
+        'sync_status' => 'synced',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('loadAllBomComponents')
+        ->call('editBomComponents', $projectBom->id)
+        ->set("bomComponentDrafts.{$projectBom->id}.bomDetails.0.qty", 150)
+        ->call('updateInlineBom', $projectBom->id)
+        ->assertHasErrors(["bomComponentDrafts.{$projectBom->id}"]);
+
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'PUT');
+    expect($projectBom->fresh()->sync_status)->toBe('synced');
+});
+
+it('marks BOM sync status as failed without retrying after an ESB validation error on update', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom/42' => Http::sequence()
+            ->push(['status' => 'ok', 'result' => bomDetail()])
+            ->push(['status' => 'ok', 'result' => bomDetail()])
+            ->push(['status' => 'fail', 'errors' => [['message' => 'Quantity komponen tidak valid']]], 422),
+    ]);
+
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 42,
+        'bom_code' => 'BOM-CRS',
+        'bom_name' => 'Croissant Assembly',
+        'sync_status' => 'synced',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('loadAllBomComponents')
+        ->call('editBomComponents', $projectBom->id)
+        ->set("bomComponentDrafts.{$projectBom->id}.bomDetails.0.qty", 150)
+        ->call('updateInlineBom', $projectBom->id)
+        ->assertNotified('Komponen BOM gagal diperbarui');
+
+    expect(Http::recorded(fn ($request): bool => $request->method() === 'PUT'))->toHaveCount(1);
+    expect($projectBom->fresh()->sync_status)->toBe('failed');
+});
+
+it('marks BOM sync status as failed without retrying after an ESB connection failure on update', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake(function ($request) {
+        if (str_contains($request->url(), '/auth/login')) {
+            return Http::response(['status' => 'ok', 'result' => ['accessToken' => 'access-token']]);
+        }
+        if ($request->method() === 'PUT') {
+            return Http::failedConnection('cURL error 7: Failed to connect to core-esb.test port 443: Connection refused');
+        }
+
+        return Http::response(['status' => 'ok', 'result' => bomDetail()]);
+    });
+
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 42,
+        'bom_code' => 'BOM-CRS',
+        'bom_name' => 'Croissant Assembly',
+        'sync_status' => 'synced',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('loadAllBomComponents')
+        ->call('editBomComponents', $projectBom->id)
+        ->set("bomComponentDrafts.{$projectBom->id}.bomDetails.0.qty", 150)
+        ->call('updateInlineBom', $projectBom->id)
+        ->assertNotified('Komponen BOM gagal diperbarui');
+
+    expect(Http::recorded(fn ($request): bool => $request->method() === 'PUT'))->toHaveCount(1);
+    expect($projectBom->fresh()->sync_status)->toBe('failed');
+});
+
+it('marks BOM sync status as failed without retrying after an ESB timeout on update', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake(function ($request) {
+        if (str_contains($request->url(), '/auth/login')) {
+            return Http::response(['status' => 'ok', 'result' => ['accessToken' => 'access-token']]);
+        }
+        if ($request->method() === 'PUT') {
+            return Http::failedConnection('cURL error 28: Operation timed out after 60000 milliseconds with 0 bytes received');
+        }
+
+        return Http::response(['status' => 'ok', 'result' => bomDetail()]);
+    });
+
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 42,
+        'bom_code' => 'BOM-CRS',
+        'bom_name' => 'Croissant Assembly',
+        'sync_status' => 'synced',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('loadAllBomComponents')
+        ->call('editBomComponents', $projectBom->id)
+        ->set("bomComponentDrafts.{$projectBom->id}.bomDetails.0.qty", 150)
+        ->call('updateInlineBom', $projectBom->id)
+        ->assertNotified('Komponen BOM gagal diperbarui');
+
+    expect(Http::recorded(fn ($request): bool => $request->method() === 'PUT'))->toHaveCount(1);
+    expect($projectBom->fresh()->sync_status)->toBe('failed');
 });
 
 it('refreshes the displayed BOM result metadata from ESB', function () {

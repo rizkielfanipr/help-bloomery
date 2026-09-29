@@ -2,6 +2,11 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
+use App\Actions\Rnd\Bom\UpdateEsbBillOfMaterialAction;
+use App\Enums\RndBomChangeLogSource;
+use App\Enums\RndBomChangeLogStatus;
+use App\Exceptions\Rnd\BomConflictException;
+use App\Exceptions\Rnd\BomInvariantException;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\PrefixCategory;
 use App\Models\PrefixName;
@@ -16,6 +21,7 @@ use App\Services\EsbBillOfMaterialService;
 use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
 use App\Services\ProductPriceIndexService;
+use App\Services\Rnd\Bom\BomPayloadBuilder;
 use App\Services\Rnd\BomCalculationService;
 use App\Services\Rnd\MenuPricingCalculator;
 use App\Services\SyncRndEsbMaterialFromRemote;
@@ -1436,40 +1442,32 @@ class ViewProjectProductPage extends Page
             return;
         }
 
-        try {
-            $latest = app(EsbBillOfMaterialService::class)->getBillOfMaterial($projectBom->esb_bom_id);
-            $loadedEditedDate = data_get($this->bomComponentDetails, "$projectBomId.editedDate");
-            $latestEditedDate = $latest['editedDate'] ?? null;
+        $loadedEditedDate = data_get($this->bomComponentDetails, "$projectBomId.editedDate");
 
-            if ($loadedEditedDate && $latestEditedDate && $loadedEditedDate !== $latestEditedDate) {
-                $this->addError(
-                    "bomComponentDrafts.$projectBomId",
-                    'BOM telah diperbarui user lain di ESB. Muat ulang komponen sebelum menyimpan.',
-                );
+        try {
+            $projectBom->update(['sync_status' => 'syncing']);
+
+            $changeLog = app(UpdateEsbBillOfMaterialAction::class)->execute(
+                bomId: $projectBom->esb_bom_id,
+                draft: $draft,
+                loadedEditedDate: $loadedEditedDate,
+                reason: null,
+                source: RndBomChangeLogSource::Project,
+                actor: auth()->user(),
+            );
+
+            if ($changeLog->status !== RndBomChangeLogStatus::Success) {
+                $projectBom->update(['sync_status' => 'failed']);
+                Notification::make()
+                    ->title('Komponen BOM gagal diperbarui')
+                    ->body($changeLog->error_message ?? 'Hasil mutation ESB belum dapat dipastikan.')
+                    ->danger()
+                    ->send();
 
                 return;
             }
 
-            $payload = $this->inlineBomPayload($latest, $draft);
-            $projectBom->update(['sync_status' => 'syncing']);
-            app(EsbBillOfMaterialService::class)->updateBillOfMaterial($projectBom->esb_bom_id, $payload);
-
-            $snapshot = $latest;
-            $snapshot['productDetailID'] = (int) $draft['productDetailID'];
-            $snapshot['productName'] = (string) ($draft['productName'] ?? $latest['productName'] ?? '');
-            $snapshot['productCode'] = (string) ($draft['productCode'] ?? $latest['productCode'] ?? '');
-            $snapshot['uomName'] = (string) ($draft['uomName'] ?? $latest['uomName'] ?? '');
-            $originalById = collect($latest['bomDetails'] ?? [])->keyBy(
-                fn (array $item): int => (int) ($item['ID'] ?? 0),
-            );
-            $snapshot['bomDetails'] = array_map(
-                fn (array $updated): array => array_merge(
-                    $originalById->get((int) $updated['ID'], []),
-                    $updated,
-                ),
-                $draft['bomDetails'],
-            );
-            $snapshot['editedDate'] = null;
+            $snapshot = $changeLog->after_snapshot;
             $projectBom->update([
                 'detail_snapshot' => $snapshot,
                 'product_name' => $snapshot['productName'] ?: $projectBom->product_name,
@@ -1485,6 +1483,12 @@ class ViewProjectProductPage extends Page
             $this->bomComponentEditing[$projectBomId] = false;
             $this->reloadProduct();
             Notification::make()->title('Komponen BOM berhasil diperbarui')->success()->send();
+        } catch (BomConflictException $exception) {
+            $projectBom->update(['sync_status' => 'synced']);
+            $this->addError("bomComponentDrafts.$projectBomId", $exception->getMessage());
+        } catch (BomInvariantException $exception) {
+            $projectBom->update(['sync_status' => 'synced']);
+            $this->addError("bomComponentDrafts.$projectBomId.{$exception->field}", $exception->getMessage());
         } catch (Throwable $exception) {
             $projectBom->update(['sync_status' => 'failed']);
             Notification::make()
@@ -1590,58 +1594,17 @@ class ViewProjectProductPage extends Page
         }, $rows);
     }
 
-    private function inlineBomPayload(array $latest, array $draft): array
-    {
-        $isMenu = $this->isMenuBomDetail($latest);
-
-        $payload = [
-            'bomTypeID' => (int) ($latest['bomTypeID'] ?? 1),
-            'bomName' => (string) ($latest['bomName'] ?? ''),
-            'bomCode' => (string) ($latest['bomCode'] ?? ''),
-            'notes' => (string) ($latest['notes'] ?? ''),
-            'bomCostTotal' => (float) ($latest['bomCostTotal'] ?? 0),
-            'accessType' => (int) ($latest['accessType'] ?? 0),
-            'selectedUserAccess' => is_array($latest['selectedUserAccess'] ?? null) ? $latest['selectedUserAccess'] : [],
-            'bomDetails' => array_map(function (array $item) use ($isMenu): array {
-                $row = [
-                    'ID' => (int) $item['ID'],
-                    'productDetailID' => (int) $item['productDetailID'],
-                    'lastHPP' => (float) $item['lastHPP'],
-                    'qty' => (float) $item['qty'],
-                    'yieldPercent' => (float) $item['yieldPercent'],
-                    'printGroup' => (string) ($item['printGroup'] ?? ''),
-                    'subtitution' => is_array($item['subtitution'] ?? null) ? $item['subtitution'] : [],
-                ];
-
-                if (! $isMenu) {
-                    $row['tolerancePercent'] = (float) ($item['tolerancePercent'] ?? 0);
-                }
-
-                return $row;
-            }, $draft['bomDetails']),
-            'bomCosts' => is_array($latest['bomCosts'] ?? null) ? $latest['bomCosts'] : [],
-        ];
-
-        // BOM Menu has no "Product Hasil" concept in ESB's API — only Assembly
-        // BOMs carry a top-level productDetailID.
-        if (! $isMenu) {
-            $payload['productDetailID'] = (int) $draft['productDetailID'];
-        }
-
-        return $payload;
-    }
-
     /**
      * BOM Menu (bomTypeID 3) has a leaner bomDetails schema than Assembly per
      * ESB's API — no `tolerancePercent` field — so callers use this to decide
-     * whether to validate/send it.
+     * whether to validate/send it. Delegates to the shared payload builder so
+     * BOM Adjustment and Project agree on the same Assembly/Menu detection.
      *
      * @param  array<string, mixed>  $detail
      */
     public function isMenuBomDetail(array $detail): bool
     {
-        return (int) ($detail['bomTypeID'] ?? 0) === 3
-            || mb_strtolower(trim((string) ($detail['bomTypeName'] ?? ''))) === 'menu';
+        return app(BomPayloadBuilder::class)->isMenu($detail);
     }
 
     private function attachedProjectBom(int $projectBomId): RndProjectBom

@@ -138,6 +138,10 @@ return [
             'delete rnd internal memo',
         ],
         'Master Shelf Life Menu' => ['manage rnd product shelf life'],
+        'BOM Adjustment' => [
+            'view bom adjustment history',
+            'reconcile bom adjustments',
+        ],
         'Material Forecast' => ['view material forecast'],
     ],
 

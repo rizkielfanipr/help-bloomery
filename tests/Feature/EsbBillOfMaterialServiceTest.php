@@ -87,6 +87,21 @@ it('does not retry a BOM mutation after validation or connection failure', funct
     ['connection', ConnectionException::class],
 ]);
 
+it('does not retry a BOM update mutation after validation, timeout, or connection failure', function (string $failure, string $exceptionClass, string $message) {
+    Cache::put('esb_core.access_token', 'token');
+    Http::fake(['https://core-esb.test/product/bom/41' => $failure === 'validation'
+        ? Http::response(['status' => 'fail', 'errors' => [['message' => 'Quantity komponen tidak valid']]], 422)
+        : Http::failedConnection($message)]);
+
+    expect(fn () => app(EsbBillOfMaterialService::class)->updateBillOfMaterial(41, ['bomTypeID' => 1, 'bomName' => 'Updated']))
+        ->toThrow($exceptionClass);
+    Http::assertSentCount(1);
+})->with([
+    ['validation', RuntimeException::class, ''],
+    ['timeout', ConnectionException::class, 'cURL error 28: Operation timed out after 60000 milliseconds'],
+    ['connection', ConnectionException::class, 'cURL error 7: Failed to connect to core-esb.test port 443: Connection refused'],
+]);
+
 it('rejects a successful create response without a BOM ID', function () {
     Cache::put('esb_core.access_token', 'token');
     Http::fake(['https://core-esb.test/product/bom' => Http::response(['status' => 'ok', 'result' => []])]);

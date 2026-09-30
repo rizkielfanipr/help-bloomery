@@ -121,6 +121,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'manage rnd product shelf life',
                 'view bom adjustment history', 'reconcile bom adjustments',
                 'view material forecast',
+                'view rnd project tasks', 'create rnd project tasks', 'update rnd project tasks',
+                'assign rnd project tasks', 'respond rnd project tasks',
+                'review rnd project task follow ups', 'cancel rnd project tasks',
+                'view all branch rnd project tasks',
             ]);
 
         Role::firstOrCreate(['name' => 'PURCHASING_STAFF', 'guard_name' => 'web'])

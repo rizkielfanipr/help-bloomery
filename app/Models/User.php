@@ -205,6 +205,11 @@ class User extends Authenticatable implements FilamentUser
             ->whereHas('opening', fn ($q) => $q->where('work_date', '>=', today()));
     }
 
+    public function projectTaskAssignments(): HasMany
+    {
+        return $this->hasMany(RndProjectTaskAssignment::class);
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logFillable()->logOnlyDirty();

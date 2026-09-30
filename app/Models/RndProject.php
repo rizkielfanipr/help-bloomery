@@ -44,6 +44,11 @@ class RndProject extends Model
         return $this->hasMany(RndProjectDocument::class)->latest();
     }
 
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(RndProjectTask::class)->latest('due_date');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

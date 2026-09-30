@@ -143,6 +143,16 @@ return [
             'reconcile bom adjustments',
         ],
         'Material Forecast' => ['view material forecast'],
+        'Task Calendar' => [
+            'view rnd project tasks',
+            'create rnd project tasks',
+            'update rnd project tasks',
+            'assign rnd project tasks',
+            'respond rnd project tasks',
+            'review rnd project task follow ups',
+            'cancel rnd project tasks',
+            'view all branch rnd project tasks',
+        ],
     ],
 
     'Sales & Growth' => [

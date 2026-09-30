@@ -60,14 +60,15 @@
     </div>
 </section>
 
+<div class="grid gap-5 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
 <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
     <div class="flex flex-col gap-4 border-b border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div>
             <div class="flex items-center gap-2">
-                <x-heroicon-o-clipboard-document-check class="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Kalender Tugas</h3>
+                <x-heroicon-o-calendar-days class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Kalender</h3>
             </div>
-            <p class="mt-1 text-sm text-gray-500">Tugas ditampilkan pada tanggal deadline-nya.</p>
+            <p class="mt-1 text-sm text-gray-500">Tanggal rilis Project ditampilkan bersama deadline Tugas operasional.</p>
         </div>
         <div class="flex items-center gap-2">
             <button type="button" wire:click="previousTaskCalendarMonth" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" aria-label="Bulan sebelumnya">
@@ -107,6 +108,20 @@
                         @endforeach
                     </div>
                     <div class="grid grid-cols-7 gap-y-1 px-1 pb-2">
+                        @foreach($week['projects'] as $segment)
+                            @php
+                                $releaseProject = $segment['project'];
+                            @endphp
+                            <a
+                                href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $releaseProject]) }}"
+                                class="mx-0.5 flex items-center gap-1 truncate rounded-md border border-dashed border-indigo-300 bg-indigo-50 px-2 py-1.5 text-left text-xs font-bold text-indigo-800 hover:brightness-95 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200"
+                                style="grid-column: {{ $segment['dayColumn'] }} / span 1"
+                                title="Rilis {{ $releaseProject->name }} · {{ $releaseProject->end_date->format('d M Y') }}"
+                            >
+                                <x-heroicon-o-flag class="h-3 w-3 shrink-0" />
+                                <span class="truncate">{{ $releaseProject->name }}</span>
+                            </a>
+                        @endforeach
                         @foreach($week['tasks'] as $segment)
                             @php
                                 $task = $segment['task'];
@@ -121,7 +136,7 @@
                                 {{ $task->title }}
                             </button>
                         @endforeach
-                        @if(count($week['tasks']) === 0)
+                        @if(count($week['tasks']) === 0 && count($week['projects']) === 0)
                             <div class="col-span-7 h-6"></div>
                         @endif
                     </div>
@@ -134,12 +149,25 @@
     <div class="divide-y divide-gray-100 md:hidden dark:divide-gray-800">
         @php
             $tasksByDate = $this->taskCalendarTasks()->sortBy('due_date')->groupBy(fn ($task) => $task->due_date->toDateString());
+            $releasesByDate = collect($taskCalendar['weeks'])
+                ->flatMap(fn (array $week): array => $week['projects'])
+                ->pluck('project')
+                ->unique('id')
+                ->sortBy('end_date')
+                ->groupBy(fn (\App\Models\RndProject $project) => $project->end_date->toDateString());
+            $agendaDates = $tasksByDate->keys()->merge($releasesByDate->keys())->unique()->sort()->values();
         @endphp
-        @forelse($tasksByDate as $dateKey => $dateTasks)
+        @forelse($agendaDates as $dateKey)
             <div class="p-4">
                 <p class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">{{ \Illuminate\Support\Carbon::parse($dateKey)->translatedFormat('d F Y') }}</p>
                 <div class="space-y-2">
-                    @foreach($dateTasks as $task)
+                    @foreach($releasesByDate->get($dateKey, []) as $releaseProject)
+                        <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $releaseProject]) }}" class="flex w-full items-center gap-2 rounded-lg border border-dashed border-indigo-300 bg-indigo-50 px-3 py-2 text-left text-sm text-indigo-800 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200">
+                            <x-heroicon-o-flag class="h-4 w-4 shrink-0" />
+                            <span class="min-w-0 truncate font-bold">Rilis · {{ $releaseProject->name }}</span>
+                        </a>
+                    @endforeach
+                    @foreach($tasksByDate->get($dateKey, []) as $task)
                         <button type="button" wire:click="openTaskDetail({{ $task->id }})" class="flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm {{ $barClassFor($task) }}">
                             <span class="min-w-0 truncate font-bold">{{ $task->title }}</span>
                             <span class="shrink-0 text-xs font-semibold">{{ $task->status->getLabel() }}</span>
@@ -148,10 +176,40 @@
                 </div>
             </div>
         @empty
-            <div class="p-8 text-center text-sm text-gray-400">Tidak ada Tugas pada bulan ini.</div>
+            <div class="p-8 text-center text-sm text-gray-400">Tidak ada Tugas atau tanggal rilis pada bulan ini.</div>
         @endforelse
     </div>
 </section>
+
+<aside class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 md:sticky md:top-4">
+    <div class="mb-3 flex items-center gap-2">
+        <x-heroicon-o-user-circle class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        <h4 class="text-sm font-bold text-gray-900 dark:text-white">Tugas Saya</h4>
+    </div>
+    <div class="space-y-2">
+        @forelse($this->myOpenTaskAssignments() as $myAssignment)
+            @php $myTask = $myAssignment->task; @endphp
+            <button
+                type="button"
+                wire:key="my-open-task-{{ $myAssignment->id }}"
+                wire:click="openTaskDetail({{ $myTask->id }})"
+                class="block w-full rounded-xl border px-3 py-2.5 text-left transition hover:border-blue-300 hover:bg-blue-50/40 dark:hover:border-blue-700 dark:hover:bg-blue-950/20 {{ $myTask->isOverdue() ? 'border-red-200 dark:border-red-900' : 'border-gray-200 dark:border-gray-700' }}"
+            >
+                <div class="flex items-start justify-between gap-2">
+                    <span class="min-w-0 truncate text-sm font-bold text-gray-900 dark:text-white">{{ $myTask->title }}</span>
+                    <x-filament::badge :color="$myAssignment->status->getColor()" class="shrink-0">{{ $myAssignment->status->getLabel() }}</x-filament::badge>
+                </div>
+                <p class="mt-1 truncate text-xs text-gray-500">{{ $myTask->project->name }} · {{ $myAssignment->branch->name }}</p>
+                <p class="mt-1.5 text-xs font-semibold {{ $myTask->isOverdue() ? 'text-red-600 dark:text-red-400' : 'text-gray-500' }}">
+                    Deadline {{ $myTask->due_date->format('d M Y') }}{{ $myTask->isOverdue() ? ' · Overdue' : '' }}
+                </p>
+            </button>
+        @empty
+            <p class="py-8 text-center text-xs text-gray-400">Tidak ada Tugas aktif untuk Anda.</p>
+        @endforelse
+    </div>
+</aside>
+</div>
 
 @if($taskModalOpen)
     <div class="fixed inset-0 z-[130] flex items-center justify-center p-4" x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window="$wire.closeTaskModal()">

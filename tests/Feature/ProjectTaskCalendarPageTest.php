@@ -21,24 +21,96 @@ beforeEach(function () {
     ]);
 });
 
-it('hides the Kalender Tugas toggle from users without the view permission', function () {
+it('gives users without the task view permission a release-only Kalender', function () {
     $outsider = User::factory()->create(['is_active' => true]);
     $outsider->givePermissionTo('view rnd projects');
     $this->actingAs($outsider);
 
-    Livewire::test(ListProjects::class)->assertDontSee('Kalender Tugas');
+    Livewire::test(ListProjects::class)
+        ->assertSee('Kalender')
+        ->assertDontSee('Tambah Tugas')
+        ->call('showProjectCalendar')
+        ->assertSet('projectView', 'calendar')
+        ->assertDontSee('Tambah Tugas');
 });
 
-it('shows the Kalender Tugas toggle and switches to the tasks view', function () {
+it('shows the merged Kalender toggle combining release dates and tasks', function () {
+    $manager = User::factory()->create(['is_active' => true]);
+    $manager->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'create rnd project tasks']);
+    $this->actingAs($manager);
+
+    Livewire::test(ListProjects::class)
+        ->assertSee('Kalender')
+        ->call('showProjectTasks')
+        ->assertSet('projectView', 'tasks')
+        ->assertSee('Kalender')
+        ->assertSee('Tambah Tugas');
+});
+
+it('shows the release date for a project alongside tasks in the merged Kalender view', function () {
     $manager = User::factory()->create(['is_active' => true]);
     $manager->givePermissionTo(['view rnd projects', 'view rnd project tasks']);
     $this->actingAs($manager);
 
+    $release = RndProject::query()->create([
+        'name' => 'Merged View Release', 'start_date' => '2026-09-01', 'end_date' => '2026-09-20',
+    ]);
+
     Livewire::test(ListProjects::class)
-        ->assertSee('Kalender Tugas')
         ->call('showProjectTasks')
-        ->assertSet('projectView', 'tasks')
-        ->assertSee('Kalender Tugas');
+        ->set('taskCalendarMonth', '2026-09')
+        ->assertSee('Merged View Release');
+});
+
+it('lists the signed-in PIC own assignments as cards in the Tugas Saya sidebar', function () {
+    $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $pic->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'respond rnd project tasks']);
+    $branch = Branch::factory()->create();
+    $pic->syncBranchAccess([$branch->id], $branch->id);
+    $this->actingAs($pic);
+
+    $myTask = RndProjectTask::factory()->create([
+        'title' => 'Sidebar Own Task', 'status' => 'assigned', 'due_date' => today()->addDays(2),
+    ]);
+    $myTask->branches()->attach($branch->id);
+    RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $myTask->id, 'branch_id' => $branch->id, 'user_id' => $pic->id, 'status' => 'assigned',
+    ]);
+
+    $otherTask = RndProjectTask::factory()->create(['title' => 'Someone Else Task', 'status' => 'assigned']);
+    $otherTask->branches()->attach($branch->id);
+    RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $otherTask->id, 'branch_id' => $branch->id, 'status' => 'assigned',
+    ]);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->assertSee('Tugas Saya')
+        ->assertSee('Sidebar Own Task')
+        ->assertDontSee('Someone Else Task');
+});
+
+it('excludes cancelled and approved assignments from the Tugas Saya sidebar', function () {
+    $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $pic->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'respond rnd project tasks']);
+    $branch = Branch::factory()->create();
+    $pic->syncBranchAccess([$branch->id], $branch->id);
+    $this->actingAs($pic);
+
+    $cancelledTask = RndProjectTask::factory()->create(['title' => 'Cancelled Assignment Task']);
+    RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $cancelledTask->id, 'branch_id' => $branch->id, 'user_id' => $pic->id, 'status' => 'cancelled',
+    ]);
+    $approvedTask = RndProjectTask::factory()->create(['title' => 'Approved Assignment Task']);
+    RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $approvedTask->id, 'branch_id' => $branch->id, 'user_id' => $pic->id, 'status' => 'approved',
+    ]);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->assertSee('Tidak ada Tugas aktif untuk Anda.')
+        ->assertDontSee('Cancelled Assignment Task')
+        ->assertDontSee('Approved Assignment Task');
 });
 
 it('creates a task from the modal with one PIC per branch and shows it on the calendar', function () {

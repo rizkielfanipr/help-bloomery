@@ -29,11 +29,14 @@ use Livewire\WithFileUploads;
 use RuntimeException;
 
 /**
- * Kalender Tugas mode for the Project index (docs/rnd-project-task-calendar-prd.md §14, Phase 2).
- * Mirrors the existing Kalender Rilis month-grid mechanics in `ListProjects::calendar()`, but the
- * task query is scoped to the visible date range and to the user's branch access in SQL, per §19
- * ("Kalender hanya mengambil data dalam rentang tanggal yang sedang ditampilkan") — the legacy
- * release calendar intentionally keeps its own looser, in-memory-filtered behavior unchanged.
+ * Merged Kalender mode for the Project index (docs/rnd-project-task-calendar-prd.md §14, Phase 2).
+ * Mirrors the existing release-calendar month-grid mechanics in `ListProjects::calendar()`, and
+ * additionally overlays each week with that same month's project release dates (`taskCalendar()`'s
+ * `projects` segments), so a single toggle shows both release dates and Task deadlines. The task
+ * query itself stays scoped to the visible date range and to the user's branch access in SQL, per
+ * §19 ("Kalender hanya mengambil data dalam rentang tanggal yang sedang ditampilkan") — the legacy
+ * `ListProjects::calendar()` method (used standalone for users without Task permissions) keeps its
+ * own looser, in-memory-filtered behavior unchanged.
  */
 trait HasProjectTaskCalendar
 {
@@ -160,7 +163,7 @@ trait HasProjectTaskCalendar
     }
 
     /**
-     * @return array{monthLabel: string, weeks: array<int, array{dates: array<int, array{date: Carbon, isCurrentMonth: bool, isToday: bool}>, tasks: array<int, array{task: RndProjectTask, dayColumn: int}>}>}
+     * @return array{monthLabel: string, weeks: array<int, array{dates: array<int, array{date: Carbon, isCurrentMonth: bool, isToday: bool}>, tasks: array<int, array{task: RndProjectTask, dayColumn: int}>, projects: array<int, array{project: RndProject, dayColumn: int}>}>}
      */
     public function taskCalendar(): array
     {
@@ -168,6 +171,8 @@ trait HasProjectTaskCalendar
         $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
         $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
         $tasks = $this->taskCalendarTasks();
+        $releaseProjects = $this->projects()
+            ->filter(fn (RndProject $project): bool => $project->end_date->betweenIncluded($calendarStart, $calendarEnd));
         $weeks = [];
 
         for ($weekStart = $calendarStart->copy(); $weekStart->lte($calendarEnd); $weekStart->addWeek()) {
@@ -192,7 +197,17 @@ trait HasProjectTaskCalendar
                 ->values()
                 ->all();
 
-            $weeks[] = ['dates' => $dates, 'tasks' => $segments];
+            $releaseSegments = $releaseProjects
+                ->filter(fn (RndProject $project): bool => $project->end_date->betweenIncluded($weekStart, $weekEnd))
+                ->sortBy(fn (RndProject $project): string => $project->end_date->format('Y-m-d').'|'.str_pad((string) $project->id, 10, '0', STR_PAD_LEFT))
+                ->map(fn (RndProject $project): array => [
+                    'project' => $project,
+                    'dayColumn' => (int) $weekStart->diffInDays($project->end_date) + 1,
+                ])
+                ->values()
+                ->all();
+
+            $weeks[] = ['dates' => $dates, 'tasks' => $segments, 'projects' => $releaseSegments];
         }
 
         return [
@@ -458,6 +473,34 @@ trait HasProjectTaskCalendar
     public function myAssignmentsForTask(RndProjectTask $task): EloquentCollection
     {
         return $task->assignments->where('user_id', auth()->id())->values();
+    }
+
+    /**
+     * "Tugas Saya" sidebar next to the merged Kalender (docs/rnd-project-task-calendar-prd.md §15)
+     * — the current user's own non-Cancelled assignments, ordered overdue first, then deadline
+     * today, then Urgent/High priority, then nearest deadline. Mirrors the Dashboard's "Tugas yang
+     * Perlu Ditindaklanjuti" ordering but also surfaces Submitted assignments awaiting review.
+     *
+     * @return EloquentCollection<int, RndProjectTaskAssignment>
+     */
+    public function myOpenTaskAssignments(): EloquentCollection
+    {
+        return RndProjectTaskAssignment::query()
+            ->with(['task.project', 'branch'])
+            ->where('user_id', auth()->id())
+            ->whereIn('status', ['assigned', 'in_progress', 'submitted', 'revision_required'])
+            ->get()
+            ->sortBy(fn (RndProjectTaskAssignment $assignment): string => sprintf(
+                '%d|%s',
+                match (true) {
+                    $assignment->task->isOverdue() => 0,
+                    $assignment->task->due_date->isToday() => 1,
+                    $assignment->task->priority->isUrgentOrHigh() => 2,
+                    default => 3,
+                },
+                $assignment->task->due_date->format('Y-m-d'),
+            ))
+            ->values();
     }
 
     public function startAssignment(int $assignmentId): void

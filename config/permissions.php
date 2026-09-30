@@ -142,7 +142,10 @@ return [
             'view bom adjustment history',
             'reconcile bom adjustments',
         ],
-        'Material Forecast' => ['view material forecast'],
+        'Material Forecast' => [
+            'view material forecast',
+            'edit material forecast',
+        ],
         'Task Calendar' => [
             'view rnd project tasks',
             'create rnd project tasks',

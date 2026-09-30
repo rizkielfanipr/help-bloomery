@@ -120,7 +120,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'delete rnd internal memo',
                 'manage rnd product shelf life',
                 'view bom adjustment history', 'reconcile bom adjustments',
-                'view material forecast',
+                'view material forecast', 'edit material forecast',
                 'view rnd project tasks', 'create rnd project tasks', 'update rnd project tasks',
                 'assign rnd project tasks', 'respond rnd project tasks',
                 'review rnd project task follow ups', 'cancel rnd project tasks',

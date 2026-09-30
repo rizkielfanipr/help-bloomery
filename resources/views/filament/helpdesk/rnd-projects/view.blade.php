@@ -255,22 +255,22 @@
                                         </ul>
                                     @endif
                                 </div>
+                                @can('edit material forecast')
                                 <form wire:submit="saveForecastPercentage" class="mt-3 flex flex-wrap items-end gap-2">
                                     <label class="block">
                                         <span class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Persentase Forecast</span>
                                         <span class="mt-1 flex w-36 overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
-                                            <input type="number" min="1" max="100" step="0.01" wire:model="forecastPercentage" @disabled(! \App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project)) class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm focus:ring-0 disabled:bg-gray-100 dark:disabled:bg-gray-800">
+                                            <input type="number" min="1" max="100" step="0.01" wire:model="forecastPercentage" class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm focus:ring-0">
                                             <span class="flex items-center border-l border-gray-200 px-3 text-sm font-semibold text-gray-500 dark:border-gray-700">%</span>
                                         </span>
                                     </label>
-                                    @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project))
-                                        <x-filament::button type="submit" size="sm" wire:loading.attr="disabled" wire:target="saveForecastPercentage">
-                                            <span wire:loading.remove wire:target="saveForecastPercentage">Terapkan</span>
-                                            <span wire:loading.flex wire:target="saveForecastPercentage" class="items-center gap-2"><x-filament::loading-indicator class="h-4 w-4" />Menyimpan</span>
-                                        </x-filament::button>
-                                    @endif
+                                    <x-filament::button type="submit" size="sm" wire:loading.attr="disabled" wire:target="saveForecastPercentage">
+                                        <span wire:loading.remove wire:target="saveForecastPercentage">Terapkan</span>
+                                        <span wire:loading.flex wire:target="saveForecastPercentage" class="items-center gap-2"><x-filament::loading-indicator class="h-4 w-4" />Menyimpan</span>
+                                    </x-filament::button>
                                     @error('forecastPercentage')<p class="w-full text-xs font-medium text-red-600">{{ $message }}</p>@enderror
                                 </form>
+                                @endcan
                             </div>
                         </div>
                         <div>

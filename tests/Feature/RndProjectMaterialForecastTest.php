@@ -242,7 +242,7 @@ it('allows an R&D editor to save the project forecast percentage', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
     $user = User::factory()->create(['is_active' => true]);
-    $user->givePermissionTo(['access backoffice', 'view rnd projects', 'edit rnd projects']);
+    $user->givePermissionTo(['access backoffice', 'view rnd projects', 'view material forecast', 'edit material forecast']);
     $this->actingAs($user);
     $project = RndProject::query()->create([
         'name' => 'Adjustable Forecast Project',
@@ -257,6 +257,34 @@ it('allows an R&D editor to save the project forecast percentage', function () {
         ->assertHasNoErrors();
 
     expect((float) $project->fresh()->forecast_percentage)->toBe(65.5);
+});
+
+it('prevents a project editor without the forecast edit permission from changing the percentage', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo([
+        'access backoffice',
+        'view rnd projects',
+        'edit rnd projects',
+        'view material forecast',
+    ]);
+    $this->actingAs($user);
+    $project = RndProject::query()->create([
+        'name' => 'Read Only Forecast Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-12-31',
+        'forecast_percentage' => 100,
+        'created_by' => $user->id,
+    ]);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->assertDontSee('Terapkan')
+        ->set('forecastPercentage', '35')
+        ->call('saveForecastPercentage')
+        ->assertForbidden();
+
+    expect((float) $project->fresh()->forecast_percentage)->toBe(100.0);
 });
 
 it('exports Kitchen and Store forecasts into separate Excel sheets', function () {

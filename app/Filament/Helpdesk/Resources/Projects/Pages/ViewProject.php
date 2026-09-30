@@ -886,7 +886,7 @@ class ViewProject extends ViewRecord
 
     public function saveForecastPercentage(): void
     {
-        abort_unless(ProjectResource::canEdit($this->record), 403);
+        abort_unless(auth()->user()?->can('edit material forecast'), 403);
         $validated = $this->validate([
             'forecastPercentage' => ['required', 'numeric', 'min:1', 'max:100'],
         ]);

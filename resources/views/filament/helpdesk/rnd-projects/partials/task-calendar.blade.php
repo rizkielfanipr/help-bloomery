@@ -219,6 +219,28 @@
                         <textarea wire:model="taskDescription" rows="3" class="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Instruksi pekerjaan..."></textarea>
                         @error('taskDescription')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
+                    <div class="sm:col-span-2">
+                        <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Attachment Task</label>
+                        @if($editingTaskId)
+                            @if($existingTaskInstructionAttachments !== [])
+                                <div class="mb-2 space-y-1.5">
+                                    @foreach($existingTaskInstructionAttachments as $index => $attachmentPath)
+                                        <div class="flex items-center justify-between gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs dark:border-gray-700">
+                                            <a href="{{ route('helpdesk.rnd-project-tasks.attachments.show', ['path' => $attachmentPath]) }}" target="_blank" class="truncate text-blue-600 underline">Lampiran {{ $index + 1 }} · {{ basename($attachmentPath) }}</a>
+                                            <button type="button" wire:click="removeInstructionAttachment({{ $editingTaskId }}, {{ $index }})" wire:confirm="Hapus lampiran ini?" aria-label="Hapus lampiran" class="shrink-0 text-red-500 hover:text-red-700">
+                                                <x-heroicon-o-trash class="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        @endif
+                        <input type="file" wire:model="taskInstructionAttachments" multiple class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                        <p class="mt-1 text-[11px] text-gray-400">Maks. 5 file, JPG/PNG/WEBP/PDF, masing-masing maks. 8 MB.</p>
+                        @error('taskInstructionAttachments')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        @error('taskInstructionAttachments.*')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        <div wire:loading wire:target="taskInstructionAttachments" class="mt-1 text-[11px] text-blue-600">Mengunggah...</div>
+                    </div>
                 </div>
 
                 @unless($editingTaskId)

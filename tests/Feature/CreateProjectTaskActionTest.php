@@ -99,3 +99,25 @@ it('rejects a task with no branches', function () {
         'branches' => [],
     ], $this->actor))->toThrow(ValidationException::class);
 });
+
+it('rejects the same PIC listed twice for the same branch before creating a task', function () {
+    $branch = Branch::factory()->create();
+    $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $pic->syncBranchAccess([$branch->id], $branch->id);
+
+    expect(fn () => app(CreateProjectTaskAction::class)->execute($this->project, [
+        'title' => 'Duplicate PIC',
+        'task_type' => 'general',
+        'description' => null,
+        'assigned_date' => '2026-10-01',
+        'due_date' => '2026-10-05',
+        'priority' => 'medium',
+        'instruction_attachments' => null,
+        'branches' => [
+            ['branch_id' => $branch->id, 'user_id' => $pic->id],
+            ['branch_id' => $branch->id, 'user_id' => $pic->id],
+        ],
+    ], $this->actor))->toThrow(ValidationException::class);
+
+    expect($this->project->tasks()->count())->toBe(0);
+});

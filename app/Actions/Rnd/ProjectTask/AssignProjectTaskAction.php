@@ -27,13 +27,40 @@ class AssignProjectTaskAction
      */
     public function execute(RndProjectTask $task, int $branchId, int $userId): RndProjectTaskAssignment
     {
-        $this->guardAssignable($task);
         $this->guardEligible($userId, $branchId);
 
         $assignment = DB::transaction(function () use ($task, $branchId, $userId): RndProjectTaskAssignment {
-            $task->branches()->syncWithoutDetaching([$branchId]);
+            $lockedTask = RndProjectTask::query()->lockForUpdate()->findOrFail($task->id);
+            $this->guardAssignable($lockedTask);
 
-            return $task->assignments()->create([
+            $existing = $lockedTask->assignments()
+                ->where('branch_id', $branchId)
+                ->where('user_id', $userId)
+                ->first();
+
+            if ($existing && $existing->status !== RndProjectTaskAssignmentStatus::Cancelled) {
+                throw ValidationException::withMessages([
+                    'user_id' => 'PIC ini sudah ditugaskan pada Branch tersebut.',
+                ]);
+            }
+
+            $lockedTask->branches()->syncWithoutDetaching([$branchId]);
+
+            if ($existing) {
+                $existing->update([
+                    'status' => RndProjectTaskAssignmentStatus::Assigned->value,
+                    'assigned_at' => now(),
+                    'started_at' => null,
+                    'submitted_at' => null,
+                    'reviewed_at' => null,
+                    'reviewed_by' => null,
+                    'review_note' => null,
+                ]);
+
+                return $existing->fresh();
+            }
+
+            return $lockedTask->assignments()->create([
                 'branch_id' => $branchId,
                 'user_id' => $userId,
                 'status' => RndProjectTaskAssignmentStatus::Assigned->value,
@@ -53,13 +80,40 @@ class AssignProjectTaskAction
      */
     public function reassign(RndProjectTaskAssignment $assignment, int $newUserId): RndProjectTaskAssignment
     {
-        $this->guardAssignable($assignment->task);
         $this->guardEligible($newUserId, $assignment->branch_id);
 
         $newAssignment = DB::transaction(function () use ($assignment, $newUserId): RndProjectTaskAssignment {
+            $lockedTask = RndProjectTask::query()->lockForUpdate()->findOrFail($assignment->rnd_project_task_id);
+            $this->guardAssignable($lockedTask);
+
+            $existing = $lockedTask->assignments()
+                ->where('branch_id', $assignment->branch_id)
+                ->where('user_id', $newUserId)
+                ->first();
+
+            if ($existing && $existing->status !== RndProjectTaskAssignmentStatus::Cancelled) {
+                throw ValidationException::withMessages([
+                    'user_id' => 'PIC tujuan sudah ditugaskan pada Branch tersebut.',
+                ]);
+            }
+
             $assignment->update(['status' => RndProjectTaskAssignmentStatus::Cancelled->value]);
 
-            return $assignment->task->assignments()->create([
+            if ($existing) {
+                $existing->update([
+                    'status' => RndProjectTaskAssignmentStatus::Assigned->value,
+                    'assigned_at' => now(),
+                    'started_at' => null,
+                    'submitted_at' => null,
+                    'reviewed_at' => null,
+                    'reviewed_by' => null,
+                    'review_note' => null,
+                ]);
+
+                return $existing->fresh();
+            }
+
+            return $lockedTask->assignments()->create([
                 'branch_id' => $assignment->branch_id,
                 'user_id' => $newUserId,
                 'status' => RndProjectTaskAssignmentStatus::Assigned->value,

@@ -13,7 +13,10 @@ return new class extends Migration
     {
         Schema::create('rnd_project_task_reminders', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('rnd_project_task_assignment_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('rnd_project_task_assignment_id')->constrained(
+                table: 'rnd_project_task_assignments',
+                indexName: 'rnd_task_reminder_assignment_fk',
+            )->cascadeOnDelete();
             $table->string('reminder_type', 30);
             $table->date('reminder_date');
             $table->timestamp('sent_at')->nullable();

@@ -22,6 +22,10 @@ it('lets an authorized PIC download their own result attachment', function () {
     ]);
 
     $path = "rnd/project-tasks/{$task->id}/assignments/{$assignment->id}/results/hasil.jpg";
+    $assignment->followUps()->create([
+        'follow_up_type' => 'submission',
+        'result_attachments' => [$path],
+    ]);
     Storage::disk('b2')->put($path, 'fake-image-content');
 
     $this->actingAs($pic)
@@ -38,6 +42,10 @@ it('blocks a user with no relation to the task', function () {
     ]);
 
     $path = "rnd/project-tasks/{$task->id}/assignments/{$assignment->id}/results/hasil.jpg";
+    $assignment->followUps()->create([
+        'follow_up_type' => 'submission',
+        'result_attachments' => [$path],
+    ]);
     Storage::disk('b2')->put($path, 'fake-image-content');
 
     $outsider = User::factory()->create(['is_active' => true]);
@@ -65,6 +73,25 @@ it('returns 404 when the file itself does not exist on disk', function () {
     ]);
 
     $path = "rnd/project-tasks/{$task->id}/assignments/{$assignment->id}/results/missing.jpg";
+    $assignment->followUps()->create([
+        'follow_up_type' => 'submission',
+        'result_attachments' => [$path],
+    ]);
+
+    $this->actingAs($pic)
+        ->get(route('helpdesk.rnd-project-tasks.attachments.show', ['path' => $path]))
+        ->assertNotFound();
+});
+
+it('rejects a file that exists on disk but is not registered as a task attachment', function () {
+    $pic = User::factory()->create(['is_active' => true]);
+    $task = RndProjectTask::factory()->create();
+    $assignment = RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id,
+        'user_id' => $pic->id,
+    ]);
+    $path = "rnd/project-tasks/{$task->id}/assignments/{$assignment->id}/results/unregistered.jpg";
+    Storage::disk('b2')->put($path, 'fake-image-content');
 
     $this->actingAs($pic)
         ->get(route('helpdesk.rnd-project-tasks.attachments.show', ['path' => $path]))

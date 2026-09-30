@@ -21,7 +21,9 @@ use App\Services\Rnd\ProjectTask\ProjectTaskAssigneeResolver;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 use RuntimeException;
@@ -71,6 +73,12 @@ trait HasProjectTaskCalendar
 
     /** @var array<int, array{branch_id: string, user_ids: array<int, int|string>}> */
     public array $taskBranchRows = [];
+
+    /** @var array<int, TemporaryUploadedFile> */
+    public array $taskInstructionAttachments = [];
+
+    /** @var list<string> */
+    public array $existingTaskInstructionAttachments = [];
 
     public ?int $viewingTaskId = null;
 
@@ -242,6 +250,8 @@ trait HasProjectTaskCalendar
         $this->taskDueDate = '';
         $this->taskPriority = 'medium';
         $this->taskBranchRows = [['branch_id' => '', 'user_ids' => []]];
+        $this->taskInstructionAttachments = [];
+        $this->existingTaskInstructionAttachments = [];
         $this->taskModalOpen = true;
     }
 
@@ -259,13 +269,33 @@ trait HasProjectTaskCalendar
         $this->taskDueDate = $task->due_date->toDateString();
         $this->taskPriority = $task->priority->value;
         $this->taskBranchRows = [];
+        $this->taskInstructionAttachments = [];
+        $this->existingTaskInstructionAttachments = $task->instruction_attachments ?? [];
         $this->taskModalOpen = true;
+    }
+
+    public function removeInstructionAttachment(int $taskId, int $index): void
+    {
+        $task = RndProjectTask::query()->findOrFail($taskId);
+        abort_unless(auth()->user()->can('update', $task), 403);
+
+        $attachments = $task->instruction_attachments ?? [];
+        abort_unless(array_key_exists($index, $attachments), 404);
+
+        $path = $attachments[$index];
+        unset($attachments[$index]);
+        $attachments = array_values($attachments);
+        $task->update(['instruction_attachments' => $attachments ?: null]);
+        Storage::disk('b2')->delete($path);
+        $this->existingTaskInstructionAttachments = $attachments;
     }
 
     public function closeTaskModal(): void
     {
         $this->resetValidation();
         $this->taskModalOpen = false;
+        $this->taskInstructionAttachments = [];
+        $this->existingTaskInstructionAttachments = [];
     }
 
     public function addTaskBranchRow(): void
@@ -295,6 +325,12 @@ trait HasProjectTaskCalendar
     public function saveTask(): void
     {
         $isEditing = $this->editingTaskId !== null;
+        $task = null;
+
+        if ($isEditing) {
+            $task = RndProjectTask::query()->findOrFail($this->editingTaskId);
+            abort_unless(auth()->user()->can('update', $task), 403);
+        }
 
         $rules = [
             'taskTitle' => ['required', 'string', 'max:255'],
@@ -304,6 +340,9 @@ trait HasProjectTaskCalendar
             'taskDueDate' => ['required', 'date', 'after_or_equal:taskAssignedDate'],
             'taskPriority' => ['required', Rule::in(array_column(RndProjectTaskPriority::cases(), 'value'))],
         ];
+
+        $rules['taskInstructionAttachments'] = ['array', 'max:5'];
+        $rules['taskInstructionAttachments.*'] = ['file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'];
 
         if (! $isEditing) {
             $rules['taskProjectId'] = ['required', 'integer', 'exists:rnd_projects,id'];
@@ -315,6 +354,14 @@ trait HasProjectTaskCalendar
 
         $validated = $this->validate($rules);
 
+        $existingAttachments = $task?->instruction_attachments ?? [];
+
+        if (count($existingAttachments) + count($this->taskInstructionAttachments) > 5) {
+            throw ValidationException::withMessages([
+                'taskInstructionAttachments' => 'Total Attachment Task maksimal 5 file.',
+            ]);
+        }
+
         $data = [
             'title' => $validated['taskTitle'],
             'task_type' => $validated['taskCategory'],
@@ -322,13 +369,11 @@ trait HasProjectTaskCalendar
             'assigned_date' => $validated['taskAssignedDate'],
             'due_date' => $validated['taskDueDate'],
             'priority' => $validated['taskPriority'],
-            'instruction_attachments' => null,
+            'instruction_attachments' => $existingAttachments ?: null,
         ];
 
         if ($isEditing) {
-            $task = RndProjectTask::query()->findOrFail($this->editingTaskId);
-            abort_unless(auth()->user()->can('update', $task), 403);
-            app(UpdateProjectTaskAction::class)->execute($task, $data);
+            $task = app(UpdateProjectTaskAction::class)->execute($task, $data);
         } else {
             abort_unless(auth()->user()->can('create', RndProjectTask::class), 403);
             $project = RndProject::query()->findOrFail($validated['taskProjectId']);
@@ -340,10 +385,20 @@ trait HasProjectTaskCalendar
                 }
             }
 
-            app(CreateProjectTaskAction::class)->execute($project, $data + ['branches' => $branches], auth()->user());
+            $task = app(CreateProjectTaskAction::class)->execute($project, $data + ['branches' => $branches], auth()->user());
+        }
+
+        if ($this->taskInstructionAttachments !== []) {
+            $newPaths = [];
+            foreach ($this->taskInstructionAttachments as $file) {
+                $newPaths[] = $file->store("rnd/project-tasks/{$task->id}/instructions", 'b2');
+            }
+            $task->update(['instruction_attachments' => array_merge($task->instruction_attachments ?? [], $newPaths)]);
         }
 
         $this->taskModalOpen = false;
+        $this->taskInstructionAttachments = [];
+        $this->existingTaskInstructionAttachments = [];
         Notification::make()->title('Tugas berhasil disimpan')->success()->send();
     }
 
@@ -368,7 +423,7 @@ trait HasProjectTaskCalendar
         }
 
         return RndProjectTask::query()
-            ->with(['project', 'branches', 'assignments.user', 'assignments.branch', 'creator'])
+            ->with(['project', 'branches', 'assignments.user', 'assignments.branch', 'assignments.followUps', 'creator'])
             ->find($this->viewingTaskId);
     }
 

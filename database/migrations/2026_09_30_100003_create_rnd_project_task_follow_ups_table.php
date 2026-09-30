@@ -13,7 +13,10 @@ return new class extends Migration
     {
         Schema::create('rnd_project_task_follow_ups', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('rnd_project_task_assignment_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('rnd_project_task_assignment_id')->constrained(
+                table: 'rnd_project_task_assignments',
+                indexName: 'rnd_task_followup_assignment_fk',
+            )->cascadeOnDelete();
             $table->foreignId('submitted_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('follow_up_type', 20);
             $table->text('notes')->nullable();

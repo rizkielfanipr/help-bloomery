@@ -20,15 +20,7 @@ class RndProjectTaskAttachmentController extends Controller
 {
     public function show(Request $request, string $path): Response
     {
-        abort_unless(
-            preg_match('#^rnd/project-tasks/(\d+)/assignments/(\d+)/results/[^/]+\.\w+$#i', $path, $matches) === 1,
-            404,
-        );
-
-        $task = RndProjectTask::query()->findOrFail((int) $matches[1]);
-        RndProjectTaskAssignment::query()
-            ->where('rnd_project_task_id', $task->id)
-            ->findOrFail((int) $matches[2]);
+        $task = $this->resolveTaskFromPath($path);
 
         abort_unless($request->user()?->can('view', $task), 403);
         abort_unless(Storage::disk('b2')->exists($path), 404);
@@ -38,5 +30,30 @@ class RndProjectTaskAttachmentController extends Controller
         } catch (Throwable) {
             abort(404);
         }
+    }
+
+    private function resolveTaskFromPath(string $path): RndProjectTask
+    {
+        if (preg_match('#^rnd/project-tasks/(\d+)/assignments/(\d+)/results/[^/]+\.\w+$#i', $path, $matches) === 1) {
+            $task = RndProjectTask::query()->findOrFail((int) $matches[1]);
+            $assignment = RndProjectTaskAssignment::query()
+                ->where('rnd_project_task_id', $task->id)
+                ->with('followUps:id,rnd_project_task_assignment_id,result_attachments')
+                ->findOrFail((int) $matches[2]);
+            $registeredPaths = $assignment->followUps
+                ->flatMap(fn ($followUp) => $followUp->result_attachments ?? []);
+            abort_unless($registeredPaths->containsStrict($path), 404);
+
+            return $task;
+        }
+
+        if (preg_match('#^rnd/project-tasks/(\d+)/instructions/[^/]+\.\w+$#i', $path, $matches) === 1) {
+            $task = RndProjectTask::query()->findOrFail((int) $matches[1]);
+            abort_unless(in_array($path, $task->instruction_attachments ?? [], true), 404);
+
+            return $task;
+        }
+
+        abort(404);
     }
 }

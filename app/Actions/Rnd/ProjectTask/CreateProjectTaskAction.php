@@ -39,6 +39,8 @@ class CreateProjectTaskAction
             throw ValidationException::withMessages(['due_date' => 'Deadline tidak boleh lebih awal dari tanggal assign.']);
         }
 
+        $seenPairs = [];
+
         foreach ($data['branches'] as $branchAssignment) {
             $pic = User::query()->findOrFail($branchAssignment['user_id']);
 
@@ -47,6 +49,14 @@ class CreateProjectTaskAction
                     'branches' => 'PIC yang dipilih harus pengguna aktif yang dapat mengakses Branch tersebut.',
                 ]);
             }
+
+            $pairKey = $branchAssignment['branch_id'].':'.$branchAssignment['user_id'];
+            if (isset($seenPairs[$pairKey])) {
+                throw ValidationException::withMessages([
+                    'branches' => 'PIC yang sama tidak boleh dipilih dua kali untuk Branch yang sama.',
+                ]);
+            }
+            $seenPairs[$pairKey] = true;
         }
 
         $task = DB::transaction(function () use ($project, $data, $actor): RndProjectTask {

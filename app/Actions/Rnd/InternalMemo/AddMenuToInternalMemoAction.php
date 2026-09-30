@@ -7,6 +7,7 @@ use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
 use App\Models\RndProductEsbShelfLife;
 use App\Services\Rnd\InternalMemo\InternalMemoBomResolver;
+use App\Services\Rnd\InternalMemo\InternalMemoProductEnricher;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
@@ -28,7 +29,10 @@ use Throwable;
  */
 class AddMenuToInternalMemoAction
 {
-    public function __construct(private readonly InternalMemoBomResolver $resolver) {}
+    public function __construct(
+        private readonly InternalMemoBomResolver $resolver,
+        private readonly InternalMemoProductEnricher $productEnricher,
+    ) {}
 
     /** @param array<string, mixed> $menu */
     public function execute(RndInternalMemo $memo, array $menu): RndInternalMemoMenu
@@ -82,6 +86,11 @@ class AddMenuToInternalMemoAction
                 'sync_warnings' => $result['warnings'] === [] ? null : $result['warnings'],
                 'bom_snapshot' => $result['bom_snapshot'],
             ]);
+
+            // Product/Purchase UOM enrichment never fails the whole Add Menu use case — the BOM
+            // structure already stands on its own (§12.3, "Data BOM tetap tampil, Purchase UOM
+            // diberi status belum tersedia").
+            $this->productEnricher->enrichMenu($menuRecord);
         } catch (Throwable $exception) {
             $menuRecord->update([
                 'sync_status' => RndInternalMemoMenuSyncStatus::Failed,

@@ -42,6 +42,7 @@ class RndInternalMemoMaterial extends Model
         'is_wip',
         'is_packaging',
         'product_snapshot',
+        'product_detail_snapshot',
         'product_synced_at',
     ];
 
@@ -56,6 +57,7 @@ class RndInternalMemoMaterial extends Model
             'is_wip' => 'boolean',
             'is_packaging' => 'boolean',
             'product_snapshot' => 'array',
+            'product_detail_snapshot' => 'array',
             'product_synced_at' => 'datetime',
         ];
     }

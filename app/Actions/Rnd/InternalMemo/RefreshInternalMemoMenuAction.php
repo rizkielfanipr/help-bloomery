@@ -6,6 +6,7 @@ use App\Enums\RndInternalMemoMenuSyncStatus;
 use App\Models\RndInternalMemoMaterial;
 use App\Models\RndInternalMemoMenu;
 use App\Services\Rnd\InternalMemo\InternalMemoBomResolver;
+use App\Services\Rnd\InternalMemo\InternalMemoProductEnricher;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Throwable;
@@ -20,7 +21,10 @@ use Throwable;
  */
 class RefreshInternalMemoMenuAction
 {
-    public function __construct(private readonly InternalMemoBomResolver $resolver) {}
+    public function __construct(
+        private readonly InternalMemoBomResolver $resolver,
+        private readonly InternalMemoProductEnricher $productEnricher,
+    ) {}
 
     public function execute(RndInternalMemoMenu $menu): RndInternalMemoMenu
     {
@@ -45,6 +49,7 @@ class RefreshInternalMemoMenuAction
             }
 
             $this->restoreMinimumOrders($menu, $preservedMinimumOrders);
+            $this->productEnricher->enrichMenu($menu);
 
             $menu->update([
                 'sync_status' => RndInternalMemoMenuSyncStatus::Synced,

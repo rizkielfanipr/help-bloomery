@@ -8,6 +8,8 @@ use App\Models\RndProjectTaskAssignment;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -162,5 +164,67 @@ it('blocks a branch-outsider from opening a task detail', function () {
     Livewire::test(ListProjects::class)
         ->call('showProjectTasks')
         ->call('openTaskDetail', $task->id)
+        ->assertForbidden();
+});
+
+it('lets a PIC start, save progress, and submit a follow-up with an attachment', function () {
+    Storage::fake('b2');
+
+    $branch = Branch::factory()->create();
+    $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $pic->givePermissionTo(['view rnd projects', 'respond rnd project tasks']);
+    $this->actingAs($pic);
+
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'status' => 'assigned']);
+    $task->branches()->attach($branch->id);
+    $assignment = RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'user_id' => $pic->id, 'status' => 'assigned',
+    ]);
+
+    $page = Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->call('openTaskDetail', $task->id)
+        ->call('startAssignment', $assignment->id);
+
+    expect($assignment->fresh()->status->value)->toBe('in_progress');
+
+    $page->set('followUpNotes', 'Masih proses uji rasa.')
+        ->call('saveFollowUp', $assignment->id, 'progress')
+        ->assertHasNoErrors();
+
+    expect($assignment->fresh()->followUps)->toHaveCount(1)
+        ->and($assignment->fresh()->status->value)->toBe('in_progress');
+
+    $page->set('followUpNotes', 'Selesai, siap direview.')
+        ->set('followUpAttachments', [UploadedFile::fake()->image('hasil.jpg')])
+        ->call('saveFollowUp', $assignment->id, 'submission')
+        ->assertHasNoErrors();
+
+    $fresh = $assignment->fresh();
+    expect($fresh->status->value)->toBe('submitted')
+        ->and($fresh->followUps)->toHaveCount(2)
+        ->and($task->fresh()->status->value)->toBe('submitted');
+
+    $submission = $fresh->followUps->firstWhere('follow_up_type', 'submission');
+    expect($submission->result_attachments)->toHaveCount(1);
+    Storage::disk('b2')->assertExists($submission->result_attachments[0]);
+});
+
+it('blocks a user from responding to another PIC\'s assignment', function () {
+    $branch = Branch::factory()->create();
+    $owner = User::factory()->create(['is_active' => true]);
+    $intruder = User::factory()->create(['is_active' => true]);
+    $intruder->givePermissionTo(['view rnd projects', 'respond rnd project tasks']);
+    $this->actingAs($intruder);
+
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'status' => 'assigned']);
+    $task->branches()->attach($branch->id);
+    $assignment = RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'user_id' => $owner->id, 'status' => 'assigned',
+    ]);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->call('startAssignment', $assignment->id)
         ->assertForbidden();
 });

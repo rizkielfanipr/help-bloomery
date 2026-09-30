@@ -22,15 +22,18 @@ class RndProjectTaskPolicy
 
     public function view(User $user, RndProjectTask $task): bool
     {
+        // A PIC can always view their own assignment's Task, regardless of whether their role
+        // otherwise holds `view rnd project tasks` (business rule: "PIC dapat melihat dan
+        // merespons assignment miliknya").
+        if ($task->assignments()->where('user_id', $user->id)->exists()) {
+            return true;
+        }
+
         if (! $this->viewAny($user)) {
             return false;
         }
 
         if ($user->canAccessAllBranches() || $user->can('view all branch rnd project tasks')) {
-            return true;
-        }
-
-        if ($task->assignments()->where('user_id', $user->id)->exists()) {
             return true;
         }
 

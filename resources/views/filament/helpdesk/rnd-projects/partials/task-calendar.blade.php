@@ -334,6 +334,70 @@
                         </div>
                     </div>
 
+                    @foreach($this->myAssignmentsForTask($detailTask) as $myAssignment)
+                        <div class="rounded-xl border border-blue-200 bg-blue-50/40 p-3.5 dark:border-blue-900 dark:bg-blue-950/10">
+                            <div class="mb-3 flex items-center justify-between">
+                                <p class="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-300">Tindak Lanjut Saya · {{ $myAssignment->branch->name }}</p>
+                                <x-filament::badge :color="$myAssignment->status->getColor()">{{ $myAssignment->status->getLabel() }}</x-filament::badge>
+                            </div>
+
+                            @if($myAssignment->status->value === 'assigned')
+                                <button type="button" wire:click="startAssignment({{ $myAssignment->id }})" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">Mulai Mengerjakan</button>
+                            @elseif(in_array($myAssignment->status->value, ['in_progress', 'revision_required'], true))
+                                <div class="space-y-2">
+                                    @if($myAssignment->status->value === 'revision_required' && $myAssignment->review_note)
+                                        <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><strong>Catatan Revisi:</strong> {{ $myAssignment->review_note }}</p>
+                                    @endif
+                                    <textarea wire:model="followUpNotes" rows="2" class="w-full resize-none rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="Catatan progress / kendala..."></textarea>
+                                    @error('followUpNotes')<p class="text-[11px] text-red-600">{{ $message }}</p>@enderror
+                                    <div class="grid gap-2 sm:grid-cols-2">
+                                        <div>
+                                            <label class="mb-1 block text-[11px] font-semibold text-gray-600 dark:text-gray-300">Perkiraan Selesai</label>
+                                            <input type="date" wire:model="followUpEstimatedDate" class="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white">
+                                            @error('followUpEstimatedDate')<p class="text-[11px] text-red-600">{{ $message }}</p>@enderror
+                                        </div>
+                                        <div>
+                                            <label class="mb-1 block text-[11px] font-semibold text-gray-600 dark:text-gray-300">Attachment Hasil</label>
+                                            <input type="file" wire:model="followUpAttachments" multiple class="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white">
+                                            @error('followUpAttachments.*')<p class="text-[11px] text-red-600">{{ $message }}</p>@enderror
+                                            <div wire:loading wire:target="followUpAttachments" class="mt-1 text-[11px] text-blue-600">Mengunggah...</div>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-end gap-2 pt-1">
+                                        <button type="button" wire:click="saveFollowUp({{ $myAssignment->id }}, 'progress')" wire:loading.attr="disabled" wire:target="saveFollowUp" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200">Simpan Progress</button>
+                                        <button type="button" wire:click="saveFollowUp({{ $myAssignment->id }}, 'submission')" wire:loading.attr="disabled" wire:target="saveFollowUp" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">Kirim Tindak Lanjut</button>
+                                    </div>
+                                </div>
+                            @elseif($myAssignment->status->value === 'submitted')
+                                <p class="text-xs text-gray-500">Tindak lanjut sudah dikirim, menunggu review.</p>
+                            @elseif($myAssignment->status->value === 'approved')
+                                <p class="text-xs text-emerald-700 dark:text-emerald-300">Hasil sudah disetujui.</p>
+                            @endif
+
+                            @if($myAssignment->followUps->isNotEmpty())
+                                <div class="mt-3 space-y-2 border-t border-blue-100 pt-3 dark:border-blue-900">
+                                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Riwayat Tindak Lanjut</p>
+                                    @foreach($myAssignment->followUps as $followUp)
+                                        <div class="rounded-lg bg-white p-2.5 text-xs dark:bg-gray-900">
+                                            <div class="flex items-center justify-between">
+                                                <span class="font-semibold text-gray-800 dark:text-gray-100">{{ $followUp->follow_up_type->getLabel() }}</span>
+                                                <span class="text-[11px] text-gray-400">{{ $followUp->created_at->format('d M Y H:i') }}</span>
+                                            </div>
+                                            @if($followUp->notes)<p class="mt-1 text-gray-600 dark:text-gray-300">{{ $followUp->notes }}</p>@endif
+                                            @if($followUp->result_attachments)
+                                                <div class="mt-1 flex flex-wrap gap-2">
+                                                    @foreach($followUp->result_attachments as $attachmentPath)
+                                                        <a href="{{ route('helpdesk.rnd-project-tasks.attachments.show', ['path' => $attachmentPath]) }}" target="_blank" class="text-blue-600 underline">Lampiran {{ $loop->iteration }}</a>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+
                     @can('assign', $detailTask)
                         <div class="rounded-xl border border-dashed border-gray-300 p-3.5 dark:border-gray-700">
                             <p class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Tambah / Alihkan PIC</p>

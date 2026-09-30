@@ -86,6 +86,31 @@
         @endforeach
     </div>
 
+    {{-- ─── Tugas yang Perlu Ditindaklanjuti ────────────────────────────── --}}
+    @if(count($actionNeededTasks) > 0)
+        <div class="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 dark:border-amber-900 dark:bg-amber-950/10">
+            <div class="mb-4 flex items-center gap-2">
+                <x-heroicon-o-exclamation-circle class="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                <h3 class="text-base font-bold text-gray-900 dark:text-white">Tugas yang Perlu Ditindaklanjuti</h3>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                @foreach($actionNeededTasks as $item)
+                    <a href="{{ $item['href'] }}" class="flex flex-col gap-2 rounded-xl border bg-white p-3.5 transition hover:border-blue-300 dark:bg-gray-900 {{ $item['is_overdue'] ? 'border-red-200 dark:border-red-900' : 'border-gray-200 dark:border-gray-700' }}">
+                        <div class="flex items-start justify-between gap-2">
+                            <p class="min-w-0 truncate text-sm font-bold text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                            <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold {{ $item['is_overdue'] ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' }}">{{ $item['status_label'] }}</span>
+                        </div>
+                        <p class="truncate text-xs text-gray-500">{{ $item['project_name'] }} · {{ $item['branch_name'] }}</p>
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-gray-500">Deadline {{ $item['due_date_label'] }}</span>
+                            <span class="font-bold {{ $item['is_overdue'] ? 'text-red-600' : 'text-amber-600' }}">{{ $item['countdown_label'] }}</span>
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     {{-- ─── Trend Chart + Distribution ──────────────────────────────────── --}}
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-3">
 

@@ -19,6 +19,7 @@ use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProjectMaterialForecastExportController;
+use App\Http\Controllers\Helpdesk\RndProjectTaskAttachmentController;
 use App\Http\Controllers\Helpdesk\ShelfLifeExportController;
 use App\Models\Asset;
 use App\Models\RndProjectBom;
@@ -113,6 +114,10 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/rnd-bom-instruction-images/{path}', [RndBomInstructionImageController::class, 'show'])
         ->where('path', '.*')
         ->name('helpdesk.rnd-products.bom-instruction-images.show');
+
+    Route::get('/rnd-project-task-attachments/{path}', [RndProjectTaskAttachmentController::class, 'show'])
+        ->where('path', '.*')
+        ->name('helpdesk.rnd-project-tasks.attachments.show');
 
     Route::get('/bill-of-material/create', function () {
         abort_unless(auth()->user()?->can('create bill of materials'), 403);

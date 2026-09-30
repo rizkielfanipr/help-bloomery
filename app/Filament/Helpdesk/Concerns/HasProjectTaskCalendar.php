@@ -5,6 +5,8 @@ namespace App\Filament\Helpdesk\Concerns;
 use App\Actions\Rnd\ProjectTask\AssignProjectTaskAction;
 use App\Actions\Rnd\ProjectTask\CancelProjectTaskAction;
 use App\Actions\Rnd\ProjectTask\CreateProjectTaskAction;
+use App\Actions\Rnd\ProjectTask\StartProjectTaskAssignmentAction;
+use App\Actions\Rnd\ProjectTask\SubmitProjectTaskFollowUpAction;
 use App\Actions\Rnd\ProjectTask\UpdateProjectTaskAction;
 use App\Enums\RndProjectTaskCategory;
 use App\Enums\RndProjectTaskPriority;
@@ -12,12 +14,16 @@ use App\Enums\RndProjectTaskStatus;
 use App\Models\Branch;
 use App\Models\RndProject;
 use App\Models\RndProjectTask;
+use App\Models\RndProjectTaskAssignment;
 use App\Models\User;
 use App\Services\Rnd\ProjectTask\ProjectTaskAssigneeResolver;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
+use RuntimeException;
 
 /**
  * Kalender Tugas mode for the Project index (docs/rnd-project-task-calendar-prd.md §14, Phase 2).
@@ -28,6 +34,8 @@ use Illuminate\Validation\Rule;
  */
 trait HasProjectTaskCalendar
 {
+    use WithFileUploads;
+
     public string $taskCalendarMonth = '';
 
     public string $taskFilterProjectId = '';
@@ -68,6 +76,13 @@ trait HasProjectTaskCalendar
     public string $assignBranchId = '';
 
     public string $assignUserId = '';
+
+    public string $followUpNotes = '';
+
+    public string $followUpEstimatedDate = '';
+
+    /** @var array<int, TemporaryUploadedFile> */
+    public array $followUpAttachments = [];
 
     public function showProjectTasks(): void
     {
@@ -379,6 +394,65 @@ trait HasProjectTaskCalendar
         app(CancelProjectTaskAction::class)->execute($task);
 
         Notification::make()->title('Tugas dibatalkan')->success()->send();
+    }
+
+    /** @return EloquentCollection<int, RndProjectTaskAssignment> */
+    public function myAssignmentsForTask(RndProjectTask $task): EloquentCollection
+    {
+        return $task->assignments->where('user_id', auth()->id())->values();
+    }
+
+    public function startAssignment(int $assignmentId): void
+    {
+        $assignment = RndProjectTaskAssignment::query()->findOrFail($assignmentId);
+        abort_unless(auth()->user()->can('respond', $assignment), 403);
+
+        app(StartProjectTaskAssignmentAction::class)->execute($assignment);
+
+        Notification::make()->title('Tugas dimulai')->success()->send();
+    }
+
+    public function saveFollowUp(int $assignmentId, string $type): void
+    {
+        $assignment = RndProjectTaskAssignment::query()->findOrFail($assignmentId);
+        abort_unless(auth()->user()->can('respond', $assignment), 403);
+
+        $this->validate([
+            'followUpNotes' => ['nullable', 'string', 'max:2000'],
+            'followUpEstimatedDate' => ['nullable', 'date'],
+            'followUpAttachments' => ['array', 'max:5'],
+            'followUpAttachments.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'],
+        ]);
+
+        $paths = [];
+        foreach ($this->followUpAttachments as $file) {
+            $paths[] = $file->store(
+                "rnd/project-tasks/{$assignment->rnd_project_task_id}/assignments/{$assignment->id}/results",
+                'b2'
+            );
+        }
+
+        try {
+            app(SubmitProjectTaskFollowUpAction::class)->execute($assignment, [
+                'follow_up_type' => $type,
+                'notes' => $this->followUpNotes !== '' ? $this->followUpNotes : null,
+                'estimated_completion_date' => $this->followUpEstimatedDate !== '' ? $this->followUpEstimatedDate : null,
+                'result_attachments' => $paths !== [] ? $paths : null,
+            ], auth()->user());
+        } catch (RuntimeException $exception) {
+            Notification::make()->title('Gagal menyimpan tindak lanjut')->body($exception->getMessage())->danger()->send();
+
+            return;
+        }
+
+        $this->followUpNotes = '';
+        $this->followUpEstimatedDate = '';
+        $this->followUpAttachments = [];
+
+        Notification::make()
+            ->title($type === 'submission' ? 'Tindak lanjut berhasil dikirim' : 'Progress berhasil disimpan')
+            ->success()
+            ->send();
     }
 
     /** @return array<string, string> */

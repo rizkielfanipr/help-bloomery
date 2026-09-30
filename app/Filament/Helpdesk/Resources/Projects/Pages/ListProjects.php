@@ -10,6 +10,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Livewire\Attributes\Url;
 
 class ListProjects extends ListRecords
 {
@@ -18,6 +19,13 @@ class ListProjects extends ListRecords
     protected static string $resource = ProjectResource::class;
 
     protected string $view = 'filament.helpdesk.rnd-projects.index';
+
+    /**
+     * Lets the dashboard's "Tugas yang Perlu Ditindaklanjuti" cards deep-link straight into a
+     * Task's detail modal (docs/rnd-project-task-calendar-prd.md §15).
+     */
+    #[Url]
+    public ?int $openTask = null;
 
     public string $projectSearch = '';
 
@@ -38,6 +46,16 @@ class ListProjects extends ListRecords
     public string $projectStartDate = '';
 
     public string $projectEndDate = '';
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        if ($this->openTask !== null) {
+            $this->projectView = 'tasks';
+            $this->openTaskDetail($this->openTask);
+        }
+    }
 
     public function projects(): Collection
     {

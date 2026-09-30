@@ -137,6 +137,19 @@ it('lets an assignee view their own task even without branch access', function (
     expect($pic->can('view', $task))->toBeTrue();
 });
 
+it('lets an assignee view their own task even without the view rnd project tasks permission', function () {
+    $branch = Branch::factory()->create();
+    $task = RndProjectTask::factory()->create();
+    $task->branches()->attach($branch->id);
+
+    $pic = User::factory()->create(['is_active' => true]);
+    RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'user_id' => $pic->id,
+    ]);
+
+    expect($pic->can('view', $task))->toBeTrue();
+});
+
 it('only lets the assignment owner respond, even for another user with the same permission', function () {
     $owner = User::factory()->create(['is_active' => true]);
     $owner->givePermissionTo('respond rnd project tasks');

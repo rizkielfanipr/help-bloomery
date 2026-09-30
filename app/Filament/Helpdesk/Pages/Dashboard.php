@@ -15,6 +15,7 @@ use App\Models\CasualOvertimeRequest;
 use App\Models\DesignRequest;
 use App\Models\ErpRepairRequest;
 use App\Models\PurchaseRequest;
+use App\Models\RndProjectTaskAssignment;
 use App\Models\SalesReport;
 use App\Models\ServiceRequest;
 use App\Models\Trip;
@@ -39,12 +40,53 @@ class Dashboard extends BaseDashboard
 
     public array $recentRequests = [];
 
+    public array $actionNeededTasks = [];
+
     public function mount(): void
     {
         $this->computeModuleStats();
         $this->computeTrendData();
         $this->computeDistribution();
         $this->computeRecentRequests();
+        $this->computeActionNeededTasks();
+    }
+
+    /**
+     * "Tugas yang Perlu Ditindaklanjuti" (docs/rnd-project-task-calendar-prd.md §15) — only the
+     * current user's own active (non-terminal) assignments, ordered overdue first, then deadline
+     * today, then Urgent/High priority, then nearest deadline.
+     */
+    private function computeActionNeededTasks(): void
+    {
+        $assignments = RndProjectTaskAssignment::query()
+            ->with(['task.project', 'branch'])
+            ->where('user_id', auth()->id())
+            ->whereIn('status', ['assigned', 'in_progress', 'revision_required'])
+            ->get()
+            ->sortBy(fn (RndProjectTaskAssignment $assignment): string => sprintf(
+                '%d|%s',
+                match (true) {
+                    $assignment->task->isOverdue() => 0,
+                    $assignment->task->due_date->isToday() => 1,
+                    $assignment->task->priority->isUrgentOrHigh() => 2,
+                    default => 3,
+                },
+                $assignment->task->due_date->format('Y-m-d'),
+            ))
+            ->take(6);
+
+        $this->actionNeededTasks = $assignments->map(fn (RndProjectTaskAssignment $assignment): array => [
+            'title' => $assignment->task->title,
+            'project_name' => $assignment->task->project->name,
+            'branch_name' => $assignment->branch->name,
+            'due_date_label' => $assignment->task->due_date->format('d M Y'),
+            'is_overdue' => $assignment->task->isOverdue(),
+            'countdown_label' => $assignment->task->isOverdue()
+                ? $assignment->task->due_date->diffForHumans(['parts' => 1], true).' lewat'
+                : ($assignment->task->due_date->isToday() ? 'Hari ini' : $assignment->task->due_date->diffForHumans(['parts' => 1], true).' lagi'),
+            'status_label' => $assignment->status->getLabel(),
+            'href' => route('filament.helpdesk.resources.rnd-projects.index', ['openTask' => $assignment->task->id]),
+        ])->values()->toArray();
     }
 
     private function computeModuleStats(): void

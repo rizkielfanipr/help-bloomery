@@ -569,6 +569,128 @@ it('scales a shared-batch Main Recipe proportionally to how much of it the Menu 
         );
 });
 
+it('counts a shared WIP from every Menu even when another Main Recipe is attached to one Menu', function () {
+    $user = User::factory()->create();
+    $project = RndProject::query()->create([
+        'name' => 'Shared Froyo Forecast',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-12-31',
+        'created_by' => $user->id,
+    ]);
+    $region = SalesRegion::query()->create([
+        'name' => 'Shared Froyo Region',
+        'code' => 'SHARED-FROYO',
+        'is_active' => true,
+        'sort_order' => 5,
+    ]);
+    $froyoRecipe = $project->boms()->create([
+        'esb_bom_id' => 9500,
+        'bom_name' => 'WIP | Froyo Mix',
+        'detail_snapshot' => [
+            'productCode' => 'BW-FROYO',
+            'convertionQty' => 6000,
+            'bomDetails' => [[
+                'productCode' => 'RAW-MILK',
+                'productName' => 'Susu UHT',
+                'uomName' => 'ML',
+                'qty' => 3491,
+            ]],
+        ],
+        'created_by' => $user->id,
+    ]);
+
+    $blackforest = $project->products()->create([
+        'name' => 'Blackforest BCB Frojoy',
+        'status' => 'development',
+        'created_by' => $user->id,
+    ]);
+    $blackforest->salesProjections()->create([
+        'sales_region_id' => $region->id,
+        'projection_month' => '2026-11-01',
+        'channel' => 'all',
+        'target_quantity' => 390,
+        'target_revenue' => 1000000,
+        'created_by' => $user->id,
+    ]);
+    $blackforestMenu = $project->boms()->create([
+        'esb_bom_id' => 9501,
+        'bom_name' => 'Blackforest BCB Frojoy',
+        'detail_snapshot' => ['bomDetails' => [[
+            'productCode' => 'BW-FROYO',
+            'productName' => 'WIP | Froyo Mix',
+            'categoryName' => 'Barang WIP',
+            'uomName' => 'GR',
+            'qty' => 130,
+        ]]],
+        'created_by' => $user->id,
+    ]);
+    $blackforest->boms()->attach($froyoRecipe->id, ['usage_type' => 'main']);
+    $blackforest->boms()->attach($blackforestMenu->id, ['usage_type' => 'menu']);
+
+    $matcha = $project->products()->create([
+        'name' => 'Matcha BCB Frojoy',
+        'status' => 'development',
+        'created_by' => $user->id,
+    ]);
+    $matcha->salesProjections()->create([
+        'sales_region_id' => $region->id,
+        'projection_month' => '2026-11-01',
+        'channel' => 'all',
+        'target_quantity' => 390,
+        'target_revenue' => 1000000,
+        'created_by' => $user->id,
+    ]);
+    $matchaSauceRecipe = $project->boms()->create([
+        'esb_bom_id' => 9502,
+        'bom_name' => 'Central | Matcha Sauce',
+        'detail_snapshot' => [
+            'productCode' => 'BW-MATCHA',
+            'convertionQty' => 10,
+            'bomDetails' => [[
+                'productCode' => 'RAW-MATCHA',
+                'productName' => 'Matcha Powder',
+                'uomName' => 'GR',
+                'qty' => 2,
+            ]],
+        ],
+        'created_by' => $user->id,
+    ]);
+    $matchaMenu = $project->boms()->create([
+        'esb_bom_id' => 9503,
+        'bom_name' => 'Matcha BCB Frojoy',
+        'detail_snapshot' => ['bomDetails' => [
+            [
+                'productCode' => 'BW-FROYO',
+                'productName' => 'WIP | Froyo Mix',
+                'categoryName' => 'Barang WIP',
+                'uomName' => 'GR',
+                'qty' => 130,
+            ],
+            [
+                'productCode' => 'BW-MATCHA',
+                'productName' => 'Central | Matcha Sauce',
+                'categoryName' => 'Barang WIP',
+                'uomName' => 'GR',
+                'qty' => 10,
+            ],
+        ]],
+        'created_by' => $user->id,
+    ]);
+    $matcha->boms()->attach($matchaSauceRecipe->id, ['usage_type' => 'main']);
+    $matcha->boms()->attach($matchaMenu->id, ['usage_type' => 'menu']);
+    $project->load(['products.boms.documentMaterials', 'products.salesProjections', 'boms.documentMaterials']);
+
+    $kitchen = app(RndProjectMaterialForecastService::class)->calculate($project, 'kitchen');
+    $store = app(RndProjectMaterialForecastService::class)->calculate($project, 'store');
+
+    expect(collect($kitchen['rows'])->firstWhere('code', 'RAW-MILK')['quantity'])->toEqualWithDelta(58997.9, 0.0001)
+        ->and(collect($kitchen['rows'])->firstWhere('code', 'RAW-MILK')['product_count'])->toBe(2)
+        ->and(collect($kitchen['rows'])->firstWhere('code', 'RAW-MILK')['calculation_notes'])->toHaveCount(2)
+        ->and(collect($kitchen['rows'])->firstWhere('code', 'RAW-MATCHA')['quantity'])->toEqualWithDelta(780.0, 0.0001)
+        ->and(collect($store['rows'])->firstWhere('code', 'BW-FROYO')['quantity'])->toBe(101400.0)
+        ->and(collect($store['rows'])->pluck('code'))->not->toContain('RAW-MILK');
+});
+
 it('renders the real project calculation and per-row cara hitung in the Material Forecast header', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));

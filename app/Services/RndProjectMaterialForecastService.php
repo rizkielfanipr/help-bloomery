@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\RndProject;
 use App\Models\RndProjectProduct;
 use App\Services\Rnd\BomCalculationService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
@@ -25,7 +26,6 @@ class RndProjectMaterialForecastService
     public function calculate(RndProject $project, string $forecastType = 'kitchen'): array
     {
         $this->outputConversionFactors = [];
-        $usageType = $forecastType === 'store' ? 'menu' : 'main';
         $materials = [];
         $projectionDetails = [];
         $projectedUnits = 0.0;
@@ -47,35 +47,72 @@ class RndProjectMaterialForecastService
             $projectedUnits += $projectedQuantity;
             $effectiveProjectedUnits += $targetQuantity;
             $projectionProducts++;
-            $rootBoms = $product->boms->filter(fn ($bom): bool => $bom->pivot->usage_type === $usageType);
+            $menuBoms = $product->boms->filter(fn ($bom): bool => $bom->pivot->usage_type === 'menu');
+            $rootBoms = $forecastType === 'store'
+                ? $menuBoms
+                : $product->boms->filter(fn ($bom): bool => $bom->pivot->usage_type === 'main');
+            $isCalculated = false;
+
+            if ($forecastType === 'store') {
+                foreach ($rootBoms as $rootBom) {
+                    $this->addBomMaterials(
+                        $rootBom,
+                        $targetQuantity,
+                        false,
+                        $project->boms,
+                        $materials,
+                        $product->id,
+                        $warnings,
+                        $product->name,
+                        [$rootBom->bom_name],
+                    );
+                }
+
+                $isCalculated = $rootBoms->isNotEmpty();
+            } else {
+                $processedResultCodes = [];
+
+                foreach ($rootBoms as $rootBom) {
+                    $resultCode = strtoupper(trim((string) data_get($rootBom->detail_snapshot, 'productCode', '')));
+                    if ($resultCode !== '') {
+                        $processedResultCodes[] = $resultCode;
+                    }
+
+                    $this->addBomMaterials(
+                        $rootBom,
+                        $this->rootRecipeMultiplier($rootBom, $product, $targetQuantity, $warnings, $recipeNotes, $product->name),
+                        true,
+                        $project->boms,
+                        $materials,
+                        $product->id,
+                        $warnings,
+                        $product->name,
+                        [$rootBom->bom_name],
+                    );
+                }
+
+                $isCalculated = $rootBoms->isNotEmpty();
+                $isCalculated = $this->addUnmappedMenuWipMaterials(
+                    $product,
+                    $menuBoms,
+                    $targetQuantity,
+                    $project->boms,
+                    $materials,
+                    $warnings,
+                    $recipeNotes,
+                    $processedResultCodes,
+                ) || $isCalculated;
+            }
+
             $projectionDetails[] = [
                 'name' => $product->name,
                 'quantity' => $projectedQuantity,
                 'effective_quantity' => $targetQuantity,
-                'is_calculated' => $rootBoms->isNotEmpty(),
+                'is_calculated' => $isCalculated,
             ];
 
-            if ($rootBoms->isEmpty()) {
-                continue;
-            }
-
-            $projectedProducts++;
-            foreach ($rootBoms as $rootBom) {
-                $multiplier = $forecastType === 'store'
-                    ? $targetQuantity
-                    : $this->rootRecipeMultiplier($rootBom, $product, $targetQuantity, $warnings, $recipeNotes, $product->name);
-
-                $this->addBomMaterials(
-                    $rootBom,
-                    $multiplier,
-                    $forecastType !== 'store',
-                    $project->boms,
-                    $materials,
-                    $product->id,
-                    $warnings,
-                    $product->name,
-                    [$rootBom->bom_name],
-                );
+            if ($isCalculated) {
+                $projectedProducts++;
             }
         }
 
@@ -101,6 +138,119 @@ class RndProjectMaterialForecastService
             'warnings' => array_values(array_unique($warnings)),
             'recipe_notes' => array_values(array_unique($recipeNotes)),
         ];
+    }
+
+    /**
+     * Expand WIP components that appear directly in a Menu BOM but are not the result of one
+     * of the product's attached Main Recipes. A Menu can consume several independently produced
+     * WIPs, so using only its selected Main Recipe would silently omit the others.
+     *
+     * @param  Collection<int, mixed>  $menuBoms
+     * @param  Collection<int, mixed>  $recipeBoms
+     * @param  array<string, array{code: string, name: string, unit: string, quantity: float, product_ids: array<int, bool>, calculation_notes: list<string>}>  $materials
+     * @param  list<string>  $warnings
+     * @param  list<string>  $recipeNotes
+     * @param  list<string>  $processedResultCodes
+     */
+    private function addUnmappedMenuWipMaterials(RndProjectProduct $product, Collection $menuBoms, float $targetQuantity, Collection $recipeBoms, array &$materials, array &$warnings, array &$recipeNotes, array $processedResultCodes): bool
+    {
+        $requirements = [];
+
+        foreach ($menuBoms as $menuBom) {
+            foreach (data_get($menuBom->detail_snapshot, 'bomDetails', []) as $detail) {
+                $code = strtoupper(trim((string) ($detail['productCode'] ?? '')));
+
+                if ($code === '' || in_array($code, $processedResultCodes, true) || ! $this->isWorkInProgress($detail)) {
+                    continue;
+                }
+
+                $requirements[$code] ??= [
+                    'detail' => $detail,
+                    'quantity' => 0.0,
+                    'menu_names' => [],
+                    'source_bom' => $menuBom,
+                ];
+                $requirements[$code]['quantity'] += $this->bomCalculation->componentRequirement($detail, $targetQuantity, true);
+                $requirements[$code]['menu_names'][] = $menuBom->bom_name;
+            }
+        }
+
+        $calculated = false;
+
+        foreach ($requirements as $code => $requirement) {
+            $detail = $requirement['detail'];
+            $componentBom = $product->boms
+                ->filter(fn ($candidate): bool => $candidate->pivot->usage_type !== 'menu')
+                ->first(fn ($candidate): bool => $this->recipeMatchesComponent($candidate, $detail))
+                ?? $recipeBoms
+                    ->reject(fn ($candidate): bool => data_get($candidate, 'pivot.usage_type') === 'menu')
+                    ->first(fn ($candidate): bool => $this->recipeMatchesComponent($candidate, $detail));
+
+            if (! $componentBom) {
+                $remoteRecipes = $this->remoteWipRecipes($requirement['source_bom'], $detail);
+
+                if ($remoteRecipes !== []) {
+                    $selectedRecipe = $remoteRecipes[0];
+                    $componentBom = (object) [
+                        'id' => -1 * (int) $selectedRecipe['bomID'],
+                        'bom_name' => (string) ($selectedRecipe['bomName'] ?? $selectedRecipe['bomCode']),
+                        'detail_snapshot' => $selectedRecipe,
+                        'documentMaterials' => collect(),
+                    ];
+                }
+            }
+
+            if (! $componentBom) {
+                $name = trim((string) ($detail['productName'] ?? 'WIP tanpa nama'));
+                $warnings[] = 'WIP '.$name.' ('.$code.') pada produk '.$product->name.' · '.implode(', ', array_unique($requirement['menu_names'])).' belum memiliki BOM turunan yang cocok di ESB.';
+
+                continue;
+            }
+
+            $bomName = (string) ($componentBom->bom_name ?? data_get($componentBom->detail_snapshot, 'bomName', $code));
+            $multiplier = $this->childRecipeMultiplier(
+                $detail,
+                $componentBom,
+                $requirement['quantity'],
+                $warnings,
+                $product->name,
+                array_values(array_unique($requirement['menu_names'])),
+            );
+            $yield = $this->bomCalculation->outputConversionFactor((array) ($componentBom->detail_snapshot ?? []))
+                ?? $this->resolveOutputConversionFromMasterProduct($componentBom);
+
+            if ($yield !== null) {
+                $unit = (string) ($detail['uomName'] ?? '');
+                $recipeNotes[] = sprintf(
+                    '%s · %s: %s unit terjual × %s %s/unit (dari BOM Menu) = %s %s dibutuhkan ÷ %s %s hasil per resep = %s kali resep.',
+                    $product->name,
+                    $bomName,
+                    $this->formatNumber($targetQuantity),
+                    $this->formatNumber((float) ($detail['qty'] ?? 0)),
+                    $unit,
+                    $this->formatNumber($requirement['quantity']),
+                    $unit,
+                    $this->formatNumber($yield),
+                    $unit,
+                    $this->formatNumber($multiplier),
+                );
+            }
+
+            $this->addBomMaterials(
+                $componentBom,
+                $multiplier,
+                true,
+                $recipeBoms,
+                $materials,
+                $product->id,
+                $warnings,
+                $product->name,
+                [...array_values(array_unique($requirement['menu_names'])), $bomName],
+            );
+            $calculated = true;
+        }
+
+        return $calculated;
     }
 
     /** @param Collection<int, mixed> $recipeBoms
@@ -161,10 +311,7 @@ class RndProjectMaterialForecastService
                 continue;
             }
 
-            $categoryName = mb_strtolower(trim((string) ($detail['categoryName'] ?? $detail['category'] ?? '')));
-            $isWorkInProgress = str_contains($categoryName, 'barang wip') || preg_match('/^BW[-_]?\d*/i', $code) === 1;
-
-            if ($isWorkInProgress) {
+            if ($this->isWorkInProgress($detail)) {
                 $remoteRecipes = $this->remoteWipRecipes($bom, $detail);
 
                 if ($remoteRecipes !== []) {
@@ -229,6 +376,31 @@ class RndProjectMaterialForecastService
                 ),
             );
         }
+    }
+
+    /** @param array<string, mixed> $component */
+    private function isWorkInProgress(array $component): bool
+    {
+        $categoryName = mb_strtolower(trim((string) ($component['categoryName'] ?? $component['category'] ?? '')));
+        $code = trim((string) ($component['productCode'] ?? ''));
+
+        return str_contains($categoryName, 'barang wip') || preg_match('/^BW[-_]?\d*/i', $code) === 1;
+    }
+
+    /** @param array<string, mixed> $component */
+    private function recipeMatchesComponent(object $recipe, array $component): bool
+    {
+        $componentProductDetailId = (int) ($component['productDetailID'] ?? 0);
+        $recipeProductDetailId = (int) data_get($recipe->detail_snapshot, 'productDetailID', 0);
+
+        if ($componentProductDetailId > 0 && $recipeProductDetailId > 0) {
+            return $componentProductDetailId === $recipeProductDetailId;
+        }
+
+        $componentCode = strtoupper(trim((string) ($component['productCode'] ?? '')));
+        $recipeCode = strtoupper(trim((string) data_get($recipe->detail_snapshot, 'productCode', '')));
+
+        return $componentCode !== '' && $componentCode === $recipeCode;
     }
 
     /** @param list<string> $bomPath
@@ -417,7 +589,7 @@ class RndProjectMaterialForecastService
 
                 return array_values($recipes);
             });
-        } catch (RuntimeException) {
+        } catch (ConnectionException|RuntimeException) {
             return [];
         }
     }

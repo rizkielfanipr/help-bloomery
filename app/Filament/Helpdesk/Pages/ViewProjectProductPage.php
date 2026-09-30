@@ -590,8 +590,10 @@ class ViewProjectProductPage extends Page
 
         try {
             $attachedToProduct = $this->productRecord->boms()->pluck('rnd_project_boms.esb_bom_id')->all();
+            // WIP recipes stay excluded only from `$attachedToProduct` above; see isWipBomCode().
             $ownedByOtherProjects = RndProjectBom::query()
                 ->where('rnd_project_id', '!=', $this->projectId)
+                ->whereRaw('UPPER(bom_code) NOT LIKE ?', ['BW%'])
                 ->pluck('esb_bom_id')
                 ->all();
             $excluded = array_merge($attachedToProduct, $ownedByOtherProjects);
@@ -621,7 +623,11 @@ class ViewProjectProductPage extends Page
         $this->importBomNameSearch = '';
         $this->importBomProductSearch = '';
         $this->importBomUnitSearch = '';
-        $this->importBomTypeSearch = $usageType === 'menu' ? 'Menu' : '';
+        $this->importBomTypeSearch = match ($usageType) {
+            'menu' => 'Menu',
+            'main' => 'Assembly',
+            default => '',
+        };
         $this->importPage = 1;
         $this->importModalOpen = true;
     }
@@ -629,6 +635,16 @@ class ViewProjectProductPage extends Page
     private function isTopLevelUsageType(string $usageType): bool
     {
         return in_array($usageType, ['main', 'menu'], true);
+    }
+
+    /**
+     * WIP recipes (bom_code prefixed "BW") are shared base recipes reused across many
+     * products/projects, so they're exempt from the single-project ownership rule that
+     * keeps a regular Main Recipe/Menu BOM exclusive to the project that first attached it.
+     */
+    private function isWipBomCode(?string $bomCode): bool
+    {
+        return str_starts_with(strtoupper(trim((string) $bomCode)), 'BW');
     }
 
     public function updatedImportSearch(): void
@@ -668,9 +684,13 @@ class ViewProjectProductPage extends Page
         $name = mb_strtolower(trim($this->importBomNameSearch));
         $product = mb_strtolower(trim($this->importBomProductSearch));
         $unit = mb_strtolower(trim($this->importBomUnitSearch));
-        // "Add Existing Menu" is hard-locked to Menu-type BOMs only, regardless
-        // of whatever the type filter field is currently set to.
-        $type = $this->importUsageType === 'menu' ? 'menu' : mb_strtolower(trim($this->importBomTypeSearch));
+        // "Add Main Recipe" and "Add Existing Menu" are hard-locked to Assembly/Menu-type
+        // BOMs respectively, regardless of whatever the type filter field is currently set to.
+        $type = match ($this->importUsageType) {
+            'menu' => 'menu',
+            'main' => 'assembly',
+            default => mb_strtolower(trim($this->importBomTypeSearch)),
+        };
 
         return array_values(array_filter($this->importBomOptions, function (array $bom) use ($search, $code, $name, $product, $unit, $type): bool {
             $bomCode = mb_strtolower((string) ($bom['bomCode'] ?? ''));
@@ -713,7 +733,7 @@ class ViewProjectProductPage extends Page
         }
 
         $projectBom = RndProjectBom::query()->where('esb_bom_id', $bomId)->first();
-        if ($projectBom && $projectBom->rnd_project_id !== $this->projectId) {
+        if ($projectBom && $projectBom->rnd_project_id !== $this->projectId && ! $this->isWipBomCode($projectBom->bom_code)) {
             Notification::make()->title('BOM dimiliki project lain')->warning()->send();
 
             return;
@@ -782,7 +802,7 @@ class ViewProjectProductPage extends Page
     public function detachBom(int $bomId): void
     {
         $this->authorizeBomManagement();
-        $projectBom = $this->projectRecord->boms()->where('esb_bom_id', $bomId)->firstOrFail();
+        $projectBom = $this->productRecord->boms()->where('rnd_project_boms.esb_bom_id', $bomId)->firstOrFail();
         $this->productRecord->boms()->detach($projectBom->id);
         $this->reloadProduct();
         Notification::make()->title('BOM dilepas dari product')->success()->send();
@@ -797,7 +817,7 @@ class ViewProjectProductPage extends Page
             $detail = app(EsbBillOfMaterialService::class)->getBillOfMaterial($esbBomId);
             $projectBom = RndProjectBom::query()->where('esb_bom_id', $esbBomId)->first();
 
-            if ($projectBom && $projectBom->rnd_project_id !== $this->projectId) {
+            if ($projectBom && $projectBom->rnd_project_id !== $this->projectId && ! $this->isWipBomCode($detail['bomCode'] ?? null)) {
                 Notification::make()->title('BOM dimiliki project lain')->warning()->send();
 
                 return;
@@ -1618,7 +1638,7 @@ class ViewProjectProductPage extends Page
     {
         $this->authorizeBomManagement();
         abort_unless(array_key_exists($usageType, RndProjectProduct::BOM_USAGE_TYPES), 422);
-        $projectBom = $this->projectRecord->boms()->where('esb_bom_id', $bomId)->firstOrFail();
+        $projectBom = $this->productRecord->boms()->where('rnd_project_boms.esb_bom_id', $bomId)->firstOrFail();
         $this->productRecord->boms()->updateExistingPivot($projectBom->id, [
             'usage_type' => $usageType,
             'parent_rnd_project_bom_id' => $usageType === 'main' ? null : $this->importParentBomId,

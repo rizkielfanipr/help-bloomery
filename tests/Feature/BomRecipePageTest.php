@@ -336,6 +336,142 @@ it('filters "Add Existing Menu" to only Menu-type BOMs from ESB', function () {
         ->and($rows->pluck('bomTypeName')->all())->toBe(['Menu']);
 });
 
+it('filters "Add Main Recipe" to only Assembly-type BOMs from ESB', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response([
+            'status' => 'ok',
+            'result' => ['accessToken' => 'access-token'],
+        ]),
+        'https://core-esb.test/product/bom*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1, 'limit' => 100, 'count' => 2,
+                'data' => [
+                    ['bomID' => 601, 'bomCode' => 'BOM-ASM', 'bomName' => 'Assembly Recipe', 'bomTypeName' => 'Assembly', 'productName' => 'Croissant', 'uomName' => 'PCS'],
+                    ['bomID' => 602, 'bomCode' => 'BOM-MENU', 'bomName' => 'Croissant Set Menu', 'bomTypeName' => 'Menu', 'productName' => 'Croissant Set', 'uomName' => 'PCS'],
+                ],
+                'prev' => '', 'next' => '',
+            ],
+        ]),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->call('openBomPicker', 'main')
+        ->call('loadImportBoms');
+
+    $rows = collect($page->instance()->importRows());
+
+    expect($rows->pluck('bomCode')->all())->toBe(['BOM-ASM'])
+        ->and($rows->pluck('bomTypeName')->all())->toBe(['Assembly']);
+});
+
+it('keeps a WIP recipe owned by another project visible in the Add BOM picker, but hides a regular one', function () {
+    $otherProject = RndProject::query()->create([
+        'name' => 'Other Project', 'description' => 'x', 'start_date' => '2026-01-01', 'end_date' => '2026-02-01',
+        'created_by' => auth()->id(),
+    ]);
+    RndProjectBom::query()->create([
+        'rnd_project_id' => $otherProject->id, 'esb_bom_id' => 601, 'bom_code' => 'BW1369',
+        'bom_name' => 'WIP | Froyo Mix', 'sync_status' => 'synced', 'created_by' => auth()->id(),
+    ]);
+    RndProjectBom::query()->create([
+        'rnd_project_id' => $otherProject->id, 'esb_bom_id' => 602, 'bom_code' => 'BOM-ASM2',
+        'bom_name' => 'Other Project Assembly', 'sync_status' => 'synced', 'created_by' => auth()->id(),
+    ]);
+
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'access-token']]),
+        'https://core-esb.test/product/bom*' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'page' => 1, 'limit' => 100, 'count' => 2,
+                'data' => [
+                    ['bomID' => 601, 'bomCode' => 'BW1369', 'bomName' => 'WIP | Froyo Mix', 'bomTypeName' => 'Assembly', 'productName' => 'Froyo Mix', 'uomName' => 'GR'],
+                    ['bomID' => 602, 'bomCode' => 'BOM-ASM2', 'bomName' => 'Other Project Assembly', 'bomTypeName' => 'Assembly', 'productName' => 'Something', 'uomName' => 'PCS'],
+                ],
+                'prev' => '', 'next' => '',
+            ],
+        ]),
+    ]);
+
+    $page = Livewire::test(ViewProjectProductPage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->call('openBomPicker', 'main')
+        ->call('loadImportBoms');
+
+    $rows = collect($page->instance()->importRows());
+
+    expect($rows->pluck('bomCode')->all())->toBe(['BW1369']);
+});
+
+it('lets attachBom reuse a WIP recipe already owned by another project without warning', function () {
+    $otherProject = RndProject::query()->create([
+        'name' => 'Other Project', 'description' => 'x', 'start_date' => '2026-01-01', 'end_date' => '2026-02-01',
+        'created_by' => auth()->id(),
+    ]);
+    $sharedWip = RndProjectBom::query()->create([
+        'rnd_project_id' => $otherProject->id, 'esb_bom_id' => 601, 'bom_code' => 'BW1369',
+        'bom_name' => 'WIP | Froyo Mix', 'sync_status' => 'synced', 'created_by' => auth()->id(),
+    ]);
+
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'access-token']]),
+        'https://core-esb.test/product/bom/601' => Http::response(['status' => 'ok', 'result' => [
+            'bomID' => 601, 'bomCode' => 'BW1369', 'bomName' => 'WIP | Froyo Mix', 'bomTypeName' => 'Assembly',
+            'productName' => 'Froyo Mix', 'uomName' => 'GR', 'flagActive' => 1, 'bomDetails' => [],
+        ]]),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->set('importUsageType', 'main')
+        ->call('attachBom', 601)
+        ->assertNotNotified('BOM dimiliki project lain');
+
+    expect($sharedWip->fresh()->rnd_project_id)->toBe($otherProject->id)
+        ->and($this->product->fresh()->boms->pluck('esb_bom_id')->all())->toContain(601);
+});
+
+it('still blocks attaching a regular (non-WIP) BOM already owned by another project', function () {
+    $otherProject = RndProject::query()->create([
+        'name' => 'Other Project', 'description' => 'x', 'start_date' => '2026-01-01', 'end_date' => '2026-02-01',
+        'created_by' => auth()->id(),
+    ]);
+    RndProjectBom::query()->create([
+        'rnd_project_id' => $otherProject->id, 'esb_bom_id' => 602, 'bom_code' => 'BOM-ASM2',
+        'bom_name' => 'Other Project Assembly', 'sync_status' => 'synced', 'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->set('importUsageType', 'main')
+        ->call('attachBom', 602)
+        ->assertNotified('BOM dimiliki project lain');
+
+    expect($this->product->fresh()->boms->pluck('esb_bom_id')->all())->not->toContain(602);
+});
+
 it('shows Bill of Material Kitchen and Store sections with a Menu BOM\'s components', function () {
     config()->set([
         'cache.default' => 'array',

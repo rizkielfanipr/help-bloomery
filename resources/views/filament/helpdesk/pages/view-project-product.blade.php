@@ -1241,6 +1241,8 @@
                                     <th class="px-4 pb-3 pt-2">
                                         @if($importUsageType === 'menu')
                                             <span class="flex w-full items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs font-bold text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300" title="Add Existing Menu hanya menampilkan BOM bertipe Menu">Menu</span>
+                                        @elseif($importUsageType === 'main')
+                                            <span class="flex w-full items-center justify-center rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2 text-xs font-bold text-blue-700 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300" title="Add Main Recipe hanya menampilkan BOM bertipe Assembly">Assembly</span>
                                         @else
                                             <select wire:model.live="importBomTypeSearch" class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-normal normal-case dark:border-gray-600 dark:bg-gray-900">
                                                 <option value="">- Semua -</option>

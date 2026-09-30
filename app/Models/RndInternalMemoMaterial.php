@@ -34,11 +34,15 @@ class RndInternalMemoMaterial extends Model
         'category_name',
         'uom_id',
         'uom_name',
+        'purchase_uom_id',
+        'purchase_uom_name',
         'quantity_per_menu',
         'net_quantity',
+        'minimum_order',
         'is_wip',
         'is_packaging',
         'product_snapshot',
+        'product_synced_at',
     ];
 
     protected function casts(): array
@@ -48,10 +52,22 @@ class RndInternalMemoMaterial extends Model
             'depth' => 'integer',
             'quantity_per_menu' => 'decimal:4',
             'net_quantity' => 'decimal:4',
+            'minimum_order' => 'decimal:4',
             'is_wip' => 'boolean',
             'is_packaging' => 'boolean',
             'product_snapshot' => 'array',
+            'product_synced_at' => 'datetime',
         ];
+    }
+
+    /**
+     * True once a genuine Purchase UOM has been proven for this item
+     * (docs/rnd-internal-memo-simplification-prd.md §8.1) — a null value means the ESB Product
+     * contract did not provide one, not that it has never been fetched.
+     */
+    public function hasPurchaseUom(): bool
+    {
+        return filled($this->purchase_uom_name);
     }
 
     public function menu(): BelongsTo

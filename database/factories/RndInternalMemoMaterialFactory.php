@@ -31,4 +31,19 @@ class RndInternalMemoMaterialFactory extends Factory
             'is_packaging' => false,
         ];
     }
+
+    /** Purchase UOM proven for this item (docs/rnd-internal-memo-simplification-prd.md §8.1). */
+    public function withPurchaseUom(?string $name = 'GR', ?int $id = 5): static
+    {
+        return $this->state(fn (): array => [
+            'purchase_uom_id' => $id,
+            'purchase_uom_name' => $name,
+            'product_synced_at' => now(),
+        ]);
+    }
+
+    public function withMinimumOrder(float $minimumOrder = 10): static
+    {
+        return $this->state(fn (): array => ['minimum_order' => $minimumOrder]);
+    }
 }

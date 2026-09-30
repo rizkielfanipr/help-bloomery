@@ -356,4 +356,40 @@
     </script>
     @endpush
 
+    @if($showTaskReminderModal)
+        <div class="fixed inset-0 z-[130] flex items-center justify-center p-4" x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window="$wire.dismissTaskReminderModal()" role="dialog" aria-modal="true" aria-label="Tugas yang Perlu Ditindaklanjuti">
+            <button type="button" wire:click="dismissTaskReminderModal" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup"></button>
+            <div class="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="flex items-start justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+                            <x-heroicon-o-exclamation-circle class="h-5 w-5" />
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Tugas yang Perlu Ditindaklanjuti</h3>
+                            <p class="mt-1 text-sm text-gray-500">Ada {{ count($actionNeededTasks) }} Tugas menunggu tindak lanjut Anda.</p>
+                        </div>
+                    </div>
+                    <button type="button" wire:click="dismissTaskReminderModal" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200" aria-label="Tutup">
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
+                    </button>
+                </div>
+                <div class="space-y-2 overflow-y-auto p-5">
+                    @foreach($actionNeededTasks as $item)
+                        <a href="{{ $item['href'] }}" class="flex items-center justify-between gap-2 rounded-xl border bg-white p-3 transition hover:border-blue-300 dark:bg-gray-900 {{ $item['is_overdue'] ? 'border-red-200 dark:border-red-900' : 'border-gray-200 dark:border-gray-700' }}">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-bold text-gray-900 dark:text-white">{{ $item['title'] }}</p>
+                                <p class="truncate text-xs text-gray-500">{{ $item['project_name'] }} · {{ $item['branch_name'] }}</p>
+                            </div>
+                            <span class="shrink-0 text-xs font-bold {{ $item['is_overdue'] ? 'text-red-600' : 'text-amber-600' }}">{{ $item['countdown_label'] }}</span>
+                        </a>
+                    @endforeach
+                </div>
+                <div class="flex justify-end border-t border-gray-200 p-5 dark:border-gray-700">
+                    <button type="button" wire:click="dismissTaskReminderModal" class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Tutup</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
 </div>

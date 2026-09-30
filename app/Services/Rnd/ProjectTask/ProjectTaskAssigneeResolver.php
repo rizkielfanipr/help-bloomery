@@ -35,4 +35,21 @@ class ProjectTaskAssigneeResolver
             && ! $user->canAccessAllBranches()
             && $user->canAccessBranch($branchId);
     }
+
+    /**
+     * Active users who can review follow-ups for a Branch — anyone holding the review permission
+     * who can access it, including all-branch/SUPERADMIN users (unlike PIC eligibility, reviewers
+     * are not restricted to branch-only staff).
+     *
+     * @return Collection<int, User>
+     */
+    public function reviewersForBranch(int $branchId): Collection
+    {
+        return User::query()
+            ->where('is_active', true)
+            ->permission('review rnd project task follow ups')
+            ->get()
+            ->filter(fn (User $user): bool => $user->canAccessBranch($branchId))
+            ->values();
+    }
 }

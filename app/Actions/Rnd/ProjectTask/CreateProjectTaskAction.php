@@ -7,8 +7,10 @@ use App\Enums\RndProjectTaskStatus;
 use App\Models\RndProject;
 use App\Models\RndProjectTask;
 use App\Models\User;
+use App\Notifications\ProjectTaskAssignedNotification;
 use App\Services\Rnd\ProjectTask\ProjectTaskAssigneeResolver;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -47,7 +49,7 @@ class CreateProjectTaskAction
             }
         }
 
-        return DB::transaction(function () use ($project, $data, $actor): RndProjectTask {
+        $task = DB::transaction(function () use ($project, $data, $actor): RndProjectTask {
             $task = $project->tasks()->create([
                 'title' => $data['title'],
                 'task_type' => $data['task_type'],
@@ -73,5 +75,13 @@ class CreateProjectTaskAction
 
             return $task->fresh(['branches', 'assignments']);
         });
+
+        foreach ($task->assignments as $assignment) {
+            if ($assignment->user) {
+                Notification::send($assignment->user, new ProjectTaskAssignedNotification($assignment));
+            }
+        }
+
+        return $task;
     }
 }

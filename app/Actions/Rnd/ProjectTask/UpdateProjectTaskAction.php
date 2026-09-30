@@ -3,6 +3,8 @@
 namespace App\Actions\Rnd\ProjectTask;
 
 use App\Models\RndProjectTask;
+use App\Notifications\ProjectTaskDeadlineChangedNotification;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -25,6 +27,9 @@ class UpdateProjectTaskAction
             throw ValidationException::withMessages(['due_date' => 'Deadline tidak boleh lebih awal dari tanggal assign.']);
         }
 
+        $previousDueDate = $task->due_date->toDateString();
+        $deadlineChanged = $previousDueDate !== $data['due_date'];
+
         $task->update([
             'title' => $data['title'],
             'task_type' => $data['task_type'],
@@ -35,6 +40,16 @@ class UpdateProjectTaskAction
             'instruction_attachments' => $data['instruction_attachments'] ?? null,
         ]);
 
-        return $task->fresh();
+        $task = $task->fresh();
+
+        if ($deadlineChanged) {
+            foreach ($task->activeAssignments()->with('user')->get() as $assignment) {
+                if ($assignment->user) {
+                    Notification::send($assignment->user, new ProjectTaskDeadlineChangedNotification($task, $previousDueDate));
+                }
+            }
+        }
+
+        return $task;
     }
 }

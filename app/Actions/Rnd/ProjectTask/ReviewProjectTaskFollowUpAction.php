@@ -5,8 +5,11 @@ namespace App\Actions\Rnd\ProjectTask;
 use App\Enums\RndProjectTaskAssignmentStatus;
 use App\Models\RndProjectTaskAssignment;
 use App\Models\User;
+use App\Notifications\ProjectTaskApprovedNotification;
+use App\Notifications\ProjectTaskRevisionRequestedNotification;
 use App\Services\Rnd\ProjectTask\ProjectTaskStatusService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -35,7 +38,7 @@ class ReviewProjectTaskFollowUpAction
             throw ValidationException::withMessages(['review_note' => 'Catatan wajib diisi ketika meminta revisi.']);
         }
 
-        return DB::transaction(function () use ($assignment, $decision, $note, $reviewer): RndProjectTaskAssignment {
+        $assignment = DB::transaction(function () use ($assignment, $decision, $note, $reviewer): RndProjectTaskAssignment {
             $assignment->update([
                 'status' => $decision === 'approve'
                     ? RndProjectTaskAssignmentStatus::Approved->value
@@ -49,5 +52,13 @@ class ReviewProjectTaskFollowUpAction
 
             return $assignment->fresh();
         });
+
+        if ($assignment->user) {
+            Notification::send($assignment->user, $decision === 'approve'
+                ? new ProjectTaskApprovedNotification($assignment)
+                : new ProjectTaskRevisionRequestedNotification($assignment));
+        }
+
+        return $assignment;
     }
 }

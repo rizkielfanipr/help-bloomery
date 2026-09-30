@@ -7,8 +7,11 @@ use App\Enums\RndProjectTaskFollowUpType;
 use App\Models\RndProjectTaskAssignment;
 use App\Models\RndProjectTaskFollowUp;
 use App\Models\User;
+use App\Notifications\ProjectTaskFollowUpSubmittedNotification;
+use App\Services\Rnd\ProjectTask\ProjectTaskAssigneeResolver;
 use App\Services\Rnd\ProjectTask\ProjectTaskStatusService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 
 /**
@@ -21,7 +24,10 @@ use RuntimeException;
  */
 class SubmitProjectTaskFollowUpAction
 {
-    public function __construct(private readonly ProjectTaskStatusService $statusService) {}
+    public function __construct(
+        private readonly ProjectTaskStatusService $statusService,
+        private readonly ProjectTaskAssigneeResolver $assigneeResolver,
+    ) {}
 
     public function execute(RndProjectTaskAssignment $assignment, array $data, User $actor): RndProjectTaskFollowUp
     {
@@ -36,7 +42,7 @@ class SubmitProjectTaskFollowUpAction
             throw new RuntimeException('Tindak lanjut ini sudah dikirim dan menunggu atau sudah selesai direview.');
         }
 
-        return DB::transaction(function () use ($assignment, $data, $actor, $type): RndProjectTaskFollowUp {
+        $followUp = DB::transaction(function () use ($assignment, $data, $actor, $type): RndProjectTaskFollowUp {
             $followUp = $assignment->followUps()->create([
                 'submitted_by' => $actor->id,
                 'follow_up_type' => $type->value,
@@ -62,5 +68,14 @@ class SubmitProjectTaskFollowUpAction
 
             return $followUp;
         });
+
+        if ($type === RndProjectTaskFollowUpType::Submission) {
+            $reviewers = $this->assigneeResolver->reviewersForBranch($assignment->branch_id);
+            if ($reviewers->isNotEmpty()) {
+                Notification::send($reviewers, new ProjectTaskFollowUpSubmittedNotification($assignment->fresh()));
+            }
+        }
+
+        return $followUp;
     }
 }

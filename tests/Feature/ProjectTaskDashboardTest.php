@@ -73,3 +73,39 @@ it('opens the task detail directly when linked with ?openTask=', function () {
         ->assertOk()
         ->assertSee('Deep Linked Task');
 });
+
+it('shows the reminder modal once per session while active assignments exist', function () {
+    $branch = Branch::factory()->create();
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'title' => 'Modal Task']);
+    $task->branches()->attach($branch->id);
+    RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'user_id' => $this->admin->id, 'status' => 'assigned',
+    ]);
+
+    Livewire::test(Dashboard::class)
+        ->assertSet('showTaskReminderModal', true)
+        ->assertSee('Modal Task');
+
+    Livewire::test(Dashboard::class)
+        ->assertSet('showTaskReminderModal', false);
+});
+
+it('does not complete the task when the reminder modal is dismissed', function () {
+    $branch = Branch::factory()->create();
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'status' => 'assigned']);
+    $task->branches()->attach($branch->id);
+    RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'user_id' => $this->admin->id, 'status' => 'assigned',
+    ]);
+
+    Livewire::test(Dashboard::class)
+        ->assertSet('showTaskReminderModal', true)
+        ->call('dismissTaskReminderModal')
+        ->assertSet('showTaskReminderModal', false);
+
+    expect($task->fresh()->status->value)->toBe('assigned');
+});
+
+it('hides the reminder modal entirely when there are no active assignments', function () {
+    Livewire::test(Dashboard::class)->assertSet('showTaskReminderModal', false);
+});

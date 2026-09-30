@@ -42,6 +42,8 @@ class Dashboard extends BaseDashboard
 
     public array $actionNeededTasks = [];
 
+    public bool $showTaskReminderModal = false;
+
     public function mount(): void
     {
         $this->computeModuleStats();
@@ -49,6 +51,29 @@ class Dashboard extends BaseDashboard
         $this->computeDistribution();
         $this->computeRecentRequests();
         $this->computeActionNeededTasks();
+        $this->maybeShowTaskReminderModal();
+    }
+
+    public function dismissTaskReminderModal(): void
+    {
+        $this->showTaskReminderModal = false;
+    }
+
+    /**
+     * First-visit-per-session reminder modal (docs/rnd-project-task-calendar-prd.md §15) — shown
+     * at most once per PHP session while the user has active Task assignments, then reappears on
+     * their next session. There is no prior "once per session" mechanism anywhere in this app
+     * (confirmed during the Phase 0 audit), so this is a new, minimal pattern built directly on
+     * `session()` rather than a shared component.
+     */
+    private function maybeShowTaskReminderModal(): void
+    {
+        if (session()->has('rnd_task_reminder_modal_seen') || $this->actionNeededTasks === []) {
+            return;
+        }
+
+        session()->put('rnd_task_reminder_modal_seen', true);
+        $this->showTaskReminderModal = true;
     }
 
     /**
@@ -73,7 +98,7 @@ class Dashboard extends BaseDashboard
                 },
                 $assignment->task->due_date->format('Y-m-d'),
             ))
-            ->take(6);
+            ->take(5);
 
         $this->actionNeededTasks = $assignments->map(fn (RndProjectTaskAssignment $assignment): array => [
             'title' => $assignment->task->title,

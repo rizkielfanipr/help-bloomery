@@ -5,7 +5,9 @@ namespace App\Actions\Rnd\ProjectTask;
 use App\Enums\RndProjectTaskAssignmentStatus;
 use App\Enums\RndProjectTaskStatus;
 use App\Models\RndProjectTask;
+use App\Notifications\ProjectTaskCancelledNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 
 /**
@@ -21,7 +23,9 @@ class CancelProjectTaskAction
             throw new RuntimeException('Tugas ini sudah selesai atau dibatalkan.');
         }
 
-        return DB::transaction(function () use ($task): RndProjectTask {
+        $affectedUsers = $task->activeAssignments()->with('user')->get()->pluck('user')->filter();
+
+        $task = DB::transaction(function () use ($task): RndProjectTask {
             $task->assignments()
                 ->whereNot('status', RndProjectTaskAssignmentStatus::Cancelled->value)
                 ->update(['status' => RndProjectTaskAssignmentStatus::Cancelled->value]);
@@ -30,5 +34,11 @@ class CancelProjectTaskAction
 
             return $task->fresh('assignments');
         });
+
+        if ($affectedUsers->isNotEmpty()) {
+            Notification::send($affectedUsers, new ProjectTaskCancelledNotification($task));
+        }
+
+        return $task;
     }
 }

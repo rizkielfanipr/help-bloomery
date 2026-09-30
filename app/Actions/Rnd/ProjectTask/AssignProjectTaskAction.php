@@ -6,8 +6,10 @@ use App\Enums\RndProjectTaskAssignmentStatus;
 use App\Models\RndProjectTask;
 use App\Models\RndProjectTaskAssignment;
 use App\Models\User;
+use App\Notifications\ProjectTaskAssignedNotification;
 use App\Services\Rnd\ProjectTask\ProjectTaskAssigneeResolver;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -28,7 +30,7 @@ class AssignProjectTaskAction
         $this->guardAssignable($task);
         $this->guardEligible($userId, $branchId);
 
-        return DB::transaction(function () use ($task, $branchId, $userId): RndProjectTaskAssignment {
+        $assignment = DB::transaction(function () use ($task, $branchId, $userId): RndProjectTaskAssignment {
             $task->branches()->syncWithoutDetaching([$branchId]);
 
             return $task->assignments()->create([
@@ -38,6 +40,10 @@ class AssignProjectTaskAction
                 'assigned_at' => now(),
             ]);
         });
+
+        Notification::send($assignment->user, new ProjectTaskAssignedNotification($assignment));
+
+        return $assignment;
     }
 
     /**
@@ -50,7 +56,7 @@ class AssignProjectTaskAction
         $this->guardAssignable($assignment->task);
         $this->guardEligible($newUserId, $assignment->branch_id);
 
-        return DB::transaction(function () use ($assignment, $newUserId): RndProjectTaskAssignment {
+        $newAssignment = DB::transaction(function () use ($assignment, $newUserId): RndProjectTaskAssignment {
             $assignment->update(['status' => RndProjectTaskAssignmentStatus::Cancelled->value]);
 
             return $assignment->task->assignments()->create([
@@ -60,6 +66,10 @@ class AssignProjectTaskAction
                 'assigned_at' => now(),
             ]);
         });
+
+        Notification::send($newAssignment->user, new ProjectTaskAssignedNotification($newAssignment));
+
+        return $newAssignment;
     }
 
     private function guardAssignable(RndProjectTask $task): void

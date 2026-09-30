@@ -18,3 +18,4 @@ Schedule::command('product-price-index:sync --days=90')
 
 Schedule::command('sales-reports:auto-reject')->everyMinute()->withoutOverlapping();
 Schedule::command('basket-size:finalize')->everyTenMinutes()->withoutOverlapping(30);
+Schedule::command('rnd:send-project-task-reminders')->dailyAt('07:00')->withoutOverlapping();

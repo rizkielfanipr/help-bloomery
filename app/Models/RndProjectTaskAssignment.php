@@ -8,16 +8,21 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * One PIC's obligation for a Task on one Branch (docs/rnd-project-task-calendar-prd.md §8.3).
  * `user_id` is a snapshot: it is never revoked just because the user later loses access to
- * `branch_id` (business rule #6).
+ * `branch_id` (business rule #6). Status/review changes are recorded via `LogsActivity` (the same
+ * audit-trail mechanism already used by ErpRepairRequest/DesignRequest/PurchasingRequest) so every
+ * review decision stays in history even though `review_note` itself only holds the latest one
+ * (docs/rnd-project-task-calendar-prd.md §21 Phase 4 — "Simpan audit trail keputusan").
  */
 class RndProjectTaskAssignment extends Model
 {
     /** @use HasFactory<RndProjectTaskAssignmentFactory> */
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'rnd_project_task_id',
@@ -71,5 +76,10 @@ class RndProjectTaskAssignment extends Model
     public function reminders(): HasMany
     {
         return $this->hasMany(RndProjectTaskReminder::class);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->logFillable()->logOnlyDirty();
     }
 }

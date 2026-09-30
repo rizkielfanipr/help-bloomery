@@ -228,3 +228,59 @@ it('blocks a user from responding to another PIC\'s assignment', function () {
         ->call('startAssignment', $assignment->id)
         ->assertForbidden();
 });
+
+it('shows the reviewer panel for a submitted assignment and lets an authorized reviewer approve it', function () {
+    $branch = Branch::factory()->create();
+    $reviewer = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $reviewer->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'review rnd project task follow ups']);
+    $reviewer->syncBranchAccess([$branch->id], $branch->id);
+    $this->actingAs($reviewer);
+
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'status' => 'submitted']);
+    $task->branches()->attach($branch->id);
+    $assignment = RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'status' => 'submitted',
+    ]);
+    $assignment->followUps()->create([
+        'follow_up_type' => 'submission', 'notes' => 'Hasil uji rasa sudah sesuai target.',
+    ]);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->call('openTaskDetail', $task->id)
+        ->assertSee('Hasil uji rasa sudah sesuai target.')
+        ->call('approveFollowUp', $assignment->id)
+        ->assertHasNoErrors();
+
+    expect($assignment->fresh()->status->value)->toBe('approved')
+        ->and($task->fresh()->status->value)->toBe('completed');
+});
+
+it('requires a note before an authorized reviewer can request revision', function () {
+    $branch = Branch::factory()->create();
+    $reviewer = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $reviewer->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'review rnd project task follow ups']);
+    $reviewer->syncBranchAccess([$branch->id], $branch->id);
+    $this->actingAs($reviewer);
+
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'status' => 'submitted']);
+    $task->branches()->attach($branch->id);
+    $assignment = RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'status' => 'submitted',
+    ]);
+
+    $page = Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->call('openTaskDetail', $task->id)
+        ->call('requestRevision', $assignment->id)
+        ->assertHasErrors(['reviewNote']);
+
+    expect($assignment->fresh()->status->value)->toBe('submitted');
+
+    $page->set('reviewNote', 'Tolong perbaiki tekstur adonan.')
+        ->call('requestRevision', $assignment->id)
+        ->assertHasNoErrors();
+
+    expect($assignment->fresh()->status->value)->toBe('revision_required')
+        ->and($task->fresh()->status->value)->toBe('revision_required');
+});

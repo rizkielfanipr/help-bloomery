@@ -334,6 +334,37 @@
                         </div>
                     </div>
 
+                    @foreach($detailTask->assignments->where('status', \App\Enums\RndProjectTaskAssignmentStatus::Submitted) as $reviewAssignment)
+                        @can('review', $reviewAssignment)
+                            <div class="rounded-xl border border-purple-200 bg-purple-50/40 p-3.5 dark:border-purple-900 dark:bg-purple-950/10">
+                                <div class="mb-2 flex items-center justify-between">
+                                    <p class="text-xs font-bold uppercase tracking-wide text-purple-700 dark:text-purple-300">Review · {{ $reviewAssignment->branch->name }} · {{ $reviewAssignment->user?->display_username ?? 'Tidak diketahui' }}</p>
+                                </div>
+                                @php
+                                    $latestSubmission = $reviewAssignment->followUps->firstWhere('follow_up_type', \App\Enums\RndProjectTaskFollowUpType::Submission);
+                                @endphp
+                                @if($latestSubmission)
+                                    <div class="mb-2 rounded-lg bg-white p-2.5 text-xs dark:bg-gray-900">
+                                        <p class="text-gray-700 dark:text-gray-200">{{ $latestSubmission->notes ?: 'Tidak ada catatan dari PIC.' }}</p>
+                                        @if($latestSubmission->result_attachments)
+                                            <div class="mt-1.5 flex flex-wrap gap-2">
+                                                @foreach($latestSubmission->result_attachments as $attachmentPath)
+                                                    <a href="{{ route('helpdesk.rnd-project-tasks.attachments.show', ['path' => $attachmentPath]) }}" target="_blank" class="text-blue-600 underline">Lampiran {{ $loop->iteration }}</a>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endif
+                                <textarea wire:model="reviewNote" rows="2" class="w-full resize-none rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-white" placeholder="Catatan review (wajib jika meminta revisi)..."></textarea>
+                                @error('reviewNote')<p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>@enderror
+                                <div class="mt-2 flex justify-end gap-2">
+                                    <button type="button" wire:click="requestRevision({{ $reviewAssignment->id }})" class="rounded-lg border border-amber-300 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300">Minta Revisi</button>
+                                    <button type="button" wire:click="approveFollowUp({{ $reviewAssignment->id }})" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">Approve</button>
+                                </div>
+                            </div>
+                        @endcan
+                    @endforeach
+
                     @foreach($this->myAssignmentsForTask($detailTask) as $myAssignment)
                         <div class="rounded-xl border border-blue-200 bg-blue-50/40 p-3.5 dark:border-blue-900 dark:bg-blue-950/10">
                             <div class="mb-3 flex items-center justify-between">

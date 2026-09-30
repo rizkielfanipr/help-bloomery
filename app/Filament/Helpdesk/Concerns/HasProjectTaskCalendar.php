@@ -5,6 +5,7 @@ namespace App\Filament\Helpdesk\Concerns;
 use App\Actions\Rnd\ProjectTask\AssignProjectTaskAction;
 use App\Actions\Rnd\ProjectTask\CancelProjectTaskAction;
 use App\Actions\Rnd\ProjectTask\CreateProjectTaskAction;
+use App\Actions\Rnd\ProjectTask\ReviewProjectTaskFollowUpAction;
 use App\Actions\Rnd\ProjectTask\StartProjectTaskAssignmentAction;
 use App\Actions\Rnd\ProjectTask\SubmitProjectTaskFollowUpAction;
 use App\Actions\Rnd\ProjectTask\UpdateProjectTaskAction;
@@ -83,6 +84,8 @@ trait HasProjectTaskCalendar
 
     /** @var array<int, TemporaryUploadedFile> */
     public array $followUpAttachments = [];
+
+    public string $reviewNote = '';
 
     public function showProjectTasks(): void
     {
@@ -453,6 +456,41 @@ trait HasProjectTaskCalendar
             ->title($type === 'submission' ? 'Tindak lanjut berhasil dikirim' : 'Progress berhasil disimpan')
             ->success()
             ->send();
+    }
+
+    public function approveFollowUp(int $assignmentId): void
+    {
+        $assignment = RndProjectTaskAssignment::query()->findOrFail($assignmentId);
+        abort_unless(auth()->user()->can('review', $assignment), 403);
+
+        try {
+            app(ReviewProjectTaskFollowUpAction::class)->execute($assignment, 'approve', null, auth()->user());
+        } catch (RuntimeException $exception) {
+            Notification::make()->title('Gagal menyetujui')->body($exception->getMessage())->danger()->send();
+
+            return;
+        }
+
+        Notification::make()->title('Hasil disetujui')->success()->send();
+    }
+
+    public function requestRevision(int $assignmentId): void
+    {
+        $assignment = RndProjectTaskAssignment::query()->findOrFail($assignmentId);
+        abort_unless(auth()->user()->can('review', $assignment), 403);
+
+        $this->validate(['reviewNote' => ['required', 'string', 'max:2000']]);
+
+        try {
+            app(ReviewProjectTaskFollowUpAction::class)->execute($assignment, 'revision', $this->reviewNote, auth()->user());
+        } catch (RuntimeException $exception) {
+            Notification::make()->title('Gagal meminta revisi')->body($exception->getMessage())->danger()->send();
+
+            return;
+        }
+
+        $this->reviewNote = '';
+        Notification::make()->title('Revisi diminta')->success()->send();
     }
 
     /** @return array<string, string> */

@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
  * One R&D operational task attached to a Project, shared to one or more Branches, each with its
@@ -20,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class RndProjectTask extends Model
 {
     /** @use HasFactory<RndProjectTaskFactory> */
-    use HasFactory;
+    use HasFactory, LogsActivity;
 
     protected $fillable = [
         'rnd_project_id',
@@ -94,5 +96,10 @@ class RndProjectTask extends Model
     public function hasValidDeadline(): bool
     {
         return $this->due_date->gte($this->assigned_date);
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()->logFillable()->logOnlyDirty();
     }
 }

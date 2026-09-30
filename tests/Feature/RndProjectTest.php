@@ -18,6 +18,7 @@ use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
 use App\Models\User;
 use App\Services\EsbMasterProductService;
+use Carbon\Carbon;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
@@ -36,6 +37,10 @@ beforeEach(function () {
     $admin = User::factory()->create(['is_active' => true, 'use_bom_pin' => true, 'bom_pin' => Hash::make('246810')]);
     $admin->assignRole('SUPERADMIN');
     $this->actingAs($admin);
+});
+
+afterEach(function () {
+    Carbon::setTestNow();
 });
 
 it('uses dry as the shelf life storage option', function () {
@@ -582,6 +587,62 @@ it('shows each project only on its release date in the monthly calendar', functi
         ->call('previousCalendarMonth')
         ->assertSet('calendarMonth', '2026-09')
         ->assertSee('Project Calendar Seasonal');
+});
+
+it('blocks switching to the release calendar while the archived status filter is active', function () {
+    Livewire::test(ListProjects::class)
+        ->set('projectStatus', 'archived')
+        ->call('showProjectCalendar')
+        ->assertSet('projectView', 'list');
+});
+
+it('keeps the status filter applied when browsing the release calendar', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    RndProject::query()->create([
+        'name' => 'Completed Release',
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-09-10',
+        'created_by' => auth()->id(),
+    ]);
+    RndProject::query()->create([
+        'name' => 'Active Release',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-20',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ListProjects::class)
+        ->set('projectStatus', 'completed')
+        ->call('showProjectCalendar')
+        ->set('calendarMonth', '2026-09')
+        ->assertSee('Completed Release')
+        ->assertDontSee('Active Release')
+        ->set('projectStatus', 'active')
+        ->assertSee('Active Release')
+        ->assertDontSee('Completed Release');
+});
+
+it('keeps the search filter applied when browsing the release calendar', function () {
+    RndProject::query()->create([
+        'name' => 'Croissant Autumn Release',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-12',
+        'created_by' => auth()->id(),
+    ]);
+    RndProject::query()->create([
+        'name' => 'Donut Autumn Release',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-09-18',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectCalendar')
+        ->set('calendarMonth', '2026-09')
+        ->set('projectSearch', 'croissant')
+        ->assertSee('Croissant Autumn Release')
+        ->assertDontSee('Donut Autumn Release');
 });
 
 it('creates a project', function () {

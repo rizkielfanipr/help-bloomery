@@ -11,6 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('rnd_project_task_follow_ups')) {
+            $this->repairTableLeftByFailedMigration();
+
+            return;
+        }
+
         Schema::create('rnd_project_task_follow_ups', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('rnd_project_task_assignment_id')->constrained(
@@ -27,6 +33,50 @@ return new class extends Migration
             $table->index('rnd_project_task_assignment_id');
             $table->index('follow_up_type');
         });
+    }
+
+    /**
+     * MySQL may keep the CREATE TABLE result when a later ALTER TABLE for an automatically
+     * generated foreign-key name fails. Complete that partial table without deleting its data.
+     */
+    private function repairTableLeftByFailedMigration(): void
+    {
+        $foreignColumns = collect(Schema::getForeignKeys('rnd_project_task_follow_ups'))
+            ->flatMap(fn (array $foreignKey): array => $foreignKey['columns'])
+            ->all();
+        $indexedColumns = collect(Schema::getIndexes('rnd_project_task_follow_ups'))
+            ->flatMap(fn (array $index): array => $index['columns'])
+            ->all();
+
+        if (! in_array('rnd_project_task_assignment_id', $indexedColumns, true)) {
+            Schema::table('rnd_project_task_follow_ups', function (Blueprint $table): void {
+                $table->index('rnd_project_task_assignment_id', 'rnd_task_followup_assignment_idx');
+            });
+        }
+
+        if (! in_array('follow_up_type', $indexedColumns, true)) {
+            Schema::table('rnd_project_task_follow_ups', function (Blueprint $table): void {
+                $table->index('follow_up_type', 'rnd_task_followup_type_idx');
+            });
+        }
+
+        if (! in_array('rnd_project_task_assignment_id', $foreignColumns, true)) {
+            Schema::table('rnd_project_task_follow_ups', function (Blueprint $table): void {
+                $table->foreign('rnd_project_task_assignment_id', 'rnd_task_followup_assignment_fk')
+                    ->references('id')
+                    ->on('rnd_project_task_assignments')
+                    ->cascadeOnDelete();
+            });
+        }
+
+        if (! in_array('submitted_by', $foreignColumns, true)) {
+            Schema::table('rnd_project_task_follow_ups', function (Blueprint $table): void {
+                $table->foreign('submitted_by', 'rnd_task_followup_submitter_fk')
+                    ->references('id')
+                    ->on('users')
+                    ->nullOnDelete();
+            });
+        }
     }
 
     /**

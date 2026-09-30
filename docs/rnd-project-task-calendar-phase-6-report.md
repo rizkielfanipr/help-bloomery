@@ -26,7 +26,7 @@ Constraint sekarang memakai nama eksplisit:
 - `rnd_task_followup_assignment_fk`
 - `rnd_task_reminder_assignment_fk`
 
-Jika kegagalan lama sudah meninggalkan tabel `rnd_project_task_follow_ups` tetapi migration belum tercatat, pastikan tabel kosong sebelum menghapus tabel sisa tersebut dan menjalankan `php artisan migrate --force` kembali. Jangan menghapus tabel jika sudah berisi data.
+Jika kegagalan lama sudah meninggalkan tabel `rnd_project_task_follow_ups` tetapi migration belum tercatat, migration akan mendeteksi tabel parsial tersebut dan melengkapi index serta foreign key yang belum terbentuk tanpa menghapus data.
 
 ## Validasi
 

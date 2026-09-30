@@ -283,3 +283,89 @@ it('caches the Assembly search so the same WIP appearing twice is only looked up
         + 1 // bom/900 detail (first only, second cached)
     );
 });
+
+it('stops recursing and reports a blocker once the Assembly depth limit is reached', function () {
+    // docs/rnd-internal-memo-simplification-prd.md §9.3: "batas kedalaman aman tercapai" — a
+    // chain of 11 distinct WIPs (never repeating a bomID, so the circular-reference guard never
+    // fires) must still stop once MAX_ASSEMBLY_DEPTH (10) is reached.
+    $fakes = [
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
+        'https://esb.test/core/product/bom/501' => Http::response(['status' => 'ok', 'result' => internalMemoBomDetailFixture('Menu', [
+            'bomID' => 501,
+            'bomDetails' => [
+                ['productDetailID' => 9000, 'productCode' => 'BW-0', 'productName' => 'Assembly 0', 'categoryName' => 'Barang WIP', 'qty' => 1.0, 'uomName' => 'PCS'],
+            ],
+        ])]),
+    ];
+
+    for ($level = 0; $level < 10; $level++) {
+        $bomId = 601 + $level;
+        $childWipIdentity = 9000 + $level + 1;
+        $fakes["https://esb.test/core/product/bom/{$bomId}"] = Http::response(['status' => 'ok', 'result' => internalMemoAssemblyBomDetailFixture([
+            'bomID' => $bomId,
+            'productDetailID' => 9000 + $level,
+            'productCode' => 'BW-'.$level,
+            'bomDetails' => [
+                ['productDetailID' => $childWipIdentity, 'productCode' => 'BW-'.($level + 1), 'productName' => 'Assembly '.($level + 1), 'categoryName' => 'Barang WIP', 'qty' => 1.0, 'uomName' => 'PCS'],
+            ],
+        ])]);
+    }
+
+    $searchSequence = Http::sequence();
+    for ($level = 0; $level < 10; $level++) {
+        $searchSequence->push(['status' => 'ok', 'result' => ['data' => [['bomID' => 601 + $level]]]]);
+    }
+    $fakes['https://esb.test/core/product/bom?*'] = $searchSequence;
+
+    Http::fake($fakes);
+
+    $result = app(InternalMemoBomResolver::class)->resolve($this->menu);
+
+    expect($result['blockers'])->toHaveCount(1)
+        ->and($result['blockers'][0])->toContain('Batas kedalaman Assembly maksimum');
+
+    $materials = $this->menu->materials()->orderBy('depth')->get();
+    expect($materials)->toHaveCount(11) // WIP-0 through WIP-10, one per depth level 0-10
+        ->and($materials->max('depth'))->toBe(10)
+        ->and($materials->last()->product_code)->toBe('BW-10');
+});
+
+it('rolls back the whole replacement and keeps the last valid snapshot when a refresh fails mid-walk', function () {
+    // Both resolve() calls below fetch the same bomID (501, the Menu's own BOM), so a single
+    // sequence stubs the first call's successful raw-material response and the second call's
+    // WIP response; Http::fake() merges stubs for the same URL across calls rather than
+    // replacing them, so registering two separate Http::fake() calls for the same exact URL
+    // would silently keep serving the first one.
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
+        'https://esb.test/core/product/bom/501' => Http::sequence()
+            ->push(['status' => 'ok', 'result' => internalMemoBomDetailFixture('Menu', [
+                'bomID' => 501,
+                'bomDetails' => [
+                    ['productDetailID' => 15002, 'productCode' => 'RAW-FLOUR', 'productName' => 'Tepung', 'categoryName' => 'Bahan Baku Makanan', 'qty' => 250.0, 'uomName' => 'GR'],
+                ],
+            ])])
+            ->push(['status' => 'ok', 'result' => internalMemoBomDetailFixture('Menu', [
+                'bomID' => 501,
+                'bomDetails' => [
+                    ['productDetailID' => 15003, 'productCode' => 'BW-BREAK', 'productName' => 'Broken WIP', 'categoryName' => 'Barang WIP', 'qty' => 1.0, 'uomName' => 'PCS'],
+                ],
+            ])]),
+    ]);
+
+    app(InternalMemoBomResolver::class)->resolve($this->menu);
+    $originalMaterialId = $this->menu->materials()->sole()->id;
+
+    // The 15-minute BOM detail cache would otherwise serve the first response again for the
+    // same bomID; flushing simulates the cache window naturally elapsing before a real refresh.
+    Cache::flush();
+
+    // Second resolve: the Menu's own BOM still fetches fine (second item in the sequence above),
+    // but the WIP inside it needs an Assembly search that is not faked, so
+    // Http::preventStrayRequests() throws mid-walk.
+    expect(fn () => app(InternalMemoBomResolver::class)->resolve($this->menu))->toThrow(Exception::class);
+
+    $material = $this->menu->materials()->sole();
+    expect($material->id)->toBe($originalMaterialId)
+        ->and($material->product_code)->toBe('RAW-FLOUR');
+});

@@ -8,6 +8,7 @@ use App\Services\EsbCoreClient;
 use App\Services\EsbService;
 use App\Services\Rnd\BomCalculationService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -22,6 +23,14 @@ use RuntimeException;
 class InternalMemoBomResolver
 {
     private const COMPANY_CODE = 'BLSS';
+
+    /**
+     * docs/rnd-internal-memo-simplification-prd.md §9.3: "batas kedalaman aman tercapai" stops
+     * traversal. The Phase 0 audit found no existing precedent for this guard — only the
+     * circular-BOM-ID check existed — so this is new protection against a pathological or
+     * misconfigured BOM chain that never repeats a bomID but never terminates either.
+     */
+    private const MAX_ASSEMBLY_DEPTH = 10;
 
     /** @var array<int, float> */
     private array $outputConversionFactors = [];
@@ -38,23 +47,34 @@ class InternalMemoBomResolver
     public function resolve(RndInternalMemoMenu $menu): array
     {
         $this->outputConversionFactors = [];
-        $menu->materials()->delete();
 
+        // Fetch before mutating anything: if ESB is unreachable, the exception propagates here
+        // and the Menu's last valid Material snapshot is never touched
+        // (docs/rnd-internal-memo-simplification-prd.md §13, "kegagalan refresh tidak boleh
+        // menghapus snapshot valid terakhir").
         $bomDetail = $this->fetchBom($menu->esb_bom_id);
         $blockers = [];
         $warnings = [];
 
-        $this->walk(
-            menu: $menu,
-            bomDetail: $bomDetail,
-            multiplier: 1.0,
-            parentMaterialId: null,
-            depth: 0,
-            visitedBomIds: [$menu->esb_bom_id],
-            path: [$this->bomLabel($bomDetail, $menu->esb_bom_id)],
-            blockers: $blockers,
-            warnings: $warnings,
-        );
+        // The delete + rebuild happens atomically: any exception during the walk (e.g. a
+        // connection failure mid-recursion while searching for a WIP's Assembly) rolls back the
+        // delete too, so a partial failure never leaves the Menu with fewer materials than its
+        // last successful sync.
+        DB::transaction(function () use ($menu, $bomDetail, &$blockers, &$warnings): void {
+            $menu->materials()->delete();
+
+            $this->walk(
+                menu: $menu,
+                bomDetail: $bomDetail,
+                multiplier: 1.0,
+                parentMaterialId: null,
+                depth: 0,
+                visitedBomIds: [$menu->esb_bom_id],
+                path: [$this->bomLabel($bomDetail, $menu->esb_bom_id)],
+                blockers: $blockers,
+                warnings: $warnings,
+            );
+        });
 
         return ['blockers' => $blockers, 'warnings' => $warnings, 'bom_snapshot' => $bomDetail];
     }
@@ -97,6 +117,13 @@ class InternalMemoBomResolver
 
             if (! $isWip) {
                 $this->createMaterialRow($menu, $parentMaterialId, $currentBomId, $currentBomCode, $path, $depth, $component, $propagatedQty, false, $isPackaging);
+
+                continue;
+            }
+
+            if ($depth >= self::MAX_ASSEMBLY_DEPTH) {
+                $blockers[] = 'Batas kedalaman Assembly maksimum ('.self::MAX_ASSEMBLY_DEPTH.' level) tercapai pada jalur '.implode(' → ', $path).' untuk WIP "'.$identity['productName'].'".';
+                $this->createMaterialRow($menu, $parentMaterialId, $currentBomId, $currentBomCode, $path, $depth, $component, $propagatedQty, true, false);
 
                 continue;
             }

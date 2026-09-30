@@ -6,13 +6,21 @@ use App\Enums\RndInternalMemoMenuSyncStatus;
 use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
 use App\Models\RndProductEsbShelfLife;
+use App\Services\Rnd\InternalMemo\InternalMemoBomResolver;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Throwable;
 
 /**
- * docs/rnd-internal-memo-prd.md §7.2. Takes the Menu row already fetched by the picker modal
- * (App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogService::page) instead of re-fetching by
- * ID, because a single-Menu detail endpoint is not proven to exist (Phase 0 report, PRD §8.5).
+ * docs/rnd-internal-memo-simplification-prd.md §7.2. Takes the Menu row already fetched by the
+ * picker modal (App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogService::page) instead of
+ * re-fetching by ID, because a single-Menu detail endpoint is not proven to exist (Phase 0
+ * report, PRD §8.5). "Menu dapat ditambahkan kapan saja" — there is no longer a Draft-only gate.
+ *
+ * BOM/Assembly resolution runs synchronously right after the Menu row is created (§7.2 steps
+ * 3-7), matching the simplified PRD's removal of the old Draft → Syncing job workflow. A BOM
+ * resolution failure does not fail the whole use case — the Menu stays added with sync_status
+ * Failed so the UI can offer "Coba Ambil Ulang" (§7.2 last paragraph).
  *
  * `release_date` defaults to the memo's period_month because the column is required
  * (§12.2) while the PRD flow only asks for it in the later "Melengkapi data per Menu" step
@@ -20,13 +28,11 @@ use RuntimeException;
  */
 class AddMenuToInternalMemoAction
 {
+    public function __construct(private readonly InternalMemoBomResolver $resolver) {}
+
     /** @param array<string, mixed> $menu */
     public function execute(RndInternalMemo $memo, array $menu): RndInternalMemoMenu
     {
-        if (! $memo->status->isEditable()) {
-            throw new RuntimeException('Menu hanya dapat ditambahkan selama Memo berstatus Draft.');
-        }
-
         $esbMenuId = (int) ($menu['menuID'] ?? 0);
         $bomId = (int) ($menu['bomID'] ?? 0);
 
@@ -49,7 +55,7 @@ class AddMenuToInternalMemoAction
         $shelfLife = RndProductEsbShelfLife::forMenu($memo->company_code, $esbMenuId);
         $nextSortOrder = ((int) $memo->menus()->max('sort_order')) + 1;
 
-        return $memo->menus()->create([
+        $menuRecord = $memo->menus()->create([
             'esb_menu_id' => $esbMenuId,
             'menu_code' => $menu['menuCode'] ?? null,
             'menu_name' => (string) ($menu['menuName'] ?? ''),
@@ -61,9 +67,28 @@ class AddMenuToInternalMemoAction
             'shelf_life_value' => $shelfLife?->shelf_life_value,
             'shelf_life_unit' => $shelfLife?->shelf_life_unit,
             'storage_condition' => $shelfLife?->storage_condition,
-            'sync_status' => RndInternalMemoMenuSyncStatus::Pending,
+            'sync_status' => RndInternalMemoMenuSyncStatus::Syncing,
             'menu_snapshot' => $menu['raw'] ?? $menu,
             'sort_order' => $nextSortOrder,
         ]);
+
+        try {
+            $result = $this->resolver->resolve($menuRecord);
+
+            $menuRecord->update([
+                'sync_status' => RndInternalMemoMenuSyncStatus::Synced,
+                'synced_at' => now(),
+                'sync_error' => $result['blockers'] === [] ? null : implode(' | ', $result['blockers']),
+                'sync_warnings' => $result['warnings'] === [] ? null : $result['warnings'],
+                'bom_snapshot' => $result['bom_snapshot'],
+            ]);
+        } catch (Throwable $exception) {
+            $menuRecord->update([
+                'sync_status' => RndInternalMemoMenuSyncStatus::Failed,
+                'sync_error' => $exception->getMessage(),
+            ]);
+        }
+
+        return $menuRecord->fresh();
     }
 }

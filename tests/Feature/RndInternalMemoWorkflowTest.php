@@ -83,8 +83,14 @@ it('rejects a second memo for the same period and a duplicate memo number', func
         ->assertHasErrors(['memoNumber']);
 });
 
-it('adds a Menu with bomID > 0 through the picker and stores a snapshot', function () {
+it('adds a Menu with bomID > 0 through the picker, stores a snapshot, and resolves its BOM immediately', function () {
+    // docs/rnd-internal-memo-simplification-prd.md §7.2: BOM/Assembly resolution now runs
+    // synchronously right when the Menu is added, replacing the old separate Draft -> Syncing step.
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
+        'https://esb.test/core/product/bom/42' => Http::response(['status' => 'ok', 'result' => internalMemoBomDetailFixture('Menu', ['bomID' => 42])]),
+    ]);
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('addMenu', fakeMenuRow(501, 42))
@@ -94,7 +100,24 @@ it('adds a Menu with bomID > 0 through the picker and stores a snapshot', functi
     expect($menu->esb_menu_id)->toBe(501)
         ->and($menu->esb_bom_id)->toBe(42)
         ->and($menu->menu_snapshot)->toBe(['menuID' => 501, 'menuName' => 'Croissant Butter'])
-        ->and($menu->sync_status->value)->toBe('pending');
+        ->and($menu->sync_status->value)->toBe('synced')
+        ->and($menu->synced_at)->not->toBeNull()
+        ->and($menu->materials()->count())->toBe(1);
+});
+
+it('keeps a Menu added even when its BOM fails to resolve, marking it Failed for retry', function () {
+    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
+    // No Http::fake() for the BOM endpoint: the stray request is blocked, simulating an ESB
+    // failure at add-time (§7.2, "Jika sebagian API gagal, Menu tetap tercatat").
+    Http::fake(['https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']])]);
+
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->call('addMenu', fakeMenuRow(501, 42))
+        ->assertHasNoErrors();
+
+    $menu = $memo->menus()->sole();
+    expect($menu->sync_status->value)->toBe('failed')
+        ->and($menu->sync_error)->not->toBeNull();
 });
 
 it('refuses a Menu with bomID = 0 and does not persist a row', function () {
@@ -116,11 +139,16 @@ it('refuses adding the same Menu twice to one memo', function () {
     expect($memo->menus()->count())->toBe(1);
 });
 
-it('refuses adding a Menu once the memo is no longer Draft', function () {
+it('allows adding a Menu regardless of the memo legacy workflow status', function () {
+    // docs/rnd-internal-memo-simplification-prd.md §7.5: "Menu dapat ditambah dan dihapus kapan
+    // saja" — the old Draft-only gate belonged to the finalize/lock workflow this PRD removes.
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Ready]);
+    Http::fake(['https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']])]);
 
-    expect(fn () => app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42)))
-        ->toThrow(RuntimeException::class);
+    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+
+    expect($memo->menus()->count())->toBe(1)
+        ->and($menu->esb_menu_id)->toBe(501);
 });
 
 it('auto-fills Shelf Life from the local master when adding a Menu that has one', function () {

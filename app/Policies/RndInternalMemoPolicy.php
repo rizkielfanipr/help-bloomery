@@ -35,11 +35,14 @@ class RndInternalMemoPolicy
     }
 
     /**
-     * Metadata and Menu selection stay editable only while the memo is Draft (§6 table).
+     * docs/rnd-internal-memo-simplification-prd.md §6: metadata, Menu add/remove, per-Menu
+     * refresh, and Minimum Order all stay editable regardless of the legacy workflow status —
+     * "Menu dapat ditambah dan dihapus kapan saja". The old Draft-only gate belonged to the
+     * finalize/lock workflow this PRD removes from the UI.
      */
     public function update(User $user, RndInternalMemo $memo): bool
     {
-        return $user->can('update rnd internal memo') && $memo->status->isEditable();
+        return $user->can('update rnd internal memo');
     }
 
     /**

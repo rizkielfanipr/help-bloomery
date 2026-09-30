@@ -7,6 +7,8 @@ use App\Actions\Rnd\InternalMemo\ArchiveInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\CreateInternalMemoRevisionAction;
 use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\FinalizeInternalMemoAction;
+use App\Actions\Rnd\InternalMemo\RefreshInternalMemoMenuAction;
+use App\Actions\Rnd\InternalMemo\RemoveMenuFromInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuForecastAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuShelfLifeAction;
 use App\Enums\RndInternalMemoStatus;
@@ -144,17 +146,34 @@ class ViewRndInternalMemo extends ViewRecord
         Notification::make()->title('Menu berhasil ditambahkan')->success()->send();
     }
 
-    public function removeMenu(int $menuId): void
+    public function removeMenu(int $menuId, RemoveMenuFromInternalMemoAction $removeMenu): void
+    {
+        abort_unless(auth()->user()?->can('update', $this->getRecord()), 403);
+
+        $removeMenu->execute($this->getRecord(), $menuId);
+
+        $this->getRecord()->refresh();
+        Notification::make()->title('Menu berhasil dihapus dari Memo')->success()->send();
+    }
+
+    public function refreshMenu(int $menuId, RefreshInternalMemoMenuAction $refreshMenu): void
     {
         abort_unless(auth()->user()?->can('update', $this->getRecord()), 403);
 
         $menu = RndInternalMemoMenu::query()
             ->where('rnd_internal_memo_id', $this->getRecord()->id)
             ->findOrFail($menuId);
-        $menu->delete();
+
+        try {
+            $refreshMenu->execute($menu);
+        } catch (RuntimeException $exception) {
+            Notification::make()->title('Menu gagal disegarkan')->body($exception->getMessage())->danger()->send();
+
+            return;
+        }
 
         $this->getRecord()->refresh();
-        Notification::make()->title('Menu berhasil dihapus dari Memo')->success()->send();
+        Notification::make()->title('Menu berhasil disegarkan')->success()->send();
     }
 
     public function canSync(): bool

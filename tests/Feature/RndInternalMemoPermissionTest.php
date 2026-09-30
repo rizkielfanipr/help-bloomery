@@ -23,15 +23,21 @@ it('lets only users with the matching permission view, create, and list memos', 
         ->and($outsider->can('create', RndInternalMemo::class))->toBeFalse();
 });
 
-it('only allows updating a memo while it is Draft', function () {
+it('allows updating a memo regardless of its legacy workflow status', function () {
+    // docs/rnd-internal-memo-simplification-prd.md §6/§7.5: "Menu dapat ditambah dan dihapus
+    // kapan saja" — the simplified UI has no finalize/lock concept, so `update` is permission-only.
     $user = User::factory()->create(['is_active' => true]);
     $user->givePermissionTo('update rnd internal memo');
 
     foreach (RndInternalMemoStatus::cases() as $index => $status) {
         $memo = RndInternalMemo::factory()->create(['status' => $status, 'period_month' => now()->addMonths($index)->startOfMonth()]);
 
-        expect($user->can('update', $memo))->toBe($status === RndInternalMemoStatus::Draft);
+        expect($user->can('update', $memo))->toBeTrue();
     }
+
+    $outsider = User::factory()->create(['is_active' => true]);
+    $memo = RndInternalMemo::factory()->create();
+    expect($outsider->can('update', $memo))->toBeFalse();
 });
 
 it('only allows sync while the memo is Draft, NeedsAttention, or Ready', function () {

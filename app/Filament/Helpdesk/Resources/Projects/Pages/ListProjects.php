@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Actions\ArchiveRndProjectAction;
+use App\Filament\Helpdesk\Concerns\HasProjectTaskCalendar;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Models\RndProject;
 use Filament\Notifications\Notification;
@@ -12,6 +13,8 @@ use Illuminate\Support\Carbon;
 
 class ListProjects extends ListRecords
 {
+    use HasProjectTaskCalendar;
+
     protected static string $resource = ProjectResource::class;
 
     protected string $view = 'filament.helpdesk.rnd-projects.index';

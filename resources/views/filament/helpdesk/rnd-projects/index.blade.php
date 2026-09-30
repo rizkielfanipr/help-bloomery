@@ -90,13 +90,20 @@
                         <x-heroicon-o-squares-2x2 class="h-4 w-4" /> Daftar
                     </button>
                     <button type="button" wire:click="showProjectCalendar" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'calendar' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
-                        <x-heroicon-o-calendar-days class="h-4 w-4" /> Kalender
+                        <x-heroicon-o-calendar-days class="h-4 w-4" /> Kalender Rilis
                     </button>
+                    @can('view rnd project tasks')
+                        <button type="button" wire:click="showProjectTasks" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'tasks' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
+                            <x-heroicon-o-clipboard-document-check class="h-4 w-4" /> Kalender Tugas
+                        </button>
+                    @endcan
                 </div>
             </div>
         </section>
 
-        @if($projectView === 'calendar')
+        @if($projectView === 'tasks')
+            @include('filament.helpdesk.rnd-projects.partials.task-calendar')
+        @elseif($projectView === 'calendar')
             @php
                 $calendar = $this->calendar();
             @endphp

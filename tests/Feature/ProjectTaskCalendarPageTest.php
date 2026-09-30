@@ -1,0 +1,166 @@
+<?php
+
+use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
+use App\Models\Branch;
+use App\Models\RndProject;
+use App\Models\RndProjectTask;
+use App\Models\RndProjectTaskAssignment;
+use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Facades\Filament;
+use Livewire\Livewire;
+
+beforeEach(function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+
+    $this->project = RndProject::query()->create([
+        'name' => 'Croissant Launch', 'start_date' => '2026-09-01', 'end_date' => '2026-12-01',
+    ]);
+});
+
+it('hides the Kalender Tugas toggle from users without the view permission', function () {
+    $outsider = User::factory()->create(['is_active' => true]);
+    $outsider->givePermissionTo('view rnd projects');
+    $this->actingAs($outsider);
+
+    Livewire::test(ListProjects::class)->assertDontSee('Kalender Tugas');
+});
+
+it('shows the Kalender Tugas toggle and switches to the tasks view', function () {
+    $manager = User::factory()->create(['is_active' => true]);
+    $manager->givePermissionTo(['view rnd projects', 'view rnd project tasks']);
+    $this->actingAs($manager);
+
+    Livewire::test(ListProjects::class)
+        ->assertSee('Kalender Tugas')
+        ->call('showProjectTasks')
+        ->assertSet('projectView', 'tasks')
+        ->assertSee('Kalender Tugas');
+});
+
+it('creates a task from the modal with one PIC per branch and shows it on the calendar', function () {
+    $manager = User::factory()->create(['is_active' => true]);
+    $manager->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'create rnd project tasks']);
+    $this->actingAs($manager);
+
+    $branch = Branch::factory()->create();
+    $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $pic->syncBranchAccess([$branch->id], $branch->id);
+    $manager->syncBranchAccess([$branch->id], $branch->id);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->set('taskCalendarMonth', '2026-10')
+        ->call('openTaskModal', '2026-10-05')
+        ->assertSet('taskAssignedDate', '2026-10-05')
+        ->set('taskProjectId', (string) $this->project->id)
+        ->set('taskTitle', 'Uji Rasa Croissant')
+        ->set('taskCategory', 'tasting')
+        ->set('taskDueDate', '2026-10-10')
+        ->set('taskBranchRows.0.branch_id', (string) $branch->id)
+        ->set('taskBranchRows.0.user_ids', [$pic->id])
+        ->call('saveTask')
+        ->assertHasNoErrors()
+        ->assertSet('taskModalOpen', false)
+        ->assertSee('Uji Rasa Croissant');
+
+    $task = RndProjectTask::query()->where('title', 'Uji Rasa Croissant')->sole();
+    expect($task->status->value)->toBe('assigned')
+        ->and($task->assignments)->toHaveCount(1);
+});
+
+it('scopes the task calendar to branches the viewer can access', function () {
+    $ownBranch = Branch::factory()->create();
+    $otherBranch = Branch::factory()->create();
+
+    $visibleTask = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'title' => 'Visible Task', 'due_date' => '2026-10-15']);
+    $visibleTask->branches()->attach($ownBranch->id);
+    $hiddenTask = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'title' => 'Hidden Task', 'due_date' => '2026-10-16']);
+    $hiddenTask->branches()->attach($otherBranch->id);
+
+    $viewer = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $viewer->givePermissionTo(['view rnd projects', 'view rnd project tasks']);
+    $viewer->syncBranchAccess([$ownBranch->id], $ownBranch->id);
+    $this->actingAs($viewer);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->set('taskCalendarMonth', '2026-10')
+        ->assertSee('Visible Task')
+        ->assertDontSee('Hidden Task');
+});
+
+it('lets a cross-branch viewer see tasks outside their own branch access', function () {
+    $otherBranch = Branch::factory()->create();
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'title' => 'Cross Branch Task', 'due_date' => '2026-10-20']);
+    $task->branches()->attach($otherBranch->id);
+
+    $crossBranchViewer = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $crossBranchViewer->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'view all branch rnd project tasks']);
+    $this->actingAs($crossBranchViewer);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->set('taskCalendarMonth', '2026-10')
+        ->assertSee('Cross Branch Task');
+});
+
+it('filters the task calendar by "Tugas Saya"', function () {
+    $branch = Branch::factory()->create();
+    $me = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $me->givePermissionTo(['view rnd projects', 'view rnd project tasks']);
+    $me->syncBranchAccess([$branch->id], $branch->id);
+    $this->actingAs($me);
+
+    $myTask = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'title' => 'My Task', 'due_date' => '2026-10-12']);
+    $myTask->branches()->attach($branch->id);
+    RndProjectTaskAssignment::factory()->create(['rnd_project_task_id' => $myTask->id, 'branch_id' => $branch->id, 'user_id' => $me->id]);
+
+    $otherTask = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'title' => 'Other Task', 'due_date' => '2026-10-13']);
+    $otherTask->branches()->attach($branch->id);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->set('taskCalendarMonth', '2026-10')
+        ->assertSee('My Task')
+        ->assertSee('Other Task')
+        ->set('taskFilterMineOnly', true)
+        ->assertSee('My Task')
+        ->assertDontSee('Other Task');
+});
+
+it('opens the task detail and lets an authorized reviewer cancel it', function () {
+    $branch = Branch::factory()->create();
+    $manager = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $manager->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'cancel rnd project tasks']);
+    $manager->syncBranchAccess([$branch->id], $branch->id);
+    $this->actingAs($manager);
+
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'status' => 'assigned']);
+    $task->branches()->attach($branch->id);
+    RndProjectTaskAssignment::factory()->create(['rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'status' => 'assigned']);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->call('openTaskDetail', $task->id)
+        ->assertSet('viewingTaskId', $task->id)
+        ->call('cancelTask', $task->id);
+
+    expect($task->fresh()->status->value)->toBe('cancelled');
+});
+
+it('blocks a branch-outsider from opening a task detail', function () {
+    $branch = Branch::factory()->create();
+    $outsider = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $outsider->givePermissionTo(['view rnd projects', 'view rnd project tasks']);
+    $this->actingAs($outsider);
+
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id]);
+    $task->branches()->attach($branch->id);
+
+    Livewire::test(ListProjects::class)
+        ->call('showProjectTasks')
+        ->call('openTaskDetail', $task->id)
+        ->assertForbidden();
+});

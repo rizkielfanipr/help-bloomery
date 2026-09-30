@@ -1,0 +1,401 @@
+<?php
+
+namespace App\Filament\Helpdesk\Concerns;
+
+use App\Actions\Rnd\ProjectTask\AssignProjectTaskAction;
+use App\Actions\Rnd\ProjectTask\CancelProjectTaskAction;
+use App\Actions\Rnd\ProjectTask\CreateProjectTaskAction;
+use App\Actions\Rnd\ProjectTask\UpdateProjectTaskAction;
+use App\Enums\RndProjectTaskCategory;
+use App\Enums\RndProjectTaskPriority;
+use App\Enums\RndProjectTaskStatus;
+use App\Models\Branch;
+use App\Models\RndProject;
+use App\Models\RndProjectTask;
+use App\Models\User;
+use App\Services\Rnd\ProjectTask\ProjectTaskAssigneeResolver;
+use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
+
+/**
+ * Kalender Tugas mode for the Project index (docs/rnd-project-task-calendar-prd.md §14, Phase 2).
+ * Mirrors the existing Kalender Rilis month-grid mechanics in `ListProjects::calendar()`, but the
+ * task query is scoped to the visible date range and to the user's branch access in SQL, per §19
+ * ("Kalender hanya mengambil data dalam rentang tanggal yang sedang ditampilkan") — the legacy
+ * release calendar intentionally keeps its own looser, in-memory-filtered behavior unchanged.
+ */
+trait HasProjectTaskCalendar
+{
+    public string $taskCalendarMonth = '';
+
+    public string $taskFilterProjectId = '';
+
+    public string $taskFilterBranchId = '';
+
+    public string $taskFilterCategory = '';
+
+    public string $taskFilterStatus = '';
+
+    public string $taskFilterPicId = '';
+
+    public bool $taskFilterMineOnly = false;
+
+    public bool $taskModalOpen = false;
+
+    public ?int $editingTaskId = null;
+
+    public string $taskProjectId = '';
+
+    public string $taskTitle = '';
+
+    public string $taskCategory = '';
+
+    public string $taskDescription = '';
+
+    public string $taskAssignedDate = '';
+
+    public string $taskDueDate = '';
+
+    public string $taskPriority = 'medium';
+
+    /** @var array<int, array{branch_id: string, user_ids: array<int, int|string>}> */
+    public array $taskBranchRows = [];
+
+    public ?int $viewingTaskId = null;
+
+    public string $assignBranchId = '';
+
+    public string $assignUserId = '';
+
+    public function showProjectTasks(): void
+    {
+        $this->projectView = 'tasks';
+        $this->ensureTaskCalendarMonthIsSet();
+    }
+
+    public function previousTaskCalendarMonth(): void
+    {
+        $this->taskCalendarMonth = $this->selectedTaskCalendarMonth()->subMonthNoOverflow()->format('Y-m');
+    }
+
+    public function nextTaskCalendarMonth(): void
+    {
+        $this->taskCalendarMonth = $this->selectedTaskCalendarMonth()->addMonthNoOverflow()->format('Y-m');
+    }
+
+    public function currentTaskCalendarMonth(): void
+    {
+        $this->taskCalendarMonth = today()->format('Y-m');
+    }
+
+    public function resetTaskFilters(): void
+    {
+        $this->taskFilterProjectId = '';
+        $this->taskFilterBranchId = '';
+        $this->taskFilterCategory = '';
+        $this->taskFilterStatus = '';
+        $this->taskFilterPicId = '';
+        $this->taskFilterMineOnly = false;
+    }
+
+    /** @return EloquentCollection<int, RndProjectTask> */
+    public function taskCalendarTasks(): EloquentCollection
+    {
+        $month = $this->selectedTaskCalendarMonth();
+        $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+        $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
+        $user = auth()->user();
+
+        return RndProjectTask::query()
+            ->with(['project', 'branches', 'assignments.user'])
+            ->whereBetween('due_date', [$calendarStart->toDateString(), $calendarEnd->toDateString()])
+            ->when($this->taskFilterProjectId !== '', fn ($query) => $query->where('rnd_project_id', $this->taskFilterProjectId))
+            ->when($this->taskFilterCategory !== '', fn ($query) => $query->where('task_type', $this->taskFilterCategory))
+            ->when($this->taskFilterStatus !== '', fn ($query) => $query->where('status', $this->taskFilterStatus))
+            ->when($this->taskFilterBranchId !== '', fn ($query) => $query->whereHas(
+                'branches', fn ($query) => $query->where('branches.id', $this->taskFilterBranchId)
+            ))
+            ->when($this->taskFilterPicId !== '', fn ($query) => $query->whereHas(
+                'assignments', fn ($query) => $query->where('user_id', $this->taskFilterPicId)
+            ))
+            ->when($this->taskFilterMineOnly, fn ($query) => $query->whereHas(
+                'assignments', fn ($query) => $query->where('user_id', $user->id)
+            ))
+            ->when(
+                ! $user->canAccessAllBranches() && ! $user->can('view all branch rnd project tasks'),
+                fn ($query) => $query->where(function ($query) use ($user): void {
+                    $query->whereHas('branches', fn ($query) => $query->whereIn('branches.id', $user->accessibleBranchIds()))
+                        ->orWhereHas('assignments', fn ($query) => $query->where('user_id', $user->id));
+                })
+            )
+            ->get();
+    }
+
+    /**
+     * @return array{monthLabel: string, weeks: array<int, array{dates: array<int, array{date: Carbon, isCurrentMonth: bool, isToday: bool}>, tasks: array<int, array{task: RndProjectTask, dayColumn: int}>}>}
+     */
+    public function taskCalendar(): array
+    {
+        $month = $this->selectedTaskCalendarMonth();
+        $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
+        $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
+        $tasks = $this->taskCalendarTasks();
+        $weeks = [];
+
+        for ($weekStart = $calendarStart->copy(); $weekStart->lte($calendarEnd); $weekStart->addWeek()) {
+            $weekEnd = $weekStart->copy()->endOfWeek(Carbon::SUNDAY);
+            $dates = [];
+
+            for ($date = $weekStart->copy(); $date->lte($weekEnd); $date->addDay()) {
+                $dates[] = [
+                    'date' => $date->copy(),
+                    'isCurrentMonth' => $date->month === $month->month,
+                    'isToday' => $date->isToday(),
+                ];
+            }
+
+            $segments = $tasks
+                ->filter(fn (RndProjectTask $task): bool => $task->due_date->betweenIncluded($weekStart, $weekEnd))
+                ->sortBy(fn (RndProjectTask $task): string => $task->due_date->format('Y-m-d').'|'.str_pad((string) $task->id, 10, '0', STR_PAD_LEFT))
+                ->map(fn (RndProjectTask $task): array => [
+                    'task' => $task,
+                    'dayColumn' => (int) $weekStart->diffInDays($task->due_date) + 1,
+                ])
+                ->values()
+                ->all();
+
+            $weeks[] = ['dates' => $dates, 'tasks' => $segments];
+        }
+
+        return [
+            'monthLabel' => $month->translatedFormat('F Y'),
+            'weeks' => $weeks,
+        ];
+    }
+
+    private function ensureTaskCalendarMonthIsSet(): void
+    {
+        if ($this->taskCalendarMonth === '') {
+            $this->taskCalendarMonth = today()->format('Y-m');
+        }
+    }
+
+    private function selectedTaskCalendarMonth(): Carbon
+    {
+        $this->ensureTaskCalendarMonthIsSet();
+
+        return Carbon::createFromFormat('Y-m-d', $this->taskCalendarMonth.'-01')->startOfDay();
+    }
+
+    /** @return EloquentCollection<int, RndProject> */
+    public function taskFilterProjects(): EloquentCollection
+    {
+        return RndProject::query()->orderBy('name')->get(['id', 'name']);
+    }
+
+    /** @return EloquentCollection<int, Branch> */
+    public function taskFilterBranches(): EloquentCollection
+    {
+        return Branch::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+    }
+
+    /** @return EloquentCollection<int, User> */
+    public function taskFilterPics(): EloquentCollection
+    {
+        return User::query()
+            ->whereHas('projectTaskAssignments')
+            ->orderBy('username')
+            ->orderBy('name')
+            ->get(['id', 'name', 'username']);
+    }
+
+    public function openTaskModal(?string $date = null): void
+    {
+        abort_unless(auth()->user()->can('create', RndProjectTask::class), 403);
+        $this->resetValidation();
+        $this->editingTaskId = null;
+        $this->taskProjectId = '';
+        $this->taskTitle = '';
+        $this->taskCategory = '';
+        $this->taskDescription = '';
+        $this->taskAssignedDate = $date ?: today()->toDateString();
+        $this->taskDueDate = '';
+        $this->taskPriority = 'medium';
+        $this->taskBranchRows = [['branch_id' => '', 'user_ids' => []]];
+        $this->taskModalOpen = true;
+    }
+
+    public function openEditTaskModal(int $taskId): void
+    {
+        $task = RndProjectTask::query()->findOrFail($taskId);
+        abort_unless(auth()->user()->can('update', $task), 403);
+        $this->resetValidation();
+        $this->editingTaskId = $task->id;
+        $this->taskProjectId = (string) $task->rnd_project_id;
+        $this->taskTitle = $task->title;
+        $this->taskCategory = $task->task_type;
+        $this->taskDescription = (string) $task->description;
+        $this->taskAssignedDate = $task->assigned_date->toDateString();
+        $this->taskDueDate = $task->due_date->toDateString();
+        $this->taskPriority = $task->priority->value;
+        $this->taskBranchRows = [];
+        $this->taskModalOpen = true;
+    }
+
+    public function closeTaskModal(): void
+    {
+        $this->resetValidation();
+        $this->taskModalOpen = false;
+    }
+
+    public function addTaskBranchRow(): void
+    {
+        $this->taskBranchRows[] = ['branch_id' => '', 'user_ids' => []];
+    }
+
+    public function removeTaskBranchRow(int $index): void
+    {
+        unset($this->taskBranchRows[$index]);
+        $this->taskBranchRows = array_values($this->taskBranchRows);
+    }
+
+    /** @return array<int, string> */
+    public function eligiblePicsForBranch(int|string $branchId): array
+    {
+        if ($branchId === '' || $branchId === null) {
+            return [];
+        }
+
+        return app(ProjectTaskAssigneeResolver::class)
+            ->eligibleUsersForBranch((int) $branchId)
+            ->mapWithKeys(fn (User $user): array => [$user->id => $user->display_username])
+            ->all();
+    }
+
+    public function saveTask(): void
+    {
+        $isEditing = $this->editingTaskId !== null;
+
+        $rules = [
+            'taskTitle' => ['required', 'string', 'max:255'],
+            'taskCategory' => ['required', Rule::in(array_column(RndProjectTaskCategory::cases(), 'value'))],
+            'taskDescription' => ['nullable', 'string'],
+            'taskAssignedDate' => ['required', 'date'],
+            'taskDueDate' => ['required', 'date', 'after_or_equal:taskAssignedDate'],
+            'taskPriority' => ['required', Rule::in(array_column(RndProjectTaskPriority::cases(), 'value'))],
+        ];
+
+        if (! $isEditing) {
+            $rules['taskProjectId'] = ['required', 'integer', 'exists:rnd_projects,id'];
+            $rules['taskBranchRows'] = ['required', 'array', 'min:1'];
+            $rules['taskBranchRows.*.branch_id'] = ['required', 'integer', 'exists:branches,id'];
+            $rules['taskBranchRows.*.user_ids'] = ['required', 'array', 'min:1'];
+            $rules['taskBranchRows.*.user_ids.*'] = ['required', 'integer', 'exists:users,id'];
+        }
+
+        $validated = $this->validate($rules);
+
+        $data = [
+            'title' => $validated['taskTitle'],
+            'task_type' => $validated['taskCategory'],
+            'description' => filled($validated['taskDescription'] ?? null) ? $validated['taskDescription'] : null,
+            'assigned_date' => $validated['taskAssignedDate'],
+            'due_date' => $validated['taskDueDate'],
+            'priority' => $validated['taskPriority'],
+            'instruction_attachments' => null,
+        ];
+
+        if ($isEditing) {
+            $task = RndProjectTask::query()->findOrFail($this->editingTaskId);
+            abort_unless(auth()->user()->can('update', $task), 403);
+            app(UpdateProjectTaskAction::class)->execute($task, $data);
+        } else {
+            abort_unless(auth()->user()->can('create', RndProjectTask::class), 403);
+            $project = RndProject::query()->findOrFail($validated['taskProjectId']);
+
+            $branches = [];
+            foreach ($validated['taskBranchRows'] as $row) {
+                foreach ($row['user_ids'] as $userId) {
+                    $branches[] = ['branch_id' => (int) $row['branch_id'], 'user_id' => (int) $userId];
+                }
+            }
+
+            app(CreateProjectTaskAction::class)->execute($project, $data + ['branches' => $branches], auth()->user());
+        }
+
+        $this->taskModalOpen = false;
+        Notification::make()->title('Tugas berhasil disimpan')->success()->send();
+    }
+
+    public function openTaskDetail(int $taskId): void
+    {
+        $task = RndProjectTask::query()->findOrFail($taskId);
+        abort_unless(auth()->user()->can('view', $task), 403);
+        $this->viewingTaskId = $taskId;
+        $this->assignBranchId = '';
+        $this->assignUserId = '';
+    }
+
+    public function closeTaskDetail(): void
+    {
+        $this->viewingTaskId = null;
+    }
+
+    public function viewingTask(): ?RndProjectTask
+    {
+        if ($this->viewingTaskId === null) {
+            return null;
+        }
+
+        return RndProjectTask::query()
+            ->with(['project', 'branches', 'assignments.user', 'assignments.branch', 'creator'])
+            ->find($this->viewingTaskId);
+    }
+
+    public function assignTaskPic(): void
+    {
+        $task = RndProjectTask::query()->findOrFail($this->viewingTaskId);
+        abort_unless(auth()->user()->can('assign', $task), 403);
+
+        $validated = $this->validate([
+            'assignBranchId' => ['required', 'integer', 'exists:branches,id'],
+            'assignUserId' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        app(AssignProjectTaskAction::class)->execute($task, (int) $validated['assignBranchId'], (int) $validated['assignUserId']);
+
+        $this->assignBranchId = '';
+        $this->assignUserId = '';
+        Notification::make()->title('PIC berhasil ditambahkan')->success()->send();
+    }
+
+    public function cancelTask(int $taskId): void
+    {
+        $task = RndProjectTask::query()->findOrFail($taskId);
+        abort_unless(auth()->user()->can('cancel', $task), 403);
+
+        app(CancelProjectTaskAction::class)->execute($task);
+
+        Notification::make()->title('Tugas dibatalkan')->success()->send();
+    }
+
+    /** @return array<string, string> */
+    public function taskCategoryOptions(): array
+    {
+        return collect(RndProjectTaskCategory::cases())->mapWithKeys(fn ($case) => [$case->value => $case->getLabel()])->all();
+    }
+
+    /** @return array<string, string> */
+    public function taskPriorityOptions(): array
+    {
+        return collect(RndProjectTaskPriority::cases())->mapWithKeys(fn ($case) => [$case->value => $case->getLabel()])->all();
+    }
+
+    /** @return array<string, string> */
+    public function taskStatusOptions(): array
+    {
+        return collect(RndProjectTaskStatus::cases())->mapWithKeys(fn ($case) => [$case->value => $case->getLabel()])->all();
+    }
+}

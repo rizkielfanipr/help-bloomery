@@ -268,7 +268,9 @@
 
     {{-- Detail modal --}}
     @if($viewingComplaint)
-        <div class="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 sm:items-center" role="dialog" aria-modal="true" aria-label="Detail Komplain">
+        <div class="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 sm:items-center"
+             x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window="$wire.closeDetail()"
+             role="dialog" aria-modal="true" aria-label="Detail Komplain">
             <div class="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-gray-900 sm:rounded-3xl">
                 <div class="mb-4 flex items-center justify-between">
                     <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">Detail Komplain</p>

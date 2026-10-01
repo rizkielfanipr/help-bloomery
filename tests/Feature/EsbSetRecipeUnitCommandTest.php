@@ -149,3 +149,30 @@ it('omits an empty bomID from the update payload and keeps a real one', function
     $payload = Http::recorded(fn ($request) => $request->method() === 'PUT')->first()[0]->data();
     expect(array_key_exists('bomID', $payload))->toBe($expectsBomId);
 })->with([[0, false], [77, true]]);
+
+it('moves the flags to the unit named in the given column, matched by product code', function () {
+    $path = tempnam(sys_get_temp_dir(), 'unit').'.xlsx';
+    $writer = new Writer;
+    $writer->openToFile($path);
+    $writer->addRow(Row::fromValues(['Perbedaan Unit']));
+    $writer->addRow(Row::fromValues(['Product Code', 'Unit 27 Agustus', 'Unit 26 September']));
+    $writer->addRow(Row::fromValues(['BW1183', 'GR', 'Resep']));
+    $writer->close();
+
+    Http::fake([
+        '*/auth/login' => Http::response(['result' => ['accessToken' => 'tok']]),
+        '*/product/list*' => Http::response(['status' => 'ok', 'result' => ['data' => [['productID' => 5402, 'productCode' => 'BW1183']]]]),
+        '*/product/5402' => fn ($request) => $request->method() === 'PUT'
+            ? Http::response(['status' => 'ok'])
+            : Http::response(recipeUnitProduct(true)),
+    ]);
+
+    $this->artisan('esb:set-recipe-unit', [
+        'file' => $path, '--unit-column' => 'Unit 27 Agustus', '--execute' => true,
+        '--report' => tempnam(sys_get_temp_dir(), 'rep'),
+    ])->assertSuccessful();
+
+    $payload = Http::recorded(fn ($request) => $request->method() === 'PUT')->first()[0]->data();
+    expect($payload['productDetails'][0])->toMatchArray(['isStock' => true, 'isSales' => true])
+        ->and($payload['productDetails'][1])->toMatchArray(['isStock' => false, 'isSales' => false]);
+});

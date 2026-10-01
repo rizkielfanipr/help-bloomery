@@ -16,6 +16,7 @@ class EsbSetRecipeUnitCommand extends Command
         {file : Path to an .xlsx whose first column is Product Code (header in row 1)}
         {--company=BLSS : ESB Core company code}
         {--execute : Actually PUT the changes (default is a dry run)}
+        {--unit-column= : Header of a column holding the target unit name per product (e.g. "Unit 27 Agustus"); the Product Code column is then found by its header too. Default: Recipe UOM}
         {--limit=0 : Only process the first N product codes}
         {--report= : Path of the CSV report (default storage/app/esb-set-recipe-unit-{timestamp}.csv)}';
 
@@ -25,10 +26,13 @@ class EsbSetRecipeUnitCommand extends Command
     {
         $company = mb_strtoupper(trim((string) $this->option('company')));
         $execute = (bool) $this->option('execute');
-        $codes = $this->readProductCodes((string) $this->argument('file'));
+        $unitColumn = trim((string) $this->option('unit-column'));
+        $codes = $unitColumn === ''
+            ? array_fill_keys($this->readProductCodes((string) $this->argument('file')), null)
+            : $this->readProductUnits((string) $this->argument('file'), $unitColumn);
 
         if ((int) $this->option('limit') > 0) {
-            $codes = array_slice($codes, 0, (int) $this->option('limit'));
+            $codes = array_slice($codes, 0, (int) $this->option('limit'), true);
         }
 
         $reportPath = (string) ($this->option('report') ?: storage_path('app/esb-set-recipe-unit-'.now()->format('Ymd-His').'.csv'));
@@ -38,9 +42,10 @@ class EsbSetRecipeUnitCommand extends Command
         $this->info(($execute ? 'EXECUTE' : 'DRY RUN')." {$company}: ".count($codes).' product codes');
 
         $tally = [];
-        foreach ($codes as $code) {
+        foreach ($codes as $code => $unit) {
+            $code = (string) $code;
             try {
-                [$status, $productId, $message] = $this->process($esb, $company, $code, $execute);
+                [$status, $productId, $message] = $this->process($esb, $company, $code, $execute, $unit);
             } catch (Throwable $exception) {
                 [$status, $productId, $message] = ['error', null, $exception->getMessage()];
             }
@@ -63,7 +68,7 @@ class EsbSetRecipeUnitCommand extends Command
     /**
      * @return array{0:string, 1:?int, 2:string}
      */
-    private function process(EsbCoreClient $esb, string $company, string $code, bool $execute): array
+    private function process(EsbCoreClient $esb, string $company, string $code, bool $execute, ?string $unit = null): array
     {
         $list = $esb->request($company, 'get', '/product/list', ['productCode' => $code, 'limit' => 10, 'page' => 1]);
         $result = $esb->successfulResult($list, 'mengambil daftar produk', $company, '/product/list');
@@ -82,16 +87,18 @@ class EsbSetRecipeUnitCommand extends Command
         $product = $esb->successfulResult($esb->request($company, 'get', $path), 'mengambil detail produk', $company, $path);
 
         $details = (array) ($product['productDetails'] ?? []);
-        $recipeRows = array_filter($details, fn (array $detail): bool => (int) $detail['uomID'] === self::RECIPE_UOM_ID);
+        $targetRows = array_filter($details, fn (array $detail): bool => $unit === null
+            ? (int) $detail['uomID'] === self::RECIPE_UOM_ID
+            : mb_strtolower($this->uomName($detail)) === mb_strtolower($unit));
 
-        if ($recipeRows === []) {
-            return ['no_recipe_unit', $productId, ''];
+        if ($targetRows === []) {
+            return [$unit === null ? 'no_recipe_unit' : 'no_matching_unit', $productId, $unit === null ? '' : "unit {$unit} not on product"];
         }
 
-        $activeRecipeRows = array_values(array_filter($recipeRows, fn (array $detail): bool => (bool) $detail['flagActive']));
+        $activeRecipeRows = array_values(array_filter($targetRows, fn (array $detail): bool => (bool) $detail['flagActive']));
 
         if (count($activeRecipeRows) !== 1) {
-            return ['recipe_unit_not_single_active', $productId, count($activeRecipeRows).' active recipe units'];
+            return ['recipe_unit_not_single_active', $productId, count($activeRecipeRows).' active target units'];
         }
 
         $recipeDetailId = (int) $activeRecipeRows[0]['productDetailID'];
@@ -154,6 +161,57 @@ class EsbSetRecipeUnitCommand extends Command
         $esb->successfulResult($esb->request($company, 'put', $path, $payload), 'mengubah produk', $company, $path);
 
         return ['updated', $productId, ''];
+    }
+
+    /**
+     * @param  array<string, mixed>  $detail
+     */
+    private function uomName(array $detail): string
+    {
+        return trim((string) ($detail['uomName'] ?? config('esb.core.uoms.'.($detail['uomID'] ?? ''), '')));
+    }
+
+    /**
+     * @return array<string, string> product code => target unit name
+     */
+    private function readProductUnits(string $file, string $unitColumn): array
+    {
+        if (! is_file($file)) {
+            throw new RuntimeException("File tidak ditemukan: {$file}");
+        }
+
+        $reader = new Reader;
+        $reader->open($file);
+
+        $units = [];
+        foreach ($reader->getSheetIterator() as $sheet) {
+            $codeIndex = $unitIndex = null;
+            foreach ($sheet->getRowIterator() as $row) {
+                $values = array_map(fn ($value): string => trim((string) $value), $row->toArray());
+
+                if ($codeIndex === null || $unitIndex === null) {
+                    $lowered = array_map('mb_strtolower', $values);
+                    $foundCodeIndex = array_search('product code', $lowered, true);
+                    $foundUnitIndex = array_search(mb_strtolower($unitColumn), $lowered, true);
+                    $codeIndex = $foundCodeIndex === false ? null : $foundCodeIndex;
+                    $unitIndex = $foundUnitIndex === false ? null : $foundUnitIndex;
+
+                    continue;
+                }
+
+                if (($values[$codeIndex] ?? '') !== '' && ($values[$unitIndex] ?? '') !== '') {
+                    $units[$values[$codeIndex]] = $values[$unitIndex];
+                }
+            }
+            break;
+        }
+        $reader->close();
+
+        if ($codeIndex === null || $unitIndex === null) {
+            throw new RuntimeException("Kolom Product Code / {$unitColumn} tidak ditemukan.");
+        }
+
+        return $units;
     }
 
     /**

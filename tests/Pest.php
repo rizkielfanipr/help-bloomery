@@ -20,15 +20,19 @@ use Tests\TestCase;
 |
 */
 
+/**
+ * `Http::preventStrayRequests()` must be chained directly onto this binding (not called from a
+ * separate top-level `beforeEach()`) — a standalone `beforeEach()` call after `->in('Feature')`
+ * silently never executes under Pest 4's binding resolution, which meant this safety net had
+ * been dead code: every "real network blocked in tests" guarantee actually depended entirely on
+ * each test's own `Http::fake()` call fully covering every HTTP call its code path could make.
+ * Confirmed via a file-write probe inside each form: the chained closure runs, the bare
+ * standalone one never does.
+ */
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => Http::preventStrayRequests())
     ->in('Feature');
-
-beforeEach(function (): void {
-    if ($this instanceof TestCase) {
-        Http::preventStrayRequests();
-    }
-});
 
 /*
 |--------------------------------------------------------------------------

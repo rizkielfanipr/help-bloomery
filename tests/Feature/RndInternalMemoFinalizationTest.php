@@ -131,12 +131,14 @@ it('soft deletes an open memo while preserving its Menu data', function () {
     $this->assertDatabaseHas('rnd_internal_memo_menus', ['id' => $menuId, 'rnd_internal_memo_id' => $memo->id]);
 });
 
-it('does not let a Finalized memo be deleted', function () {
+it('allows deleting a Finalized memo too, since the simplified UI has no way to unlock it', function () {
+    // The old "cannot delete Finalized" guard was removed: the simplified workspace dropped
+    // every control (Archive, Create Revision) that could move a Memo out of Finalized, so
+    // keeping that guard would permanently strand any Memo finalized under the old workflow.
     $memo = readyInternalMemo();
     app(FinalizeInternalMemoAction::class)->execute($memo, $this->supervisor);
 
-    expect(fn () => app(DeleteInternalMemoAction::class)->execute($memo))
-        ->toThrow(RuntimeException::class);
+    app(DeleteInternalMemoAction::class)->execute($memo);
 
-    $this->assertDatabaseHas('rnd_internal_memos', ['id' => $memo->id, 'deleted_at' => null]);
+    $this->assertSoftDeleted('rnd_internal_memos', ['id' => $memo->id]);
 });

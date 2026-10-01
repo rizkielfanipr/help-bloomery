@@ -36,7 +36,7 @@ it('allows updating a memo regardless of its legacy workflow status', function (
     }
 
     $outsider = User::factory()->create(['is_active' => true]);
-    $memo = RndInternalMemo::factory()->create();
+    $memo = RndInternalMemo::factory()->create(['period_month' => now()->addMonths(20)->startOfMonth()]);
     expect($outsider->can('update', $memo))->toBeFalse();
 });
 
@@ -89,16 +89,26 @@ it('only allows archiving a Finalized memo and restoring an Archived one', funct
         ->and($user->can('archive', $draft))->toBeFalse();
 });
 
-it('allows soft deleting an open memo with permission but protects syncing and finalized records', function () {
+it('allows soft deleting a memo in any legacy workflow status given the permission', function () {
+    // docs/rnd-internal-memo-simplification-prd.md §6/§7.5: delete is permission-only now — the
+    // simplified UI has no control left (Archive, Create Revision) that could unlock a Memo
+    // stuck in Syncing/Finalized/Archived, so gating delete on status would strand it forever.
     $user = User::factory()->create(['is_active' => true]);
     $user->givePermissionTo('delete rnd internal memo');
-    $draft = RndInternalMemo::factory()->create();
-    $syncing = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Syncing]);
-    $finalized = RndInternalMemo::factory()->finalized()->create();
+    $draft = RndInternalMemo::factory()->create(['period_month' => now()->addMonths(1)->startOfMonth()]);
+    $syncing = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Syncing, 'period_month' => now()->addMonths(2)->startOfMonth()]);
+    $finalized = RndInternalMemo::factory()->finalized()->create(['period_month' => now()->addMonths(3)->startOfMonth()]);
 
     expect($user->can('delete', $draft))->toBeTrue()
-        ->and($user->can('delete', $syncing))->toBeFalse()
-        ->and($user->can('delete', $finalized))->toBeFalse();
+        ->and($user->can('delete', $syncing))->toBeTrue()
+        ->and($user->can('delete', $finalized))->toBeTrue();
+});
+
+it('refuses to delete without the delete permission', function () {
+    $outsider = User::factory()->create(['is_active' => true]);
+    $memo = RndInternalMemo::factory()->create();
+
+    expect($outsider->can('delete', $memo))->toBeFalse();
 });
 
 it('grants SUPERADMIN every internal memo permission and RND_STAFF only the operator subset', function () {

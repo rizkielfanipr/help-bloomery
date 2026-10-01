@@ -2,25 +2,18 @@
 
 namespace App\Actions\Rnd\InternalMemo;
 
-use App\Enums\RndInternalMemoStatus;
 use App\Models\RndInternalMemo;
-use RuntimeException;
 
+/**
+ * docs/rnd-internal-memo-simplification-prd.md §6/§7.5. The simplified UI removed every control
+ * that could move a Memo out of Finalized/Archived, so gating delete on status would permanently
+ * strand a Memo finalized under the old workflow with no way to remove it. Authorization
+ * (RndInternalMemoPolicy::delete) is permission-only; this Action has no further guard.
+ */
 class DeleteInternalMemoAction
 {
-    /** @var list<RndInternalMemoStatus> */
-    private const DELETABLE_STATUSES = [
-        RndInternalMemoStatus::Draft,
-        RndInternalMemoStatus::NeedsAttention,
-        RndInternalMemoStatus::Ready,
-    ];
-
     public function execute(RndInternalMemo $memo): void
     {
-        if (! in_array($memo->status, self::DELETABLE_STATUSES, true)) {
-            throw new RuntimeException('Memo hanya dapat dihapus sebelum proses finalisasi.');
-        }
-
         $memo->delete();
     }
 }

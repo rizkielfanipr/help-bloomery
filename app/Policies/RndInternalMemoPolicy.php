@@ -90,9 +90,14 @@ class RndInternalMemoPolicy
             && in_array($memo->status, [RndInternalMemoStatus::Finalized, RndInternalMemoStatus::Archived], true);
     }
 
+    /**
+     * docs/rnd-internal-memo-simplification-prd.md §6/§7.5: the simplified UI has no path left to
+     * move a Memo out of Finalized/Archived (those controls were removed in Phase 4), so gating
+     * delete on status would permanently strand any Memo finalized under the old workflow with no
+     * way to remove it. Delete is permission-only, same as `update`.
+     */
     public function delete(User $user, RndInternalMemo $memo): bool
     {
-        return $user->can('delete rnd internal memo')
-            && in_array($memo->status, self::OPEN_STATUSES, true);
+        return $user->can('delete rnd internal memo');
     }
 }

@@ -20,6 +20,12 @@ return [
         'ERP' => ['access employee app erp'],
         'Quality Control' => ['access employee app quality control'],
         'SOP Store' => ['access employee app store sop'],
+        // Deliberately the same permission used by CustomerComplaintPolicy::create() and the
+        // back office (not a separate "access employee app ..." flag): the PRD requires the
+        // Form Komplain tile to be gated by exactly one permission, `create customer complaints`
+        // (docs/customer-complaints-prd.md §12), and User::canAccessPanel('casual') only checks
+        // membership in this config group.
+        'Customer Complaints' => ['create customer complaints'],
     ],
 
     'Human Resources' => [
@@ -176,6 +182,12 @@ return [
             'delete store sops',
             'publish store sops',
             'view store sop reports',
+        ],
+        'Customer Complaints' => [
+            'view any customer complaints',
+            'view customer complaints',
+            'update customer complaints',
+            'delete customer complaints',
         ],
     ],
 

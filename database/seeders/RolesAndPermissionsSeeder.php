@@ -79,6 +79,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view design requests', 'create design requests',
                 'view content requests', 'create content requests',
                 'view erp requests', 'create erp requests',
+                'create customer complaints',
             ]);
 
         Role::firstOrCreate(['name' => 'DRIVER', 'guard_name' => 'web'])
@@ -161,6 +162,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view employees', 'create employees', 'edit employees', 'delete employees',
                 'view basket sizes', 'recalculate basket sizes',
                 'view branches', 'edit branch shifts',
+                'create customer complaints',
+                'view any customer complaints', 'view customer complaints', 'update customer complaints',
             ]);
 
         Role::firstOrCreate(['name' => 'FINANCE_STAFF', 'guard_name' => 'web'])

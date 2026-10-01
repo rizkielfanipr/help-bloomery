@@ -11,7 +11,6 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -101,7 +100,7 @@ class ListRndInternalMemos extends ListRecords
         }
 
         $memo = $createMemo->execute([
-            'memo_number' => filled($validated['memoNumber']) ? $validated['memoNumber'] : $this->generateMemoNumber(),
+            'memo_number' => filled($validated['memoNumber']) ? $validated['memoNumber'] : $this->generateMemoNumber(Carbon::parse($periodMonth)),
             'title' => $validated['memoTitle'],
             'period_month' => $periodMonth,
             'memo_date' => today()->toDateString(),
@@ -116,10 +115,26 @@ class ListRndInternalMemos extends ListRecords
         $this->redirect(RndInternalMemoResource::getUrl('view', ['record' => $memo]), navigate: true);
     }
 
-    private function generateMemoNumber(): string
+    /** @var array<int, string> */
+    private const ROMAN_MONTHS = [
+        1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI',
+        7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X', 11 => 'XI', 12 => 'XII',
+    ];
+
+    /**
+     * Mirrors the house numbering convention shown in the form's own placeholder
+     * ("001/RND/IX/2026"): a sequence that resets every year, the Bulan Memo's month as a roman
+     * numeral, and its year — all based on the chosen period, not the creation date.
+     */
+    private function generateMemoNumber(Carbon $periodMonth): string
     {
+        $year = $periodMonth->year;
+        $sequence = RndInternalMemo::query()->whereYear('period_month', $year)->count() + 1;
+        $roman = self::ROMAN_MONTHS[$periodMonth->month];
+
         do {
-            $candidate = 'AUTO-'.now()->format('Ymd').'-'.mb_strtoupper(Str::random(4));
+            $candidate = sprintf('%03d/RND/%s/%d', $sequence, $roman, $year);
+            $sequence++;
         } while (RndInternalMemo::query()->where('memo_number', $candidate)->exists());
 
         return $candidate;

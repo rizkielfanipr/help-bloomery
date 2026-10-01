@@ -56,14 +56,28 @@ it('creates a Draft memo with company_code fixed to BLSS without the user choosi
     $page->assertRedirect();
 });
 
-it('auto-generates a unique Nomor Memo when the field is left blank', function () {
+it('auto-generates a Nomor Memo following the 001/RND/<roman month>/<year> convention when left blank', function () {
     Livewire::test(ListRndInternalMemos::class)
         ->set('memoTitle', 'Rilis Menu September')
         ->set('periodMonth', '2026-09')
         ->call('createMemo')
         ->assertHasNoErrors();
 
-    expect(RndInternalMemo::sole()->memo_number)->not->toBeEmpty();
+    expect(RndInternalMemo::sole()->memo_number)->toBe('001/RND/IX/2026');
+});
+
+it('keeps the auto-generated Nomor Memo sequence resetting every year', function () {
+    RndInternalMemo::factory()->create(['period_month' => '2026-03-01', 'memo_number' => '001/RND/III/2026']);
+    RndInternalMemo::factory()->create(['period_month' => '2025-12-01', 'memo_number' => '004/RND/XII/2025']);
+
+    Livewire::test(ListRndInternalMemos::class)
+        ->set('memoTitle', 'Rilis Menu Oktober')
+        ->set('periodMonth', '2026-10')
+        ->call('createMemo')
+        ->assertHasNoErrors();
+
+    // Only the one 2026 memo above counts toward the sequence; the 2025 one does not.
+    expect(RndInternalMemo::query()->whereDate('period_month', '2026-10-01')->sole()->memo_number)->toBe('002/RND/X/2026');
 });
 
 it('rejects a second memo for the same period and a duplicate memo number', function () {

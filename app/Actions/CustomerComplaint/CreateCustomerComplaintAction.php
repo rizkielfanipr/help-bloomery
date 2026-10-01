@@ -3,11 +3,15 @@
 namespace App\Actions\CustomerComplaint;
 
 use App\Enums\CustomerComplaintStatus;
+use App\Models\Branch;
 use App\Models\CustomerComplaint;
 use App\Models\CustomerComplaintActivity;
 use App\Models\User;
+use App\Notifications\CustomerComplaintSubmittedNotification;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -35,9 +39,11 @@ class CreateCustomerComplaintAction
             ]);
         }
 
+        $complaint = null;
+
         for ($attempt = 1; $attempt <= self::MAX_NUMBER_ATTEMPTS; $attempt++) {
             try {
-                return DB::transaction(function () use ($data, $actor): CustomerComplaint {
+                $complaint = DB::transaction(function () use ($data, $actor): CustomerComplaint {
                     $complaint = CustomerComplaint::query()->create([
                         'complaint_number' => $this->numberGenerator->execute(),
                         'branch_id' => $data['branch_id'],
@@ -61,6 +67,8 @@ class CreateCustomerComplaintAction
 
                     return $complaint;
                 });
+
+                break;
             } catch (UniqueConstraintViolationException $exception) {
                 $isNumberCollision = str_contains($exception->getMessage(), 'complaint_number');
 
@@ -70,6 +78,35 @@ class CreateCustomerComplaintAction
             }
         }
 
-        throw new RuntimeException('Gagal membuat nomor komplain setelah beberapa percobaan.');
+        if (! $complaint) {
+            throw new RuntimeException('Gagal membuat nomor komplain setelah beberapa percobaan.');
+        }
+
+        // Dispatched after the transaction has committed (docs/customer-complaints-prd.md §16
+        // "Notifikasi tidak boleh dikirim sebelum transaction database berhasil"), matching the
+        // house convention of calling Notification::send() on the line after DB::transaction()
+        // returns rather than inside an afterCommit() closure (no queue connection in this app
+        // has after_commit enabled).
+        $recipients = $this->operationalRecipients((int) $data['branch_id']);
+        if ($recipients->isNotEmpty()) {
+            Notification::send($recipients, new CustomerComplaintSubmittedNotification($complaint));
+        }
+
+        return $complaint;
+    }
+
+    /** @return Collection<int, User> */
+    private function operationalRecipients(int $branchId): Collection
+    {
+        if (! Branch::query()->whereKey($branchId)->exists()) {
+            return collect();
+        }
+
+        return User::query()
+            ->where('is_active', true)
+            ->permission('view customer complaints')
+            ->get()
+            ->filter(fn (User $user): bool => $user->canAccessBranch($branchId))
+            ->values();
     }
 }

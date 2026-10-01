@@ -10,6 +10,7 @@ use App\Http\Controllers\Helpdesk\BriefingExportController;
 use App\Http\Controllers\Helpdesk\BriefingScoreExportController;
 use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
 use App\Http\Controllers\Helpdesk\CasualStaffExportController;
+use App\Http\Controllers\Helpdesk\CustomerComplaintAttachmentController;
 use App\Http\Controllers\Helpdesk\DriverMealAllowanceExportController;
 use App\Http\Controllers\Helpdesk\LocationLabelPdfController;
 use App\Http\Controllers\Helpdesk\ProductLabelPdfController;
@@ -118,6 +119,10 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/rnd-project-task-attachments/{path}', [RndProjectTaskAttachmentController::class, 'show'])
         ->where('path', '.*')
         ->name('helpdesk.rnd-project-tasks.attachments.show');
+
+    Route::get('/customer-complaint-attachments/{path}', [CustomerComplaintAttachmentController::class, 'show'])
+        ->where('path', '.*')
+        ->name('helpdesk.customer-complaints.attachments.show');
 
     Route::get('/bill-of-material/create', function () {
         abort_unless(auth()->user()?->can('create bill of materials'), 403);

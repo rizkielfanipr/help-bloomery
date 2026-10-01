@@ -19,7 +19,6 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ViewCustomerComplaint extends ViewRecord
@@ -42,13 +41,19 @@ class ViewCustomerComplaint extends ViewRecord
         return [];
     }
 
-    /** @return list<array{name: string, url: string}> */
+    /**
+     * Routed through CustomerComplaintAttachmentController rather than a raw disk temporary URL,
+     * so every open re-checks CustomerComplaintPolicy::view() instead of relying solely on a
+     * signed URL's own expiry (docs/customer-complaints-prd.md §15, §20.3).
+     *
+     * @return list<array{name: string, url: string}>
+     */
     public function getAttachmentLinks(): array
     {
         return collect($this->record->attachment_paths ?? [])
             ->map(fn (string $path): array => [
                 'name' => basename($path),
-                'url' => Storage::disk('b2')->temporaryUrl($path, now()->addMinutes(10)),
+                'url' => route('helpdesk.customer-complaints.attachments.show', ['path' => $path]),
             ])
             ->all();
     }

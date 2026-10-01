@@ -8,9 +8,11 @@ use App\Models\Branch;
 use App\Models\CustomerComplaint;
 use App\Models\CustomerComplaintActivity;
 use App\Models\User;
+use App\Notifications\CustomerComplaintResolvedNotification;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -207,4 +209,26 @@ it('does not grow the index query count as the number of complaints grows (no N+
     DB::disableQueryLog();
 
     expect($largeCount)->toBe($smallCount);
+});
+
+it('notifies the submitter only when the status transitions into Resolved, not on a later edit while already Resolved', function () {
+    Notification::fake();
+    $branch = Branch::factory()->create();
+    $reviewer = User::factory()->create(['is_active' => true, 'branch_id' => $branch->id]);
+    $reviewer->givePermissionTo(['view any customer complaints', 'view customer complaints', 'update customer complaints']);
+    $submitter = User::factory()->create();
+    $complaint = CustomerComplaint::factory()->create(['branch_id' => $branch->id, 'status' => CustomerComplaintStatus::InReview, 'submitted_by' => $submitter->id]);
+
+    $this->actingAs($reviewer);
+    $page = Livewire::test(ViewCustomerComplaint::class, ['record' => $complaint->id]);
+
+    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Resolved->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => 'Sudah diselesaikan.']);
+    Notification::assertSentToTimes($submitter, CustomerComplaintResolvedNotification::class, 1);
+
+    // Editing the Internal Notes while the complaint stays Resolved must not re-notify.
+    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Resolved->value, 'assigned_to' => null, 'internal_notes' => 'catatan tambahan', 'resolution' => 'Sudah diselesaikan.']);
+    Notification::assertSentToTimes($submitter, CustomerComplaintResolvedNotification::class, 1);
+
+    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Closed->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => 'Sudah diselesaikan.']);
+    Notification::assertSentToTimes($submitter, CustomerComplaintResolvedNotification::class, 2);
 });

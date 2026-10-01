@@ -6,7 +6,9 @@ use App\Enums\CustomerComplaintStatus;
 use App\Models\CustomerComplaint;
 use App\Models\CustomerComplaintActivity;
 use App\Models\User;
+use App\Notifications\CustomerComplaintResolvedNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -52,7 +54,9 @@ class UpdateCustomerComplaintAction
             }
         }
 
-        return DB::transaction(function () use ($complaint, $data, $newStatus, $resolution, $actor): CustomerComplaint {
+        $previousStatusBeforeTransaction = $complaint->status;
+
+        $complaint = DB::transaction(function () use ($complaint, $data, $newStatus, $resolution, $actor): CustomerComplaint {
             $previousStatus = $complaint->status;
             $previousAssignedTo = $complaint->assigned_to;
             $previousNotes = $complaint->internal_notes;
@@ -114,5 +118,14 @@ class UpdateCustomerComplaintAction
 
             return $complaint->fresh(['activities', 'assignee']);
         });
+
+        // Dispatched after the transaction has committed (docs/customer-complaints-prd.md §16),
+        // and only on the transition INTO Resolved/Closed — not on a later edit made while the
+        // complaint is already in one of those statuses.
+        if ($previousStatusBeforeTransaction !== $newStatus && $newStatus->requiresResolution() && $complaint->submitter) {
+            Notification::send($complaint->submitter, new CustomerComplaintResolvedNotification($complaint));
+        }
+
+        return $complaint;
     }
 }

@@ -11,6 +11,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Validate;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -184,17 +185,25 @@ class CustomerComplaintPage extends Page
                 $paths[] = $file->store('customer-complaints/'.$validated['branchId'], 'b2');
             }
 
-            $complaint = $action->execute([
-                'branch_id' => $validated['branchId'],
-                'occurred_at' => $validated['occurredAt'],
-                'source' => $validated['source'],
-                'category' => $validated['category'],
-                'order_reference' => $validated['orderReference'] ?: null,
-                'customer_name' => $validated['customerName'] ?: null,
-                'customer_contact' => $validated['customerContact'] ?: null,
-                'description' => $validated['description'],
-                'attachment_paths' => $paths ?: null,
-            ], auth()->user());
+            try {
+                $complaint = $action->execute([
+                    'branch_id' => $validated['branchId'],
+                    'occurred_at' => $validated['occurredAt'],
+                    'source' => $validated['source'],
+                    'category' => $validated['category'],
+                    'order_reference' => $validated['orderReference'] ?: null,
+                    'customer_name' => $validated['customerName'] ?: null,
+                    'customer_contact' => $validated['customerContact'] ?: null,
+                    'description' => $validated['description'],
+                    'attachment_paths' => $paths ?: null,
+                ], auth()->user());
+            } catch (\Throwable $exception) {
+                // §15 "Hapus file jika upload sudah tersimpan tetapi transaction database gagal":
+                // the files above are already on the private disk by this point, so a failure in
+                // the Action (branch re-validation, a DB error) must not leave them orphaned.
+                Storage::disk('b2')->delete($paths);
+                throw $exception;
+            }
 
             $this->submittedNumber = $complaint->complaint_number;
             $this->submittedComplaintId = $complaint->id;

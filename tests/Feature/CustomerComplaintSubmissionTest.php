@@ -7,9 +7,11 @@ use App\Filament\Casual\Pages\LauncherPage;
 use App\Models\Branch;
 use App\Models\CustomerComplaint;
 use App\Models\User;
+use App\Notifications\CustomerComplaintSubmittedNotification;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -174,4 +176,45 @@ it('shows only the signed-in user\'s own complaints in the last-5 history, newes
     expect($recent)->toHaveCount(5)
         ->and($recent->pluck('submitted_by')->unique()->all())->toBe([$this->user->id])
         ->and($recent->first()->id)->toBe($own->last()->id);
+});
+
+it('notifies Operational reviewers who can access the complaint\'s branch, after the transaction commits', function () {
+    Notification::fake();
+
+    $reviewerInBranch = User::factory()->create(['is_active' => true, 'branch_id' => $this->branch->id]);
+    $reviewerInBranch->givePermissionTo('view customer complaints');
+
+    $reviewerElsewhere = User::factory()->create(['is_active' => true, 'branch_id' => Branch::factory()->create()->id]);
+    $reviewerElsewhere->givePermissionTo('view customer complaints');
+
+    $storeStaffWithoutReviewPermission = User::factory()->create(['is_active' => true, 'branch_id' => $this->branch->id]);
+
+    $this->actingAs($this->user);
+    Livewire::test(CustomerComplaintPage::class)
+        ->set('branchId', $this->branch->id)
+        ->set(validComplaintFormState())
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $complaint = CustomerComplaint::query()->sole();
+
+    Notification::assertSentTo($reviewerInBranch, CustomerComplaintSubmittedNotification::class);
+    Notification::assertNotSentTo($reviewerElsewhere, CustomerComplaintSubmittedNotification::class);
+    Notification::assertNotSentTo($storeStaffWithoutReviewPermission, CustomerComplaintSubmittedNotification::class);
+    expect($complaint->exists)->toBeTrue();
+});
+
+it('does not send a notification when the submission fails validation', function () {
+    Notification::fake();
+    $reviewer = User::factory()->create(['is_active' => true, 'branch_id' => $this->branch->id]);
+    $reviewer->givePermissionTo('view customer complaints');
+
+    $this->actingAs($this->user);
+    Livewire::test(CustomerComplaintPage::class)
+        ->set('branchId', $this->branch->id)
+        ->set('description', '')
+        ->call('submit')
+        ->assertHasErrors(['description']);
+
+    Notification::assertNothingSent();
 });

@@ -70,7 +70,10 @@ File test baru/diubah untuk fitur ini:
 
 Hasil fokus (`InternalMemo` filter): **110 lulus, 367 assertion, 0 gagal** (dijalankan berulang kali sepanjang implementasi).
 
-Hasil full suite (`php -d memory_limit=512M artisan test --compact`): lihat bagian 7.
+Hasil full suite (`php -d memory_limit=512M artisan test --compact`), dijalankan dua kali setelah seluruh phase selesai:
+
+- Run pertama: 1153 lulus, 2 gagal — keduanya di `ProjectTaskCalendarPageTest.php` (fitur Task Calendar dari pekerjaan sebelumnya di sesi ini, bukan Internal Memo), disebabkan `due_date` default factory (`now()->addWeek()`) yang kebetulan jatuh di bulan kalender yang berbeda tergantung tanggal real saat test dijalankan — bug test lama yang baru termanifestasi karena tanggal berganti dari 30 September ke 1 Oktober di tengah sesi. Diperbaiki di commit `2accab2` (pin `due_date` eksplisit 6 bulan ke depan).
+- Run kedua (setelah fix): **1155 lulus, 5791 assertion, 0 gagal**.
 
 ## 7. Risiko tersisa
 

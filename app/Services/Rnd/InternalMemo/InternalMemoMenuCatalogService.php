@@ -26,18 +26,23 @@ use RuntimeException;
  * Confirmed response fields (Phase 0 contract report + user confirmation): `menuID`, `menuName`,
  * `menuCode`, `flagActive`, `bomID` (present per Menu, but not always > 0). `categoryDetail` and
  * `bomName` are read defensively since they were not independently proven.
+ *
+ * Two more contract facts proven via a direct live request against the real API (reported by the
+ * user as "search doesn't find every Menu" and "Halaman 1 dari 139" looking wrong):
+ * - `limit` is ignored server-side; every page always returns exactly 20 rows regardless of what
+ *   is requested. The response's own `limit` field is trusted instead of the requested value.
+ * - `menuCode` genuinely filters server-side (proven: searching an exact code returned exactly
+ *   one matching row), but `menuName` is silently ignored — the endpoint returns its full
+ *   unfiltered catalog no matter what name is sent. Name search is therefore done by fetching the
+ *   whole catalog once (cached, same "fetch every page, cache, filter locally" pattern
+ *   EsbBillOfMaterialService::getAllBillOfMaterials() already uses for a listing with no reliable
+ *   server-side filter) and filtering/paginating it in this class instead.
  */
 class InternalMemoMenuCatalogService
 {
     public function __construct(private EsbItemJournalService $itemJournal) {}
 
     /**
-     * `/corev1/master/get-menu` has no caching of its own, unlike the ESB Core BOM endpoints
-     * (InternalMemoBomResolver caches 15 minutes). The Menu picker's live search now calls this
-     * on every keystroke (debounced 700ms) as well as on every modal open, so a short cache keyed
-     * on Company Code + every identity/pagination parameter keeps repeat opens and re-visited
-     * pages/searches instant without serving stale data for more than a couple of minutes.
-     *
      * @return array{rows: list<array<string, mixed>>, page: int, total: int, perPage: int, hasNext: bool}
      */
     public function page(int $page = 1, int $perPage = 10, string $nameSearch = '', string $codeSearch = ''): array
@@ -47,55 +52,185 @@ class InternalMemoMenuCatalogService
         $nameSearch = trim($nameSearch);
         $codeSearch = trim($codeSearch);
 
+        if ($nameSearch !== '') {
+            return $this->searchByNameLocally($page, $perPage, $nameSearch, $codeSearch);
+        }
+
+        return $this->fetchRemotePage($page, $perPage, $codeSearch);
+    }
+
+    /**
+     * `menuCode` is proven to filter server-side, so a Code-only (or no) search stays on the
+     * cheap, server-paginated path — only Name search needs the full-catalog fallback below.
+     *
+     * @return array{rows: list<array<string, mixed>>, page: int, total: int, perPage: int, hasNext: bool}
+     */
+    private function fetchRemotePage(int $page, int $perPage, string $codeSearch): array
+    {
         $cacheKey = sprintf(
-            'rnd.internal-memo.menu-catalog.%s.%d.%d.%s.%s',
+            'rnd.internal-memo.menu-catalog.%s.%d.%d.%s',
             RndInternalMemo::COMPANY_CODE,
             $page,
             $perPage,
-            md5($nameSearch),
             md5($codeSearch),
         );
 
-        return Cache::remember($cacheKey, now()->addMinutes(2), function () use ($page, $perPage, $nameSearch, $codeSearch): array {
-            $token = $this->token();
-            $branchCode = $this->branchCode();
+        return Cache::remember($cacheKey, now()->addMinutes(2), function () use ($page, $perPage, $codeSearch): array {
+            $raw = $this->requestRawPage($page, $perPage, '', $codeSearch);
 
-            try {
-                $response = Http::acceptJson()
-                    ->asJson()
-                    ->withToken($token)
-                    ->connectTimeout(10)
-                    ->timeout((int) config('esb.core.timeout', 60))
-                    ->get($this->baseUrl().'/corev1/master/get-menu', array_filter([
-                        'page' => $page,
-                        'limit' => $perPage,
-                        'branchCode' => $branchCode,
-                        'menuName' => $nameSearch,
-                        'menuCode' => $codeSearch,
-                        'Boolean' => 1,
-                    ], fn (string|int $value): bool => (string) $value !== ''));
-            } catch (\Throwable $exception) {
-                throw new RuntimeException('Gagal menghubungi ESB Master Menu [BLSS]: '.$exception->getMessage(), previous: $exception);
+            return [
+                'rows' => array_map($this->normalize(...), $raw['data']),
+                'page' => $page,
+                'total' => $raw['count'],
+                'perPage' => $raw['limit'],
+                'hasNext' => $raw['hasNext'],
+            ];
+        });
+    }
+
+    /**
+     * @return array{rows: list<array<string, mixed>>, page: int, total: int, perPage: int, hasNext: bool}
+     */
+    private function searchByNameLocally(int $page, int $perPage, string $nameSearch, string $codeSearch): array
+    {
+        $needle = mb_strtolower($nameSearch);
+        $codeNeedle = mb_strtolower($codeSearch);
+
+        $filtered = array_values(array_filter(
+            $this->allMenus(),
+            function (array $menu) use ($needle, $codeNeedle): bool {
+                if (! str_contains(mb_strtolower((string) ($menu['menuName'] ?? '')), $needle)) {
+                    return false;
+                }
+
+                return $codeNeedle === '' || str_contains(mb_strtolower((string) ($menu['menuCode'] ?? '')), $codeNeedle);
+            },
+        ));
+
+        $total = count($filtered);
+        $slice = array_slice($filtered, ($page - 1) * $perPage, $perPage);
+
+        return [
+            'rows' => array_map($this->normalize(...), $slice),
+            'page' => $page,
+            'total' => $total,
+            'perPage' => $perPage,
+            'hasNext' => ($page * $perPage) < $total,
+        ];
+    }
+
+    /**
+     * The full BLSS Menu catalog (~1,400 Menus / ~70 pages of 20 as of this writing), cached 15
+     * minutes; only built when a Name search actually needs it. The remaining pages are fetched
+     * in parallel (same `Http::pool()` pattern already used by
+     * App\Services\EsbGlobalCoreClient::poolGet() / EsbMasterProductService) after the first page
+     * reveals the total page count — sequentially, a ~70-page catalog took over a minute against
+     * the real ESB host and once exhausted CLI memory outright; pooled, it is bound by the
+     * slowest single request instead of their sum.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function allMenus(): array
+    {
+        $cacheKey = 'rnd.internal-memo.menu-catalog.all.'.RndInternalMemo::COMPANY_CODE;
+
+        return Cache::remember($cacheKey, now()->addMinutes(15), function (): array {
+            $first = $this->requestRawPage(1, 20, '', '');
+            $all = $first['data'];
+            $totalPages = min(100, (int) ceil($first['count'] / max(1, $first['limit'])));
+
+            if ($totalPages > 1) {
+                foreach ($this->fetchRemainingPagesInParallel(range(2, $totalPages)) as $data) {
+                    array_push($all, ...$data);
+                }
             }
 
-            if ($response->failed()) {
-                throw new RuntimeException($this->errorMessage($response));
+            return $all;
+        });
+    }
+
+    /**
+     * @param  list<int>  $pages
+     * @return array<int, list<array<string, mixed>>> keyed by page number, in no particular order
+     */
+    private function fetchRemainingPagesInParallel(array $pages): array
+    {
+        $token = $this->token();
+        $branchCode = $this->branchCode();
+        $url = $this->baseUrl().'/corev1/master/get-menu';
+        $timeout = (int) config('esb.core.timeout', 60);
+
+        $responses = Http::pool(fn ($pool) => collect($pages)
+            ->map(fn (int $page) => $pool
+                ->as((string) $page)
+                ->acceptJson()
+                ->asJson()
+                ->withToken($token)
+                ->connectTimeout(10)
+                ->timeout($timeout)
+                ->get($url, ['page' => $page, 'limit' => 20, 'branchCode' => $branchCode, 'Boolean' => 1]))
+            ->all());
+
+        $pagesData = [];
+
+        foreach ($pages as $page) {
+            $response = $responses[(string) $page] ?? null;
+            // Best-effort: one page failing (timeout, transient 5xx) should not blank out a
+            // catalog search entirely — a cold cache rebuilds again in 15 minutes regardless.
+            if (! $response instanceof Response || $response->failed()) {
+                continue;
             }
 
             $body = $response->json();
             $result = is_array($body) && is_array($body['result'] ?? null) ? $body['result'] : [];
-            $data = is_array($result['data'] ?? null) ? $result['data'] : [];
-            $limit = max(1, (int) ($result['limit'] ?? $perPage));
-            $count = (int) ($result['count'] ?? count($data));
+            $pagesData[$page] = is_array($result['data'] ?? null) ? $result['data'] : [];
+        }
 
-            return [
-                'rows' => array_map($this->normalize(...), $data),
-                'page' => $page,
-                'total' => $count,
-                'perPage' => $perPage,
-                'hasNext' => filled($body['next'] ?? null) || ($page * $limit) < $count,
-            ];
-        });
+        return $pagesData;
+    }
+
+    /** @return array{data: list<array<string, mixed>>, limit: int, count: int, hasNext: bool} */
+    private function requestRawPage(int $page, int $perPage, string $nameSearch, string $codeSearch): array
+    {
+        $token = $this->token();
+        $branchCode = $this->branchCode();
+
+        try {
+            $response = Http::acceptJson()
+                ->asJson()
+                ->withToken($token)
+                ->connectTimeout(10)
+                ->timeout((int) config('esb.core.timeout', 60))
+                ->get($this->baseUrl().'/corev1/master/get-menu', array_filter([
+                    'page' => $page,
+                    'limit' => $perPage,
+                    'branchCode' => $branchCode,
+                    'menuName' => $nameSearch,
+                    'menuCode' => $codeSearch,
+                    'Boolean' => 1,
+                ], fn (string|int $value): bool => (string) $value !== ''));
+        } catch (\Throwable $exception) {
+            throw new RuntimeException('Gagal menghubungi ESB Master Menu [BLSS]: '.$exception->getMessage(), previous: $exception);
+        }
+
+        if ($response->failed()) {
+            throw new RuntimeException($this->errorMessage($response));
+        }
+
+        $body = $response->json();
+        $result = is_array($body) && is_array($body['result'] ?? null) ? $body['result'] : [];
+        $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+        // The real endpoint ignores `limit` and always returns a fixed page size (proven live:
+        // 20) — trust the response's own `limit` field, only falling back when it is absent.
+        $limit = max(1, (int) ($result['limit'] ?? $perPage));
+        $count = (int) ($result['count'] ?? count($data));
+
+        return [
+            'data' => $data,
+            'limit' => $limit,
+            'count' => $count,
+            'hasNext' => filled($body['next'] ?? null) || ($page * $limit) < $count,
+        ];
     }
 
     /** @return array{menuID:int,menuCode:string,menuName:string,categoryDetail:?string,bomID:int,bomName:?string,flagActive:bool,hasBom:bool,raw:array<string,mixed>} */

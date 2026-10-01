@@ -290,15 +290,20 @@ it('re-fetches the Menu picker automatically as the user types a search, without
     Http::fake([
         'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
         'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 6, 'branchCode' => 'BLS']]]),
-        'https://esb.test/corev1/master/get-menu*' => Http::response(['status' => 'ok', 'result' => ['data' => [], 'limit' => 10, 'count' => 0]]),
+        'https://esb.test/corev1/master/get-menu*' => Http::response(['status' => 'ok', 'result' => ['data' => [
+            ['menuID' => 1, 'menuName' => 'Croissant Butter', 'menuCode' => 'A1'],
+        ], 'limit' => 20, 'count' => 1]]),
     ]);
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')
         ->set('menuSearchName', 'Croissant')
-        ->assertSet('menuPickerPage', 1);
+        ->assertSet('menuPickerPage', 1)
+        ->assertSee('Croissant Butter');
 
-    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/corev1/master/get-menu') && ($request['menuName'] ?? null) === 'Croissant');
+    // Name search is filtered locally (menuName is proven to be ignored server-side), so typing
+    // triggers the full-catalog fetch rather than forwarding the term as a query parameter.
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/corev1/master/get-menu'));
 });
 
 it('paginates the Menu picker with goToMenuPage/previousMenuPage/nextMenuPage', function () {

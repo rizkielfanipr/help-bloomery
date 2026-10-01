@@ -149,6 +149,11 @@ class ViewRndInternalMemo extends ViewRecord
         Notification::make()->title('Informasi Memo tersimpan')->success()->send();
     }
 
+    /**
+     * Only opens the modal shell; the actual fetch happens in initializeMenuPicker() via
+     * wire:init, same two-step pattern as the BOM "Tambah Komponen" picker
+     * (ViewProjectProductPage::openInlineProductPicker() + wire:init="loadInlineProducts").
+     */
     public function openMenuPicker(): void
     {
         abort_unless($this->canUpdateMemo(), 403);
@@ -159,7 +164,25 @@ class ViewRndInternalMemo extends ViewRecord
         $this->menuPickerRows = [];
         $this->menuPickerError = null;
         $this->menuPickerOpen = true;
+    }
+
+    /**
+     * Fired by wire:init right after the (already visible) modal's first render. Also warms the
+     * full-catalog cache Name search depends on (InternalMemoMenuCatalogService::allMenus())
+     * right away, concentrating the heavy cold-cache fetch (~8s parallelized, proven live; was
+     * 64s sequential) into this one opening load instead of making the user hit it again the
+     * moment they start typing a Name search.
+     */
+    public function initializeMenuPicker(InternalMemoMenuCatalogService $catalog): void
+    {
         $this->loadMenuPage(1);
+
+        try {
+            $catalog->warmCache();
+        } catch (RuntimeException) {
+            // Best-effort only: the default list above already loaded. If the catalog genuinely
+            // can't be fetched, a later Name search will surface that error normally.
+        }
     }
 
     public function closeMenuPicker(): void

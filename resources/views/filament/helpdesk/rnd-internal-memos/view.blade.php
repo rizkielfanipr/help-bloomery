@@ -272,7 +272,7 @@
     @endif
 
     @if($menuPickerOpen)
-        <div wire:key="menu-picker-modal" class="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Pilih Menu ESB">
+        <div wire:key="menu-picker-modal" wire:init="initializeMenuPicker" class="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Pilih Menu ESB">
             <button type="button" wire:click="closeMenuPicker" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup pilih Menu"></button>
             <x-rnd.picker-modal title="Pilih Menu ESB" description="Menu diambil langsung dari Master Menu BLSS. Menu tanpa BOM tidak dapat dipilih." max-width="6xl">
                 <x-slot:close>
@@ -340,7 +340,7 @@
                         </table>
                     </div>
 
-                    <div wire:loading.flex wire:target="loadMenuPage,previousMenuPage,nextMenuPage,goToMenuPage,updatedMenuSearchName,updatedMenuSearchCode" class="absolute inset-0 z-20 hidden items-center justify-center bg-white/70 dark:bg-gray-900/70">
+                    <div wire:loading.flex wire:target="initializeMenuPicker,loadMenuPage,previousMenuPage,nextMenuPage,goToMenuPage,updatedMenuSearchName,updatedMenuSearchCode" class="absolute inset-0 z-20 hidden items-center justify-center bg-white/70 dark:bg-gray-900/70">
                         <span class="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></span>
                     </div>
                 </div>

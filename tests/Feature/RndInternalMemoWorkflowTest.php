@@ -268,6 +268,7 @@ it('searches the Menu picker against the live ESB fake and shows a Belum Memilik
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')
+        ->call('initializeMenuPicker') // simulates the browser firing wire:init after the modal's first render
         ->assertSee('MENU-501')
         ->assertSee('Croissant Butter')
         ->assertSee('BEVERAGES')
@@ -283,6 +284,32 @@ it('splits categoryDetail into Category and Category Detail, falling back to Cat
     expect($page->instance()->splitMenuCategory('BEVERAGES - COFFEE'))->toBe(['category' => 'BEVERAGES', 'detail' => 'COFFEE'])
         ->and($page->instance()->splitMenuCategory('PASTRY'))->toBe(['category' => 'PASTRY', 'detail' => null])
         ->and($page->instance()->splitMenuCategory(null))->toBe(['category' => null, 'detail' => null]);
+});
+
+it('warms the full Menu catalog cache when the picker opens, so a later Name search is already instant', function () {
+    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
+        'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 6, 'branchCode' => 'BLS']]]),
+        'https://esb.test/corev1/master/get-menu*' => Http::response(['status' => 'ok', 'result' => ['data' => [
+            ['menuID' => 1, 'menuName' => 'Croissant Butter', 'menuCode' => 'A1'],
+        ], 'limit' => 20, 'count' => 1]]),
+    ]);
+
+    $countBeforeSearch = 0;
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->call('openMenuPicker')
+        ->call('initializeMenuPicker') // simulates the browser firing wire:init: default page + catalog warm-up
+        ->tap(function () use (&$countBeforeSearch): void {
+            $countBeforeSearch = count(Http::recorded());
+        })
+        ->set('menuSearchName', 'Croissant')
+        ->assertSee('Croissant Butter');
+
+    // The Name search above triggers loadMenuPage -> searchByNameLocally -> allMenus(), which
+    // should find the catalog already cached from initializeMenuPicker() and make no further
+    // HTTP calls at all.
+    expect(count(Http::recorded()))->toBe($countBeforeSearch);
 });
 
 it('re-fetches the Menu picker automatically as the user types a search, without a separate search button', function () {
@@ -316,6 +343,7 @@ it('paginates the Menu picker with goToMenuPage/previousMenuPage/nextMenuPage', 
 
     $page = Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')
+        ->call('initializeMenuPicker') // simulates the browser firing wire:init after the modal's first render
         ->assertSet('menuPickerPage', 1)
         ->call('nextMenuPage')
         ->assertSet('menuPickerPage', 2)

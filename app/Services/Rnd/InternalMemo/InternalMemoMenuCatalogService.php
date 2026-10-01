@@ -60,6 +60,16 @@ class InternalMemoMenuCatalogService
     }
 
     /**
+     * Populates the full-catalog cache allMenus() relies on, without returning it — called when
+     * the Menu picker opens so the unavoidable cold-cache cost lands once at that moment instead
+     * of hitting the user again the first time they type a Name search.
+     */
+    public function warmCache(): void
+    {
+        $this->allMenus();
+    }
+
+    /**
      * `menuCode` is proven to filter server-side, so a Code-only (or no) search stays on the
      * cheap, server-paginated path — only Name search needs the full-catalog fallback below.
      *

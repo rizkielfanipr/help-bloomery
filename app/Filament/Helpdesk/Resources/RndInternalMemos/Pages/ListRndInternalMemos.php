@@ -4,7 +4,10 @@ namespace App\Filament\Helpdesk\Resources\RndInternalMemos\Pages;
 
 use App\Actions\Rnd\InternalMemo\CreateInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
+use App\Actions\Rnd\InternalMemo\MemoBranchMappingResolution;
+use App\Actions\Rnd\InternalMemo\ResolveMemoBranchMappingsAction;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\RndInternalMemoResource;
+use App\Models\Branch;
 use App\Models\RndInternalMemo;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
@@ -36,6 +39,9 @@ class ListRndInternalMemos extends ListRecords
 
     public string $notes = '';
 
+    /** @var list<int> */
+    public array $branchIds = [];
+
     /**
      * docs/rnd-internal-memo-simplification-prd.md §12.1: the simplified index has no status
      * filter or workflow summary cards — every non-deleted Memo is listed, searched by name/
@@ -64,8 +70,30 @@ class ListRndInternalMemos extends ListRecords
     {
         abort_unless(RndInternalMemoResource::canCreate(), 403);
         $this->resetValidation();
-        $this->reset(['memoNumber', 'memoNumberGenerated', 'memoTitle', 'periodMonth', 'notes']);
+        $this->reset(['memoNumber', 'memoNumberGenerated', 'memoTitle', 'periodMonth', 'notes', 'branchIds']);
         $this->createModalOpen = true;
+    }
+
+    /**
+     * docs/rnd-internal-memo-multi-branch-prd.md §6, §7.2: options are limited to the user's
+     * accessible branches (or every branch for access_all_branches), each annotated with its
+     * mapping resolution so the Blade can disable unselectable options with a specific reason.
+     *
+     * @return array<int, array{branch: Branch, resolution: MemoBranchMappingResolution}>
+     */
+    public function branchOptions(ResolveMemoBranchMappingsAction $resolveBranchMappings): array
+    {
+        $user = auth()->user();
+        $branches = $user->canAccessAllBranches()
+            ? Branch::query()->where('is_active', true)->orderBy('name')->get()
+            : Branch::query()->where('is_active', true)->whereIn('id', $user->accessibleBranchIds())->orderBy('name')->get();
+
+        $resolutions = $resolveBranchMappings->resolveMany($branches);
+
+        return $branches->map(fn (Branch $branch): array => [
+            'branch' => $branch,
+            'resolution' => $resolutions[$branch->id],
+        ])->all();
     }
 
     public function closeCreateModal(): void
@@ -110,26 +138,38 @@ class ListRndInternalMemos extends ListRecords
             'memoTitle' => ['required', 'string', 'max:150'],
             'periodMonth' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'branchIds' => ['required', 'array', 'min:1'],
+            'branchIds.*' => ['integer'],
         ]);
 
         $periodMonth = Carbon::parse($validated['periodMonth'])->startOfMonth()->toDateString();
 
-        if (RndInternalMemo::query()->where('company_code', RndInternalMemo::COMPANY_CODE)->whereDate('period_month', $periodMonth)->where('revision', 1)->exists()) {
-            throw ValidationException::withMessages([
-                'periodMonth' => 'Memo untuk periode ini sudah ada.',
-            ]);
-        }
+        try {
+            $memo = $createMemo->execute([
+                'memo_number' => $validated['memoNumber'],
+                'title' => $validated['memoTitle'],
+                'period_month' => $periodMonth,
+                'memo_date' => today()->toDateString(),
+                'recipient' => '',
+                'sender' => '',
+                'subject' => $validated['memoTitle'],
+                'notes' => $validated['notes'] ?? null,
+                'branch_ids' => $validated['branchIds'],
+            ], auth()->user());
+        } catch (ValidationException $exception) {
+            // The Action validates period_month (against the resolved branches' Company Code)
+            // and branch_ids (access/mapping), neither of which this Page can check itself before
+            // calling the Action — map both keys back to their form field names.
+            $errors = $exception->errors();
+            foreach (['period_month' => 'periodMonth', 'branch_ids' => 'branchIds'] as $actionKey => $formKey) {
+                if (isset($errors[$actionKey])) {
+                    $errors[$formKey] = $errors[$actionKey];
+                    unset($errors[$actionKey]);
+                }
+            }
 
-        $memo = $createMemo->execute([
-            'memo_number' => $validated['memoNumber'],
-            'title' => $validated['memoTitle'],
-            'period_month' => $periodMonth,
-            'memo_date' => today()->toDateString(),
-            'recipient' => '',
-            'sender' => '',
-            'subject' => $validated['memoTitle'],
-            'notes' => $validated['notes'] ?? null,
-        ], auth()->user());
+            throw ValidationException::withMessages($errors);
+        }
 
         $this->createModalOpen = false;
         Notification::make()->title('Memo Internal berhasil dibuat')->success()->send();

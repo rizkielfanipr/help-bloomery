@@ -8,12 +8,14 @@ use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuShelfLifeAction;
 use App\Enums\RndInternalMemoStatus;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ListRndInternalMemos;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ViewRndInternalMemo;
+use App\Models\Branch;
 use App\Models\RndInternalMemo;
 use App\Models\RndProductEsbShelfLife;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -30,22 +32,27 @@ function fakeMenuRow(int $menuId, int $bomId, string $name = 'Croissant Butter')
 beforeEach(function () {
     config()->set('esb.base_url', 'https://esb.test');
     config()->set('esb.tokens.BLSS', 'static-blss-token');
+    config()->set('esb.master_menu_branch_codes.BLSS', 'BLS');
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
+    Cache::put('rnd.internal-memo.master-menu-branch.v2.BLSS', 'BLS', now()->addDay());
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
-    $this->operator = User::factory()->create(['is_active' => true]);
+    $this->branch = Branch::factory()->create();
+    $this->branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
+    $this->operator = User::factory()->create(['is_active' => true, 'branch_id' => $this->branch->id]);
     $this->operator->givePermissionTo(['view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo', 'update rnd internal memo']);
     $this->actingAs($this->operator);
 });
 
-it('creates a Draft memo with company_code fixed to BLSS without the user choosing it', function () {
-    // docs/rnd-internal-memo-simplification-prd.md §7.1: the simplified form only collects Nama
-    // Memo, Bulan Memo, Nomor Memo (optional), and Catatan.
+it('creates a Draft memo, deriving company_code from the chosen Branch Tujuan rather than the user typing it', function () {
+    // docs/rnd-internal-memo-multi-branch-prd.md §7.1: Company Code is never entered manually;
+    // it comes from the resolved mapping of whichever Branch(es) the user picks.
     $page = Livewire::test(ListRndInternalMemos::class)
         ->set('memoNumber', '001/RND/IX/2026')
         ->set('memoTitle', 'Rilis Menu September')
         ->set('periodMonth', '2026-09')
+        ->set('branchIds', [$this->branch->id])
         ->call('createMemo')
         ->assertHasNoErrors();
 
@@ -55,6 +62,11 @@ it('creates a Draft memo with company_code fixed to BLSS without the user choosi
         ->and($memo->revision)->toBe(1)
         ->and($memo->created_by)->toBe($this->operator->id);
 
+    $memoBranch = $memo->branches->sole();
+    expect($memoBranch->branch_id)->toBe($this->branch->id)
+        ->and($memoBranch->company_code_snapshot)->toBe('BLSS')
+        ->and($memoBranch->branch_code_snapshot)->toBe('BLS');
+
     $page->assertRedirect();
 });
 
@@ -62,6 +74,7 @@ it('requires Nomor Memo to be filled, either by Generate or manually', function 
     Livewire::test(ListRndInternalMemos::class)
         ->set('memoTitle', 'Rilis Menu September')
         ->set('periodMonth', '2026-09')
+        ->set('branchIds', [$this->branch->id])
         ->call('createMemo')
         ->assertHasErrors(['memoNumber' => 'required']);
 });
@@ -73,6 +86,7 @@ it('fills Nomor Memo with the 001/RND/<roman month>/<year> convention and locks 
         ->call('generateMemoNumberField')
         ->assertSet('memoNumber', '001/RND/IX/2026')
         ->assertSet('memoNumberGenerated', true)
+        ->set('branchIds', [$this->branch->id])
         ->call('createMemo')
         ->assertHasNoErrors();
 
@@ -97,6 +111,7 @@ it('lets the user switch back to typing Nomor Memo manually after generating it'
         ->assertSet('memoNumber', '')
         ->set('memoNumber', 'MEMO-CUSTOM-01')
         ->set('memoTitle', 'Rilis Menu September')
+        ->set('branchIds', [$this->branch->id])
         ->call('createMemo')
         ->assertHasNoErrors();
 
@@ -112,6 +127,7 @@ it('keeps the generated Nomor Memo sequence resetting every year', function () {
         ->set('periodMonth', '2026-10')
         ->call('generateMemoNumberField')
         ->assertSet('memoNumber', '002/RND/X/2026') // only the one 2026 memo above counts; the 2025 one does not
+        ->set('branchIds', [$this->branch->id])
         ->call('createMemo')
         ->assertHasNoErrors();
 });
@@ -123,6 +139,7 @@ it('rejects a second memo for the same period and a duplicate memo number', func
         ->set('memoNumber', 'NEW-001')
         ->set('memoTitle', 'Rilis Menu September Ganda')
         ->set('periodMonth', '2026-09')
+        ->set('branchIds', [$this->branch->id])
         ->call('createMemo')
         ->assertHasErrors(['periodMonth']);
 
@@ -130,6 +147,7 @@ it('rejects a second memo for the same period and a duplicate memo number', func
         ->set('memoNumber', 'EXISTING-001')
         ->set('memoTitle', 'Judul Lain')
         ->set('periodMonth', '2026-10')
+        ->set('branchIds', [$this->branch->id])
         ->call('createMemo')
         ->assertHasErrors(['memoNumber']);
 });
@@ -147,6 +165,7 @@ it('allows creating a new memo for a period whose previous memo was deleted', fu
         ->set('memoNumber', 'NEW-001')
         ->set('memoTitle', 'Rilis Menu September Baru')
         ->set('periodMonth', '2026-09')
+        ->set('branchIds', [$this->branch->id])
         ->call('createMemo')
         ->assertHasNoErrors();
 
@@ -286,7 +305,7 @@ it('splits categoryDetail into Category and Category Detail, falling back to Cat
         ->and($page->instance()->splitMenuCategory(null))->toBe(['category' => null, 'detail' => null]);
 });
 
-it('warms the full Menu catalog cache when the picker opens, so a later Name search is already instant', function () {
+it('opens the Menu picker with one page request and defers the full catalog until a Name search', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
     Http::fake([
         'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
@@ -296,20 +315,20 @@ it('warms the full Menu catalog cache when the picker opens, so a later Name sea
         ], 'limit' => 20, 'count' => 1]]),
     ]);
 
-    $countBeforeSearch = 0;
+    $countAfterOpening = 0;
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')
-        ->call('initializeMenuPicker') // simulates the browser firing wire:init: default page + catalog warm-up
-        ->tap(function () use (&$countBeforeSearch): void {
-            $countBeforeSearch = count(Http::recorded());
+        ->call('initializeMenuPicker')
+        ->tap(function () use (&$countAfterOpening): void {
+            $countAfterOpening = count(Http::recorded());
         })
         ->set('menuSearchName', 'Croissant')
         ->assertSee('Croissant Butter');
 
-    // The Name search above triggers loadMenuPage -> searchByNameLocally -> allMenus(), which
-    // should find the catalog already cached from initializeMenuPicker() and make no further
-    // HTTP calls at all.
-    expect(count(Http::recorded()))->toBe($countBeforeSearch);
+    // Opening performs one Master Menu request using the static BLSS token. The expensive full
+    // catalog path is allowed to start later, once the user actually searches by Name.
+    expect($countAfterOpening)->toBe(1)
+        ->and(count(Http::recorded()))->toBeGreaterThan($countAfterOpening);
 });
 
 it('re-fetches the Menu picker automatically as the user types a search, without a separate search button', function () {

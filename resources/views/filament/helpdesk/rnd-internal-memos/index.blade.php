@@ -74,7 +74,7 @@
                 <div class="flex items-start justify-between gap-4 border-b border-gray-200 p-5 dark:border-gray-700">
                     <div>
                         <h3 class="text-lg font-bold text-gray-900 dark:text-white">Buat Memo Internal</h3>
-                        <p class="mt-1 text-sm text-gray-500">Company Code BLSS otomatis diterapkan.</p>
+                        <p class="mt-1 text-sm text-gray-500">Company Code dan Branch Code mengikuti mapping ESB Branch Tujuan yang dipilih.</p>
                     </div>
                     <button type="button" wire:click="closeCreateModal" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200" aria-label="Tutup">
                         <x-heroicon-o-x-mark class="h-5 w-5" />
@@ -105,6 +105,25 @@
                         <input wire:model="memoNumber" @if($memoNumberGenerated) readonly @endif placeholder="mis. 001/RND/IX/2026" class="{{ $inputClass }} {{ $memoNumberGenerated ? 'cursor-not-allowed bg-gray-50 dark:bg-gray-800/60' : '' }}">
                         @error('memoNumber')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                         <p class="mt-1 text-[11px] text-gray-400">Isi manual, atau tekan Generate setelah Bulan Memo dipilih.</p>
+                    </div>
+                    <div>
+                        <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Branch Tujuan *</label>
+                        <select wire:model="branchIds" multiple size="5" class="{{ $inputClass }}">
+                            @foreach($this->branchOptions() as $option)
+                                @php $resolved = $option['resolution']->isResolved(); @endphp
+                                <option value="{{ $option['branch']->id }}" @disabled(! $resolved)>
+                                    {{ $option['branch']->name }}
+                                    @if($resolved)
+                                        — {{ $option['resolution']->mapping->esb_comcode }} · {{ $option['resolution']->mapping->esb_branch_code }}
+                                    @else
+                                        ({{ $option['resolution']->blockedReason }})
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('branchIds')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        @error('branchIds.*')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        <p class="mt-1 text-[11px] text-gray-400">Tahan Ctrl/Cmd untuk memilih lebih dari satu Branch.</p>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Catatan</label>

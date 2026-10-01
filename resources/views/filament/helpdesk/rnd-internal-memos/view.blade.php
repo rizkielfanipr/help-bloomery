@@ -1,6 +1,7 @@
 <x-filament-panels::page>
     @php
         $memo = $this->getRecord();
+        $memoBranches = $memo->branches;
         $menus = $this->menus();
         $canManage = $this->canUpdateMemo();
         $canDeleteMemo = $this->canDeleteMemo();
@@ -14,7 +15,7 @@
                         <x-heroicon-o-document-text class="h-6 w-6" />
                     </div>
                     <div class="min-w-0">
-                        <p class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Memo Internal · BLSS</p>
+                        <p class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Memo Internal</p>
                         <h2 class="mt-1 break-words text-2xl font-bold text-gray-950 dark:text-white">{{ $memo->title }}</h2>
                         <p class="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $memo->memo_number }} · Periode {{ $memo->period_month->translatedFormat('F Y') }}</p>
                     </div>
@@ -45,11 +46,40 @@
             @endif
         </section>
 
+        {{-- docs/rnd-internal-memo-multi-branch-prd.md §7.1, §9.1: read-only summary — adding or
+             removing a branch is handled by its own reconciliation-aware action, not from here. --}}
+        <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="border-b border-gray-200 p-5 dark:border-gray-700">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Branch Tujuan</h3>
+                <p class="mt-1 text-sm text-gray-500">{{ $memoBranches->count() }} branch dipilih untuk Memo ini.</p>
+            </div>
+            <div class="flex flex-wrap gap-2 p-5">
+                @forelse($memoBranches as $memoBranch)
+                    @php
+                        $syncColor = match ($memoBranch->catalog_sync_status) {
+                            'synced' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300',
+                            'failed' => 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300',
+                            default => 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
+                        };
+                    @endphp
+                    <div class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-700">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ $memoBranch->branch_name_snapshot }}</p>
+                            <p class="text-xs text-gray-400">{{ $memoBranch->company_code_snapshot }} · {{ $memoBranch->branch_code_snapshot }}</p>
+                        </div>
+                        <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $syncColor }}">{{ ucfirst($memoBranch->catalog_sync_status) }}</span>
+                    </div>
+                @empty
+                    <p class="text-sm text-amber-600 dark:text-amber-400">Perlu Menentukan Branch — Memo ini dibuat sebelum fitur multi-branch dan belum mempunyai Branch Tujuan.</p>
+                @endforelse
+            </div>
+        </section>
+
         <section class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="flex flex-col gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900 dark:text-white">Menu Terpilih</h3>
-                    <p class="mt-1 text-sm text-gray-500">{{ $menus->count() }} Menu dari Master Menu BLSS.</p>
+                    <p class="mt-1 text-sm text-gray-500">{{ $menus->count() }} Menu dari Master Menu Branch Tujuan.</p>
                 </div>
                 @if($canManage)
                     <button type="button" wire:click="openMenuPicker" wire:loading.attr="disabled" wire:target="openMenuPicker" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">

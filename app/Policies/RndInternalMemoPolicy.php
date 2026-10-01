@@ -24,9 +24,16 @@ class RndInternalMemoPolicy
         return $user->can('view any rnd internal memo');
     }
 
+    /**
+     * docs/rnd-internal-memo-multi-branch-prd.md §6, §14.4, Phase 0 decision #6: a user needs
+     * access to at least one of the Memo's branches — not all of them — and then sees the whole
+     * Memo (every branch, every Menu), not a filtered subset. A Memo with no branch rows yet (the
+     * legacy "Perlu Menentukan Branch" state, or any Memo created before this PRD) falls back to
+     * permission-only so existing/unmigrated Memos stay readable.
+     */
     public function view(User $user, RndInternalMemo $memo): bool
     {
-        return $user->can('view rnd internal memo');
+        return $user->can('view rnd internal memo') && $this->hasBranchAccess($user, $memo);
     }
 
     public function create(User $user): bool
@@ -39,10 +46,30 @@ class RndInternalMemoPolicy
      * refresh, and Minimum Order all stay editable regardless of the legacy workflow status —
      * "Menu dapat ditambah dan dihapus kapan saja". The old Draft-only gate belonged to the
      * finalize/lock workflow this PRD removes from the UI.
+     *
+     * docs/rnd-internal-memo-multi-branch-prd.md §6: "Aksi yang memengaruhi branch di luar akses
+     * pengguna harus ditolak server-side" — same branch-access gate as view().
      */
     public function update(User $user, RndInternalMemo $memo): bool
     {
-        return $user->can('update rnd internal memo');
+        return $user->can('update rnd internal memo') && $this->hasBranchAccess($user, $memo);
+    }
+
+    private function hasBranchAccess(User $user, RndInternalMemo $memo): bool
+    {
+        if ($user->canAccessAllBranches()) {
+            return true;
+        }
+
+        $branchIds = $memo->relationLoaded('branches')
+            ? $memo->branches->pluck('branch_id')
+            : $memo->branches()->pluck('branch_id');
+
+        if ($branchIds->isEmpty()) {
+            return true;
+        }
+
+        return $branchIds->contains(fn (int $branchId): bool => $user->canAccessBranch($branchId));
     }
 
     /**

@@ -28,6 +28,8 @@ class ListRndInternalMemos extends ListRecords
 
     public string $memoNumber = '';
 
+    public bool $memoNumberGenerated = false;
+
     public string $memoTitle = '';
 
     public string $periodMonth = '';
@@ -62,7 +64,7 @@ class ListRndInternalMemos extends ListRecords
     {
         abort_unless(RndInternalMemoResource::canCreate(), 403);
         $this->resetValidation();
-        $this->reset(['memoNumber', 'memoTitle', 'periodMonth', 'notes']);
+        $this->reset(['memoNumber', 'memoNumberGenerated', 'memoTitle', 'periodMonth', 'notes']);
         $this->createModalOpen = true;
     }
 
@@ -73,19 +75,38 @@ class ListRndInternalMemos extends ListRecords
     }
 
     /**
-     * docs/rnd-internal-memo-simplification-prd.md §7.1: the simplified form only collects Nama
-     * Memo, Bulan Memo, Nomor Memo (optional), and Catatan. memo_date/recipient/sender/subject
-     * stay NOT NULL at the database level (kept as-is per PRD §10.1 — no schema change for
-     * columns not driving the simplified UI), so they get inert defaults here instead of being
-     * collected from the user. memo_number likewise stays NOT NULL + unique, so a blank input
-     * gets an auto-generated placeholder rather than requiring a migration to make it nullable.
+     * Fills Nomor Memo with the house numbering convention and locks the field read-only; the
+     * user can still fill it in themselves instead by never pressing this button, or press
+     * "Isi manual" afterwards to undo and type their own.
+     */
+    public function generateMemoNumberField(): void
+    {
+        $validated = $this->validate(['periodMonth' => ['required', 'date']]);
+
+        $this->memoNumber = $this->generateMemoNumber(Carbon::parse($validated['periodMonth'])->startOfMonth());
+        $this->memoNumberGenerated = true;
+    }
+
+    public function useManualMemoNumber(): void
+    {
+        $this->memoNumber = '';
+        $this->memoNumberGenerated = false;
+    }
+
+    /**
+     * docs/rnd-internal-memo-simplification-prd.md §7.1: the simplified form collects Nama Memo,
+     * Bulan Memo, Nomor Memo, dan Catatan. Nomor Memo is required — either generated via
+     * generateMemoNumberField() or typed in manually. memo_date/recipient/sender/subject stay
+     * NOT NULL at the database level (kept as-is per PRD §10.1 — no schema change for columns not
+     * driving the simplified UI), so they get inert defaults here instead of being collected from
+     * the user.
      */
     public function createMemo(CreateInternalMemoAction $createMemo): void
     {
         abort_unless(RndInternalMemoResource::canCreate(), 403);
 
         $validated = $this->validate([
-            'memoNumber' => ['nullable', 'string', 'max:255', 'unique:rnd_internal_memos,memo_number'],
+            'memoNumber' => ['required', 'string', 'max:255', 'unique:rnd_internal_memos,memo_number'],
             'memoTitle' => ['required', 'string', 'max:150'],
             'periodMonth' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -100,7 +121,7 @@ class ListRndInternalMemos extends ListRecords
         }
 
         $memo = $createMemo->execute([
-            'memo_number' => filled($validated['memoNumber']) ? $validated['memoNumber'] : $this->generateMemoNumber(Carbon::parse($periodMonth)),
+            'memo_number' => $validated['memoNumber'],
             'title' => $validated['memoTitle'],
             'period_month' => $periodMonth,
             'memo_date' => today()->toDateString(),

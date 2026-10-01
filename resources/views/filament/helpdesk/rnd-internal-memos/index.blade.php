@@ -92,9 +92,19 @@
                         @error('periodMonth')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Nomor Memo</label>
-                        <input wire:model="memoNumber" class="{{ $inputClass }}" placeholder="mis. 001/RND/IX/2026 (opsional)">
+                        <div class="mb-1.5 flex items-center justify-between gap-2">
+                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-200">Nomor Memo *</label>
+                            @if($memoNumberGenerated)
+                                <button type="button" wire:click="useManualMemoNumber" class="text-xs font-bold text-blue-700 hover:underline dark:text-blue-300">Isi Manual</button>
+                            @else
+                                <button type="button" wire:click="generateMemoNumberField" wire:loading.attr="disabled" wire:target="generateMemoNumberField" class="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline disabled:opacity-50 dark:text-blue-300">
+                                    <x-heroicon-o-sparkles class="h-3.5 w-3.5" /> Generate
+                                </button>
+                            @endif
+                        </div>
+                        <input wire:model="memoNumber" @if($memoNumberGenerated) readonly @endif placeholder="mis. 001/RND/IX/2026" class="{{ $inputClass }} {{ $memoNumberGenerated ? 'cursor-not-allowed bg-gray-50 dark:bg-gray-800/60' : '' }}">
                         @error('memoNumber')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        <p class="mt-1 text-[11px] text-gray-400">Isi manual, atau tekan Generate setelah Bulan Memo dipilih.</p>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Catatan</label>

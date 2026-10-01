@@ -77,7 +77,9 @@ it('lists the signed-in PIC own assignments as cards in the Tugas Saya sidebar',
         'rnd_project_task_id' => $myTask->id, 'branch_id' => $branch->id, 'user_id' => $pic->id, 'status' => 'assigned',
     ]);
 
-    $otherTask = RndProjectTask::factory()->create(['title' => 'Someone Else Task', 'status' => 'assigned']);
+    // Due far outside the calendar's default (current month) view so it never leaks into the
+    // grid regardless of what day the suite happens to run on, isolating this to the sidebar.
+    $otherTask = RndProjectTask::factory()->create(['title' => 'Someone Else Task', 'status' => 'assigned', 'due_date' => today()->addMonths(6)]);
     $otherTask->branches()->attach($branch->id);
     RndProjectTaskAssignment::factory()->create([
         'rnd_project_task_id' => $otherTask->id, 'branch_id' => $branch->id, 'status' => 'assigned',
@@ -97,11 +99,14 @@ it('excludes cancelled and approved assignments from the Tugas Saya sidebar', fu
     $pic->syncBranchAccess([$branch->id], $branch->id);
     $this->actingAs($pic);
 
-    $cancelledTask = RndProjectTask::factory()->create(['title' => 'Cancelled Assignment Task']);
+    // Due far outside the calendar's default (current month) view: $pic has an assignment on
+    // both, so the grid's own branch/assignment visibility would otherwise show them regardless
+    // of status, which is unrelated to what this test checks (the sidebar's own status filter).
+    $cancelledTask = RndProjectTask::factory()->create(['title' => 'Cancelled Assignment Task', 'due_date' => today()->addMonths(6)]);
     RndProjectTaskAssignment::factory()->create([
         'rnd_project_task_id' => $cancelledTask->id, 'branch_id' => $branch->id, 'user_id' => $pic->id, 'status' => 'cancelled',
     ]);
-    $approvedTask = RndProjectTask::factory()->create(['title' => 'Approved Assignment Task']);
+    $approvedTask = RndProjectTask::factory()->create(['title' => 'Approved Assignment Task', 'due_date' => today()->addMonths(6)]);
     RndProjectTaskAssignment::factory()->create([
         'rnd_project_task_id' => $approvedTask->id, 'branch_id' => $branch->id, 'user_id' => $pic->id, 'status' => 'approved',
     ]);

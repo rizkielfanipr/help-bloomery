@@ -14,7 +14,7 @@ use Throwable;
 
 /**
  * docs/rnd-internal-memo-simplification-prd.md §7.2. Takes the Menu row already fetched by the
- * picker modal (App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogService::page) instead of
+ * picker modal (from the local Master Menu snapshot) instead of
  * re-fetching by ID, because a single-Menu detail endpoint is not proven to exist (Phase 0
  * report, PRD §8.5). "Menu dapat ditambahkan kapan saja" — there is no longer a Draft-only gate.
  *
@@ -39,6 +39,8 @@ class AddMenuToInternalMemoAction
     {
         $esbMenuId = (int) ($menu['menuID'] ?? 0);
         $bomId = (int) ($menu['bomID'] ?? 0);
+        $companyCode = mb_strtoupper(trim((string) ($menu['companyCode'] ?? $memo->company_code)));
+        $memoBranchIds = array_values(array_unique(array_map('intval', $menu['memoBranchIds'] ?? [])));
 
         if ($esbMenuId < 1) {
             throw new RuntimeException('Menu tidak valid.');
@@ -50,17 +52,31 @@ class AddMenuToInternalMemoAction
             ]);
         }
 
-        if ($memo->menus()->where('esb_menu_id', $esbMenuId)->exists()) {
+        if ($memo->menus()->where('company_code', $companyCode)->where('esb_menu_id', $esbMenuId)->exists()) {
             throw ValidationException::withMessages([
                 'menu' => 'Menu ini sudah ada pada Memo.',
             ]);
         }
 
-        $shelfLife = RndProductEsbShelfLife::forMenu($memo->company_code, $esbMenuId);
+        $memoHasBranchContext = $memo->branches()->exists();
+        $validMemoBranchIds = $memo->branches()
+            ->where('company_code_snapshot', $companyCode)
+            ->whereIn('id', $memoBranchIds)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        if ($memoHasBranchContext && $validMemoBranchIds === []) {
+            throw ValidationException::withMessages([
+                'menu' => 'Menu tidak terhubung ke Branch Tujuan Memo yang valid.',
+            ]);
+        }
+
+        $shelfLife = RndProductEsbShelfLife::forMenu($companyCode, $esbMenuId);
         $nextSortOrder = ((int) $memo->menus()->max('sort_order')) + 1;
 
         $menuRecord = $memo->menus()->create([
-            'company_code' => $memo->company_code,
+            'company_code' => $companyCode,
             'esb_menu_id' => $esbMenuId,
             'menu_code' => $menu['menuCode'] ?? null,
             'menu_name' => (string) ($menu['menuName'] ?? ''),
@@ -76,6 +92,7 @@ class AddMenuToInternalMemoAction
             'menu_snapshot' => $menu['raw'] ?? $menu,
             'sort_order' => $nextSortOrder,
         ]);
+        $menuRecord->branches()->sync($validMemoBranchIds);
 
         try {
             $result = $this->resolver->resolve($menuRecord);

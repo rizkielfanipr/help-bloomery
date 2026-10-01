@@ -2,19 +2,24 @@
 
 use App\Actions\Rnd\InternalMemo\CreateInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\ResolveMemoBranchMappingsAction;
+use App\Actions\Rnd\InternalMemo\UpdateInternalMemoBranchesAction;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ListRndInternalMemos;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ViewRndInternalMemo;
 use App\Models\Branch;
 use App\Models\RndInternalMemo;
+use App\Models\RndInternalMemoMenu;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 /**
  * docs/rnd-internal-memo-multi-branch-prd.md Phase 3 ("Form create/edit dan Policy").
  */
 beforeEach(function () {
+    Queue::fake();
     config()->set('esb.tokens.BLSS', 'static-blss-token');
     config()->set('esb.tokens.BLO6', 'static-blo6-token');
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -184,7 +189,7 @@ it('lets a user view a multi-branch Memo if they can access at least one of its 
 });
 
 it('lets any permitted user view a legacy Memo that has no branches yet ("Perlu Menentukan Branch")', function () {
-    $legacyMemo = RndInternalMemo::factory()->create();
+    $legacyMemo = RndInternalMemo::factory()->create(['period_month' => '2027-01-01']);
     $anyUser = User::factory()->create(['is_active' => true]);
     $anyUser->givePermissionTo('view rnd internal memo');
 
@@ -203,7 +208,49 @@ it('shows the Branch Tujuan summary on the detail page, and a "Perlu Menentukan 
         ->assertSee('Bloomery Pabelan')
         ->assertSee('BLSS');
 
-    $legacyMemo = RndInternalMemo::factory()->create();
+    $legacyMemo = RndInternalMemo::factory()->create(['period_month' => '2027-01-01']);
     Livewire::test(ViewRndInternalMemo::class, ['record' => $legacyMemo->id])
         ->assertSee('Perlu Menentukan Branch');
+});
+
+it('prevents removing a Branch that would orphan an attached Menu', function () {
+    $memo = app(CreateInternalMemoAction::class)->execute([
+        'memo_number' => 'MB-030', 'title' => 'Rilis', 'period_month' => '2026-11-01', 'memo_date' => now()->toDateString(),
+        'recipient' => '', 'sender' => '', 'subject' => 'Rilis', 'notes' => null,
+        'branch_ids' => [$this->branchA->id, $this->branchB->id],
+    ], $this->operator);
+    $menu = RndInternalMemoMenu::factory()->create([
+        'rnd_internal_memo_id' => $memo->id,
+        'company_code' => 'BLO6',
+    ]);
+    $menu->branches()->attach($memo->branches()->where('branch_id', $this->branchB->id)->value('id'));
+
+    expect(fn () => app(UpdateInternalMemoBranchesAction::class)->execute(
+        $memo,
+        [$this->branchA->id],
+        $this->operator,
+    ))->toThrow(ValidationException::class);
+
+    expect($memo->branches()->count())->toBe(2);
+});
+
+it('allows removing a Branch when every attached Menu remains available on another selected Branch', function () {
+    $branchC = Branch::factory()->create(['name' => 'Bloomery Pakuwon']);
+    $branchC->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLP']);
+    $memo = app(CreateInternalMemoAction::class)->execute([
+        'memo_number' => 'MB-031', 'title' => 'Rilis', 'period_month' => '2026-12-01', 'memo_date' => now()->toDateString(),
+        'recipient' => '', 'sender' => '', 'subject' => 'Rilis', 'notes' => null,
+        'branch_ids' => [$this->branchA->id, $branchC->id],
+    ], $this->operator);
+    $menu = RndInternalMemoMenu::factory()->create([
+        'rnd_internal_memo_id' => $memo->id,
+        'company_code' => 'BLSS',
+    ]);
+    $menu->branches()->attach($memo->branches()->pluck('id'));
+
+    app(UpdateInternalMemoBranchesAction::class)->execute($memo, [$this->branchA->id], $this->operator);
+
+    expect($memo->branches()->count())->toBe(1)
+        ->and($menu->branches()->count())->toBe(1)
+        ->and($menu->branches()->sole()->branch_id)->toBe($this->branchA->id);
 });

@@ -40,10 +40,9 @@ Acuan: `docs/rnd-internal-memo-multi-branch-prd.md`
 
 - Test terfokus seluruh domain Memo Internal: **153 test lulus, 491 assertion**.
 - Test terfokus perubahan multi-branch dan ESB Product: **102 test lulus, 349 assertion**.
+- Full suite dengan memory limit 512 MB: **1.242 test lulus, 6.115 assertion**.
 - Laravel Pint dijalankan pada file PHP yang berubah.
 - Seluruh HTTP pada test memakai fake dan penjaga stray request.
-
-Angka full suite dicatat setelah quality gate akhir dijalankan sebelum commit terakhir.
 
 ## Deployment
 

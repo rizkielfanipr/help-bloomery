@@ -83,3 +83,13 @@ Catatan: database yang diaudit hanya punya 4 branch lokal bernama demo/testing d
 | — | Granularitas Job sync (tambahan, muncul dari bukti #4) | **Keputusan user: ikuti PRD literal — per Company Code + Branch Code**, meski terbukti redundan untuk company yang sama hari ini. Dipertahankan untuk forward-compatibility. |
 
 **Selesai jika** (kriteria PRD): tidak ada mapping, endpoint, atau data existing yang masih diasumsikan. ✅ Terpenuhi — seluruh keputusan di atas berbasis bukti langsung atau keputusan eksplisit user, bukan tebakan.
+
+## 8. Phase 1 — Safety net: hasil dan baseline
+
+Characterization test: `tests/Feature/RndInternalMemoMultiBranchCharacterizationTest.php`. Baseline yang dicatat (dan dikunci sebagai assertion, bukan sekadar prosa):
+
+- **Jumlah request ESB untuk tambah 1 Menu dengan BOM yang berhasil di-resolve: tepat 2** (login + 1 fetch detail BOM). Ini acuan untuk Phase 6 — begitu resolusi BOM multi-company ditambahkan, angka ini boleh berubah tapi HARUS lewat commit Phase 6 itu sendiri, bukan drift diam-diam.
+- **Membuka halaman detail Memo existing (tanpa refresh): 0 request ESB** — murni baca snapshot lokal. Baseline ini yang tidak boleh diregresi oleh Phase 4/7.
+- Query count N+1 di index/detail sudah punya baseline sebelumnya di `tests/Feature/RndInternalMemoQueryPerformanceTest.php` (tidak diduplikasi di sini).
+
+**Temuan tambahan di luar scope awal, ditemukan sebagai efek samping menulis characterization test di atas:** safety net `Http::preventStrayRequests()` yang didaftarkan di `tests/Pest.php` ternyata **tidak pernah benar-benar berjalan** untuk seluruh test suite (dikonfirmasi lewat probe file-write yang tidak pernah tertulis) — akar masalahnya adalah pemanggilan `beforeEach()` berdiri sendiri setelah `pest()->extend()->in('Feature')`, yang di Pest 4 tidak ter-attach ke binding tersebut. Diperbaiki dengan merantai `.beforeEach(...)` langsung ke binding yang sama (commit `d7bc4f8`). Full suite (1111 Feature + 109 Unit) tetap hijau tanpa perubahan setelah perbaikan ini, karena `StrayRequestException` adalah turunan `RuntimeException` yang sudah ditangkap secara graceful oleh `InternalMemoProductEnricher` — jadi perbaikan ini hanya mengubah **apakah ada request jaringan sungguhan yang keluar saat test**, bukan hasil lulus/gagal test mana pun. Ini temuan serius yang berlaku untuk seluruh test suite proyek, bukan cuma domain Memo, dan layak diaudit lebih lanjut di luar scope task ini (test lain mungkin masih diam-diam bergantung pada koneksi nyata tanpa disadari).

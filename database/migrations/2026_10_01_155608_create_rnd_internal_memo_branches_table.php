@@ -9,6 +9,20 @@ return new class extends Migration
     /** docs/rnd-internal-memo-multi-branch-prd.md §9.1. */
     public function up(): void
     {
+        if (Schema::hasTable('rnd_internal_memo_branches')) {
+            Schema::table('rnd_internal_memo_branches', function (Blueprint $table): void {
+                if (! Schema::hasIndex('rnd_internal_memo_branches', 'rnd_memo_branch_mapping_unique')) {
+                    $table->unique(['rnd_internal_memo_id', 'branch_esb_code_id'], 'rnd_memo_branch_mapping_unique');
+                }
+
+                if (! Schema::hasIndex('rnd_internal_memo_branches', 'rnd_memo_branch_sync_idx')) {
+                    $table->index(['rnd_internal_memo_id', 'catalog_sync_status'], 'rnd_memo_branch_sync_idx');
+                }
+            });
+
+            return;
+        }
+
         Schema::create('rnd_internal_memo_branches', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('rnd_internal_memo_id')->constrained()->cascadeOnDelete();
@@ -27,8 +41,8 @@ return new class extends Migration
             $table->text('catalog_sync_error')->nullable();
             $table->timestamps();
 
-            $table->unique(['rnd_internal_memo_id', 'branch_esb_code_id']);
-            $table->index(['rnd_internal_memo_id', 'catalog_sync_status']);
+            $table->unique(['rnd_internal_memo_id', 'branch_esb_code_id'], 'rnd_memo_branch_mapping_unique');
+            $table->index(['rnd_internal_memo_id', 'catalog_sync_status'], 'rnd_memo_branch_sync_idx');
         });
     }
 

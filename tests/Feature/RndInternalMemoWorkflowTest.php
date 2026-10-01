@@ -307,6 +307,7 @@ it('searches the local Menu snapshot and shows a Menu without BOM as disabled', 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')
         ->call('initializeMenuPicker') // simulates the browser firing wire:init after the modal's first render
+        ->assertSeeHtml('min-h-0 flex-1 overflow-auto overscroll-contain')
         ->assertSee('MENU-501')
         ->assertSee('Croissant Butter')
         ->assertSee('BEVERAGES')

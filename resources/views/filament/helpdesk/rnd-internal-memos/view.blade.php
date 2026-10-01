@@ -318,8 +318,8 @@
                     <button type="button" wire:click="closeMenuPicker" class="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700" aria-label="Tutup"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
                 </x-slot:close>
 
-                <div class="relative flex-1 overflow-hidden">
-                    <div class="grid gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:grid-cols-2">
+                <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <div class="grid shrink-0 gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:grid-cols-2">
                         <select wire:model.live="menuBranchFilter" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                             <option value="">Semua Branch</option>
                             @foreach($this->getRecord()->branches as $memoBranch)
@@ -333,7 +333,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="h-full overflow-auto">
+                    <div class="min-h-0 flex-1 overflow-auto overscroll-contain">
                         <table class="w-full min-w-[900px] text-left text-sm">
                             <thead class="sticky top-0 z-10 bg-white dark:bg-gray-900">
                                 <tr class="border-b border-gray-200 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
@@ -407,7 +407,7 @@
                     $menuPickerPageEnd = min($menuPickerLastPage, $menuPickerPageStart + 8);
                     $menuPickerPageStart = max(1, $menuPickerPageEnd - 8);
                 @endphp
-                <div class="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex shrink-0 flex-col gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
                     <p class="text-xs font-medium text-gray-600 dark:text-gray-300">Halaman {{ $menuPickerPage }} dari {{ $menuPickerLastPage }}</p>
                     <div class="max-w-full overflow-x-auto">
                         <div class="inline-flex min-w-max overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600">

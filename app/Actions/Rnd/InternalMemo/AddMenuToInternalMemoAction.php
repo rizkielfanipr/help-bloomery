@@ -60,6 +60,7 @@ class AddMenuToInternalMemoAction
         $nextSortOrder = ((int) $memo->menus()->max('sort_order')) + 1;
 
         $menuRecord = $memo->menus()->create([
+            'company_code' => $memo->company_code,
             'esb_menu_id' => $esbMenuId,
             'menu_code' => $menu['menuCode'] ?? null,
             'menu_name' => (string) ($menu['menuName'] ?? ''),

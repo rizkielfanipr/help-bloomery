@@ -7,6 +7,7 @@ use Database\Factories\RndInternalMemoMenuFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -21,6 +22,7 @@ class RndInternalMemoMenu extends Model
 
     protected $fillable = [
         'rnd_internal_memo_id',
+        'company_code',
         'esb_menu_id',
         'menu_code',
         'menu_name',
@@ -71,6 +73,16 @@ class RndInternalMemoMenu extends Model
     public function rootMaterials(): HasMany
     {
         return $this->materials()->whereNull('parent_material_id');
+    }
+
+    /**
+     * docs/rnd-internal-memo-multi-branch-prd.md §7.3, §9.2 — branches this merged Menu is
+     * available from. A Menu merged across branches still has exactly one row here per source
+     * Company Code (§7.3 "Menu digabung dengan identitas company_code + menuID").
+     */
+    public function branches(): BelongsToMany
+    {
+        return $this->belongsToMany(RndInternalMemoBranch::class, 'rnd_internal_memo_menu_branches');
     }
 
     public function hasShelfLife(): bool

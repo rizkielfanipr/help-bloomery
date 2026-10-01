@@ -70,6 +70,12 @@ class RndInternalMemo extends Model
         return $this->hasMany(RndInternalMemoMenu::class)->orderBy('sort_order');
     }
 
+    /** docs/rnd-internal-memo-multi-branch-prd.md §9.1 — one or more resolved branch mappings. */
+    public function branches(): HasMany
+    {
+        return $this->hasMany(RndInternalMemoBranch::class);
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(RndInternalMemoDocument::class)->latest('revision');

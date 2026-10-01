@@ -19,6 +19,7 @@ class RndInternalMemoMenuFactory extends Factory
 
         return [
             'rnd_internal_memo_id' => RndInternalMemo::factory(),
+            'company_code' => RndInternalMemo::COMPANY_CODE,
             'esb_menu_id' => $menuId,
             'menu_code' => 'MENU-'.$menuId,
             'menu_name' => $this->faker->words(3, true),

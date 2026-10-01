@@ -281,6 +281,7 @@ it('caches the Assembly search so the same WIP appearing twice is only looked up
         + 1 // menu bom detail
         + 1 // product/bom search (first WIP occurrence only, second is cached by identity)
         + 1 // bom/900 detail (first only, second cached)
+        + 1 // Master Product detail for the WIP output conversion (shared by both occurrences)
     );
 });
 

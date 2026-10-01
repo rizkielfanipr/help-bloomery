@@ -4,7 +4,7 @@ namespace App\Services\Rnd\InternalMemo;
 
 use App\Models\RndInternalMemoMaterial;
 use App\Models\RndInternalMemoMenu;
-use App\Services\EsbService;
+use App\Services\EsbCompanyProductService;
 use Illuminate\Support\Collection;
 use RuntimeException;
 
@@ -23,7 +23,7 @@ use RuntimeException;
  */
 class InternalMemoProductEnricher
 {
-    public function __construct(private readonly EsbService $esbService) {}
+    public function __construct(private readonly EsbCompanyProductService $products) {}
 
     public function enrichMenu(RndInternalMemoMenu $menu): void
     {
@@ -35,7 +35,7 @@ class InternalMemoProductEnricher
             ->groupBy('esb_product_detail_id');
 
         foreach ($byProductDetailId as $productDetailId => $group) {
-            $detail = $this->fetchDetail((int) $productDetailId, $group->first());
+            $detail = $this->fetchDetail($menu->company_code, (int) $productDetailId);
 
             foreach ($group as $material) {
                 $material->update([
@@ -54,14 +54,10 @@ class InternalMemoProductEnricher
     }
 
     /** @return array<string, mixed>|null */
-    private function fetchDetail(int $productDetailId, RndInternalMemoMaterial $sample): ?array
+    private function fetchDetail(string $companyCode, int $productDetailId): ?array
     {
         try {
-            return $this->esbService->findActiveProductDetail(
-                $productDetailId,
-                (string) ($sample->product_code ?? ''),
-                (string) $sample->product_name,
-            );
+            return $this->products->detailByProductDetailId($companyCode, $productDetailId);
         } catch (RuntimeException) {
             return null;
         }

@@ -124,6 +124,36 @@ class EsbCompanyProductService
         );
     }
 
+    /** @return array<string, mixed>|null */
+    public function detailByProductDetailId(string $comcode, int $productDetailId): ?array
+    {
+        if ($productDetailId < 1) {
+            return null;
+        }
+
+        $result = $this->successfulResult(
+            $comcode,
+            'get',
+            '/product/list',
+            ['page' => 1, 'limit' => 100, 'productDetailID' => $productDetailId, 'flagActive' => 1],
+            'mengambil detail produk',
+        );
+
+        foreach ((array) ($result['data'] ?? []) as $product) {
+            foreach ((array) ($product['productDetails'] ?? []) as $detail) {
+                if ((int) ($detail['productDetailID'] ?? 0) === $productDetailId) {
+                    return $product + ['matchedProductDetail' => $detail];
+                }
+            }
+
+            if ((int) ($product['productDetailID'] ?? 0) === $productDetailId) {
+                return $product;
+            }
+        }
+
+        return null;
+    }
+
     /** @return array{productID:int,isTemp:bool} */
     public function create(string $comcode, array $payload): array
     {

@@ -88,6 +88,27 @@ it('updates the selected product with unchanged payload and dynamic Company Code
         && $request->data() === $payload);
 });
 
+it('loads a Product detail with the selected dynamic Company Code', function () {
+    Cache::put('esb_core.access_token.BLO7', 'blo7-token');
+    Http::fake([
+        'https://core-esb.test/product/list*' => Http::response(['status' => 'ok', 'result' => [
+            'data' => [[
+                'productID' => 123,
+                'productCode' => 'BW-123',
+                'productDetails' => [['productDetailID' => 456, 'unit' => 'GR']],
+            ]],
+        ]]),
+    ]);
+
+    $result = app(EsbCompanyProductService::class)->detailByProductDetailId('BLO7', 456);
+
+    expect($result)->not->toBeNull()
+        ->and($result['productID'])->toBe(123)
+        ->and($result['matchedProductDetail']['productDetailID'])->toBe(456);
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://core-esb.test/product/list?page=1&limit=100&productDetailID=456&flagActive=1'
+        && $request->hasHeader('Authorization', 'Bearer blo7-token'));
+});
+
 it('refreshes the Company Code token once after an explicit 401 response', function () {
     Cache::put('esb_core.access_token.BLSS', 'expired-token');
     Http::fake([

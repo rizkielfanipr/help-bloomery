@@ -4,15 +4,15 @@ namespace App\Services\Rnd\InternalMemo;
 
 use App\Models\RndInternalMemoMaterial;
 use App\Models\RndInternalMemoMenu;
+use App\Services\EsbCompanyProductService;
 use App\Services\EsbCoreClient;
-use App\Services\EsbService;
 use App\Services\Rnd\BomCalculationService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * Resolves one Menu's BOM through ESB Core (Company Code BLSS) into flat
+ * Resolves one Menu's BOM through ESB Core using the Menu Company Code into flat
  * App\Models\RndInternalMemoMaterial rows, recursing into WIP/Assembly components until base
  * materials and packaging are reached (docs/rnd-internal-memo-prd.md §7.4, §9).
  *
@@ -22,8 +22,6 @@ use RuntimeException;
  */
 class InternalMemoBomResolver
 {
-    private const COMPANY_CODE = 'BLSS';
-
     /**
      * docs/rnd-internal-memo-simplification-prd.md §9.3: "batas kedalaman aman tercapai" stops
      * traversal. The Phase 0 audit found no existing precedent for this guard — only the
@@ -35,9 +33,11 @@ class InternalMemoBomResolver
     /** @var array<int, float> */
     private array $outputConversionFactors = [];
 
+    private string $companyCode = '';
+
     public function __construct(
         private EsbCoreClient $esbCore,
-        private EsbService $esbService,
+        private EsbCompanyProductService $products,
         private BomCalculationService $bomCalculation,
     ) {}
 
@@ -47,6 +47,11 @@ class InternalMemoBomResolver
     public function resolve(RndInternalMemoMenu $menu): array
     {
         $this->outputConversionFactors = [];
+        $this->companyCode = mb_strtoupper(trim($menu->company_code));
+
+        if ($this->companyCode === '') {
+            throw new RuntimeException('Company Code Menu wajib tersedia untuk mengambil BOM.');
+        }
 
         // Fetch before mutating anything: if ESB is unreachable, the exception propagates here
         // and the Menu's last valid Material snapshot is never touched
@@ -225,18 +230,18 @@ class InternalMemoBomResolver
     private function findBomForComponent(array $component): ?array
     {
         $identity = $this->identity($component);
-        $cacheKey = 'rnd.internal-memo.bom-search.blss.'.md5(json_encode($identity, JSON_THROW_ON_ERROR));
+        $cacheKey = 'rnd.internal-memo.bom-search.'.mb_strtolower($this->companyCode).'.'.md5(json_encode($identity, JSON_THROW_ON_ERROR));
 
         return Cache::remember($cacheKey, now()->addMinutes(15), function () use ($identity): ?array {
             if ($identity['productName'] === '' || $identity['productName'] === 'Tanpa Nama') {
                 return null;
             }
 
-            $response = $this->esbCore->request(self::COMPANY_CODE, 'get', '/product/bom', [
+            $response = $this->esbCore->request($this->companyCode, 'get', '/product/bom', [
                 'productName' => $identity['productName'],
                 'limit' => 100,
             ]);
-            $list = $this->esbCore->successfulResult($response, 'mencari BOM Assembly', self::COMPANY_CODE, '/product/bom');
+            $list = $this->esbCore->successfulResult($response, 'mencari BOM Assembly', $this->companyCode, '/product/bom');
             $candidates = is_array($list['data'] ?? null) ? $list['data'] : [];
 
             foreach ($candidates as $candidate) {
@@ -272,10 +277,10 @@ class InternalMemoBomResolver
             throw new RuntimeException('BOM ID tidak valid.');
         }
 
-        return Cache::remember("rnd.internal-memo.bom-detail.blss.{$bomId}", now()->addMinutes(15), function () use ($bomId): array {
-            $response = $this->esbCore->request(self::COMPANY_CODE, 'get', '/product/bom/'.$bomId);
+        return Cache::remember('rnd.internal-memo.bom-detail.'.mb_strtolower($this->companyCode).".{$bomId}", now()->addMinutes(15), function () use ($bomId): array {
+            $response = $this->esbCore->request($this->companyCode, 'get', '/product/bom/'.$bomId);
 
-            return $this->esbCore->successfulResult($response, 'mengambil detail BOM', self::COMPANY_CODE, '/product/bom/'.$bomId);
+            return $this->esbCore->successfulResult($response, 'mengambil detail BOM', $this->companyCode, '/product/bom/'.$bomId);
         });
     }
 
@@ -292,13 +297,10 @@ class InternalMemoBomResolver
         }
 
         try {
-            $detail = $this->esbService->findActiveProductDetail(
-                $productDetailId,
-                (string) ($bom['productCode'] ?? ''),
-                (string) ($bom['productName'] ?? ''),
-            );
-            $factor = is_numeric($detail['conversionFactor'] ?? null) && (float) $detail['conversionFactor'] > 0
-                ? (float) $detail['conversionFactor']
+            $detail = $this->products->detailByProductDetailId($this->companyCode, $productDetailId);
+            $productDetail = (array) ($detail['matchedProductDetail'] ?? $detail ?? []);
+            $factor = is_numeric($productDetail['conversionFactor'] ?? null) && (float) $productDetail['conversionFactor'] > 0
+                ? (float) $productDetail['conversionFactor']
                 : 0.0;
         } catch (RuntimeException) {
             $factor = 0.0;

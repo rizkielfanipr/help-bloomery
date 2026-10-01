@@ -132,7 +132,7 @@
                     <div class="p-10 text-center">
                         <x-heroicon-o-rectangle-stack class="mx-auto h-10 w-10 text-gray-300" />
                         <h4 class="mt-3 font-bold text-gray-700 dark:text-gray-200">Belum ada Menu pada Memo ini</h4>
-                        <p class="mt-1 text-sm text-gray-500">Tambahkan Menu dari Master Menu BLSS untuk mulai menyusun kebutuhan Bahan dan WIP.</p>
+                        <p class="mt-1 text-sm text-gray-500">Tambahkan Menu dari katalog Branch Tujuan untuk mulai menyusun kebutuhan Bahan dan WIP.</p>
                     </div>
                 @endforelse
             </div>
@@ -288,6 +288,25 @@
                         @error('memoNumber')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>
+                        <label class="text-xs font-semibold text-gray-500 dark:text-gray-400">Branch Tujuan *</label>
+                        <select wire:model="branchIds" multiple size="5" class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                            @foreach($this->branchOptions() as $option)
+                                @php $resolved = $option['resolution']->isResolved(); @endphp
+                                <option value="{{ $option['branch']->id }}" @disabled(! $resolved)>
+                                    {{ $option['branch']->name }}
+                                    @if($resolved)
+                                        — {{ $option['resolution']->mapping->esb_comcode }} · {{ $option['resolution']->mapping->esb_branch_code }}
+                                    @else
+                                        ({{ $option['resolution']->blockedReason }})
+                                    @endif
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('branchIds')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        @error('branchIds.*')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        <p class="mt-1 text-[11px] text-gray-400">Lepaskan Menu yang hanya tersedia pada branch tersebut sebelum menghapus Branch Tujuan.</p>
+                    </div>
+                    <div>
                         <label class="text-xs font-semibold text-gray-500 dark:text-gray-400">Catatan</label>
                         <textarea wire:model="notes" rows="3" class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"></textarea>
                         @error('notes')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
@@ -304,20 +323,35 @@
     @if($menuPickerOpen)
         <div wire:key="menu-picker-modal" wire:init="initializeMenuPicker" class="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Pilih Menu ESB">
             <button type="button" wire:click="closeMenuPicker" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup pilih Menu"></button>
-            <x-rnd.picker-modal title="Pilih Menu ESB" description="Menu diambil langsung dari Master Menu BLSS. Menu tanpa BOM tidak dapat dipilih." max-width="6xl">
+            <x-rnd.picker-modal title="Pilih Menu ESB" description="Menu berasal dari katalog seluruh Branch Tujuan. Menu tanpa BOM tidak dapat dipilih." max-width="6xl">
                 <x-slot:close>
                     <button type="button" wire:click="closeMenuPicker" class="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700" aria-label="Tutup"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
                 </x-slot:close>
 
                 <div class="relative flex-1 overflow-hidden">
+                    <div class="grid gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:grid-cols-2">
+                        <select wire:model.live="menuBranchFilter" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                            <option value="">Semua Branch</option>
+                            @foreach($this->getRecord()->branches as $memoBranch)
+                                <option value="{{ $memoBranch->id }}">{{ $memoBranch->branch_name_snapshot }}</option>
+                            @endforeach
+                        </select>
+                        <select wire:model.live="menuCompanyFilter" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                            <option value="">Semua Company Code</option>
+                            @foreach($this->getRecord()->branches->pluck('company_code_snapshot')->unique() as $companyCode)
+                                <option value="{{ $companyCode }}">{{ $companyCode }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                     <div class="h-full overflow-auto">
-                        <table class="w-full min-w-[720px] text-left text-sm">
+                        <table class="w-full min-w-[900px] text-left text-sm">
                             <thead class="sticky top-0 z-10 bg-white dark:bg-gray-900">
                                 <tr class="border-b border-gray-200 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
                                     <th class="px-4 pb-3 pt-4">Menu Code</th>
                                     <th class="px-4 pb-3 pt-4">Menu Name</th>
+                                    <th class="px-4 pb-3 pt-4">Company</th>
+                                    <th class="px-4 pb-3 pt-4">Tersedia Di Branch</th>
                                     <th class="px-4 pb-3 pt-4">Category</th>
-                                    <th class="px-4 pb-3 pt-4">Category Detail</th>
                                     <th class="px-4 pb-3 pt-4 text-right">Aksi</th>
                                 </tr>
                                 <tr class="border-b border-gray-200 dark:border-gray-700">
@@ -326,12 +360,13 @@
                                     <th class="px-4 pb-3 pt-2"></th>
                                     <th class="px-4 pb-3 pt-2"></th>
                                     <th class="px-4 pb-3 pt-2"></th>
+                                    <th class="px-4 pb-3 pt-2"></th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                                 @if($menuPickerError)
                                     <tr>
-                                        <td colspan="5" class="px-5 py-10">
+                                        <td colspan="6" class="px-5 py-10">
                                             <div class="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                                                 <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0" />
                                                 <div>
@@ -344,7 +379,7 @@
                                     </tr>
                                 @elseif(empty($menuPickerRows) && ! $menuPickerLoading)
                                     <tr>
-                                        <td colspan="5" class="px-5 py-14 text-center text-gray-500 dark:text-gray-400">Menu tidak ditemukan.</td>
+                                        <td colspan="6" class="px-5 py-14 text-center text-gray-500 dark:text-gray-400">Menu tidak ditemukan.</td>
                                     </tr>
                                 @else
                                     @foreach($menuPickerRows as $row)
@@ -354,8 +389,9 @@
                                         <tr wire:key="menu-picker-{{ $row['menuID'] }}" class="{{ $row['hasBom'] ? 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30' : 'opacity-60' }} text-gray-700 transition dark:text-gray-200" @if($row['hasBom']) wire:click="addMenu({{ \Illuminate\Support\Js::from($row) }})" @endif>
                                             <td class="px-4 py-3"><p class="truncate font-mono font-semibold text-blue-700 dark:text-blue-300">{{ $row['menuCode'] ?: '-' }}</p></td>
                                             <td class="px-4 py-3"><p class="truncate font-semibold text-gray-900 dark:text-white">{{ $row['menuName'] ?: 'Menu #'.$row['menuID'] }}</p></td>
-                                            <td class="px-4 py-3"><p class="truncate">{{ $splitCategory['category'] ?? '-' }}</p></td>
-                                            <td class="px-4 py-3"><p class="truncate">{{ $splitCategory['detail'] ?? '-' }}</p></td>
+                                            <td class="px-4 py-3"><span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold dark:bg-gray-800">{{ $row['companyCode'] }}</span></td>
+                                            <td class="px-4 py-3"><p class="max-w-xs text-xs leading-5">{{ implode(', ', $row['branchNames']) ?: '-' }}</p></td>
+                                            <td class="px-4 py-3"><p class="truncate">{{ collect([$splitCategory['category'], $splitCategory['detail']])->filter()->implode(' · ') ?: '-' }}</p></td>
                                             <td class="px-4 py-3 text-right">
                                                 @if($row['hasBom'])
                                                     <span class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">Pilih</span>
@@ -370,7 +406,7 @@
                         </table>
                     </div>
 
-                    <div wire:loading.flex wire:target="initializeMenuPicker,loadMenuPage,previousMenuPage,nextMenuPage,goToMenuPage,updatedMenuSearchName,updatedMenuSearchCode" class="absolute inset-0 z-20 hidden items-center justify-center bg-white/70 dark:bg-gray-900/70">
+                    <div wire:loading.flex wire:target="initializeMenuPicker,loadMenuPage,previousMenuPage,nextMenuPage,goToMenuPage,updatedMenuSearchName,updatedMenuSearchCode,updatedMenuBranchFilter,updatedMenuCompanyFilter" class="absolute inset-0 z-20 hidden items-center justify-center bg-white/70 dark:bg-gray-900/70">
                         <span class="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></span>
                     </div>
                 </div>

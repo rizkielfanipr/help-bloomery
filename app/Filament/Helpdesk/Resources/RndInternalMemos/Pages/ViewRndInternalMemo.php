@@ -4,14 +4,19 @@ namespace App\Filament\Helpdesk\Resources\RndInternalMemos\Pages;
 
 use App\Actions\Rnd\InternalMemo\AddMenuToInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
+use App\Actions\Rnd\InternalMemo\MemoBranchMappingResolution;
 use App\Actions\Rnd\InternalMemo\RefreshInternalMemoMenuAction;
 use App\Actions\Rnd\InternalMemo\RemoveMenuFromInternalMemoAction;
+use App\Actions\Rnd\InternalMemo\ResolveMemoBranchMappingsAction;
+use App\Actions\Rnd\InternalMemo\UpdateInternalMemoBranchesAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMinimumOrdersAction;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\RndInternalMemoResource;
+use App\Jobs\SyncInternalMemoMenuCatalogJob;
+use App\Models\Branch;
 use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
 use App\Services\Rnd\InternalMemo\InternalMemoConsolidationService;
-use App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogService;
+use App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogQuery;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -41,6 +46,10 @@ class ViewRndInternalMemo extends ViewRecord
 
     public string $menuSearchCode = '';
 
+    public ?int $menuBranchFilter = null;
+
+    public string $menuCompanyFilter = '';
+
     public int $menuPickerPage = 1;
 
     public int $menuPickerTotal = 0;
@@ -65,6 +74,9 @@ class ViewRndInternalMemo extends ViewRecord
     public string $memoNumber = '';
 
     public string $notes = '';
+
+    /** @var list<int> */
+    public array $branchIds = [];
 
     /** Identity key of the Ringkasan Item Akhir row whose Minimum Order is being edited. */
     public ?string $minimumOrderKey = null;
@@ -102,6 +114,7 @@ class ViewRndInternalMemo extends ViewRecord
         $this->periodMonth = $memo->period_month->format('Y-m');
         $this->memoNumber = (string) $memo->memo_number;
         $this->notes = (string) $memo->notes;
+        $this->branchIds = $memo->branches()->pluck('branch_id')->map(fn ($id): int => (int) $id)->all();
         $this->editMemoModalOpen = true;
     }
 
@@ -111,7 +124,7 @@ class ViewRndInternalMemo extends ViewRecord
         $this->editMemoModalOpen = false;
     }
 
-    public function saveMemoInfo(): void
+    public function saveMemoInfo(UpdateInternalMemoBranchesAction $updateBranches): void
     {
         abort_unless($this->canUpdateMemo(), 403);
         $memo = $this->getRecord();
@@ -121,6 +134,8 @@ class ViewRndInternalMemo extends ViewRecord
             'periodMonth' => ['required', 'date'],
             'memoNumber' => ['required', 'string', 'max:255', 'unique:rnd_internal_memos,memo_number,'.$memo->id],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'branchIds' => ['required', 'array', 'min:1'],
+            'branchIds.*' => ['integer'],
         ]);
 
         $periodMonth = Carbon::parse($validated['periodMonth'])->startOfMonth()->toDateString();
@@ -137,6 +152,8 @@ class ViewRndInternalMemo extends ViewRecord
             throw ValidationException::withMessages(['periodMonth' => 'Memo untuk periode ini sudah ada.']);
         }
 
+        $updateBranches->execute($memo, $validated['branchIds'], auth()->user());
+
         $memo->update([
             'title' => $validated['memoTitle'],
             'period_month' => $periodMonth,
@@ -149,6 +166,21 @@ class ViewRndInternalMemo extends ViewRecord
         Notification::make()->title('Informasi Memo tersimpan')->success()->send();
     }
 
+    /** @return array<int, array{branch:Branch,resolution:MemoBranchMappingResolution}> */
+    public function branchOptions(ResolveMemoBranchMappingsAction $resolveMappings): array
+    {
+        $user = auth()->user();
+        $branches = $user->canAccessAllBranches()
+            ? Branch::query()->where('is_active', true)->orderBy('name')->get()
+            : Branch::query()->where('is_active', true)->whereIn('id', $user->accessibleBranchIds())->orderBy('name')->get();
+        $resolutions = $resolveMappings->resolveMany($branches);
+
+        return $branches->map(fn (Branch $branch): array => [
+            'branch' => $branch,
+            'resolution' => $resolutions[$branch->id],
+        ])->all();
+    }
+
     /**
      * Only opens the modal shell; the actual fetch happens in initializeMenuPicker() via
      * wire:init, same two-step pattern as the BOM "Tambah Komponen" picker
@@ -159,6 +191,8 @@ class ViewRndInternalMemo extends ViewRecord
         abort_unless($this->canUpdateMemo(), 403);
         $this->menuSearchName = '';
         $this->menuSearchCode = '';
+        $this->menuBranchFilter = null;
+        $this->menuCompanyFilter = '';
         $this->menuPickerPage = 1;
         $this->menuPickerTotal = 0;
         $this->menuPickerRows = [];
@@ -167,22 +201,14 @@ class ViewRndInternalMemo extends ViewRecord
     }
 
     /**
-     * Fired by wire:init right after the (already visible) modal's first render. Also warms the
-     * full-catalog cache Name search depends on (InternalMemoMenuCatalogService::allMenus())
-     * right away, concentrating the heavy cold-cache fetch (~8s parallelized, proven live; was
-     * 64s sequential) into this one opening load instead of making the user hit it again the
-     * moment they start typing a Name search.
+     * Fired by wire:init after the modal shell is visible. Opening the picker must only fetch the
+     * requested page: eagerly warming the full Master Menu catalog made one Livewire request wait
+     * for dozens of ESB pages and could exceed PHP-FPM's execution limit.
      */
-    public function initializeMenuPicker(InternalMemoMenuCatalogService $catalog): void
+    public function initializeMenuPicker(): void
     {
+        $this->dispatchStaleCatalogSyncs();
         $this->loadMenuPage(1);
-
-        try {
-            $catalog->warmCache();
-        } catch (RuntimeException) {
-            // Best-effort only: the default list above already loaded. If the catalog genuinely
-            // can't be fetched, a later Name search will surface that error normally.
-        }
     }
 
     public function closeMenuPicker(): void
@@ -197,6 +223,16 @@ class ViewRndInternalMemo extends ViewRecord
     }
 
     public function updatedMenuSearchCode(): void
+    {
+        $this->loadMenuPage(1);
+    }
+
+    public function updatedMenuBranchFilter(): void
+    {
+        $this->loadMenuPage(1);
+    }
+
+    public function updatedMenuCompanyFilter(): void
     {
         $this->loadMenuPage(1);
     }
@@ -221,25 +257,67 @@ class ViewRndInternalMemo extends ViewRecord
         $this->loadMenuPage(min($lastPage, max(1, $page)));
     }
 
-    public function loadMenuPage(int $page, ?InternalMemoMenuCatalogService $catalog = null): void
+    public function loadMenuPage(int $page, ?InternalMemoMenuCatalogQuery $catalog = null): void
     {
-        $catalog ??= app(InternalMemoMenuCatalogService::class);
+        $catalog ??= app(InternalMemoMenuCatalogQuery::class);
         $this->menuPickerLoading = true;
         $this->menuPickerError = null;
 
         try {
-            $result = $catalog->page($page, 10, $this->menuSearchName, $this->menuSearchCode);
-            $this->menuPickerRows = $result['rows'];
-            $this->menuPickerPage = $result['page'];
-            $this->menuPickerTotal = $result['total'];
-            $this->menuPickerPerPage = $result['perPage'];
-            $this->menuPickerHasNext = $result['hasNext'];
+            $paginator = $catalog->paginate(
+                $this->getRecord(),
+                10,
+                $this->menuSearchName,
+                $this->menuSearchCode,
+                $this->menuBranchFilter,
+                $this->menuCompanyFilter !== '' ? $this->menuCompanyFilter : null,
+                $page,
+            );
+            $this->menuPickerRows = collect($paginator->items())->map(function ($menu) use ($catalog): array {
+                return [
+                    'menuID' => $menu->menu_id,
+                    'menuCode' => $menu->menu_code,
+                    'menuName' => $menu->menu_name,
+                    'categoryDetail' => $menu->category_detail,
+                    'bomID' => $menu->bom_id,
+                    'bomName' => $menu->bom_name,
+                    'flagActive' => $menu->flag_active,
+                    'hasBom' => $menu->bom_id > 0,
+                    'companyCode' => $menu->company_code,
+                    'branchNames' => $catalog->branchNamesForMenu($this->getRecord(), $menu->company_code, $menu->menu_id),
+                    'memoBranchIds' => $catalog->memoBranchIdsForMenu($this->getRecord(), $menu->company_code, $menu->menu_id),
+                    'raw' => $menu->raw_snapshot ?? [],
+                ];
+            })->all();
+            $this->menuPickerPage = $paginator->currentPage();
+            $this->menuPickerTotal = $paginator->total();
+            $this->menuPickerPerPage = $paginator->perPage();
+            $this->menuPickerHasNext = $paginator->hasMorePages();
+
+            if ($this->menuPickerRows === [] && $this->getRecord()->branches()->whereIn('catalog_sync_status', ['pending', 'syncing'])->exists()) {
+                $this->menuPickerError = 'Katalog Menu sedang disinkronkan. Coba lagi setelah proses selesai.';
+            }
         } catch (RuntimeException $exception) {
             $this->menuPickerRows = [];
             $this->menuPickerError = $exception->getMessage();
         } finally {
             $this->menuPickerLoading = false;
         }
+    }
+
+    private function dispatchStaleCatalogSyncs(): void
+    {
+        $this->getRecord()->branches()
+            ->where(function ($query): void {
+                $query->whereIn('catalog_sync_status', ['pending', 'failed'])
+                    ->orWhereNull('catalog_synced_at')
+                    ->orWhere('catalog_synced_at', '<', now()->subMinutes(15));
+            })
+            ->get()
+            ->each(fn ($branch) => SyncInternalMemoMenuCatalogJob::dispatch(
+                $branch->company_code_snapshot,
+                $branch->branch_code_snapshot,
+            ));
     }
 
     /**

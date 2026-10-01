@@ -12,7 +12,7 @@
                     <div>
                         <p class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Research &amp; Development</p>
                         <h2 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">Memo Internal</h2>
-                        <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400">Daftar Menu yang akan dirilis beserta kebutuhan Bahan dan WIP dari BOM Menu dan Assembly Company Code BLSS.</p>
+                        <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400">Daftar Menu yang akan dirilis beserta kebutuhan Bahan dan WIP berdasarkan Branch Tujuan.</p>
                     </div>
                 </div>
                 @if(\App\Filament\Helpdesk\Resources\RndInternalMemos\RndInternalMemoResource::canCreate())

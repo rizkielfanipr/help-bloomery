@@ -10,13 +10,15 @@ use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ListRndInternalMemos;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ViewRndInternalMemo;
 use App\Models\Branch;
 use App\Models\RndInternalMemo;
+use App\Models\RndInternalMemoBranch;
+use App\Models\RndInternalMemoMenuCatalog;
 use App\Models\RndProductEsbShelfLife;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -29,13 +31,36 @@ function fakeMenuRow(int $menuId, int $bomId, string $name = 'Croissant Butter')
     ];
 }
 
+function attachMemoCatalogContext(RndInternalMemo $memo, Branch $branch): RndInternalMemoBranch
+{
+    $mapping = $branch->esbCodes()->firstOrFail();
+
+    return RndInternalMemoBranch::factory()->synced()->create([
+        'rnd_internal_memo_id' => $memo->id,
+        'branch_id' => $branch->id,
+        'branch_esb_code_id' => $mapping->id,
+        'branch_name_snapshot' => $branch->name,
+        'company_code_snapshot' => $mapping->esb_comcode,
+        'branch_code_snapshot' => $mapping->esb_branch_code,
+    ]);
+}
+
+/** @param array<string, mixed> $attributes */
+function createMemoCatalogMenu(array $attributes = []): RndInternalMemoMenuCatalog
+{
+    return RndInternalMemoMenuCatalog::factory()->create([
+        'company_code' => 'BLSS',
+        'branch_code' => 'BLS',
+        ...$attributes,
+    ]);
+}
+
 beforeEach(function () {
+    Queue::fake();
     config()->set('esb.base_url', 'https://esb.test');
     config()->set('esb.tokens.BLSS', 'static-blss-token');
-    config()->set('esb.master_menu_branch_codes.BLSS', 'BLS');
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
-    Cache::put('rnd.internal-memo.master-menu-branch.v2.BLSS', 'BLS', now()->addDay());
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
     $this->branch = Branch::factory()->create();
@@ -268,21 +293,15 @@ it('lets a Draft memo remove an added Menu', function () {
     expect($memo->menus()->count())->toBe(0);
 });
 
-it('searches the Menu picker against the live ESB fake and shows a Belum Memiliki BOM Menu as disabled', function () {
+it('searches the local Menu snapshot and shows a Menu without BOM as disabled', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    Http::fake([
-        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
-        'https://esb.test/core/branch' => Http::response([
-            'status' => 'ok',
-            'result' => [['branchID' => 6, 'branchCode' => 'BLS', 'branchName' => 'Bloomery Pabelan']],
-        ]),
-        'https://esb.test/corev1/master/get-menu*' => Http::response([
-            'status' => 'ok',
-            'result' => ['data' => [
-                ['menuID' => 501, 'menuCode' => 'MENU-501', 'menuName' => 'Croissant Butter', 'bomID' => 42, 'categoryDetail' => 'BEVERAGES - COFFEE'],
-                ['menuID' => 502, 'menuName' => 'Menu Belum BOM', 'bomID' => 0],
-            ], 'limit' => 10, 'count' => 2],
-        ]),
+    attachMemoCatalogContext($memo, $this->branch);
+    createMemoCatalogMenu([
+        'menu_id' => 501, 'menu_code' => 'MENU-501', 'menu_name' => 'Croissant Butter',
+        'bom_id' => 42, 'category_detail' => 'BEVERAGES - COFFEE',
+    ]);
+    createMemoCatalogMenu([
+        'menu_id' => 502, 'menu_code' => 'MENU-502', 'menu_name' => 'Menu Belum BOM', 'bom_id' => 0,
     ]);
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
@@ -294,6 +313,8 @@ it('searches the Menu picker against the live ESB fake and shows a Belum Memilik
         ->assertSee('COFFEE')
         ->assertSee('Menu Belum BOM')
         ->assertSee('Belum Memiliki BOM');
+
+    Http::assertNothingSent();
 });
 
 it('splits categoryDetail into Category and Category Detail, falling back to Category only without a delimiter', function () {
@@ -305,60 +326,49 @@ it('splits categoryDetail into Category and Category Detail, falling back to Cat
         ->and($page->instance()->splitMenuCategory(null))->toBe(['category' => null, 'detail' => null]);
 });
 
-it('opens the Menu picker with one page request and defers the full catalog until a Name search', function () {
+it('opens and searches the Menu picker entirely from the local snapshot', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    Http::fake([
-        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
-        'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 6, 'branchCode' => 'BLS']]]),
-        'https://esb.test/corev1/master/get-menu*' => Http::response(['status' => 'ok', 'result' => ['data' => [
-            ['menuID' => 1, 'menuName' => 'Croissant Butter', 'menuCode' => 'A1'],
-        ], 'limit' => 20, 'count' => 1]]),
+    attachMemoCatalogContext($memo, $this->branch);
+    createMemoCatalogMenu([
+        'menu_id' => 1, 'menu_name' => 'Croissant Butter', 'menu_code' => 'A1', 'bom_id' => 42,
     ]);
 
-    $countAfterOpening = 0;
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')
         ->call('initializeMenuPicker')
-        ->tap(function () use (&$countAfterOpening): void {
-            $countAfterOpening = count(Http::recorded());
-        })
         ->set('menuSearchName', 'Croissant')
         ->assertSee('Croissant Butter');
 
-    // Opening performs one Master Menu request using the static BLSS token. The expensive full
-    // catalog path is allowed to start later, once the user actually searches by Name.
-    expect($countAfterOpening)->toBe(1)
-        ->and(count(Http::recorded()))->toBeGreaterThan($countAfterOpening);
+    Http::assertNothingSent();
 });
 
-it('re-fetches the Menu picker automatically as the user types a search, without a separate search button', function () {
+it('filters the local Menu snapshot automatically as the user types', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    Http::fake([
-        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
-        'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 6, 'branchCode' => 'BLS']]]),
-        'https://esb.test/corev1/master/get-menu*' => Http::response(['status' => 'ok', 'result' => ['data' => [
-            ['menuID' => 1, 'menuName' => 'Croissant Butter', 'menuCode' => 'A1'],
-        ], 'limit' => 20, 'count' => 1]]),
-    ]);
+    attachMemoCatalogContext($memo, $this->branch);
+    createMemoCatalogMenu(['menu_id' => 1, 'menu_name' => 'Croissant Butter', 'menu_code' => 'A1', 'bom_id' => 42]);
+    createMemoCatalogMenu(['menu_id' => 2, 'menu_name' => 'Matcha Cake', 'menu_code' => 'B2', 'bom_id' => 43]);
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')
         ->set('menuSearchName', 'Croissant')
         ->assertSet('menuPickerPage', 1)
-        ->assertSee('Croissant Butter');
+        ->assertSee('Croissant Butter')
+        ->assertDontSee('Matcha Cake');
 
-    // Name search is filtered locally (menuName is proven to be ignored server-side), so typing
-    // triggers the full-catalog fetch rather than forwarding the term as a query parameter.
-    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/corev1/master/get-menu'));
+    Http::assertNothingSent();
 });
 
 it('paginates the Menu picker with goToMenuPage/previousMenuPage/nextMenuPage', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    Http::fake([
-        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
-        'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 6, 'branchCode' => 'BLS']]]),
-        'https://esb.test/corev1/master/get-menu*' => Http::response(['status' => 'ok', 'result' => ['data' => [], 'limit' => 10, 'count' => 25]]),
-    ]);
+    attachMemoCatalogContext($memo, $this->branch);
+    foreach (range(1, 25) as $index) {
+        createMemoCatalogMenu([
+            'menu_id' => $index,
+            'menu_name' => 'Menu '.str_pad((string) $index, 2, '0', STR_PAD_LEFT),
+            'menu_code' => 'M'.$index,
+            'bom_id' => 100 + $index,
+        ]);
+    }
 
     $page = Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')

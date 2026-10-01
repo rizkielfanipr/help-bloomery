@@ -44,6 +44,14 @@ function validMemoFormState(): array
     ];
 }
 
+it('renders the create modal Branch options without requiring an explicit service argument from Blade', function () {
+    Livewire::test(ListRndInternalMemos::class)
+        ->call('openCreateModal')
+        ->assertSet('createModalOpen', true)
+        ->assertSee('Bloomery Pabelan')
+        ->assertSee('Bloomery Takeaway');
+});
+
 it('creates one Memo spanning two branches from two different Company Codes', function () {
     Livewire::test(ListRndInternalMemos::class)
         ->set(validMemoFormState())
@@ -211,6 +219,20 @@ it('shows the Branch Tujuan summary on the detail page, and a "Perlu Menentukan 
     $legacyMemo = RndInternalMemo::factory()->create(['period_month' => '2027-01-01']);
     Livewire::test(ViewRndInternalMemo::class, ['record' => $legacyMemo->id])
         ->assertSee('Perlu Menentukan Branch');
+});
+
+it('renders the edit modal Branch options without requiring an explicit service argument from Blade', function () {
+    $memo = app(CreateInternalMemoAction::class)->execute([
+        'memo_number' => 'MB-EDIT', 'title' => 'Rilis', 'period_month' => '2026-10-01', 'memo_date' => now()->toDateString(),
+        'recipient' => '', 'sender' => '', 'subject' => 'Rilis', 'notes' => null,
+        'branch_ids' => [$this->branchA->id],
+    ], $this->operator);
+
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->call('openEditMemoModal')
+        ->assertSet('editMemoModalOpen', true)
+        ->assertSee('Bloomery Pabelan')
+        ->assertSee('Bloomery Takeaway');
 });
 
 it('prevents removing a Branch that would orphan an attached Menu', function () {

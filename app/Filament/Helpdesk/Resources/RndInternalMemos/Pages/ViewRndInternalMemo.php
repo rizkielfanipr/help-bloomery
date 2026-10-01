@@ -167,8 +167,9 @@ class ViewRndInternalMemo extends ViewRecord
     }
 
     /** @return array<int, array{branch:Branch,resolution:MemoBranchMappingResolution}> */
-    public function branchOptions(ResolveMemoBranchMappingsAction $resolveMappings): array
+    public function branchOptions(?ResolveMemoBranchMappingsAction $resolveMappings = null): array
     {
+        $resolveMappings ??= app(ResolveMemoBranchMappingsAction::class);
         $user = auth()->user();
         $branches = $user->canAccessAllBranches()
             ? Branch::query()->where('is_active', true)->orderBy('name')->get()

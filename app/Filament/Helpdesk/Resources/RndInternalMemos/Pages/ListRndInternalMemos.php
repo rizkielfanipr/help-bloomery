@@ -81,8 +81,9 @@ class ListRndInternalMemos extends ListRecords
      *
      * @return array<int, array{branch: Branch, resolution: MemoBranchMappingResolution}>
      */
-    public function branchOptions(ResolveMemoBranchMappingsAction $resolveBranchMappings): array
+    public function branchOptions(?ResolveMemoBranchMappingsAction $resolveBranchMappings = null): array
     {
+        $resolveBranchMappings ??= app(ResolveMemoBranchMappingsAction::class);
         $user = auth()->user();
         $branches = $user->canAccessAllBranches()
             ? Branch::query()->where('is_active', true)->orderBy('name')->get()

@@ -92,7 +92,7 @@ class CustomerComplaintResource extends Resource
 
                 TextColumn::make('occurred_at')
                     ->label('COMPLAINT DATE')
-                    ->dateTime('d M Y H:i')
+                    ->date('d M Y')
                     ->sortable(),
 
                 TextColumn::make('branch.name')

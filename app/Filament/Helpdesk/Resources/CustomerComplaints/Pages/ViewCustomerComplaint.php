@@ -66,7 +66,7 @@ class ViewCustomerComplaint extends ViewRecord
                     TextEntry::make('status')->label('Status')->badge()
                         ->formatStateUsing(fn (CustomerComplaintStatus $state) => $state->getLabel())
                         ->color(fn (CustomerComplaintStatus $state) => $state->getColor()),
-                    TextEntry::make('occurred_at')->label('Tanggal Kejadian')->dateTime('d M Y H:i'),
+                    TextEntry::make('occurred_at')->label('Tanggal Kejadian')->date('d M Y'),
                 ]),
                 Grid::make(2)->schema([
                     TextEntry::make('branch.name')->label('Branch'),

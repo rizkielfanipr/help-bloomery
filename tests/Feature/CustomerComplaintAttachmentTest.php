@@ -28,7 +28,7 @@ function attachedComplaint(Branch $branch, User $submitter): CustomerComplaint
     Livewire::test(CustomerComplaintPage::class)
         ->set('branchId', $branch->id)
         ->set([
-            'occurredAt' => now()->subHour()->format('Y-m-d\TH:i'),
+            'occurredAt' => now()->subDay()->format('Y-m-d'),
             'source' => CustomerComplaintSource::InStore->value,
             'category' => CustomerComplaintCategory::Service->value,
             'description' => 'Ada rambut di makanan.',
@@ -88,7 +88,7 @@ it('deletes already-uploaded files when the Action rejects the submission, inste
     $component = Livewire::test(CustomerComplaintPage::class)
         ->set('branchId', $otherBranch->id) // not accessible to $this->submitter
         ->set([
-            'occurredAt' => now()->subHour()->format('Y-m-d\TH:i'),
+            'occurredAt' => now()->subDay()->format('Y-m-d'),
             'source' => CustomerComplaintSource::InStore->value,
             'category' => CustomerComplaintCategory::Service->value,
             'description' => 'Deskripsi komplain.',

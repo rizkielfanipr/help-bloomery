@@ -69,7 +69,7 @@ class CustomerComplaintPage extends Page
     {
         $user = auth()->user();
         $this->branchId = $user->primaryBranchId();
-        $this->occurredAt = now()->format('Y-m-d\TH:i');
+        $this->occurredAt = now()->format('Y-m-d');
     }
 
     public function getTitle(): string|Htmlable
@@ -169,7 +169,7 @@ class CustomerComplaintPage extends Page
 
             $validated = $this->validate([
                 'branchId' => ['required', 'integer'],
-                'occurredAt' => ['required', 'date', 'before_or_equal:now'],
+                'occurredAt' => ['required', 'date', 'before_or_equal:today'],
                 'source' => ['required', Rule::enum(CustomerComplaintSource::class)],
                 'category' => ['required', Rule::enum(CustomerComplaintCategory::class)],
                 'orderReference' => ['nullable', 'string', 'max:100'],
@@ -229,6 +229,6 @@ class CustomerComplaintPage extends Page
         $this->submitted = false;
         $this->submittedNumber = null;
         $this->submittedComplaintId = null;
-        $this->occurredAt = now()->format('Y-m-d\TH:i');
+        $this->occurredAt = now()->format('Y-m-d');
     }
 }

@@ -109,7 +109,7 @@
                 {{-- Tanggal Kejadian --}}
                 <div>
                     <label for="occurredAt" class="{{ $labelClass }}">Tanggal Kejadian <span class="text-red-400">*</span></label>
-                    <input type="datetime-local" id="occurredAt" wire:model="occurredAt" max="{{ now()->format('Y-m-d\TH:i') }}" class="{{ $fieldClass }}">
+                    <input type="date" id="occurredAt" wire:model="occurredAt" max="{{ now()->format('Y-m-d') }}" class="{{ $fieldClass }}">
                     @error('occurredAt') <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p> @enderror
                 </div>
 
@@ -291,7 +291,7 @@
                     </div>
 
                     <dl class="space-y-2 text-xs">
-                        <div class="flex justify-between gap-3"><dt class="text-slate-400">Tanggal Kejadian</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->occurred_at->locale('id')->isoFormat('D MMM Y, HH:mm') }}</dd></div>
+                        <div class="flex justify-between gap-3"><dt class="text-slate-400">Tanggal Kejadian</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->occurred_at->locale('id')->isoFormat('D MMM Y') }}</dd></div>
                         <div class="flex justify-between gap-3"><dt class="text-slate-400">Branch</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->branch?->name }}</dd></div>
                         <div class="flex justify-between gap-3"><dt class="text-slate-400">Sumber</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->source->getLabel() }}</dd></div>
                         <div class="flex justify-between gap-3"><dt class="text-slate-400">Kategori</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->category->getLabel() }}</dd></div>

@@ -26,7 +26,7 @@ beforeEach(function () {
 function validComplaintFormState(): array
 {
     return [
-        'occurredAt' => now()->subHour()->format('Y-m-d\TH:i'),
+        'occurredAt' => now()->subDay()->format('Y-m-d'),
         'source' => CustomerComplaintSource::InStore->value,
         'category' => CustomerComplaintCategory::Service->value,
         'orderReference' => 'TRX-000123',
@@ -103,6 +103,27 @@ it('validates required fields and max lengths', function () {
         ->set('description', str_repeat('a', 2001))
         ->call('submit')
         ->assertHasErrors(['description']);
+});
+
+it('accepts Tanggal Kejadian as a plain date with no time component, and rejects a future date', function () {
+    $this->actingAs($this->user);
+
+    Livewire::test(CustomerComplaintPage::class)
+        ->set('branchId', $this->branch->id)
+        ->set(validComplaintFormState())
+        ->set('occurredAt', now()->format('Y-m-d'))
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $complaint = CustomerComplaint::query()->sole();
+    expect($complaint->occurred_at->format('H:i:s'))->toBe('00:00:00');
+
+    Livewire::test(CustomerComplaintPage::class)
+        ->set('branchId', $this->branch->id)
+        ->set(validComplaintFormState())
+        ->set('occurredAt', now()->addDay()->format('Y-m-d'))
+        ->call('submit')
+        ->assertHasErrors(['occurredAt']);
 });
 
 it('does not create two complaints from a rapid duplicate submit', function () {

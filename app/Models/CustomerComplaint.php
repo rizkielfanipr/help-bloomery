@@ -33,6 +33,7 @@ class CustomerComplaint extends Model
         'attachment_paths',
         'status',
         'assigned_to',
+        'internal_notes',
         'resolution',
         'resolved_at',
         'resolved_by',

@@ -45,7 +45,7 @@
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'bom-adjustments') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'shelf-life') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names') || str_contains($path, 'rnd-internal-memos') || str_contains($path, 'rnd-product-shelf-lives')) { $initialOpen[] = 'rnd'; }
-    if (str_contains($path, 'store-sops') || str_contains($path, 'store-sop-categories')) { $initialOpen[] = 'operational'; }
+    if (str_contains($path, 'store-sops') || str_contains($path, 'store-sop-categories') || str_contains($path, 'customer-complaints')) { $initialOpen[] = 'operational'; }
     if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || str_contains($path, 'vendor-compliance') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
     if (str_contains($path, 'sales-projection')) { $initialOpen[] = 'sales_growth'; }
@@ -117,6 +117,7 @@
             'items' => [
                 ['label' => 'SOP Store', 'icon' => 'book-open', 'perm' => 'view store sops', 'href' => $r('filament.helpdesk.resources.store-sops.index'), 'active' => $active($r('filament.helpdesk.resources.store-sops.index'))],
                 ['label' => 'SOP Kategori', 'icon' => 'tags', 'perm' => 'view store sop categories', 'href' => $r('filament.helpdesk.resources.store-sop-categories.index'), 'active' => $active($r('filament.helpdesk.resources.store-sop-categories.index'))],
+                ['label' => 'Customer Complaints', 'icon' => 'message-square-warning', 'perm' => 'view any customer complaints', 'href' => $r('filament.helpdesk.resources.customer-complaints.index'), 'active' => $active($r('filament.helpdesk.resources.customer-complaints.index'))],
             ],
         ],
         [

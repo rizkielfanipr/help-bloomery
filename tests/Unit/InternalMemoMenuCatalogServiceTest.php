@@ -103,6 +103,40 @@ it('caches the resolved branch list so it is only looked up once across pages', 
     Http::assertSentCount(4); // one login + one branch lookup (cached after) + two get-menu calls
 });
 
+it('caches a Master Menu page/search result so repeat opens and re-visited pages do not re-hit ESB', function () {
+    Http::fake([
+        ...fakeInternalMemoBranchList(),
+        'https://esb.test/corev1/master/get-menu*' => Http::response([
+            'status' => 'ok',
+            'result' => ['data' => [['menuID' => 501, 'menuName' => 'Croissant Butter']], 'limit' => 10, 'count' => 1],
+        ]),
+    ]);
+
+    $catalog = app(InternalMemoMenuCatalogService::class);
+    $first = $catalog->page(1, 10, 'Croissant', 'MENU-5');
+    $second = $catalog->page(1, 10, 'Croissant', 'MENU-5');
+
+    expect($second)->toBe($first);
+    Http::assertSentCount(3); // one login + one branch lookup + a single get-menu call, reused for the repeat
+});
+
+it('does not reuse the cache across a different search or page', function () {
+    Http::fake([
+        ...fakeInternalMemoBranchList(),
+        'https://esb.test/corev1/master/get-menu*' => Http::response([
+            'status' => 'ok',
+            'result' => ['data' => [], 'limit' => 10, 'count' => 0],
+        ]),
+    ]);
+
+    $catalog = app(InternalMemoMenuCatalogService::class);
+    $catalog->page(1, 10, 'Croissant');
+    $catalog->page(1, 10, 'Donut');
+    $catalog->page(2, 10, 'Croissant');
+
+    Http::assertSentCount(5); // one login + one branch lookup + three distinct get-menu calls
+});
+
 it('fails safely without falling back to another Company Code when the BLSS token is missing', function () {
     config()->set('esb.tokens.BLSS', '');
     Http::fake();

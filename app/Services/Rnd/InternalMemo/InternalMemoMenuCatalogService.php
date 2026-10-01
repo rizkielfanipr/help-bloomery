@@ -5,6 +5,7 @@ namespace App\Services\Rnd\InternalMemo;
 use App\Models\RndInternalMemo;
 use App\Services\EsbItemJournalService;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -31,50 +32,70 @@ class InternalMemoMenuCatalogService
     public function __construct(private EsbItemJournalService $itemJournal) {}
 
     /**
+     * `/corev1/master/get-menu` has no caching of its own, unlike the ESB Core BOM endpoints
+     * (InternalMemoBomResolver caches 15 minutes). The Menu picker's live search now calls this
+     * on every keystroke (debounced 700ms) as well as on every modal open, so a short cache keyed
+     * on Company Code + every identity/pagination parameter keeps repeat opens and re-visited
+     * pages/searches instant without serving stale data for more than a couple of minutes.
+     *
      * @return array{rows: list<array<string, mixed>>, page: int, total: int, perPage: int, hasNext: bool}
      */
     public function page(int $page = 1, int $perPage = 10, string $nameSearch = '', string $codeSearch = ''): array
     {
-        $token = $this->token();
-        $branchCode = $this->branchCode();
         $page = max(1, $page);
         $perPage = max(1, $perPage);
+        $nameSearch = trim($nameSearch);
+        $codeSearch = trim($codeSearch);
 
-        try {
-            $response = Http::acceptJson()
-                ->asJson()
-                ->withToken($token)
-                ->connectTimeout(10)
-                ->timeout((int) config('esb.core.timeout', 60))
-                ->get($this->baseUrl().'/corev1/master/get-menu', array_filter([
-                    'page' => $page,
-                    'limit' => $perPage,
-                    'branchCode' => $branchCode,
-                    'menuName' => trim($nameSearch),
-                    'menuCode' => trim($codeSearch),
-                    'Boolean' => 1,
-                ], fn (string|int $value): bool => (string) $value !== ''));
-        } catch (\Throwable $exception) {
-            throw new RuntimeException('Gagal menghubungi ESB Master Menu [BLSS]: '.$exception->getMessage(), previous: $exception);
-        }
+        $cacheKey = sprintf(
+            'rnd.internal-memo.menu-catalog.%s.%d.%d.%s.%s',
+            RndInternalMemo::COMPANY_CODE,
+            $page,
+            $perPage,
+            md5($nameSearch),
+            md5($codeSearch),
+        );
 
-        if ($response->failed()) {
-            throw new RuntimeException($this->errorMessage($response));
-        }
+        return Cache::remember($cacheKey, now()->addMinutes(2), function () use ($page, $perPage, $nameSearch, $codeSearch): array {
+            $token = $this->token();
+            $branchCode = $this->branchCode();
 
-        $body = $response->json();
-        $result = is_array($body) && is_array($body['result'] ?? null) ? $body['result'] : [];
-        $data = is_array($result['data'] ?? null) ? $result['data'] : [];
-        $limit = max(1, (int) ($result['limit'] ?? $perPage));
-        $count = (int) ($result['count'] ?? count($data));
+            try {
+                $response = Http::acceptJson()
+                    ->asJson()
+                    ->withToken($token)
+                    ->connectTimeout(10)
+                    ->timeout((int) config('esb.core.timeout', 60))
+                    ->get($this->baseUrl().'/corev1/master/get-menu', array_filter([
+                        'page' => $page,
+                        'limit' => $perPage,
+                        'branchCode' => $branchCode,
+                        'menuName' => $nameSearch,
+                        'menuCode' => $codeSearch,
+                        'Boolean' => 1,
+                    ], fn (string|int $value): bool => (string) $value !== ''));
+            } catch (\Throwable $exception) {
+                throw new RuntimeException('Gagal menghubungi ESB Master Menu [BLSS]: '.$exception->getMessage(), previous: $exception);
+            }
 
-        return [
-            'rows' => array_map($this->normalize(...), $data),
-            'page' => $page,
-            'total' => $count,
-            'perPage' => $perPage,
-            'hasNext' => filled($body['next'] ?? null) || ($page * $limit) < $count,
-        ];
+            if ($response->failed()) {
+                throw new RuntimeException($this->errorMessage($response));
+            }
+
+            $body = $response->json();
+            $result = is_array($body) && is_array($body['result'] ?? null) ? $body['result'] : [];
+            $data = is_array($result['data'] ?? null) ? $result['data'] : [];
+            $limit = max(1, (int) ($result['limit'] ?? $perPage));
+            $count = (int) ($result['count'] ?? count($data));
+
+            return [
+                'rows' => array_map($this->normalize(...), $data),
+                'page' => $page,
+                'total' => $count,
+                'perPage' => $perPage,
+                'hasNext' => filled($body['next'] ?? null) || ($page * $limit) < $count,
+            ];
+        });
     }
 
     /** @return array{menuID:int,menuCode:string,menuName:string,categoryDetail:?string,bomID:int,bomName:?string,flagActive:bool,hasBom:bool,raw:array<string,mixed>} */

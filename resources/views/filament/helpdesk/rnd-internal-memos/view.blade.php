@@ -52,8 +52,15 @@
                     <p class="mt-1 text-sm text-gray-500">{{ $menus->count() }} Menu dari Master Menu BLSS.</p>
                 </div>
                 @if($canManage)
-                    <button type="button" wire:click="openMenuPicker" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                        <x-heroicon-o-plus class="h-4 w-4" /> Tambah Menu
+                    <button type="button" wire:click="openMenuPicker" wire:loading.attr="disabled" wire:target="openMenuPicker" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+                        <span wire:loading.remove wire:target="openMenuPicker" class="inline-flex items-center gap-2"><x-heroicon-o-plus class="h-4 w-4" /> Tambah Menu</span>
+                        <span wire:loading wire:target="openMenuPicker" class="inline-flex items-center gap-2">
+                            <svg class="h-4 w-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            Memuat...
+                        </span>
                     </button>
                 @endif
             </div>

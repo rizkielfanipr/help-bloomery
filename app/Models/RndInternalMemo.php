@@ -45,6 +45,13 @@ class RndInternalMemo extends Model
         'archived_at',
     ];
 
+    /**
+     * `period_month_if_active` is a generated column that exists purely to make the
+     * (company_code, period_month, revision) uniqueness MySQL/SQLite-safe for soft deletes — see
+     * its migration. It has no application meaning and is never read or written by name.
+     */
+    protected $hidden = ['period_month_if_active'];
+
     protected function casts(): array
     {
         return [

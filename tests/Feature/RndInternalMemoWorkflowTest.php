@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Rnd\InternalMemo\AddMenuToInternalMemoAction;
+use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\SynchronizeInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuForecastAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuShelfLifeAction;
@@ -130,6 +131,25 @@ it('rejects a second memo for the same period and a duplicate memo number', func
         ->set('periodMonth', '2026-10')
         ->call('createMemo')
         ->assertHasErrors(['memoNumber']);
+});
+
+it('allows creating a new memo for a period whose previous memo was deleted', function () {
+    // Regression: the (company_code, period_month, revision) unique index applied to every row
+    // at the database level, including soft-deleted ones (MySQL has no partial unique index), so
+    // deleting a Memo and recreating one for the same period raised a raw
+    // UniqueConstraintViolationException even though the app-level duplicate-period check
+    // correctly ignores soft-deleted records.
+    $old = RndInternalMemo::factory()->create(['period_month' => '2026-09-01', 'memo_number' => 'OLD-001']);
+    app(DeleteInternalMemoAction::class)->execute($old);
+
+    Livewire::test(ListRndInternalMemos::class)
+        ->set('memoNumber', 'NEW-001')
+        ->set('memoTitle', 'Rilis Menu September Baru')
+        ->set('periodMonth', '2026-09')
+        ->call('createMemo')
+        ->assertHasNoErrors();
+
+    expect(RndInternalMemo::query()->where('memo_number', 'NEW-001')->exists())->toBeTrue();
 });
 
 it('adds a Menu with bomID > 0 through the picker, stores a snapshot, and resolves its BOM immediately', function () {

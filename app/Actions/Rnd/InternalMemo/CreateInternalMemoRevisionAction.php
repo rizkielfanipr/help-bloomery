@@ -33,7 +33,11 @@ class CreateInternalMemoRevisionAction
         }
 
         return DB::transaction(function () use ($memo, $newMemoNumber, $actor): RndInternalMemo {
-            $revision = $memo->replicate(['status', 'source_synced_at', 'snapshot_hash', 'finalized_by', 'finalized_at', 'archived_by', 'archived_at']);
+            // period_month_if_active is a generated column (added to work around MySQL having no
+            // partial unique index — see its migration); replicate() copies every raw attribute
+            // regardless of $fillable, and an explicit value for a generated column is rejected
+            // outright by both MySQL and SQLite.
+            $revision = $memo->replicate(['status', 'source_synced_at', 'snapshot_hash', 'finalized_by', 'finalized_at', 'archived_by', 'archived_at', 'period_month_if_active']);
             $revision->memo_number = $newMemoNumber;
             $revision->status = RndInternalMemoStatus::Draft;
             $revision->revision = $memo->revision + 1;

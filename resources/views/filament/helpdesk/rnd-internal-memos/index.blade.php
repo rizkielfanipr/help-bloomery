@@ -108,22 +108,10 @@
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Branch Tujuan *</label>
-                        <select wire:model="branchIds" multiple size="5" class="{{ $inputClass }}">
-                            @foreach($this->branchOptions() as $option)
-                                @php $resolved = $option['resolution']->isResolved(); @endphp
-                                <option value="{{ $option['branch']->id }}" @disabled(! $resolved)>
-                                    {{ $option['branch']->name }}
-                                    @if($resolved)
-                                        — {{ $option['resolution']->mapping->esb_comcode }} · {{ $option['resolution']->mapping->esb_branch_code }}
-                                    @else
-                                        ({{ $option['resolution']->blockedReason }})
-                                    @endif
-                                </option>
-                            @endforeach
-                        </select>
+                        <x-rnd.branch-multi-select :options="$this->branchOptions()" />
                         @error('branchIds')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                         @error('branchIds.*')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                        <p class="mt-1 text-[11px] text-gray-400">Tahan Ctrl/Cmd untuk memilih lebih dari satu Branch.</p>
+                        <p class="mt-1 text-[11px] text-gray-400">Pilih satu atau beberapa branch tujuan.</p>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Catatan</label>

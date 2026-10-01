@@ -289,19 +289,9 @@
                     </div>
                     <div>
                         <label class="text-xs font-semibold text-gray-500 dark:text-gray-400">Branch Tujuan *</label>
-                        <select wire:model="branchIds" multiple size="5" class="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                            @foreach($this->branchOptions() as $option)
-                                @php $resolved = $option['resolution']->isResolved(); @endphp
-                                <option value="{{ $option['branch']->id }}" @disabled(! $resolved)>
-                                    {{ $option['branch']->name }}
-                                    @if($resolved)
-                                        — {{ $option['resolution']->mapping->esb_comcode }} · {{ $option['resolution']->mapping->esb_branch_code }}
-                                    @else
-                                        ({{ $option['resolution']->blockedReason }})
-                                    @endif
-                                </option>
-                            @endforeach
-                        </select>
+                        <div class="mt-1">
+                            <x-rnd.branch-multi-select :options="$this->branchOptions()" />
+                        </div>
                         @error('branchIds')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                         @error('branchIds.*')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                         <p class="mt-1 text-[11px] text-gray-400">Lepaskan Menu yang hanya tersedia pada branch tersebut sebelum menghapus Branch Tujuan.</p>

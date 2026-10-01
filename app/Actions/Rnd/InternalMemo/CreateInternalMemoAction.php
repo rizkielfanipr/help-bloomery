@@ -3,6 +3,7 @@
 namespace App\Actions\Rnd\InternalMemo;
 
 use App\Enums\RndInternalMemoStatus;
+use App\Jobs\SyncInternalMemoMenuCatalogJob;
 use App\Models\Branch;
 use App\Models\RndInternalMemo;
 use App\Models\User;
@@ -71,7 +72,7 @@ class CreateInternalMemoAction
             ]);
         }
 
-        return DB::transaction(function () use ($data, $actor, $orderedResolutions, $primaryCompanyCode): RndInternalMemo {
+        $memo = DB::transaction(function () use ($data, $actor, $orderedResolutions, $primaryCompanyCode): RndInternalMemo {
             $memo = RndInternalMemo::query()->create([
                 'company_code' => $primaryCompanyCode,
                 'memo_number' => trim((string) $data['memo_number']),
@@ -101,5 +102,14 @@ class CreateInternalMemoAction
 
             return $memo;
         });
+
+        foreach ($memo->branches as $memoBranch) {
+            SyncInternalMemoMenuCatalogJob::dispatchAfterResponse(
+                $memoBranch->company_code_snapshot,
+                $memoBranch->branch_code_snapshot,
+            );
+        }
+
+        return $memo;
     }
 }

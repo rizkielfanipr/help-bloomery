@@ -24,7 +24,6 @@ use Livewire\Livewire;
 beforeEach(function () {
     config()->set('esb.base_url', 'https://esb.test');
     config()->set('esb.tokens.BLSS', 'static-blss-token');
-    config()->set('esb.master_menu_branch_codes.BLSS', 'BLS');
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
     // Blanked deliberately: InternalMemoProductEnricher's Product-detail lookup (a separate ESB
@@ -46,14 +45,11 @@ it('characterizes InternalMemoBomResolver::resolve() as taking only a Menu, with
         ->and($parameters[0]->getType()?->getName())->toBe(RndInternalMemoMenu::class);
 });
 
-it('characterizes InternalMemoMenuCatalogService::page() as accepting no Company Code parameter', function () {
-    // Phase 4 ("Katalog lokal dan background sync") is expected to change this signature to
-    // accept a Company Code (and Branch Code), per docs/rnd-internal-memo-multi-branch-prd.md §13.
-    $method = new ReflectionMethod(InternalMemoMenuCatalogService::class, 'page');
+it('characterizes catalog synchronization as requiring Company Code and Branch Code context', function () {
+    $method = new ReflectionMethod(InternalMemoMenuCatalogService::class, 'allForContext');
     $parameterNames = array_map(fn (ReflectionParameter $p): string => $p->getName(), $method->getParameters());
 
-    expect($parameterNames)->not->toContain('companyCode')
-        ->and($parameterNames)->not->toContain('branchCode');
+    expect($parameterNames)->toBe(['companyCode', 'branchCode']);
 });
 
 it('characterizes the exact ESB request count for adding a Menu with a resolvable BOM: login + one BOM detail fetch', function () {

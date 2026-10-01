@@ -20,8 +20,8 @@ class EditBranch extends EditRecord
         if ($branch->stock_card_esb_code_id !== null && $branch->activeStockCardEsbCode() === null) {
             $branch->update(['stock_card_esb_code_id' => null]);
             Notification::make()
-                ->title('Sumber Stock Card dikosongkan')
-                ->body('Mapping yang dipilih sudah tidak aktif atau tidak lagi dimiliki Branch ini.')
+                ->title('Sumber Stock Card & Memo Internal dikosongkan')
+                ->body('Mapping bersama yang dipilih sudah tidak aktif atau tidak lagi dimiliki Branch ini.')
                 ->warning()
                 ->send();
         }

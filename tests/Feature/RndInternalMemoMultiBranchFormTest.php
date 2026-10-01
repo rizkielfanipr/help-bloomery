@@ -26,9 +26,11 @@ beforeEach(function () {
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 
     $this->branchA = Branch::factory()->create(['name' => 'Bloomery Pabelan']);
-    $this->branchA->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
+    $mappingA = $this->branchA->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
+    $this->branchA->update(['stock_card_esb_code_id' => $mappingA->id]);
     $this->branchB = Branch::factory()->create(['name' => 'Bloomery Takeaway']);
-    $this->branchB->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6']);
+    $mappingB = $this->branchB->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6']);
+    $this->branchB->update(['stock_card_esb_code_id' => $mappingB->id]);
 
     $this->operator = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $this->operator->givePermissionTo(['view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo', 'update rnd internal memo']);
@@ -98,7 +100,8 @@ it('rejects a branch with an ambiguous (2+ active, no explicit) ESB mapping, wit
 
 it('rejects a branch whose Company Code has no static Master Menu token configured', function () {
     $noToken = Branch::factory()->create();
-    $noToken->esbCodes()->create(['esb_comcode' => 'BLO18', 'esb_branch_code' => 'B18']);
+    $mapping = $noToken->esbCodes()->create(['esb_comcode' => 'BLO18', 'esb_branch_code' => 'B18']);
+    $noToken->update(['stock_card_esb_code_id' => $mapping->id]);
     config()->set('esb.tokens.BLO18', '');
 
     Livewire::test(ListRndInternalMemos::class)
@@ -258,7 +261,8 @@ it('prevents removing a Branch that would orphan an attached Menu', function () 
 
 it('allows removing a Branch when every attached Menu remains available on another selected Branch', function () {
     $branchC = Branch::factory()->create(['name' => 'Bloomery Pakuwon']);
-    $branchC->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLP']);
+    $mappingC = $branchC->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLP']);
+    $branchC->update(['stock_card_esb_code_id' => $mappingC->id]);
     $memo = app(CreateInternalMemoAction::class)->execute([
         'memo_number' => 'MB-031', 'title' => 'Rilis', 'period_month' => '2026-12-01', 'memo_date' => now()->toDateString(),
         'recipient' => '', 'sender' => '', 'subject' => 'Rilis', 'notes' => null,

@@ -17,7 +17,7 @@ Dokumen ini mengubah batasan Memo Internal yang sebelumnya hanya memakai Company
 
 ## 2. Ringkasan kebutuhan
 
-Pengguna dapat membuat Memo Internal untuk satu atau beberapa branch. Pengguna hanya memilih nama branch dari Master Branch lokal. Sistem menentukan Company Code, Branch Code, ESB Branch ID, static token Master Menu, dan credential ESB Core secara otomatis dari mapping aktif branch tersebut.
+Pengguna dapat membuat Memo Internal untuk satu atau beberapa branch. Pengguna hanya memilih nama branch dari Master Branch lokal. Sistem menentukan Company Code, Branch Code, ESB Branch ID, static token Master Menu, dan credential ESB Core secara otomatis dari mapping utama yang dipakai bersama dengan Stock Card.
 
 Alur utama:
 
@@ -210,16 +210,14 @@ Menghapus branch:
 
 ## 8. Sumber data Master Branch
 
-Satu Master Branch dapat mempunyai beberapa mapping ESB. Memo membutuhkan tepat satu mapping utama per branch.
+Satu Master Branch dapat mempunyai beberapa mapping ESB. Memo Internal dan Stock Card menggunakan satu pilihan mapping utama yang sama melalui `branches.stock_card_esb_code_id`.
 
-Urutan resolusi mapping:
+Aturan resolusi mapping:
 
-1. Mapping aktif yang secara eksplisit ditandai sebagai sumber Memo Internal, jika field tersebut tersedia.
-2. Mapping aktif yang ditandai sebagai mapping utama bersama sesuai mekanisme Stock Card existing, jika bisnis menyatakan mapping itu boleh dipakai bersama.
-3. Jika terdapat tepat satu mapping aktif dan lengkap, gunakan mapping tersebut.
-4. Jika terdapat lebih dari satu mapping aktif tanpa penanda utama, branch tidak dapat dipilih sampai mapping utama ditentukan.
-
-Jangan memilih mapping pertama berdasarkan urutan database.
+1. Gunakan mapping aktif yang dipilih sebagai **Sumber Stock Card & Memo Internal** pada Master Branch.
+2. Jika pilihan kosong, tidak aktif, atau tidak lengkap, branch tidak dapat dipilih pada Memo Internal.
+3. Sistem tidak menebak dari jumlah mapping aktif dan tidak memilih mapping pertama berdasarkan urutan database.
+4. Perubahan mapping hanya memengaruhi Memo baru atau proses edit berikutnya; snapshot pada Memo yang sudah tersimpan tetap dipertahankan.
 
 Snapshot yang disimpan:
 

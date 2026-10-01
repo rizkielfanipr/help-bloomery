@@ -73,8 +73,8 @@ Catatan: database yang diaudit hanya punya 4 branch lokal bernama demo/testing d
 
 | # | Keputusan | Hasil |
 |---|---|---|
-| 1 | Mapping utama Stock Card dipakai langsung? | **Tidak.** Kolom `stock_card_esb_code_id` eksplisit Stock-Card-only secara nama dan UX. |
-| 2 | Perlu field `is_internal_memo_source` sendiri? | **Ya.** Tambah FK baru `internal_memo_esb_code_id` di `branches`, meniru pola Stock Card persis. |
+| 1 | Mapping utama Stock Card dipakai langsung? | **Ya, keputusan diperbarui 2 Oktober 2026.** `stock_card_esb_code_id` menjadi satu sumber mapping untuk Stock Card dan Memo Internal. |
+| 2 | Perlu field `is_internal_memo_source` sendiri? | **Tidak.** Field `internal_memo_esb_code_id` yang sempat dibuat dimigrasikan ke sumber bersama lalu dihapus agar tidak ada dua konfigurasi yang dapat berbeda. |
 | 3 | Branch migrasi tiap Memo BLSS existing? | **Tidak ada yang bisa dibuktikan — seluruh 5 masuk "Perlu Menentukan Branch".** |
 | 4 | Katalog Menu beda antarbranch untuk Company Code sama? | **Tidak (terbukti).** Beda hanya lintas Company Code. |
 | 5 | Static token tersedia untuk semua Company Code? | **Tidak.** BLO18 kosong; ESB Core credential cuma ada untuk BLSS+BLO6. |

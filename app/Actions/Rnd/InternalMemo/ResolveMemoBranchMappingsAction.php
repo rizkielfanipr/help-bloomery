@@ -6,42 +6,22 @@ use App\Models\Branch;
 use App\Models\BranchEsbCode;
 
 /**
- * Resolves exactly one "primary" ESB mapping per Branch for R&D Internal Memo
- * (docs/rnd-internal-memo-multi-branch-prd.md §8). Resolution order, per the Phase 0 audit:
- *
- * 1. The explicit `internal_memo_esb_code_id` mapping on the Branch, if active.
- * 2. Stock Card's shared mapping — deliberately SKIPPED. Phase 0 decision #1 found
- *    `stock_card_esb_code_id` to be purpose-built and described as Stock-Card-only in its own
- *    admin UI copy; reusing it here would silently couple two independent business decisions for
- *    the same physical branch.
- * 3. If the Branch has exactly one active ESB mapping at all, use it.
- * 4. Otherwise (zero, or 2+ with no explicit pick), the Branch cannot be selected.
- *
- * Never picks "the first row by database order" at any step (PRD §8, §21).
+ * Resolves the same explicit ESB mapping selected for Stock Card. Both features therefore use a
+ * single source on Master Branch and never guess from the first or only active mapping.
  */
 class ResolveMemoBranchMappingsAction
 {
     public function resolve(Branch $branch): MemoBranchMappingResolution
     {
-        $explicit = $branch->activeInternalMemoEsbCode();
+        $explicit = $branch->activeStockCardEsbCode();
         if ($explicit) {
             return $this->validate($branch, $explicit);
         }
 
-        $active = $branch->activeEsbCodes();
-
-        if ($active->count() === 1) {
-            return $this->validate($branch, $active->first());
-        }
-
-        if ($active->count() > 1) {
-            return MemoBranchMappingResolution::blocked(
-                $branch,
-                'Mapping ESB utama belum ditentukan untuk Branch ini. Pilih satu mapping aktif sebagai sumber Memo Internal melalui Master Branch.',
-            );
-        }
-
-        return MemoBranchMappingResolution::blocked($branch, 'Branch ini belum mempunyai mapping ESB aktif.');
+        return MemoBranchMappingResolution::blocked(
+            $branch,
+            'Sumber Stock Card & Memo Internal belum dipilih atau mapping-nya tidak aktif. Atur melalui Master Branch.',
+        );
     }
 
     /** @param  iterable<int, Branch>  $branches @return array<int, MemoBranchMappingResolution> keyed by Branch id */

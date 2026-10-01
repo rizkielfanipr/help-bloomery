@@ -64,7 +64,8 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
     $this->branch = Branch::factory()->create();
-    $this->branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
+    $mapping = $this->branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
+    $this->branch->update(['stock_card_esb_code_id' => $mapping->id]);
     $this->operator = User::factory()->create(['is_active' => true, 'branch_id' => $this->branch->id]);
     $this->operator->givePermissionTo(['view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo', 'update rnd internal memo']);
     $this->actingAs($this->operator);

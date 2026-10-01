@@ -6,6 +6,7 @@ use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoBranch;
 use App\Models\RndInternalMemoMenu;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * docs/rnd-internal-memo-multi-branch-prd.md Phase 2 ("Schema dan domain branch").
@@ -15,11 +16,16 @@ beforeEach(function () {
     config()->set('esb.tokens.BLO6', 'static-blo6-token');
 });
 
-it('resolves the explicit internal_memo_esb_code_id mapping first, ignoring other active mappings on the same branch', function () {
+it('uses one branch mapping column shared with Stock Card', function () {
+    expect(Schema::hasColumn('branches', 'stock_card_esb_code_id'))->toBeTrue()
+        ->and(Schema::hasColumn('branches', 'internal_memo_esb_code_id'))->toBeFalse();
+});
+
+it('uses the explicit Stock Card mapping for Memo Internal, ignoring other active mappings', function () {
     $branch = Branch::factory()->create();
     $other = $branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
     $explicit = $branch->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6']);
-    $branch->update(['internal_memo_esb_code_id' => $explicit->id]);
+    $branch->update(['stock_card_esb_code_id' => $explicit->id]);
 
     $resolution = app(ResolveMemoBranchMappingsAction::class)->resolve($branch->fresh());
 
@@ -28,17 +34,18 @@ it('resolves the explicit internal_memo_esb_code_id mapping first, ignoring othe
         ->and($resolution->mapping->id)->not->toBe($other->id);
 });
 
-it('falls back to the single active mapping when no explicit mapping is set', function () {
+it('does not guess from a single active mapping when the Stock Card source is not selected', function () {
     $branch = Branch::factory()->create();
-    $mapping = $branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
+    $branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
 
     $resolution = app(ResolveMemoBranchMappingsAction::class)->resolve($branch->fresh());
 
-    expect($resolution->isResolved())->toBeTrue()
-        ->and($resolution->mapping->id)->toBe($mapping->id);
+    expect($resolution->isResolved())->toBeFalse()
+        ->and($resolution->mapping)->toBeNull()
+        ->and($resolution->blockedReason)->toContain('Sumber Stock Card');
 });
 
-it('blocks a branch with two or more active mappings and no explicit pick, without guessing the first one', function () {
+it('blocks a branch with multiple mappings when the Stock Card source is not selected', function () {
     $branch = Branch::factory()->create();
     $branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
     $branch->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6']);
@@ -49,18 +56,19 @@ it('blocks a branch with two or more active mappings and no explicit pick, witho
         ->and($resolution->blockedReason)->not->toBeNull();
 });
 
-it('blocks a branch with no active ESB mapping at all', function () {
+it('blocks a branch with no Stock Card source', function () {
     $branch = Branch::factory()->create();
 
     $resolution = app(ResolveMemoBranchMappingsAction::class)->resolve($branch);
 
     expect($resolution->isResolved())->toBeFalse()
-        ->and($resolution->blockedReason)->toContain('belum mempunyai mapping');
+        ->and($resolution->blockedReason)->toContain('Sumber Stock Card');
 });
 
 it('ignores an inactive mapping and blocks the branch as if it had none', function () {
     $branch = Branch::factory()->create();
-    $branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS', 'is_active' => false]);
+    $mapping = $branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS', 'is_active' => false]);
+    $branch->update(['stock_card_esb_code_id' => $mapping->id]);
 
     $resolution = app(ResolveMemoBranchMappingsAction::class)->resolve($branch->fresh());
 
@@ -69,10 +77,12 @@ it('ignores an inactive mapping and blocks the branch as if it had none', functi
 
 it('blocks a branch whose single active mapping has a blank Company Code or Branch Code', function () {
     $branchNoCompany = Branch::factory()->create();
-    $branchNoCompany->esbCodes()->create(['esb_comcode' => '', 'esb_branch_code' => 'BLS']);
+    $noCompanyMapping = $branchNoCompany->esbCodes()->create(['esb_comcode' => '', 'esb_branch_code' => 'BLS']);
+    $branchNoCompany->update(['stock_card_esb_code_id' => $noCompanyMapping->id]);
 
     $branchNoCode = Branch::factory()->create();
-    $branchNoCode->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => '']);
+    $noCodeMapping = $branchNoCode->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => '']);
+    $branchNoCode->update(['stock_card_esb_code_id' => $noCodeMapping->id]);
 
     $resolver = app(ResolveMemoBranchMappingsAction::class);
 
@@ -82,7 +92,8 @@ it('blocks a branch whose single active mapping has a blank Company Code or Bran
 
 it('blocks a branch whose Company Code has no static Master Menu token configured', function () {
     $branch = Branch::factory()->create();
-    $branch->esbCodes()->create(['esb_comcode' => 'BLO18', 'esb_branch_code' => 'B18']);
+    $mapping = $branch->esbCodes()->create(['esb_comcode' => 'BLO18', 'esb_branch_code' => 'B18']);
+    $branch->update(['stock_card_esb_code_id' => $mapping->id]);
     config()->set('esb.tokens.BLO18', '');
 
     $resolution = app(ResolveMemoBranchMappingsAction::class)->resolve($branch->fresh());
@@ -93,7 +104,8 @@ it('blocks a branch whose Company Code has no static Master Menu token configure
 
 it('resolves many branches independently, so one blocked branch does not affect another', function () {
     $good = Branch::factory()->create();
-    $good->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
+    $mapping = $good->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
+    $good->update(['stock_card_esb_code_id' => $mapping->id]);
 
     $bad = Branch::factory()->create();
 

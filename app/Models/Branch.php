@@ -22,7 +22,6 @@ class Branch extends Model
         'radius_meters',
         'is_active',
         'stock_card_esb_code_id',
-        'internal_memo_esb_code_id',
         'location_required',
         'sales_shift_count',
         'sales_assessment_started_at',
@@ -56,22 +55,6 @@ class Branch extends Model
     public function activeStockCardEsbCode(): ?BranchEsbCode
     {
         $mapping = $this->stockCardEsbCode;
-
-        return $mapping?->branch_id === $this->id && $mapping->is_active ? $mapping : null;
-    }
-
-    public function internalMemoEsbCode(): BelongsTo
-    {
-        return $this->belongsTo(BranchEsbCode::class, 'internal_memo_esb_code_id');
-    }
-
-    /**
-     * docs/rnd-internal-memo-multi-branch-prd.md §8, Phase 0 decision #2: a dedicated field
-     * mirroring activeStockCardEsbCode() exactly, not shared with Stock Card's mapping.
-     */
-    public function activeInternalMemoEsbCode(): ?BranchEsbCode
-    {
-        $mapping = $this->internalMemoEsbCode;
 
         return $mapping?->branch_id === $this->id && $mapping->is_active ? $mapping : null;
     }

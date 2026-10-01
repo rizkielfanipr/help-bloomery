@@ -9,7 +9,7 @@ Acuan: `docs/rnd-internal-memo-multi-branch-prd.md`
 | --- | --- | --- |
 | 0 — Audit dan kontrak | Selesai | Kontrak Master Menu, mapping branch, credential, akses, TTL, dan strategi data existing dicatat pada laporan Phase 0. |
 | 1 — Safety net | Selesai | Characterization test dan penjaga HTTP eksternal tersedia. Baseline diperbarui ketika kontrak multi-branch resmi diterapkan. |
-| 2 — Schema dan domain | Selesai | Memo–Branch, Menu–Branch, snapshot mapping, resolver mapping utama, model, factory, dan constraint tersedia. |
+| 2 — Schema dan domain | Selesai | Memo–Branch, Menu–Branch, snapshot mapping, resolver sumber bersama Stock Card, model, factory, dan constraint tersedia. |
 | 3 — Form dan Policy | Selesai | Create/edit memakai multi-select Branch Tujuan, validasi akses berjalan server-side, dan Memo dapat dilihat oleh pengguna yang mempunyai akses minimal ke satu branch. |
 | 4 — Katalog lokal | Selesai | Katalog disinkronkan oleh job unik per Company/Branch, snapshot lokal dipertahankan saat gagal, dan picker tidak melakukan HTTP ESB. |
 | 5 — Merge dan rekonsiliasi | Selesai | Menu digabung berdasarkan Company Code + Menu ID, daftar branch asal tersimpan, dan penghapusan branch ditolak bila membuat Menu yatim. |
@@ -64,5 +64,5 @@ Acuan: `docs/rnd-internal-memo-multi-branch-prd.md`
 ## Batasan operasional
 
 - Memo lama tidak otomatis mendapat Branch Tujuan karena branch historis tidak dapat dibuktikan.
-- Branch dengan mapping ambigu atau token yang belum tersedia tetap tidak dapat dipilih.
+- Branch tanpa **Sumber Stock Card & Memo Internal** yang aktif atau tanpa token tetap tidak dapat dipilih. Sistem tidak menebak mapping lain.
 - Sinkronisasi katalog bersifat asynchronous; sesaat setelah membuat Memo, picker dapat menampilkan status sedang disinkronkan.

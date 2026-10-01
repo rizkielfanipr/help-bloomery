@@ -126,13 +126,13 @@ it('does not force an empty row on the edit page of a branch without ESB codes o
     expect($branch->fresh()->name)->toBe('Cabang Lama Baru');
 });
 
-it('lets an administrator select exactly one active ESB mapping as the Stock Card source', function () {
+it('lets an administrator select one shared ESB mapping for Stock Card and Memo Internal', function () {
     $branch = Branch::factory()->create(['name' => 'Multi Company']);
     $first = $branch->esbCodes()->create(['esb_branch_code' => 'BLS', 'esb_comcode' => 'BLSS', 'label' => 'NO LABEL', 'is_active' => true]);
     $second = $branch->esbCodes()->create(['esb_branch_code' => 'BL6', 'esb_comcode' => 'BLO6', 'label' => 'NO LABEL', 'is_active' => true]);
 
     Livewire::test(EditBranch::class, ['record' => $branch->id])
-        ->assertSee('Sumber Stock Card')
+        ->assertSee('Sumber Stock Card &amp; Memo Internal', false)
         ->fillForm(['stock_card_esb_code_id' => $second->id])
         ->call('save')
         ->assertHasNoFormErrors();

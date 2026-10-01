@@ -190,7 +190,7 @@ class BranchResource extends Resource
                             ->columnSpanFull(),
 
                         Select::make('stock_card_esb_code_id')
-                            ->label('Sumber Stock Card')
+                            ->label('Sumber Stock Card & Memo Internal')
                             ->options(fn (?Branch $record): array => $record?->esbCodes()
                                 ->where('is_active', true)
                                 ->orderBy('esb_comcode')
@@ -199,10 +199,10 @@ class BranchResource extends Resource
                                 ->mapWithKeys(fn ($mapping): array => [
                                     $mapping->id => $mapping->esb_comcode.' · '.$mapping->esb_branch_code.($mapping->label ? ' · '.$mapping->label : ''),
                                 ])->all() ?? [])
-                            ->placeholder('— Pilih Sumber Stock Card —')
+                            ->placeholder('— Pilih Mapping Utama —')
                             ->helperText(fn (?Branch $record): string => $record
-                                ? 'Hanya mapping ini yang digunakan oleh Stock Card. Mapping harus aktif.'
-                                : 'Simpan Branch terlebih dahulu, lalu pilih sumber Stock Card pada halaman Edit.')
+                                ? 'Mapping aktif ini digunakan bersama oleh Stock Card dan Memo Internal.'
+                                : 'Simpan Branch terlebih dahulu, lalu pilih mapping utama pada halaman Edit.')
                             ->disabled(fn (?Branch $record): bool => $record === null)
                             ->searchable()
                             ->columnSpanFull(),

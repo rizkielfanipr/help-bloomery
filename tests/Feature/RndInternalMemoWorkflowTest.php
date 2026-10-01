@@ -13,6 +13,7 @@ use App\Models\RndProductEsbShelfLife;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -259,7 +260,7 @@ it('searches the Menu picker against the live ESB fake and shows a Belum Memilik
         'https://esb.test/corev1/master/get-menu*' => Http::response([
             'status' => 'ok',
             'result' => ['data' => [
-                ['menuID' => 501, 'menuName' => 'Croissant Butter', 'bomID' => 42],
+                ['menuID' => 501, 'menuCode' => 'MENU-501', 'menuName' => 'Croissant Butter', 'bomID' => 42, 'categoryDetail' => 'BEVERAGES - COFFEE'],
                 ['menuID' => 502, 'menuName' => 'Menu Belum BOM', 'bomID' => 0],
             ], 'limit' => 10, 'count' => 2],
         ]),
@@ -267,9 +268,59 @@ it('searches the Menu picker against the live ESB fake and shows a Belum Memilik
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('openMenuPicker')
+        ->assertSee('MENU-501')
         ->assertSee('Croissant Butter')
+        ->assertSee('BEVERAGES')
+        ->assertSee('COFFEE')
         ->assertSee('Menu Belum BOM')
         ->assertSee('Belum Memiliki BOM');
+});
+
+it('splits categoryDetail into Category and Category Detail, falling back to Category only without a delimiter', function () {
+    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
+    $page = Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id]);
+
+    expect($page->instance()->splitMenuCategory('BEVERAGES - COFFEE'))->toBe(['category' => 'BEVERAGES', 'detail' => 'COFFEE'])
+        ->and($page->instance()->splitMenuCategory('PASTRY'))->toBe(['category' => 'PASTRY', 'detail' => null])
+        ->and($page->instance()->splitMenuCategory(null))->toBe(['category' => null, 'detail' => null]);
+});
+
+it('re-fetches the Menu picker automatically as the user types a search, without a separate search button', function () {
+    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
+        'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 6, 'branchCode' => 'BLS']]]),
+        'https://esb.test/corev1/master/get-menu*' => Http::response(['status' => 'ok', 'result' => ['data' => [], 'limit' => 10, 'count' => 0]]),
+    ]);
+
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->call('openMenuPicker')
+        ->set('menuSearchName', 'Croissant')
+        ->assertSet('menuPickerPage', 1);
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/corev1/master/get-menu') && ($request['menuName'] ?? null) === 'Croissant');
+});
+
+it('paginates the Menu picker with goToMenuPage/previousMenuPage/nextMenuPage', function () {
+    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
+        'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 6, 'branchCode' => 'BLS']]]),
+        'https://esb.test/corev1/master/get-menu*' => Http::response(['status' => 'ok', 'result' => ['data' => [], 'limit' => 10, 'count' => 25]]),
+    ]);
+
+    $page = Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->call('openMenuPicker')
+        ->assertSet('menuPickerPage', 1)
+        ->call('nextMenuPage')
+        ->assertSet('menuPickerPage', 2)
+        ->call('goToMenuPage', 3)
+        ->assertSet('menuPickerPage', 3)
+        ->call('previousMenuPage')
+        ->assertSet('menuPickerPage', 2);
+
+    // 25 total / 10 per page = 3 pages; goToMenuPage clamps beyond the last page.
+    $page->call('goToMenuPage', 99)->assertSet('menuPickerPage', 3);
 });
 
 it('does not let a memo be viewed or managed without permission', function () {

@@ -265,59 +265,98 @@
     @endif
 
     @if($menuPickerOpen)
-        <div class="fixed inset-0 z-[130] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Pilih Menu ESB">
-            <button type="button" wire:click="closeMenuPicker" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup pilih Menu"></button>
+        <div wire:key="menu-picker-modal" class="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Pilih Menu ESB">
+            <button type="button" wire:click="closeMenuPicker" class="absolute inset-0 bg-gray-950/55" aria-label="Tutup pilih Menu"></button>
             <x-rnd.picker-modal title="Pilih Menu ESB" description="Menu diambil langsung dari Master Menu BLSS. Menu tanpa BOM tidak dapat dipilih." max-width="6xl">
                 <x-slot:close>
-                    <button type="button" wire:click="closeMenuPicker" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Tutup"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
+                    <button type="button" wire:click="closeMenuPicker" class="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-50 dark:border-gray-700" aria-label="Tutup"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
                 </x-slot:close>
 
-                <div class="grid gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:grid-cols-3">
-                    <input wire:model="menuSearchName" wire:keydown.enter="searchMenus" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Cari nama Menu...">
-                    <input wire:model="menuSearchCode" wire:keydown.enter="searchMenus" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Cari kode Menu...">
-                    <button type="button" wire:click="searchMenus" wire:loading.attr="disabled" wire:target="searchMenus,loadMenuPage" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 px-3 py-2 text-sm font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-50">
-                        <x-heroicon-o-magnifying-glass class="h-4 w-4" /> Cari
-                    </button>
+                <div class="relative flex-1 overflow-hidden">
+                    <div class="h-full overflow-auto">
+                        <table class="w-full min-w-[720px] text-left text-sm">
+                            <thead class="sticky top-0 z-10 bg-white dark:bg-gray-900">
+                                <tr class="border-b border-gray-200 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                    <th class="px-4 pb-3 pt-4">Menu Code</th>
+                                    <th class="px-4 pb-3 pt-4">Menu Name</th>
+                                    <th class="px-4 pb-3 pt-4">Category</th>
+                                    <th class="px-4 pb-3 pt-4">Category Detail</th>
+                                    <th class="px-4 pb-3 pt-4 text-right">Aksi</th>
+                                </tr>
+                                <tr class="border-b border-gray-200 dark:border-gray-700">
+                                    <th class="px-4 pb-3 pt-2"><input wire:model.live.debounce.700ms="menuSearchCode" type="search" placeholder="Cari kode..." class="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-normal normal-case text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"></th>
+                                    <th class="px-4 pb-3 pt-2"><input wire:model.live.debounce.700ms="menuSearchName" type="search" placeholder="Cari nama..." class="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-normal normal-case text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"></th>
+                                    <th class="px-4 pb-3 pt-2"></th>
+                                    <th class="px-4 pb-3 pt-2"></th>
+                                    <th class="px-4 pb-3 pt-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @if($menuPickerError)
+                                    <tr>
+                                        <td colspan="5" class="px-5 py-10">
+                                            <div class="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                                                <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0" />
+                                                <div>
+                                                    <p class="font-semibold">Gagal memuat Master Menu</p>
+                                                    <p class="mt-1">{{ $menuPickerError }}</p>
+                                                    <button type="button" wire:click="loadMenuPage({{ $menuPickerPage }})" class="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-red-700 hover:underline dark:text-red-300"><x-heroicon-o-arrow-path class="h-3.5 w-3.5" /> Coba Lagi</button>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @elseif(empty($menuPickerRows) && ! $menuPickerLoading)
+                                    <tr>
+                                        <td colspan="5" class="px-5 py-14 text-center text-gray-500 dark:text-gray-400">Menu tidak ditemukan.</td>
+                                    </tr>
+                                @else
+                                    @foreach($menuPickerRows as $row)
+                                        @php
+                                            $splitCategory = $this->splitMenuCategory($row['categoryDetail']);
+                                        @endphp
+                                        <tr wire:key="menu-picker-{{ $row['menuID'] }}" class="{{ $row['hasBom'] ? 'cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30' : 'opacity-60' }} text-gray-700 transition dark:text-gray-200" @if($row['hasBom']) wire:click="addMenu({{ \Illuminate\Support\Js::from($row) }})" @endif>
+                                            <td class="px-4 py-3"><p class="truncate font-mono font-semibold text-blue-700 dark:text-blue-300">{{ $row['menuCode'] ?: '-' }}</p></td>
+                                            <td class="px-4 py-3"><p class="truncate font-semibold text-gray-900 dark:text-white">{{ $row['menuName'] ?: 'Menu #'.$row['menuID'] }}</p></td>
+                                            <td class="px-4 py-3"><p class="truncate">{{ $splitCategory['category'] ?? '-' }}</p></td>
+                                            <td class="px-4 py-3"><p class="truncate">{{ $splitCategory['detail'] ?? '-' }}</p></td>
+                                            <td class="px-4 py-3 text-right">
+                                                @if($row['hasBom'])
+                                                    <span class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">Pilih</span>
+                                                @else
+                                                    <span class="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-semibold text-gray-400 dark:border-gray-700" title="Menu belum memiliki BOM">Belum Memiliki BOM</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                @endif
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div wire:loading.flex wire:target="loadMenuPage,previousMenuPage,nextMenuPage,goToMenuPage,updatedMenuSearchName,updatedMenuSearchCode" class="absolute inset-0 z-20 hidden items-center justify-center bg-white/70 dark:bg-gray-900/70">
+                        <span class="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"></span>
+                    </div>
                 </div>
 
-                <div class="max-h-[55vh] overflow-y-auto p-5" wire:loading.class="opacity-50" wire:target="searchMenus,loadMenuPage">
-                    @if($menuPickerError)
-                        <div class="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-                            <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0" />
-                            <div>
-                                <p class="font-semibold">Gagal memuat Master Menu</p>
-                                <p class="mt-1">{{ $menuPickerError }}</p>
-                                <button type="button" wire:click="searchMenus" class="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-red-700 hover:underline dark:text-red-300"><x-heroicon-o-arrow-path class="h-3.5 w-3.5" /> Coba Lagi</button>
-                            </div>
-                        </div>
-                    @elseif(empty($menuPickerRows) && ! $menuPickerLoading)
-                        <p class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">Tidak ada Menu ditemukan.</p>
-                    @else
-                        <div class="space-y-2">
-                            @foreach($menuPickerRows as $row)
-                                <div wire:key="menu-picker-{{ $row['menuID'] }}" class="flex items-center justify-between gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700">
-                                    <div class="min-w-0">
-                                        <p class="truncate font-semibold text-gray-900 dark:text-white">{{ $row['menuName'] ?: 'Menu #'.$row['menuID'] }}</p>
-                                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                            {{ $row['menuCode'] ?: 'ID '.$row['menuID'] }}
-                                            @if($row['categoryDetail']) · {{ $row['categoryDetail'] }} @endif
-                                        </p>
-                                    </div>
-                                    @if($row['hasBom'])
-                                        <button type="button" wire:click="addMenu({{ \Illuminate\Support\Js::from($row) }})" wire:loading.attr="disabled" wire:target="addMenu" class="shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">Pilih</button>
-                                    @else
-                                        <span class="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-400 dark:border-gray-700" title="Menu belum memiliki BOM">Belum Memiliki BOM</span>
-                                    @endif
-                                </div>
+                @php
+                    $menuPickerLastPage = max(1, (int) ceil($menuPickerTotal / max(1, $menuPickerPerPage)));
+                    $menuPickerPageStart = max(1, $menuPickerPage - 4);
+                    $menuPickerPageEnd = min($menuPickerLastPage, $menuPickerPageStart + 8);
+                    $menuPickerPageStart = max(1, $menuPickerPageEnd - 8);
+                @endphp
+                <div class="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+                    <p class="text-xs font-medium text-gray-600 dark:text-gray-300">Halaman {{ $menuPickerPage }} dari {{ $menuPickerLastPage }}</p>
+                    <div class="max-w-full overflow-x-auto">
+                        <div class="inline-flex min-w-max overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600">
+                            <button type="button" wire:click="goToMenuPage(1)" @disabled($menuPickerPage <= 1) class="border-r border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">First</button>
+                            <button type="button" wire:click="previousMenuPage" @disabled($menuPickerPage <= 1) aria-label="Halaman sebelumnya" class="border-r border-gray-300 px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">&laquo;</button>
+                            @foreach(range($menuPickerPageStart, $menuPickerPageEnd) as $pageNumber)
+                                <button type="button" wire:click="goToMenuPage({{ $pageNumber }})" @disabled($pageNumber === $menuPickerPage) class="border-r border-gray-300 px-3.5 py-2 text-xs font-semibold transition dark:border-gray-600 {{ $pageNumber === $menuPickerPage ? 'bg-blue-600 text-white disabled:cursor-default disabled:opacity-100' : 'text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800' }}">{{ $pageNumber }}</button>
                             @endforeach
+                            <button type="button" wire:click="nextMenuPage" @disabled(! $menuPickerHasNext) aria-label="Halaman berikutnya" class="border-r border-gray-300 px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">&raquo;</button>
+                            <button type="button" wire:click="goToMenuPage({{ $menuPickerLastPage }})" @disabled($menuPickerPage >= $menuPickerLastPage) class="px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-200 dark:hover:bg-gray-800">Last</button>
                         </div>
-                    @endif
-                </div>
-
-                <div class="flex items-center justify-between border-t border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <button type="button" wire:click="loadMenuPage({{ max(1, $menuPickerPage - 1) }})" @disabled($menuPickerPage <= 1) class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-200">Sebelumnya</button>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">Halaman {{ $menuPickerPage }}</span>
-                    <button type="button" wire:click="loadMenuPage({{ $menuPickerPage + 1 }})" @disabled(! $menuPickerHasNext) class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-600 dark:text-gray-200">Berikutnya</button>
+                    </div>
                 </div>
             </x-rnd.picker-modal>
         </div>

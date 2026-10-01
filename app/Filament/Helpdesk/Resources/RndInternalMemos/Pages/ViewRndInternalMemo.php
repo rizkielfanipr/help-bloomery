@@ -43,6 +43,10 @@ class ViewRndInternalMemo extends ViewRecord
 
     public int $menuPickerPage = 1;
 
+    public int $menuPickerTotal = 0;
+
+    public int $menuPickerPerPage = 10;
+
     /** @var list<array<string, mixed>> */
     public array $menuPickerRows = [];
 
@@ -151,6 +155,7 @@ class ViewRndInternalMemo extends ViewRecord
         $this->menuSearchName = '';
         $this->menuSearchCode = '';
         $this->menuPickerPage = 1;
+        $this->menuPickerTotal = 0;
         $this->menuPickerRows = [];
         $this->menuPickerError = null;
         $this->menuPickerOpen = true;
@@ -162,9 +167,35 @@ class ViewRndInternalMemo extends ViewRecord
         $this->menuPickerOpen = false;
     }
 
-    public function searchMenus(): void
+    /** Mirrors the live-search convention of the BOM "Tambah Komponen" picker. */
+    public function updatedMenuSearchName(): void
     {
         $this->loadMenuPage(1);
+    }
+
+    public function updatedMenuSearchCode(): void
+    {
+        $this->loadMenuPage(1);
+    }
+
+    public function previousMenuPage(): void
+    {
+        if ($this->menuPickerPage > 1) {
+            $this->loadMenuPage($this->menuPickerPage - 1);
+        }
+    }
+
+    public function nextMenuPage(): void
+    {
+        if ($this->menuPickerHasNext) {
+            $this->loadMenuPage($this->menuPickerPage + 1);
+        }
+    }
+
+    public function goToMenuPage(int $page): void
+    {
+        $lastPage = max(1, (int) ceil($this->menuPickerTotal / max(1, $this->menuPickerPerPage)));
+        $this->loadMenuPage(min($lastPage, max(1, $page)));
     }
 
     public function loadMenuPage(int $page, ?InternalMemoMenuCatalogService $catalog = null): void
@@ -177,6 +208,8 @@ class ViewRndInternalMemo extends ViewRecord
             $result = $catalog->page($page, 10, $this->menuSearchName, $this->menuSearchCode);
             $this->menuPickerRows = $result['rows'];
             $this->menuPickerPage = $result['page'];
+            $this->menuPickerTotal = $result['total'];
+            $this->menuPickerPerPage = $result['perPage'];
             $this->menuPickerHasNext = $result['hasNext'];
         } catch (RuntimeException $exception) {
             $this->menuPickerRows = [];
@@ -184,6 +217,26 @@ class ViewRndInternalMemo extends ViewRecord
         } finally {
             $this->menuPickerLoading = false;
         }
+    }
+
+    /**
+     * The ESB Master Menu contract only proves one category-related field, `categoryDetail`
+     * (e.g. "BEVERAGES - COFFEE") — confirmed via a live request, Phase 0 of
+     * docs/rnd-internal-memo-simplification-prd.md. There is no separate "category" field. Per
+     * explicit user confirmation, the picker table splits it on the first " - " into Category
+     * (before) and Category Detail (after); a value with no " - " is shown as Category only.
+     *
+     * @return array{category: ?string, detail: ?string}
+     */
+    public function splitMenuCategory(?string $categoryDetail): array
+    {
+        if (blank($categoryDetail)) {
+            return ['category' => null, 'detail' => null];
+        }
+
+        [$category, $detail] = array_pad(explode(' - ', $categoryDetail, 2), 2, null);
+
+        return ['category' => trim($category), 'detail' => $detail !== null ? trim($detail) : null];
     }
 
     /** @param array<string, mixed> $menu */

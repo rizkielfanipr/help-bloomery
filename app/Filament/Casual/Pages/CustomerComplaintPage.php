@@ -70,7 +70,7 @@ class CustomerComplaintPage extends Page
 
     public function getTitle(): string|Htmlable
     {
-        return 'Form Komplain';
+        return 'Complain';
     }
 
     public function getBreadcrumbs(): array

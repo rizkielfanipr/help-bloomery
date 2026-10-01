@@ -36,17 +36,17 @@ function validComplaintFormState(): array
     ];
 }
 
-it('shows the Form Komplain tile only to users with the create permission', function () {
+it('shows the Complain tile only to users with the create permission', function () {
     $this->actingAs($this->user);
     $withPermission = Livewire::test(LauncherPage::class);
     $tileLabels = collect($withPermission->instance()->tiles())->pluck('label');
-    expect($tileLabels)->toContain('Form Komplain');
+    expect($tileLabels)->toContain('Complain');
 
     $outsider = User::factory()->create(['is_active' => true, 'branch_id' => $this->branch->id]);
     $outsider->givePermissionTo('access employee app attendance');
     $this->actingAs($outsider);
     $withoutPermission = Livewire::test(LauncherPage::class);
-    expect(collect($withoutPermission->instance()->tiles())->pluck('label'))->not->toContain('Form Komplain');
+    expect(collect($withoutPermission->instance()->tiles())->pluck('label'))->not->toContain('Complain');
 });
 
 it('defaults the branch field to the user\'s primary branch', function () {

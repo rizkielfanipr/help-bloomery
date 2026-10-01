@@ -3,28 +3,30 @@
 namespace App\Filament\Helpdesk\Resources\RndInternalMemos\Pages;
 
 use App\Actions\Rnd\InternalMemo\AddMenuToInternalMemoAction;
-use App\Actions\Rnd\InternalMemo\ArchiveInternalMemoAction;
-use App\Actions\Rnd\InternalMemo\CreateInternalMemoRevisionAction;
 use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
-use App\Actions\Rnd\InternalMemo\FinalizeInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\RefreshInternalMemoMenuAction;
 use App\Actions\Rnd\InternalMemo\RemoveMenuFromInternalMemoAction;
-use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuForecastAction;
-use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuShelfLifeAction;
-use App\Enums\RndInternalMemoStatus;
+use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMinimumOrdersAction;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\RndInternalMemoResource;
-use App\Jobs\Rnd\GenerateInternalMemoPdfJob;
-use App\Jobs\Rnd\SynchronizeInternalMemoJob;
+use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
 use App\Services\Rnd\InternalMemo\InternalMemoConsolidationService;
 use App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogService;
-use App\Services\Rnd\InternalMemo\InternalMemoValidationService;
+use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
+/**
+ * Simplified Memo Internal workspace (docs/rnd-internal-memo-simplification-prd.md §12.2, Phase
+ * 4). The old status/Syncing/Finalized/revision/archive/PDF controls are gone from the UI —
+ * every mutation here only needs the single `update rnd internal memo` permission (or `delete`
+ * for deleteMemo), matching the simplified Policy. The underlying workflow columns and Actions
+ * (RndInternalMemoPolicy::finalize/archive/etc., FinalizeInternalMemoAction, and so on) still
+ * exist for the transition period per PRD §5.2/§15 Phase 5, just unused by this page.
+ */
 class ViewRndInternalMemo extends ViewRecord
 {
     protected static string $resource = RndInternalMemoResource::class;
@@ -50,21 +52,20 @@ class ViewRndInternalMemo extends ViewRecord
 
     public ?string $menuPickerError = null;
 
-    public ?int $forecastModalMenuId = null;
+    public bool $editMemoModalOpen = false;
 
-    public string $forecastQuantity = '0';
+    public string $memoTitle = '';
 
-    public string $shelfLifeValue = '';
+    public string $periodMonth = '';
 
-    public string $shelfLifeUnit = '';
+    public string $memoNumber = '';
 
-    public string $storageCondition = '';
+    public string $notes = '';
 
-    public string $shelfLifeNotes = '';
+    /** Identity key of the Ringkasan Item Akhir row whose Minimum Order is being edited. */
+    public ?string $minimumOrderKey = null;
 
-    public bool $revisionModalOpen = false;
-
-    public string $revisionMemoNumber = '';
+    public string $minimumOrderValue = '';
 
     public function mount(int|string $record): void
     {
@@ -73,7 +74,7 @@ class ViewRndInternalMemo extends ViewRecord
     }
 
     /**
-     * Eager-loads each Menu's Materials (ordered the same way the per-Menu "Bahan" table
+     * Eager-loads each Menu's Materials (ordered the same way the per-Menu structure section
      * renders them) so the workspace page does not issue one extra query per Menu.
      */
     public function menus()
@@ -83,9 +84,70 @@ class ViewRndInternalMemo extends ViewRecord
             ->get();
     }
 
+    public function canUpdateMemo(): bool
+    {
+        return auth()->user()?->can('update', $this->getRecord()) ?? false;
+    }
+
+    public function openEditMemoModal(): void
+    {
+        abort_unless($this->canUpdateMemo(), 403);
+        $memo = $this->getRecord();
+        $this->resetValidation();
+        $this->memoTitle = $memo->title;
+        $this->periodMonth = $memo->period_month->format('Y-m');
+        $this->memoNumber = (string) $memo->memo_number;
+        $this->notes = (string) $memo->notes;
+        $this->editMemoModalOpen = true;
+    }
+
+    public function closeEditMemoModal(): void
+    {
+        $this->resetValidation();
+        $this->editMemoModalOpen = false;
+    }
+
+    public function saveMemoInfo(): void
+    {
+        abort_unless($this->canUpdateMemo(), 403);
+        $memo = $this->getRecord();
+
+        $validated = $this->validate([
+            'memoTitle' => ['required', 'string', 'max:150'],
+            'periodMonth' => ['required', 'date'],
+            'memoNumber' => ['required', 'string', 'max:255', 'unique:rnd_internal_memos,memo_number,'.$memo->id],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $periodMonth = Carbon::parse($validated['periodMonth'])->startOfMonth()->toDateString();
+
+        if (
+            $memo->revision === 1
+            && RndInternalMemo::query()
+                ->where('company_code', $memo->company_code)
+                ->whereDate('period_month', $periodMonth)
+                ->where('revision', 1)
+                ->where('id', '!=', $memo->id)
+                ->exists()
+        ) {
+            throw ValidationException::withMessages(['periodMonth' => 'Memo untuk periode ini sudah ada.']);
+        }
+
+        $memo->update([
+            'title' => $validated['memoTitle'],
+            'period_month' => $periodMonth,
+            'memo_number' => $validated['memoNumber'],
+            'notes' => $validated['notes'] ?? null,
+            'updated_by' => auth()->id(),
+        ]);
+
+        $this->editMemoModalOpen = false;
+        Notification::make()->title('Informasi Memo tersimpan')->success()->send();
+    }
+
     public function openMenuPicker(): void
     {
-        abort_unless(auth()->user()?->can('update', $this->getRecord()), 403);
+        abort_unless($this->canUpdateMemo(), 403);
         $this->menuSearchName = '';
         $this->menuSearchCode = '';
         $this->menuPickerPage = 1;
@@ -127,7 +189,7 @@ class ViewRndInternalMemo extends ViewRecord
     /** @param array<string, mixed> $menu */
     public function addMenu(array $menu, AddMenuToInternalMemoAction $addMenu): void
     {
-        abort_unless(auth()->user()?->can('update', $this->getRecord()), 403);
+        abort_unless($this->canUpdateMemo(), 403);
 
         try {
             $addMenu->execute($this->getRecord(), $menu);
@@ -148,7 +210,7 @@ class ViewRndInternalMemo extends ViewRecord
 
     public function removeMenu(int $menuId, RemoveMenuFromInternalMemoAction $removeMenu): void
     {
-        abort_unless(auth()->user()?->can('update', $this->getRecord()), 403);
+        abort_unless($this->canUpdateMemo(), 403);
 
         $removeMenu->execute($this->getRecord(), $menuId);
 
@@ -158,7 +220,7 @@ class ViewRndInternalMemo extends ViewRecord
 
     public function refreshMenu(int $menuId, RefreshInternalMemoMenuAction $refreshMenu): void
     {
-        abort_unless(auth()->user()?->can('update', $this->getRecord()), 403);
+        abort_unless($this->canUpdateMemo(), 403);
 
         $menu = RndInternalMemoMenu::query()
             ->where('rnd_internal_memo_id', $this->getRecord()->id)
@@ -176,179 +238,50 @@ class ViewRndInternalMemo extends ViewRecord
         Notification::make()->title('Menu berhasil disegarkan')->success()->send();
     }
 
-    public function canSync(): bool
-    {
-        return auth()->user()?->can('sync', $this->getRecord()) ?? false;
-    }
-
     /**
-     * Flips the memo to Syncing immediately so a second click is blocked in the UI before the
-     * queued job even starts (docs/rnd-internal-memo-prd.md §14.4).
-     */
-    public function runSync(): void
-    {
-        $memo = $this->getRecord();
-        abort_unless(auth()->user()?->can('sync', $memo), 403);
-
-        if ($memo->menus()->doesntExist()) {
-            Notification::make()->title('Tambahkan Menu terlebih dahulu sebelum sinkronisasi')->warning()->send();
-
-            return;
-        }
-
-        $memo->update(['status' => RndInternalMemoStatus::Syncing]);
-        SynchronizeInternalMemoJob::dispatch($memo->id, auth()->id());
-
-        Notification::make()->title('Sinkronisasi BOM dijalankan')->body('Proses berjalan di latar belakang; halaman ini dapat dimuat ulang untuk melihat hasilnya.')->success()->send();
-    }
-
-    public function canUpdateForecast(): bool
-    {
-        return auth()->user()?->can('updateForecast', $this->getRecord()) ?? false;
-    }
-
-    public function openForecastModal(int $menuId): void
-    {
-        abort_unless($this->canUpdateForecast(), 403);
-
-        $menu = RndInternalMemoMenu::query()
-            ->where('rnd_internal_memo_id', $this->getRecord()->id)
-            ->findOrFail($menuId);
-
-        $this->forecastModalMenuId = $menu->id;
-        $this->forecastQuantity = (string) $menu->forecast_quantity;
-        $this->shelfLifeValue = $menu->shelf_life_value !== null ? (string) $menu->shelf_life_value : '';
-        $this->shelfLifeUnit = (string) $menu->shelf_life_unit;
-        $this->storageCondition = (string) $menu->storage_condition;
-        $this->shelfLifeNotes = (string) $menu->shelf_life_notes;
-    }
-
-    public function closeForecastModal(): void
-    {
-        $this->forecastModalMenuId = null;
-    }
-
-    public function saveForecast(
-        UpdateInternalMemoMenuForecastAction $updateForecast,
-        UpdateInternalMemoMenuShelfLifeAction $updateShelfLife,
-    ): void {
-        abort_unless($this->canUpdateForecast(), 403);
-
-        $menu = RndInternalMemoMenu::query()
-            ->where('rnd_internal_memo_id', $this->getRecord()->id)
-            ->findOrFail($this->forecastModalMenuId);
-
-        $data = $this->validate([
-            'forecastQuantity' => ['required', 'numeric', 'min:0'],
-            'shelfLifeValue' => ['nullable', 'numeric', 'min:0'],
-            'shelfLifeUnit' => ['nullable', 'string', 'max:50'],
-            'storageCondition' => ['nullable', 'string', 'max:100'],
-            'shelfLifeNotes' => ['nullable', 'string', 'max:1000'],
-        ]);
-
-        try {
-            $updateForecast->execute($menu, (float) $data['forecastQuantity']);
-            $updateShelfLife->execute($menu, [
-                'shelf_life_value' => filled($data['shelfLifeValue']) ? (float) $data['shelfLifeValue'] : null,
-                'shelf_life_unit' => filled($data['shelfLifeUnit']) ? $data['shelfLifeUnit'] : null,
-                'storage_condition' => filled($data['storageCondition']) ? $data['storageCondition'] : null,
-                'shelf_life_notes' => filled($data['shelfLifeNotes']) ? $data['shelfLifeNotes'] : null,
-            ]);
-        } catch (RuntimeException $exception) {
-            Notification::make()->title('Tidak dapat menyimpan')->body($exception->getMessage())->danger()->send();
-
-            return;
-        }
-
-        $this->forecastModalMenuId = null;
-        $this->getRecord()->refresh();
-        Notification::make()->title('Forecast dan Shelf Life tersimpan')->success()->send();
-    }
-
-    /**
-     * Memoized per-request: the Blade view and validation() both need this, and consolidating
-     * requires scanning every Material on the memo, so it is computed at most once per render.
+     * Ringkasan Item Akhir (docs/rnd-internal-memo-simplification-prd.md §9.4, §12.2), memoized
+     * per request since the Blade view reads it more than once.
      *
-     * @var array{rows: list<array<string, mixed>>, warnings: list<string>}|null
+     * @var array{bahan: list<array<string, mixed>>, wip: list<array<string, mixed>>, warnings: list<string>}|null
      */
-    private ?array $consolidatedMaterialsCache = null;
+    private ?array $summaryCache = null;
 
-    /** @return array{rows: list<array<string, mixed>>, warnings: list<string>} */
-    public function consolidatedMaterials(): array
+    /** @return array{bahan: list<array<string, mixed>>, wip: list<array<string, mixed>>, warnings: list<string>} */
+    public function summary(): array
     {
-        return $this->consolidatedMaterialsCache ??= app(InternalMemoConsolidationService::class)->consolidate($this->getRecord());
+        return $this->summaryCache ??= app(InternalMemoConsolidationService::class)->consolidateForSummary($this->getRecord());
     }
 
-    /** @return array{blockers: list<string>, warnings: list<string>} */
-    public function validation(): array
+    public function editMinimumOrder(string $key, ?string $currentValue): void
     {
-        return app(InternalMemoValidationService::class)->validate($this->getRecord(), $this->consolidatedMaterials());
+        abort_unless($this->canUpdateMemo(), 403);
+        $this->minimumOrderKey = $key;
+        $this->minimumOrderValue = $currentValue ?? '';
     }
 
-    public function canFinalize(): bool
+    public function cancelMinimumOrder(): void
     {
-        return auth()->user()?->can('finalize', $this->getRecord()) ?? false;
+        $this->minimumOrderKey = null;
+        $this->minimumOrderValue = '';
     }
 
-    public function finalizeMemo(FinalizeInternalMemoAction $finalize): void
+    public function saveMinimumOrder(UpdateInternalMemoMinimumOrdersAction $updateMinimumOrders): void
     {
-        abort_unless($this->canFinalize(), 403);
+        abort_unless($this->canUpdateMemo(), 403);
 
-        try {
-            $finalize->execute($this->getRecord(), auth()->user());
-        } catch (RuntimeException $exception) {
-            Notification::make()->title('Tidak dapat difinalisasi')->body($exception->getMessage())->danger()->send();
-
+        if ($this->minimumOrderKey === null) {
             return;
         }
 
-        $this->getRecord()->refresh();
-        Notification::make()->title('Memo berhasil difinalisasi')->success()->send();
-    }
+        $validated = $this->validate(['minimumOrderValue' => ['nullable', 'numeric', 'min:0']]);
+        $value = filled($validated['minimumOrderValue']) ? (float) $validated['minimumOrderValue'] : null;
 
-    public function canCreateRevision(): bool
-    {
-        return auth()->user()?->can('createRevision', $this->getRecord()) ?? false;
-    }
+        $updateMinimumOrders->execute($this->getRecord(), $this->minimumOrderKey, $value);
 
-    public function openRevisionModal(): void
-    {
-        abort_unless($this->canCreateRevision(), 403);
-        $this->revisionMemoNumber = '';
-        $this->revisionModalOpen = true;
-    }
-
-    public function closeRevisionModal(): void
-    {
-        $this->revisionModalOpen = false;
-    }
-
-    public function createRevision(CreateInternalMemoRevisionAction $createRevision): void
-    {
-        abort_unless($this->canCreateRevision(), 403);
-
-        $data = $this->validate(['revisionMemoNumber' => ['required', 'string', 'max:255']]);
-
-        try {
-            $revision = $createRevision->execute($this->getRecord(), $data['revisionMemoNumber'], auth()->user());
-        } catch (ValidationException $exception) {
-            Notification::make()->title('Revisi tidak dapat dibuat')->body(collect($exception->errors())->flatten()->implode(' '))->danger()->send();
-
-            return;
-        } catch (RuntimeException $exception) {
-            Notification::make()->title('Revisi tidak dapat dibuat')->body($exception->getMessage())->danger()->send();
-
-            return;
-        }
-
-        $this->revisionModalOpen = false;
-        Notification::make()->title('Revisi baru berhasil dibuat')->success()->send();
-        $this->redirect(RndInternalMemoResource::getUrl('view', ['record' => $revision]), navigate: true);
-    }
-
-    public function canArchive(): bool
-    {
-        return auth()->user()?->can('archive', $this->getRecord()) ?? false;
+        $this->minimumOrderKey = null;
+        $this->minimumOrderValue = '';
+        $this->summaryCache = null;
+        Notification::make()->title('Minimum Order tersimpan')->success()->send();
     }
 
     public function canDeleteMemo(): bool
@@ -360,43 +293,15 @@ class ViewRndInternalMemo extends ViewRecord
     {
         abort_unless($this->canDeleteMemo(), 403);
 
-        $deleteMemo->execute($this->getRecord());
+        try {
+            $deleteMemo->execute($this->getRecord());
+        } catch (RuntimeException $exception) {
+            Notification::make()->title('Memo tidak dapat dihapus')->body($exception->getMessage())->danger()->send();
+
+            return;
+        }
 
         Notification::make()->title('Memo Internal berhasil dihapus')->success()->send();
         $this->redirect(RndInternalMemoResource::getUrl('index'), navigate: true);
-    }
-
-    public function toggleArchive(ArchiveInternalMemoAction $archive): void
-    {
-        abort_unless($this->canArchive(), 403);
-
-        $archive->execute($this->getRecord(), auth()->user());
-
-        $this->getRecord()->refresh();
-        Notification::make()->title($this->getRecord()->status === RndInternalMemoStatus::Archived ? 'Memo diarsipkan' : 'Memo dipulihkan')->success()->send();
-    }
-
-    public function canGeneratePdf(): bool
-    {
-        return auth()->user()?->can('generatePdf', $this->getRecord()) ?? false;
-    }
-
-    public function canDownloadPdf(): bool
-    {
-        return auth()->user()?->can('downloadPdf', $this->getRecord()) ?? false;
-    }
-
-    public function generatePdf(): void
-    {
-        abort_unless($this->canGeneratePdf(), 403);
-
-        GenerateInternalMemoPdfJob::dispatch($this->getRecord()->id, auth()->id());
-
-        Notification::make()->title('PDF sedang dibuat')->body('Proses berjalan di latar belakang; halaman ini dapat dimuat ulang untuk melihat hasilnya.')->success()->send();
-    }
-
-    public function documents()
-    {
-        return $this->getRecord()->documents()->get();
     }
 }

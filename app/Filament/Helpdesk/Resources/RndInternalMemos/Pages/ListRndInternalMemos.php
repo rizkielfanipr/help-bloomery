@@ -3,7 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\RndInternalMemos\Pages;
 
 use App\Actions\Rnd\InternalMemo\CreateInternalMemoAction;
-use App\Enums\RndInternalMemoStatus;
+use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\RndInternalMemoResource;
 use App\Models\RndInternalMemo;
 use Carbon\Carbon;
@@ -11,7 +11,9 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class ListRndInternalMemos extends ListRecords
 {
@@ -20,8 +22,6 @@ class ListRndInternalMemos extends ListRecords
     protected string $view = 'filament.helpdesk.rnd-internal-memos.index';
 
     public string $search = '';
-
-    public string $statusFilter = '';
 
     public string $periodFilter = '';
 
@@ -33,19 +33,12 @@ class ListRndInternalMemos extends ListRecords
 
     public string $periodMonth = '';
 
-    public string $memoDate = '';
-
-    public string $recipient = '';
-
-    public string $sender = '';
-
-    public string $subject = '';
-
     public string $notes = '';
 
     /**
-     * Archived memos are hidden from the default "Semua Status" list (§6: "Dokumen disembunyikan
-     * dari daftar aktif") and only appear once the user explicitly filters for `archived`.
+     * docs/rnd-internal-memo-simplification-prd.md §12.1: the simplified index has no status
+     * filter or workflow summary cards — every non-deleted Memo is listed, searched by name/
+     * number, and filtered by period only.
      */
     public function memos(): Collection
     {
@@ -54,28 +47,11 @@ class ListRndInternalMemos extends ListRecords
                 $query->where('title', 'like', '%'.$this->search.'%')
                     ->orWhere('memo_number', 'like', '%'.$this->search.'%');
             }))
-            ->when(
-                $this->statusFilter !== '',
-                fn (Builder $query) => $query->where('status', $this->statusFilter),
-                fn (Builder $query) => $query->where('status', '!=', RndInternalMemoStatus::Archived->value),
-            )
             ->when($this->periodFilter !== '', fn (Builder $query) => $query->whereDate('period_month', $this->periodFilter.'-01'))
+            ->withCount('menus')
             ->latest('period_month')
             ->latest('revision')
             ->get();
-    }
-
-    /** @return array<string, int> */
-    public function summary(): array
-    {
-        $counts = RndInternalMemo::query()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
-
-        return [
-            'draft' => (int) ($counts[RndInternalMemoStatus::Draft->value] ?? 0),
-            'needs_attention' => (int) ($counts[RndInternalMemoStatus::NeedsAttention->value] ?? 0),
-            'ready' => (int) ($counts[RndInternalMemoStatus::Ready->value] ?? 0),
-            'finalized' => (int) ($counts[RndInternalMemoStatus::Finalized->value] ?? 0),
-        ];
     }
 
     protected function getHeaderActions(): array
@@ -87,8 +63,7 @@ class ListRndInternalMemos extends ListRecords
     {
         abort_unless(RndInternalMemoResource::canCreate(), 403);
         $this->resetValidation();
-        $this->reset(['memoNumber', 'memoTitle', 'periodMonth', 'memoDate', 'recipient', 'sender', 'subject', 'notes']);
-        $this->memoDate = today()->toDateString();
+        $this->reset(['memoNumber', 'memoTitle', 'periodMonth', 'notes']);
         $this->createModalOpen = true;
     }
 
@@ -98,19 +73,23 @@ class ListRndInternalMemos extends ListRecords
         $this->createModalOpen = false;
     }
 
+    /**
+     * docs/rnd-internal-memo-simplification-prd.md §7.1: the simplified form only collects Nama
+     * Memo, Bulan Memo, Nomor Memo (optional), and Catatan. memo_date/recipient/sender/subject
+     * stay NOT NULL at the database level (kept as-is per PRD §10.1 — no schema change for
+     * columns not driving the simplified UI), so they get inert defaults here instead of being
+     * collected from the user. memo_number likewise stays NOT NULL + unique, so a blank input
+     * gets an auto-generated placeholder rather than requiring a migration to make it nullable.
+     */
     public function createMemo(CreateInternalMemoAction $createMemo): void
     {
         abort_unless(RndInternalMemoResource::canCreate(), 403);
 
         $validated = $this->validate([
-            'memoNumber' => ['required', 'string', 'max:255', 'unique:rnd_internal_memos,memo_number'],
-            'memoTitle' => ['required', 'string', 'max:255'],
+            'memoNumber' => ['nullable', 'string', 'max:255', 'unique:rnd_internal_memos,memo_number'],
+            'memoTitle' => ['required', 'string', 'max:150'],
             'periodMonth' => ['required', 'date'],
-            'memoDate' => ['required', 'date'],
-            'recipient' => ['required', 'string', 'max:255'],
-            'sender' => ['required', 'string', 'max:255'],
-            'subject' => ['required', 'string', 'max:255'],
-            'notes' => ['nullable', 'string'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $periodMonth = Carbon::parse($validated['periodMonth'])->startOfMonth()->toDateString();
@@ -122,18 +101,43 @@ class ListRndInternalMemos extends ListRecords
         }
 
         $memo = $createMemo->execute([
-            'memo_number' => $validated['memoNumber'],
+            'memo_number' => filled($validated['memoNumber']) ? $validated['memoNumber'] : $this->generateMemoNumber(),
             'title' => $validated['memoTitle'],
             'period_month' => $periodMonth,
-            'memo_date' => $validated['memoDate'],
-            'recipient' => $validated['recipient'],
-            'sender' => $validated['sender'],
-            'subject' => $validated['subject'],
+            'memo_date' => today()->toDateString(),
+            'recipient' => '',
+            'sender' => '',
+            'subject' => $validated['memoTitle'],
             'notes' => $validated['notes'] ?? null,
         ], auth()->user());
 
         $this->createModalOpen = false;
         Notification::make()->title('Memo Internal berhasil dibuat')->success()->send();
         $this->redirect(RndInternalMemoResource::getUrl('view', ['record' => $memo]), navigate: true);
+    }
+
+    private function generateMemoNumber(): string
+    {
+        do {
+            $candidate = 'AUTO-'.now()->format('Ymd').'-'.mb_strtoupper(Str::random(4));
+        } while (RndInternalMemo::query()->where('memo_number', $candidate)->exists());
+
+        return $candidate;
+    }
+
+    public function deleteMemo(int $memoId, DeleteInternalMemoAction $deleteMemo): void
+    {
+        $memo = RndInternalMemo::query()->findOrFail($memoId);
+        abort_unless(RndInternalMemoResource::canDelete($memo), 403);
+
+        try {
+            $deleteMemo->execute($memo);
+        } catch (RuntimeException $exception) {
+            Notification::make()->title('Memo tidak dapat dihapus')->body($exception->getMessage())->danger()->send();
+
+            return;
+        }
+
+        Notification::make()->title('Memo Internal berhasil dihapus')->success()->send();
     }
 }

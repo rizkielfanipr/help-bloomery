@@ -75,10 +75,13 @@ it('keeps a previous document instead of overwriting it on a second generation',
     expect($memo->documents()->count())->toBe(2);
 });
 
-it('dispatches the PDF job from the workspace page and lists the resulting document', function () {
+it('generates a PDF document for a Finalized memo', function () {
+    // docs/rnd-internal-memo-simplification-prd.md Phase 4: the simplified workspace
+    // (ViewRndInternalMemo) no longer has a Generate PDF button — PDF generation is exercised
+    // directly through the Action/Job it used to dispatch.
     $memo = finalizedInternalMemoForPdf();
 
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->call('generatePdf');
+    app(GenerateInternalMemoPdfAction::class)->execute($memo, $this->supervisor);
 
     expect($memo->documents()->count())->toBe(1);
 });

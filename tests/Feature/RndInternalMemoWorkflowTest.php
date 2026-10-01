@@ -1,17 +1,18 @@
 <?php
 
 use App\Actions\Rnd\InternalMemo\AddMenuToInternalMemoAction;
+use App\Actions\Rnd\InternalMemo\SynchronizeInternalMemoAction;
+use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuForecastAction;
+use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuShelfLifeAction;
 use App\Enums\RndInternalMemoStatus;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ListRndInternalMemos;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ViewRndInternalMemo;
-use App\Jobs\Rnd\SynchronizeInternalMemoJob;
 use App\Models\RndInternalMemo;
 use App\Models\RndProductEsbShelfLife;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
@@ -37,14 +38,12 @@ beforeEach(function () {
 });
 
 it('creates a Draft memo with company_code fixed to BLSS without the user choosing it', function () {
+    // docs/rnd-internal-memo-simplification-prd.md §7.1: the simplified form only collects Nama
+    // Memo, Bulan Memo, Nomor Memo (optional), and Catatan.
     $page = Livewire::test(ListRndInternalMemos::class)
         ->set('memoNumber', '001/RND/IX/2026')
         ->set('memoTitle', 'Rilis Menu September')
         ->set('periodMonth', '2026-09')
-        ->set('memoDate', '2026-09-01')
-        ->set('recipient', 'Tim Operasional')
-        ->set('sender', 'Tim R&D')
-        ->set('subject', 'Rilis Menu Bulanan')
         ->call('createMemo')
         ->assertHasNoErrors();
 
@@ -57,6 +56,16 @@ it('creates a Draft memo with company_code fixed to BLSS without the user choosi
     $page->assertRedirect();
 });
 
+it('auto-generates a unique Nomor Memo when the field is left blank', function () {
+    Livewire::test(ListRndInternalMemos::class)
+        ->set('memoTitle', 'Rilis Menu September')
+        ->set('periodMonth', '2026-09')
+        ->call('createMemo')
+        ->assertHasNoErrors();
+
+    expect(RndInternalMemo::sole()->memo_number)->not->toBeEmpty();
+});
+
 it('rejects a second memo for the same period and a duplicate memo number', function () {
     RndInternalMemo::factory()->create(['period_month' => '2026-09-01', 'memo_number' => 'EXISTING-001']);
 
@@ -64,10 +73,6 @@ it('rejects a second memo for the same period and a duplicate memo number', func
         ->set('memoNumber', 'NEW-001')
         ->set('memoTitle', 'Rilis Menu September Ganda')
         ->set('periodMonth', '2026-09')
-        ->set('memoDate', '2026-09-01')
-        ->set('recipient', 'Tim Operasional')
-        ->set('sender', 'Tim R&D')
-        ->set('subject', 'Rilis Menu Bulanan')
         ->call('createMemo')
         ->assertHasErrors(['periodMonth']);
 
@@ -75,10 +80,6 @@ it('rejects a second memo for the same period and a duplicate memo number', func
         ->set('memoNumber', 'EXISTING-001')
         ->set('memoTitle', 'Judul Lain')
         ->set('periodMonth', '2026-10')
-        ->set('memoDate', '2026-10-01')
-        ->set('recipient', 'Tim Operasional')
-        ->set('sender', 'Tim R&D')
-        ->set('subject', 'Rilis Menu Bulanan')
         ->call('createMemo')
         ->assertHasErrors(['memoNumber']);
 });
@@ -218,46 +219,20 @@ it('hides the Pilih Menu and Buat Memo actions from a user who can only view', f
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
 
     Livewire::test(ListRndInternalMemos::class)->assertDontSee('Buat Memo');
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->assertDontSee('Pilih Menu');
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->assertDontSee('Tambah Menu');
 });
 
-it('warns instead of dispatching a sync when the memo has no Menu yet', function () {
-    $this->operator->givePermissionTo('sync rnd internal memo');
-    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    Queue::fake();
-
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->call('runSync');
-
-    Queue::assertNothingPushed();
-    expect($memo->fresh()->status)->toBe(RndInternalMemoStatus::Draft);
-});
-
-it('flips the memo to Syncing and dispatches the sync job immediately on click', function () {
-    $this->operator->givePermissionTo('sync rnd internal memo');
-    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
-    Queue::fake();
-
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->call('runSync');
-
-    expect($memo->fresh()->status)->toBe(RndInternalMemoStatus::Syncing);
-    Queue::assertPushed(SynchronizeInternalMemoJob::class, fn ($job) => $job->memoId === $memo->id && $job->actorId === $this->operator->id);
-});
-
-it('refuses to dispatch a sync for a user without the sync permission', function () {
-    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
-    Queue::fake();
-
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->call('runSync')->assertForbidden();
-
-    Queue::assertNothingPushed();
-});
-
-it('runs the sync job end-to-end and leaves the memo NeedsAttention when a blocker is found', function () {
+/**
+ * docs/rnd-internal-memo-simplification-prd.md Phase 4/5: the simplified workspace
+ * (ViewRndInternalMemo) no longer has a Sync BOM / Forecast / Shelf Life UI — BOM resolution now
+ * runs synchronously from addMenu/refreshMenu (see RefreshInternalMemoMenuActionTest.php and
+ * InternalMemoBomResolverTest.php for that coverage). SynchronizeInternalMemoAction and the
+ * Forecast/Shelf Life Actions still exist for the transition period, so their own business logic
+ * (not the removed UI orchestration) is exercised directly here instead.
+ */
+it('runs SynchronizeInternalMemoAction end-to-end and leaves the memo NeedsAttention when a blocker is found', function () {
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
-    $this->operator->givePermissionTo('sync rnd internal memo');
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
     app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
 
@@ -272,7 +247,7 @@ it('runs the sync job end-to-end and leaves the memo NeedsAttention when a block
         'https://esb.test/core/product/bom?*' => Http::response(['status' => 'ok', 'result' => ['data' => []]]),
     ]);
 
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->call('runSync');
+    app(SynchronizeInternalMemoAction::class)->execute($memo, $this->operator);
 
     $memo->refresh();
     expect($memo->status)->toBe(RndInternalMemoStatus::NeedsAttention);
@@ -282,19 +257,15 @@ it('runs the sync job end-to-end and leaves the memo NeedsAttention when a block
         ->and($menu->materials()->count())->toBe(1);
 });
 
-it('updates Forecast Quantity and Shelf Life through the modal and recalculates net_quantity', function () {
+it('updates Forecast Quantity and Shelf Life and recalculates net_quantity', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
     $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
     $menu->materials()->create(['product_code' => 'RAW-FLOUR', 'product_name' => 'Tepung', 'uom_name' => 'GR', 'quantity_per_menu' => 250, 'net_quantity' => 0, 'source_bom_id' => 42, 'source_path' => [], 'depth' => 0, 'is_wip' => false, 'is_packaging' => false]);
 
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
-        ->call('openForecastModal', $menu->id)
-        ->set('forecastQuantity', '4')
-        ->set('shelfLifeValue', '3')
-        ->set('shelfLifeUnit', 'hari')
-        ->set('storageCondition', 'Chiller')
-        ->call('saveForecast')
-        ->assertHasNoErrors();
+    app(UpdateInternalMemoMenuForecastAction::class)->execute($menu, 4.0);
+    app(UpdateInternalMemoMenuShelfLifeAction::class)->execute($menu, [
+        'shelf_life_value' => 3.0, 'shelf_life_unit' => 'hari', 'storage_condition' => 'Chiller', 'shelf_life_notes' => null,
+    ]);
 
     $menu->refresh();
     expect((float) $menu->forecast_quantity)->toBe(4.0)
@@ -304,27 +275,12 @@ it('updates Forecast Quantity and Shelf Life through the modal and recalculates 
         ->and((float) $menu->materials()->sole()->net_quantity)->toBe(1000.0);
 });
 
-it('rejects a negative Forecast Quantity from the modal', function () {
+it('rejects a negative Forecast Quantity', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
     $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
 
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
-        ->call('openForecastModal', $menu->id)
-        ->set('forecastQuantity', '-5')
-        ->call('saveForecast')
-        ->assertHasErrors(['forecastQuantity']);
-});
-
-it('refuses to open the Forecast modal for a user without update permission', function () {
-    $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
-    $viewer = User::factory()->create(['is_active' => true]);
-    $viewer->givePermissionTo(['view any rnd internal memo', 'view rnd internal memo']);
-    $this->actingAs($viewer);
-
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
-        ->call('openForecastModal', $menu->id)
-        ->assertForbidden();
+    expect(fn () => app(UpdateInternalMemoMenuForecastAction::class)->execute($menu, -5.0))
+        ->toThrow(ValidationException::class);
 });
 
 it('still allows editing Forecast Quantity while the memo is NeedsAttention', function () {
@@ -333,19 +289,14 @@ it('still allows editing Forecast Quantity while the memo is NeedsAttention', fu
         'esb_menu_id' => 501, 'menu_name' => 'Croissant Butter', 'esb_bom_id' => 42, 'release_date' => now(), 'menu_snapshot' => [],
     ]);
 
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
-        ->call('openForecastModal', $menu->id)
-        ->set('forecastQuantity', '10')
-        ->call('saveForecast')
-        ->assertHasNoErrors();
+    app(UpdateInternalMemoMenuForecastAction::class)->execute($menu, 10.0);
 
     expect((float) $menu->fresh()->forecast_quantity)->toBe(10.0);
 });
 
-it('runs the sync job end-to-end and reaches Ready once Forecast and Shelf Life are already filled', function () {
+it('runs SynchronizeInternalMemoAction end-to-end and reaches Ready once Forecast and Shelf Life are already filled', function () {
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
-    $this->operator->givePermissionTo('sync rnd internal memo');
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
     $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
     $menu->update(['forecast_quantity' => 10, 'shelf_life_value' => 3, 'shelf_life_unit' => 'hari']);
@@ -360,7 +311,7 @@ it('runs the sync job end-to-end and reaches Ready once Forecast and Shelf Life 
         ])]),
     ]);
 
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->call('runSync');
+    app(SynchronizeInternalMemoAction::class)->execute($memo, $this->operator);
 
     $memo->refresh();
     expect($memo->status)->toBe(RndInternalMemoStatus::Ready)
@@ -375,7 +326,6 @@ it('runs the sync job end-to-end and reaches Ready once Forecast and Shelf Life 
 it('leaves a freshly synced memo NeedsAttention when Forecast and Shelf Life are still missing', function () {
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
-    $this->operator->givePermissionTo('sync rnd internal memo');
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
     app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
 
@@ -389,7 +339,7 @@ it('leaves a freshly synced memo NeedsAttention when Forecast and Shelf Life are
         ])]),
     ]);
 
-    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])->call('runSync');
+    app(SynchronizeInternalMemoAction::class)->execute($memo, $this->operator);
 
     expect($memo->fresh()->status)->toBe(RndInternalMemoStatus::NeedsAttention);
 });

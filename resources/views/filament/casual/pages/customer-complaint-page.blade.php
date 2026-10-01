@@ -3,19 +3,9 @@
     $branches = $this->getAccessibleBranches();
     $sources = $this->getSources();
     $categories = $this->getCategories();
-    $recentComplaints = $this->getRecentComplaints();
-    $viewingComplaint = $this->getViewingComplaint();
 
     $fieldClass = 'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-slate-200';
     $labelClass = 'mb-1.5 block text-xs font-semibold text-slate-600';
-
-    $statusBadgeClass = fn (string $color): string => match ($color) {
-        'success' => 'bg-emerald-100 text-emerald-700',
-        'warning' => 'bg-amber-100 text-amber-700',
-        'danger' => 'bg-red-100 text-red-700',
-        'info' => 'bg-sky-100 text-sky-700',
-        default => 'bg-gray-100 text-gray-700',
-    };
 @endphp
 
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
@@ -62,10 +52,10 @@
                             class="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-slate-600 transition active:bg-gray-50 dark:border-gray-700 dark:text-slate-300">
                         Isi Lagi
                     </button>
-                    <button type="button" wire:click="viewComplaint({{ $submittedComplaintId }})"
-                            class="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition active:scale-95">
+                    <a href="{{ route('filament.casual.pages.customer-complaint-history-page') }}"
+                       class="flex flex-1 items-center justify-center rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white transition active:scale-95">
                         Lihat Detail
-                    </button>
+                    </a>
                 </div>
                 <a href="{{ \App\Filament\Casual\Pages\LauncherPage::getUrl() }}" class="text-xs font-medium text-slate-400 underline">
                     Kembali ke Beranda
@@ -235,86 +225,10 @@
 
         @endif
 
-        {{-- Komplain Terakhir --}}
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-            <p class="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Komplain Terakhir</p>
-
-            @if($recentComplaints->isEmpty())
-                <p class="text-xs text-slate-400">Belum ada komplain yang Anda kirim.</p>
-            @else
-                <div class="space-y-2">
-                    @foreach($recentComplaints as $complaint)
-                        <button type="button" wire:click="viewComplaint({{ $complaint->id }})"
-                                class="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-100 px-3 py-2.5 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
-                            <div class="min-w-0">
-                                <p class="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $complaint->complaint_number }}</p>
-                                <p class="mt-0.5 truncate text-[11px] text-slate-400">
-                                    {{ $complaint->occurred_at->locale('id')->isoFormat('D MMM Y') }}
-                                    &middot; {{ $complaint->branch?->name }}
-                                    &middot; {{ $complaint->category->getLabel() }}
-                                </p>
-                            </div>
-                            <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $statusBadgeClass($complaint->status->getColor()) }}">
-                                {{ $complaint->status->getLabel() }}
-                            </span>
-                        </button>
-                    @endforeach
-                </div>
-            @endif
-        </div>
-
         </div>
     </div>
 
-    {{-- Detail modal --}}
-    @if($viewingComplaint)
-        <div class="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 sm:items-center"
-             x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window="$wire.closeDetail()"
-             role="dialog" aria-modal="true" aria-label="Detail Komplain">
-            <div class="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 dark:bg-gray-900 sm:rounded-3xl">
-                <div class="mb-4 flex items-center justify-between">
-                    <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">Detail Komplain</p>
-                    <button type="button" wire:click="closeDetail" aria-label="Tutup"
-                            class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-gray-100 dark:hover:bg-gray-800">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="space-y-3 text-sm">
-                    <div class="flex items-center justify-between">
-                        <span class="font-semibold text-blue-600 dark:text-blue-400">{{ $viewingComplaint->complaint_number }}</span>
-                        <span class="rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $statusBadgeClass($viewingComplaint->status->getColor()) }}">
-                            {{ $viewingComplaint->status->getLabel() }}
-                        </span>
-                    </div>
-
-                    <dl class="space-y-2 text-xs">
-                        <div class="flex justify-between gap-3"><dt class="text-slate-400">Tanggal Kejadian</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->occurred_at->locale('id')->isoFormat('D MMM Y') }}</dd></div>
-                        <div class="flex justify-between gap-3"><dt class="text-slate-400">Branch</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->branch?->name }}</dd></div>
-                        <div class="flex justify-between gap-3"><dt class="text-slate-400">Sumber</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->source->getLabel() }}</dd></div>
-                        <div class="flex justify-between gap-3"><dt class="text-slate-400">Kategori</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->category->getLabel() }}</dd></div>
-                        @if($viewingComplaint->order_reference)
-                            <div class="flex justify-between gap-3"><dt class="text-slate-400">No. Pesanan / Struk</dt><dd class="text-right text-slate-700 dark:text-slate-300">{{ $viewingComplaint->order_reference }}</dd></div>
-                        @endif
-                    </dl>
-
-                    <div>
-                        <p class="mb-1 text-xs font-semibold text-slate-500">Detail Komplain</p>
-                        <p class="whitespace-pre-line text-xs leading-relaxed text-slate-700 dark:text-slate-300">{{ $viewingComplaint->description }}</p>
-                    </div>
-
-                    @if($viewingComplaint->resolution)
-                        <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
-                            <p class="mb-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">Resolution</p>
-                            <p class="text-xs leading-relaxed text-emerald-700 dark:text-emerald-400">{{ $viewingComplaint->resolution }}</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-    @endif
+    <x-customer-complaint.bottom-nav active="form" />
 
     <x-filament-actions::modals />
 </div>

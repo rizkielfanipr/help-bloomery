@@ -61,10 +61,6 @@ class CustomerComplaintPage extends Page
 
     public ?string $submittedNumber = null;
 
-    public ?int $submittedComplaintId = null;
-
-    public ?int $viewingComplaintId = null;
-
     public function mount(): void
     {
         $user = auth()->user();
@@ -103,49 +99,6 @@ class CustomerComplaintPage extends Page
     public function getCategories(): array
     {
         return CustomerComplaintCategory::cases();
-    }
-
-    /**
-     * Up to 5 of the user's own complaints (§9). The submitter can always see their own record
-     * regardless of branch access (CustomerComplaintPolicy::view), so no branch filter is applied.
-     *
-     * @return Collection<int, CustomerComplaint>
-     */
-    public function getRecentComplaints(): Collection
-    {
-        return CustomerComplaint::query()
-            ->where('submitted_by', auth()->id())
-            ->with('branch:id,name')
-            ->latest('occurred_at')
-            ->limit(5)
-            ->get();
-    }
-
-    public function getViewingComplaint(): ?CustomerComplaint
-    {
-        if (! $this->viewingComplaintId) {
-            return null;
-        }
-
-        $complaint = CustomerComplaint::query()->with('branch:id,name')->find($this->viewingComplaintId);
-
-        if (! $complaint || ! auth()->user()->can('view', $complaint)) {
-            return null;
-        }
-
-        return $complaint;
-    }
-
-    public function viewComplaint(int $id): void
-    {
-        $complaint = CustomerComplaint::query()->findOrFail($id);
-        $this->authorize('view', $complaint);
-        $this->viewingComplaintId = $id;
-    }
-
-    public function closeDetail(): void
-    {
-        $this->viewingComplaintId = null;
     }
 
     public function removeAttachment(int $index): void
@@ -206,7 +159,6 @@ class CustomerComplaintPage extends Page
             }
 
             $this->submittedNumber = $complaint->complaint_number;
-            $this->submittedComplaintId = $complaint->id;
             $this->submitted = true;
 
             $this->reset([
@@ -228,7 +180,6 @@ class CustomerComplaintPage extends Page
     {
         $this->submitted = false;
         $this->submittedNumber = null;
-        $this->submittedComplaintId = null;
         $this->occurredAt = now()->format('Y-m-d');
     }
 }

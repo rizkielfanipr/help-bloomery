@@ -72,6 +72,19 @@ it('submits a complaint with a generated number and records the submitter', func
         ->and($complaint->branch_id)->toBe($this->branch->id);
 });
 
+it('shows a bottom nav with Form and Riwayat tabs, and points "Lihat Detail" at the Riwayat page after submit', function () {
+    $this->actingAs($this->user);
+
+    Livewire::test(CustomerComplaintPage::class)
+        ->assertSee('Riwayat')
+        ->assertSeeHtml(route('filament.casual.pages.customer-complaint-history-page'))
+        ->set('branchId', $this->branch->id)
+        ->set(validComplaintFormState())
+        ->call('submit')
+        ->assertHasNoErrors()
+        ->assertSeeHtml(route('filament.casual.pages.customer-complaint-history-page'));
+});
+
 it('rejects a submission for a branch the user cannot access, even if the component state is tampered', function () {
     $otherBranch = Branch::factory()->create();
     $this->actingAs($this->user);
@@ -182,21 +195,6 @@ it('rejects an attachment larger than 5 MB', function () {
         ->set('attachments', [UploadedFile::fake()->create('bukti.jpg', 5121)])
         ->call('submit')
         ->assertHasErrors(['attachments.0']);
-});
-
-it('shows only the signed-in user\'s own complaints in the last-5 history, newest first', function () {
-    $otherUser = User::factory()->create(['branch_id' => $this->branch->id]);
-    CustomerComplaint::factory()->count(2)->create(['submitted_by' => $otherUser->id, 'branch_id' => $this->branch->id]);
-    $own = CustomerComplaint::factory()->count(6)->sequence(
-        fn ($sequence) => ['occurred_at' => now()->subDays(6 - $sequence->index)],
-    )->create(['submitted_by' => $this->user->id, 'branch_id' => $this->branch->id]);
-
-    $this->actingAs($this->user);
-    $recent = Livewire::test(CustomerComplaintPage::class)->instance()->getRecentComplaints();
-
-    expect($recent)->toHaveCount(5)
-        ->and($recent->pluck('submitted_by')->unique()->all())->toBe([$this->user->id])
-        ->and($recent->first()->id)->toBe($own->last()->id);
 });
 
 it('notifies Operational reviewers who can access the complaint\'s branch, after the transaction commits', function () {

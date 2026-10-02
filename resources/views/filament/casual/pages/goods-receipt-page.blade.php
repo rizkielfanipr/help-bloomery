@@ -217,15 +217,87 @@
                     @foreach (['goodsReceiptDate','locationId','documentType','documentNumber','documentDate'] as $key) @error($key)<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror @endforeach
                 </section>
 
-                <section class="flex flex-col gap-4">
-                    @foreach ($items as $index => $item)
+                <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
+                    <h3 class="font-semibold text-slate-900 dark:text-white">2. Pemeriksaan Produk</h3>
+                    <div class="{{ $help }}">
+                        <span class="{{ $infoHeading }}">Informasi Pengisian</span>
+                        Produk default berstatus Sesuai dengan Qty Diterima mengikuti sisa PO. Tandai Bermasalah hanya untuk produk yang perlu pemeriksaan detail (quantity, quality, cold chain, shelf life, sampling, atau rejection).
+                    </div>
+                    <div class="mt-3 flex items-center rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
+                        <svg class="ml-2 h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $this->iconPath('search') }}"/></svg>
+                        <input wire:model.live.debounce.300ms="itemSearch" type="search" placeholder="Cari produk" class="min-w-0 flex-1 border-0 bg-transparent px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-slate-200">
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-1.5">
+                        @foreach (['all' => 'Semua', 'ok' => 'Sesuai', 'problem' => 'Bermasalah', 'unchecked' => 'Belum Diperiksa'] as $value => $text)
+                            <button type="button" wire:click="$set('itemFilter', '{{ $value }}')" class="rounded-full px-3 py-1 text-xs font-semibold {{ $itemFilter === $value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-slate-600 dark:bg-gray-800 dark:text-slate-300' }}">{{ $text }}</button>
+                        @endforeach
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-1.5">
+                        <button type="button" wire:click="selectAllItems" class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:border-gray-700 dark:text-slate-300">Pilih Semua Produk</button>
+                        <button type="button" wire:click="markAllOk" wire:confirm="Tandai seluruh produk sebagai Sesuai? Data Bermasalah yang sudah diisi akan dikosongkan." class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:border-gray-700 dark:text-slate-300">Tandai Semua Sesuai</button>
+                        <button type="button" wire:click="fillQtyFromOutstanding" class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:border-gray-700 dark:text-slate-300">Isi Qty Sesuai Outstanding</button>
+                        <button type="button" wire:click="clearAllQty" class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:border-gray-700 dark:text-slate-300">Kosongkan Semua Qty</button>
+                    </div>
+                </section>
+
+                <section class="flex flex-col gap-2.5">
+                    @php($visibleIndexes = $this->visibleItemIndexes())
+                    @forelse ($visibleIndexes as $index)
+                        @php($item = $items[$index])
+                        <div wire:key="item-row-{{ $index }}" class="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900">
+                            <input wire:model="items.{{ $index }}.selected" type="checkbox" class="h-4 w-4 shrink-0" aria-label="Pilih {{ $item['productName'] }}">
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $item['productName'] }}</p>
+                                <p class="text-xs text-slate-500">{{ $item['productCode'] ?: 'Tanpa kode' }} &middot; Sisa {{ number_format($item['outstandingQty'], 4, ',', '.') }} {{ $item['uomName'] }}</p>
+                                <label class="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">Qty Diterima
+                                    <input wire:model="items.{{ $index }}.physicalQty" type="number" step="0.0001" class="w-24 rounded-lg border border-gray-200 px-2 py-1 text-xs text-slate-700 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                </label>
+                                @error("items.{$index}.physicalQty")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                @error("items.{$index}.acceptedQty")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="flex shrink-0 flex-col items-end gap-1.5">
+                                <div class="flex overflow-hidden rounded-lg border border-gray-200 text-xs font-semibold dark:border-gray-700">
+                                    <button type="button" wire:click="setItemCondition({{ $index }}, 'ok')" class="px-2.5 py-1 {{ $item['condition'] === 'ok' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500 dark:bg-gray-900 dark:text-slate-400' }}">Sesuai</button>
+                                    <button type="button" wire:click="openItemDetail({{ $index }})" class="px-2.5 py-1 {{ $item['condition'] === 'problem' ? 'bg-amber-500 text-white' : 'bg-white text-slate-500 dark:bg-gray-900 dark:text-slate-400' }}">Bermasalah</button>
+                                </div>
+                                @if ($item['condition'] === 'problem')
+                                    <button type="button" wire:click="openItemDetail({{ $index }})" class="text-[11px] font-semibold text-blue-600">Detail QC &rarr;</button>
+                                @endif
+                            </div>
+                        </div>
+                    @empty
+                        <div class="rounded-2xl border border-dashed p-8 text-center text-sm text-slate-500">Tidak ada produk yang cocok dengan pencarian/filter.</div>
+                    @endforelse
+                </section>
+
+                <div
+                    x-data="{ show: @js($activeItemIndex !== null) }"
+                    x-on:open-modal.window="$event.detail == 'item-detail' ? show = true : null"
+                    x-on:close-modal.window="$event.detail == 'item-detail' ? show = false : null"
+                    x-on:keydown.escape.window="show && $wire.closeItemDetail()"
+                    x-show="show"
+                    x-cloak
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Detail Pemeriksaan Produk"
+                    class="fixed inset-0 z-50 overflow-y-auto px-4 py-6 sm:px-0"
+                >
+                    <div x-show="show" x-on:click="$wire.closeItemDetail()" class="fixed inset-0 bg-gray-500/75"></div>
+                    <div x-show="show" class="relative mx-auto mb-6 max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl sm:max-w-lg dark:bg-gray-900">
+                    @if ($activeItemIndex !== null)
+                        @php($index = $activeItemIndex)
+                        @php($item = $items[$index] ?? null)
+                        @if ($item)
                         @php($qcPreview = $this->itemQcPreview($index))
-                        <article wire:key="qc-item-{{ $index }}" class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+                        <article wire:key="qc-item-{{ $index }}" class="p-5">
+                            <div class="mb-3 flex items-start justify-between gap-3">
+                                <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ $item['productName'] }}</h3>
+                                <button type="button" wire:click="closeItemDetail" aria-label="Tutup" class="shrink-0 text-slate-400 hover:text-slate-600"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+                            </div>
                             <div class="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30">
                                 <span class="{{ $infoHeading }} text-blue-700 dark:text-blue-300">Informasi Pengisian</span>
-                                <p class="mt-1 text-xs leading-5 text-blue-800 dark:text-blue-300">Periksa setiap produk secara terpisah. Isi qty fisik hasil hitung, timbang, atau ukur, lalu bagi seluruhnya ke Accepted, Hold, dan Rejected. Jumlah ketiganya harus sama dengan qty fisik. Hanya qty Accepted yang dikirim ke ESB.</p>
+                                <p class="mt-1 text-xs leading-5 text-blue-800 dark:text-blue-300">Isi qty fisik hasil hitung, timbang, atau ukur, lalu bagi seluruhnya ke Accepted, Hold, dan Rejected. Jumlah ketiganya harus sama dengan qty fisik. Hanya qty Accepted yang dikirim ke ESB.</p>
                             </div>
-                            <label class="flex items-start gap-3"><input wire:model="items.{{ $index }}.selected" type="checkbox" class="mt-1"><span><strong class="block text-sm text-slate-900 dark:text-white">{{ $item['productName'] }}</strong><span class="text-xs text-slate-500">{{ $item['productCode'] ?: 'Tanpa kode' }} · Sisa {{ number_format($item['outstandingQty'], 4, ',', '.') }} {{ $item['uomName'] }}</span></span></label>
                             <div class="mt-4 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
                                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-200">2. Quantity Check</p>
                                 <span class="mt-2 {{ $infoHeading }} text-slate-500">Informasi Pengisian</span>
@@ -358,9 +430,13 @@
                             @error("items.$index.rejectionReason")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
                             @error("items.$index.actualTemperature")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
                             @error("items.$index.batches")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                            <button type="button" wire:click="closeItemDetail" class="mt-4 w-full rounded-xl bg-blue-600 py-2.5 text-sm font-semibold text-white">Selesai</button>
                         </article>
-                    @endforeach
-                </section>
+                        @endif
+                    @endif
+                    </div>
+                </div>
+
                 <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                     <h3 class="font-semibold text-slate-900 dark:text-white">6. Konfirmasi Penerimaan</h3>
                     <div class="{{ $help }}"><span class="{{ $infoHeading }}">Informasi Pengisian</span>Tambahkan informasi operasional jika diperlukan.</div>

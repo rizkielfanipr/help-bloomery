@@ -45,6 +45,14 @@ class GoodsReceiptPage extends Page
 
     public array $items = [];
 
+    /** docs/receiving-simplification-prd.md §5.4: index of the item whose exception detail is open. */
+    public ?int $activeItemIndex = null;
+
+    public string $itemSearch = '';
+
+    /** all|ok|problem|unchecked */
+    public string $itemFilter = 'all';
+
     public string $goodsReceiptDate = '';
 
     public string $locationId = '';
@@ -205,6 +213,11 @@ class GoodsReceiptPage extends Page
                     'productID' => (int) ($detail['productID'] ?? 0), 'productDetailID' => (int) ($detail['productDetailID'] ?? 0),
                     'productCode' => (string) ($detail['productCode'] ?? ''), 'productName' => (string) ($detail['productName'] ?? 'Produk'),
                     'uomID' => $detail['uomID'] ?? null, 'uomName' => (string) ($detail['uomName'] ?? ''),
+                    // docs/receiving-simplification-prd.md §4/§7: 'ok' is the normal/fast path —
+                    // visual/cold-chain/shelf-life/sampling sub-fields already default to values
+                    // InboundGoodsReceiptQcService treats as pass/not_applicable, so this toggle
+                    // only controls which part of the UI is shown, not the QC math itself.
+                    'condition' => 'ok',
                     'orderedQty' => $ordered, 'outstandingQty' => $outstanding, 'physicalQty' => $outstanding,
                     'acceptedQty' => $outstanding, 'holdQty' => 0, 'rejectedQty' => 0, 'measurementMethod' => 'count',
                     'tolerancePercentage' => 0, 'deviationVal' => (float) ($detail['deviationVal'] ?? 0),
@@ -251,6 +264,96 @@ class GoodsReceiptPage extends Page
         $this->items[$itemIndex]['evidencePhotos'] = array_values($this->items[$itemIndex]['evidencePhotos']);
     }
 
+    /** @return list<int> indexes into $items matching the current search/filter, for the summary list. */
+    public function visibleItemIndexes(): array
+    {
+        $needle = mb_strtolower(trim($this->itemSearch));
+
+        return collect($this->items)->filter(function (array $item) use ($needle): bool {
+            if ($needle !== '' && ! str_contains(mb_strtolower($item['productName'].' '.$item['productCode']), $needle)) {
+                return false;
+            }
+
+            return match ($this->itemFilter) {
+                'ok' => $item['selected'] && $item['condition'] === 'ok',
+                'problem' => $item['selected'] && $item['condition'] === 'problem',
+                'unchecked' => ! $item['selected'],
+                default => true,
+            };
+        })->keys()->all();
+    }
+
+    public function openItemDetail(int $index): void
+    {
+        $this->items[$index]['condition'] = 'problem';
+        $this->activeItemIndex = $index;
+        $this->dispatch('open-modal', 'item-detail');
+    }
+
+    public function closeItemDetail(): void
+    {
+        $this->activeItemIndex = null;
+        $this->dispatch('close-modal', 'item-detail');
+    }
+
+    /**
+     * docs/receiving-simplification-prd.md §7: switching back to "Sesuai" clears any exception
+     * data entered while "Bermasalah" was selected, so a stale Hold/Rejected/rejection reason
+     * never survives a condition change the user no longer intends.
+     */
+    public function setItemCondition(int $index, string $condition): void
+    {
+        $this->items[$index]['condition'] = $condition;
+
+        if ($condition === 'ok') {
+            $this->items[$index] = array_replace($this->items[$index], [
+                'acceptedQty' => $this->items[$index]['physicalQty'], 'holdQty' => 0, 'rejectedQty' => 0,
+                'colorResult' => 'pass', 'textureResult' => 'pass', 'packagingResult' => 'pass', 'contaminationResult' => 'pass',
+                'temperatureCategory' => 'ambient', 'actualTemperature' => null, 'minTemperature' => null, 'maxTemperature' => null,
+                'shelfLifeRequired' => false, 'batches' => [],
+                'samplingRequired' => false, 'samplingMethod' => '', 'samplingResult' => 'pass', 'samplingNotes' => '',
+                'quarantineLocation' => '', 'rejectionCategory' => '', 'rejectionReason' => '', 'evidencePhotos' => [],
+            ]);
+            $this->closeItemDetail();
+        }
+    }
+
+    public function selectAllItems(): void
+    {
+        foreach ($this->items as $index => $item) {
+            $this->items[$index]['selected'] = true;
+        }
+    }
+
+    public function markAllOk(): void
+    {
+        foreach (array_keys($this->items) as $index) {
+            $this->setItemCondition($index, 'ok');
+        }
+    }
+
+    public function fillQtyFromOutstanding(): void
+    {
+        foreach ($this->items as $index => $item) {
+            if ($item['condition'] !== 'ok') {
+                continue;
+            }
+            $this->items[$index]['physicalQty'] = $item['outstandingQty'];
+            $this->items[$index]['acceptedQty'] = $item['outstandingQty'];
+        }
+    }
+
+    public function clearAllQty(): void
+    {
+        foreach ($this->items as $index => $item) {
+            if ($item['condition'] !== 'ok') {
+                continue;
+            }
+            $this->items[$index]['physicalQty'] = 0;
+            $this->items[$index]['acceptedQty'] = 0;
+        }
+    }
+
     /** @return array<string, mixed> */
     public function itemQcPreview(int $itemIndex): array
     {
@@ -262,7 +365,7 @@ class GoodsReceiptPage extends Page
 
     public function backToList(): void
     {
-        $this->reset('purchaseOrder', 'locations', 'items', 'locationId', 'documentNumber', 'documentDate', 'documentNotes', 'documentPhotos', 'goodsPhotos', 'additionalInfo');
+        $this->reset('purchaseOrder', 'locations', 'items', 'locationId', 'documentNumber', 'documentDate', 'documentNotes', 'documentPhotos', 'goodsPhotos', 'additionalInfo', 'activeItemIndex', 'itemSearch', 'itemFilter');
     }
 
     public function submit(): void
@@ -273,7 +376,17 @@ class GoodsReceiptPage extends Page
         abort_if($purchaseNumber === '', 422, 'Purchase Order belum dipilih.');
         $latest = app(EsbGoodsReceiptService::class)->purchaseOrder($purchaseNumber);
         abort_unless(in_array((int) data_get($latest, 'statusID'), $this->receivableStatusIds(), true), 422, 'Status PO sudah berubah.');
-        $selected = collect($this->items)->filter(fn (array $item): bool => $item['selected'] && (float) $item['physicalQty'] > 0);
+        $selected = collect($this->items)->filter(fn (array $item): bool => $item['selected'] && (float) $item['physicalQty'] > 0)
+            // Server-side defense in depth: "Sesuai" always means the full qty is Accepted and
+            // the exception fields are blank, regardless of whatever the client last held for
+            // them (docs/receiving-simplification-prd.md §6-7).
+            ->map(fn (array $item): array => $item['condition'] === 'ok' ? array_replace($item, [
+                'acceptedQty' => $item['physicalQty'], 'holdQty' => 0, 'rejectedQty' => 0,
+                'colorResult' => 'pass', 'textureResult' => 'pass', 'packagingResult' => 'pass', 'contaminationResult' => 'pass',
+                'temperatureCategory' => 'ambient', 'shelfLifeRequired' => false, 'batches' => [],
+                'samplingRequired' => false, 'samplingResult' => 'pass',
+                'quarantineLocation' => '', 'rejectionCategory' => '', 'rejectionReason' => '', 'evidencePhotos' => [],
+            ]) : $item);
         if ($selected->isEmpty()) {
             $this->addError('items', 'Pilih minimal satu barang dengan qty fisik lebih dari 0.');
 

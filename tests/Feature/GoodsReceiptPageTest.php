@@ -138,22 +138,31 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertSee('Cabang Penerima')
         ->assertSee('Tanggal Dibutuhkan')
         ->assertSee('1 Produk')
-        ->assertSee('Hanya qty Accepted yang dikirim ke ESB')
-        ->assertSee('minimum 80%')
-        ->assertSee('2. Quantity Check')
-        ->assertSee('3. Quality Check')
-        ->assertSee('Feedback Loop ke Purchasing')
+        ->assertSee('2. Pemeriksaan Produk')
         ->assertSee('Informasi Pengisian')
-        ->assertSee('Informasi Proses Otomatis')
         ->assertSee('6. Konfirmasi Penerimaan')
         ->assertDontSee('Informasi Tutup PO')
         ->assertDontSee('Tutup PO Otomatis')
         ->assertSee('Dokumen Sesuai')
         ->assertSee('Foto Dokumen')
         ->assertSee('Foto Barang')
+        // Compact row by default: the full QC detail is collapsed behind "Bermasalah" until opened.
+        ->assertSet('items.0.condition', 'ok')
+        ->assertDontSee('Suhu aktual °C')
+        ->assertDontSee('Sampling Test Diperlukan')
+        ->assertDontSee('Tambah Foto / Screenshot')
+        ->assertSet('activeItemIndex', null)
+        ->call('openItemDetail', 0)
+        ->assertSet('activeItemIndex', 0)
+        ->assertSet('items.0.condition', 'problem')
+        ->assertSee('Hanya qty Accepted yang dikirim ke ESB')
+        ->assertSee('minimum 80%')
+        ->assertSee('2. Quantity Check')
+        ->assertSee('3. Quality Check')
+        ->assertSee('Feedback Loop ke Purchasing')
+        ->assertSee('Informasi Proses Otomatis')
         ->assertSee('Sampling Test Diperlukan')
         ->assertDontSee('Suhu aktual °C')
-        ->assertDontSee('Tambah Foto / Screenshot')
         ->set('items.0.temperatureCategory', 'chilled')
         ->assertSee('Suhu aktual °C')
         ->set('items.0.shelfLifeRequired', true)
@@ -172,6 +181,8 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertSee('Lokasi quarantine')
         ->assertSee('Tambah Foto / Screenshot')
         ->set('items.0.holdQty', 0)
+        ->call('closeItemDetail')
+        ->assertSet('activeItemIndex', null)
         ->assertSeeHtml('Simpan QC & Proses Goods Receipt')
         ->assertDontSeeHtml('Buat GR & QC')
         ->set('goodsReceiptDate', '')
@@ -213,6 +224,7 @@ test('receiving saves calculated shelf life for form batches', function () {
         ->set('documentType', 'invoice')
         ->set('documentNumber', 'INV-BATCH')
         ->set('documentDate', '2026-09-16')
+        ->call('openItemDetail', 0)
         ->set('items.0.shelfLifeRequired', true)
         ->call('addBatch', 0)
         ->set('items.0.batches.0', [
@@ -389,6 +401,116 @@ test('submit is blocked client-side while a photo upload is still in flight', fu
         ->assertSeeHtml('x-on:livewire-upload-start.window="uploadingCount++"')
         ->assertSeeHtml('x-on:livewire-upload-finish.window="uploadingCount--"')
         ->assertSeeHtml(':disabled="uploadingCount > 0"');
+});
+
+function mockMultiItemPurchaseOrder(string $purchaseNumber): EsbGoodsReceiptService
+{
+    $order = [
+        'purchaseNum' => $purchaseNumber,
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 10,
+        'purchaseDetails' => [
+            ['ID' => 1, 'productID' => 1, 'productDetailID' => 1, 'productCode' => 'A1', 'productName' => 'Butter', 'uomID' => 1, 'uomName' => 'KG', 'qty' => 10],
+            ['ID' => 2, 'productID' => 2, 'productDetailID' => 2, 'productCode' => 'A2', 'productName' => 'Cream', 'uomID' => 1, 'uomName' => 'KG', 'qty' => 5],
+        ],
+    ];
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with($purchaseNumber)->andReturn($order);
+    $service->shouldReceive('locations')->with(10)->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    return $service;
+}
+
+test('bulk actions select all, mark all Sesuai, fill qty from outstanding, and clear qty', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+    mockMultiItemPurchaseOrder('PO-BULK');
+
+    $component = Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-BULK')
+        ->assertSet('items.0.physicalQty', 10.0)
+        ->assertSet('items.1.physicalQty', 5.0)
+        ->call('clearAllQty')
+        ->assertSet('items.0.physicalQty', 0)
+        ->assertSet('items.1.physicalQty', 0)
+        ->call('fillQtyFromOutstanding')
+        ->assertSet('items.0.physicalQty', 10.0)
+        ->assertSet('items.1.physicalQty', 5.0)
+        ->set('items.0.selected', false)
+        ->call('selectAllItems')
+        ->assertSet('items.0.selected', true);
+
+    // Mark item 0 Bermasalah with Hold data, then confirm "Tandai Semua Sesuai" wipes it.
+    $component->call('openItemDetail', 0)
+        ->set('items.0.holdQty', 3)
+        ->set('items.0.rejectionCategory', 'quality')
+        ->call('markAllOk')
+        ->assertSet('items.0.condition', 'ok')
+        ->assertSet('items.0.holdQty', 0)
+        ->assertSet('items.0.rejectionCategory', '')
+        ->assertSet('items.1.condition', 'ok');
+});
+
+test('switching an item back to Sesuai clears exception data entered while Bermasalah', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+    mockMultiItemPurchaseOrder('PO-RESET');
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-RESET')
+        ->call('openItemDetail', 0)
+        ->assertSet('items.0.condition', 'problem')
+        ->set('items.0.holdQty', 2)
+        ->set('items.0.temperatureCategory', 'chilled')
+        ->set('items.0.shelfLifeRequired', true)
+        ->call('addBatch', 0)
+        ->set('items.0.rejectionReason', 'Kemasan rusak')
+        ->call('setItemCondition', 0, 'ok')
+        ->assertSet('items.0.condition', 'ok')
+        ->assertSet('items.0.holdQty', 0)
+        ->assertSet('items.0.temperatureCategory', 'ambient')
+        ->assertSet('items.0.shelfLifeRequired', false)
+        ->assertSet('items.0.batches', [])
+        ->assertSet('items.0.rejectionReason', '')
+        // Switching back to Sesuai also closes the detail view (docs/receiving-simplification-prd.md §7).
+        ->assertSet('activeItemIndex', null);
+});
+
+test('the product search and condition filter narrow the visible item list', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+    mockMultiItemPurchaseOrder('PO-FILTER');
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-FILTER')
+        ->assertSee('Butter')
+        ->assertSee('Cream')
+        ->set('itemSearch', 'but')
+        ->assertSee('Butter')
+        ->assertDontSee('Cream')
+        ->set('itemSearch', '')
+        ->call('openItemDetail', 1)
+        ->call('closeItemDetail')
+        ->set('itemFilter', 'problem')
+        ->assertDontSee('Butter')
+        ->assertSee('Cream')
+        ->set('itemFilter', 'ok')
+        ->assertSee('Butter')
+        ->assertDontSee('Cream')
+        ->set('itemFilter', 'all')
+        ->assertSee('Butter')
+        ->assertSee('Cream');
 });
 
 test('inventory stays expanded on receiving index and detail', function () {

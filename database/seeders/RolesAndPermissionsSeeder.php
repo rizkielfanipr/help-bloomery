@@ -80,6 +80,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view content requests', 'create content requests',
                 'view erp requests', 'create erp requests',
                 'create customer complaints',
+                'create store sales orders',
             ]);
 
         Role::firstOrCreate(['name' => 'DRIVER', 'guard_name' => 'web'])
@@ -164,6 +165,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view branches', 'edit branch shifts',
                 'create customer complaints',
                 'view any customer complaints', 'view customer complaints', 'update customer complaints',
+                'create store sales orders',
+                'view any store sales orders', 'view store sales orders', 'update store sales orders', 'update store sales order status',
             ]);
 
         Role::firstOrCreate(['name' => 'FINANCE_STAFF', 'guard_name' => 'web'])

@@ -26,6 +26,10 @@ return [
         // (docs/customer-complaints-prd.md §12), and User::canAccessPanel('casual') only checks
         // membership in this config group.
         'Customer Complaints' => ['create customer complaints'],
+        // Same single-permission-gates-everything pattern as Customer Complaints (docs/
+        // store-sales-order-prd.md §16): `create store sales orders` is both the Casual panel
+        // gate and the tile/submission permission.
+        'Store Sales Order' => ['create store sales orders'],
     ],
 
     'Human Resources' => [
@@ -188,6 +192,13 @@ return [
             'view customer complaints',
             'update customer complaints',
             'delete customer complaints',
+        ],
+        'Store Sales Orders' => [
+            'view any store sales orders',
+            'view store sales orders',
+            'update store sales orders',
+            'update store sales order status',
+            'delete store sales orders',
         ],
     ],
 

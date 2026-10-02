@@ -36,6 +36,7 @@ class GoodsReceipt extends Model
         'invoice_status', 'invoice_number', 'invoice_date', 'po_document_match',
         'delivery_document_match', 'invoice_document_match', 'price_match', 'document_notes',
         'document_evidence_photos', 'qc_outcome', 'qc_completed_at',
+        'document_type', 'document_number', 'document_date', 'document_photos', 'goods_photos',
     ];
 
     protected function casts(): array
@@ -47,6 +48,7 @@ class GoodsReceipt extends Model
             'po_document_match' => 'boolean', 'delivery_document_match' => 'boolean',
             'invoice_document_match' => 'boolean', 'price_match' => 'boolean',
             'document_evidence_photos' => 'array', 'qc_completed_at' => 'datetime',
+            'document_date' => 'date', 'document_photos' => 'array', 'goods_photos' => 'array',
         ];
     }
 

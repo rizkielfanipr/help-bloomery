@@ -10,6 +10,9 @@ use App\Services\EsbGoodsReceiptService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 test('goods receipt records store their items and expiry details', function () {
@@ -143,9 +146,11 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertSee('Informasi Pengisian')
         ->assertSee('Informasi Proses Otomatis')
         ->assertSee('6. Konfirmasi Penerimaan')
-        ->assertSee('Informasi Tutup PO')
-        ->assertSee('pengiriman terakhir')
-        ->assertSee('Surat Jalan Sesuai')
+        ->assertDontSee('Informasi Tutup PO')
+        ->assertDontSee('Tutup PO Otomatis')
+        ->assertSee('Dokumen Sesuai')
+        ->assertSee('Foto Dokumen')
+        ->assertSee('Foto Barang')
         ->assertSee('Sampling Test Diperlukan')
         ->assertDontSee('Suhu aktual °C')
         ->assertDontSee('Tambah Foto / Screenshot')
@@ -167,9 +172,6 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertSee('Lokasi quarantine')
         ->assertSee('Tambah Foto / Screenshot')
         ->set('items.0.holdQty', 0)
-        ->set('poDocumentMatch', false)
-        ->assertSee('Foto bukti dokumen')
-        ->set('poDocumentMatch', true)
         ->assertSeeHtml('Simpan QC & Proses Goods Receipt')
         ->assertDontSeeHtml('Buat GR & QC')
         ->set('goodsReceiptDate', '')
@@ -208,9 +210,9 @@ test('receiving saves calculated shelf life for form batches', function () {
 
     Livewire::test(GoodsReceiptPage::class)
         ->call('selectPurchaseOrder', 'PO-BATCH')
-        ->set('deliveryNumber', 'DO-BATCH')
-        ->set('invoiceNumber', 'INV-BATCH')
-        ->set('invoiceDate', '2026-09-16')
+        ->set('documentType', 'invoice')
+        ->set('documentNumber', 'INV-BATCH')
+        ->set('documentDate', '2026-09-16')
         ->set('items.0.shelfLifeRequired', true)
         ->call('addBatch', 0)
         ->set('items.0.batches.0', [
@@ -256,9 +258,9 @@ test('receiving guards duplicate submissions and marks an uncertain connection r
 
     $component = Livewire::test(GoodsReceiptPage::class)
         ->call('selectPurchaseOrder', 'PO-UNKNOWN')
-        ->set('deliveryNumber', 'DO-UNKNOWN')
-        ->set('invoiceNumber', 'INV-UNKNOWN')
-        ->set('invoiceDate', '2026-09-16')
+        ->set('documentType', 'invoice')
+        ->set('documentNumber', 'INV-UNKNOWN')
+        ->set('documentDate', '2026-09-16')
         ->call('submit')
         ->assertHasNoErrors();
 
@@ -269,6 +271,124 @@ test('receiving guards duplicate submissions and marks an uncertain connection r
         ->and($receipt->esb_goods_receipt_number)->toBeNull()
         ->and($receipt->payload_hash)->toHaveLength(64)
         ->and(GoodsReceipt::query()->where('reference_number', 'PO-UNKNOWN')->count())->toBe(1);
+});
+
+test('a single document number and date save correctly for whichever document type is chosen, without requiring the other', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+
+    $order = [
+        'purchaseNum' => 'PO-DOC-TYPE',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 10,
+        'purchaseDetails' => [['ID' => 11, 'productID' => 12, 'productDetailID' => 13, 'qty' => 2]],
+    ];
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('PO-DOC-TYPE')->twice()->andReturn($order);
+    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('create')->once()->with('PO-DOC-TYPE', Mockery::on(fn (array $payload): bool => $payload['deliveryNum'] === 'DO-ONLY'))
+        ->andReturn(['result' => ['goodsReceiptNum' => 'GR-DOC-TYPE'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    // "Surat Jalan valid tanpa Invoice" (docs/receiving-simplification-prd.md §19): choosing
+    // delivery_note never requires any invoice-specific field.
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-DOC-TYPE')
+        ->set('documentType', 'delivery_note')
+        ->set('documentNumber', 'DO-ONLY')
+        ->set('documentDate', now()->toDateString())
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $receipt = GoodsReceipt::where('reference_number', 'PO-DOC-TYPE')->sole();
+    expect($receipt->document_type)->toBe('delivery_note')
+        ->and($receipt->document_number)->toBe('DO-ONLY')
+        ->and($receipt->document_date->toDateString())->toBe(now()->toDateString())
+        ->and($receipt->delivery_number)->toBe('DO-ONLY')
+        ->and($receipt->delivery_date->toDateString())->toBe(now()->toDateString())
+        ->and($receipt->invoice_number)->toBeNull()
+        ->and($receipt->invoice_date)->toBeNull()
+        ->and($receipt->invoice_status)->toBe('not_received');
+});
+
+test('document photos and goods photos are stored separately, each with an explicit upload-success status', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+    Storage::fake('b2');
+
+    $order = [
+        'purchaseNum' => 'PO-PHOTOS',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 10,
+        'purchaseDetails' => [['ID' => 11, 'productID' => 12, 'productDetailID' => 13, 'qty' => 2]],
+    ];
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('PO-PHOTOS')->twice()->andReturn($order);
+    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('create')->once()->andReturn(['result' => ['goodsReceiptNum' => 'GR-PHOTOS'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-PHOTOS')
+        ->set('documentType', 'delivery_note')
+        ->set('documentNumber', 'DO-PHOTOS')
+        ->set('documentDate', now()->toDateString())
+        ->set('documentPhotos', [UploadedFile::fake()->image('surat-jalan.jpg')])
+        ->assertSee('Berhasil diunggah')
+        ->set('goodsPhotos', [UploadedFile::fake()->image('barang.jpg')])
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $receipt = GoodsReceipt::where('reference_number', 'PO-PHOTOS')->sole();
+    expect($receipt->document_photos)->toHaveCount(1)
+        ->and($receipt->goods_photos)->toHaveCount(1)
+        ->and($receipt->document_photos)->not->toBe($receipt->goods_photos)
+        ->and(Str::startsWith($receipt->document_photos[0], 'goods-receipts/qc/documents/'))->toBeTrue()
+        ->and(Str::startsWith($receipt->goods_photos[0], 'goods-receipts/qc/goods/'))->toBeTrue()
+        // document_evidence_photos stays populated with both, so legacy readers keep seeing everything.
+        ->and($receipt->document_evidence_photos)->toHaveCount(2);
+    Storage::disk('b2')->assertExists($receipt->document_photos[0]);
+    Storage::disk('b2')->assertExists($receipt->goods_photos[0]);
+});
+
+test('submit is blocked client-side while a photo upload is still in flight', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+
+    $order = [
+        'purchaseNum' => 'PO-UPLOAD-GUARD',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 10,
+        'purchaseDetails' => [['ID' => 11, 'productID' => 12, 'productDetailID' => 13, 'qty' => 2]],
+    ];
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('PO-UPLOAD-GUARD')->once()->andReturn($order);
+    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    // docs/receiving-simplification-prd.md §5.3 "Tombol submit dinonaktifkan selama file masih
+    // diunggah". The actual blocking is client-side Alpine state driven by Livewire's
+    // `livewire-upload-start`/`livewire-upload-finish` window events (there is no server-side
+    // "upload in progress" state to assert against in a Livewire test), so this asserts the
+    // wiring that implements it is present: a shared uploadingCount tracked for the whole page,
+    // and the submit button bound to it.
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-UPLOAD-GUARD')
+        ->assertSeeHtml('x-on:livewire-upload-start.window="uploadingCount++"')
+        ->assertSeeHtml('x-on:livewire-upload-finish.window="uploadingCount--"')
+        ->assertSeeHtml(':disabled="uploadingCount > 0"');
 });
 
 test('inventory stays expanded on receiving index and detail', function () {

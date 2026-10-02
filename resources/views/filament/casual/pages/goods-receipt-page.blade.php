@@ -6,7 +6,12 @@
     $infoHeading = 'mb-1 block text-[11px] font-bold uppercase tracking-wide';
 @endphp
 
-<div class="flex min-h-dvh flex-col bg-blue-600 dark:bg-blue-900">
+<div x-data="{ uploadingCount: 0 }"
+     x-on:livewire-upload-start.window="uploadingCount++"
+     x-on:livewire-upload-finish.window="uploadingCount--"
+     x-on:livewire-upload-error.window="uploadingCount--"
+     x-on:livewire-upload-cancel.window="uploadingCount--"
+     class="flex min-h-dvh flex-col bg-blue-600 dark:bg-blue-900">
     <header class="px-5 pb-8 pt-14">
         <div class="flex items-center gap-3">
             @if ($purchaseOrder)
@@ -143,46 +148,73 @@
                     <div class="mt-4 grid gap-4">
                         <label class="{{ $label }}">Tanggal penerimaan<input wire:model.live="goodsReceiptDate" type="date" class="{{ $field }}"></label>
                         <label class="{{ $label }}">Lokasi ESB<select wire:model="locationId" class="{{ $field }}"><option value="">Pilih lokasi</option>@foreach ($locations as $location)<option value="{{ $location['locationID'] }}">{{ $location['locationName'] }}</option>@endforeach</select></label>
-                        <label class="{{ $label }}">Nomor surat jalan / DO<input wire:model="deliveryNumber" type="text" class="{{ $field }}"></label>
-                        <label class="{{ $label }}">Tanggal surat jalan<input wire:model="deliveryDate" type="date" class="{{ $field }}"></label>
-                        <label class="{{ $label }}">Status invoice<select wire:model.live="invoiceStatus" class="{{ $field }}"><option value="received">Diterima</option><option value="not_received">Belum diterima</option></select></label>
-                        @if ($invoiceStatus === 'received')
-                            <label class="{{ $label }}">Nomor invoice<input wire:model="invoiceNumber" type="text" class="{{ $field }}"></label>
-                            <label class="{{ $label }}">Tanggal invoice<input wire:model="invoiceDate" type="date" class="{{ $field }}"></label>
-                        @endif
+                        <label class="{{ $label }}">Jenis Dokumen<select wire:model.live="documentType" class="{{ $field }}"><option value="delivery_note">Surat Jalan</option><option value="invoice">Invoice</option></select></label>
+                        <label class="{{ $label }}">Nomor Dokumen<input wire:model="documentNumber" type="text" class="{{ $field }}"></label>
+                        <label class="{{ $label }}">Tanggal Dokumen<input wire:model="documentDate" type="date" class="{{ $field }}"></label>
                         <div class="grid gap-3 rounded-xl border border-gray-200 p-4 text-sm text-slate-700 dark:border-gray-700 dark:text-slate-300">
                             <label class="flex items-center gap-2 capitalize"><input wire:model.live="poDocumentMatch" type="checkbox"> PO Sesuai</label>
-                            <label class="flex items-center gap-2 capitalize"><input wire:model.live="deliveryDocumentMatch" type="checkbox"> Surat Jalan Sesuai</label>
-                            <label class="flex items-center gap-2 capitalize"><input wire:model.live="invoiceDocumentMatch" type="checkbox"> Invoice Sesuai</label>
+                            <label class="flex items-center gap-2 capitalize"><input wire:model.live="documentMatch" type="checkbox"> Dokumen Sesuai</label>
                             <label class="flex items-center gap-2 capitalize"><input wire:model.live="priceMatch" type="checkbox"> Harga Sesuai Kontrak</label>
                         </div>
                         <label class="{{ $label }}">Catatan dokumen<textarea wire:model="documentNotes" rows="2" class="{{ $field }}"></textarea></label>
-                        @if ($invoiceStatus === 'not_received' || ! $poDocumentMatch || ! $deliveryDocumentMatch || ! $invoiceDocumentMatch || ! $priceMatch)
+
                         <div>
-                            <label class="{{ $label }}">Foto bukti dokumen <span class="ml-1 font-normal normal-case text-slate-400">(maks. 5 MB/foto)</span></label>
-                            @if (count($documentEvidencePhotos) > 0)
+                            <label class="{{ $label }}">Foto Dokumen <span class="ml-1 font-normal normal-case text-slate-400">(Surat Jalan/Invoice &middot; maks. 5 MB/foto)</span></label>
+                            @if (count($documentPhotos) > 0)
                                 <div class="mb-2 mt-1.5 space-y-2">
-                                    @foreach ($documentEvidencePhotos as $photoIndex => $photo)
-                                        <div class="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-700">
+                                    @foreach ($documentPhotos as $photoIndex => $photo)
+                                        <div class="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/20">
                                             <div class="flex min-w-0 items-center gap-2">
-                                                <svg class="h-4 w-4 shrink-0 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 002.112 2.13"/></svg>
-                                                <span class="truncate text-xs text-slate-600 dark:text-slate-300">{{ $photo->getClientOriginalName() }}</span>
+                                                <svg class="h-4 w-4 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                                <div class="min-w-0">
+                                                    <span class="block truncate text-xs font-medium text-slate-700 dark:text-slate-200">{{ $photo->getClientOriginalName() }}</span>
+                                                    <span class="block text-[10px] text-emerald-600 dark:text-emerald-400">Berhasil diunggah &middot; {{ number_format($photo->getSize() / 1024, 0) }} KB</span>
+                                                </div>
                                             </div>
-                                            <button type="button" wire:click="removeDocumentEvidencePhoto({{ $photoIndex }})" class="shrink-0 text-red-400 transition hover:text-red-600" aria-label="Hapus foto"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+                                            <button type="button" wire:click="removeDocumentPhoto({{ $photoIndex }})" class="shrink-0 text-red-400 transition hover:text-red-600" aria-label="Hapus foto"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
                                         </div>
                                     @endforeach
                                 </div>
                             @endif
                             <label class="mt-1.5 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-4 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20">
                                 <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
-                                <span class="text-sm text-gray-400">Tambah Foto / Screenshot</span>
-                                <input wire:model="documentEvidencePhotos" type="file" multiple accept="image/jpeg,image/png,image/webp" class="hidden">
+                                <span class="text-sm text-gray-400">Tambah Foto Dokumen</span>
+                                <input wire:model="documentPhotos" type="file" multiple accept="image/jpeg,image/png,image/webp" class="hidden">
                             </label>
-                            <p wire:loading wire:target="documentEvidencePhotos" class="mt-1.5 text-xs text-blue-500">Mengunggah foto...</p>
+                            <p wire:loading wire:target="documentPhotos" class="mt-1.5 text-xs text-blue-500">Mengunggah foto...</p>
+                            @error('documentPhotos')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('documentPhotos.*')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
                         </div>
-                        @endif
+
+                        <div>
+                            <label class="{{ $label }}">Foto Barang <span class="ml-1 font-normal normal-case text-slate-400">(kondisi barang saat diterima &middot; maks. 5 MB/foto)</span></label>
+                            @if (count($goodsPhotos) > 0)
+                                <div class="mb-2 mt-1.5 space-y-2">
+                                    @foreach ($goodsPhotos as $photoIndex => $photo)
+                                        <div class="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/20">
+                                            <div class="flex min-w-0 items-center gap-2">
+                                                <svg class="h-4 w-4 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                                <div class="min-w-0">
+                                                    <span class="block truncate text-xs font-medium text-slate-700 dark:text-slate-200">{{ $photo->getClientOriginalName() }}</span>
+                                                    <span class="block text-[10px] text-emerald-600 dark:text-emerald-400">Berhasil diunggah &middot; {{ number_format($photo->getSize() / 1024, 0) }} KB</span>
+                                                </div>
+                                            </div>
+                                            <button type="button" wire:click="removeGoodsPhoto({{ $photoIndex }})" class="shrink-0 text-red-400 transition hover:text-red-600" aria-label="Hapus foto"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg></button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                            <label class="mt-1.5 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-4 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20">
+                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/></svg>
+                                <span class="text-sm text-gray-400">Tambah Foto Barang</span>
+                                <input wire:model="goodsPhotos" type="file" multiple accept="image/jpeg,image/png,image/webp" class="hidden">
+                            </label>
+                            <p wire:loading wire:target="goodsPhotos" class="mt-1.5 text-xs text-blue-500">Mengunggah foto...</p>
+                            @error('goodsPhotos')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
+                            @error('goodsPhotos.*')<p class="mt-1.5 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
                     </div>
-                    @foreach (['goodsReceiptDate','locationId','deliveryNumber','deliveryDate','invoiceNumber','invoiceDate','documentEvidencePhotos'] as $key) @error($key)<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror @endforeach
+                    @foreach (['goodsReceiptDate','locationId','documentType','documentNumber','documentDate'] as $key) @error($key)<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror @endforeach
                 </section>
 
                 <section class="flex flex-col gap-4">
@@ -331,17 +363,15 @@
                 </section>
                 <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                     <h3 class="font-semibold text-slate-900 dark:text-white">6. Konfirmasi Penerimaan</h3>
-                    <div class="{{ $help }}"><span class="{{ $infoHeading }}">Informasi Pengisian</span>Tambahkan informasi operasional jika diperlukan. Aktifkan Tutup PO otomatis hanya jika tidak ada sisa barang yang masih akan diterima dari PO ini.</div>
+                    <div class="{{ $help }}"><span class="{{ $infoHeading }}">Informasi Pengisian</span>Tambahkan informasi operasional jika diperlukan.</div>
                     <label class="mt-4 block {{ $label }}">Informasi tambahan<textarea wire:model="additionalInfo" rows="2" class="{{ $field }}"></textarea></label>
-                    <div class="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                        <span class="{{ $infoHeading }}">Informasi Tutup PO</span>
-                        Aktifkan hanya jika penerimaan ini merupakan pengiriman terakhir, seluruh qty sudah selesai diterima, dan tidak ada barang Hold, Rejected, pengganti, atau pengiriman susulan. Jika masih ada proses lanjutan, biarkan tidak aktif agar PO tetap dapat diterima kembali.
-                    </div>
-                    <label class="mt-3 flex items-center gap-2 text-sm capitalize text-slate-700 dark:text-slate-300"><input wire:model="autoClosePo" type="checkbox"> Tutup PO Otomatis</label>
                 </section>
                 @error('items')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
-                <button wire:click="submit" wire:confirm="Simpan hasil QC dan kirim qty Accepted ke ESB?" wire:loading.attr="disabled" type="button" class="w-full rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white disabled:opacity-60">
-                    <span wire:loading.remove wire:target="submit">Simpan QC & Proses Goods Receipt</span><span wire:loading wire:target="submit">Memproses...</span>
+                <p x-show="uploadingCount > 0" x-cloak class="text-center text-xs font-semibold text-amber-600">Menunggu foto selesai diunggah...</p>
+                <button wire:click="submit" wire:confirm="Simpan hasil QC dan kirim qty Accepted ke ESB?" wire:loading.attr="disabled" wire:target="submit" type="button" :disabled="uploadingCount > 0" class="w-full rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white disabled:opacity-60">
+                    <span wire:loading.remove wire:target="submit" x-show="uploadingCount === 0">Simpan QC & Proses Goods Receipt</span>
+                    <span wire:loading wire:target="submit">Memproses...</span>
+                    <span x-show="uploadingCount > 0" wire:loading.remove wire:target="submit">Menunggu Upload Selesai...</span>
                 </button>
             @endif
         </div>

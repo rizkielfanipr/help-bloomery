@@ -49,31 +49,28 @@ class GoodsReceiptPage extends Page
 
     public string $locationId = '';
 
-    public string $deliveryNumber = '';
+    /** docs/receiving-simplification-prd.md §5.2: one document, not separate delivery/invoice fields. */
+    public string $documentType = 'delivery_note';
 
-    public string $deliveryDate = '';
+    public string $documentNumber = '';
 
-    public string $invoiceStatus = 'received';
-
-    public string $invoiceNumber = '';
-
-    public string $invoiceDate = '';
+    public string $documentDate = '';
 
     public bool $poDocumentMatch = true;
 
-    public bool $deliveryDocumentMatch = true;
-
-    public bool $invoiceDocumentMatch = true;
+    public bool $documentMatch = true;
 
     public bool $priceMatch = true;
 
     public string $documentNotes = '';
 
-    public array $documentEvidencePhotos = [];
+    /** @var array<int, TemporaryUploadedFile> docs/receiving-simplification-prd.md §5.3 "Foto Dokumen". */
+    public array $documentPhotos = [];
+
+    /** @var array<int, TemporaryUploadedFile> docs/receiving-simplification-prd.md §5.3 "Foto Barang". */
+    public array $goodsPhotos = [];
 
     public string $additionalInfo = '';
-
-    public bool $autoClosePo = false;
 
     public ?string $loadError = null;
 
@@ -85,7 +82,7 @@ class GoodsReceiptPage extends Page
     public function mount(): void
     {
         abort_unless(static::canAccess(), 403);
-        $this->goodsReceiptDate = $this->deliveryDate = now()->toDateString();
+        $this->goodsReceiptDate = $this->documentDate = now()->toDateString();
         $this->submissionKey = (string) Str::uuid();
         $this->loadPurchaseOrders();
     }
@@ -236,10 +233,16 @@ class GoodsReceiptPage extends Page
         $this->items[$item]['batches'] = array_values($this->items[$item]['batches']);
     }
 
-    public function removeDocumentEvidencePhoto(int $index): void
+    public function removeDocumentPhoto(int $index): void
     {
-        array_splice($this->documentEvidencePhotos, $index, 1);
-        $this->documentEvidencePhotos = array_values($this->documentEvidencePhotos);
+        array_splice($this->documentPhotos, $index, 1);
+        $this->documentPhotos = array_values($this->documentPhotos);
+    }
+
+    public function removeGoodsPhoto(int $index): void
+    {
+        array_splice($this->goodsPhotos, $index, 1);
+        $this->goodsPhotos = array_values($this->goodsPhotos);
     }
 
     public function removeItemEvidencePhoto(int $itemIndex, int $photoIndex): void
@@ -259,7 +262,7 @@ class GoodsReceiptPage extends Page
 
     public function backToList(): void
     {
-        $this->reset('purchaseOrder', 'locations', 'items', 'locationId', 'deliveryNumber', 'invoiceNumber', 'invoiceDate', 'documentNotes', 'documentEvidencePhotos', 'additionalInfo', 'autoClosePo');
+        $this->reset('purchaseOrder', 'locations', 'items', 'locationId', 'documentNumber', 'documentDate', 'documentNotes', 'documentPhotos', 'goodsPhotos', 'additionalInfo');
     }
 
     public function submit(): void
@@ -283,14 +286,15 @@ class GoodsReceiptPage extends Page
         abort_unless($location, 422, 'Lokasi tidak valid untuk cabang PO ini.');
         $paths = [];
         try {
-            $documentPhotos = $this->storePhotos($this->documentEvidencePhotos, 'goods-receipts/qc/documents', $paths);
+            $documentPhotos = $this->storePhotos($this->documentPhotos, 'goods-receipts/qc/documents', $paths);
+            $goodsPhotos = $this->storePhotos($this->goodsPhotos, 'goods-receipts/qc/goods', $paths);
             $assessed = $assessed->map(function (array $item) use (&$paths): array {
                 $item['storedEvidencePhotos'] = $this->storePhotos($item['evidencePhotos'], 'goods-receipts/qc/items', $paths);
 
                 return $item;
             });
             $payload = $this->payload($assessed);
-            $receipt = DB::transaction(fn (): GoodsReceipt => $this->persist($purchaseNumber, $location, $payload, $assessed, $documentPhotos, $qc));
+            $receipt = DB::transaction(fn (): GoodsReceipt => $this->persist($purchaseNumber, $location, $payload, $assessed, $documentPhotos, $goodsPhotos, $qc));
         } catch (Throwable $exception) {
             Storage::disk('b2')->delete($paths);
             throw $exception;
@@ -328,11 +332,12 @@ class GoodsReceiptPage extends Page
     {
         return [
             'submissionKey' => ['required', 'uuid'],
-            'goodsReceiptDate' => ['required', 'date', 'before_or_equal:today'], 'deliveryDate' => ['required', 'date', 'before_or_equal:today'],
-            'locationId' => ['required', 'integer'], 'deliveryNumber' => ['required', 'string', 'max:255'],
-            'invoiceStatus' => ['required', 'in:received,not_received'], 'invoiceNumber' => ['required_if:invoiceStatus,received', 'nullable', 'string', 'max:255'],
-            'invoiceDate' => ['required_if:invoiceStatus,received', 'nullable', 'date', 'before_or_equal:today'],
-            'documentNotes' => ['nullable', 'string', 'max:2000'], 'documentEvidencePhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'goodsReceiptDate' => ['required', 'date', 'before_or_equal:today'], 'documentDate' => ['required', 'date', 'before_or_equal:today'],
+            'locationId' => ['required', 'integer'], 'documentType' => ['required', 'in:delivery_note,invoice'],
+            'documentNumber' => ['required', 'string', 'max:255'],
+            'documentNotes' => ['nullable', 'string', 'max:2000'],
+            'documentPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'goodsPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'additionalInfo' => ['nullable', 'string', 'max:2000'], 'items' => ['required', 'array'], 'items.*.selected' => ['boolean'],
             'items.*.physicalQty' => ['nullable', 'numeric', 'min:0'], 'items.*.acceptedQty' => ['nullable', 'numeric', 'min:0'],
             'items.*.holdQty' => ['nullable', 'numeric', 'min:0'], 'items.*.rejectedQty' => ['nullable', 'numeric', 'min:0'],
@@ -357,8 +362,8 @@ class GoodsReceiptPage extends Page
     {
         $errors = [];
         $documentsPass = $qc->documentsPass(get_object_vars($this));
-        if (! $documentsPass && $this->documentEvidencePhotos === []) {
-            $errors['documentEvidencePhotos'] = 'Foto bukti wajib saat dokumen tidak sesuai.';
+        if (! $documentsPass && $this->documentPhotos === []) {
+            $errors['documentPhotos'] = 'Foto bukti wajib saat dokumen tidak sesuai.';
         }
         foreach ($items as $index => $item) {
             $physical = (float) $item['physicalQty'];
@@ -399,8 +404,12 @@ class GoodsReceiptPage extends Page
 
     private function payload($items): array
     {
-        return ['goodsReceiptDate' => $this->goodsReceiptDate, 'locationID' => (int) $this->locationId, 'deliveryNum' => $this->deliveryNumber,
-            'additionalInfo' => $this->additionalInfo, 'selectedAssetID' => '', 'autoClosePO' => $this->autoClosePo,
+        return ['goodsReceiptDate' => $this->goodsReceiptDate, 'locationID' => (int) $this->locationId, 'deliveryNum' => $this->documentNumber,
+            'additionalInfo' => $this->additionalInfo, 'selectedAssetID' => '',
+            // docs/receiving-simplification-prd.md §11/§17 Phase 1: computed automatically in
+            // Phase 5 once outstanding-qty-across-the-whole-PO logic exists; false is the safe
+            // interim (never auto-closes, matching today's default before the UI checkbox existed).
+            'autoClosePO' => false,
             'goodsReceiptDetail' => $items->filter(fn (array $item): bool => (float) $item['acceptedQty'] > 0)->map(fn (array $item): array => [
                 'productID' => $item['productID'], 'productDetailID' => $item['productDetailID'], 'qty' => (float) $item['acceptedQty'],
                 'deviationVal' => (float) $item['deviationVal'], 'notes' => $item['notes'],
@@ -409,7 +418,7 @@ class GoodsReceiptPage extends Page
             ])->values()->all()];
     }
 
-    private function persist(string $po, array $location, array $payload, $items, array $documentPhotos, InboundGoodsReceiptQcService $qc): GoodsReceipt
+    private function persist(string $po, array $location, array $payload, $items, array $documentPhotos, array $goodsPhotos, InboundGoodsReceiptQcService $qc): GoodsReceipt
     {
         $accepted = (float) $items->sum('acceptedQty');
         $hold = (float) $items->sum('holdQty');
@@ -428,12 +437,20 @@ class GoodsReceiptPage extends Page
             'company_code' => 'BLSS', 'reference_number' => $po, 'purchase_date' => data_get($this->purchaseOrder, 'purchaseDate'), 'goods_receipt_date' => $this->goodsReceiptDate,
             'esb_branch_id' => $esbBranchId, 'local_branch_id' => $branchMapping?->branch_id, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
             'supplier_id' => data_get($this->purchaseOrder, 'supplierID'), 'supplier_name' => data_get($this->purchaseOrder, 'supplierName'),
-            'location_id' => $location['locationID'], 'location_name' => $location['locationName'], 'delivery_number' => $this->deliveryNumber, 'delivery_date' => $this->deliveryDate,
-            'invoice_status' => $this->invoiceStatus, 'invoice_number' => $this->invoiceNumber ?: null, 'invoice_date' => $this->invoiceDate ?: null,
-            'po_document_match' => $this->poDocumentMatch, 'delivery_document_match' => $this->deliveryDocumentMatch,
-            'invoice_document_match' => $this->invoiceDocumentMatch, 'price_match' => $this->priceMatch, 'document_notes' => $this->documentNotes,
-            'document_evidence_photos' => $documentPhotos, 'qc_outcome' => $qc->disposition($accepted, $hold, $rejected), 'qc_completed_at' => now(),
-            'additional_info' => $this->additionalInfo, 'auto_close_po' => $this->autoClosePo,
+            'location_id' => $location['locationID'], 'location_name' => $location['locationName'],
+            'document_type' => $this->documentType, 'document_number' => $this->documentNumber, 'document_date' => $this->documentDate,
+            'document_photos' => $documentPhotos, 'goods_photos' => $goodsPhotos,
+            // Legacy columns stay populated so reports/exports reading them directly keep working
+            // during the transition (docs/receiving-simplification-prd.md §15).
+            'delivery_number' => $this->documentType === 'delivery_note' ? $this->documentNumber : null,
+            'delivery_date' => $this->documentType === 'delivery_note' ? $this->documentDate : null,
+            'invoice_status' => $this->documentType === 'invoice' ? 'received' : 'not_received',
+            'invoice_number' => $this->documentType === 'invoice' ? $this->documentNumber : null,
+            'invoice_date' => $this->documentType === 'invoice' ? $this->documentDate : null,
+            'po_document_match' => $this->poDocumentMatch, 'delivery_document_match' => $this->documentMatch,
+            'invoice_document_match' => $this->documentMatch, 'price_match' => $this->priceMatch, 'document_notes' => $this->documentNotes,
+            'document_evidence_photos' => array_merge($documentPhotos, $goodsPhotos), 'qc_outcome' => $qc->disposition($accepted, $hold, $rejected), 'qc_completed_at' => now(),
+            'additional_info' => $this->additionalInfo, 'auto_close_po' => false,
             'status' => $accepted > 0 ? GoodsReceipt::STATUS_PROCESSING : ($rejected > 0 && $hold <= 0 ? GoodsReceipt::STATUS_QC_REJECTED : GoodsReceipt::STATUS_QC_HOLD),
             'payload_hash' => $payloadHash, 'attempted_at' => now(),
             'submitted_by' => auth()->id(), 'submitted_at' => now(), 'request_payload' => $payload,

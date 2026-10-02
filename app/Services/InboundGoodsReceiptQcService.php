@@ -54,11 +54,16 @@ class InboundGoodsReceiptQcService
         ];
     }
 
+    /**
+     * docs/receiving-simplification-prd.md §5.2: a single unified document (Surat Jalan or
+     * Invoice) replaces the old delivery+invoice duality, so there is no longer a "belum
+     * diterima" state to gate on — whichever document type was chosen is, by definition, the
+     * document of record for this receipt.
+     */
     public function documentsPass(array $document): bool
     {
-        return ($document['invoiceStatus'] ?? '') === 'received'
-            && collect(['poDocumentMatch', 'deliveryDocumentMatch', 'invoiceDocumentMatch', 'priceMatch'])
-                ->every(fn (string $key): bool => $this->truthy($document[$key] ?? false));
+        return collect(['poDocumentMatch', 'documentMatch', 'priceMatch'])
+            ->every(fn (string $key): bool => $this->truthy($document[$key] ?? false));
     }
 
     public function disposition(float $accepted, float $hold, float $rejected): string

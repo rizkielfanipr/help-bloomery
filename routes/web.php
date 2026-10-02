@@ -22,6 +22,7 @@ use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProjectMaterialForecastExportController;
 use App\Http\Controllers\Helpdesk\RndProjectTaskAttachmentController;
 use App\Http\Controllers\Helpdesk\ShelfLifeExportController;
+use App\Http\Controllers\Helpdesk\StoreSalesOrderAttachmentController;
 use App\Models\Asset;
 use App\Models\RndProjectBom;
 use Filament\Facades\Filament;
@@ -123,6 +124,10 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/customer-complaint-attachments/{path}', [CustomerComplaintAttachmentController::class, 'show'])
         ->where('path', '.*')
         ->name('helpdesk.customer-complaints.attachments.show');
+
+    Route::get('/store-sales-order-attachments/{path}', [StoreSalesOrderAttachmentController::class, 'show'])
+        ->where('path', '.*')
+        ->name('helpdesk.store-sales-orders.attachments.show');
 
     Route::get('/bill-of-material/create', function () {
         abort_unless(auth()->user()?->can('create bill of materials'), 403);

@@ -2,10 +2,12 @@
 
 namespace App\Actions\StoreSalesOrder;
 
+use App\Enums\StoreSalesOrderProductType;
 use App\Models\StoreSalesOrder;
 use App\Models\StoreSalesOrderActivity;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * docs/store-sales-order-prd.md §10.2, §10.3, §13.3, §16 ("update store sales orders" governs
@@ -21,6 +23,16 @@ class UpdateStoreSalesOrderAction
     /** @param array<string, mixed> $data */
     public function execute(StoreSalesOrder $order, array $data, User $actor): StoreSalesOrder
     {
+        foreach (($data['items'] ?? []) as $index => $item) {
+            $productType = $item['product_type'] instanceof StoreSalesOrderProductType ? $item['product_type'] : StoreSalesOrderProductType::from($item['product_type']);
+
+            if ($productType->requiresCustomDetail() && blank($item['custom_detail'] ?? null)) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.custom_detail" => 'Detail Custom wajib diisi.',
+                ]);
+            }
+        }
+
         return DB::transaction(function () use ($order, $data, $actor): StoreSalesOrder {
             $order->update([
                 'phone_number' => filled($data['phone_number'] ?? null) ? trim((string) $data['phone_number']) : null,

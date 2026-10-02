@@ -66,6 +66,36 @@ class InboundGoodsReceiptQcService
             ->every(fn (string $key): bool => $this->truthy($document[$key] ?? false));
     }
 
+    /**
+     * docs/receiving-simplification-prd.md §9: a plain remaining-days readout shown on every
+     * product row regardless of condition — independent of the detailed per-batch shelf-life
+     * percentage workflow reserved for "Bermasalah" items.
+     *
+     * @return array{days: int, label: string, color: string}
+     */
+    public function expiryStatus(string $expiredDate, string $receiptDate): array
+    {
+        $expired = CarbonImmutable::parse($expiredDate)->startOfDay();
+        $received = CarbonImmutable::parse($receiptDate)->startOfDay();
+        $days = (int) $received->diffInDays($expired, false);
+
+        return [
+            'days' => $days,
+            'label' => match (true) {
+                $days > 0 => "{$days} hari lagi",
+                $days === 0 => 'Hari ini',
+                default => 'Lewat '.abs($days).' hari',
+            },
+            // §9 "hijau untuk aman; amber untuk mendekati expired; merah untuk expired" does not
+            // specify the amber threshold — 7 days is a conservative, documented default.
+            'color' => match (true) {
+                $days < 0 => 'red',
+                $days <= 7 => 'amber',
+                default => 'green',
+            },
+        ];
+    }
+
     public function disposition(float $accepted, float $hold, float $rejected): string
     {
         if ($accepted > 0 && ($hold > 0 || $rejected > 0)) {

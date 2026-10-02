@@ -51,3 +51,29 @@ test('it recalculates shelf life instead of keeping a supplied percentage', func
         ->and($result['shelfLifeResult'])->toBe('fail')
         ->and($result['canAccept'])->toBeFalse();
 });
+
+test('it labels and colors the remaining-days readout for a future, today, and past expiry', function () {
+    $service = app(InboundGoodsReceiptQcService::class);
+
+    $future = $service->expiryStatus('2026-12-30', '2026-10-01');
+    expect($future['days'])->toBe(90)
+        ->and($future['label'])->toBe('90 hari lagi')
+        ->and($future['color'])->toBe('green');
+
+    $today = $service->expiryStatus('2026-10-01', '2026-10-01');
+    expect($today['days'])->toBe(0)
+        ->and($today['label'])->toBe('Hari ini')
+        ->and($today['color'])->toBe('amber');
+
+    $past = $service->expiryStatus('2026-09-28', '2026-10-01');
+    expect($past['days'])->toBe(-3)
+        ->and($past['label'])->toBe('Lewat 3 hari')
+        ->and($past['color'])->toBe('red');
+});
+
+test('it treats an expiry within the near-expiry window as amber, not green', function () {
+    $result = app(InboundGoodsReceiptQcService::class)->expiryStatus('2026-10-08', '2026-10-01');
+
+    expect($result['days'])->toBe(7)
+        ->and($result['color'])->toBe('amber');
+});

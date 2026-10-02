@@ -218,6 +218,10 @@ class GoodsReceiptPage extends Page
                     // InboundGoodsReceiptQcService treats as pass/not_applicable, so this toggle
                     // only controls which part of the UI is shown, not the QC math itself.
                     'condition' => 'ok',
+                    // docs/receiving-simplification-prd.md §9: a quick, row-level ED independent of
+                    // the detailed per-batch shelf-life workflow below — available regardless of
+                    // condition, matching the PRD's own example table showing ED on a Sesuai row.
+                    'expiryDate' => '',
                     'orderedQty' => $ordered, 'outstandingQty' => $outstanding, 'physicalQty' => $outstanding,
                     'acceptedQty' => $outstanding, 'holdQty' => 0, 'rejectedQty' => 0, 'measurementMethod' => 'count',
                     'tolerancePercentage' => 0, 'deviationVal' => (float) ($detail['deviationVal'] ?? 0),
@@ -363,6 +367,21 @@ class GoodsReceiptPage extends Page
         );
     }
 
+    /** @return array{days: int, label: string, color: string}|null */
+    public function itemExpiryStatus(int $itemIndex): ?array
+    {
+        $expiryDate = $this->items[$itemIndex]['expiryDate'] ?? '';
+
+        if (blank($expiryDate)) {
+            return null;
+        }
+
+        return app(InboundGoodsReceiptQcService::class)->expiryStatus(
+            $expiryDate,
+            $this->goodsReceiptDate ?: now()->toDateString(),
+        );
+    }
+
     public function backToList(): void
     {
         $this->reset('purchaseOrder', 'locations', 'items', 'locationId', 'documentNumber', 'documentDate', 'documentNotes', 'documentPhotos', 'goodsPhotos', 'additionalInfo', 'activeItemIndex', 'itemSearch', 'itemFilter');
@@ -463,7 +482,8 @@ class GoodsReceiptPage extends Page
             'items.*.samplingResult' => ['required', 'in:pass,fail,pending'], 'items.*.samplingNotes' => ['nullable', 'string', 'max:1000'],
             'items.*.quarantineLocation' => ['nullable', 'string', 'max:255'], 'items.*.rejectionCategory' => ['nullable', 'in:document,quantity,quality,packaging,cold_chain,shelf_life,sampling,other'],
             'items.*.rejectionReason' => ['nullable', 'string', 'max:2000'], 'items.*.evidencePhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'items.*.notes' => ['nullable', 'string', 'max:1000'], 'items.*.batches' => ['array'],
+            'items.*.notes' => ['nullable', 'string', 'max:1000'], 'items.*.expiryDate' => ['nullable', 'date'],
+            'items.*.batches' => ['array'],
             'items.*.batches.*.batchNumber' => ['nullable', 'string', 'max:255'], 'items.*.batches.*.manufacturedDate' => ['nullable', 'date'],
             'items.*.batches.*.expiredDate' => ['nullable', 'date'], 'items.*.batches.*.quantity' => ['nullable', 'numeric', 'min:0'],
             'items.*.batches.*.acceptedQty' => ['nullable', 'numeric', 'min:0'], 'items.*.batches.*.holdQty' => ['nullable', 'numeric', 'min:0'],
@@ -588,7 +608,18 @@ class GoodsReceiptPage extends Page
                 'quarantine_location' => $item['quarantineLocation'], 'rejection_category' => $item['rejectionCategory'], 'rejection_reason' => $item['rejectionReason'],
                 'evidence_photos' => $item['storedEvidencePhotos'], 'notes' => $item['notes'], 'qc_inspected_by' => auth()->id(), 'qc_inspected_at' => now(),
             ]);
-            foreach ($item['batches'] as $batch) {
+            // docs/receiving-simplification-prd.md §9/§15 "Pertahankan hasil QC rinci di
+            // database": a quick row-level ED entered without going through the full
+            // Bermasalah/batch workflow still needs to survive the save, so it becomes a single
+            // implicit expiry record covering the whole accepted qty — only when the item has no
+            // explicit batches of its own, so it never duplicates data the detailed workflow
+            // already captured.
+            $batches = $item['batches'] !== [] ? $item['batches'] : (filled($item['expiryDate']) ? [[
+                'batchNumber' => null, 'manufacturedDate' => null, 'expiredDate' => $item['expiryDate'],
+                'quantity' => $item['physicalQty'], 'acceptedQty' => $item['acceptedQty'], 'holdQty' => $item['holdQty'], 'rejectedQty' => $item['rejectedQty'],
+                'shelfLifePercentage' => null,
+            ]] : []);
+            foreach ($batches as $batch) {
                 $record->expiries()->create(['batch_number' => $batch['batchNumber'] ?: null, 'manufactured_date' => $batch['manufacturedDate'] ?: null,
                     'expired_date' => $batch['expiredDate'], 'quantity' => $batch['quantity'], 'accepted_quantity' => $batch['acceptedQty'], 'hold_quantity' => $batch['holdQty'],
                     'rejected_quantity' => $batch['rejectedQty'], 'shelf_life_remaining_percentage' => $batch['shelfLifePercentage'],

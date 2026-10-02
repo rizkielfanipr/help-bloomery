@@ -254,6 +254,14 @@
                                 </label>
                                 @error("items.{$index}.physicalQty")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                 @error("items.{$index}.acceptedQty")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                <label class="mt-1.5 flex items-center gap-1.5 text-xs text-slate-500">ED
+                                    <input wire:model.live="items.{{ $index }}.expiryDate" type="date" class="rounded-lg border border-gray-200 px-2 py-1 text-xs text-slate-700 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
+                                </label>
+                                @if ($item['expiryDate'])
+                                    @php($expiryStatus = $this->itemExpiryStatus($index))
+                                    <span class="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold {{ match($expiryStatus['color']) { 'red' => 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300', 'amber' => 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300', default => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' } }}">{{ $expiryStatus['label'] }}</span>
+                                @endif
+                                @error("items.{$index}.expiryDate")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                             </div>
                             <div class="flex shrink-0 flex-col items-end gap-1.5">
                                 <div class="flex overflow-hidden rounded-lg border border-gray-200 text-xs font-semibold dark:border-gray-700">
@@ -342,20 +350,26 @@
                                 @if ($item['shelfLifeRequired'])
                                 <label class="mt-3 block {{ $label }}">Minimum sisa shelf life %<input wire:model.live.debounce.300ms="items.{{ $index }}.minimumShelfLifePercentage" type="number" class="{{ $field }}"></label>
                                 @foreach ($item['batches'] as $batchIndex => $batch)
-                                    <div class="mt-3 grid gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-800">
+                                    {{-- docs/receiving-simplification-prd.md §9 "Untuk satu batch, form cukup berisi: Nomor
+                                         Batch, Tanggal ED, Qty Batch" — Tanggal Produksi and the Accepted/Hold/Rejected split
+                                         live behind "Detail Batch", collapsed by default. --}}
+                                    <div class="mt-3 grid gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-800" x-data="{ detailOpen: false }">
                                         <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">Batch {{ $batchIndex + 1 }}</p>
-                                        <label class="{{ $label }}">Nomor batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.batchNumber" class="{{ $field }}"></label>
-                                        <label class="{{ $label }}">Tanggal produksi<input wire:model.live="items.{{ $index }}.batches.{{ $batchIndex }}.manufacturedDate" type="date" class="{{ $field }}"></label>
-                                        <label class="{{ $label }}">Tanggal kedaluwarsa<input wire:model.live="items.{{ $index }}.batches.{{ $batchIndex }}.expiredDate" type="date" class="{{ $field }}"></label>
-                                        <label class="{{ $label }}">Qty fisik batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.quantity" type="number" step="0.0001" class="{{ $field }}"></label>
-                                        <label class="{{ $label }}">Qty Accepted batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.acceptedQty" type="number" step="0.0001" class="{{ $field }}"></label>
-                                        <label class="{{ $label }}">Qty Hold batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.holdQty" type="number" step="0.0001" class="{{ $field }}"></label>
-                                        <label class="{{ $label }}">Qty Rejected batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.rejectedQty" type="number" step="0.0001" class="{{ $field }}"></label>
+                                        <label class="{{ $label }}">Nomor Batch <span class="ml-1 font-normal normal-case text-slate-400">(opsional)</span><input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.batchNumber" class="{{ $field }}"></label>
+                                        <label class="{{ $label }}">Tanggal ED<input wire:model.live="items.{{ $index }}.batches.{{ $batchIndex }}.expiredDate" type="date" class="{{ $field }}"></label>
+                                        <label class="{{ $label }}">Qty Batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.quantity" type="number" step="0.0001" class="{{ $field }}"></label>
+                                        <button type="button" x-on:click="detailOpen = ! detailOpen" class="text-left text-xs font-semibold text-blue-600" x-text="detailOpen ? 'Sembunyikan Detail Batch' : 'Detail Batch'"></button>
+                                        <div x-show="detailOpen" x-cloak class="grid gap-3 border-t border-gray-200 pt-3 dark:border-gray-700">
+                                            <label class="{{ $label }}">Tanggal produksi<input wire:model.live="items.{{ $index }}.batches.{{ $batchIndex }}.manufacturedDate" type="date" class="{{ $field }}"></label>
+                                            <label class="{{ $label }}">Qty Accepted batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.acceptedQty" type="number" step="0.0001" class="{{ $field }}"></label>
+                                            <label class="{{ $label }}">Qty Hold batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.holdQty" type="number" step="0.0001" class="{{ $field }}"></label>
+                                            <label class="{{ $label }}">Qty Rejected batch<input wire:model="items.{{ $index }}.batches.{{ $batchIndex }}.rejectedQty" type="number" step="0.0001" class="{{ $field }}"></label>
+                                        </div>
                                         @php($batchPreview = $qcPreview['batches'][$batchIndex] ?? [])
                                         <div class="rounded-xl border px-3 py-3 {{ ($batchPreview['shelfLifePercentage'] ?? null) !== null && $batchPreview['shelfLifePercentage'] >= (float) $item['minimumShelfLifePercentage'] ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300' : 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300' }}">
                                             <span class="block text-[11px] font-bold uppercase tracking-wide">Hasil Perhitungan Shelf Life</span>
                                             @if (($batchPreview['shelfLifePercentage'] ?? null) === null)
-                                                <span class="mt-1 block text-sm font-semibold">Lengkapi Tanggal Produksi dan Kedaluwarsa</span>
+                                                <span class="mt-1 block text-sm font-semibold">Lengkapi Tanggal ED dan Tanggal Produksi di Detail Batch</span>
                                             @else
                                                 <span class="mt-1 block text-lg font-bold">{{ number_format($batchPreview['shelfLifePercentage'], 2, ',', '.') }}%</span>
                                                 <span class="text-xs">{{ $batchPreview['shelfLifePercentage'] >= (float) $item['minimumShelfLifePercentage'] ? 'Lulus' : 'Gagal' }} · Minimum {{ number_format((float) $item['minimumShelfLifePercentage'], 2, ',', '.') }}%</span>

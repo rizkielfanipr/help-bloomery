@@ -169,7 +169,7 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertSee('Minimum sisa shelf life %')
         ->call('addBatch', 0)
         ->assertSee('Hasil Perhitungan Shelf Life')
-        ->assertSee('Lengkapi Tanggal Produksi dan Kedaluwarsa')
+        ->assertSee('Lengkapi Tanggal ED dan Tanggal Produksi di Detail Batch')
         ->set('items.0.batches.0.manufacturedDate', '2026-09-01')
         ->set('items.0.batches.0.expiredDate', '2027-09-01')
         ->assertSee('Status Shelf Life Item')
@@ -511,6 +511,62 @@ test('the product search and condition filter narrow the visible item list', fun
         ->set('itemFilter', 'all')
         ->assertSee('Butter')
         ->assertSee('Cream');
+});
+
+test('a quick row-level ED shows a colored remaining-days badge, available on Sesuai items too', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+    $this->travelTo(now()->setDate(2026, 10, 1));
+    mockMultiItemPurchaseOrder('PO-ED');
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-ED')
+        ->assertSet('items.0.condition', 'ok')
+        ->set('items.0.expiryDate', '2026-12-30')
+        ->assertSee('90 hari lagi')
+        ->set('items.1.expiryDate', '2026-09-28')
+        ->assertSee('Lewat 3 hari');
+});
+
+test('a quick ED on a Sesuai item without explicit batches still saves as an expiry record', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+    $this->travelTo(now()->setDate(2026, 10, 1));
+
+    $order = [
+        'purchaseNum' => 'PO-QUICK-ED',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 10,
+        'purchaseDetails' => [['ID' => 11, 'productID' => 12, 'productDetailID' => 13, 'qty' => 2]],
+    ];
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('PO-QUICK-ED')->twice()->andReturn($order);
+    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('create')->once()->andReturn(['result' => ['goodsReceiptNum' => 'GR-QUICK-ED'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-QUICK-ED')
+        ->set('documentType', 'delivery_note')
+        ->set('documentNumber', 'DO-QUICK-ED')
+        ->set('documentDate', now()->toDateString())
+        ->set('items.0.expiryDate', '2026-12-30')
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $receipt = GoodsReceipt::where('reference_number', 'PO-QUICK-ED')->sole();
+    $expiry = $receipt->items()->sole()->expiries()->sole();
+    expect($receipt->items)->toHaveCount(1)
+        ->and($expiry->expired_date->toDateString())->toBe('2026-12-30')
+        ->and($expiry->batch_number)->toBeNull()
+        ->and((float) $expiry->accepted_quantity)->toBe(2.0);
 });
 
 test('inventory stays expanded on receiving index and detail', function () {

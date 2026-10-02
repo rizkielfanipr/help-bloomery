@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\CustomerComplaintCategory;
+use App\Enums\CustomerComplaintSource;
 use App\Enums\CustomerComplaintStatus;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\CustomerComplaintResource;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ListCustomerComplaints;
@@ -125,6 +127,46 @@ it('filters the index by branch, category, source, and status', function () {
         ->filterTable('status', CustomerComplaintStatus::InReview->value)
         ->assertCanSeeTableRecords([$matching])
         ->assertCanNotSeeTableRecords([$otherBranch, $otherStatus]);
+});
+
+it('filters realistic dummy complaints through every inline header filter', function () {
+    $branchA = Branch::factory()->create(['name' => 'UI Test Pabelan']);
+    $branchB = Branch::factory()->create(['name' => 'UI Test Jakarta']);
+    $reviewer = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $reviewer->givePermissionTo(['view any customer complaints', 'view customer complaints']);
+
+    $matching = CustomerComplaint::factory()->create([
+        'branch_id' => $branchA->id,
+        'complaint_number' => 'UI-CMP-1001',
+        'customer_name' => 'Customer Alpha',
+        'occurred_at' => '2026-10-01 09:00:00',
+        'category' => CustomerComplaintCategory::ProductQuality,
+        'source' => CustomerComplaintSource::InStore,
+        'status' => CustomerComplaintStatus::New,
+    ]);
+    $other = CustomerComplaint::factory()->create([
+        'branch_id' => $branchB->id,
+        'complaint_number' => 'UI-CMP-2002',
+        'customer_name' => 'Customer Beta',
+        'occurred_at' => '2026-11-15 10:00:00',
+        'category' => CustomerComplaintCategory::Service,
+        'source' => CustomerComplaintSource::WhatsApp,
+        'status' => CustomerComplaintStatus::InReview,
+    ]);
+
+    $this->actingAs($reviewer);
+
+    Livewire::test(ListCustomerComplaints::class)
+        ->assertSee('UI-CMP-1001')
+        ->set('tableFilters.search.value', 'Customer Alpha')
+        ->set('tableFilters.branch_id.value', $branchA->id)
+        ->set('tableFilters.category.value', CustomerComplaintCategory::ProductQuality->value)
+        ->set('tableFilters.source.value', CustomerComplaintSource::InStore->value)
+        ->set('tableFilters.status.value', CustomerComplaintStatus::New->value)
+        ->set('tableFilters.occurred_at.from', '2026-10-01')
+        ->set('tableFilters.occurred_at.until', '2026-10-10')
+        ->assertCanSeeTableRecords([$matching])
+        ->assertCanNotSeeTableRecords([$other]);
 });
 
 it('accepts the New -> In Review -> Resolved -> Closed transition and records each as an activity', function () {

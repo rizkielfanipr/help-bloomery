@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\StoreSalesOrderEventType;
 use App\Enums\StoreSalesOrderStatus;
 use Database\Factories\StoreSalesOrderFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -70,6 +71,7 @@ class StoreSalesOrder extends Model
             'esb_snapshot' => 'array',
             'last_verified_at' => 'datetime',
             'attachment_paths' => 'array',
+            'event_type' => StoreSalesOrderEventType::class,
             'operational_status' => StoreSalesOrderStatus::class,
         ];
     }

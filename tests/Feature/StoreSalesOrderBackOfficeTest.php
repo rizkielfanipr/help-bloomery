@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\StoreSalesOrderEventType;
 use App\Enums\StoreSalesOrderProductType;
 use App\Enums\StoreSalesOrderStatus;
 use App\Filament\Helpdesk\Resources\StoreSalesOrders\Pages\ListStoreSalesOrders;
@@ -127,6 +128,46 @@ it('filters the index by branch and operational status', function () {
         ->filterTable('operational_status', StoreSalesOrderStatus::InPreparation->value)
         ->assertCanSeeTableRecords([$matching])
         ->assertCanNotSeeTableRecords([$otherBranch, $otherStatus]);
+});
+
+it('filters realistic dummy orders through every inline header filter', function () {
+    $branchA = Branch::factory()->create(['name' => 'UI Test Pabelan']);
+    $branchB = Branch::factory()->create(['name' => 'UI Test Jakarta']);
+    $reviewer = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $reviewer->givePermissionTo(['view any store sales orders', 'view store sales orders']);
+
+    $matching = StoreSalesOrder::factory()->create([
+        'branch_id' => $branchA->id,
+        'product_sales_number' => 'UI-SL-1001',
+        'customer_name_snapshot' => 'Nadia Wedding',
+        'required_date' => '2026-10-05',
+        'event_type' => StoreSalesOrderEventType::Wedding,
+        'esb_status_name' => 'Open',
+        'operational_status' => StoreSalesOrderStatus::Submitted,
+    ]);
+    $other = StoreSalesOrder::factory()->create([
+        'branch_id' => $branchB->id,
+        'product_sales_number' => 'UI-SL-2002',
+        'customer_name_snapshot' => 'Corporate Event',
+        'required_date' => '2026-11-15',
+        'event_type' => StoreSalesOrderEventType::Corporate,
+        'esb_status_name' => 'Processing',
+        'operational_status' => StoreSalesOrderStatus::InPreparation,
+    ]);
+
+    $this->actingAs($reviewer);
+
+    Livewire::test(ListStoreSalesOrders::class)
+        ->assertSee('UI-SL-1001')
+        ->set('tableFilters.search.value', 'Nadia Wedding')
+        ->set('tableFilters.branch_id.value', $branchA->id)
+        ->set('tableFilters.event_type.value', StoreSalesOrderEventType::Wedding->value)
+        ->set('tableFilters.esb_status_name.value', 'Open')
+        ->set('tableFilters.operational_status.value', StoreSalesOrderStatus::Submitted->value)
+        ->set('tableFilters.required_date.from', '2026-10-01')
+        ->set('tableFilters.required_date.until', '2026-10-10')
+        ->assertCanSeeTableRecords([$matching])
+        ->assertCanNotSeeTableRecords([$other]);
 });
 
 it('accepts the Submitted -> InPreparation -> Ready -> Delivered transition and records each as an activity', function () {

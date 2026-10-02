@@ -2,6 +2,7 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Models\BranchEsbCode;
 use App\Models\GoodsReceipt;
 use App\Models\User;
 use App\Services\EsbBranchMappingResolver;
@@ -38,6 +39,13 @@ class GoodsReceiptPage extends Page
     public int $purchaseOrderPage = 1;
 
     public ?array $purchaseOrder = null;
+
+    /**
+     * docs/receiving-simplification-prd.md §4.4/§12: the Company Code the open PO was fetched
+     * under — set once in selectPurchaseOrder() and reused for every later call (locations,
+     * re-verification, submit) so a single PO never silently changes its source context.
+     */
+    public string $sourceCompanyCode = '';
 
     public string $submissionKey = '';
 
@@ -118,21 +126,71 @@ class GoodsReceiptPage extends Page
         };
     }
 
+    /**
+     * docs/receiving-simplification-prd.md §13: "Daftar sumber dibangun dari accessibleBranchIds()
+     * user dan mapping branch_esb_codes yang aktif." Distinct Company Codes only — a user with
+     * access to several branches under the same Company Code still queries that code once.
+     *
+     * @return Collection<int, string>
+     */
+    private function accessibleCompanyCodes(): Collection
+    {
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            return collect();
+        }
+
+        $query = BranchEsbCode::query()->where('is_active', true);
+
+        if (! $user->canAccessAllBranches()) {
+            $query->whereIn('branch_id', $user->accessibleBranchIds());
+        }
+
+        return $query->pluck('esb_comcode')->unique()->values();
+    }
+
+    /**
+     * docs/receiving-simplification-prd.md §12/§13: every Company Code the user has an accessible
+     * mapping for is queried for Authorized/Receiving POs; one Company Code's failure (e.g. SPN
+     * credentials not configured yet) does not block the others, mirroring the Sync Branch ESB
+     * precedent ("Kegagalan satu Company Code tidak menghentikan Company Code lain"). Each fetched
+     * PO is re-validated against the resolved branch's own accessibility — a Company Code can be
+     * usable for one branch and not another.
+     */
     public function loadPurchaseOrders(): void
     {
         $this->loadError = null;
-        try {
-            $service = app(EsbGoodsReceiptService::class);
-            $filters = ['page' => 1, 'limit' => 100, 'sort' => '-purchaseDate'];
-            $this->purchaseOrders = collect(array_merge(
-                $service->purchaseOrders($filters + ['statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED]),
-                $service->purchaseOrders($filters + ['statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_RECEIVING]),
-            ))->unique('purchaseNum')->values()->all();
-            $this->purchaseOrderPage = 1;
-        } catch (Throwable $exception) {
-            report($exception);
-            $this->loadError = $exception->getMessage();
+        $service = app(EsbGoodsReceiptService::class);
+        $resolver = app(EsbBranchMappingResolver::class);
+        $user = auth()->user();
+        $filters = ['page' => 1, 'limit' => 100, 'sort' => '-purchaseDate'];
+        $orders = collect();
+        $errors = [];
+
+        foreach ($this->accessibleCompanyCodes() as $companyCode) {
+            try {
+                foreach ([EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED, EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_RECEIVING] as $statusId) {
+                    $orders = $orders->concat(collect($service->purchaseOrders($companyCode, $filters + ['statusID' => $statusId]))
+                        ->map(fn (array $po): array => $po + ['_companyCode' => $companyCode]));
+                }
+            } catch (Throwable $exception) {
+                report($exception);
+                $errors[] = "{$companyCode}: {$exception->getMessage()}";
+            }
         }
+
+        $this->purchaseOrders = $orders
+            // §13 "Duplikat diidentifikasi menggunakan gabungan Company Code dan nomor PO, bukan
+            // nomor PO saja" — the same PO number can legitimately exist under two Company Codes.
+            ->unique(fn (array $po): string => $po['_companyCode'].'|'.$po['purchaseNum'])
+            ->filter(function (array $po) use ($resolver, $user): bool {
+                $mapping = $resolver->resolve($po['_companyCode'], (int) data_get($po, 'branchID'), data_get($po, 'branchCode'));
+
+                return $mapping && ($user->canAccessAllBranches() || $user->canAccessBranch($mapping->branch_id));
+            })
+            ->values()->all();
+        $this->purchaseOrderPage = 1;
+        $this->loadError = $errors === [] ? null : implode(' | ', $errors);
     }
 
     public function updatedSearch(): void
@@ -190,19 +248,29 @@ class GoodsReceiptPage extends Page
         }
     }
 
-    public function selectPurchaseOrder(string $purchaseNumber): void
+    public function selectPurchaseOrder(string $purchaseNumber, string $companyCode): void
     {
         try {
             $service = app(EsbGoodsReceiptService::class);
-            $order = $service->purchaseOrder($purchaseNumber);
+            $order = $service->purchaseOrder($companyCode, $purchaseNumber);
             abort_unless(in_array((int) data_get($order, 'statusID'), $this->receivableStatusIds(), true), 422, 'PO tidak dapat diterima.');
+
+            // docs/receiving-simplification-prd.md §13 item 2 "pembukaan detail PO": re-validated
+            // here even though loadPurchaseOrders() already filtered the list, since this method
+            // can be reached directly (e.g. a tampered request) without the list filter running.
+            $esbBranchId = (int) data_get($order, 'branchID');
+            $mapping = app(EsbBranchMappingResolver::class)->resolve($companyCode, $esbBranchId, data_get($order, 'branchCode'));
+            $user = auth()->user();
+            abort_unless($user instanceof User && $mapping && ($user->canAccessAllBranches() || $user->canAccessBranch($mapping->branch_id)), 403, 'Cabang PO ini tidak dapat diakses oleh akun Anda.');
+
             $details = data_get($order, 'purchaseDetails', data_get($order, 'purchaseOrderDetails', []));
-            $received = GoodsReceipt::query()->where('reference_number', $purchaseNumber)
+            $received = GoodsReceipt::query()->where('reference_number', $purchaseNumber)->where('company_code', $companyCode)
                 ->whereIn('status', [GoodsReceipt::STATUS_SUCCEEDED, GoodsReceipt::STATUS_PARTIAL_SUCCEEDED])
                 ->with('items')->get()->flatMap->items->groupBy('product_detail_id')->map->sum('accepted_qty');
             $this->purchaseOrder = $order;
+            $this->sourceCompanyCode = $companyCode;
             $this->submissionKey = (string) Str::uuid();
-            $this->locations = $service->locations((int) data_get($order, 'branchID'));
+            $this->locations = $service->locations($companyCode, $esbBranchId);
             $this->locationId = count($this->locations) === 1 ? (string) data_get($this->locations, '0.locationID') : '';
             $this->items = collect($details)->map(function (array $detail) use ($received): array {
                 $ordered = (float) ($detail['qty'] ?? 0);
@@ -384,7 +452,7 @@ class GoodsReceiptPage extends Page
 
     public function backToList(): void
     {
-        $this->reset('purchaseOrder', 'locations', 'items', 'locationId', 'documentNumber', 'documentDate', 'documentNotes', 'documentPhotos', 'goodsPhotos', 'additionalInfo', 'activeItemIndex', 'itemSearch', 'itemFilter');
+        $this->reset('purchaseOrder', 'sourceCompanyCode', 'locations', 'items', 'locationId', 'documentNumber', 'documentDate', 'documentNotes', 'documentPhotos', 'goodsPhotos', 'additionalInfo', 'activeItemIndex', 'itemSearch', 'itemFilter');
     }
 
     public function submit(): void
@@ -393,8 +461,16 @@ class GoodsReceiptPage extends Page
         $this->validate($this->rules());
         $purchaseNumber = (string) data_get($this->purchaseOrder, 'purchaseNum');
         abort_if($purchaseNumber === '', 422, 'Purchase Order belum dipilih.');
-        $latest = app(EsbGoodsReceiptService::class)->purchaseOrder($purchaseNumber);
+        abort_if(blank($this->sourceCompanyCode), 422, 'Company Code sumber Purchase Order tidak tersedia.');
+        $latest = app(EsbGoodsReceiptService::class)->purchaseOrder($this->sourceCompanyCode, $purchaseNumber);
         abort_unless(in_array((int) data_get($latest, 'statusID'), $this->receivableStatusIds(), true), 422, 'Status PO sudah berubah.');
+        $mapping = app(EsbBranchMappingResolver::class)->resolve(
+            $this->sourceCompanyCode,
+            (int) data_get($latest, 'branchID'),
+            data_get($latest, 'branchCode'),
+        );
+        $user = auth()->user();
+        abort_unless($user instanceof User && $mapping && ($user->canAccessAllBranches() || $user->canAccessBranch($mapping->branch_id)), 403, 'Cabang PO ini tidak dapat diakses oleh akun Anda.');
         $selected = collect($this->items)->filter(fn (array $item): bool => $item['selected'] && (float) $item['physicalQty'] > 0)
             // Server-side defense in depth: "Sesuai" always means the full qty is Accepted and
             // the exception fields are blank, regardless of whatever the client last held for
@@ -445,7 +521,7 @@ class GoodsReceiptPage extends Page
             return;
         }
         try {
-            $response = app(EsbGoodsReceiptService::class)->create($purchaseNumber, $payload);
+            $response = app(EsbGoodsReceiptService::class)->create($this->sourceCompanyCode, $purchaseNumber, $payload);
             $partial = $assessed->contains(fn (array $item): bool => (float) $item['holdQty'] > 0 || (float) $item['rejectedQty'] > 0);
             $receipt->update(['status' => $partial ? GoodsReceipt::STATUS_PARTIAL_SUCCEEDED : GoodsReceipt::STATUS_SUCCEEDED,
                 'esb_goods_receipt_number' => data_get($response, 'result.goodsReceiptNum'), 'esb_code' => data_get($response, 'response.code'),
@@ -558,7 +634,7 @@ class GoodsReceiptPage extends Page
         $rejected = (float) $items->sum('rejectedQty');
         $esbBranchId = (int) data_get($this->purchaseOrder, 'branchID');
         $branchMapping = app(EsbBranchMappingResolver::class)->resolve(
-            EsbGoodsReceiptService::COMPANY_CODE,
+            $this->sourceCompanyCode,
             $esbBranchId,
             data_get($this->purchaseOrder, 'branchCode'),
         );
@@ -567,7 +643,7 @@ class GoodsReceiptPage extends Page
 
         $payloadHash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
         $receipt = GoodsReceipt::query()->createOrFirst(['submission_key' => $this->submissionKey], [
-            'company_code' => 'BLSS', 'reference_number' => $po, 'purchase_date' => data_get($this->purchaseOrder, 'purchaseDate'), 'goods_receipt_date' => $this->goodsReceiptDate,
+            'company_code' => $this->sourceCompanyCode, 'reference_number' => $po, 'purchase_date' => data_get($this->purchaseOrder, 'purchaseDate'), 'goods_receipt_date' => $this->goodsReceiptDate,
             'esb_branch_id' => $esbBranchId, 'local_branch_id' => $branchMapping?->branch_id, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
             'supplier_id' => data_get($this->purchaseOrder, 'supplierID'), 'supplier_name' => data_get($this->purchaseOrder, 'supplierName'),
             'location_id' => $location['locationID'], 'location_name' => $location['locationName'],

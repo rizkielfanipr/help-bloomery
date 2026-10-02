@@ -2,6 +2,8 @@
 
 use App\Filament\Casual\Pages\GoodsReceiptPage;
 use App\Filament\Helpdesk\Resources\GoodsReceipts\GoodsReceiptResource;
+use App\Models\Branch;
+use App\Models\BranchEsbCode;
 use App\Models\GoodsReceipt;
 use App\Models\GoodsReceiptExpiry;
 use App\Models\GoodsReceiptItem;
@@ -14,6 +16,18 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+
+beforeEach(function () {
+    $branch = Branch::factory()->create(['name' => 'Receiving Test Branch']);
+    BranchEsbCode::query()->create([
+        'branch_id' => $branch->id,
+        'esb_branch_id' => 10,
+        'esb_branch_code' => 'BLS',
+        'esb_comcode' => 'BLSS',
+        'label' => 'Receiving Test Branch',
+        'is_active' => true,
+    ]);
+});
 
 test('goods receipt records store their items and expiry details', function () {
     $receipt = GoodsReceipt::factory()->create();
@@ -54,12 +68,12 @@ test('purchase orders are ordered by the nearest required date with undated orde
 test('employee app loads purchase orders that ESB allows to receive', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
-    $user = User::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);
 
     $service = Mockery::mock(EsbGoodsReceiptService::class);
-    $service->shouldReceive('purchaseOrders')->once()->with([
+    $service->shouldReceive('purchaseOrders')->once()->with('BLSS', [
         'page' => 1,
         'limit' => 100,
         'sort' => '-purchaseDate',
@@ -68,18 +82,20 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         'purchaseNum' => 'PO-"AUTHORIZED"-1',
         'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
         'statusName' => 'Authorized',
+        'branchID' => 10,
     ]], collect(range(2, 11))->map(fn (int $number): array => [
         'purchaseNum' => "PO-AUTH-{$number}",
         'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
         'statusName' => 'Authorized',
+        'branchID' => 10,
     ])->all()));
-    $service->shouldReceive('purchaseOrders')->once()->with([
+    $service->shouldReceive('purchaseOrders')->once()->with('BLSS', [
         'page' => 1,
         'limit' => 100,
         'sort' => '-purchaseDate',
         'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_RECEIVING,
     ])->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->once()->with('PO-"AUTHORIZED"-1')->andReturn([
+    $service->shouldReceive('purchaseOrder')->once()->with('BLSS', 'PO-"AUTHORIZED"-1')->andReturn([
         'purchaseNum' => 'PO-"AUTHORIZED"-1',
         'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
         'statusName' => 'Authorized',
@@ -92,7 +108,7 @@ test('employee app loads purchase orders that ESB allows to receive', function (
             'qty' => 2,
         ]],
     ]);
-    $service->shouldReceive('locations')->once()->with(10)->andReturn([
+    $service->shouldReceive('locations')->once()->with('BLSS', 10)->andReturn([
         ['locationID' => 9, 'locationName' => 'Warehouse'],
     ]);
     app()->instance(EsbGoodsReceiptService::class, $service);
@@ -124,9 +140,9 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertDontSeeHtml('Buat GR & QC')
         ->assertSee('Tidak ada PO Authorized/Receiving')
         ->set('search', '')
-        ->assertSeeHtml('wire:click="selectPurchaseOrder($event.currentTarget.dataset.po)"')
+        ->assertSeeHtml('wire:click="selectPurchaseOrder($event.currentTarget.dataset.po, $event.currentTarget.dataset.company)"')
         ->assertSeeHtml('data-po="PO-&quot;AUTHORIZED&quot;-1"')
-        ->call('selectPurchaseOrder', 'PO-"AUTHORIZED"-1')
+        ->call('selectPurchaseOrder', 'PO-"AUTHORIZED"-1', 'BLSS')
         ->assertSet('purchaseOrder.purchaseNum', 'PO-"AUTHORIZED"-1')
         ->assertSet('locationId', '9')
         ->assertSeeHtml('aria-label="Kembali ke daftar Purchase Order"')
@@ -206,21 +222,21 @@ test('receiving saves calculated shelf life for form batches', function () {
 
     $service = Mockery::mock(EsbGoodsReceiptService::class);
     $service->shouldReceive('purchaseOrders')->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->with('PO-BATCH')->twice()->andReturn([
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-BATCH')->twice()->andReturn([
         'purchaseNum' => 'PO-BATCH',
         'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
         'branchID' => 10,
         'purchaseDetails' => [['ID' => 11, 'productID' => 12, 'productDetailID' => 13, 'qty' => 2]],
     ]);
-    $service->shouldReceive('locations')->with(10)->andReturn([
+    $service->shouldReceive('locations')->with('BLSS', 10)->andReturn([
         ['locationID' => 9, 'locationName' => 'Warehouse'],
     ]);
-    $service->shouldReceive('create')->once()->with('PO-BATCH', Mockery::on(fn (array $payload): bool => $payload['goodsReceiptDetail'][0]['expiredDates'] === [['expiredDate' => '2027-09-01', 'qty' => 2.0]]
+    $service->shouldReceive('create')->once()->with('BLSS', 'PO-BATCH', Mockery::on(fn (array $payload): bool => $payload['goodsReceiptDetail'][0]['expiredDates'] === [['expiredDate' => '2027-09-01', 'qty' => 2.0]]
     ))->andReturn(['result' => ['goodsReceiptNum' => 'GR-BATCH'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
     app()->instance(EsbGoodsReceiptService::class, $service);
 
     Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-BATCH')
+        ->call('selectPurchaseOrder', 'PO-BATCH', 'BLSS')
         ->set('documentType', 'invoice')
         ->set('documentNumber', 'INV-BATCH')
         ->set('documentDate', '2026-09-16')
@@ -263,13 +279,13 @@ test('receiving guards duplicate submissions and marks an uncertain connection r
     ];
     $service = Mockery::mock(EsbGoodsReceiptService::class);
     $service->shouldReceive('purchaseOrders')->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->with('PO-UNKNOWN')->times(3)->andReturn($order);
-    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-UNKNOWN')->times(3)->andReturn($order);
+    $service->shouldReceive('locations')->with('BLSS', 10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
     $service->shouldReceive('create')->once()->andThrow(new ConnectionException('connection reset after send'));
     app()->instance(EsbGoodsReceiptService::class, $service);
 
     $component = Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-UNKNOWN')
+        ->call('selectPurchaseOrder', 'PO-UNKNOWN', 'BLSS')
         ->set('documentType', 'invoice')
         ->set('documentNumber', 'INV-UNKNOWN')
         ->set('documentDate', '2026-09-16')
@@ -300,16 +316,16 @@ test('a single document number and date save correctly for whichever document ty
     ];
     $service = Mockery::mock(EsbGoodsReceiptService::class);
     $service->shouldReceive('purchaseOrders')->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->with('PO-DOC-TYPE')->twice()->andReturn($order);
-    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
-    $service->shouldReceive('create')->once()->with('PO-DOC-TYPE', Mockery::on(fn (array $payload): bool => $payload['deliveryNum'] === 'DO-ONLY'))
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-DOC-TYPE')->twice()->andReturn($order);
+    $service->shouldReceive('locations')->with('BLSS', 10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('create')->once()->with('BLSS', 'PO-DOC-TYPE', Mockery::on(fn (array $payload): bool => $payload['deliveryNum'] === 'DO-ONLY'))
         ->andReturn(['result' => ['goodsReceiptNum' => 'GR-DOC-TYPE'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
     app()->instance(EsbGoodsReceiptService::class, $service);
 
     // "Surat Jalan valid tanpa Invoice" (docs/receiving-simplification-prd.md §19): choosing
     // delivery_note never requires any invoice-specific field.
     Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-DOC-TYPE')
+        ->call('selectPurchaseOrder', 'PO-DOC-TYPE', 'BLSS')
         ->set('documentType', 'delivery_note')
         ->set('documentNumber', 'DO-ONLY')
         ->set('documentDate', now()->toDateString())
@@ -343,13 +359,13 @@ test('document photos and goods photos are stored separately, each with an expli
     ];
     $service = Mockery::mock(EsbGoodsReceiptService::class);
     $service->shouldReceive('purchaseOrders')->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->with('PO-PHOTOS')->twice()->andReturn($order);
-    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-PHOTOS')->twice()->andReturn($order);
+    $service->shouldReceive('locations')->with('BLSS', 10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
     $service->shouldReceive('create')->once()->andReturn(['result' => ['goodsReceiptNum' => 'GR-PHOTOS'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
     app()->instance(EsbGoodsReceiptService::class, $service);
 
     Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-PHOTOS')
+        ->call('selectPurchaseOrder', 'PO-PHOTOS', 'BLSS')
         ->set('documentType', 'delivery_note')
         ->set('documentNumber', 'DO-PHOTOS')
         ->set('documentDate', now()->toDateString())
@@ -374,7 +390,7 @@ test('document photos and goods photos are stored separately, each with an expli
 test('submit is blocked client-side while a photo upload is still in flight', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
-    $user = User::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);
 
@@ -386,8 +402,8 @@ test('submit is blocked client-side while a photo upload is still in flight', fu
     ];
     $service = Mockery::mock(EsbGoodsReceiptService::class);
     $service->shouldReceive('purchaseOrders')->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->with('PO-UPLOAD-GUARD')->once()->andReturn($order);
-    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-UPLOAD-GUARD')->once()->andReturn($order);
+    $service->shouldReceive('locations')->with('BLSS', 10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
     app()->instance(EsbGoodsReceiptService::class, $service);
 
     // docs/receiving-simplification-prd.md §5.3 "Tombol submit dinonaktifkan selama file masih
@@ -397,7 +413,7 @@ test('submit is blocked client-side while a photo upload is still in flight', fu
     // wiring that implements it is present: a shared uploadingCount tracked for the whole page,
     // and the submit button bound to it.
     Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-UPLOAD-GUARD')
+        ->call('selectPurchaseOrder', 'PO-UPLOAD-GUARD', 'BLSS')
         ->assertSeeHtml('x-on:livewire-upload-start.window="uploadingCount++"')
         ->assertSeeHtml('x-on:livewire-upload-finish.window="uploadingCount--"')
         ->assertSeeHtml(':disabled="uploadingCount > 0"');
@@ -416,8 +432,8 @@ function mockMultiItemPurchaseOrder(string $purchaseNumber): EsbGoodsReceiptServ
     ];
     $service = Mockery::mock(EsbGoodsReceiptService::class);
     $service->shouldReceive('purchaseOrders')->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->with($purchaseNumber)->andReturn($order);
-    $service->shouldReceive('locations')->with(10)->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', $purchaseNumber)->andReturn($order);
+    $service->shouldReceive('locations')->with('BLSS', 10)->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
     app()->instance(EsbGoodsReceiptService::class, $service);
 
     return $service;
@@ -426,13 +442,13 @@ function mockMultiItemPurchaseOrder(string $purchaseNumber): EsbGoodsReceiptServ
 test('bulk actions select all, mark all Sesuai, fill qty from outstanding, and clear qty', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
-    $user = User::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);
     mockMultiItemPurchaseOrder('PO-BULK');
 
     $component = Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-BULK')
+        ->call('selectPurchaseOrder', 'PO-BULK', 'BLSS')
         ->assertSet('items.0.physicalQty', 10.0)
         ->assertSet('items.1.physicalQty', 5.0)
         ->call('clearAllQty')
@@ -459,13 +475,13 @@ test('bulk actions select all, mark all Sesuai, fill qty from outstanding, and c
 test('switching an item back to Sesuai clears exception data entered while Bermasalah', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
-    $user = User::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);
     mockMultiItemPurchaseOrder('PO-RESET');
 
     Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-RESET')
+        ->call('selectPurchaseOrder', 'PO-RESET', 'BLSS')
         ->call('openItemDetail', 0)
         ->assertSet('items.0.condition', 'problem')
         ->set('items.0.holdQty', 2)
@@ -487,13 +503,13 @@ test('switching an item back to Sesuai clears exception data entered while Berma
 test('the product search and condition filter narrow the visible item list', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
-    $user = User::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);
     mockMultiItemPurchaseOrder('PO-FILTER');
 
     Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-FILTER')
+        ->call('selectPurchaseOrder', 'PO-FILTER', 'BLSS')
         ->assertSee('Butter')
         ->assertSee('Cream')
         ->set('itemSearch', 'but')
@@ -516,14 +532,14 @@ test('the product search and condition filter narrow the visible item list', fun
 test('a quick row-level ED shows a colored remaining-days badge, available on Sesuai items too', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));
-    $user = User::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $user->givePermissionTo('access employee app goods receipt');
     $this->actingAs($user);
     $this->travelTo(now()->setDate(2026, 10, 1));
     mockMultiItemPurchaseOrder('PO-ED');
 
     Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-ED')
+        ->call('selectPurchaseOrder', 'PO-ED', 'BLSS')
         ->assertSet('items.0.condition', 'ok')
         ->set('items.0.expiryDate', '2026-12-30')
         ->assertSee('90 hari lagi')
@@ -547,13 +563,13 @@ test('a quick ED on a Sesuai item without explicit batches still saves as an exp
     ];
     $service = Mockery::mock(EsbGoodsReceiptService::class);
     $service->shouldReceive('purchaseOrders')->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->with('PO-QUICK-ED')->twice()->andReturn($order);
-    $service->shouldReceive('locations')->with(10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-QUICK-ED')->twice()->andReturn($order);
+    $service->shouldReceive('locations')->with('BLSS', 10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
     $service->shouldReceive('create')->once()->andReturn(['result' => ['goodsReceiptNum' => 'GR-QUICK-ED'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
     app()->instance(EsbGoodsReceiptService::class, $service);
 
     Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-QUICK-ED')
+        ->call('selectPurchaseOrder', 'PO-QUICK-ED', 'BLSS')
         ->set('documentType', 'delivery_note')
         ->set('documentNumber', 'DO-QUICK-ED')
         ->set('documentDate', now()->toDateString())
@@ -572,7 +588,7 @@ test('a quick ED on a Sesuai item without explicit batches still saves as an exp
 test('inventory stays expanded on receiving index and detail', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
-    $user = User::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $user->assignRole('SUPERADMIN');
     $this->actingAs($user);
     $receipt = GoodsReceipt::factory()->create();

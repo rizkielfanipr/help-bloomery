@@ -29,11 +29,11 @@ it('keeps purchase order location and creation contracts on the shared client', 
     ]);
     $service = app(EsbGoodsReceiptService::class);
 
-    expect($service->purchaseOrders(['statusID' => 3]))->toBe([['purchaseNum' => 'PO-1']])
-        ->and($service->purchaseOrder('PO-1')['branchID'])->toBe(17)
-        ->and($service->locations(17))->toBe([['locationID' => 10, 'locationName' => 'Kitchen']]);
+    expect($service->purchaseOrders('BLSS', ['statusID' => 3]))->toBe([['purchaseNum' => 'PO-1']])
+        ->and($service->purchaseOrder('BLSS', 'PO-1')['branchID'])->toBe(17)
+        ->and($service->locations('BLSS', 17))->toBe([['locationID' => 10, 'locationName' => 'Kitchen']]);
 
-    $created = $service->create('PO-1', ['goodsReceiptDate' => '2026-09-23']);
+    $created = $service->create('BLSS', 'PO-1', ['goodsReceiptDate' => '2026-09-23']);
     expect($created['result']['goodsReceiptNum'])->toBe('GR-1')
         ->and($created['response']['code'])->toBe('OK');
 
@@ -58,7 +58,7 @@ it('uses the shared client token refresh for Receiving requests', function () {
             : Http::response(['status' => 'ok', 'result' => ['data' => []]]);
     });
 
-    expect(app(EsbGoodsReceiptService::class)->purchaseOrders())->toBe([])
+    expect(app(EsbGoodsReceiptService::class)->purchaseOrders('BLSS'))->toBe([])
         ->and($loginCount)->toBe(2)
         ->and($requestCount)->toBe(2);
 });
@@ -69,6 +69,6 @@ it('reports Receiving endpoint context when ESB rejects a request', function () 
         'https://esb.test/core/location*' => Http::response(['status' => 'fail', 'message' => 'Branch tidak ditemukan'], 422),
     ]);
 
-    expect(fn () => app(EsbGoodsReceiptService::class)->locations(999))
+    expect(fn () => app(EsbGoodsReceiptService::class)->locations('BLSS', 999))
         ->toThrow(RuntimeException::class, 'Gagal mengambil lokasi [BLSS /location]: Branch tidak ditemukan');
 });

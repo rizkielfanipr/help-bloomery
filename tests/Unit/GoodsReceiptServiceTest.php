@@ -21,7 +21,7 @@ test('it authenticates as BLSS and fetches receivable purchase orders', function
         'https://esb.test/core/purchase/purchase-order*' => Http::response(['status' => 'ok', 'result' => ['data' => [['purchaseNum' => 'PO-1']]]]),
     ]);
 
-    $orders = app(EsbGoodsReceiptService::class)->purchaseOrders([
+    $orders = app(EsbGoodsReceiptService::class)->purchaseOrders('BLSS', [
         'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
     ]);
 
@@ -37,7 +37,7 @@ test('it posts a goods receipt using the PO as reference number', function () {
         'status' => 'ok', 'code' => 'EC03100000', 'message' => 'Saved', 'result' => ['goodsReceiptNum' => 'GR-1'],
     ])]);
 
-    $response = app(EsbGoodsReceiptService::class)->create('PO-1', ['locationID' => 9]);
+    $response = app(EsbGoodsReceiptService::class)->create('BLSS', 'PO-1', ['locationID' => 9]);
 
     expect(data_get($response, 'result.goodsReceiptNum'))->toBe('GR-1');
     Http::assertSent(fn ($request): bool => $request->method() === 'POST' && $request['locationID'] === 9);

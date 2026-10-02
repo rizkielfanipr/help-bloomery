@@ -75,7 +75,7 @@
                                     <div class="flex items-start gap-2 text-xs"><span class="w-14 shrink-0 text-slate-400">Cabang</span><span class="font-medium text-slate-600 dark:text-slate-300">{{ $po['branchName'] ?? '-' }}</span></div>
                                 </div>
                             </div>
-                            <button data-po="{{ $po['purchaseNum'] }}" wire:click="selectPurchaseOrder($event.currentTarget.dataset.po)" wire:loading.attr="disabled" type="button" aria-label="Buat GR & QC untuk {{ $po['purchaseNum'] }}" title="Buat GR & QC" class="flex shrink-0 flex-col items-center gap-1 rounded-xl bg-blue-600 px-3 py-2.5 text-white transition hover:bg-blue-700 active:scale-95 disabled:opacity-50">
+                            <button data-po="{{ $po['purchaseNum'] }}" data-company="{{ $po['_companyCode'] }}" wire:click="selectPurchaseOrder($event.currentTarget.dataset.po, $event.currentTarget.dataset.company)" wire:loading.attr="disabled" type="button" aria-label="Buat GR & QC untuk {{ $po['purchaseNum'] }}" title="Buat GR & QC" class="flex shrink-0 flex-col items-center gap-1 rounded-xl bg-blue-600 px-3 py-2.5 text-white transition hover:bg-blue-700 active:scale-95 disabled:opacity-50">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $this->iconPath('create') }}"/></svg>
                                 <span class="text-[10px] font-semibold">Buat GR</span>
                             </button>

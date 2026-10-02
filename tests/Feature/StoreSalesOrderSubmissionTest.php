@@ -153,7 +153,13 @@ it('submits a store sales order with a Submitted status after a valid lookup', f
         ->and($order->items)->toHaveCount(1);
 });
 
-it('rejects a submission for a branch the user cannot access, even if the component state is tampered', function () {
+it('clears a successful lookup when the branch changes afterward, blocking submit until it is redone', function () {
+    // docs/store-sales-order-prd.md §10.1 "Mengganti Branch atau nomor SL akan membersihkan hasil
+    // lookup sebelumnya" — covered here at the Livewire layer. The Action's own independent
+    // re-validation of branch access (§16 "branch divalidasi ulang di server", which matters
+    // because a tampered request could skip this component's updatedBranchId() hook entirely) is
+    // covered directly against the Action in StoreSalesOrderDomainTest's "rejects a submission for
+    // a branch the user cannot access" test.
     $otherBranch = Branch::factory()->create();
     $this->actingAs($this->user);
     fakeStoreSalesOrderLookup();
@@ -164,11 +170,53 @@ it('rejects a submission for a branch the user cannot access, even if the compon
         ->call('lookupEsb')
         ->assertHasNoErrors()
         ->set('branchId', $otherBranch->id)
+        ->assertSet('lookupResult', null)
         ->set('items', [validItemRow()])
         ->call('submit')
-        ->assertHasErrors();
+        ->assertHasErrors(['product_sales_number']);
 
     expect(StoreSalesOrder::query()->count())->toBe(0);
+});
+
+it('rejects submit when the Action\'s own branch re-check fails, even though the lookup already succeeded', function () {
+    // A record already exists under the same ESB identity (company + numeric ESB branch ID) via a
+    // *different* local Branch — duplicate detection keys on that ESB identity, not local branch_id
+    // (docs/store-sales-order-prd.md §14), so submitting through $this->branch (which the lookup
+    // step genuinely succeeds for) still gets rejected: CreateStoreSalesOrderAction finds the
+    // existing record and $this->user has no permission or submitter relationship to view it. This
+    // proves the Action's server-side check runs independently of the Page's own state, without
+    // needing to defeat updatedBranchId()'s lookup-clearing side effect.
+    $otherBranch = Branch::factory()->create();
+    $otherMapping = BranchEsbCode::query()->create([
+        'branch_id' => $otherBranch->id,
+        'esb_comcode' => 'BLSS',
+        'esb_branch_id' => 6,
+        'esb_branch_code' => 'PBL2',
+        'label' => 'NO LABEL',
+        'is_active' => true,
+    ]);
+    StoreSalesOrder::factory()->create([
+        'branch_id' => $otherBranch->id,
+        'branch_esb_code_id' => $otherMapping->id,
+        'company_code_snapshot' => 'BLSS',
+        'esb_branch_id_snapshot' => 6,
+        'product_sales_number' => 'SL-00123',
+        'submitted_by' => User::factory()->create()->id,
+    ]);
+
+    $this->actingAs($this->user);
+    fakeStoreSalesOrderLookup();
+
+    Livewire::test(StoreSalesOrderPage::class)
+        ->set('branchId', $this->branch->id)
+        ->set('productSalesNumber', 'SL-00123')
+        ->call('lookupEsb')
+        ->assertHasNoErrors()
+        ->set('items', [validItemRow()])
+        ->call('submit')
+        ->assertHasErrors(['product_sales_number']);
+
+    expect(StoreSalesOrder::query()->count())->toBe(1);
 });
 
 it('requires a Custom detail when the Custom product type is chosen', function () {

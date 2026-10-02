@@ -91,7 +91,7 @@ class CreateStoreSalesOrderAction
                 return $order;
             });
         } catch (UniqueConstraintViolationException $exception) {
-            if (! str_contains($exception->getMessage(), 'store_sales_orders_active_number_unique')) {
+            if (! self::isActiveNumberConstraintViolation($exception)) {
                 throw $exception;
             }
 
@@ -109,5 +109,20 @@ class CreateStoreSalesOrderAction
 
             return $existing;
         }
+    }
+
+    /**
+     * MySQL's duplicate-key message embeds the named constraint ("for key
+     * 'store_sales_orders_active_number_unique'"); SQLite's embeds the raw column list instead
+     * ("UNIQUE constraint failed: store_sales_orders.company_code_snapshot, ...,
+     * product_sales_number_if_active"), never the index name — checking for either keeps this
+     * portable between production (MySQL) and the test suite (SQLite) without depending on
+     * driver-specific getIndex()/getColumns() population, which differs the same way (see
+     * MySqlConnection::parseUniqueConstraintViolation() vs SQLiteConnection's).
+     */
+    public static function isActiveNumberConstraintViolation(UniqueConstraintViolationException $exception): bool
+    {
+        return str_contains($exception->getMessage(), 'store_sales_orders_active_number_unique')
+            || str_contains($exception->getMessage(), 'product_sales_number_if_active');
     }
 }

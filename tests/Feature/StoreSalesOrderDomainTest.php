@@ -187,6 +187,20 @@ it('blocks a duplicate redirect when the user has no access to the existing reco
     expect(StoreSalesOrder::query()->count())->toBe(1);
 });
 
+/**
+ * True multi-connection concurrency (two separate, independently-committed transactions racing on
+ * the unique index) cannot be exercised inside a single-process Pest run against an in-memory
+ * SQLite database — any row inserted mid-flight via a model event lands inside the *same*
+ * transaction CreateStoreSalesOrderAction opened, so it rolls back together with that transaction
+ * the moment the real insert collides with it, leaving nothing for the catch block's
+ * existing-record lookup to find. This mirrors the same documented limitation on
+ * CreateCustomerComplaintAction's collision test, which sidesteps it differently (stubbing the
+ * number generator) since that action has no pre-check query of its own to interfere with. Here,
+ * the part of the catch block that *can* be proven without real concurrency — correctly
+ * recognizing a genuine UniqueConstraintViolationException as this specific constraint, across both
+ * MySQL's and SQLite's differently-shaped messages — is covered directly in
+ * tests/Unit/CreateStoreSalesOrderActionConstraintMatchTest.php.
+ */
 it('updates operational information and replaces items, logging an info_updated activity', function () {
     $branch = branchWithEsbMapping();
     $user = User::factory()->create(['branch_id' => $branch->id]);

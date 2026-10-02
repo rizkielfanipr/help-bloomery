@@ -3,12 +3,14 @@
 namespace App\Providers;
 
 use App\Filament\Casual\Resources\ServiceRequests\Pages\ListServiceRequests as CasualListServiceRequests;
+use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ListCustomerComplaints;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
 use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillments;
 use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillmentsToReceive;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests as HelpdeskListServiceRequests;
+use App\Filament\Helpdesk\Resources\StoreSalesOrders\Pages\ListStoreSalesOrders;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ListTrips;
 use App\Filament\Technician\Resources\ServiceRequests\Pages\ListServiceRequests as TechnicianListServiceRequests;
 use App\Http\Middleware\EnsureRole;
@@ -86,6 +88,18 @@ class AppServiceProvider extends ServiceProvider
             TablesRenderHook::HEADER_CELL,
             fn (array $data) => view('filament.helpdesk.trips.table-header-cell', $data),
             scopes: ListTrips::class,
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.operational.table-header-cell', $data + [
+                'branchOptions' => $data['column']->getName() === 'branch.name' ? $filterOptions->branches() : [],
+                'esbStatusOptions' => $data['column']->getName() === 'esb_status_name' ? $filterOptions->storeSalesOrderEsbStatuses() : [],
+            ]),
+            scopes: [
+                ListStoreSalesOrders::class,
+                ListCustomerComplaints::class,
+            ],
         );
     }
 }

@@ -31,6 +31,19 @@ it('shows the Store Sales Orders menu under Operational in the custom back offic
         ->assertSee(route('filament.helpdesk.resources.store-sales-orders.index'), false);
 });
 
+it('renders Store Sales Order filters inline in the table header', function () {
+    $admin = User::factory()->create(['is_active' => true]);
+    $admin->assignRole('SUPERADMIN');
+    $this->actingAs($admin);
+
+    Livewire::test(ListStoreSalesOrders::class)
+        ->assertSuccessful()
+        ->assertSee('Cari SO/customer...')
+        ->assertSee('Pilih rentang tanggal')
+        ->assertSee('- Semua Branch -')
+        ->assertSee('- Semua Event -');
+});
+
 it('scopes the index to the reviewer\'s accessible branches, plus their own submitted orders', function () {
     $ownBranch = Branch::factory()->create();
     $otherBranch = Branch::factory()->create();

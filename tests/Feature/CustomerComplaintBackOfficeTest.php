@@ -32,6 +32,20 @@ it('shows the Customer Complaints menu under Operational in the custom back offi
         ->assertSee(route('filament.helpdesk.resources.customer-complaints.index'), false);
 });
 
+it('renders Customer Complaint filters inline in the table header', function () {
+    $admin = User::factory()->create(['is_active' => true]);
+    $admin->assignRole('SUPERADMIN');
+    $this->actingAs($admin);
+
+    Livewire::test(ListCustomerComplaints::class)
+        ->assertSuccessful()
+        ->assertSee('Cari komplain...')
+        ->assertSee('Pilih rentang tanggal')
+        ->assertSee('- Semua Branch -')
+        ->assertSee('- Semua Category -')
+        ->assertSee('- Semua Source -');
+});
+
 it('scopes the index to the reviewer\'s accessible branches, plus their own submitted complaints', function () {
     $ownBranch = Branch::factory()->create();
     $otherBranch = Branch::factory()->create();

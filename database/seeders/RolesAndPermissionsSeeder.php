@@ -190,7 +190,7 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::firstOrCreate(['name' => 'QUALITY_CONTROL_SUPERVISOR', 'guard_name' => 'web'])
             ->syncPermissions([
                 'access backoffice',
-                'view quality control audits',
+                'view quality control audits', 'edit quality control audits',
                 'view quality control item journals', 'view all quality control item journals',
                 'view quality control checklists', 'create quality control checklists', 'edit quality control checklists', 'delete quality control checklists',
             ]);

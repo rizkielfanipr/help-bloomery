@@ -327,52 +327,15 @@ class ViewProject extends ViewRecord
             'shelfLifeUnit' => ['nullable', Rule::in(array_keys(RndProjectProduct::SHELF_LIFE_UNITS))],
             'storageCondition' => ['nullable', Rule::in(array_keys(RndProjectProduct::STORAGE_CONDITIONS))],
             'storageNotes' => ['nullable', 'string', 'max:2000'],
-            'salesProjections' => ['array'],
-            'salesProjections.*.id' => ['nullable', 'integer'],
-            'salesProjections.*.projection_month' => ['required', 'date_format:Y-m'],
-            'salesProjections.*.sales_region_id' => ['required', 'integer', 'exists:sales_regions,id'],
-            'salesProjections.*.channel' => ['required', Rule::in(array_keys(RndProductSalesProjection::CHANNELS))],
-            'salesProjections.*.target_quantity' => ['nullable', 'numeric', 'min:0'],
-            'salesProjections.*.target_revenue' => ['required', 'numeric', 'min:0'],
-            'salesProjections.*.target_outlets' => ['nullable', 'integer', 'min:1'],
-            'salesProjections.*.branch_targets' => ['required', 'array'],
-            'salesProjections.*.branch_targets.*.branch_id' => ['required', 'integer', 'exists:branches,id'],
-            'salesProjections.*.branch_targets.*.enabled' => ['required', 'boolean'],
-            'salesProjections.*.branch_targets.*.target_quantity' => ['nullable', 'numeric', 'min:0'],
-            'salesProjections.*.notes' => ['nullable', 'string', 'max:1000'],
             'productPhoto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $selectedRegionalPrices = collect($validated['regionalPrices'])
             ->where('enabled', true)
             ->values()
             ->all();
-        $projectionKeys = collect($validated['salesProjections'])->map(
-            fn (array $projection): string => implode('|', [
-                $projection['projection_month'],
-                $projection['sales_region_id'],
-                $projection['channel'],
-            ]),
-        );
-        if ($projectionKeys->unique()->count() !== $projectionKeys->count()) {
-            $this->addError('salesProjections', 'Periode, region, dan channel tidak boleh duplikat dalam satu product.');
-
-            return;
-        }
-        foreach ($validated['salesProjections'] as $projectionIndex => $projection) {
-            $enabledTargets = collect($projection['branch_targets'])->where('enabled', true);
-            if ($enabledTargets->isEmpty()) {
-                $this->addError("salesProjections.$projectionIndex.branch_targets", 'Pilih minimal satu branch untuk target quantity.');
-
-                return;
-            }
-            foreach ($enabledTargets as $targetIndex => $target) {
-                if ((float) ($target['target_quantity'] ?? 0) <= 0) {
-                    $this->addError("salesProjections.$projectionIndex.branch_targets.$targetIndex.target_quantity", 'Target quantity branch wajib lebih dari 0.');
-
-                    return;
-                }
-            }
-        }
+        $existingProduct = $this->editingProductId
+            ? $this->record->products()->find($this->editingProductId)
+            : null;
         if (in_array($validated['productStatus'], ['ready', 'released'], true)) {
             $planningIsInvalid = false;
 
@@ -392,8 +355,11 @@ class ViewProject extends ViewRecord
                 $this->addError('storageCondition', 'Kondisi penyimpanan wajib dipilih sebelum produk Ready/Released.');
                 $planningIsInvalid = true;
             }
-            if ($validated['salesProjections'] === []) {
+            if ($existingProduct === null || $existingProduct->salesProjections()->count() === 0) {
                 $this->addError('salesProjections', 'Minimal satu sales projection wajib sebelum produk Ready/Released.');
+                $planningIsInvalid = true;
+            } elseif ($existingProduct->salesProjections()->whereDoesntHave('targetBranches')->exists()) {
+                $this->addError('salesProjections', 'Setiap sales projection wajib memiliki split branch sebelum produk Ready/Released.');
                 $planningIsInvalid = true;
             }
 
@@ -448,7 +414,6 @@ class ViewProject extends ViewRecord
             'shelf_life_unit' => $validated['shelfLifeValue'] ? $validated['shelfLifeUnit'] : null,
             'storage_condition' => $validated['shelfLifeValue'] ? $validated['storageCondition'] : null,
             'storage_notes' => trim($validated['storageNotes']) ?: null,
-            'target_outlets' => null,
             'status' => $validated['productStatus'],
         ];
         if ($newImagePath) {
@@ -466,7 +431,6 @@ class ViewProject extends ViewRecord
                     $message = 'Product berhasil ditambahkan';
                 }
                 $this->saveRegionalPrices($product, $selectedRegionalPrices, $validated['priceEffectiveFrom']);
-                $this->saveSalesProjections($product, $validated['salesProjections']);
             });
         } catch (Throwable $exception) {
             if ($newImagePath) {
@@ -758,6 +722,7 @@ class ViewProject extends ViewRecord
 
     public function addSalesProjection(): void
     {
+        abort_unless($this->editingProductId, 422);
         $firstRegion = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->value('id');
         $this->salesProjections[] = [
             'id' => null,
@@ -774,8 +739,159 @@ class ViewProject extends ViewRecord
 
     public function removeSalesProjection(int $index): void
     {
+        $projection = $this->salesProjections[$index] ?? null;
+        abort_unless($projection !== null, 404);
+
+        if (filled($projection['id'] ?? null)) {
+            abort_unless(ProjectResource::canEdit($this->record) && $this->editingProductId, 403);
+            $product = $this->record->products()->findOrFail($this->editingProductId);
+            $product->salesProjections()->whereKey((int) $projection['id'])->delete();
+            $this->recalculateProductTargetOutlets($product);
+            Notification::make()->title('Sales projection berhasil dihapus')->success()->send();
+        }
+
         unset($this->salesProjections[$index]);
         $this->salesProjections = array_values($this->salesProjections);
+    }
+
+    /**
+     * Save only the main projection fields (period, channel, quantity, revenue, notes).
+     * Branch split is handled separately by saveSalesProjectionBranchSplit() once this
+     * row has an id — it only seeds an equal-split suggestion the first time a row is
+     * saved, so an already-split row keeps its existing per-branch values untouched.
+     */
+    public function saveSalesProjectionMain(int $index): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        abort_unless($this->editingProductId, 422);
+        $projection = $this->salesProjections[$index] ?? null;
+        abort_unless($projection !== null, 404);
+        $product = $this->record->products()->findOrFail($this->editingProductId);
+
+        $validated = $this->validate([
+            "salesProjections.$index.projection_month" => ['required', 'date_format:Y-m'],
+            "salesProjections.$index.sales_region_id" => ['required', 'integer', 'exists:sales_regions,id'],
+            "salesProjections.$index.channel" => ['required', Rule::in(array_keys(RndProductSalesProjection::CHANNELS))],
+            "salesProjections.$index.target_quantity" => ['required', 'numeric', 'min:0.01'],
+            "salesProjections.$index.target_revenue" => ['required', 'numeric', 'min:0'],
+            "salesProjections.$index.notes" => ['nullable', 'string', 'max:1000'],
+        ])['salesProjections'][$index];
+
+        $projectionMonth = Carbon::createFromFormat('Y-m', $validated['projection_month'])->startOfMonth();
+        $duplicate = $product->salesProjections()
+            ->whereDate('projection_month', $projectionMonth)
+            ->where('sales_region_id', $validated['sales_region_id'])
+            ->where('channel', $validated['channel'])
+            ->when(filled($projection['id'] ?? null), fn ($query) => $query->whereKeyNot((int) $projection['id']))
+            ->exists();
+
+        if ($duplicate) {
+            $this->addError("salesProjections.$index.projection_month", 'Periode, region, dan channel tidak boleh duplikat dalam satu product.');
+
+            return;
+        }
+
+        $values = [
+            'sales_region_id' => $validated['sales_region_id'],
+            'projection_month' => $projectionMonth,
+            'channel' => $validated['channel'],
+            'target_quantity' => $validated['target_quantity'],
+            'target_revenue' => $validated['target_revenue'],
+            'notes' => trim((string) $validated['notes']) ?: null,
+        ];
+
+        $record = filled($projection['id'] ?? null)
+            ? $product->salesProjections()->findOrFail((int) $projection['id'])
+            : null;
+
+        if ($record) {
+            $record->update($values);
+        } else {
+            $record = $product->salesProjections()->create($values + ['created_by' => auth()->id()]);
+        }
+
+        $this->salesProjections[$index]['id'] = $record->id;
+
+        $hasExistingSplit = collect($projection['branch_targets'])->contains('enabled', true);
+        if (! $hasExistingSplit) {
+            $this->salesProjections[$index]['branch_targets'] = $this->equalSplitBranchTargets((float) $validated['target_quantity']);
+        }
+
+        Notification::make()
+            ->title('Projection tersimpan')
+            ->body('Lanjutkan isi split target per branch di bawah.')
+            ->success()
+            ->send();
+    }
+
+    public function resetEqualSplit(int $index): void
+    {
+        $projection = $this->salesProjections[$index] ?? null;
+        abort_unless($projection !== null && filled($projection['id'] ?? null), 422);
+
+        $this->salesProjections[$index]['branch_targets'] = $this->equalSplitBranchTargets(
+            (float) ($projection['target_quantity'] ?? 0),
+        );
+    }
+
+    public function saveSalesProjectionBranchSplit(int $index): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record), 403);
+        abort_unless($this->editingProductId, 422);
+        $projection = $this->salesProjections[$index] ?? null;
+        abort_unless($projection !== null && filled($projection['id'] ?? null), 422);
+        $product = $this->record->products()->findOrFail($this->editingProductId);
+        $record = $product->salesProjections()->findOrFail((int) $projection['id']);
+
+        $validated = $this->validate([
+            "salesProjections.$index.branch_targets" => ['required', 'array'],
+            "salesProjections.$index.branch_targets.*.branch_id" => ['required', 'integer', 'exists:branches,id'],
+            "salesProjections.$index.branch_targets.*.enabled" => ['required', 'boolean'],
+            "salesProjections.$index.branch_targets.*.target_quantity" => ['nullable', 'numeric', 'min:0'],
+        ])['salesProjections'][$index];
+
+        $enabledBranchTargets = collect($validated['branch_targets'])->where('enabled', true);
+        if ($enabledBranchTargets->isEmpty()) {
+            $this->addError("salesProjections.$index.branch_targets", 'Pilih minimal satu branch untuk target quantity.');
+
+            return;
+        }
+        foreach ($enabledBranchTargets as $targetIndex => $target) {
+            if ((float) ($target['target_quantity'] ?? 0) <= 0) {
+                $this->addError("salesProjections.$index.branch_targets.$targetIndex.target_quantity", 'Target quantity branch wajib lebih dari 0.');
+
+                return;
+            }
+        }
+
+        $record->targetBranches()->sync(
+            $enabledBranchTargets->mapWithKeys(fn (array $target): array => [
+                (int) $target['branch_id'] => ['target_quantity' => (float) $target['target_quantity']],
+            ])->all(),
+        );
+        $record->update(['target_outlets' => $enabledBranchTargets->count()]);
+        $this->recalculateProductTargetOutlets($product);
+
+        Notification::make()->title('Split branch berhasil disimpan')->success()->send();
+    }
+
+    /** Non-blocking hint shown in the UI when the branch split no longer adds up to the main quantity. */
+    public function branchSplitWarning(array $projection): ?string
+    {
+        $enabledTotal = collect($projection['branch_targets'] ?? [])
+            ->where('enabled', true)
+            ->sum(fn (array $target): float => (float) ($target['target_quantity'] ?: 0));
+        $target = (float) ($projection['target_quantity'] ?? 0);
+
+        if (abs($enabledTotal - $target) < 0.01) {
+            return null;
+        }
+
+        return sprintf(
+            'Total split branch (%s) belum sama dengan target quantity utama (%s).',
+            number_format($enabledTotal, 2, ',', '.'),
+            number_format($target, 2, ',', '.'),
+        );
     }
 
     private function loadSalesProjectionForm(RndProjectProduct $product): void
@@ -792,7 +908,9 @@ class ViewProject extends ViewRecord
                     'target_quantity' => (string) $projection->target_quantity,
                     'target_revenue' => (string) $projection->target_revenue,
                     'target_outlets' => (string) ($projection->target_outlets ?? ''),
-                    'branch_targets' => $this->emptyBranchTargets($existingTargets),
+                    'branch_targets' => $existingTargets->isNotEmpty()
+                        ? $this->emptyBranchTargets($existingTargets)
+                        : $this->equalSplitBranchTargets((float) $projection->target_quantity),
                     'notes' => $projection->notes ?? '',
                 ];
             })->all();
@@ -814,41 +932,25 @@ class ViewProject extends ViewRecord
         })->all();
     }
 
-    private function saveSalesProjections(RndProjectProduct $product, array $projections): void
+    private function equalSplitBranchTargets(float $total): array
     {
-        $keptIds = [];
-        foreach ($projections as $projection) {
-            $enabledBranchTargets = collect($projection['branch_targets'])->where('enabled', true);
-            $values = [
-                'sales_region_id' => $projection['sales_region_id'],
-                'projection_month' => Carbon::createFromFormat('Y-m', $projection['projection_month'])->startOfMonth(),
-                'channel' => $projection['channel'],
-                'target_quantity' => $enabledBranchTargets->sum(fn (array $target): float => (float) $target['target_quantity']),
-                'target_revenue' => $projection['target_revenue'],
-                'target_outlets' => $enabledBranchTargets->count(),
-                'notes' => trim($projection['notes']) ?: null,
-            ];
-            $record = filled($projection['id'] ?? null)
-                ? $product->salesProjections()->findOrFail((int) $projection['id'])
-                : null;
-
-            if ($record) {
-                $record->update($values);
-            } else {
-                $record = $product->salesProjections()->create($values + ['created_by' => auth()->id()]);
-            }
-            $record->targetBranches()->sync(
-                $enabledBranchTargets->mapWithKeys(fn (array $target): array => [
-                    (int) $target['branch_id'] => ['target_quantity' => (float) $target['target_quantity']],
-                ])->all(),
-            );
-            $keptIds[] = $record->id;
+        $branches = $this->activeBranches;
+        if ($branches->isEmpty()) {
+            return [];
         }
 
-        $product->salesProjections()
-            ->when($keptIds !== [], fn ($query) => $query->whereNotIn('id', $keptIds))
-            ->delete();
+        $perBranch = round($total / $branches->count(), 2);
 
+        return $branches->map(fn (Branch $branch): array => [
+            'branch_id' => $branch->id,
+            'branch_name' => $branch->name,
+            'enabled' => true,
+            'target_quantity' => (string) $perBranch,
+        ])->all();
+    }
+
+    private function recalculateProductTargetOutlets(RndProjectProduct $product): void
+    {
         $product->update([
             'target_outlets' => $product->salesProjections()
                 ->with('targetBranches:id')

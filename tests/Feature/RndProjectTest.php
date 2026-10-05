@@ -23,6 +23,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -525,7 +526,20 @@ it('uploads names downloads and deletes multiple CCP project documents', functio
     expect($project->documents()->count())->toBe(1);
 });
 
-it('allows selecting a projection branch before its target quantity is entered', function () {
+it('cannot add a sales projection before the product itself has been saved', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Unsaved Product Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('addSalesProjection')
+        ->assertStatus(422);
+});
+
+it('pre-fills the branch split with an equal share once the main projection is saved', function () {
     $project = RndProject::query()->create([
         'name' => 'Branch Target Render Project',
         'start_date' => '2026-09-01',
@@ -533,12 +547,96 @@ it('allows selecting a projection branch before its target quantity is entered',
         'created_by' => auth()->id(),
     ]);
     Branch::factory()->create(['is_active' => true, 'name' => 'Bloomery Pabelan']);
+    Branch::factory()->create(['is_active' => true, 'name' => 'Bloomery Solo']);
+    $product = $project->products()->create([
+        'name' => 'Branch Split Render Product',
+        'offline_price' => 30000,
+        'online_price' => 32000,
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
 
     Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('editProduct', $product->id)
         ->call('addSalesProjection')
-        ->set('salesProjections.0.branch_targets.0.enabled', true)
+        ->set('salesProjections.0.target_quantity', '1000')
+        ->set('salesProjections.0.target_revenue', '5000000')
+        ->call('saveSalesProjectionMain', 0)
+        ->assertHasNoErrors()
         ->assertSee('Bloomery Pabelan')
-        ->assertSee('0,00');
+        ->assertSee('Bloomery Solo')
+        ->assertSet('salesProjections.0.branch_targets.0.enabled', true)
+        ->assertSet('salesProjections.0.branch_targets.0.target_quantity', '500')
+        ->assertSet('salesProjections.0.branch_targets.1.target_quantity', '500');
+});
+
+it('saves a branch split that no longer matches the main quantity and only warns instead of blocking', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Branch Split Mismatch Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    Branch::factory()->create(['is_active' => true]);
+    $product = $project->products()->create([
+        'name' => 'Branch Split Mismatch Product',
+        'offline_price' => 30000,
+        'online_price' => 32000,
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('editProduct', $product->id)
+        ->call('addSalesProjection')
+        ->set('salesProjections.0.target_quantity', '1000')
+        ->set('salesProjections.0.target_revenue', '5000000')
+        ->call('saveSalesProjectionMain', 0)
+        ->assertHasNoErrors();
+
+    $page->set('salesProjections.0.branch_targets.0.target_quantity', '400')
+        ->call('saveSalesProjectionBranchSplit', 0)
+        ->assertHasNoErrors()
+        ->assertSee('Total split branch');
+
+    $projection = $product->salesProjections()->firstOrFail();
+    expect((float) $projection->target_quantity)->toBe(1000.0)
+        ->and((float) $projection->targetBranches()->firstOrFail()->pivot->target_quantity)->toBe(400.0);
+});
+
+it('deletes a saved sales projection together with its branch split', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Branch Split Delete Project',
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    Branch::factory()->create(['is_active' => true]);
+    $product = $project->products()->create([
+        'name' => 'Branch Split Delete Product',
+        'offline_price' => 30000,
+        'online_price' => 32000,
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    $page = Livewire::test(ViewProject::class, ['record' => $product->rnd_project_id])
+        ->call('editProduct', $product->id)
+        ->call('addSalesProjection')
+        ->set('salesProjections.0.target_quantity', '1000')
+        ->set('salesProjections.0.target_revenue', '5000000')
+        ->call('saveSalesProjectionMain', 0)
+        ->call('saveSalesProjectionBranchSplit', 0)
+        ->assertHasNoErrors();
+
+    $projectionId = $product->salesProjections()->firstOrFail()->id;
+
+    $page->call('removeSalesProjection', 0)->assertHasNoErrors();
+
+    expect($product->salesProjections()->whereKey($projectionId)->exists())->toBeFalse()
+        ->and(DB::table('rnd_product_sales_projection_branch_targets')
+            ->where('rnd_product_sales_projection_id', $projectionId)
+            ->exists())->toBeFalse();
 });
 
 it('renders the R&D project list and create modal', function () {
@@ -720,12 +818,6 @@ it('creates and updates a product release with online and offline prices', funct
         ])->all();
     $projectionRegion = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->firstOrFail();
     $targetBranches = Branch::factory()->count(2)->create(['is_active' => true]);
-    $outletTargets = $targetBranches->values()->map(fn (Branch $branch, int $index): array => [
-        'branch_id' => $branch->id,
-        'branch_name' => $branch->name,
-        'enabled' => true,
-        'target_quantity' => (string) (500 + ($index * 100)),
-    ])->all();
 
     $page = Livewire::test(ViewProject::class, ['record' => $project->id])
         ->set('productName', 'Matcha Strawberry')
@@ -739,17 +831,6 @@ it('creates and updates a product release with online and offline prices', funct
         ->set('shelfLifeUnit', 'month')
         ->set('storageCondition', 'chiller')
         ->set('storageNotes', 'Simpan pada suhu 2–5°C.')
-        ->set('salesProjections', [[
-            'id' => null,
-            'projection_month' => '2026-09',
-            'sales_region_id' => $projectionRegion->id,
-            'channel' => 'offline',
-            'target_quantity' => '',
-            'target_revenue' => '250000000',
-            'target_outlets' => null,
-            'branch_targets' => $outletTargets,
-            'notes' => 'Projection peluncuran awal.',
-        ]])
         ->set('productPhoto', UploadedFile::fake()->image('matcha-product.jpg', 800, 800))
         ->call('saveProduct')
         ->assertHasNoErrors()
@@ -759,8 +840,27 @@ it('creates and updates a product release with online and offline prices', funct
     $originalImagePath = $product->image_path;
     Storage::disk('b2')->assertExists($originalImagePath);
 
+    // Projection utama disimpan dulu (periode, channel, quantity, revenue), baru splitnya ke branch.
     $page->call('editProduct', $product->id)
-        ->set('priceEffectiveFrom', '2026-08-01')
+        ->call('addSalesProjection')
+        ->set('salesProjections.0.projection_month', '2026-09')
+        ->set('salesProjections.0.sales_region_id', $projectionRegion->id)
+        ->set('salesProjections.0.channel', 'offline')
+        ->set('salesProjections.0.target_quantity', '1100')
+        ->set('salesProjections.0.target_revenue', '250000000')
+        ->set('salesProjections.0.notes', 'Projection peluncuran awal.')
+        ->call('saveSalesProjectionMain', 0)
+        ->assertHasNoErrors();
+
+    $firstBranchId = (int) $page->get('salesProjections.0.branch_targets.0.branch_id');
+    $secondBranchId = (int) $page->get('salesProjections.0.branch_targets.1.branch_id');
+
+    $page->set('salesProjections.0.branch_targets.0.target_quantity', '500')
+        ->set('salesProjections.0.branch_targets.1.target_quantity', '600')
+        ->call('saveSalesProjectionBranchSplit', 0)
+        ->assertHasNoErrors();
+
+    $page->set('priceEffectiveFrom', '2026-08-01')
         ->set('regionalPrices.0.online_price', '38000')
         ->set('regionalPrices.0.has_separate_offline_prices', true)
         ->set('regionalPrices.0.dine_in_price', '31000')
@@ -795,7 +895,8 @@ it('creates and updates a product release with online and offline prices', funct
         ->and((float) $projection->target_revenue)->toBe(250000000.0)
         ->and($projection->target_outlets)->toBe(2)
         ->and($projection->targetBranches()->count())->toBe(2)
-        ->and((float) $projection->targetBranches()->findOrFail($targetBranches->first()->id)->pivot->target_quantity)->toBe(500.0);
+        ->and((float) $projection->targetBranches()->findOrFail($firstBranchId)->pivot->target_quantity)->toBe(500.0)
+        ->and((float) $projection->targetBranches()->findOrFail($secondBranchId)->pivot->target_quantity)->toBe(600.0);
     Storage::disk('b2')->assertMissing($originalImagePath);
     Storage::disk('b2')->assertExists($product->image_path);
     $this->assertDatabaseHas('rnd_product_regional_prices', [
@@ -922,6 +1023,50 @@ it('requires shelf life and a sales projection before a product is ready', funct
     expect($project->products()->count())->toBe(0);
 });
 
+it('blocks a product from going ready when a sales projection has not been split to branches yet', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Ready Split Validation Project',
+        'start_date' => '2026-08-01',
+        'end_date' => '2026-10-31',
+        'created_by' => auth()->id(),
+    ]);
+    Branch::factory()->create(['is_active' => true]);
+    $regionalPrices = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->get()
+        ->map(fn (SalesRegion $region): array => [
+            'region_id' => $region->id,
+            'region_name' => $region->name,
+            'region_code' => $region->code,
+            'offline_price' => '32000',
+            'online_price' => '36000',
+        ])->all();
+    $product = $project->products()->create([
+        'name' => 'Ready Split Product',
+        'offline_price' => 32000,
+        'online_price' => 36000,
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('editProduct', $product->id)
+        ->call('addSalesProjection')
+        ->set('salesProjections.0.target_quantity', '100')
+        ->set('salesProjections.0.target_revenue', '3600000')
+        ->call('saveSalesProjectionMain', 0)
+        ->assertHasNoErrors()
+        ->set('regionalPrices', $regionalPrices)
+        ->set('releaseDate', '2026-09-01')
+        ->set('shelfLifeValue', '5')
+        ->set('shelfLifeUnit', 'month')
+        ->set('storageCondition', 'chiller')
+        ->set('productStatus', 'ready')
+        ->call('saveProduct')
+        ->assertHasErrors(['salesProjections'])
+        ->assertSee('Setiap sales projection wajib memiliki split branch sebelum produk Ready/Released.');
+
+    expect($product->refresh()->status)->toBe('development');
+});
+
 it('rejects duplicate sales projection periods for the same region and channel', function () {
     $project = RndProject::query()->create([
         'name' => 'Projection Validation Project',
@@ -929,42 +1074,36 @@ it('rejects duplicate sales projection periods for the same region and channel',
         'end_date' => '2026-10-31',
         'created_by' => auth()->id(),
     ]);
-    $regions = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->get();
-    $regionalPrices = $regions->map(fn (SalesRegion $region): array => [
-        'region_id' => $region->id,
-        'region_name' => $region->name,
-        'region_code' => $region->code,
-        'offline_price' => '32000',
-        'online_price' => '36000',
-    ])->all();
-    $targetBranch = Branch::factory()->create(['is_active' => true]);
-    $duplicateProjection = [
-        'id' => null,
-        'projection_month' => '2026-09',
-        'sales_region_id' => $regions->firstOrFail()->id,
-        'channel' => 'online',
-        'target_quantity' => '100',
-        'target_revenue' => '3600000',
-        'target_outlets' => '5',
-        'branch_targets' => [[
-            'branch_id' => $targetBranch->id,
-            'branch_name' => $targetBranch->name,
-            'enabled' => true,
-            'target_quantity' => '100',
-        ]],
-        'notes' => '',
-    ];
+    $region = SalesRegion::query()->where('is_active', true)->orderBy('sort_order')->firstOrFail();
+    $product = $project->products()->create([
+        'name' => 'Duplicate Projection Product',
+        'offline_price' => 32000,
+        'online_price' => 36000,
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
 
-    Livewire::test(ViewProject::class, ['record' => $project->id])
-        ->set('productName', 'Duplicate Projection Product')
-        ->set('priceEffectiveFrom', '2026-08-01')
-        ->set('regionalPrices', $regionalPrices)
-        ->set('productStatus', 'development')
-        ->set('salesProjections', [$duplicateProjection, $duplicateProjection])
-        ->call('saveProduct')
-        ->assertHasErrors(['salesProjections']);
+    $page = Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('editProduct', $product->id)
+        ->call('addSalesProjection')
+        ->set('salesProjections.0.projection_month', '2026-09')
+        ->set('salesProjections.0.sales_region_id', $region->id)
+        ->set('salesProjections.0.channel', 'online')
+        ->set('salesProjections.0.target_quantity', '100')
+        ->set('salesProjections.0.target_revenue', '3600000')
+        ->call('saveSalesProjectionMain', 0)
+        ->assertHasNoErrors();
 
-    expect($project->products()->count())->toBe(0);
+    $page->call('addSalesProjection')
+        ->set('salesProjections.1.projection_month', '2026-09')
+        ->set('salesProjections.1.sales_region_id', $region->id)
+        ->set('salesProjections.1.channel', 'online')
+        ->set('salesProjections.1.target_quantity', '120')
+        ->set('salesProjections.1.target_revenue', '4000000')
+        ->call('saveSalesProjectionMain', 1)
+        ->assertHasErrors(['salesProjections.1.projection_month']);
+
+    expect($product->salesProjections()->count())->toBe(1);
 });
 
 it('uploads and deletes product marketing materials on Cloudflare storage', function () {

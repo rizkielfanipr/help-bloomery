@@ -605,20 +605,25 @@
                             <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center">
                                 <div>
                                     <h4 class="font-bold text-gray-900 dark:text-white">Sales Projection</h4>
-                                    <p class="text-xs text-gray-500">Target bulanan per region dan channel.</p>
+                                    <p class="text-xs text-gray-500">Isi projection utama dulu, lalu split target-nya ke branch.</p>
                                 </div>
-                                <button type="button" wire:click="addSalesProjection" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">+ Tambah Projection</button>
+                                @if($editingProductId)
+                                    <button type="button" wire:click="addSalesProjection" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">+ Tambah Projection</button>
+                                @else
+                                    <p class="text-xs font-semibold text-amber-600 dark:text-amber-400">Simpan data produk dasar dulu untuk menambahkan sales projection.</p>
+                                @endif
                             </div>
                             <div class="space-y-3 p-4">
                                 @forelse($salesProjections as $index => $projection)
                                     <div wire:key="sales-projection-{{ $projection['id'] ?? 'new-'.$index }}" class="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
                                         <input wire:model="salesProjections.{{ $index }}.id" type="hidden">
+                                        <input wire:model="salesProjections.{{ $index }}.sales_region_id" type="hidden">
                                         <div class="grid gap-3 md:grid-cols-3">
                                             <div>
                                                 <label class="{{ $label }}">Periode *</label>
                                                 <input wire:model="salesProjections.{{ $index }}.projection_month" type="month" class="{{ $input }}">
+                                                @error("salesProjections.$index.projection_month")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                             </div>
-                                            <input wire:model="salesProjections.{{ $index }}.sales_region_id" type="hidden">
                                             <div>
                                                 <label class="{{ $label }}">Channel *</label>
                                                 <select wire:model="salesProjections.{{ $index }}.channel" class="{{ $input }}">
@@ -628,20 +633,37 @@
                                                 </select>
                                             </div>
                                             <div>
+                                                <label class="{{ $label }}">Target Quantity *</label>
+                                                <input wire:model="salesProjections.{{ $index }}.target_quantity" type="number" min="0.01" step="0.01" class="{{ $input }}" placeholder="0">
+                                                @error("salesProjections.$index.target_quantity")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                            </div>
+                                            <div>
                                                 <label class="{{ $label }}">Target Revenue *</label>
                                                 <input wire:model="salesProjections.{{ $index }}.target_revenue" type="number" min="0" step="1" class="{{ $input }}" placeholder="0">
+                                                @error("salesProjections.$index.target_revenue")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                                             </div>
                                             <div class="md:col-span-2">
-                                                <label class="{{ $label }}">Total Target Quantity</label>
-                                                <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-bold text-blue-700 dark:border-gray-700 dark:bg-gray-800 dark:text-blue-300">
-                                                    {{ number_format(collect($projection['branch_targets'])->where('enabled', true)->sum(fn (array $target): float => (float) ($target['target_quantity'] ?: 0)), 2, ',', '.') }}
-                                                </div>
+                                                <label class="{{ $label }}">Asumsi / Catatan</label>
+                                                <input wire:model="salesProjections.{{ $index }}.notes" class="{{ $input }}" placeholder="Dasar perhitungan projection">
                                             </div>
-                                            <div class="md:col-span-3">
-                                                <div class="mb-3">
-                                                    <label class="{{ $label }}">Target Quantity per Branch *</label>
-                                                    <p class="text-xs text-gray-500">Centang store tempat menu aktif pada projection ini, lalu isi target masing-masing.</p>
+                                            <div class="flex items-end justify-between gap-2 md:col-span-3">
+                                                <button type="button" wire:click="saveSalesProjectionMain({{ $index }})" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">Simpan Projection</button>
+                                                <button type="button" wire:click="removeSalesProjection({{ $index }})" class="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:border-red-900">Hapus</button>
+                                            </div>
+                                        </div>
+
+                                        @if($projection['id'])
+                                            <div class="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                                                <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                                    <div>
+                                                        <label class="{{ $label }}">Split Target Quantity per Branch *</label>
+                                                        <p class="text-xs text-gray-500">Default dibagi rata ke semua branch aktif, sesuaikan jika perlu.</p>
+                                                    </div>
+                                                    <button type="button" wire:click="resetEqualSplit({{ $index }})" class="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200">Reset ke Rata-rata</button>
                                                 </div>
+                                                @if($warning = $this->branchSplitWarning($projection))
+                                                    <p class="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">{{ $warning }}</p>
+                                                @endif
                                                 <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
                                                     @forelse($projection['branch_targets'] as $targetIndex => $branchTarget)
                                                         <div wire:key="projection-{{ $index }}-branch-{{ $branchTarget['branch_id'] }}" class="border-b border-gray-100 p-3 transition last:border-b-0 dark:border-gray-800 {{ $branchTarget['enabled'] ? 'bg-blue-50/60 dark:bg-blue-950/20' : 'bg-white dark:bg-gray-900' }}">
@@ -672,19 +694,13 @@
                                                     @endforelse
                                                 </div>
                                                 @error("salesProjections.$index.branch_targets")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                                                <div class="mt-3 flex justify-end">
+                                                    <button type="button" wire:click="saveSalesProjectionBranchSplit({{ $index }})" class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">Simpan Split</button>
+                                                </div>
                                             </div>
-                                            <div class="md:col-span-2">
-                                                <label class="{{ $label }}">Asumsi / Catatan</label>
-                                                <input wire:model="salesProjections.{{ $index }}.notes" class="{{ $input }}" placeholder="Dasar perhitungan projection">
-                                            </div>
-                                            <div class="flex items-end justify-end">
-                                                <button type="button" wire:click="removeSalesProjection({{ $index }})" class="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:border-red-900">Hapus</button>
-                                            </div>
-                                        </div>
-                                        @error("salesProjections.$index.projection_month")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
-                                        @error("salesProjections.$index.sales_region_id")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
-                                        @error("salesProjections.$index.target_quantity")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
-                                        @error("salesProjections.$index.target_revenue")<p class="mt-2 text-xs text-red-600">{{ $message }}</p>@enderror
+                                        @else
+                                            <p class="mt-3 text-xs font-semibold text-amber-600 dark:text-amber-400">Simpan projection utama dulu untuk mengaktifkan split branch.</p>
+                                        @endif
                                     </div>
                                 @empty
                                     <p class="py-6 text-center text-sm text-gray-500">Belum ada projection. Wajib diisi sebelum status Ready/Released.</p>

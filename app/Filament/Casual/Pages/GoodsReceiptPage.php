@@ -2,7 +2,6 @@
 
 namespace App\Filament\Casual\Pages;
 
-use App\Models\BranchEsbCode;
 use App\Models\GoodsReceipt;
 use App\Models\User;
 use App\Services\EsbBranchMappingResolver;
@@ -25,6 +24,8 @@ use Throwable;
 class GoodsReceiptPage extends Page
 {
     use WithFileUploads;
+
+    private const COMPANY_CODE = 'BLSS';
 
     protected static bool $shouldRegisterNavigation = false;
 
@@ -126,48 +127,15 @@ class GoodsReceiptPage extends Page
         };
     }
 
-    /**
-     * docs/receiving-simplification-prd.md §13: "Daftar sumber dibangun dari accessibleBranchIds()
-     * user dan mapping branch_esb_codes yang aktif." Distinct Company Codes only — a user with
-     * access to several branches under the same Company Code still queries that code once.
-     *
-     * @return Collection<int, string>
-     */
-    private function accessibleCompanyCodes(): Collection
-    {
-        $user = auth()->user();
-        if (! $user instanceof User) {
-            return collect();
-        }
-
-        $query = BranchEsbCode::query()->where('is_active', true);
-
-        if (! $user->canAccessAllBranches()) {
-            $query->whereIn('branch_id', $user->accessibleBranchIds());
-        }
-
-        return $query->pluck('esb_comcode')->unique()->values();
-    }
-
-    /**
-     * docs/receiving-simplification-prd.md §12/§13: every Company Code the user has an accessible
-     * mapping for is queried for Authorized/Receiving POs; one Company Code's failure (e.g. SPN
-     * credentials not configured yet) does not block the others, mirroring the Sync Branch ESB
-     * precedent ("Kegagalan satu Company Code tidak menghentikan Company Code lain"). Each fetched
-     * PO is re-validated against the resolved branch's own accessibility — a Company Code can be
-     * usable for one branch and not another.
-     */
     public function loadPurchaseOrders(): void
     {
         $this->loadError = null;
         $service = app(EsbGoodsReceiptService::class);
-        $resolver = app(EsbBranchMappingResolver::class);
-        $user = auth()->user();
         $filters = ['page' => 1, 'limit' => 100, 'sort' => '-purchaseDate'];
         $orders = collect();
         $errors = [];
 
-        foreach ($this->accessibleCompanyCodes() as $companyCode) {
+        foreach ([self::COMPANY_CODE] as $companyCode) {
             try {
                 foreach ([EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED, EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_RECEIVING] as $statusId) {
                     $orders = $orders->concat(collect($service->purchaseOrders($companyCode, $filters + ['statusID' => $statusId]))
@@ -180,14 +148,7 @@ class GoodsReceiptPage extends Page
         }
 
         $this->purchaseOrders = $orders
-            // §13 "Duplikat diidentifikasi menggunakan gabungan Company Code dan nomor PO, bukan
-            // nomor PO saja" — the same PO number can legitimately exist under two Company Codes.
-            ->unique(fn (array $po): string => $po['_companyCode'].'|'.$po['purchaseNum'])
-            ->filter(function (array $po) use ($resolver, $user): bool {
-                $mapping = $resolver->resolve($po['_companyCode'], (int) data_get($po, 'branchID'), data_get($po, 'branchCode'));
-
-                return $mapping && ($user->canAccessAllBranches() || $user->canAccessBranch($mapping->branch_id));
-            })
+            ->unique('purchaseNum')
             ->values()->all();
         $this->purchaseOrderPage = 1;
         $this->loadError = $errors === [] ? null : implode(' | ', $errors);
@@ -251,18 +212,13 @@ class GoodsReceiptPage extends Page
     public function selectPurchaseOrder(string $purchaseNumber, string $companyCode): void
     {
         try {
+            abort_unless($companyCode === self::COMPANY_CODE, 403, 'Company Code Receiving tidak dapat diakses.');
+
             $service = app(EsbGoodsReceiptService::class);
             $order = $service->purchaseOrder($companyCode, $purchaseNumber);
             abort_unless(in_array((int) data_get($order, 'statusID'), $this->receivableStatusIds(), true), 422, 'PO tidak dapat diterima.');
 
-            // docs/receiving-simplification-prd.md §13 item 2 "pembukaan detail PO": re-validated
-            // here even though loadPurchaseOrders() already filtered the list, since this method
-            // can be reached directly (e.g. a tampered request) without the list filter running.
             $esbBranchId = (int) data_get($order, 'branchID');
-            $mapping = app(EsbBranchMappingResolver::class)->resolve($companyCode, $esbBranchId, data_get($order, 'branchCode'));
-            $user = auth()->user();
-            abort_unless($user instanceof User && $mapping && ($user->canAccessAllBranches() || $user->canAccessBranch($mapping->branch_id)), 403, 'Cabang PO ini tidak dapat diakses oleh akun Anda.');
-
             $details = data_get($order, 'purchaseDetails', data_get($order, 'purchaseOrderDetails', []));
             $received = GoodsReceipt::query()->where('reference_number', $purchaseNumber)->where('company_code', $companyCode)
                 ->whereIn('status', [GoodsReceipt::STATUS_SUCCEEDED, GoodsReceipt::STATUS_PARTIAL_SUCCEEDED])

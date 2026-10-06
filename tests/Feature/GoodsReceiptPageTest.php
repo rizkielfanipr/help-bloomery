@@ -212,6 +212,40 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertDontSeeHtml('Simpan QC & Proses Goods Receipt');
 });
 
+test('receiving only requests purchase orders from BLSS without requiring a BLSS branch mapping', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+
+    $otherBranch = Branch::factory()->create(['name' => 'Other ESB Branch']);
+    BranchEsbCode::query()->create([
+        'branch_id' => $otherBranch->id,
+        'esb_branch_id' => 20,
+        'esb_branch_code' => 'BLO7',
+        'esb_comcode' => 'BLO7',
+        'label' => 'Other ESB Branch',
+        'is_active' => true,
+    ]);
+
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->twice()->withArgs(fn (string $companyCode): bool => $companyCode === 'BLSS')->andReturn([[
+        'purchaseNum' => 'PO-BLSS',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 20,
+        'branchCode' => 'BLO7',
+    ]]);
+    $service->shouldNotReceive('purchaseOrder');
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->assertSet('loadError', null)
+        ->assertSee('PO-BLSS')
+        ->call('selectPurchaseOrder', 'PO-OTHER', 'BLO7')
+        ->assertSet('loadError', 'Company Code Receiving tidak dapat diakses.');
+});
+
 test('receiving saves calculated shelf life for form batches', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));

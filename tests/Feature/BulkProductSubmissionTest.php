@@ -166,7 +166,7 @@ it('loads and caches category names grouped with their subcategories', function 
         ->and($first['subCategoriesByCategory'][10])->toBe([102 => 'Gula', 101 => 'Tepung'])
         ->and($service->suggestNextProductCode('BLSS', 10))->toBe('BBMK0010')
         ->and($second)->toBe($first);
-    Http::assertSentCount(2);
+    Http::assertSentCount(3);
 });
 
 it('ignores an isolated product code outlier when suggesting a Barang WIP code', function () {

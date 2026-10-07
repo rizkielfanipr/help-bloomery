@@ -20,7 +20,7 @@ class EsbMasterProductService
                 'productCode' => $filters['productCode'] ?? null,
                 'categoryID' => $filters['categoryID'] ?? null,
                 'subCategoryID' => $filters['subCategoryID'] ?? null,
-                'flagActive' => 1,
+                'flagActive' => array_key_exists('flagActive', $filters) ? (int) $filters['flagActive'] : 1,
             ], fn ($value) => $value !== null && $value !== '')),
             'mengambil daftar produk',
         );
@@ -175,19 +175,26 @@ class EsbMasterProductService
             return null;
         }
         $codes = [];
-        $page = 1;
-        do {
-            $result = $this->getProducts(['page' => $page, 'limit' => 100, 'categoryID' => $categoryId]);
-            foreach ($result['data'] as $product) {
-                if (($code = trim((string) ($product['productCode'] ?? ''))) !== '') {
-                    $codes[] = $code;
+        foreach ([1, 0] as $flagActive) {
+            $page = 1;
+            do {
+                $result = $this->getProducts([
+                    'page' => $page,
+                    'limit' => 100,
+                    'categoryID' => $categoryId,
+                    'flagActive' => $flagActive,
+                ]);
+                foreach ($result['data'] as $product) {
+                    if (($code = trim((string) ($product['productCode'] ?? ''))) !== '') {
+                        $codes[] = $code;
+                    }
                 }
-            }
-            $hasNext = filled($result['next']) || (($result['page'] * $result['limit']) < $result['count']);
-            $page++;
-        } while ($hasNext && $page <= 100);
+                $hasNext = filled($result['next']) || (($result['page'] * $result['limit']) < $result['count']);
+                $page++;
+            } while ($hasNext && $page <= 100);
+        }
 
-        $sequences = collect($codes)->map(function (string $code): ?array {
+        $sequences = collect($codes)->unique()->map(function (string $code): ?array {
             if (! preg_match('/^(.*?)(\d+)$/', $code, $matches)) {
                 return null;
             }

@@ -16,28 +16,13 @@ class EsbCompanyProductService
         $this->ensureSupported($comcode);
 
         return Cache::remember($this->taxonomyCacheKey($comcode), now()->addHours(6), function () use ($comcode): array {
-            $rows = [];
-            $page = 1;
-
-            do {
-                $result = $this->successfulResult(
-                    $comcode,
-                    'get',
-                    '/product/list',
-                    ['page' => $page, 'limit' => 100, 'flagActive' => 1],
-                    "mengambil kategori produk {$comcode}",
-                );
-                array_push($rows, ...(is_array($result['data'] ?? null) ? $result['data'] : []));
-                $count = (int) ($result['count'] ?? count($rows));
-                $limit = max(1, (int) ($result['limit'] ?? 100));
-                $hasNext = filled($result['next'] ?? null) || ($page * $limit) < $count;
-                $page++;
-            } while ($hasNext && $page <= 100);
+            $activeRows = $this->productRows($comcode, 1);
+            $codeRows = [...$activeRows, ...$this->productRows($comcode, 0)];
 
             $categories = [];
             $subCategoriesByCategory = [];
             $productCodesByCategory = [];
-            foreach ($rows as $product) {
+            foreach ($activeRows as $product) {
                 $categoryId = (int) ($product['categoryID'] ?? 0);
                 $categoryName = trim((string) ($product['categoryName'] ?? $product['categoryNameCategory'] ?? ''));
                 $subCategoryId = (int) ($product['subCategoryID'] ?? 0);
@@ -49,6 +34,10 @@ class EsbCompanyProductService
                 if ($categoryId > 0 && $subCategoryId > 0 && $subCategoryName !== '') {
                     $subCategoriesByCategory[$categoryId][$subCategoryId] = $subCategoryName;
                 }
+            }
+
+            foreach ($codeRows as $product) {
+                $categoryId = (int) ($product['categoryID'] ?? 0);
                 $productCode = trim((string) ($product['productCode'] ?? ''));
                 if ($categoryId > 0 && $productCode !== '') {
                     $productCodesByCategory[$categoryId][] = $productCode;
@@ -58,6 +47,9 @@ class EsbCompanyProductService
             asort($categories, SORT_NATURAL | SORT_FLAG_CASE);
             foreach ($subCategoriesByCategory as &$subCategories) {
                 asort($subCategories, SORT_NATURAL | SORT_FLAG_CASE);
+            }
+            foreach ($productCodesByCategory as &$productCodes) {
+                $productCodes = array_values(array_unique($productCodes));
             }
 
             return [
@@ -182,7 +174,31 @@ class EsbCompanyProductService
 
     private function taxonomyCacheKey(string $comcode): string
     {
-        return 'esb_core.product_taxonomy.v3.'.$comcode;
+        return 'esb_core.product_taxonomy.v4.'.$comcode;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function productRows(string $comcode, int $flagActive): array
+    {
+        $rows = [];
+        $page = 1;
+
+        do {
+            $result = $this->successfulResult(
+                $comcode,
+                'get',
+                '/product/list',
+                ['page' => $page, 'limit' => 100, 'flagActive' => $flagActive],
+                "mengambil kategori produk {$comcode}",
+            );
+            array_push($rows, ...(is_array($result['data'] ?? null) ? $result['data'] : []));
+            $count = (int) ($result['count'] ?? count($rows));
+            $limit = max(1, (int) ($result['limit'] ?? 100));
+            $hasNext = filled($result['next'] ?? null) || ($page * $limit) < $count;
+            $page++;
+        } while ($hasNext && $page <= 100);
+
+        return $rows;
     }
 
     private function successfulResult(string $comcode, string $method, string $path, array $payload, string $action): array

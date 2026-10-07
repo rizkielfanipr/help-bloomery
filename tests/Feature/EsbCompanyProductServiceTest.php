@@ -53,6 +53,36 @@ it('loads every product list page with the selected Company Code and preserves t
         && $request['flagActive'] === 1);
 });
 
+it('suggests the next product code using active and inactive products', function () {
+    Http::fake(function (Request $request) {
+        if ($request->url() === 'https://core-esb.test/auth/login') {
+            return Http::response(['status' => 'ok', 'result' => ['accessToken' => 'blss-token']]);
+        }
+
+        $isActive = (int) $request['flagActive'] === 1;
+
+        return Http::response(['status' => 'ok', 'result' => [
+            'page' => 1,
+            'limit' => 100,
+            'count' => 1,
+            'next' => null,
+            'data' => [[
+                'categoryID' => 20,
+                'categoryName' => 'Barang WIP',
+                'subCategoryID' => 201,
+                'subCategoryName' => 'Central',
+                'productCode' => $isActive ? 'BW1385' : 'BW1386',
+            ]],
+        ]]);
+    });
+
+    expect(app(EsbCompanyProductService::class)->suggestNextProductCode('BLSS', 20))
+        ->toBe('BW1387');
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/product/list')
+        && (int) $request['flagActive'] === 0);
+});
+
 it('creates a product with unchanged detail and unit payload and returns the mapped raw result', function () {
     Cache::put('esb_core.access_token.BLSS', 'cached-token');
     $payload = companyProductPayload();

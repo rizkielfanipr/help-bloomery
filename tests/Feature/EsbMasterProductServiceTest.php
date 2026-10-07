@@ -89,6 +89,31 @@ it('keeps taxonomy cache and concurrent page requests', function () {
     Http::assertSentCount(4);
 });
 
+it('suggests the next product code using active and inactive products', function () {
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), '/auth/login')) {
+            return Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]);
+        }
+
+        $isActive = (int) $request['flagActive'] === 1;
+
+        return Http::response(['status' => 'ok', 'result' => [
+            'page' => 1,
+            'limit' => 100,
+            'count' => 1,
+            'data' => [['productCode' => $isActive ? 'BW1385' : 'BW1386']],
+            'prev' => null,
+            'next' => null,
+        ]]);
+    });
+
+    expect(app(EsbMasterProductService::class)->suggestNextProductCode(20))
+        ->toBe('BW1387');
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/product/list')
+        && (int) $request['flagActive'] === 0);
+});
+
 it('preserves create and update payloads and mapped create response', function () {
     Cache::put('esb_core.access_token', 'token');
     $payload = ['productCode' => 'BB01', 'productDetails' => [['uomID' => 5]]];

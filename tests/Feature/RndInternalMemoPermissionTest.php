@@ -121,7 +121,7 @@ it('grants SUPERADMIN every internal memo permission and RND_STAFF only the oper
         'view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo',
         'update rnd internal memo', 'sync rnd internal memo', 'finalize rnd internal memo',
         'create rnd internal memo revision', 'generate rnd internal memo pdf',
-        'download rnd internal memo pdf', 'archive rnd internal memo', 'manage rnd product shelf life',
+        'download rnd internal memo pdf', 'archive rnd internal memo',
         'delete rnd internal memo',
     ] as $permission) {
         expect($admin->can($permission))->toBeTrue();
@@ -131,7 +131,6 @@ it('grants SUPERADMIN every internal memo permission and RND_STAFF only the oper
         'view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo',
         'update rnd internal memo', 'sync rnd internal memo', 'download rnd internal memo pdf',
         'delete rnd internal memo',
-        'manage rnd product shelf life',
     ] as $permission) {
         expect($rnd->can($permission))->toBeTrue();
     }

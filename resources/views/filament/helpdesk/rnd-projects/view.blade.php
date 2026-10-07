@@ -120,6 +120,10 @@
             </div>
         @endif
 
+        @can('viewAny', \App\Models\RndProjectTask::class)
+            <livewire:rnd-project-task-calendar :project-id="$project->id" :key="'project-task-calendar-'.$project->id" />
+        @endcan
+
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
                 <div>
@@ -455,13 +459,7 @@
                                 </div>
                             </div>
 
-                            <div class="mt-2 grid grid-cols-2 gap-2">
-                                <div class="rounded-lg bg-blue-50 p-2.5 dark:bg-blue-950/30">
-                                    <p class="text-[11px] text-blue-500">Shelf Life</p>
-                                    <p class="mt-0.5 text-sm font-bold text-blue-800 dark:text-blue-200">
-                                        {{ $product->shelf_life_value ? $product->shelf_life_value.' '.(\App\Models\RndProjectProduct::SHELF_LIFE_UNITS[$product->shelf_life_unit] ?? $product->shelf_life_unit) : 'Belum diatur' }}
-                                    </p>
-                                </div>
+                            <div class="mt-2 grid gap-2">
                                 <div class="rounded-lg bg-emerald-50 p-2.5 dark:bg-emerald-950/30">
                                     <p class="text-[11px] text-emerald-500">Sales Projection</p>
                                     <p class="mt-0.5 text-sm font-bold text-emerald-800 dark:text-emerald-200">{{ number_format((float) $projectionQuantity, 0, ',', '.') }} unit</p>
@@ -558,6 +556,7 @@
                                     @endforeach
                                 </select>
                                 @error('productStatus')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                @error('wipShelfLife')<p class="mt-1 text-xs text-red-600" role="alert">{{ $message }}</p>@enderror
                             </div>
                             <div class="md:col-span-2">
                                 <label class="{{ $label }}">Deskripsi Menu</label>
@@ -565,42 +564,10 @@
                                 @error('productDescription')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                             </div>
                         </div>
-                        <section class="rounded-xl border border-gray-200 dark:border-gray-700">
-                            <div class="border-b border-gray-200 p-4 dark:border-gray-700">
-                                <h4 class="font-bold text-gray-900 dark:text-white">Shelf Life & Storage</h4>
-                                <p class="text-xs text-gray-500">Informasi ketahanan dan kondisi penyimpanan menu.</p>
-                            </div>
-                            <div class="grid gap-4 p-4 md:grid-cols-3">
-                                <div>
-                                    <label class="{{ $label }}">Shelf Life</label>
-                                    <input wire:model="shelfLifeValue" type="number" min="1" class="{{ $input }}" placeholder="Contoh: 6">
-                                    @error('shelfLifeValue')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
-                                <div>
-                                    <label class="{{ $label }}">Satuan</label>
-                                    <select wire:model="shelfLifeUnit" class="{{ $input }}">
-                                        @foreach(\App\Models\RndProjectProduct::SHELF_LIFE_UNITS as $value => $unitLabel)
-                                            <option value="{{ $value }}">{{ $unitLabel }}</option>
-                                        @endforeach
-                                    </select>
-                                    @error('shelfLifeUnit')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
-                                <div>
-                                    <label class="{{ $label }}">Kondisi Penyimpanan</label>
-                                    <select wire:model="storageCondition" class="{{ $input }}">
-                                        @foreach(\App\Models\RndProjectProduct::STORAGE_CONDITIONS as $value => $conditionLabel)
-                                            <option value="{{ $value }}">{{ $conditionLabel }}</option>
-                                        @endforeach
-                                    </select>
-                                    @error('storageCondition')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
-                                <div class="md:col-span-3">
-                                    <label class="{{ $label }}">Catatan Penyimpanan</label>
-                                    <input wire:model="storageNotes" class="{{ $input }}" placeholder="Contoh: Simpan tertutup pada suhu 2–5°C">
-                                    @error('storageNotes')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                                </div>
-                            </div>
-                        </section>
+                        <p class="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs leading-5 text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">
+                            <x-heroicon-o-information-circle class="mt-0.5 h-4 w-4 shrink-0" />
+                            Shelf Life dikelola per WIP, bukan per menu. Periksa dan lengkapi pada section Shelf Life WIP di halaman detail Product; seluruh WIP wajib lengkap sebelum status Ready/Released.
+                        </p>
                         <section class="rounded-xl border border-gray-200 dark:border-gray-700">
                             <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center">
                                 <div>
@@ -789,25 +756,31 @@
             </div>
         </template>
 
-        @if($projectExportPinModalOpen)
-            <div class="fixed inset-0 z-[130] flex items-center justify-center p-4">
+        @if($projectExportModalOpen)
+            <div class="fixed inset-0 z-[130] flex items-center justify-center p-2 sm:p-4">
                 <button type="button" aria-label="Tutup modal" class="absolute inset-0 bg-slate-950/55" wire:click="closeProjectBomExport"></button>
-                <div @class([
-                    'relative flex w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 text-center dark:border-gray-700 dark:bg-gray-900',
-                    'h-auto max-h-[calc(100dvh-2rem)] max-w-sm' => $projectExportScope === 'store',
-                    'h-[calc(100dvh-2rem)] max-h-[42rem] max-w-md' => $projectExportScope !== 'store',
-                ])>
-                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><x-heroicon-o-lock-closed class="h-7 w-7" /></div>
-                    <h3 class="mt-4 text-xl font-bold text-gray-900 dark:text-white">Export {{ ucfirst($projectExportScope) }} Project</h3>
-                    <p class="mt-2 text-sm leading-6 text-gray-500">Semua product dengan BOM {{ ucfirst($projectExportScope) }} akan digabung dalam satu dokumen PDF.</p>
-                    <form wire:submit="exportProjectBomPdf" class="mt-5 flex min-h-0 flex-1 flex-col">
-                        @if($projectExportScope === 'store')
-                            <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">
-                                Seluruh BOM Menu dari semua product dalam project akan otomatis diekspor.
+                <div class="relative flex h-[calc(100dvh-1rem)] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 sm:h-[calc(100dvh-2rem)]">
+                    <header class="flex items-start justify-between gap-4 border-b border-gray-200 px-4 py-3 dark:border-gray-700 sm:px-5 sm:py-4">
+                        <div class="min-w-0">
+                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Export {{ ucfirst($projectExportScope) }} Project</h3>
+                            <p class="mt-1 text-xs leading-5 text-gray-500 sm:text-sm">Pilih resep dari seluruh product. Preview PDF diperbarui otomatis sesuai checkbox.</p>
+                        </div>
+                        <button type="button" wire:click="closeProjectBomExport" class="shrink-0 rounded-lg p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200" aria-label="Tutup modal export">
+                            <x-heroicon-o-x-mark class="h-5 w-5" />
+                        </button>
+                    </header>
+
+                    <div class="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(19rem,24rem)_minmax(0,1fr)] lg:overflow-hidden">
+                        <aside class="flex min-h-[24rem] flex-col border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 lg:min-h-0 lg:border-b-0 lg:border-r">
+                            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Pilih BOM yang ditampilkan</p>
+                                    <span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{{ count($projectExportBomIds) }} dipilih</span>
+                                </div>
+                                <p wire:loading wire:target="projectExportBomIds" class="mt-2 text-xs font-medium text-blue-600 dark:text-blue-400" role="status">Memperbarui preview...</p>
                             </div>
-                        @else
-                        <div class="mb-4 min-h-0 flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-contain rounded-xl border border-gray-200 p-3 text-left dark:border-gray-700">
-                            <p class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Pilih BOM yang ditampilkan</p>
+
+                            <div class="min-h-0 flex-1 touch-pan-y space-y-3 overflow-y-auto overscroll-contain p-3 text-left">
                             @foreach($record->products as $exportProduct)
                                 @php
                                     $productBoms = $exportProduct->boms->filter(fn ($bom) => $projectExportScope === 'store' ? $bom->pivot->usage_type === 'menu' : $bom->pivot->usage_type !== 'menu');
@@ -833,7 +806,7 @@
                                             @endphp
                                             <div class="rounded-lg border border-gray-100 p-2 dark:border-gray-800 {{ $isChildBom ? 'ml-5 border-l-2 border-l-blue-300' : '' }}">
                                                 <label class="flex cursor-pointer items-start gap-3 rounded-lg px-1 py-1 hover:bg-gray-50 dark:hover:bg-gray-800">
-                                                    <input wire:model.live="projectExportBomIds" type="checkbox" value="{{ $exportBom->id }}" class="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
+                                                    <input wire:model.live.debounce.400ms="projectExportBomIds" type="checkbox" value="{{ $exportBom->id }}" class="mt-0.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
                                                     <span class="min-w-0 flex-1">
                                                         <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $exportBom->bom_name }}</span>
                                                         <span class="mt-0.5 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide {{ $isChildBom ? 'text-blue-600' : 'text-emerald-600' }}">@if($isChildBom)<span aria-hidden="true">↳</span>@endif {{ $typeLabel }}</span>
@@ -844,21 +817,52 @@
                                     </div>
                                 @endif
                             @endforeach
-                        </div>
-                        @error('projectExportBomIds')<p class="mb-3 text-sm font-medium text-red-600">Pilih minimal satu BOM.</p>@enderror
-                        @endif
-                        <input wire:model="projectExportPin" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="Masukkan PIN" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-center text-lg font-bold tracking-[0.3em] dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                        @error('projectExportPin')<p class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>@enderror
-                        <div class="mt-4 grid grid-cols-2 gap-2">
-                            <button type="button" wire:click="closeProjectBomExport" class="rounded-xl border border-gray-300 px-4 py-3 text-sm font-bold text-gray-700 dark:border-gray-600 dark:text-gray-200">Batal</button>
-                            <button type="submit" wire:loading.attr="disabled" wire:target="exportProjectBomPdf" class="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
-                                <span wire:loading.remove wire:target="exportProjectBomPdf">Download PDF</span><span wire:loading wire:target="exportProjectBomPdf">Menyiapkan...</span>
-                            </button>
-                        </div>
-                    </form>
+                            </div>
+
+                            <div class="border-t border-gray-200 p-3 dark:border-gray-700">
+                                @error('projectExportBomIds')<p class="mb-2 text-xs font-medium text-red-600" role="alert">{{ $message }}</p>@enderror
+                                <div class="grid gap-2 {{ $this->canReleaseBomToStoreSop() ? 'grid-cols-3' : 'grid-cols-2' }}">
+                                    <button type="button" wire:click="closeProjectBomExport" class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Batal</button>
+                                    @if($pdfPreview)
+                                        <a href="{{ $pdfPreview['download_url'] }}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700">
+                                            <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Download PDF
+                                        </a>
+                                    @else
+                                        <button type="button" disabled class="cursor-not-allowed rounded-xl bg-gray-300 px-4 py-2.5 text-sm font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-400">Download PDF</button>
+                                    @endif
+                                    @if($this->canReleaseBomToStoreSop())
+                                        <button type="button" wire:click="openReleaseSopModal" @disabled(! $pdfPreview) class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-gray-700 dark:disabled:text-gray-400">
+                                            <x-heroicon-o-paper-airplane class="h-4 w-4" /> Rilis SOP
+                                        </button>
+                                    @endif
+                                    @if($this->releasedStoreSopUrl())
+                                        <a href="{{ $this->releasedStoreSopUrl() }}" class="col-span-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                            <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4" /> Lihat SOP Store
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
+                        </aside>
+
+                        <x-rnd.pdf-preview-pane :preview="$pdfPreview" :preview-key="'project-export-preview-'.$projectExportPreviewRevision" />
+                    </div>
                 </div>
             </div>
         @endif
 
     </div>
+    @if(! $projectExportModalOpen)
+        @include('filament.helpdesk.rnd-projects.partials.pdf-preview-modal', [
+            'canReleaseSop' => $this->canReleaseBomToStoreSop(),
+            'releasedSopUrl' => $this->releasedStoreSopUrl(),
+        ])
+    @endif
+    @if($releaseSopModalOpen)
+        <x-rnd.release-store-sop-modal
+            :category-options="$releaseSopCategoryOptions"
+            :brand-options="$releaseSopBrandOptions"
+            :branch-options="$releaseSopBranchOptions"
+            :selected-brand-id="$releaseSopBrandId"
+        />
+    @endif
 </x-filament-panels::page>

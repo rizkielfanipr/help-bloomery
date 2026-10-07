@@ -17,7 +17,7 @@ enum RndBomChangeLogSource: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::BomAdjustment => 'BOM Adjustment',
+            self::BomAdjustment => 'Recipe Adjustment',
             self::Project => 'R&D Project',
             self::ExternalEsb => 'External ESB',
         };

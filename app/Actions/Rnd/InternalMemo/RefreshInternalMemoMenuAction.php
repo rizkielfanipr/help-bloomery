@@ -73,7 +73,10 @@ class RefreshInternalMemoMenuAction
             ->whereNotNull('minimum_order')
             ->get()
             ->mapWithKeys(fn (RndInternalMemoMaterial $material): array => [
-                InternalMemoItemIdentity::key($material->esb_product_detail_id, $material->esb_product_id, $material->product_code, $material->product_name, $material->uom_name) => (float) $material->minimum_order,
+                InternalMemoItemIdentity::scopedKey(
+                    InternalMemoItemIdentity::scopeForDepth((int) $material->depth),
+                    InternalMemoItemIdentity::key($material->esb_product_detail_id, $material->esb_product_id, $material->product_code, $material->product_name, $material->uom_name),
+                ) => (float) $material->minimum_order,
             ])
             ->all();
     }
@@ -86,7 +89,10 @@ class RefreshInternalMemoMenuAction
         }
 
         foreach ($menu->materials()->get() as $material) {
-            $key = InternalMemoItemIdentity::key($material->esb_product_detail_id, $material->esb_product_id, $material->product_code, $material->product_name, $material->uom_name);
+            $key = InternalMemoItemIdentity::scopedKey(
+                InternalMemoItemIdentity::scopeForDepth((int) $material->depth),
+                InternalMemoItemIdentity::key($material->esb_product_detail_id, $material->esb_product_id, $material->product_code, $material->product_name, $material->uom_name),
+            );
 
             if (array_key_exists($key, $preserved)) {
                 $material->update(['minimum_order' => $preserved[$key]]);

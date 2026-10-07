@@ -3,12 +3,15 @@
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Actions\ArchiveRndProjectAction;
+use App\Filament\Helpdesk\Concerns\ReleasesBomToStoreSop;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Models\Branch;
 use App\Models\RndProductSalesProjection;
+use App\Models\RndProject;
 use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
+use App\Services\Rnd\ShelfLife\ProjectProductShelfLifeReadiness;
 use App\Services\RndProjectMaterialForecastService;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
@@ -16,14 +19,15 @@ use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Locked;
 use Livewire\WithFileUploads;
 use Throwable;
 
 class ViewProject extends ViewRecord
 {
+    use ReleasesBomToStoreSop;
     use WithFileUploads;
 
     protected static string $resource = ProjectResource::class;
@@ -52,14 +56,6 @@ class ViewProject extends ViewRecord
 
     public string $productStatus = 'draft';
 
-    public string $shelfLifeValue = '';
-
-    public string $shelfLifeUnit = 'month';
-
-    public string $storageCondition = 'dry';
-
-    public string $storageNotes = '';
-
     public string $targetOutlets = '';
 
     public array $salesProjections = [];
@@ -86,9 +82,9 @@ class ViewProject extends ViewRecord
 
     public string $productImagePath = '';
 
-    public bool $projectExportPinModalOpen = false;
+    public bool $projectExportModalOpen = false;
 
-    public string $projectExportPin = '';
+    public int $projectExportPreviewRevision = 0;
 
     public string $projectExportScope = 'kitchen';
 
@@ -267,10 +263,6 @@ class ViewProject extends ViewRecord
         $this->loadRegionalPriceForm($product);
         $this->releaseDate = $product->release_date?->toDateString() ?? '';
         $this->productStatus = $product->status;
-        $this->shelfLifeValue = (string) ($product->shelf_life_value ?? '');
-        $this->shelfLifeUnit = $product->shelf_life_unit ?? 'month';
-        $this->storageCondition = $product->storage_condition ?? 'dry';
-        $this->storageNotes = $product->storage_notes ?? '';
         $this->targetOutlets = (string) ($product->target_outlets ?? '');
         $this->loadSalesProjectionForm($product);
         $this->productImagePath = $product->image_path ?? '';
@@ -323,10 +315,6 @@ class ViewProject extends ViewRecord
             'regionalPrices.*.shopeefood_price' => ['nullable', 'required_if:regionalPrices.*.enabled,true', 'numeric', 'min:0'],
             'releaseDate' => ['nullable', 'date'],
             'productStatus' => ['required', Rule::in(array_keys(RndProjectProduct::STATUSES))],
-            'shelfLifeValue' => ['nullable', 'integer', 'min:1', 'max:9999'],
-            'shelfLifeUnit' => ['nullable', Rule::in(array_keys(RndProjectProduct::SHELF_LIFE_UNITS))],
-            'storageCondition' => ['nullable', Rule::in(array_keys(RndProjectProduct::STORAGE_CONDITIONS))],
-            'storageNotes' => ['nullable', 'string', 'max:2000'],
             'productPhoto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $selectedRegionalPrices = collect($validated['regionalPrices'])
@@ -343,16 +331,13 @@ class ViewProject extends ViewRecord
                 $this->addError('releaseDate', 'Tanggal rilis wajib diisi sebelum produk Ready/Released.');
                 $planningIsInvalid = true;
             }
-            if (blank($validated['shelfLifeValue'])) {
-                $this->addError('shelfLifeValue', 'Shelf life wajib diisi sebelum produk Ready/Released.');
-                $planningIsInvalid = true;
-            }
-            if (blank($validated['shelfLifeUnit'])) {
-                $this->addError('shelfLifeUnit', 'Satuan shelf life wajib dipilih sebelum produk Ready/Released.');
-                $planningIsInvalid = true;
-            }
-            if (blank($validated['storageCondition'])) {
-                $this->addError('storageCondition', 'Kondisi penyimpanan wajib dipilih sebelum produk Ready/Released.');
+            // Shelf Life is checked per WIP of the Product, never on the Menu itself
+            // (docs/rnd-wip-shelf-life-prd.md §9.4, §18).
+            $wipShelfLifeBlockers = $existingProduct
+                ? app(ProjectProductShelfLifeReadiness::class)->blockers($existingProduct)
+                : [];
+            if ($wipShelfLifeBlockers !== []) {
+                $this->addError('wipShelfLife', implode(' ', $wipShelfLifeBlockers));
                 $planningIsInvalid = true;
             }
             if ($existingProduct === null || $existingProduct->salesProjections()->count() === 0) {
@@ -410,10 +395,6 @@ class ViewProject extends ViewRecord
             'offline_price' => $minimumOffline,
             'online_price' => $minimumOnline,
             'release_date' => $validated['releaseDate'] ?: null,
-            'shelf_life_value' => $validated['shelfLifeValue'] ?: null,
-            'shelf_life_unit' => $validated['shelfLifeValue'] ? $validated['shelfLifeUnit'] : null,
-            'storage_condition' => $validated['shelfLifeValue'] ? $validated['storageCondition'] : null,
-            'storage_notes' => trim($validated['storageNotes']) ?: null,
             'status' => $validated['productStatus'],
         ];
         if ($newImagePath) {
@@ -492,6 +473,15 @@ class ViewProject extends ViewRecord
         return $this->redirect(ProjectResource::getUrl('index'), navigate: true);
     }
 
+    /**
+     * PDF shown in the preview modal: the same export route, inline for the preview and as an
+     * attachment for "Download PDF". Access is the export permission, checked again by the route.
+     *
+     * @var array{title: string, preview_url: string, download_url: string}|null
+     */
+    #[Locked]
+    public ?array $pdfPreview = null;
+
     public function openProjectBomExport(string $scope): void
     {
         abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
@@ -499,16 +489,52 @@ class ViewProject extends ViewRecord
         $this->projectExportScope = $scope;
         $this->projectExportBomIds = $this->eligibleProjectExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $this->projectExportBomComponentKeys = [];
-        $this->projectExportPin = '';
-        $this->resetValidation('projectExportPin');
-        $this->projectExportPinModalOpen = true;
+        $this->pdfPreview = null;
+        $this->resetValidation('projectExportBomIds');
+
+        if ($scope === 'store') {
+            $this->exportProjectBomPdf();
+
+            return;
+        }
+
+        $this->projectExportModalOpen = true;
+        $this->refreshProjectBomPreview();
+    }
+
+    public function closePdfPreview(): void
+    {
+        $this->pdfPreview = null;
     }
 
     public function closeProjectBomExport(): void
     {
-        $this->projectExportPinModalOpen = false;
-        $this->projectExportPin = '';
-        $this->resetValidation('projectExportPin');
+        $this->projectExportModalOpen = false;
+        $this->pdfPreview = null;
+        $this->resetValidation('projectExportBomIds');
+    }
+
+    public function updatedProjectExportBomIds(): void
+    {
+        $this->refreshProjectBomPreview();
+    }
+
+    public function refreshProjectBomPreview(): void
+    {
+        if (! $this->projectExportModalOpen) {
+            return;
+        }
+
+        $this->resetValidation('projectExportBomIds');
+
+        if ($this->projectExportBomIds === []) {
+            $this->pdfPreview = null;
+            $this->addError('projectExportBomIds', 'Pilih minimal satu BOM.');
+
+            return;
+        }
+
+        $this->exportProjectBomPdf();
     }
 
     public function exportProjectBomPdf(): mixed
@@ -519,42 +545,14 @@ class ViewProject extends ViewRecord
             $this->projectExportBomIds = $eligibleBomIds->all();
         }
 
-        $rules = [
-            'projectExportPin' => ['required', 'string', 'max:20'],
-        ];
         if ($this->projectExportScope !== 'store') {
-            $rules['projectExportBomIds'] = ['required', 'array', 'min:1'];
-            $rules['projectExportBomIds.*'] = ['integer'];
+            $this->validate([
+                'projectExportBomIds' => ['required', 'array', 'min:1'],
+                'projectExportBomIds.*' => ['integer'],
+            ]);
         }
-        $this->validate($rules);
         abort_unless(collect($this->projectExportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
-        $rateKey = 'rnd-project-bom-export-pin:'.auth()->id().':'.request()->ip();
 
-        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
-            $this->addError('projectExportPin', 'Terlalu banyak percobaan. Coba kembali dalam '.RateLimiter::availableIn($rateKey).' detik.');
-
-            return null;
-        }
-
-        if (! auth()->user()?->hasBomPin()) {
-            $this->reset('projectExportPin');
-            $this->addError('projectExportPin', 'PIN BOM Anda belum diset. Silakan set PIN terlebih dahulu melalui CMS User.');
-
-            return null;
-        }
-        if (! auth()->user()?->verifiesBomPin($this->projectExportPin)) {
-            RateLimiter::hit($rateKey, 60);
-            $this->reset('projectExportPin');
-            $this->addError('projectExportPin', 'PIN yang dimasukkan tidak sesuai.');
-
-            return null;
-        }
-
-        RateLimiter::clear($rateKey);
-        session()->put(
-            RndProjectBomPdfController::sessionKey(auth()->id(), $this->record->id),
-            now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
-        );
         session()->forget(RndProjectBomPdfController::componentSessionKey(auth()->id(), $this->record->id));
 
         $routeParameters = [
@@ -565,7 +563,14 @@ class ViewProject extends ViewRecord
             $routeParameters['bom_ids'] = collect($this->projectExportBomIds)->map(fn ($id): int => (int) $id)->implode(',');
         }
 
-        return $this->redirect(route('helpdesk.rnd-projects.bom-pdf', $routeParameters), navigate: false);
+        $this->projectExportPreviewRevision++;
+        $this->pdfPreview = [
+            'title' => 'Preview '.($this->projectExportScope === 'store' ? 'Store' : 'Kitchen').' PDF',
+            'preview_url' => route('helpdesk.rnd-projects.bom-pdf', [...$routeParameters, 'preview' => 1]),
+            'download_url' => route('helpdesk.rnd-projects.bom-pdf', $routeParameters),
+        ];
+
+        return null;
     }
 
     private function canExportProjectBomScope(string $scope): bool
@@ -610,6 +615,36 @@ class ViewProject extends ViewRecord
         ])->all();
     }
 
+    protected function releaseSopProject(): RndProject
+    {
+        return $this->record;
+    }
+
+    protected function releaseSopProduct(): ?RndProjectProduct
+    {
+        return null;
+    }
+
+    protected function releaseSopScope(): string
+    {
+        return $this->projectExportScope;
+    }
+
+    protected function releaseSopBomIds(): array
+    {
+        return collect($this->projectExportBomIds)->map(fn ($id): int => (int) $id)->values()->all();
+    }
+
+    protected function releaseSopAutoBomKeys(): array
+    {
+        return [];
+    }
+
+    protected function releaseSopComponentKeys(): array
+    {
+        return $this->projectExportBomComponentKeys;
+    }
+
     private function resetProductForm(): void
     {
         $this->editingProductId = null;
@@ -622,10 +657,6 @@ class ViewProject extends ViewRecord
         $this->priceEffectiveFrom = today()->toDateString();
         $this->releaseDate = '';
         $this->productStatus = 'draft';
-        $this->shelfLifeValue = '';
-        $this->shelfLifeUnit = 'month';
-        $this->storageCondition = 'dry';
-        $this->storageNotes = '';
         $this->targetOutlets = '';
         $this->salesProjections = [];
         $this->productPhoto = null;

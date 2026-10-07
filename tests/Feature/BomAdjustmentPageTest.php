@@ -51,7 +51,7 @@ it('renders the BOM Adjustment link in the custom helpdesk sidebar for a permitt
     $this->get(BomAdjustmentPage::getUrl())
         ->assertOk()
         ->assertSee('Research & Development')
-        ->assertSee('BOM Adjustment')
+        ->assertSee('Recipe Adjustment')
         ->assertSee(BomAdjustmentPage::getUrl(), false);
 });
 

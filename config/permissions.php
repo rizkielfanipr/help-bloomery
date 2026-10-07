@@ -125,10 +125,6 @@ return [
             'edit rnd projects',
             'delete rnd projects',
         ],
-        'Shelf Life' => [
-            'view shelf life',
-            'edit shelf life',
-        ],
         'Product Price Index' => [
             'view product price index',
             'sync product price index',
@@ -147,10 +143,13 @@ return [
             'archive rnd internal memo',
             'delete rnd internal memo',
         ],
-        'Master Shelf Life Menu' => ['manage rnd product shelf life'],
-        'BOM Adjustment' => [
+        'Recipe Adjustment' => [
             'view bom adjustment history',
             'reconcile bom adjustments',
+        ],
+        'Shelf Life WIP' => [
+            'view wip shelf life',
+            'manage wip shelf life',
         ],
         'Material Forecast' => [
             'view material forecast',
@@ -165,6 +164,12 @@ return [
             'review rnd project task follow ups',
             'cancel rnd project tasks',
             'view all branch rnd project tasks',
+            'copy rnd project tasks',
+        ],
+        'Task Template' => [
+            'view rnd project task templates',
+            'manage rnd project task templates',
+            'apply rnd project task templates',
         ],
     ],
 

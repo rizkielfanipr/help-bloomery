@@ -16,7 +16,7 @@ class StoreSop extends Model
     /** @use HasFactory<StoreSopFactory> */
     use HasFactory;
 
-    protected $fillable = ['brand_id', 'store_sop_category_id', 'code', 'title', 'summary', 'file_path', 'original_name', 'effective_date', 'expires_at', 'status', 'created_by', 'published_by', 'published_at'];
+    protected $fillable = ['brand_id', 'store_sop_category_id', 'source_rnd_project_id', 'source_rnd_project_product_id', 'source_scope', 'source_release_key', 'code', 'title', 'summary', 'file_path', 'original_name', 'effective_date', 'expires_at', 'status', 'created_by', 'published_by', 'published_at'];
 
     protected function casts(): array
     {
@@ -61,6 +61,16 @@ class StoreSop extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(StoreSopCategory::class, 'store_sop_category_id');
+    }
+
+    public function sourceProject(): BelongsTo
+    {
+        return $this->belongsTo(RndProject::class, 'source_rnd_project_id');
+    }
+
+    public function sourceProduct(): BelongsTo
+    {
+        return $this->belongsTo(RndProjectProduct::class, 'source_rnd_project_product_id');
     }
 
     public function assignments(): HasMany

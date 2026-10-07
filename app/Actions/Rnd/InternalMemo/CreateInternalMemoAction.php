@@ -3,78 +3,39 @@
 namespace App\Actions\Rnd\InternalMemo;
 
 use App\Enums\RndInternalMemoStatus;
-use App\Jobs\SyncInternalMemoMenuCatalogJob;
-use App\Models\Branch;
 use App\Models\RndInternalMemo;
 use App\Models\User;
+use App\Services\Rnd\InternalMemo\InternalMemoBrandValidator;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/rnd-internal-memo-multi-branch-prd.md §7.1, §8, §13. Company Code is no longer a fixed
- * constant: the user picks one or more Branch Tujuan (local Master Branch only), and this Action
- * resolves each one's ESB mapping server-side before anything is persisted — access and mapping
- * are re-validated here regardless of what the form already filtered, per §6 "Pilihan UI bukan
- * satu-satunya perlindungan".
- *
- * `rnd_internal_memos.company_code` is kept populated (from the first resolved branch, in
- * selection order) only for backward compatibility with the existing duplicate-period unique
- * index and any code still filtering by it — it is no longer the authoritative Company Code for
- * any individual Menu or branch; `RndInternalMemoBranch`/`RndInternalMemoMenu` carry that.
+ * docs/rnd-internal-memo-brand-prd.md §11.1, §15.1. The user picks exactly one Brand; Company Code
+ * is always RndInternalMemo::COMPANY_CODE, set here and never read from input. The Brand is
+ * metadata only: no Branch resolution, no Memo–Branch rows, and no catalog sync is triggered.
  */
 class CreateInternalMemoAction
 {
-    public function __construct(private readonly ResolveMemoBranchMappingsAction $resolveBranchMappings) {}
+    public function __construct(private readonly InternalMemoBrandValidator $brands) {}
 
-    /** @param array{memo_number: string, title: string, period_month: string, memo_date: string, recipient: string, sender: string, subject: string, notes: ?string, branch_ids: list<int>} $data */
+    /** @param array{memo_number: string, title: string, period_month: string, memo_date: string, recipient: string, sender: string, subject: string, notes: ?string, brand_id: int|string|null} $data */
     public function execute(array $data, User $actor): RndInternalMemo
     {
-        $branchIds = array_values(array_unique(array_map('intval', $data['branch_ids'] ?? [])));
-
-        if ($branchIds === []) {
-            throw ValidationException::withMessages([
-                'branch_ids' => 'Pilih minimal satu Branch Tujuan.',
-            ]);
+        if (! $actor->can('create', RndInternalMemo::class)) {
+            throw new AuthorizationException('Anda tidak berhak membuat Memo Internal.');
         }
 
-        $branches = Branch::query()->whereIn('id', $branchIds)->get()->keyBy('id');
+        $brand = $this->brands->brand($data['brand_id'] ?? null);
+        $this->brands->ensureUniquePeriod($brand, $data['period_month'], 1);
 
-        foreach ($branchIds as $branchId) {
-            if (! $branches->has($branchId)) {
-                throw ValidationException::withMessages(['branch_ids' => 'Branch yang dipilih tidak ditemukan.']);
-            }
-
-            if (! $actor->canAccessBranch($branchId)) {
-                throw ValidationException::withMessages([
-                    'branch_ids' => "Branch \"{$branches[$branchId]->name}\" tidak dapat diakses.",
-                ]);
-            }
-        }
-
-        $resolutions = $this->resolveBranchMappings->resolveMany($branches->only($branchIds)->values());
-
-        foreach ($resolutions as $branchId => $resolution) {
-            if (! $resolution->isResolved()) {
-                throw ValidationException::withMessages([
-                    'branch_ids' => "Branch \"{$resolution->branch->name}\": {$resolution->blockedReason}",
-                ]);
-            }
-        }
-
-        // Order preserved from the user's own selection so "first resolved branch" below is
-        // deterministic and matches what they picked first, not a query/array re-ordering.
-        $orderedResolutions = array_map(fn (int $id) => $resolutions[$id], $branchIds);
-        $primaryCompanyCode = $orderedResolutions[0]->mapping->esb_comcode;
-
-        if (RndInternalMemo::query()->where('company_code', $primaryCompanyCode)->whereDate('period_month', $data['period_month'])->where('revision', 1)->exists()) {
-            throw ValidationException::withMessages([
-                'period_month' => 'Memo untuk periode ini sudah ada.',
-            ]);
-        }
-
-        $memo = DB::transaction(function () use ($data, $actor, $orderedResolutions, $primaryCompanyCode): RndInternalMemo {
-            $memo = RndInternalMemo::query()->create([
-                'company_code' => $primaryCompanyCode,
+        try {
+            $memo = DB::transaction(fn (): RndInternalMemo => RndInternalMemo::query()->create([
+                'company_code' => RndInternalMemo::COMPANY_CODE,
+                'brand_id' => $brand->id,
+                'brand_name_snapshot' => $brand->name,
                 'memo_number' => trim((string) $data['memo_number']),
                 'title' => trim((string) $data['title']),
                 'period_month' => $data['period_month'],
@@ -86,29 +47,16 @@ class CreateInternalMemoAction
                 'status' => RndInternalMemoStatus::Draft,
                 'revision' => 1,
                 'created_by' => $actor->id,
-            ]);
+            ]));
+        } catch (UniqueConstraintViolationException) {
+            Log::warning('rnd internal memo create hit a unique constraint', ['brand_id' => $brand->id, 'company_code' => RndInternalMemo::COMPANY_CODE]);
 
-            foreach ($orderedResolutions as $resolution) {
-                $memo->branches()->create([
-                    'branch_id' => $resolution->branch->id,
-                    'branch_esb_code_id' => $resolution->mapping->id,
-                    'branch_name_snapshot' => $resolution->branch->name,
-                    'company_code_snapshot' => $resolution->mapping->esb_comcode,
-                    'branch_code_snapshot' => $resolution->mapping->esb_branch_code,
-                    'esb_branch_id_snapshot' => $resolution->mapping->esb_branch_id,
-                    'catalog_sync_status' => 'pending',
-                ]);
-            }
-
-            return $memo;
-        });
-
-        foreach ($memo->branches as $memoBranch) {
-            SyncInternalMemoMenuCatalogJob::dispatchAfterResponse(
-                $memoBranch->company_code_snapshot,
-                $memoBranch->branch_code_snapshot,
-            );
+            throw RndInternalMemo::query()->where('memo_number', trim((string) $data['memo_number']))->exists()
+                ? ValidationException::withMessages(['memo_number' => 'Nomor Memo sudah digunakan.'])
+                : $this->brands->duplicatePeriod($brand);
         }
+
+        Log::info('rnd internal memo created', ['memo_id' => $memo->id, 'brand_id' => $brand->id, 'company_code' => $memo->company_code]);
 
         return $memo;
     }

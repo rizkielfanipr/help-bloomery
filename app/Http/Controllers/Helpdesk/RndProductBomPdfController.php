@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Helpdesk;
 use App\Http\Controllers\Controller;
 use App\Models\RndBomInstruction;
 use App\Models\RndProject;
+use App\Models\RndProjectProduct;
 use App\Services\EsbBillOfMaterialService;
 use App\Services\EsbService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -19,6 +20,8 @@ class RndProductBomPdfController extends Controller
     public function __invoke(Request $request, int $project, int $product): Response
     {
         $user = auth()->user();
+        abort_unless($user?->can('view bill of materials'), 403);
+
         $exportScope = (string) $request->query('scope', 'all');
         abort_unless(in_array($exportScope, ['all', 'kitchen', 'store'], true), 422);
         abort_unless(
@@ -34,17 +37,39 @@ class RndProductBomPdfController extends Controller
         $productRecord = $projectRecord->products()
             ->with(['boms', 'currentRegionalPrices.region'])
             ->findOrFail($product);
-        abort_unless(
-            (int) session()->get(self::sessionKey($user->id, $projectRecord->id, $productRecord->id), 0) > now()->timestamp,
-            403,
-            'PIN diperlukan untuk mengunduh dokumen resep.',
-        );
 
         $selectedBomIds = $exportScope === 'store' ? null : $this->selectedBomIds($request);
         $selectedComponents = session()->get(self::componentSessionKey($user->id, $projectRecord->id, $productRecord->id));
         $selectedAutoBoms = session()->get(self::autoBomSessionKey($user->id, $projectRecord->id, $productRecord->id));
-        $data = $this->buildExportData($projectRecord, $productRecord, $exportScope, $selectedBomIds, is_array($selectedComponents) ? $selectedComponents : null, is_array($selectedAutoBoms) ? $selectedAutoBoms : null);
+        $document = $this->renderDocument(
+            $projectRecord,
+            $productRecord,
+            $exportScope,
+            $selectedBomIds,
+            is_array($selectedComponents) ? $selectedComponents : null,
+            is_array($selectedAutoBoms) ? $selectedAutoBoms : null,
+        );
 
+        return $request->boolean('preview')
+            ? $document['pdf']->stream($document['filename'])
+            : $document['pdf']->download($document['filename']);
+    }
+
+    /**
+     * @param  list<int>|null  $selectedBomIds
+     * @param  array<int, list<string>>|null  $selectedComponents
+     * @param  list<string>|null  $selectedAutoBoms
+     * @return array{pdf: \Barryvdh\DomPDF\PDF, filename: string}
+     */
+    public function renderDocument(
+        RndProject $projectRecord,
+        RndProjectProduct $productRecord,
+        string $exportScope,
+        ?array $selectedBomIds = null,
+        ?array $selectedComponents = null,
+        ?array $selectedAutoBoms = null,
+    ): array {
+        $data = $this->buildExportData($projectRecord, $productRecord, $exportScope, $selectedBomIds, $selectedComponents, $selectedAutoBoms);
         $pdf = Pdf::loadView('exports.rnd-product-bom-pdf', $data)->setPaper('a4', 'portrait');
 
         $scopeLabel = match ($exportScope) {
@@ -56,10 +81,10 @@ class RndProductBomPdfController extends Controller
 
         $this->addPageNumbers($pdf);
 
-        return $pdf->download($filename);
+        return compact('pdf', 'filename');
     }
 
-    public function buildExportData(RndProject $projectRecord, $productRecord, string $exportScope, ?array $selectedBomIds = null, ?array $selectedComponents = null, ?array $selectedAutoBoms = null): array
+    public function buildExportData(RndProject $projectRecord, RndProjectProduct $productRecord, string $exportScope, ?array $selectedBomIds = null, ?array $selectedComponents = null, ?array $selectedAutoBoms = null): array
     {
         $esb = app(EsbBillOfMaterialService::class);
         $exportBoms = $productRecord->boms->filter(fn ($bom): bool => match ($exportScope) {
@@ -152,11 +177,6 @@ class RndProductBomPdfController extends Controller
             'exportScope',
             'exportBoms',
         );
-    }
-
-    public static function sessionKey(int $userId, int $projectId, int $productId): string
-    {
-        return "rnd.bom.export.$userId.$projectId.$productId";
     }
 
     public static function componentSessionKey(int $userId, int $projectId, int $productId): string

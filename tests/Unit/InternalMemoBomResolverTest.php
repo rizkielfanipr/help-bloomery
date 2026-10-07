@@ -370,3 +370,28 @@ it('rolls back the whole replacement and keeps the last valid snapshot when a re
     expect($material->id)->toBe($originalMaterialId)
         ->and($material->product_code)->toBe('RAW-FLOUR');
 });
+
+it('keeps a PRX-prefixed WIP as a WIP item without searching its BOM or reporting a blocker', function () {
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
+        'https://esb.test/core/product/bom/501' => Http::response(['status' => 'ok', 'result' => internalMemoBomDetailFixture('Menu', [
+            'bomID' => 501,
+            'bomDetails' => [
+                ['productDetailID' => 15010, 'productCode' => 'BW212', 'productName' => 'PRX | CRP02', 'categoryName' => 'Barang WIP', 'qty' => 2.0, 'uomName' => 'GR'],
+                ['productDetailID' => 15011, 'productCode' => 'BW9999', 'productName' => 'WIP Tanpa BOM', 'categoryName' => 'Barang WIP', 'qty' => 1.0, 'uomName' => 'PCS'],
+            ],
+        ])]),
+        'https://esb.test/core/product/bom?*' => Http::response(['status' => 'ok', 'result' => ['data' => []]]),
+    ]);
+
+    $result = app(InternalMemoBomResolver::class)->resolve($this->menu);
+
+    $premix = $this->menu->materials()->where('product_code', 'BW212')->sole();
+    expect($premix->is_wip)->toBeTrue()
+        ->and((float) $premix->quantity_per_menu)->toBe(2.0)
+        ->and($this->menu->materials()->where('parent_material_id', $premix->id)->exists())->toBeFalse()
+        ->and($result['blockers'])->toHaveCount(1)
+        ->and($result['blockers'][0])->toContain('WIP Tanpa BOM')->not->toContain('PRX');
+
+    Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '/product/bom?') && str_contains(urldecode($request->url()), 'BW212'));
+});

@@ -59,6 +59,32 @@ class EsbCoreClient
         return is_array($payload['result'] ?? null) ? $payload['result'] : [];
     }
 
+    /**
+     * Concurrent GET requests keyed like `$paths`; a failed connection yields null for that key.
+     *
+     * @param  array<int|string, string>  $paths
+     * @return array<int|string, Response|null>
+     */
+    public function poolGetPaths(string $companyCode, array $paths): array
+    {
+        $companyCode = $this->normalizeCompanyCode($companyCode);
+        $token = $this->accessToken($companyCode);
+
+        $responses = Http::pool(fn ($pool): array => collect($paths)
+            ->map(fn (string $path, int|string $key) => $pool
+                ->as((string) $key)
+                ->acceptJson()
+                ->withToken($token)
+                ->connectTimeout((int) config('esb.core.connect_timeout', 10))
+                ->timeout((int) config('esb.core.timeout', 60))
+                ->get($this->url($path)))
+            ->all());
+
+        return collect($paths)
+            ->mapWithKeys(fn (string $path, int|string $key): array => [$key => ($responses[(string) $key] ?? null) instanceof Response ? $responses[(string) $key] : null])
+            ->all();
+    }
+
     public function forgetToken(string $companyCode): void
     {
         Cache::forget($this->tokenCacheKey($this->normalizeCompanyCode($companyCode)));

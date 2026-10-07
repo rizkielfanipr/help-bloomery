@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\RndProject;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->project = RndProject::query()->create([
@@ -20,8 +21,10 @@ it('creates a task already Assigned with one assignment per branch and PIC pair'
     $branchB = Branch::factory()->create();
     $picA = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $picA->syncBranchAccess([$branchA->id], $branchA->id);
+    $picA->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $picB = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $picB->syncBranchAccess([$branchB->id], $branchB->id);
+    $picB->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     $task = app(CreateProjectTaskAction::class)->execute($this->project, [
         'title' => 'Uji Rasa Croissant',
@@ -47,8 +50,10 @@ it('allows more than one PIC on the same branch', function () {
     $branch = Branch::factory()->create();
     $picOne = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $picOne->syncBranchAccess([$branch->id], $branch->id);
+    $picOne->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $picTwo = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $picTwo->syncBranchAccess([$branch->id], $branch->id);
+    $picTwo->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     $task = app(CreateProjectTaskAction::class)->execute($this->project, [
         'title' => 'Quality Control Batch', 'task_type' => 'quality_control', 'description' => null,
@@ -68,6 +73,7 @@ it('rejects a deadline earlier than the assign date', function () {
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     expect(fn () => app(CreateProjectTaskAction::class)->execute($this->project, [
         'title' => 'Invalid Deadline', 'task_type' => 'general', 'description' => null,
@@ -82,6 +88,7 @@ it('rejects a PIC who cannot access the chosen branch', function () {
     $otherBranch = Branch::factory()->create();
     $ineligiblePic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $ineligiblePic->syncBranchAccess([$otherBranch->id], $otherBranch->id);
+    $ineligiblePic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     expect(fn () => app(CreateProjectTaskAction::class)->execute($this->project, [
         'title' => 'Wrong Branch PIC', 'task_type' => 'general', 'description' => null,
@@ -104,6 +111,7 @@ it('rejects the same PIC listed twice for the same branch before creating a task
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     expect(fn () => app(CreateProjectTaskAction::class)->execute($this->project, [
         'title' => 'Duplicate PIC',

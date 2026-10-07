@@ -12,6 +12,13 @@ use Throwable;
  */
 class InternalMemoMenuCatalogService
 {
+    /**
+     * Fields kept in the stored Menu snapshot. A full ESB Menu row is ~48 KB (templates, packages,
+     * extras, images); keeping all of them for ~1.400 Menus exhausted the worker memory and none of
+     * those nested fields is read anywhere.
+     */
+    private const SNAPSHOT_FIELDS = ['menuID', 'menuCode', 'menuName', 'menuShortName', 'categoryDetail', 'bomID', 'bomName', 'flagActive', 'description'];
+
     private const CONNECT_TIMEOUT = 3;
 
     private const REQUEST_TIMEOUT = 20;
@@ -26,20 +33,28 @@ class InternalMemoMenuCatalogService
             throw new RuntimeException('Company Code dan Branch Code wajib tersedia untuk sinkronisasi Master Menu.');
         }
 
-        $first = $this->requestPage($companyCode, $branchCode, 1);
-        $rows = $first['data'];
-        $totalPages = min(100, (int) ceil($first['count'] / max(1, $first['limit'])));
+        // Each page is normalized (and its heavy raw rows released) before the next one is fetched,
+        // so memory stays flat no matter how many Menus ESB returns.
+        $menus = [];
+        $page = 1;
+        $totalPages = 1;
 
-        for ($page = 2; $page <= $totalPages; $page++) {
-            array_push($rows, ...$this->requestPage($companyCode, $branchCode, $page)['data']);
-        }
+        do {
+            $result = $this->requestPage($companyCode, $branchCode, $page);
+            $totalPages = $page === 1 ? min(100, (int) ceil($result['count'] / max(1, $result['limit']))) : $totalPages;
 
-        return collect($rows)
-            ->map($this->normalize(...))
-            ->filter(fn (array $menu): bool => $menu['menuID'] > 0 && $menu['flagActive'])
-            ->unique('menuID')
-            ->values()
-            ->all();
+            foreach ($result['data'] as $row) {
+                $menu = $this->normalize($row);
+                if ($menu['menuID'] > 0 && $menu['flagActive'] && ! isset($menus[$menu['menuID']])) {
+                    $menus[$menu['menuID']] = $menu;
+                }
+            }
+
+            unset($result);
+            $page++;
+        } while ($page <= $totalPages);
+
+        return array_values($menus);
     }
 
     /** @return array{data:list<array<string,mixed>>,limit:int,count:int} */
@@ -96,7 +111,7 @@ class InternalMemoMenuCatalogService
             'bomName' => filled($menu['bomName'] ?? null) ? (string) $menu['bomName'] : null,
             'flagActive' => is_bool($active) ? $active : (! is_numeric($active) || (int) $active === 1),
             'hasBom' => $bomId > 0,
-            'raw' => $menu,
+            'raw' => array_intersect_key($menu, array_flip(self::SNAPSHOT_FIELDS)),
         ];
     }
 }

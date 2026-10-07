@@ -32,12 +32,6 @@ class RndProjectBomPdfController extends Controller
             ])
             ->findOrFail($project);
 
-        abort_unless(
-            (int) session()->get(self::sessionKey($user->id, $projectRecord->id), 0) > now()->timestamp,
-            403,
-            'PIN diperlukan untuk mengunduh dokumen resep project.',
-        );
-
         $selectedBomIds = $scope !== 'store' && $request->filled('bom_ids')
             ? collect(explode(',', (string) $request->query('bom_ids')))
                 ->filter(fn (string $id): bool => ctype_digit($id) && (int) $id > 0)
@@ -46,6 +40,22 @@ class RndProjectBomPdfController extends Controller
             : null;
         $selectedComponents = session()->get(self::componentSessionKey($user->id, $projectRecord->id));
         $selectedComponents = is_array($selectedComponents) ? $selectedComponents : null;
+
+        $document = $this->renderDocument($projectRecord, $scope, $selectedBomIds, $selectedComponents);
+
+        return $request->boolean('preview')
+            ? $document['pdf']->stream($document['filename'])
+            : $document['pdf']->download($document['filename']);
+    }
+
+    /**
+     * @param  list<int>|null  $selectedBomIds
+     * @param  array<int, list<string>>|null  $selectedComponents
+     * @return array{pdf: \Barryvdh\DomPDF\PDF, filename: string}
+     */
+    public function renderDocument(RndProject $projectRecord, string $scope, ?array $selectedBomIds = null, ?array $selectedComponents = null): array
+    {
+        abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
 
         $products = $projectRecord->products->filter(fn ($product): bool => $product->boms->contains(
             fn ($bom): bool => $scope === 'store'
@@ -74,12 +84,7 @@ class RndProjectBomPdfController extends Controller
         $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait');
         $this->addPageNumbers($pdf);
 
-        return $pdf->download($filename);
-    }
-
-    public static function sessionKey(int $userId, int $projectId): string
-    {
-        return "rnd.project-bom.export.$userId.$projectId";
+        return compact('pdf', 'filename');
     }
 
     public static function componentSessionKey(int $userId, int $projectId): string

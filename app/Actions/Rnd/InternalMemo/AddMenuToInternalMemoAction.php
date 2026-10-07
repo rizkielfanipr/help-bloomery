@@ -5,94 +5,73 @@ namespace App\Actions\Rnd\InternalMemo;
 use App\Enums\RndInternalMemoMenuSyncStatus;
 use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
-use App\Models\RndProductEsbShelfLife;
 use App\Services\Rnd\InternalMemo\InternalMemoBomResolver;
+use App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogQuery;
 use App\Services\Rnd\InternalMemo\InternalMemoProductEnricher;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 use Throwable;
 
 /**
- * docs/rnd-internal-memo-simplification-prd.md §7.2. Takes the Menu row already fetched by the
- * picker modal (from the local Master Menu snapshot) instead of
- * re-fetching by ID, because a single-Menu detail endpoint is not proven to exist (Phase 0
- * report, PRD §8.5). "Menu dapat ditambahkan kapan saja" — there is no longer a Draft-only gate.
+ * docs/rnd-internal-memo-simplification-prd.md §7.2, docs/rnd-internal-memo-brand-prd.md §11.3,
+ * §15.3. The caller only names a Menu ID; the Menu row is re-read server-side from the global BLSS
+ * catalog snapshot, so nothing from the picker (company, branch, BOM ID, name) is trusted. The new
+ * row always uses Company Code BLSS and no Menu–Branch row is written. "Menu dapat ditambahkan
+ * kapan saja" — there is no Draft-only gate.
  *
- * BOM/Assembly resolution runs synchronously right after the Menu row is created (§7.2 steps
- * 3-7), matching the simplified PRD's removal of the old Draft → Syncing job workflow. A BOM
+ * BOM/Assembly resolution runs synchronously right after the Menu row is created. A BOM
  * resolution failure does not fail the whole use case — the Menu stays added with sync_status
- * Failed so the UI can offer "Coba Ambil Ulang" (§7.2 last paragraph).
+ * Failed so the UI can offer "Coba Ambil Ulang".
  *
- * `release_date` defaults to the memo's period_month because the column is required
- * (§12.2) while the PRD flow only asks for it in the later "Melengkapi data per Menu" step
- * (§7.3); the R&D Operator refines it there.
+ * `release_date` defaults to the memo's period_month because the column is required; the R&D
+ * Operator refines it later.
  */
 class AddMenuToInternalMemoAction
 {
     public function __construct(
         private readonly InternalMemoBomResolver $resolver,
         private readonly InternalMemoProductEnricher $productEnricher,
+        private readonly InternalMemoMenuCatalogQuery $catalog,
     ) {}
 
-    /** @param array<string, mixed> $menu */
-    public function execute(RndInternalMemo $memo, array $menu): RndInternalMemoMenu
+    public function execute(RndInternalMemo $memo, int $esbMenuId): RndInternalMemoMenu
     {
-        $esbMenuId = (int) ($menu['menuID'] ?? 0);
-        $bomId = (int) ($menu['bomID'] ?? 0);
-        $companyCode = mb_strtoupper(trim((string) ($menu['companyCode'] ?? $memo->company_code)));
-        $memoBranchIds = array_values(array_unique(array_map('intval', $menu['memoBranchIds'] ?? [])));
+        $catalogMenu = $esbMenuId > 0 ? $this->catalog->findSelectable($esbMenuId) : null;
 
-        if ($esbMenuId < 1) {
-            throw new RuntimeException('Menu tidak valid.');
+        if ($catalogMenu === null) {
+            throw ValidationException::withMessages(['menu' => 'Menu tidak ditemukan pada katalog ESB BLSS.']);
         }
 
-        if ($bomId < 1) {
+        if ((int) $catalogMenu->bom_id < 1) {
             throw ValidationException::withMessages([
                 'menu' => 'Menu ini belum memiliki BOM dan tidak dapat dipilih.',
             ]);
         }
 
-        if ($memo->menus()->where('company_code', $companyCode)->where('esb_menu_id', $esbMenuId)->exists()) {
-            throw ValidationException::withMessages([
-                'menu' => 'Menu ini sudah ada pada Memo.',
-            ]);
+        if ($memo->menus()->where('esb_menu_id', $esbMenuId)->exists()) {
+            throw $this->duplicateMenu();
         }
 
-        $memoHasBranchContext = $memo->branches()->exists();
-        $validMemoBranchIds = $memo->branches()
-            ->where('company_code_snapshot', $companyCode)
-            ->whereIn('id', $memoBranchIds)
-            ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
-
-        if ($memoHasBranchContext && $validMemoBranchIds === []) {
-            throw ValidationException::withMessages([
-                'menu' => 'Menu tidak terhubung ke Branch Tujuan Memo yang valid.',
+        // Shelf Life is no longer kept per Menu (docs/rnd-wip-shelf-life-prd.md §19.1): new Menus
+        // start without it and the retired Menu master is not consulted.
+        try {
+            $menuRecord = $memo->menus()->create([
+                'company_code' => RndInternalMemo::COMPANY_CODE,
+                'esb_menu_id' => $esbMenuId,
+                'menu_code' => $catalogMenu->menu_code,
+                'menu_name' => (string) $catalogMenu->menu_name,
+                'category_detail' => $catalogMenu->category_detail,
+                'esb_bom_id' => (int) $catalogMenu->bom_id,
+                'bom_name' => $catalogMenu->bom_name,
+                'release_date' => $memo->period_month,
+                'forecast_quantity' => 0,
+                'sync_status' => RndInternalMemoMenuSyncStatus::Syncing,
+                'menu_snapshot' => $catalogMenu->raw_snapshot ?? [],
+                'sort_order' => ((int) $memo->menus()->max('sort_order')) + 1,
             ]);
+        } catch (UniqueConstraintViolationException) {
+            throw $this->duplicateMenu();
         }
-
-        $shelfLife = RndProductEsbShelfLife::forMenu($companyCode, $esbMenuId);
-        $nextSortOrder = ((int) $memo->menus()->max('sort_order')) + 1;
-
-        $menuRecord = $memo->menus()->create([
-            'company_code' => $companyCode,
-            'esb_menu_id' => $esbMenuId,
-            'menu_code' => $menu['menuCode'] ?? null,
-            'menu_name' => (string) ($menu['menuName'] ?? ''),
-            'category_detail' => $menu['categoryDetail'] ?? null,
-            'esb_bom_id' => $bomId,
-            'bom_name' => $menu['bomName'] ?? null,
-            'release_date' => $memo->period_month,
-            'forecast_quantity' => 0,
-            'shelf_life_value' => $shelfLife?->shelf_life_value,
-            'shelf_life_unit' => $shelfLife?->shelf_life_unit,
-            'storage_condition' => $shelfLife?->storage_condition,
-            'sync_status' => RndInternalMemoMenuSyncStatus::Syncing,
-            'menu_snapshot' => $menu['raw'] ?? $menu,
-            'sort_order' => $nextSortOrder,
-        ]);
-        $menuRecord->branches()->sync($validMemoBranchIds);
 
         try {
             $result = $this->resolver->resolve($menuRecord);
@@ -106,8 +85,7 @@ class AddMenuToInternalMemoAction
             ]);
 
             // Product/Purchase UOM enrichment never fails the whole Add Menu use case — the BOM
-            // structure already stands on its own (§12.3, "Data BOM tetap tampil, Purchase UOM
-            // diberi status belum tersedia").
+            // structure already stands on its own.
             $this->productEnricher->enrichMenu($menuRecord);
         } catch (Throwable $exception) {
             $menuRecord->update([
@@ -117,5 +95,10 @@ class AddMenuToInternalMemoAction
         }
 
         return $menuRecord->fresh();
+    }
+
+    private function duplicateMenu(): ValidationException
+    {
+        return ValidationException::withMessages(['menu' => 'Menu ini sudah ada pada Memo.']);
     }
 }

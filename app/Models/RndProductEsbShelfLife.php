@@ -2,22 +2,37 @@
 
 namespace App\Models;
 
+use App\Enums\RndShelfLifeUnit;
+use App\Enums\RndStorageCondition;
 use Database\Factories\RndProductEsbShelfLifeFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
+use Spatie\Activitylog\Support\LogOptions;
 
 /**
- * Local Shelf Life master (docs/rnd-internal-memo-prd.md §11). Not sourced from ESB; the API
- * does not provide Shelf Life.
+ * Local Shelf Life master per WIP / Product Detail (docs/rnd-wip-shelf-life-prd.md §9.1, §12).
+ * Identity is `company_code + esb_product_detail_id`; `product_code`/`product_name` are display
+ * snapshots only. Rows that only carry the legacy `esb_menu_id` (the retired Menu master,
+ * docs/rnd-internal-memo-prd.md §11) never take part in WIP lookups. Never synced to ESB.
  */
 class RndProductEsbShelfLife extends Model
 {
     /** @use HasFactory<RndProductEsbShelfLifeFactory> */
     use HasFactory;
 
+    use LogsActivity;
     use SoftDeletes;
+
+    /**
+     * Company context of BOM Adjustment and R&D local masters on the MVP (§9.2).
+     */
+    public const DEFAULT_COMPANY_CODE = 'BLSS';
+
+    public const MAX_SHELF_LIFE_VALUE = 9999.99;
 
     protected $table = 'rnd_esb_product_shelf_lives';
 
@@ -39,9 +54,15 @@ class RndProductEsbShelfLife extends Model
         'updated_by',
     ];
 
+    protected $attributes = [
+        'company_code' => self::DEFAULT_COMPANY_CODE,
+        'is_active' => true,
+    ];
+
     protected function casts(): array
     {
         return [
+            'esb_product_detail_id' => 'integer',
             'shelf_life_value' => 'decimal:2',
             'effective_from' => 'date',
             'effective_until' => 'date',
@@ -60,15 +81,59 @@ class RndProductEsbShelfLife extends Model
     }
 
     /**
-     * The single active master matching a Menu, if any (docs/rnd-internal-memo-prd.md §7.3).
+     * WIP masters only — legacy Menu-only rows (no Product Detail ID) are excluded.
+     *
+     * @param  Builder<RndProductEsbShelfLife>  $query
      */
-    public static function forMenu(string $companyCode, int $esbMenuId): ?self
+    public function scopeWipMaster(Builder $query, string $companyCode = self::DEFAULT_COMPANY_CODE): void
     {
-        return static::query()
-            ->where('company_code', $companyCode)
-            ->where('esb_menu_id', $esbMenuId)
-            ->where('is_active', true)
-            ->latest('id')
-            ->first();
+        $query->where('company_code', $companyCode)->whereNotNull('esb_product_detail_id');
+    }
+
+    /**
+     * @param  Builder<RndProductEsbShelfLife>  $query
+     */
+    public function scopeActiveWipMaster(Builder $query, string $companyCode = self::DEFAULT_COMPANY_CODE): void
+    {
+        $query->wipMaster($companyCode)->where('is_active', true);
+    }
+
+    /**
+     * The stored unit as the enum; legacy labels are mapped explicitly, unknown values give null.
+     */
+    public function shelfLifeUnit(): ?RndShelfLifeUnit
+    {
+        return RndShelfLifeUnit::fromLegacy($this->shelf_life_unit);
+    }
+
+    public function storageCondition(): ?RndStorageCondition
+    {
+        return RndStorageCondition::tryFrom(mb_strtolower(trim((string) $this->storage_condition)));
+    }
+
+    /**
+     * Human label such as "3 Hari"; falls back to the raw stored unit for unmapped legacy data.
+     */
+    public function shelfLifeLabel(): string
+    {
+        $value = rtrim(rtrim((string) $this->shelf_life_value, '0'), '.');
+
+        return trim($value.' '.($this->shelfLifeUnit()?->getLabel() ?? $this->shelf_life_unit));
+    }
+
+    public function storageConditionLabel(): string
+    {
+        return $this->storageCondition()?->getLabel() ?? (string) $this->storage_condition;
+    }
+
+    /**
+     * Only business fields are audited (§23); actor columns and timestamps are not.
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['shelf_life_value', 'shelf_life_unit', 'storage_condition', 'notes', 'is_active'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges();
     }
 }

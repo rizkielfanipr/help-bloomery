@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             QualityControlChecklistSeeder::class,
             QualityControlAuditSeeder::class,
             TechnicianMaintenanceChecklistSeeder::class,
+            RndProjectTaskTemplateSeeder::class,
         ]);
     }
 }

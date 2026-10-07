@@ -8,7 +8,7 @@
                     </div>
                     <div>
                         <p class="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Research &amp; Development</p>
-                        <h2 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">BOM Adjustment</h2>
+                        <h2 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">Recipe Adjustment</h2>
                         <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400">Cari dan ubah BOM Assembly langsung tanpa membuat Project, dengan riwayat perubahan yang dapat diaudit.</p>
                     </div>
                 </div>

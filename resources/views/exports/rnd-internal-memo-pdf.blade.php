@@ -60,6 +60,7 @@
             <div class="kop-right-row"><div class="kop-right-label">Nomor Memo</div><div class="kop-right-value">{{ $memo->memo_number }}</div></div>
             <div class="kop-right-row"><div class="kop-right-label">Periode</div><div class="kop-right-value">{{ $memo->period_month->translatedFormat('F Y') }}</div></div>
             <div class="kop-right-row"><div class="kop-right-label">Revisi</div><div class="kop-right-value">{{ $memo->revision }}</div></div>
+            <div class="kop-right-row"><div class="kop-right-label">Brand</div><div class="kop-right-value">{{ $memo->brandLabel() ?? 'Brand belum ditentukan' }}</div></div>
         </div>
     </div>
 

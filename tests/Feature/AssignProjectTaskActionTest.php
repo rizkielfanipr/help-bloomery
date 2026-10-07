@@ -7,12 +7,14 @@ use App\Models\RndProjectTask;
 use App\Models\RndProjectTaskAssignment;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
 
 it('adds a new PIC assignment and attaches the branch if not already targeted', function () {
     $task = RndProjectTask::factory()->create(['status' => 'assigned']);
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     $assignment = app(AssignProjectTaskAction::class)->execute($task, $branch->id, $pic->id);
 
@@ -26,6 +28,7 @@ it('keeps an existing PIC untouched when a second PIC is added to the same branc
     $task->branches()->attach($branch->id);
     $firstPic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $firstPic->syncBranchAccess([$branch->id], $branch->id);
+    $firstPic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $existing = RndProjectTaskAssignment::factory()->create([
         'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'user_id' => $firstPic->id,
         'status' => 'in_progress',
@@ -33,6 +36,7 @@ it('keeps an existing PIC untouched when a second PIC is added to the same branc
 
     $secondPic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $secondPic->syncBranchAccess([$branch->id], $branch->id);
+    $secondPic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     app(AssignProjectTaskAction::class)->execute($task, $branch->id, $secondPic->id);
 
     expect($existing->fresh()->status)->toBe(RndProjectTaskAssignmentStatus::InProgress)
@@ -47,6 +51,7 @@ it('reassigns a task by cancelling the old assignment and creating a new one for
     ]);
     $newPic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $newPic->syncBranchAccess([$branch->id], $branch->id);
+    $newPic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     $newAssignment = app(AssignProjectTaskAction::class)->reassign($assignment, $newPic->id);
 
@@ -70,6 +75,7 @@ it('refuses to assign on a task that already reached a terminal status', functio
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     expect(fn () => app(AssignProjectTaskAction::class)->execute($task, $branch->id, $pic->id))
         ->toThrow(RuntimeException::class);
@@ -80,6 +86,7 @@ it('rejects a duplicate-submission assign of the same PIC to the same branch ins
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     app(AssignProjectTaskAction::class)->execute($task, $branch->id, $pic->id);
 
@@ -93,6 +100,7 @@ it('reactivates a previously-cancelled assignment instead of inserting a duplica
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $cancelled = RndProjectTaskAssignment::factory()->create([
         'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'user_id' => $pic->id, 'status' => 'cancelled',
     ]);
@@ -109,8 +117,10 @@ it('reactivates a cancelled target assignment when a task is reassigned back to 
     $branch = Branch::factory()->create();
     $oldPic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $oldPic->syncBranchAccess([$branch->id], $branch->id);
+    $oldPic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $currentPic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $currentPic->syncBranchAccess([$branch->id], $branch->id);
+    $currentPic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $cancelled = RndProjectTaskAssignment::factory()->create([
         'rnd_project_task_id' => $task->id,
         'branch_id' => $branch->id,

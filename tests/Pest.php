@@ -4,6 +4,8 @@ use App\Actions\CalculateBasketSizeAction;
 use App\Models\BasketSizeRecord;
 use App\Models\Branch;
 use App\Models\Employee;
+use App\Models\RndInternalMemo;
+use App\Models\RndInternalMemoCatalogSync;
 use App\Models\SalesReport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -130,6 +132,18 @@ function runRecalculation($page)
 | R&D Internal Memo BOM fixtures (docs/rnd-internal-memo-prd.md Phase 0 contract report)
 |--------------------------------------------------------------------------
 */
+
+/**
+ * Marks the global Memo Internal BLSS catalog as synced from $branchCode, so the Menu picker and
+ * Add Menu read the local snapshot rows of that branch (docs/rnd-internal-memo-brand-prd.md §14).
+ */
+function markInternalMemoCatalogSynced(string $branchCode = 'BLS', ?DateTimeInterface $syncedAt = null): RndInternalMemoCatalogSync
+{
+    return RndInternalMemoCatalogSync::query()->updateOrCreate(
+        ['company_code' => RndInternalMemo::COMPANY_CODE],
+        ['technical_branch_code' => $branchCode, 'status' => 'success', 'last_synced_at' => $syncedAt ?? now()],
+    );
+}
 
 /**
  * Phase 0 (docs/rnd-internal-memo-prd.md §19) — Contract validation.

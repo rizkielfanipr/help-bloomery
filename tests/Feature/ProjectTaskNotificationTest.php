@@ -19,6 +19,7 @@ use App\Notifications\ProjectTaskFollowUpSubmittedNotification;
 use App\Notifications\ProjectTaskRevisionRequestedNotification;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Facades\Notification;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -33,6 +34,7 @@ it('notifies the PIC when a task is created and shared', function () {
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     app(CreateProjectTaskAction::class)->execute($this->project, [
         'title' => 'Notif Task', 'task_type' => 'general', 'description' => null,
@@ -49,6 +51,7 @@ it('notifies a newly-assigned PIC via AssignProjectTaskAction', function () {
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     app(AssignProjectTaskAction::class)->execute($task, $branch->id, $pic->id);
 
@@ -61,6 +64,7 @@ it('notifies the new PIC (not the old one) on reassign', function () {
     $assignment = RndProjectTaskAssignment::factory()->create(['branch_id' => $branch->id, 'user_id' => $oldPic->id, 'status' => 'in_progress']);
     $newPic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $newPic->syncBranchAccess([$branch->id], $branch->id);
+    $newPic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     app(AssignProjectTaskAction::class)->reassign($assignment, $newPic->id);
 

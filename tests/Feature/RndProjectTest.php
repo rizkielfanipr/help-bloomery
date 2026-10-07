@@ -24,7 +24,6 @@ use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -35,7 +34,7 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 
-    $admin = User::factory()->create(['is_active' => true, 'use_bom_pin' => true, 'bom_pin' => Hash::make('246810')]);
+    $admin = User::factory()->create(['is_active' => true]);
     $admin->assignRole('SUPERADMIN');
     $this->actingAs($admin);
 });
@@ -827,16 +826,17 @@ it('creates and updates a product release with online and offline prices', funct
         ->set('regionalPrices', $regionalPrices)
         ->set('releaseDate', '2026-09-01')
         ->set('productStatus', 'development')
-        ->set('shelfLifeValue', '6')
-        ->set('shelfLifeUnit', 'month')
-        ->set('storageCondition', 'chiller')
-        ->set('storageNotes', 'Simpan pada suhu 2–5°C.')
+        ->assertDontSee('Shelf Life & Storage')
         ->set('productPhoto', UploadedFile::fake()->image('matcha-product.jpg', 800, 800))
         ->call('saveProduct')
         ->assertHasNoErrors()
         ->assertSee('Matcha Strawberry');
 
     $product = $project->products()->where('product_code', 'PRD-MTC-001')->firstOrFail();
+    expect($product->shelf_life_value)->toBeNull()
+        ->and($product->storage_condition)->toBeNull();
+    // Legacy Menu Shelf Life written before the WIP master existed stays readable and untouched.
+    $product->forceFill(['shelf_life_value' => 6, 'shelf_life_unit' => 'month', 'storage_condition' => 'chiller', 'storage_notes' => 'Simpan pada suhu 2–5°C.'])->save();
     $originalImagePath = $product->image_path;
     Storage::disk('b2')->assertExists($originalImagePath);
 
@@ -880,6 +880,7 @@ it('creates and updates a product release with online and offline prices', funct
         ->and($product->shelf_life_value)->toBe(6)
         ->and($product->shelf_life_unit)->toBe('month')
         ->and($product->storage_condition)->toBe('chiller')
+        ->and($product->storage_notes)->toBe('Simpan pada suhu 2–5°C.')
         ->and($product->target_outlets)->toBe(2)
         ->and($product->image_path)->not->toBe($originalImagePath);
     $regionalPrice = $product->regionalPrices()->where('sales_region_id', $regionalPrices[0]['region_id'])->firstOrFail();
@@ -984,7 +985,7 @@ it('requires and exports pricing only for checked regions', function () {
         ->toBe([$regions[1]->id]);
 });
 
-it('requires shelf life and a sales projection before a product is ready', function () {
+it('requires a release date and a sales projection, but no Menu Shelf Life, before a product is ready', function () {
     Storage::fake('b2');
     $project = RndProject::query()->create([
         'name' => 'Ready Validation Project',
@@ -1008,16 +1009,13 @@ it('requires shelf life and a sales projection before a product is ready', funct
         ->set('releaseDate', '2026-09-01')
         ->set('productStatus', 'ready')
         ->call('saveProduct')
-        ->assertHasErrors(['shelfLifeValue', 'salesProjections'])
-        ->assertSee('Shelf life wajib diisi sebelum produk Ready/Released.');
+        ->assertHasErrors(['salesProjections'])
+        ->assertHasNoErrors(['wipShelfLife'])
+        ->assertDontSee('Shelf life wajib diisi sebelum produk Ready/Released.');
 
     $page->set('releaseDate', '')
-        ->set('shelfLifeValue', '5')
-        ->set('shelfLifeUnit', 'month')
-        ->set('storageCondition', 'chiller')
         ->call('saveProduct')
         ->assertHasErrors(['releaseDate', 'salesProjections'])
-        ->assertHasNoErrors(['shelfLifeValue', 'shelfLifeUnit', 'storageCondition'])
         ->assertSee('Tanggal rilis wajib diisi sebelum produk Ready/Released.');
 
     expect($project->products()->count())->toBe(0);
@@ -1056,9 +1054,6 @@ it('blocks a product from going ready when a sales projection has not been split
         ->assertHasNoErrors()
         ->set('regionalPrices', $regionalPrices)
         ->set('releaseDate', '2026-09-01')
-        ->set('shelfLifeValue', '5')
-        ->set('shelfLifeUnit', 'month')
-        ->set('storageCondition', 'chiller')
         ->set('productStatus', 'ready')
         ->call('saveProduct')
         ->assertHasErrors(['salesProjections'])
@@ -1724,10 +1719,9 @@ it('imports an existing ESB BOM into a project workspace', function () {
     ]);
 });
 
-it('exports the complete product BOM as a PIN-protected PDF', function () {
+it('exports the complete product BOM as a permission-protected PDF', function () {
     config()->set([
         'cache.default' => 'array',
-        'rnd.bom_pin' => '246810',
         'esb.core.base_url' => 'https://core-esb.test',
         'esb.core.username' => 'integration-user',
         'esb.core.password' => 'integration-password',
@@ -1784,13 +1778,12 @@ it('exports the complete product BOM as a PIN-protected PDF', function () {
     Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
         ->assertSee('Export Kitchen PDF')
         ->call('openExportPdf', 'kitchen')
-        ->set('exportPin', '000000')
-        ->call('exportBomPdf')
-        ->assertHasErrors('exportPin')
-        ->set('exportPin', '246810')
         ->call('exportBomPdf')
         ->assertHasNoErrors()
-        ->assertRedirect($exportUrl);
+        ->assertNoRedirect()
+        ->assertSet('pdfPreview.download_url', $exportUrl)
+        ->assertSet('pdfPreview.preview_url', $exportUrl.(str_contains($exportUrl, '?') ? '&' : '?').'preview=1')
+        ->assertSet('exportModalOpen', true);
 
     $this->get($exportUrl)
         ->assertOk()
@@ -1800,7 +1793,6 @@ it('exports the complete product BOM as a PIN-protected PDF', function () {
 it('includes the Bill of Material Store section and product photo when exporting a product with a Menu BOM', function () {
     config()->set([
         'cache.default' => 'array',
-        'rnd.bom_pin' => '246810',
         'esb.core.base_url' => 'https://core-esb.test',
         'esb.core.username' => 'integration-user',
         'esb.core.password' => 'integration-password',
@@ -1874,15 +1866,12 @@ it('includes the Bill of Material Store section and product photo when exporting
     Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
         ->assertSee('Export Store PDF')
         ->call('openExportPdf', 'store')
-        ->assertSee('Seluruh BOM Menu pada product ini akan otomatis diekspor.')
-        ->assertSeeHtml('h-auto max-h-[calc(100dvh-2rem)] max-w-sm')
-        ->assertDontSeeHtml('wire:model.live="exportBomIds"')
-        ->set('exportBomIds', [])
-        ->set('exportPin', '246810')
-        ->call('exportBomPdf')
         ->assertHasNoErrors()
         ->assertSet('exportBomIds', [$bom->id])
-        ->assertRedirect($exportUrl);
+        ->assertNoRedirect()
+        ->assertSet('pdfPreview.download_url', $exportUrl)
+        ->assertSet('pdfPreview.preview_url', $exportUrl.(str_contains($exportUrl, '?') ? '&' : '?').'preview=1')
+        ->assertSet('exportModalOpen', false);
 
     $this->get($exportUrl)
         ->assertOk()
@@ -1893,7 +1882,6 @@ it('includes the Bill of Material Store section and product photo when exporting
 it('inlines R2-hosted BOM instruction images as base64 in the exported PDF', function () {
     config()->set([
         'cache.default' => 'array',
-        'rnd.bom_pin' => '246810',
         'esb.core.base_url' => 'https://core-esb.test',
         'esb.core.username' => 'integration-user',
         'esb.core.password' => 'integration-password',
@@ -1962,10 +1950,12 @@ it('inlines R2-hosted BOM instruction images as base64 in the exported PDF', fun
 
     Livewire::test(ViewProjectProductPage::class, ['project' => $project->id, 'product' => $product->id])
         ->call('openExportPdf', 'kitchen')
-        ->set('exportPin', '246810')
         ->call('exportBomPdf')
         ->assertHasNoErrors()
-        ->assertRedirect($exportUrl);
+        ->assertNoRedirect()
+        ->assertSet('pdfPreview.download_url', $exportUrl)
+        ->assertSet('pdfPreview.preview_url', $exportUrl.(str_contains($exportUrl, '?') ? '&' : '?').'preview=1')
+        ->assertSet('exportModalOpen', true);
 
     $this->get($exportUrl)
         ->assertOk()

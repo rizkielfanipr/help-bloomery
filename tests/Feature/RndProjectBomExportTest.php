@@ -11,24 +11,24 @@ use App\Models\SalesRegion;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
-    $admin = User::factory()->create(['is_active' => true, 'use_bom_pin' => true, 'bom_pin' => Hash::make('246810')]);
+    $admin = User::factory()->create(['is_active' => true]);
     $admin->assignRole('SUPERADMIN');
     $this->actingAs($admin);
-    config()->set('rnd.bom_pin', '246810');
+});
+
+it('removes the legacy BOM PIN fields from users', function () {
+    expect(Schema::hasColumn('users', 'use_bom_pin'))->toBeFalse()
+        ->and(Schema::hasColumn('users', 'bom_pin'))->toBeFalse();
 });
 
 it('shows only the BOM export action granted to the user', function () {
-    $user = User::factory()->create([
-        'is_active' => true,
-        'use_bom_pin' => true,
-        'bom_pin' => Hash::make('246810'),
-    ]);
+    $user = User::factory()->create(['is_active' => true]);
     $user->givePermissionTo([
         'access backoffice',
         'view rnd projects',
@@ -241,18 +241,45 @@ it('exports only the selected BOM from the export checklist', function () {
         ->assertSee('Main Recipe')
         ->assertSee('Blueberry Cheesecake Filling')
         ->assertSee('Component')
-        ->assertSeeHtml('h-[calc(100dvh-2rem)]')
-        ->assertSeeHtml('max-h-[42rem]')
+        ->assertSee('Centang resep di sebelah kiri. Preview PDF diperbarui otomatis sesuai pilihan.')
+        ->assertSee('Preview Kitchen PDF')
+        ->assertSeeHtml('lg:grid-cols-[minmax(19rem,24rem)_minmax(0,1fr)]')
         ->assertSeeHtml('touch-pan-y')
+        ->assertSeeHtml('wire:model.live.debounce.400ms="exportBomIds"')
         ->assertDontSeeHtml('wire:model="exportBomComponentKeys')
         ->assertSet('exportBomIds', $boms->pluck('id')->all())
         ->assertSet('exportAutoBomKeys', [$selectedBom->id.':1980'])
+        ->set('exportBomIds', [])
+        ->assertHasErrors('exportBomIds')
+        ->assertSet('pdfPreview', null)
         ->set('exportBomIds', [$selectedBom->id])
+        ->assertHasNoErrors('exportBomIds')
         ->set('exportAutoBomKeys', [$selectedBom->id.':1980'])
         ->set('exportBomComponentKeys.'.$selectedBom->id, ['100'])
-        ->set('exportPin', '246810')
-        ->call('exportBomPdf')
-        ->assertRedirect($exportUrl);
+        ->assertNoRedirect()
+        ->assertSet('pdfPreview.download_url', $exportUrl)
+        ->assertSet('pdfPreview.preview_url', $exportUrl.(str_contains($exportUrl, '?') ? '&' : '?').'preview=1')
+        ->assertSet('exportModalOpen', true);
+
+    $projectExportUrl = route('helpdesk.rnd-projects.bom-pdf', [
+        'project' => $project->id,
+        'scope' => 'kitchen',
+        'bom_ids' => (string) $selectedBom->id,
+    ]);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->call('openProjectBomExport', 'kitchen')
+        ->assertSee('Pilih resep dari seluruh product. Preview PDF diperbarui otomatis sesuai checkbox.')
+        ->assertSee('Preview Kitchen PDF')
+        ->assertSeeHtml('wire:model.live.debounce.400ms="projectExportBomIds"')
+        ->set('projectExportBomIds', [])
+        ->assertHasErrors('projectExportBomIds')
+        ->assertSet('pdfPreview', null)
+        ->set('projectExportBomIds', [$selectedBom->id])
+        ->assertHasNoErrors('projectExportBomIds')
+        ->assertSet('pdfPreview.download_url', $projectExportUrl)
+        ->assertSet('pdfPreview.preview_url', $projectExportUrl.(str_contains($projectExportUrl, '?') ? '&' : '?').'preview=1')
+        ->assertSet('projectExportModalOpen', true);
 
     expect(session(RndProductBomPdfController::autoBomSessionKey(auth()->id(), $project->id, $product->id)))
         ->toBe([$selectedBom->id.':1980']);
@@ -328,7 +355,7 @@ it('renders a selected main BOM without indexing an unselected child BOM', funct
         ->not->toContain('Product Detail');
 });
 
-it('exports all Store BOM products in a project as one PIN-protected PDF', function () {
+it('exports all Store BOM products in a project as one permission-protected PDF', function () {
     $project = RndProject::query()->create([
         'name' => 'Project Multi Product',
         'start_date' => '2026-08-01',
@@ -371,18 +398,31 @@ it('exports all Store BOM products in a project as one PIN-protected PDF', funct
         ->assertSee('Export Kitchen PDF')
         ->assertSee('Export Store PDF')
         ->call('openProjectBomExport', 'store')
-        ->assertSee('Seluruh BOM Menu dari semua product dalam project akan otomatis diekspor.')
-        ->assertSeeHtml('h-auto max-h-[calc(100dvh-2rem)] max-w-sm')
-        ->assertDontSeeHtml('wire:model.live="projectExportBomIds"')
-        ->set('projectExportBomIds', [])
-        ->set('projectExportPin', '246810')
-        ->call('exportProjectBomPdf')
         ->assertHasNoErrors()
         ->assertSet('projectExportBomIds', $project->boms()->where('bom_type_name', 'Menu')->orderBy('id')->pluck('id')->all())
-        ->assertRedirect($exportUrl);
+        ->assertNoRedirect()
+        ->assertSet('pdfPreview.download_url', $exportUrl)
+        ->assertSet('pdfPreview.preview_url', $exportUrl.(str_contains($exportUrl, '?') ? '&' : '?').'preview=1')
+        ->assertSet('projectExportModalOpen', false);
 
     $this->get($exportUrl)
         ->assertOk()
         ->assertHeader('Content-Type', 'application/pdf')
         ->assertHeader('Content-Disposition', 'attachment; filename=BOM-STORE-PROJECT-PROJECT-MULTI-PRODUCT.pdf');
+
+    $this->get($exportUrl.'&preview=1')
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf')
+        ->assertHeader('Content-Disposition', 'inline; filename=BOM-STORE-PROJECT-PROJECT-MULTI-PRODUCT.pdf');
+});
+
+it('serves the BOM PDF inline for the preview modal and as an attachment for download', function () {
+    $html = view('filament.helpdesk.rnd-projects.partials.pdf-preview-modal', ['pdfPreview' => [
+        'title' => 'Preview Store PDF', 'preview_url' => 'https://example.test/pdf?preview=1', 'download_url' => 'https://example.test/pdf',
+    ]])->render();
+
+    expect($html)->toContain('<iframe src="https://example.test/pdf?preview=1"')
+        ->toContain('Download PDF')
+        ->toContain('Buka di Tab Baru')
+        ->toContain('role="dialog"');
 });

@@ -10,7 +10,6 @@ use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -18,7 +17,7 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
 
-    $this->editor = User::factory()->create(['is_active' => true, 'use_bom_pin' => true, 'bom_pin' => Hash::make('246810')]);
+    $this->editor = User::factory()->create(['is_active' => true]);
     $this->editor->givePermissionTo(['access backoffice', 'view bill of materials', 'edit bill of materials']);
     $this->actingAs($this->editor);
 

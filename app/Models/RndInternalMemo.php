@@ -9,10 +9,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Log;
 
 /**
- * docs/rnd-internal-memo-prd.md §12.1. Company Code is always BLSS; the value is stored so the
- * schema is explicit, not because another Company Code is selectable.
+ * docs/rnd-internal-memo-prd.md §12.1, docs/rnd-internal-memo-brand-prd.md §8, §13. Company Code
+ * is always BLSS for every new write and is set server-side; the column stays so legacy non-BLSS
+ * rows remain readable. The Brand is business metadata only — it never selects a company, branch,
+ * credential, or catalog. `brand_name_snapshot` keeps history stable when the Master Brand changes.
  */
 class RndInternalMemo extends Model
 {
@@ -25,6 +28,8 @@ class RndInternalMemo extends Model
 
     protected $fillable = [
         'company_code',
+        'brand_id',
+        'brand_name_snapshot',
         'memo_number',
         'title',
         'period_month',
@@ -47,8 +52,8 @@ class RndInternalMemo extends Model
 
     /**
      * `period_month_if_active` is a generated column that exists purely to make the
-     * (company_code, period_month, revision) uniqueness MySQL/SQLite-safe for soft deletes — see
-     * its migration. It has no application meaning and is never read or written by name.
+     * (brand_id, period_month, revision) uniqueness MySQL/SQLite-safe for soft deletes — see
+     * its migrations. It has no application meaning and is never read or written by name.
      */
     protected $hidden = ['period_month_if_active'];
 
@@ -58,6 +63,7 @@ class RndInternalMemo extends Model
             'period_month' => 'date',
             'memo_date' => 'date',
             'status' => RndInternalMemoStatus::class,
+            'brand_id' => 'integer',
             'revision' => 'integer',
             'source_synced_at' => 'datetime',
             'finalized_at' => 'datetime',
@@ -70,7 +76,43 @@ class RndInternalMemo extends Model
         return $this->hasMany(RndInternalMemoMenu::class)->orderBy('sort_order');
     }
 
-    /** docs/rnd-internal-memo-multi-branch-prd.md §9.1 — one or more resolved branch mappings. */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
+    }
+
+    /**
+     * Brand name for display: the snapshot first (history), the live relation only for transition
+     * rows that have a Brand but no snapshot yet. Null means "Brand belum ditentukan".
+     */
+    public function brandLabel(): ?string
+    {
+        if (filled($this->brand_name_snapshot)) {
+            return $this->brand_name_snapshot;
+        }
+
+        if ($this->brand_id === null) {
+            return null;
+        }
+
+        $name = $this->brand?->name;
+        if (filled($name)) {
+            Log::info('rnd internal memo brand snapshot fallback used', ['memo_id' => $this->id]);
+        }
+
+        return $name;
+    }
+
+    public function hasBrand(): bool
+    {
+        return $this->brand_id !== null;
+    }
+
+    /**
+     * Legacy multi-branch rows (docs/rnd-internal-memo-multi-branch-prd.md §9.1). Kept read-only for
+     * the Brand backfill and audit during the compatibility window
+     * (docs/rnd-internal-memo-brand-prd.md §13.4); no active flow reads or writes it.
+     */
     public function branches(): HasMany
     {
         return $this->hasMany(RndInternalMemoBranch::class);
@@ -107,8 +149,8 @@ class RndInternalMemo extends Model
     }
 
     /**
-     * The prior revision of this same monthly memo, if any (§12.1: revisions share
-     * company_code + period_month and are told apart only by `revision`).
+     * The prior revision of this same monthly memo, if any: revisions share Brand + period_month
+     * and are told apart only by `revision`. Legacy rows without a Brand fall back to company_code.
      */
     public function previousRevision(): ?self
     {
@@ -117,7 +159,11 @@ class RndInternalMemo extends Model
         }
 
         return static::query()
-            ->where('company_code', $this->company_code)
+            ->when(
+                $this->brand_id !== null,
+                fn ($query) => $query->where('brand_id', $this->brand_id),
+                fn ($query) => $query->whereNull('brand_id')->where('company_code', $this->company_code),
+            )
             ->whereDate('period_month', $this->period_month)
             ->where('revision', $this->revision - 1)
             ->first();

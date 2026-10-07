@@ -2,13 +2,17 @@
 
 namespace App\Actions\Rnd\InternalMemo;
 
-use App\Jobs\SyncInternalMemoMenuCatalogJob;
 use App\Models\Branch;
 use App\Models\RndInternalMemo;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @deprecated Multi-branch flow (docs/rnd-internal-memo-multi-branch-prd.md). No active page calls
+ * it since the Brand flow (docs/rnd-internal-memo-brand-prd.md §15.2); kept only until the separate
+ * cleanup phase removes the legacy Branch tables. Use UpdateInternalMemoBrandAction.
+ */
 class UpdateInternalMemoBranchesAction
 {
     public function __construct(private readonly ResolveMemoBranchMappingsAction $resolveMappings) {}
@@ -52,7 +56,7 @@ class UpdateInternalMemoBranchesAction
             }
         }
 
-        $addedContexts = DB::transaction(function () use ($memo, $branchIds, $resolutions, $existing, $removedIds): array {
+        DB::transaction(function () use ($memo, $branchIds, $resolutions, $existing, $removedIds): array {
             $memo->branches()->whereIn('id', $removedIds)->delete();
             $existingBranchIds = $existing->pluck('branch_id')->map(fn ($id): int => (int) $id)->all();
             $added = [];
@@ -83,9 +87,7 @@ class UpdateInternalMemoBranchesAction
             return $added;
         });
 
-        foreach ($addedContexts as [$companyCode, $branchCode]) {
-            SyncInternalMemoMenuCatalogJob::dispatch($companyCode, $branchCode);
-        }
+        // The Master Menu catalog is global (BLSS) now; no per-Branch sync is queued from here.
 
         return $memo->fresh(['branches']);
     }

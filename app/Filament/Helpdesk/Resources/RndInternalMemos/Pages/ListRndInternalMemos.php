@@ -4,10 +4,8 @@ namespace App\Filament\Helpdesk\Resources\RndInternalMemos\Pages;
 
 use App\Actions\Rnd\InternalMemo\CreateInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
-use App\Actions\Rnd\InternalMemo\MemoBranchMappingResolution;
-use App\Actions\Rnd\InternalMemo\ResolveMemoBranchMappingsAction;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\RndInternalMemoResource;
-use App\Models\Branch;
+use App\Models\Brand;
 use App\Models\RndInternalMemo;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
@@ -27,6 +25,9 @@ class ListRndInternalMemos extends ListRecords
 
     public string $periodFilter = '';
 
+    /** Brand ID, `unresolved` for legacy Memos without a Brand, or empty for every Brand. */
+    public string $brandFilter = '';
+
     public bool $createModalOpen = false;
 
     public string $memoNumber = '';
@@ -39,22 +40,25 @@ class ListRndInternalMemos extends ListRecords
 
     public string $notes = '';
 
-    /** @var list<int> */
-    public array $branchIds = [];
+    public ?int $brandId = null;
 
     /**
-     * docs/rnd-internal-memo-simplification-prd.md §12.1: the simplified index has no status
-     * filter or workflow summary cards — every non-deleted Memo is listed, searched by name/
-     * number, and filtered by period only.
+     * docs/rnd-internal-memo-simplification-prd.md §12.1, docs/rnd-internal-memo-brand-prd.md
+     * §12.3: no status filter or workflow cards; search covers name, number, and Brand snapshot,
+     * filtered by period and Brand. There is no company or Branch filter.
      */
     public function memos(): Collection
     {
         return RndInternalMemo::query()
+            ->with('brand:id,name')
             ->when($this->search !== '', fn (Builder $query) => $query->where(function (Builder $query): void {
                 $query->where('title', 'like', '%'.$this->search.'%')
-                    ->orWhere('memo_number', 'like', '%'.$this->search.'%');
+                    ->orWhere('memo_number', 'like', '%'.$this->search.'%')
+                    ->orWhere('brand_name_snapshot', 'like', '%'.$this->search.'%');
             }))
             ->when($this->periodFilter !== '', fn (Builder $query) => $query->whereDate('period_month', $this->periodFilter.'-01'))
+            ->when($this->brandFilter === 'unresolved', fn (Builder $query) => $query->whereNull('brand_id'))
+            ->when(ctype_digit($this->brandFilter), fn (Builder $query) => $query->where('brand_id', (int) $this->brandFilter))
             ->withCount('menus')
             ->latest('period_month')
             ->latest('revision')
@@ -70,31 +74,19 @@ class ListRndInternalMemos extends ListRecords
     {
         abort_unless(RndInternalMemoResource::canCreate(), 403);
         $this->resetValidation();
-        $this->reset(['memoNumber', 'memoNumberGenerated', 'memoTitle', 'periodMonth', 'notes', 'branchIds']);
+        $this->reset(['memoNumber', 'memoNumberGenerated', 'memoTitle', 'periodMonth', 'notes', 'brandId']);
         $this->createModalOpen = true;
     }
 
     /**
-     * docs/rnd-internal-memo-multi-branch-prd.md §6, §7.2: options are limited to the user's
-     * accessible branches (or every branch for access_all_branches), each annotated with its
-     * mapping resolution so the Blade can disable unselectable options with a specific reason.
+     * Master Brand options, alphabetical (docs/rnd-internal-memo-brand-prd.md §12.1). Every Brand
+     * is selectable: Brand is metadata and grants no access.
      *
-     * @return array<int, array{branch: Branch, resolution: MemoBranchMappingResolution}>
+     * @return Collection<int, Brand>
      */
-    public function branchOptions(?ResolveMemoBranchMappingsAction $resolveBranchMappings = null): array
+    public function brandOptions(): Collection
     {
-        $resolveBranchMappings ??= app(ResolveMemoBranchMappingsAction::class);
-        $user = auth()->user();
-        $branches = $user->canAccessAllBranches()
-            ? Branch::query()->where('is_active', true)->orderBy('name')->get()
-            : Branch::query()->where('is_active', true)->whereIn('id', $user->accessibleBranchIds())->orderBy('name')->get();
-
-        $resolutions = $resolveBranchMappings->resolveMany($branches);
-
-        return $branches->map(fn (Branch $branch): array => [
-            'branch' => $branch,
-            'resolution' => $resolutions[$branch->id],
-        ])->all();
+        return Brand::query()->orderBy('name')->get(['id', 'name']);
     }
 
     public function closeCreateModal(): void
@@ -124,7 +116,7 @@ class ListRndInternalMemos extends ListRecords
 
     /**
      * docs/rnd-internal-memo-simplification-prd.md §7.1: the simplified form collects Nama Memo,
-     * Bulan Memo, Nomor Memo, dan Catatan. Nomor Memo is required — either generated via
+     * Bulan Memo, Nomor Memo, Brand (docs/rnd-internal-memo-brand-prd.md §11.1), dan Catatan. Nomor Memo is required — either generated via
      * generateMemoNumberField() or typed in manually. memo_date/recipient/sender/subject stay
      * NOT NULL at the database level (kept as-is per PRD §10.1 — no schema change for columns not
      * driving the simplified UI), so they get inert defaults here instead of being collected from
@@ -139,8 +131,10 @@ class ListRndInternalMemos extends ListRecords
             'memoTitle' => ['required', 'string', 'max:150'],
             'periodMonth' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:1000'],
-            'branchIds' => ['required', 'array', 'min:1'],
-            'branchIds.*' => ['integer'],
+            'brandId' => ['required', 'integer', 'exists:brands,id'],
+        ], [
+            'brandId.required' => 'Pilih Brand Memo.',
+            'brandId.exists' => 'Brand yang dipilih tidak ditemukan.',
         ]);
 
         $periodMonth = Carbon::parse($validated['periodMonth'])->startOfMonth()->toDateString();
@@ -155,14 +149,13 @@ class ListRndInternalMemos extends ListRecords
                 'sender' => '',
                 'subject' => $validated['memoTitle'],
                 'notes' => $validated['notes'] ?? null,
-                'branch_ids' => $validated['branchIds'],
+                'brand_id' => $validated['brandId'],
             ], auth()->user());
         } catch (ValidationException $exception) {
-            // The Action validates period_month (against the resolved branches' Company Code)
-            // and branch_ids (access/mapping), neither of which this Page can check itself before
-            // calling the Action — map both keys back to their form field names.
+            // The Action re-validates the Brand and the Brand–period uniqueness; map its keys back
+            // to the form field names so errors stay next to their fields.
             $errors = $exception->errors();
-            foreach (['period_month' => 'periodMonth', 'branch_ids' => 'branchIds'] as $actionKey => $formKey) {
+            foreach (['period_month' => 'periodMonth', 'brand_id' => 'brandId', 'memo_number' => 'memoNumber'] as $actionKey => $formKey) {
                 if (isset($errors[$actionKey])) {
                     $errors[$formKey] = $errors[$actionKey];
                     unset($errors[$actionKey]);

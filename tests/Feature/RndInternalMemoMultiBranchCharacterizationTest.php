@@ -5,6 +5,7 @@ use App\Enums\RndInternalMemoStatus;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ViewRndInternalMemo;
 use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
+use App\Models\RndInternalMemoMenuCatalog;
 use App\Models\User;
 use App\Services\Rnd\InternalMemo\InternalMemoBomResolver;
 use App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogService;
@@ -31,6 +32,7 @@ beforeEach(function () {
     // guard rather than attempting any HTTP call at all, so the ESB-request-count characterization
     // test below counts only BOM resolution, not product enrichment's own credential fallback.
     config()->set('esb.master_product.token', '');
+    markInternalMemoCatalogSynced('BLS');
     $this->seed(RolesAndPermissionsSeeder::class);
 });
 
@@ -45,7 +47,9 @@ it('characterizes InternalMemoBomResolver::resolve() as taking only a Menu, with
         ->and($parameters[0]->getType()?->getName())->toBe(RndInternalMemoMenu::class);
 });
 
-it('characterizes catalog synchronization as requiring Company Code and Branch Code context', function () {
+it('characterizes the catalog HTTP service as taking a Company Code and the technical Branch Code', function () {
+    // docs/rnd-internal-memo-brand-prd.md §14.2: the ESB Master Menu endpoint still needs a
+    // branchCode; the caller (the global sync job) always passes BLSS + the configured value.
     $method = new ReflectionMethod(InternalMemoMenuCatalogService::class, 'allForContext');
     $parameterNames = array_map(fn (ReflectionParameter $p): string => $p->getName(), $method->getParameters());
 
@@ -61,20 +65,19 @@ it('characterizes the exact ESB request count for adding a Menu with a resolvabl
         'https://esb.test/core/product/bom/42' => Http::response(['status' => 'ok', 'result' => internalMemoBomDetailFixture('Menu', ['bomID' => 42])]),
     ]);
 
-    app(AddMenuToInternalMemoAction::class)->execute($memo, [
-        'menuID' => 501, 'menuCode' => 'MENU-501', 'menuName' => 'Croissant Butter',
-        'categoryDetail' => 'Pastry', 'bomID' => 42, 'bomName' => 'BOM-42',
-        'flagActive' => true, 'hasBom' => true, 'raw' => ['menuID' => 501, 'menuName' => 'Croissant Butter'],
+    RndInternalMemoMenuCatalog::factory()->create([
+        'company_code' => 'BLSS', 'branch_code' => 'BLS', 'menu_id' => 501, 'menu_code' => 'MENU-501',
+        'menu_name' => 'Croissant Butter', 'bom_id' => 42, 'bom_name' => 'BOM-42', 'flag_active' => true,
     ]);
+
+    app(AddMenuToInternalMemoAction::class)->execute($memo, 501);
 
     Http::assertSentCount(2);
 });
 
-it('characterizes RndInternalMemoPolicy::view() as permission-only today, with no branch concept at all', function () {
-    // Phase 3 ("Form create/edit dan Policy") is expected to add branch-scoped authorization —
-    // today, any two memos (regardless of any hypothetical difference between them) are equally
-    // visible to any user holding the view permission, because no branch field exists on the
-    // model yet. This is the "before" baseline that Phase 3's new restriction must visibly change.
+it('characterizes RndInternalMemoPolicy::view() as permission-only, regardless of Brand', function () {
+    // docs/rnd-internal-memo-brand-prd.md §9.2 removed the multi-branch access gate again: any two
+    // Memos — each with its own Brand — are equally visible to any user holding the permission.
     $viewer = User::factory()->create(['is_active' => true]);
     $viewer->givePermissionTo('view rnd internal memo');
     $memoA = RndInternalMemo::factory()->create();

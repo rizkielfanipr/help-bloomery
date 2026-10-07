@@ -6,6 +6,8 @@
 @source '../../../../resources/views/filament/schemas/**/*';
 @source '../../../../resources/views/filament/forms/**/*';
 @source '../../../../resources/views/components/helpdesk/**/*';
+@source '../../../../resources/views/components/rnd/**/*';
+@source '../../../../resources/views/livewire/**/*';
 @source '../../../../resources/views/components/layouts/**/*';
 @source '../../../../resources/views/vendor/filament-panels/**/*';
 

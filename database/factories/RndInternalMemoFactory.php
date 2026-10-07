@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\RndInternalMemoStatus;
+use App\Models\Brand;
 use App\Models\RndInternalMemo;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -21,6 +22,8 @@ class RndInternalMemoFactory extends Factory
 
         return [
             'company_code' => RndInternalMemo::COMPANY_CODE,
+            'brand_id' => Brand::factory(),
+            'brand_name_snapshot' => fn (array $attributes): ?string => Brand::query()->find($attributes['brand_id'])?->name,
             'memo_number' => 'MEMO-'.$this->faker->unique()->numerify('######'),
             'title' => 'Memo Internal R&D '.$this->faker->monthName(),
             'period_month' => $periodMonth,
@@ -32,6 +35,19 @@ class RndInternalMemoFactory extends Factory
             'revision' => 1,
             'created_by' => User::factory(),
         ];
+    }
+
+    /**
+     * A legacy Memo created before Brand existed (docs/rnd-internal-memo-brand-prd.md §16.3).
+     */
+    public function withoutBrand(): static
+    {
+        return $this->state(['brand_id' => null, 'brand_name_snapshot' => null]);
+    }
+
+    public function forBrand(Brand $brand): static
+    {
+        return $this->state(['brand_id' => $brand->id, 'brand_name_snapshot' => $brand->name]);
     }
 
     public function finalized(): static

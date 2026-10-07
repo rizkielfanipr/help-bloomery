@@ -2,15 +2,15 @@
 
 use App\Actions\Rnd\InternalMemo\AddMenuToInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
+use App\Actions\Rnd\InternalMemo\RefreshInternalMemoMenuAction;
 use App\Actions\Rnd\InternalMemo\SynchronizeInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuForecastAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMenuShelfLifeAction;
 use App\Enums\RndInternalMemoStatus;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ListRndInternalMemos;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ViewRndInternalMemo;
-use App\Models\Branch;
+use App\Models\Brand;
 use App\Models\RndInternalMemo;
-use App\Models\RndInternalMemoBranch;
 use App\Models\RndInternalMemoMenuCatalog;
 use App\Models\RndProductEsbShelfLife;
 use App\Models\User;
@@ -22,27 +22,23 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
-function fakeMenuRow(int $menuId, int $bomId, string $name = 'Croissant Butter'): array
+/**
+ * Puts a Menu into the global BLSS catalog snapshot (technical branch BLS, see beforeEach) and
+ * returns its Menu ID — the only thing the picker sends to addMenu.
+ */
+function catalogMenuId(int $menuId, int $bomId, string $name = 'Croissant Butter'): int
 {
-    return [
-        'menuID' => $menuId, 'menuCode' => 'MENU-'.$menuId, 'menuName' => $name,
-        'categoryDetail' => 'Pastry', 'bomID' => $bomId, 'bomName' => $bomId > 0 ? 'BOM-'.$bomId : null,
-        'flagActive' => true, 'hasBom' => $bomId > 0, 'raw' => ['menuID' => $menuId, 'menuName' => $name],
-    ];
-}
+    if (RndInternalMemoMenuCatalog::query()->where('company_code', 'BLSS')->where('branch_code', 'BLS')->where('menu_id', $menuId)->exists()) {
+        return $menuId;
+    }
 
-function attachMemoCatalogContext(RndInternalMemo $memo, Branch $branch): RndInternalMemoBranch
-{
-    $mapping = $branch->esbCodes()->firstOrFail();
-
-    return RndInternalMemoBranch::factory()->synced()->create([
-        'rnd_internal_memo_id' => $memo->id,
-        'branch_id' => $branch->id,
-        'branch_esb_code_id' => $mapping->id,
-        'branch_name_snapshot' => $branch->name,
-        'company_code_snapshot' => $mapping->esb_comcode,
-        'branch_code_snapshot' => $mapping->esb_branch_code,
+    createMemoCatalogMenu([
+        'menu_id' => $menuId, 'menu_code' => 'MENU-'.$menuId, 'menu_name' => $name,
+        'category_detail' => 'Pastry', 'bom_id' => $bomId, 'bom_name' => $bomId > 0 ? 'BOM-'.$bomId : null,
+        'flag_active' => true, 'raw_snapshot' => ['menuID' => $menuId, 'menuName' => $name],
     ]);
+
+    return $menuId;
 }
 
 /** @param array<string, mixed> $attributes */
@@ -61,37 +57,34 @@ beforeEach(function () {
     config()->set('esb.tokens.BLSS', 'static-blss-token');
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
+    markInternalMemoCatalogSynced('BLS');
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
-    $this->branch = Branch::factory()->create();
-    $mapping = $this->branch->esbCodes()->create(['esb_comcode' => 'BLSS', 'esb_branch_code' => 'BLS']);
-    $this->branch->update(['stock_card_esb_code_id' => $mapping->id]);
-    $this->operator = User::factory()->create(['is_active' => true, 'branch_id' => $this->branch->id]);
+    $this->brand = Brand::factory()->create(['name' => 'Bloomery Bakery']);
+    $this->operator = User::factory()->create(['is_active' => true]);
     $this->operator->givePermissionTo(['view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo', 'update rnd internal memo']);
     $this->actingAs($this->operator);
 });
 
-it('creates a Draft memo, deriving company_code from the chosen Branch Tujuan rather than the user typing it', function () {
-    // docs/rnd-internal-memo-multi-branch-prd.md §7.1: Company Code is never entered manually;
-    // it comes from the resolved mapping of whichever Branch(es) the user picks.
+it('creates a Draft memo with the chosen Brand and Company Code BLSS set server-side', function () {
+    // docs/rnd-internal-memo-brand-prd.md §11.1: the user picks one Brand; Company Code is never
+    // entered and is always BLSS; no Memo–Branch row is written.
     $page = Livewire::test(ListRndInternalMemos::class)
         ->set('memoNumber', '001/RND/IX/2026')
         ->set('memoTitle', 'Rilis Menu September')
         ->set('periodMonth', '2026-09')
-        ->set('branchIds', [$this->branch->id])
+        ->set('brandId', $this->brand->id)
         ->call('createMemo')
         ->assertHasNoErrors();
 
     $memo = RndInternalMemo::sole();
     expect($memo->company_code)->toBe('BLSS')
+        ->and($memo->brand_id)->toBe($this->brand->id)
+        ->and($memo->brand_name_snapshot)->toBe('Bloomery Bakery')
         ->and($memo->status)->toBe(RndInternalMemoStatus::Draft)
         ->and($memo->revision)->toBe(1)
-        ->and($memo->created_by)->toBe($this->operator->id);
-
-    $memoBranch = $memo->branches->sole();
-    expect($memoBranch->branch_id)->toBe($this->branch->id)
-        ->and($memoBranch->company_code_snapshot)->toBe('BLSS')
-        ->and($memoBranch->branch_code_snapshot)->toBe('BLS');
+        ->and($memo->created_by)->toBe($this->operator->id)
+        ->and($memo->branches()->count())->toBe(0);
 
     $page->assertRedirect();
 });
@@ -100,7 +93,7 @@ it('requires Nomor Memo to be filled, either by Generate or manually', function 
     Livewire::test(ListRndInternalMemos::class)
         ->set('memoTitle', 'Rilis Menu September')
         ->set('periodMonth', '2026-09')
-        ->set('branchIds', [$this->branch->id])
+        ->set('brandId', $this->brand->id)
         ->call('createMemo')
         ->assertHasErrors(['memoNumber' => 'required']);
 });
@@ -112,7 +105,7 @@ it('fills Nomor Memo with the 001/RND/<roman month>/<year> convention and locks 
         ->call('generateMemoNumberField')
         ->assertSet('memoNumber', '001/RND/IX/2026')
         ->assertSet('memoNumberGenerated', true)
-        ->set('branchIds', [$this->branch->id])
+        ->set('brandId', $this->brand->id)
         ->call('createMemo')
         ->assertHasNoErrors();
 
@@ -137,7 +130,7 @@ it('lets the user switch back to typing Nomor Memo manually after generating it'
         ->assertSet('memoNumber', '')
         ->set('memoNumber', 'MEMO-CUSTOM-01')
         ->set('memoTitle', 'Rilis Menu September')
-        ->set('branchIds', [$this->branch->id])
+        ->set('brandId', $this->brand->id)
         ->call('createMemo')
         ->assertHasNoErrors();
 
@@ -153,19 +146,19 @@ it('keeps the generated Nomor Memo sequence resetting every year', function () {
         ->set('periodMonth', '2026-10')
         ->call('generateMemoNumberField')
         ->assertSet('memoNumber', '002/RND/X/2026') // only the one 2026 memo above counts; the 2025 one does not
-        ->set('branchIds', [$this->branch->id])
+        ->set('brandId', $this->brand->id)
         ->call('createMemo')
         ->assertHasNoErrors();
 });
 
-it('rejects a second memo for the same period and a duplicate memo number', function () {
-    RndInternalMemo::factory()->create(['period_month' => '2026-09-01', 'memo_number' => 'EXISTING-001']);
+it('rejects a second memo for the same Brand and period and a duplicate memo number', function () {
+    RndInternalMemo::factory()->forBrand($this->brand)->create(['period_month' => '2026-09-01', 'memo_number' => 'EXISTING-001']);
 
     Livewire::test(ListRndInternalMemos::class)
         ->set('memoNumber', 'NEW-001')
         ->set('memoTitle', 'Rilis Menu September Ganda')
         ->set('periodMonth', '2026-09')
-        ->set('branchIds', [$this->branch->id])
+        ->set('brandId', $this->brand->id)
         ->call('createMemo')
         ->assertHasErrors(['periodMonth']);
 
@@ -173,25 +166,25 @@ it('rejects a second memo for the same period and a duplicate memo number', func
         ->set('memoNumber', 'EXISTING-001')
         ->set('memoTitle', 'Judul Lain')
         ->set('periodMonth', '2026-10')
-        ->set('branchIds', [$this->branch->id])
+        ->set('brandId', $this->brand->id)
         ->call('createMemo')
         ->assertHasErrors(['memoNumber']);
 });
 
 it('allows creating a new memo for a period whose previous memo was deleted', function () {
-    // Regression: the (company_code, period_month, revision) unique index applied to every row
+    // Regression: the active-period unique index applied to every row
     // at the database level, including soft-deleted ones (MySQL has no partial unique index), so
     // deleting a Memo and recreating one for the same period raised a raw
     // UniqueConstraintViolationException even though the app-level duplicate-period check
     // correctly ignores soft-deleted records.
-    $old = RndInternalMemo::factory()->create(['period_month' => '2026-09-01', 'memo_number' => 'OLD-001']);
+    $old = RndInternalMemo::factory()->forBrand($this->brand)->create(['period_month' => '2026-09-01', 'memo_number' => 'OLD-001']);
     app(DeleteInternalMemoAction::class)->execute($old);
 
     Livewire::test(ListRndInternalMemos::class)
         ->set('memoNumber', 'NEW-001')
         ->set('memoTitle', 'Rilis Menu September Baru')
         ->set('periodMonth', '2026-09')
-        ->set('branchIds', [$this->branch->id])
+        ->set('brandId', $this->brand->id)
         ->call('createMemo')
         ->assertHasNoErrors();
 
@@ -208,7 +201,7 @@ it('adds a Menu with bomID > 0 through the picker, stores a snapshot, and resolv
     ]);
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
-        ->call('addMenu', fakeMenuRow(501, 42))
+        ->call('addMenu', catalogMenuId(501, 42))
         ->assertHasNoErrors();
 
     $menu = $memo->menus()->sole();
@@ -227,7 +220,7 @@ it('keeps a Menu added even when its BOM fails to resolve, marking it Failed for
     Http::fake(['https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']])]);
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
-        ->call('addMenu', fakeMenuRow(501, 42))
+        ->call('addMenu', catalogMenuId(501, 42))
         ->assertHasNoErrors();
 
     $menu = $memo->menus()->sole();
@@ -238,7 +231,7 @@ it('keeps a Menu added even when its BOM fails to resolve, marking it Failed for
 it('refuses a Menu with bomID = 0 and does not persist a row', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
 
-    expect(fn () => app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(502, 0)))
+    expect(fn () => app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(502, 0)))
         ->toThrow(ValidationException::class);
 
     expect($memo->menus()->count())->toBe(0);
@@ -246,9 +239,9 @@ it('refuses a Menu with bomID = 0 and does not persist a row', function () {
 
 it('refuses adding the same Menu twice to one memo', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
 
-    expect(fn () => app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42)))
+    expect(fn () => app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42)))
         ->toThrow(ValidationException::class);
 
     expect($memo->menus()->count())->toBe(1);
@@ -260,15 +253,15 @@ it('allows adding a Menu regardless of the memo legacy workflow status', functio
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Ready]);
     Http::fake(['https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']])]);
 
-    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
 
     expect($memo->menus()->count())->toBe(1)
         ->and($menu->esb_menu_id)->toBe(501);
 });
 
-it('auto-fills Shelf Life from the local master when adding a Menu that has one', function () {
+it('no longer looks up the retired Menu Shelf Life master when adding a Menu', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    RndProductEsbShelfLife::factory()->create([
+    RndProductEsbShelfLife::factory()->legacyMenu()->create([
         'esb_menu_id' => 501,
         'shelf_life_value' => 3,
         'shelf_life_unit' => 'hari',
@@ -276,16 +269,17 @@ it('auto-fills Shelf Life from the local master when adding a Menu that has one'
         'is_active' => true,
     ]);
 
-    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
 
-    expect((float) $menu->shelf_life_value)->toBe(3.0)
-        ->and($menu->shelf_life_unit)->toBe('hari')
-        ->and($menu->hasShelfLife())->toBeTrue();
+    expect($menu->shelf_life_value)->toBeNull()
+        ->and($menu->shelf_life_unit)->toBeNull()
+        ->and($menu->storage_condition)->toBeNull()
+        ->and($menu->hasShelfLife())->toBeFalse();
 });
 
 it('lets a Draft memo remove an added Menu', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
 
     Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
         ->call('removeMenu', $menu->id)
@@ -296,7 +290,6 @@ it('lets a Draft memo remove an added Menu', function () {
 
 it('searches the local Menu snapshot and shows a Menu without BOM as disabled', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    attachMemoCatalogContext($memo, $this->branch);
     createMemoCatalogMenu([
         'menu_id' => 501, 'menu_code' => 'MENU-501', 'menu_name' => 'Croissant Butter',
         'bom_id' => 42, 'category_detail' => 'BEVERAGES - COFFEE',
@@ -330,7 +323,6 @@ it('splits categoryDetail into Category and Category Detail, falling back to Cat
 
 it('opens and searches the Menu picker entirely from the local snapshot', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    attachMemoCatalogContext($memo, $this->branch);
     createMemoCatalogMenu([
         'menu_id' => 1, 'menu_name' => 'Croissant Butter', 'menu_code' => 'A1', 'bom_id' => 42,
     ]);
@@ -346,7 +338,6 @@ it('opens and searches the Menu picker entirely from the local snapshot', functi
 
 it('filters the local Menu snapshot automatically as the user types', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    attachMemoCatalogContext($memo, $this->branch);
     createMemoCatalogMenu(['menu_id' => 1, 'menu_name' => 'Croissant Butter', 'menu_code' => 'A1', 'bom_id' => 42]);
     createMemoCatalogMenu(['menu_id' => 2, 'menu_name' => 'Matcha Cake', 'menu_code' => 'B2', 'bom_id' => 43]);
 
@@ -362,7 +353,6 @@ it('filters the local Menu snapshot automatically as the user types', function (
 
 it('paginates the Menu picker with goToMenuPage/previousMenuPage/nextMenuPage', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    attachMemoCatalogContext($memo, $this->branch);
     foreach (range(1, 25) as $index) {
         createMemoCatalogMenu([
             'menu_id' => $index,
@@ -417,7 +407,7 @@ it('runs SynchronizeInternalMemoAction end-to-end and leaves the memo NeedsAtten
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
 
     Http::fake([
         'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
@@ -442,7 +432,7 @@ it('runs SynchronizeInternalMemoAction end-to-end and leaves the memo NeedsAtten
 
 it('updates Forecast Quantity and Shelf Life and recalculates net_quantity', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
     $menu->materials()->create(['product_code' => 'RAW-FLOUR', 'product_name' => 'Tepung', 'uom_name' => 'GR', 'quantity_per_menu' => 250, 'net_quantity' => 0, 'source_bom_id' => 42, 'source_path' => [], 'depth' => 0, 'is_wip' => false, 'is_packaging' => false]);
 
     app(UpdateInternalMemoMenuForecastAction::class)->execute($menu, 4.0);
@@ -460,7 +450,7 @@ it('updates Forecast Quantity and Shelf Life and recalculates net_quantity', fun
 
 it('rejects a negative Forecast Quantity', function () {
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
 
     expect(fn () => app(UpdateInternalMemoMenuForecastAction::class)->execute($menu, -5.0))
         ->toThrow(ValidationException::class);
@@ -481,7 +471,7 @@ it('runs SynchronizeInternalMemoAction end-to-end and reaches Ready once Forecas
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    $menu = app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
     $menu->update(['forecast_quantity' => 10, 'shelf_life_value' => 3, 'shelf_life_unit' => 'hari']);
 
     Http::fake([
@@ -510,7 +500,7 @@ it('leaves a freshly synced memo NeedsAttention when Forecast and Shelf Life are
     config()->set('esb.core.base_url', 'https://esb.test/core');
     config()->set('esb.core.companies.BLSS', ['username' => 'memo-user', 'password' => 'memo-secret']);
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
-    app(AddMenuToInternalMemoAction::class)->execute($memo, fakeMenuRow(501, 42));
+    app(AddMenuToInternalMemoAction::class)->execute($memo, catalogMenuId(501, 42));
 
     Http::fake([
         'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
@@ -536,4 +526,94 @@ it('renders the Memo Internal link in the custom helpdesk sidebar', function () 
         ->assertSee('Research & Development')
         ->assertSee('Memo Internal')
         ->assertSee(route('filament.helpdesk.resources.rnd-internal-memos.index'), false);
+});
+
+it('no longer shows a per-Menu Struktur BOM section', function () {
+    $memo = RndInternalMemo::factory()->create();
+    $menu = $memo->menus()->create([
+        'company_code' => 'BLSS', 'esb_menu_id' => 501, 'menu_name' => 'Belgian Chocolate Mille Crepe Cake 20cm',
+        'esb_bom_id' => 42, 'bom_name' => 'BOM Mille Crepe', 'release_date' => now(), 'menu_snapshot' => [],
+    ]);
+    $menu->materials()->create([
+        'product_code' => 'RM-BOX', 'product_name' => 'Box Cake', 'uom_name' => 'PCS', 'quantity_per_menu' => 1, 'net_quantity' => 0,
+        'source_bom_id' => 42, 'source_path' => ['BOM Mille Crepe'], 'depth' => 0, 'is_wip' => false, 'is_packaging' => false,
+    ]);
+
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->assertSee('Belgian Chocolate Mille Crepe Cake 20cm')
+        ->assertSee('Box Cake')
+        ->assertDontSee('Struktur BOM')
+        ->assertDontSee('BOM Type Assembly');
+});
+
+it('shows the summary as products used by Store (Menu BOM only) and by Kitchen (traced WIP BOMs)', function () {
+    $memo = RndInternalMemo::factory()->create();
+    $menu = $memo->menus()->create(['company_code' => 'BLSS', 'esb_menu_id' => 501, 'menu_name' => 'Mille Crepe', 'esb_bom_id' => 42, 'release_date' => now(), 'menu_snapshot' => []]);
+    $row = fn (array $attributes) => $menu->materials()->create([
+        'uom_name' => 'GR', 'quantity_per_menu' => 1, 'net_quantity' => 0, 'source_bom_id' => 42, 'source_path' => ['BOM Mille Crepe'],
+        'depth' => 0, 'is_wip' => false, 'is_packaging' => false, ...$attributes,
+    ]);
+    $row(['esb_product_detail_id' => 1, 'product_code' => 'RM-BOX', 'product_name' => 'Box Cake']);
+    $wip = $row(['esb_product_detail_id' => 2, 'product_code' => 'BW-CREPE', 'product_name' => 'Crepe Sheet', 'is_wip' => true]);
+    $row(['esb_product_detail_id' => 3, 'product_code' => 'RM-FLOUR', 'product_name' => 'Tepung Crepe', 'depth' => 1, 'parent_material_id' => $wip->id]);
+    $row(['esb_product_detail_id' => 4, 'product_code' => 'BW212', 'product_name' => 'PRX | CRP02', 'depth' => 1, 'parent_material_id' => $wip->id, 'is_wip' => true]);
+
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->assertDontSee('Ringkasan Item Akhir')
+        ->assertSeeHtml('role="group" aria-label="Product Active Store"')
+        ->assertSeeHtml('x-data="{ tab: \'wip\' }"')
+        ->assertSeeInOrder(['Product Active Store', 'WIP Store', 'RAW Store', 'Crepe Sheet', 'Box Cake', 'Product Active Kitchen', 'WIP Kitchen', 'RAW Kitchen', 'PRX | CRP02', 'Tepung Crepe'])
+        ->call('editMinimumOrder', 'kitchen|pd:3', null)
+        ->set('minimumOrderValue', '50')
+        ->call('saveMinimumOrder')
+        ->assertHasNoErrors();
+
+    expect((float) $menu->materials()->where('product_code', 'RM-FLOUR')->value('minimum_order'))->toBe(50.0);
+});
+
+it('lists the selected Menus as a table with Category and Category Detail', function () {
+    $memo = RndInternalMemo::factory()->create();
+    $memo->menus()->create([
+        'company_code' => 'BLSS', 'esb_menu_id' => 501, 'menu_code' => 'MC-WH0001', 'menu_name' => 'Belgian Chocolate Mille Crepe Cake 20cm',
+        'category_detail' => 'CAKE - WHOLE CAKE', 'esb_bom_id' => 42, 'bom_name' => 'Whole Cake Belgian Chocolate New', 'release_date' => now(), 'menu_snapshot' => [],
+    ]);
+
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->assertSeeInOrder(['Menu Active Store', '1 Menu', 'Menu', 'Category', 'Category Detail', 'Diperbarui'])
+        ->assertSeeInOrder(['Belgian Chocolate Mille Crepe Cake 20cm', 'MC-WH0001', 'CAKE', 'WHOLE CAKE'])
+        ->assertDontSee('Whole Cake Belgian Chocolate New')
+        ->assertSeeHtml('aria-label="Refresh Belgian Chocolate Mille Crepe Cake 20cm"')
+        ->assertSeeHtml('aria-label="Hapus Menu Belgian Chocolate Mille Crepe Cake 20cm"');
+});
+
+it('refreshes every Menu of the Memo with one button, continuing past a failing Menu', function () {
+    $memo = RndInternalMemo::factory()->create();
+    $ok = $memo->menus()->create(['company_code' => 'BLSS', 'esb_menu_id' => 501, 'menu_name' => 'Menu Berhasil', 'esb_bom_id' => 42, 'release_date' => now(), 'menu_snapshot' => []]);
+    $broken = $memo->menus()->create(['company_code' => 'BLSS', 'esb_menu_id' => 502, 'menu_name' => 'Menu Gagal', 'esb_bom_id' => 43, 'release_date' => now(), 'menu_snapshot' => []]);
+    $refreshed = [];
+    $this->mock(RefreshInternalMemoMenuAction::class, function ($mock) use (&$refreshed, $broken): void {
+        $mock->shouldReceive('execute')->twice()->andReturnUsing(function ($menu) use (&$refreshed, $broken) {
+            $refreshed[] = $menu->id;
+            if ($menu->id === $broken->id) {
+                throw new RuntimeException('ESB timeout');
+            }
+
+            return $menu;
+        });
+    });
+
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->assertSeeHtml('aria-label="Refresh Semua Menu"')
+        ->call('refreshAllMenus')
+        ->assertNotified('1 dari 2 Menu berhasil disegarkan');
+
+    expect($refreshed)->toBe([$ok->id, $broken->id]);
+
+    $viewer = User::factory()->create(['is_active' => true]);
+    $viewer->givePermissionTo(['view any rnd internal memo', 'view rnd internal memo']);
+    $this->actingAs($viewer);
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->id])
+        ->assertDontSeeHtml('aria-label="Refresh Semua Menu"')
+        ->call('refreshAllMenus')
+        ->assertForbidden();
 });

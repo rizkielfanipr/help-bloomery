@@ -7,6 +7,8 @@ use App\Enums\RndBomChangeLogSource;
 use App\Enums\RndBomChangeLogStatus;
 use App\Exceptions\Rnd\BomConflictException;
 use App\Exceptions\Rnd\BomInvariantException;
+use App\Filament\Helpdesk\Concerns\ManagesProjectWipShelfLife;
+use App\Filament\Helpdesk\Concerns\ReleasesBomToStoreSop;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\PrefixCategory;
 use App\Models\PrefixName;
@@ -22,6 +24,7 @@ use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
 use App\Services\ProductPriceIndexService;
 use App\Services\Rnd\Bom\BomPayloadBuilder;
+use App\Services\Rnd\Bom\ProjectWipRecipeDiscovery;
 use App\Services\Rnd\BomCalculationService;
 use App\Services\Rnd\MenuPricingCalculator;
 use App\Services\SyncRndEsbMaterialFromRemote;
@@ -35,9 +38,9 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Locked;
 use Livewire\WithFileUploads;
 use Throwable;
 
@@ -45,6 +48,8 @@ class ViewProjectProductPage extends Page
 {
     public const NON_PREFIX_CATEGORY_ID = 0;
 
+    use ManagesProjectWipShelfLife;
+    use ReleasesBomToStoreSop;
     use WithFileUploads;
 
     protected static ?string $slug = 'rnd-projects/{project}/products/{product}';
@@ -95,7 +100,9 @@ class ViewProjectProductPage extends Page
 
     public ?int $sourcingDetailMaterialId = null;
 
-    public bool $exportPinModalOpen = false;
+    public bool $exportModalOpen = false;
+
+    public int $exportPreviewRevision = 0;
 
     public bool $inlineProductModalOpen = false;
 
@@ -106,8 +113,6 @@ class ViewProjectProductPage extends Page
     public string $materialNotes = '';
 
     public $materialFile = null;
-
-    public string $exportPin = '';
 
     public string $exportScope = 'all';
 
@@ -254,7 +259,7 @@ class ViewProjectProductPage extends Page
             'material' => $this->materialModalOpen = false,
             'esbMaterial' => $this->esbMaterialModalOpen = false,
             'sourcingDetail' => $this->sourcingDetailMaterialId = null,
-            'exportPin' => $this->exportPinModalOpen = false,
+            'export' => $this->closeExportModal(),
             'inlineProduct' => $this->inlineProductModalOpen = false,
             default => abort(422),
         };
@@ -1107,7 +1112,6 @@ class ViewProjectProductPage extends Page
         $this->autoWipComponentError = null;
 
         try {
-            $core = app(EsbBillOfMaterialService::class);
             $mainBoms = $this->productRecord->boms->filter(
                 fn (RndProjectBom $bom): bool => $bom->pivot->usage_type === 'main',
             );
@@ -1134,70 +1138,7 @@ class ViewProjectProductPage extends Page
                     ->values()
                     ->all();
 
-                $cacheKey = "rnd.wip-recipes.v4.{$mainBom->esb_bom_id}";
-                if ($force) {
-                    Cache::forget($cacheKey);
-                }
-
-                $this->autoWipComponentRecipes[$mainBom->id] = Cache::remember(
-                    $cacheKey,
-                    now()->addMinutes(30),
-                    function () use ($mainDetail, $mainBom, $core): array {
-                        $recipes = [];
-
-                        foreach ($mainDetail['bomDetails'] ?? [] as $component) {
-                            $productDetailId = (int) ($component['productDetailID'] ?? 0);
-                            $productCode = strtoupper(trim((string) ($component['productCode'] ?? '')));
-                            $isWipCode = str_starts_with($productCode, 'BW');
-                            $categoryName = trim((string) ($component['categoryName'] ?? ''));
-
-                            if (! $isWipCode && mb_strtolower($categoryName) !== 'barang wip') {
-                                continue;
-                            }
-
-                            $productName = (string) ($component['productName'] ?? '');
-                            $productId = (int) ($component['productID'] ?? 0);
-                            $candidates = $core->getBillOfMaterials([
-                                'productName' => $productName,
-                                'limit' => 100,
-                            ]);
-
-                            foreach ($candidates['data'] as $candidate) {
-                                $candidateBomId = (int) ($candidate['bomID'] ?? 0);
-                                if ($candidateBomId < 1 || $candidateBomId === $mainBom->esb_bom_id) {
-                                    continue;
-                                }
-
-                                $detail = $core->getBillOfMaterial($candidateBomId);
-                                $sameProductDetail = (int) ($detail['productDetailID'] ?? 0) === $productDetailId;
-                                $sameMasterProduct = $productId > 0
-                                    && (int) ($detail['productID'] ?? 0) === $productId;
-                                $sameProductCode = $productCode !== ''
-                                    && strtoupper(trim((string) ($detail['productCode'] ?? ''))) === $productCode;
-
-                                if (! $sameProductDetail && ! $sameMasterProduct && ! $sameProductCode) {
-                                    continue;
-                                }
-
-                                $detail['bomDetails'] = $this->normalizedBomRows($detail['bomDetails'] ?? []);
-                                $recipes[$candidateBomId] = [
-                                    'bomID' => $candidateBomId,
-                                    'bomCode' => (string) ($detail['bomCode'] ?? $candidate['bomCode'] ?? ''),
-                                    'bomName' => (string) ($detail['bomName'] ?? $candidate['bomName'] ?? ''),
-                                    'productDetailID' => $productDetailId,
-                                    'productCode' => $productCode,
-                                    'productName' => $productName,
-                                    'uomName' => (string) ($detail['uomName'] ?? $component['uomName'] ?? ''),
-                                    'sourceQty' => (float) ($component['qty'] ?? 0),
-                                    'sourceUnit' => (string) ($component['uomName'] ?? ''),
-                                    'bomDetails' => $detail['bomDetails'],
-                                ];
-                            }
-                        }
-
-                        return array_values($recipes);
-                    },
-                );
+                $this->autoWipComponentRecipes[$mainBom->id] = app(ProjectWipRecipeDiscovery::class)->recipesFor($mainBom, $mainDetail, $force);
             }
         } catch (Throwable $exception) {
             $this->autoWipComponentError = $exception->getMessage();
@@ -1557,24 +1498,7 @@ class ViewProjectProductPage extends Page
 
     private function normalizedBomRows(array $rows): array
     {
-        return array_values(array_map(
-            fn (array $item): array => [
-                'ID' => (int) ($item['ID'] ?? 0),
-                'productID' => (int) ($item['productID'] ?? 0),
-                'productDetailID' => (int) ($item['productDetailID'] ?? 0),
-                'productCode' => (string) ($item['productCode'] ?? ''),
-                'productName' => (string) ($item['productName'] ?? ''),
-                'categoryName' => (string) ($item['categoryName'] ?? ''),
-                'uomName' => (string) ($item['uomName'] ?? ''),
-                'lastHPP' => (float) ($item['lastHPP'] ?? $item['lastHpp'] ?? $item['price'] ?? 0),
-                'qty' => (float) ($item['qty'] ?? 0),
-                'yieldPercent' => (float) ($item['yieldPercent'] ?? 0),
-                'tolerancePercent' => (float) ($item['tolerancePercent'] ?? 0),
-                'printGroup' => (string) ($item['printGroup'] ?? ''),
-                'subtitution' => is_array($item['subtitution'] ?? null) ? $item['subtitution'] : [],
-            ],
-            $rows,
-        ));
+        return app(ProjectWipRecipeDiscovery::class)->normalizedBomRows($rows);
     }
 
     private function hydrateMissingBomRowMetadata(array $rows): array
@@ -2449,10 +2373,72 @@ class ViewProjectProductPage extends Page
         $this->exportBomIds = $this->eligibleExportBoms($scope)->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $this->exportAutoBomKeys = $scope === 'store' ? [] : $this->eligibleExportAutoBomKeys();
         $this->exportBomComponentKeys = [];
-        $this->exportPin = '';
+        $this->pdfPreview = null;
         $this->resetValidation();
-        $this->exportPinModalOpen = true;
-        $this->dispatch('open-export-pin');
+
+        if ($scope === 'store') {
+            $this->exportBomPdf();
+
+            return;
+        }
+
+        $this->exportModalOpen = true;
+        $this->refreshExportPreview();
+    }
+
+    /**
+     * PDF shown in the preview modal: the same export route, inline for the preview and as an
+     * attachment for "Download PDF". Access is the export permission, checked again by the route.
+     *
+     * @var array{title: string, preview_url: string, download_url: string}|null
+     */
+    #[Locked]
+    public ?array $pdfPreview = null;
+
+    public function closePdfPreview(): void
+    {
+        $this->pdfPreview = null;
+    }
+
+    public function closeExportModal(): void
+    {
+        $this->exportModalOpen = false;
+        $this->pdfPreview = null;
+        $this->resetValidation('exportBomIds');
+    }
+
+    public function updatedExportBomIds(): void
+    {
+        $selectedBomIds = collect($this->exportBomIds)->map(fn ($id): int => (int) $id);
+        $this->exportAutoBomKeys = collect($this->exportAutoBomKeys)
+            ->filter(fn (string $key): bool => $selectedBomIds->contains((int) str($key)->before(':')->toString()))
+            ->values()
+            ->all();
+
+        $this->refreshExportPreview();
+    }
+
+    public function updatedExportAutoBomKeys(): void
+    {
+        $this->refreshExportPreview();
+    }
+
+    public function refreshExportPreview(): void
+    {
+        if (! $this->exportModalOpen) {
+            return;
+        }
+
+        $this->resetValidation('exportBomIds');
+
+        if ($this->exportBomIds === []) {
+            $this->pdfPreview = null;
+            $this->addError('exportBomIds', 'Pilih minimal satu BOM.');
+
+            return;
+        }
+
+        $this->exportBomPdf();
     }
 
     public function exportBomPdf(): mixed
@@ -2466,7 +2452,6 @@ class ViewProjectProductPage extends Page
         }
 
         $rules = [
-            'exportPin' => ['required', 'string', 'max:20'],
             'exportAutoBomKeys' => ['array'],
             'exportAutoBomKeys.*' => ['string', 'regex:/^\d+:\d+$/'],
         ];
@@ -2478,33 +2463,6 @@ class ViewProjectProductPage extends Page
         abort_unless(collect($this->exportBomIds)->every(fn ($id): bool => $eligibleBomIds->contains((int) $id)), 422);
         $eligibleAutoBomKeys = collect($this->eligibleExportAutoBomKeys());
         abort_unless(collect($this->exportAutoBomKeys)->every(fn (string $key): bool => $eligibleAutoBomKeys->contains($key)), 422);
-        $rateKey = 'rnd-bom-export-pin:'.auth()->id().':'.request()->ip();
-
-        if (RateLimiter::tooManyAttempts($rateKey, 5)) {
-            $this->addError('exportPin', 'Terlalu banyak percobaan. Coba kembali dalam '.RateLimiter::availableIn($rateKey).' detik.');
-
-            return null;
-        }
-
-        if (! auth()->user()?->hasBomPin()) {
-            $this->reset('exportPin');
-            $this->addError('exportPin', 'PIN BOM Anda belum diset. Silakan set PIN terlebih dahulu melalui CMS User.');
-
-            return null;
-        }
-        if (! auth()->user()?->verifiesBomPin($this->exportPin)) {
-            RateLimiter::hit($rateKey, 60);
-            $this->reset('exportPin');
-            $this->addError('exportPin', 'PIN yang dimasukkan tidak sesuai.');
-
-            return null;
-        }
-
-        RateLimiter::clear($rateKey);
-        session()->put(
-            RndProductBomPdfController::sessionKey(auth()->id(), $this->projectId, $this->productId),
-            now()->addMinutes(config('rnd.bom_pin_ttl_minutes', 15))->timestamp,
-        );
         session()->forget(RndProductBomPdfController::componentSessionKey(auth()->id(), $this->projectId, $this->productId));
         session()->put(
             RndProductBomPdfController::autoBomSessionKey(auth()->id(), $this->projectId, $this->productId),
@@ -2522,7 +2480,18 @@ class ViewProjectProductPage extends Page
             $routeParameters['bom_ids'] = collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->implode(',');
         }
 
-        return $this->redirect(route('helpdesk.rnd-products.bom-pdf', $routeParameters), navigate: false);
+        $this->exportPreviewRevision++;
+        $this->pdfPreview = [
+            'title' => 'Preview '.match ($this->exportScope) {
+                'store' => 'Store',
+                'kitchen' => 'Kitchen',
+                default => 'BOM',
+            }.' PDF',
+            'preview_url' => route('helpdesk.rnd-products.bom-pdf', [...$routeParameters, 'preview' => 1]),
+            'download_url' => route('helpdesk.rnd-products.bom-pdf', $routeParameters),
+        ];
+
+        return null;
     }
 
     private function canExportBomScope(string $scope): bool
@@ -2592,6 +2561,36 @@ class ViewProjectProductPage extends Page
         return isset($component['documentMaterialId'])
             ? 'document-'.$component['documentMaterialId']
             : (string) ($component['productDetailID'] ?? $component['ID'] ?? $component['productCode'] ?? 'index-'.$index);
+    }
+
+    protected function releaseSopProject(): RndProject
+    {
+        return $this->projectRecord;
+    }
+
+    protected function releaseSopProduct(): ?RndProjectProduct
+    {
+        return $this->productRecord;
+    }
+
+    protected function releaseSopScope(): string
+    {
+        return $this->exportScope;
+    }
+
+    protected function releaseSopBomIds(): array
+    {
+        return collect($this->exportBomIds)->map(fn ($id): int => (int) $id)->values()->all();
+    }
+
+    protected function releaseSopAutoBomKeys(): array
+    {
+        return array_values($this->exportAutoBomKeys);
+    }
+
+    protected function releaseSopComponentKeys(): array
+    {
+        return $this->exportBomComponentKeys;
     }
 
     private function authorizeProjectManagement(): void

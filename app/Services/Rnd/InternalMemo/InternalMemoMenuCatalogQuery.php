@@ -2,78 +2,45 @@
 
 namespace App\Services\Rnd\InternalMemo;
 
-use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenuCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Reads the one global BLSS Master Menu snapshot shared by every Memo
+ * (docs/rnd-internal-memo-brand-prd.md §14.3, §15.4). No Brand, Branch, or company filter exists:
+ * the context is fixed server-side by InternalMemoCatalogContext. Before the first successful sync
+ * there is no snapshot yet, so nothing is selectable.
+ */
 class InternalMemoMenuCatalogQuery
 {
-    public function paginate(
-        RndInternalMemo $memo,
-        int $perPage = 10,
-        string $name = '',
-        string $code = '',
-        ?int $memoBranchId = null,
-        ?string $companyCode = null,
-        int $page = 1,
-    ): LengthAwarePaginator {
-        $contexts = $memo->branches()
-            ->when($memoBranchId, fn ($query) => $query->whereKey($memoBranchId))
-            ->when($companyCode, fn ($query) => $query->where('company_code_snapshot', mb_strtoupper(trim($companyCode))))
-            ->get(['id', 'branch_name_snapshot', 'company_code_snapshot', 'branch_code_snapshot']);
+    public function __construct(private readonly InternalMemoCatalogContext $context) {}
 
-        $query = RndInternalMemoMenuCatalog::query()
-            ->where(function ($query) use ($contexts): void {
-                $query->whereRaw('1 = 0');
-                foreach ($contexts as $context) {
-                    $query->orWhere(function ($query) use ($context): void {
-                        $query->where('company_code', $context->company_code_snapshot)
-                            ->where('branch_code', $context->branch_code_snapshot);
-                    });
-                }
-            })
-            ->when(trim($name) !== '', fn ($query) => $query->where('menu_name', 'like', '%'.trim($name).'%'))
-            ->when(trim($code) !== '', fn ($query) => $query->where('menu_code', 'like', '%'.trim($code).'%'))
-            ->where('flag_active', true)
-            ->selectRaw('MIN(id) as id, company_code, menu_id, MAX(menu_code) as menu_code, MAX(menu_name) as menu_name, MAX(bom_id) as bom_id, MAX(bom_name) as bom_name, MAX(category_detail) as category_detail, 1 as flag_active, MAX(synced_at) as synced_at')
-            ->groupBy('company_code', 'menu_id')
-            ->orderByRaw('MAX(menu_name)')
-            ->orderBy('company_code')
-            ->orderBy('menu_id');
-
-        return $query->paginate(min(20, max(1, $perPage)), ['*'], 'page', max(1, $page));
+    public function paginate(int $perPage = 10, string $name = '', string $code = '', int $page = 1): LengthAwarePaginator
+    {
+        return $this->activeCatalog()
+            ->when(trim($name) !== '', fn (Builder $query) => $query->where('menu_name', 'like', '%'.trim($name).'%'))
+            ->when(trim($code) !== '', fn (Builder $query) => $query->where('menu_code', 'like', '%'.trim($code).'%'))
+            ->orderBy('menu_name')
+            ->orderBy('menu_id')
+            ->paginate(min(20, max(1, $perPage)), ['*'], 'page', max(1, $page));
     }
 
-    /** @return list<string> */
-    public function branchNamesForMenu(RndInternalMemo $memo, string $companyCode, int $menuId): array
+    /** An active catalog row of the BLSS context, or null when the Menu is not selectable. */
+    public function findSelectable(int $menuId): ?RndInternalMemoMenuCatalog
     {
-        $availableCodes = RndInternalMemoMenuCatalog::query()
-            ->where('company_code', $companyCode)
-            ->where('menu_id', $menuId)
-            ->pluck('branch_code');
-
-        return $memo->branches()
-            ->where('company_code_snapshot', $companyCode)
-            ->whereIn('branch_code_snapshot', $availableCodes)
-            ->pluck('branch_name_snapshot')
-            ->unique()
-            ->values()
-            ->all();
+        return $this->activeCatalog()->where('menu_id', $menuId)->first();
     }
 
-    /** @return list<int> */
-    public function memoBranchIdsForMenu(RndInternalMemo $memo, string $companyCode, int $menuId): array
+    /** @return Builder<RndInternalMemoMenuCatalog> */
+    private function activeCatalog(): Builder
     {
-        $availableCodes = RndInternalMemoMenuCatalog::query()
-            ->where('company_code', $companyCode)
-            ->where('menu_id', $menuId)
-            ->pluck('branch_code');
+        $branchCode = $this->context->catalogBranchCode();
 
-        return $memo->branches()
-            ->where('company_code_snapshot', $companyCode)
-            ->whereIn('branch_code_snapshot', $availableCodes)
-            ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
+        return RndInternalMemoMenuCatalog::query()
+            ->where('company_code', $this->context->companyCode())
+            ->when($branchCode === null, fn (Builder $query) => $query->whereRaw('1 = 0'))
+            ->when($branchCode !== null, fn (Builder $query) => $query->where('branch_code', $branchCode))
+            ->where('flag_active', true);
     }
 }

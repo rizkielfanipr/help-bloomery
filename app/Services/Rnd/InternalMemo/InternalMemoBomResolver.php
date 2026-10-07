@@ -30,6 +30,13 @@ class InternalMemoBomResolver
      */
     private const MAX_ASSEMBLY_DEPTH = 10;
 
+    /**
+     * WIP name prefixes that are not expanded: these WIPs (e.g. "PRX | CRP02", premix supplied by
+     * Bloomery Premix) have no Assembly BOM in the Memo's company, so they are kept as a WIP item
+     * without searching for a child BOM and without a "belum memiliki BOM turunan" blocker.
+     */
+    private const UNEXPANDED_WIP_PREFIXES = ['PRX'];
+
     /** @var array<int, float> */
     private array $outputConversionFactors = [];
 
@@ -126,6 +133,12 @@ class InternalMemoBomResolver
                 continue;
             }
 
+            if ($this->isUnexpandedWip($identity['productName'])) {
+                $this->createMaterialRow($menu, $parentMaterialId, $currentBomId, $currentBomCode, $path, $depth, $component, $propagatedQty, true, false);
+
+                continue;
+            }
+
             if ($depth >= self::MAX_ASSEMBLY_DEPTH) {
                 $blockers[] = 'Batas kedalaman Assembly maksimum ('.self::MAX_ASSEMBLY_DEPTH.' level) tercapai pada jalur '.implode(' → ', $path).' untuk WIP "'.$identity['productName'].'".';
                 $this->createMaterialRow($menu, $parentMaterialId, $currentBomId, $currentBomCode, $path, $depth, $component, $propagatedQty, true, false);
@@ -201,6 +214,14 @@ class InternalMemoBomResolver
             'is_packaging' => $isPackaging,
             'product_snapshot' => $component,
         ]);
+    }
+
+    /** "PRX | CRP02" → prefix PRX, matched against UNEXPANDED_WIP_PREFIXES. */
+    private function isUnexpandedWip(string $productName): bool
+    {
+        $prefix = mb_strtoupper(trim(explode('|', $productName, 2)[0]));
+
+        return str_contains($productName, '|') && in_array($prefix, self::UNEXPANDED_WIP_PREFIXES, true);
     }
 
     /** @return array{productDetailID: ?int, productID: ?int, productCode: ?string, productName: string} */

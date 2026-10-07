@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Rnd\ProjectTask\ProjectTaskAssigneeResolver;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Database\QueryException;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -171,11 +172,29 @@ it('gates follow-up review behind its own permission', function () {
         ->and($pic->can('review', $assignment))->toBeFalse();
 });
 
+it('only offers PICs who are allowed to follow Tasks up', function () {
+    $branch = Branch::factory()->create();
+
+    $responder = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $responder->syncBranchAccess([$branch->id], $branch->id);
+    $responder->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
+
+    $branchStaffWithoutPermission = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $branchStaffWithoutPermission->syncBranchAccess([$branch->id], $branch->id);
+
+    $resolver = app(ProjectTaskAssigneeResolver::class);
+
+    expect($resolver->eligibleUsersForBranch($branch->id)->pluck('id')->all())->toBe([$responder->id])
+        ->and($resolver->isEligible($responder, $branch->id))->toBeTrue()
+        ->and($resolver->isEligible($branchStaffWithoutPermission, $branch->id))->toBeFalse();
+});
+
 it('excludes SUPERADMIN and access_all_branches users from PIC eligibility', function () {
     $branch = Branch::factory()->create();
 
     $eligible = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $eligible->syncBranchAccess([$branch->id], $branch->id);
+    $eligible->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     $superadmin = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $superadmin->assignRole('SUPERADMIN');

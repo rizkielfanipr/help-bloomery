@@ -50,10 +50,6 @@ class InternalMemoValidationService
                 $blockers[] = "Forecast Quantity Menu \"{$label}\" belum diisi atau tidak valid.";
             }
 
-            if (! $menu->hasShelfLife()) {
-                $blockers[] = "Shelf Life Menu \"{$label}\" belum diisi.";
-            }
-
             match ($menu->sync_status) {
                 RndInternalMemoMenuSyncStatus::Pending => $blockers[] = "Menu \"{$label}\" belum pernah disinkronkan.",
                 RndInternalMemoMenuSyncStatus::Syncing => $blockers[] = "Menu \"{$label}\" sedang disinkronkan.",

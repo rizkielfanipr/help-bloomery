@@ -29,9 +29,9 @@ class BomAdjustmentPage extends Page
 
     protected static string|UnitEnum|null $navigationGroup = 'Research & Development';
 
-    protected static ?string $navigationLabel = 'BOM Adjustment';
+    protected static ?string $navigationLabel = 'Recipe Adjustment';
 
-    protected static ?string $title = 'BOM Adjustment';
+    protected static ?string $title = 'Recipe Adjustment';
 
     protected static ?string $slug = 'bom-adjustments';
 

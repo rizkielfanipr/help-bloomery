@@ -10,6 +10,7 @@ use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -29,6 +30,7 @@ it('uploads an instruction attachment when creating a task and stores it under t
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
 
     Livewire::test(ListProjects::class)
         ->call('showProjectTasks')

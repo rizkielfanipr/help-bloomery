@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMinimumOrdersAction;
 use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
 use App\Services\Rnd\InternalMemo\InternalMemoConsolidationService;
@@ -61,18 +62,19 @@ it('groups a missing productDetailID by Product Code and raises a warning', func
         ->and($result['warnings'])->not->toBeEmpty();
 });
 
-it('splits the Ringkasan Item Akhir into Bahan and WIP groups, unlike consolidate()', function () {
+it('puts Menu BOM rows under Store, split into Bahan and WIP, unlike consolidate()', function () {
     [$memo, $menu] = memoWithMenu();
     $menu->materials()->create(['esb_product_detail_id' => 15002, 'product_code' => 'RAW-FLOUR', 'product_name' => 'Tepung', 'uom_name' => 'GR', 'quantity_per_menu' => 250, 'net_quantity' => 0, 'source_bom_id' => 1, 'source_path' => ['Menu'], 'depth' => 0, 'is_wip' => false, 'is_packaging' => false]);
     $menu->materials()->create(['esb_product_detail_id' => 1, 'product_code' => 'BW1356', 'product_name' => 'Croissant Dough WIP', 'uom_name' => 'PCS', 'quantity_per_menu' => 2, 'net_quantity' => 0, 'source_bom_id' => 1, 'source_path' => ['Menu'], 'depth' => 0, 'is_wip' => true, 'is_packaging' => false]);
 
     $result = app(InternalMemoConsolidationService::class)->consolidateForSummary($memo);
 
-    expect($result['bahan'])->toHaveCount(1)
-        ->and($result['bahan'][0]['product_code'])->toBe('RAW-FLOUR')
-        ->and($result['wip'])->toHaveCount(1)
-        ->and($result['wip'][0]['product_code'])->toBe('BW1356')
-        ->and($result['wip'][0]['is_wip'])->toBeTrue();
+    expect($result['store']['bahan'])->toHaveCount(1)
+        ->and($result['store']['bahan'][0]['product_code'])->toBe('RAW-FLOUR')
+        ->and($result['store']['wip'])->toHaveCount(1)
+        ->and($result['store']['wip'][0]['product_code'])->toBe('BW1356')
+        ->and($result['store']['wip'][0]['is_wip'])->toBeTrue()
+        ->and($result['kitchen'])->toBe(['wip' => [], 'bahan' => []]);
 });
 
 it('merges the same item reached through two Menus into one summary row listing both sources', function () {
@@ -84,8 +86,8 @@ it('merges the same item reached through two Menus into one summary row listing 
 
     $result = app(InternalMemoConsolidationService::class)->consolidateForSummary($memo);
 
-    expect($result['bahan'])->toHaveCount(1)
-        ->and($result['bahan'][0]['sources'])->toHaveCount(2);
+    expect($result['store']['bahan'])->toHaveCount(1)
+        ->and($result['store']['bahan'][0]['sources'])->toHaveCount(2);
 });
 
 it('shows Minimum Order in the summary only when every contributing row agrees', function () {
@@ -97,5 +99,31 @@ it('shows Minimum Order in the summary only when every contributing row agrees',
 
     $result = app(InternalMemoConsolidationService::class)->consolidateForSummary($memo);
 
-    expect((float) $result['bahan'][0]['minimum_order'])->toBe(500.0);
+    expect((float) $result['store']['bahan'][0]['minimum_order'])->toBe(500.0);
+});
+
+it('puts traced WIP BOM rows under Kitchen and keeps the same product separate per Store and Kitchen', function () {
+    [$memo, $menu] = memoWithMenu();
+    $row = fn (array $attributes) => $menu->materials()->create([
+        'uom_name' => 'GR', 'quantity_per_menu' => 1, 'net_quantity' => 0, 'source_bom_id' => 1, 'source_path' => ['Menu'],
+        'depth' => 0, 'is_wip' => false, 'is_packaging' => false, ...$attributes,
+    ]);
+    $row(['esb_product_detail_id' => 1, 'product_code' => 'RAW-SUGAR', 'product_name' => 'Gula']);
+    $wip = $row(['esb_product_detail_id' => 2, 'product_code' => 'BW100', 'product_name' => 'Crepe Sheet', 'is_wip' => true]);
+    $row(['esb_product_detail_id' => 1, 'product_code' => 'RAW-SUGAR', 'product_name' => 'Gula', 'depth' => 1, 'parent_material_id' => $wip->id, 'minimum_order' => 25]);
+    $row(['esb_product_detail_id' => 3, 'product_code' => 'BW212', 'product_name' => 'PRX | CRP02', 'depth' => 1, 'parent_material_id' => $wip->id, 'is_wip' => true]);
+
+    $result = app(InternalMemoConsolidationService::class)->consolidateForSummary($memo);
+
+    expect(collect($result['store']['bahan'])->pluck('product_code')->all())->toBe(['RAW-SUGAR'])
+        ->and(collect($result['store']['wip'])->pluck('product_code')->all())->toBe(['BW100'])
+        ->and(collect($result['kitchen']['bahan'])->pluck('product_code')->all())->toBe(['RAW-SUGAR'])
+        ->and(collect($result['kitchen']['wip'])->pluck('product_code')->all())->toBe(['BW212'])
+        ->and($result['store']['bahan'][0]['minimum_order'])->toBeNull()
+        ->and((float) $result['kitchen']['bahan'][0]['minimum_order'])->toBe(25.0)
+        ->and($result['store']['bahan'][0]['key'])->not->toBe($result['kitchen']['bahan'][0]['key']);
+
+    app(UpdateInternalMemoMinimumOrdersAction::class)->execute($memo, $result['store']['bahan'][0]['key'], 10);
+
+    expect($menu->materials()->where('product_code', 'RAW-SUGAR')->orderBy('depth')->pluck('minimum_order')->map(fn ($value) => (float) $value)->all())->toBe([10.0, 25.0]);
 });

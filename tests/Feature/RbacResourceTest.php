@@ -83,13 +83,16 @@ it('bundles sales region access into Project and removes payment grouping permis
         ->and(Permission::where('name', 'view payment method groups')->exists())->toBeFalse();
 });
 
-it('registers Shelf Life permissions separately from Project permissions', function () {
+it('retires the Menu Shelf Life permissions through the synchronizer (docs/rnd-wip-shelf-life-prd.md §15.3)', function () {
     $groups = app(PermissionRegistry::class)->groups();
+    $configured = collect($groups)->flatten();
 
-    expect($groups['Research & Development']['Shelf Life'])->toBe([
-        'view shelf life',
-        'edit shelf life',
-    ])->and($groups['Research & Development']['Project'])->not->toContain('view shelf life');
+    expect($groups['Research & Development'])->not->toHaveKey('Shelf Life')
+        ->not->toHaveKey('Master Shelf Life Menu')
+        ->and($configured)->not->toContain('view shelf life')
+        ->not->toContain('edit shelf life')
+        ->not->toContain('manage rnd product shelf life')
+        ->and(Permission::query()->whereIn('name', ['view shelf life', 'edit shelf life', 'manage rnd product shelf life'])->exists())->toBeFalse();
 });
 
 it('registers Kitchen and Store export permissions separately', function () {
@@ -234,7 +237,9 @@ it('regular user cannot access user management', function () {
 it('SUPERADMIN can access user create page', function () {
     actingAs(superAdmin())
         ->get('/admin/users/create')
-        ->assertOk();
+        ->assertOk()
+        ->assertDontSee('User PIN BOM')
+        ->assertDontSee('PIN BOM');
 });
 
 // ─── RoleResource access ──────────────────────────────────────────────────────

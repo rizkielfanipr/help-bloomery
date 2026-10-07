@@ -18,13 +18,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'username', 'email', 'password', 'branch_id', 'phone', 'bank_name', 'bank_account_number', 'avatar', 'is_active', 'casual_position_id', 'access_all_branches', 'use_bom_pin', 'bom_pin'])]
-#[Hidden(['password', 'remember_token', 'bom_pin'])]
+#[Fillable(['name', 'username', 'email', 'password', 'branch_id', 'phone', 'bank_name', 'bank_account_number', 'avatar', 'is_active', 'casual_position_id', 'access_all_branches'])]
+#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
@@ -37,7 +36,6 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'is_active' => 'boolean',
             'access_all_branches' => 'boolean',
-            'use_bom_pin' => 'boolean',
         ];
     }
 
@@ -72,16 +70,6 @@ class User extends Authenticatable implements FilamentUser
                 ),
             default => false,
         };
-    }
-
-    public function verifiesBomPin(string $pin): bool
-    {
-        return $this->hasBomPin() && Hash::check($pin, $this->bom_pin);
-    }
-
-    public function hasBomPin(): bool
-    {
-        return $this->use_bom_pin && filled($this->bom_pin);
     }
 
     /**

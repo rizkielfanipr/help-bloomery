@@ -4,9 +4,11 @@ use App\Actions\Rnd\InternalMemo\GenerateInternalMemoPdfAction;
 use App\Enums\RndInternalMemoMenuSyncStatus;
 use App\Enums\RndInternalMemoStatus;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\Pages\ViewRndInternalMemo;
+use App\Models\Brand;
 use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoMenu;
 use App\Models\User;
+use App\Services\Rnd\InternalMemo\InternalMemoPdfDataService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Storage;
@@ -137,4 +139,43 @@ it('404s when the document does not belong to the given memo', function () {
     $response = $this->get(route('helpdesk.rnd-internal-memos.download-pdf', ['memo' => $memoB->id, 'document' => $document->id]));
 
     $response->assertNotFound();
+});
+
+it('keeps a historical memo with a Menu Shelf Life snapshot readable and exported as before', function () {
+    $memo = finalizedInternalMemoForPdf();
+
+    Livewire::test(ViewRndInternalMemo::class, ['record' => $memo->getRouteKey()])->assertOk();
+
+    $html = view('exports.rnd-internal-memo-pdf', app(InternalMemoPdfDataService::class)->build($memo))->render();
+
+    expect($html)->toContain('Shelf Life')
+        ->toContain('3 hari')
+        ->and($memo->menus()->sole()->shelf_life_unit)->toBe('hari');
+});
+
+it('prints the Brand snapshot without any Branch Tujuan, even after the Master Brand is deleted', function () {
+    $brand = Brand::factory()->create(['name' => 'Bloomery Bakery']);
+    $memo = finalizedInternalMemoForPdf();
+    $memo->forceFill(['brand_id' => $brand->id, 'brand_name_snapshot' => 'Bloomery Bakery'])->save();
+    $brand->delete();
+    $memo->refresh();
+
+    $html = view('exports.rnd-internal-memo-pdf', app(InternalMemoPdfDataService::class)->build($memo))->render();
+
+    expect($memo->brand_id)->toBeNull()
+        ->and($html)->toContain('Brand')
+        ->and($html)->toContain('Bloomery Bakery')
+        ->and($html)->not->toContain('Branch Tujuan');
+
+    $document = app(GenerateInternalMemoPdfAction::class)->execute($memo, $this->supervisor);
+    Storage::disk('local')->assertExists($document->file_path);
+});
+
+it('prints a clear placeholder instead of a guessed Brand for an unresolved legacy Memo', function () {
+    $memo = finalizedInternalMemoForPdf();
+    $memo->forceFill(['brand_id' => null, 'brand_name_snapshot' => null])->save();
+
+    $html = view('exports.rnd-internal-memo-pdf', app(InternalMemoPdfDataService::class)->build($memo->fresh()))->render();
+
+    expect($html)->toContain('Brand belum ditentukan');
 });

@@ -64,13 +64,13 @@ class InternalMemoConsolidationService
     }
 
     /**
-     * Ringkasan Item Akhir (docs/rnd-internal-memo-simplification-prd.md §9.4, §12.2): unlike
-     * `consolidate()` above (which only ever served the old Forecast-based workflow and excludes
-     * WIP), the simplified summary shows Bahan and WIP as their own groups, each consolidated by
-     * InternalMemoItemIdentity so the same item reached through more than one Menu or BOM path
-     * appears once with every contributing source listed.
+     * Ringkasan produk (docs/rnd-internal-memo-simplification-prd.md §9.4, §12.2), split by who uses
+     * the item: `store` holds only rows of the Menu BOM itself (depth 0), `kitchen` holds the rows
+     * reached by tracing WIP/Assembly BOMs (depth > 0). Each scope is split into WIP and Bahan and
+     * consolidated by InternalMemoItemIdentity, so the same item reached through more than one Menu
+     * or BOM path within a scope appears once with every contributing source listed.
      *
-     * @return array{bahan: list<array<string, mixed>>, wip: list<array<string, mixed>>, warnings: list<string>}
+     * @return array{store: array{wip: list<array<string, mixed>>, bahan: list<array<string, mixed>>}, kitchen: array{wip: list<array<string, mixed>>, bahan: list<array<string, mixed>>}, warnings: list<string>}
      */
     public function consolidateForSummary(RndInternalMemo $memo): array
     {
@@ -87,7 +87,10 @@ class InternalMemoConsolidationService
                 $warnings[] = "\"{$material->product_name}\" tidak mempunyai Product Detail ID; dikonsolidasikan lewat identitas cadangan.";
             }
 
-            return InternalMemoItemIdentity::key($material->esb_product_detail_id, $material->esb_product_id, $material->product_code, $material->product_name, $material->uom_name);
+            return InternalMemoItemIdentity::scopedKey(
+                InternalMemoItemIdentity::scopeForDepth((int) $material->depth),
+                InternalMemoItemIdentity::key($material->esb_product_detail_id, $material->esb_product_id, $material->product_code, $material->product_name, $material->uom_name),
+            );
         });
 
         $rows = $groups->map(function (Collection $rows, string $key): array {
@@ -97,6 +100,8 @@ class InternalMemoConsolidationService
 
             return [
                 'key' => $key,
+                'scope' => InternalMemoItemIdentity::parseScopedKey($key)[0],
+                'product_detail_id' => $first->esb_product_detail_id,
                 'product_code' => $first->product_code,
                 'product_name' => $first->product_name,
                 'uom_name' => $first->uom_name,
@@ -117,9 +122,14 @@ class InternalMemoConsolidationService
             ];
         })->sortBy('product_name')->values();
 
+        $split = fn (string $scope): array => [
+            'wip' => $rows->where('scope', $scope)->where('is_wip', true)->values()->all(),
+            'bahan' => $rows->where('scope', $scope)->where('is_wip', false)->values()->all(),
+        ];
+
         return [
-            'bahan' => $rows->where('is_wip', false)->values()->all(),
-            'wip' => $rows->where('is_wip', true)->values()->all(),
+            'store' => $split(InternalMemoItemIdentity::SCOPE_STORE),
+            'kitchen' => $split(InternalMemoItemIdentity::SCOPE_KITCHEN),
             'warnings' => array_values(array_unique($warnings)),
         ];
     }

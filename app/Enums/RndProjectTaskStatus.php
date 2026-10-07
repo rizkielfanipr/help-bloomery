@@ -32,14 +32,18 @@ enum RndProjectTaskStatus: string implements HasColor, HasLabel
         };
     }
 
+    /**
+     * Status palette of docs/ui-consistency-prd.md §7 — amber waits for review, red was returned
+     * for revision; never purple.
+     */
     public function getColor(): string
     {
         return match ($this) {
             self::Draft => 'gray',
             self::Assigned => 'info',
             self::InProgress => 'info',
-            self::Submitted => 'purple',
-            self::RevisionRequired => 'purple',
+            self::Submitted => 'warning',
+            self::RevisionRequired => 'danger',
             self::Completed => 'success',
             self::Cancelled => 'gray',
         };

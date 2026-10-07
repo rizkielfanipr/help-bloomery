@@ -11,6 +11,7 @@ use Filament\Facades\Filament;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -67,6 +68,7 @@ it('lists the signed-in PIC own assignments as cards in the Tugas Saya sidebar',
     $pic->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'respond rnd project tasks']);
     $branch = Branch::factory()->create();
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $this->actingAs($pic);
 
     $myTask = RndProjectTask::factory()->create([
@@ -97,6 +99,7 @@ it('excludes cancelled and approved assignments from the Tugas Saya sidebar', fu
     $pic->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'respond rnd project tasks']);
     $branch = Branch::factory()->create();
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $this->actingAs($pic);
 
     // Due far outside the calendar's default (current month) view: $pic has an assignment on
@@ -126,6 +129,7 @@ it('creates a task from the modal with one PIC per branch and shows it on the ca
     $branch = Branch::factory()->create();
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->syncBranchAccess([$branch->id], $branch->id);
+    $pic->givePermissionTo(Permission::findOrCreate('respond rnd project tasks', 'web'));
     $manager->syncBranchAccess([$branch->id], $branch->id);
 
     Livewire::test(ListProjects::class)

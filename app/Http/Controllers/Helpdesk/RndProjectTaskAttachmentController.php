@@ -11,7 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 /**
- * Serves private Task attachments (instruction and follow-up result files) from the `b2` disk,
+ * Serves private Task attachments (instruction and follow-up result files) from the Task attachment
+ * disk (`RndProjectTask::attachmentDisk()`, `b2` by default),
  * mirroring `RndBomInstructionImageController`'s authorization + strict path pattern instead of
  * ERP Request's unauthenticated inline presigned URL (docs/rnd-project-task-calendar-prd.md §20 —
  * see Phase 0 audit: the ERP pattern does not enforce per-file authorization).
@@ -23,10 +24,12 @@ class RndProjectTaskAttachmentController extends Controller
         $task = $this->resolveTaskFromPath($path);
 
         abort_unless($request->user()?->can('view', $task), 403);
-        abort_unless(Storage::disk('b2')->exists($path), 404);
+        $disk = Storage::disk(RndProjectTask::attachmentDisk());
+
+        abort_unless($disk->exists($path), 404);
 
         try {
-            return Storage::disk('b2')->response($path, null, ['Cache-Control' => 'private, max-age=3600']);
+            return $disk->response($path, null, ['Cache-Control' => 'private, max-age=3600']);
         } catch (Throwable) {
             abort(404);
         }

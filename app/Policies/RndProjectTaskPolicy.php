@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\Branch;
+use App\Models\RndProject;
 use App\Models\RndProjectTask;
 use App\Models\User;
 
@@ -45,14 +46,43 @@ class RndProjectTaskPolicy
         return $user->can('create rnd project tasks');
     }
 
+    /**
+     * Creating a Task inside a specific Project — archived (soft-deleted) Projects are read-only
+     * (docs/rnd-project-checkpoint-calendar-prd.md §11.3).
+     */
+    public function createForProject(User $user, RndProject $project): bool
+    {
+        return $this->create($user) && ! $project->trashed();
+    }
+
+    /**
+     * "Gunakan Template" needs both the apply and the create permission (§8.2).
+     */
+    public function applyTemplate(User $user, RndProject $project): bool
+    {
+        return $user->can('apply rnd project task templates') && $this->createForProject($user, $project);
+    }
+
+    /**
+     * "Copy Task" needs the copy and create permission, read access to the source Task, and a
+     * writable Project (§8.2, §14.3.2). Copies stay in the source Project on the MVP.
+     */
+    public function copy(User $user, RndProjectTask $task): bool
+    {
+        return $user->can('copy rnd project tasks')
+            && $this->create($user)
+            && $this->view($user, $task)
+            && ! $task->belongsToArchivedProject();
+    }
+
     public function update(User $user, RndProjectTask $task): bool
     {
-        return $user->can('update rnd project tasks');
+        return $user->can('update rnd project tasks') && ! $task->belongsToArchivedProject();
     }
 
     public function assign(User $user, RndProjectTask $task): bool
     {
-        return $user->can('assign rnd project tasks');
+        return $user->can('assign rnd project tasks') && ! $task->belongsToArchivedProject();
     }
 
     public function cancel(User $user, RndProjectTask $task): bool

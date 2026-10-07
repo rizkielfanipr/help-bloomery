@@ -49,13 +49,14 @@ it('blocks on a missing Forecast Quantity', function () {
     expect($result['blockers'])->toContain('Forecast Quantity Menu "Croissant Butter" belum diisi atau tidak valid.');
 });
 
-it('blocks on a missing Shelf Life', function () {
+it('no longer blocks on a missing Menu Shelf Life (docs/rnd-wip-shelf-life-prd.md §19.1)', function () {
     $memo = RndInternalMemo::factory()->create();
     readyMenu($memo, ['shelf_life_value' => null, 'shelf_life_unit' => null]);
 
     $result = app(InternalMemoValidationService::class)->validate($memo);
 
-    expect($result['blockers'])->toContain('Shelf Life Menu "Croissant Butter" belum diisi.');
+    expect($result['blockers'])->not->toContain('Shelf Life Menu "Croissant Butter" belum diisi.')
+        ->and(collect($result['blockers'])->filter(fn (string $blocker): bool => str_contains($blocker, 'Shelf Life')))->toBeEmpty();
 });
 
 it('blocks a Menu that has never been synced', function () {

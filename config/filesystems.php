@@ -87,6 +87,19 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | R&D Project Task Attachment Disk
+    |--------------------------------------------------------------------------
+    |
+    | Instruction and follow-up result files of R&D Project Tasks. Defaults to
+    | the private `b2` (R2) disk; a local environment may point it at `local`
+    | so demo seeding never writes to the real bucket.
+    |
+    */
+
+    'rnd_project_task_attachment_disk' => env('RND_PROJECT_TASK_ATTACHMENT_DISK', 'b2'),
+
     'links' => [
         public_path('storage') => storage_path('app/public'),
     ],

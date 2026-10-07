@@ -114,19 +114,20 @@ class RolesAndPermissionsSeeder extends Seeder
                 'add existing bill of materials',
                 'export kitchen bill of materials', 'export store bill of materials',
                 'view rnd projects', 'create rnd projects', 'edit rnd projects', 'delete rnd projects',
-                'view shelf life', 'edit shelf life',
                 'view product price index', 'sync product price index',
                 'view material sourcings', 'review material sourcing as rnd',
                 'view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo',
                 'update rnd internal memo', 'sync rnd internal memo', 'download rnd internal memo pdf',
                 'delete rnd internal memo',
-                'manage rnd product shelf life',
                 'view bom adjustment history', 'reconcile bom adjustments',
+                'view wip shelf life', 'manage wip shelf life',
                 'view material forecast', 'edit material forecast',
                 'view rnd project tasks', 'create rnd project tasks', 'update rnd project tasks',
                 'assign rnd project tasks', 'respond rnd project tasks',
                 'review rnd project task follow ups', 'cancel rnd project tasks',
-                'view all branch rnd project tasks',
+                'view all branch rnd project tasks', 'copy rnd project tasks',
+                'view rnd project task templates', 'manage rnd project task templates',
+                'apply rnd project task templates',
             ]);
 
         Role::firstOrCreate(['name' => 'PURCHASING_STAFF', 'guard_name' => 'web'])
@@ -142,7 +143,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access backoffice',
                 'view rnd projects', 'upload marketing materials',
-                'view shelf life',
+                'view wip shelf life',
             ]);
 
         Role::firstOrCreate(['name' => 'INVENTORY_STAFF', 'guard_name' => 'web'])

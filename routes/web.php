@@ -12,10 +12,13 @@ use App\Http\Controllers\Helpdesk\CasualClockRecordExportController;
 use App\Http\Controllers\Helpdesk\CasualStaffExportController;
 use App\Http\Controllers\Helpdesk\CustomerComplaintAttachmentController;
 use App\Http\Controllers\Helpdesk\DriverMealAllowanceExportController;
+use App\Http\Controllers\Helpdesk\LegacyShelfLifeRedirectController;
 use App\Http\Controllers\Helpdesk\LocationLabelPdfController;
 use App\Http\Controllers\Helpdesk\ProductLabelPdfController;
 use App\Http\Controllers\Helpdesk\RndBomInstructionImageController;
 use App\Http\Controllers\Helpdesk\RndInternalMemoPdfController;
+use App\Http\Controllers\Helpdesk\RndInternalMemoProductExportController;
+use App\Http\Controllers\Helpdesk\RndInternalMemoReleaseExportController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
@@ -73,8 +76,17 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/helpdesk/exports/briefing-scores', BriefingScoreExportController::class)
         ->name('helpdesk.exports.briefing-scores');
 
+    // Retired Shelf Life Menu export: answers 410 Gone (docs/rnd-wip-shelf-life-prd.md §20.4).
+    // TEMPORARY — remove once the `legacy shelf life export used` log shows no traffic.
     Route::get('/helpdesk/exports/shelf-life', ShelfLifeExportController::class)
         ->name('helpdesk.exports.shelf-life');
+
+    // Retired `Master Shelf Life Menu` Resource URLs redirect to the WIP Shelf Life menu, which now
+    // owns `/shelf-life` (docs/rnd-wip-shelf-life-prd.md §20.3). TEMPORARY — remove once the
+    // `legacy shelf life route used` log shows no traffic and a reference audit is clean.
+    Route::get('/rnd-product-shelf-lives/{path?}', LegacyShelfLifeRedirectController::class)
+        ->where('path', '.*')
+        ->name('helpdesk.legacy.rnd-product-shelf-lives');
 
     Route::get('/casual/exports/briefing-score-pdf', BriefingScorePdfController::class)
         ->name('casual.exports.briefing-score-pdf');
@@ -106,6 +118,13 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::get('/rnd-internal-memos/{memo}/documents/{document}/download', RndInternalMemoPdfController::class)
         ->name('helpdesk.rnd-internal-memos.download-pdf');
+
+    Route::get('/rnd-internal-memos/{memo}/export-pdf', RndInternalMemoReleaseExportController::class)
+        ->name('helpdesk.rnd-internal-memos.export-pdf');
+
+    Route::get('/rnd-internal-memos/{memo}/product-active/{scope}/export-xlsx', RndInternalMemoProductExportController::class)
+        ->whereIn('scope', ['store', 'kitchen'])
+        ->name('helpdesk.rnd-internal-memos.product-active-export');
 
     Route::get('/rnd-projects/{project}/products/{product}/materials/export', RndProductEsbMaterialExportController::class)
         ->name('helpdesk.rnd-products.esb-materials-export');

@@ -8,6 +8,7 @@ use App\Filament\Helpdesk\Resources\BulkProductSubmissions\Pages\ListBulkProduct
 use App\Filament\Helpdesk\Resources\BulkProductSubmissions\Pages\ViewBulkProductSubmission;
 use App\Models\BulkProductSubmission;
 use App\Services\EsbCompanyProductService;
+use App\Services\EsbUnitCatalogService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -140,12 +141,12 @@ class BulkProductSubmissionResource extends Resource
                     ->schema([
                         Select::make('uomID')
                             ->label('Unit')
-                            ->options(config('esb.core.uoms', []))
+                            ->options(fn (): array => app(EsbUnitCatalogService::class)->options())
                             ->searchable()->preload()->native(false)->required()->live()
                             ->afterStateUpdated(function (mixed $state, Get $get, Set $set): void {
-                                $unit = strtoupper((string) config("esb.core.uoms.{$state}", ''));
+                                $unit = (string) (app(EsbUnitCatalogService::class)->options()[(int) $state] ?? '');
                                 $set('uomName', $unit);
-                                $set('sku', self::sku((string) $get('../../productCode'), $unit));
+                                $set('sku', self::sku((string) $get('../../productCode'), mb_strtoupper($unit)));
                             }),
                         Hidden::make('uomName'),
                         TextInput::make('basePrice')->label('Base Price')->numeric()->default(0)->minValue(0)->required(),

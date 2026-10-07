@@ -22,6 +22,7 @@ use App\Models\RndProjectProduct;
 use App\Services\EsbBillOfMaterialService;
 use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
+use App\Services\EsbUnitCatalogService;
 use App\Services\ProductPriceIndexService;
 use App\Services\Rnd\Bom\BomPayloadBuilder;
 use App\Services\Rnd\Bom\ProjectWipRecipeDiscovery;
@@ -1899,7 +1900,7 @@ class ViewProjectProductPage extends Page
 
     public function esbUomOptions(): array
     {
-        $options = config('esb.core.uoms', []);
+        $options = app(EsbUnitCatalogService::class)->options();
 
         if ($this->esbMaterialUomId && $this->esbMaterialUomName !== '') {
             $options[$this->esbMaterialUomId] ??= $this->esbMaterialUomName;

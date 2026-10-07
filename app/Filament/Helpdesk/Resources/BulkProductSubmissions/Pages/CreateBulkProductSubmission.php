@@ -32,6 +32,24 @@ class CreateBulkProductSubmission extends CreateRecord
             throw ValidationException::withMessages(['payload.productDetails' => 'Qty base unit harus 1.']);
         }
 
+        $duplicateUomIds = collect($details)
+            ->pluck('uomID')
+            ->filter(fn (mixed $uomId): bool => filled($uomId))
+            ->map(fn (mixed $uomId): int => (int) $uomId)
+            ->duplicatesStrict();
+        if ($duplicateUomIds->isNotEmpty()) {
+            throw ValidationException::withMessages(['payload.productDetails' => 'Unit tidak boleh dipilih lebih dari satu kali.']);
+        }
+
+        $duplicateSkus = collect($details)
+            ->pluck('sku')
+            ->map(fn (mixed $sku): string => mb_strtoupper(trim((string) $sku)))
+            ->filter()
+            ->duplicatesStrict();
+        if ($duplicateSkus->isNotEmpty()) {
+            throw ValidationException::withMessages(['payload.productDetails' => 'SKU unit tidak boleh sama.']);
+        }
+
         if (($data['operation'] ?? null) === 'update') {
             foreach ($targets as $comcode) {
                 if ((int) data_get($data, "remote_product_ids.{$comcode}", 0) < 1) {

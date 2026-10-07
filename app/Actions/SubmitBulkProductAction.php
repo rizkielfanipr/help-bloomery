@@ -42,7 +42,7 @@ class SubmitBulkProductAction
     private function processItem(BulkProductSubmissionItem $item): void
     {
         $submission = $item->submission;
-        $payload = $this->payloadForComcode($submission->payload, $item->comcode);
+        $payload = $this->payloadForComcode($submission->payload, $item->comcode, $submission->operation);
         $item->update([
             'status' => 'processing', 'request_payload' => $payload, 'response_payload' => null,
             'error_message' => null, 'attempts' => $item->attempts + 1,
@@ -71,14 +71,28 @@ class SubmitBulkProductAction
         }
     }
 
-    private function payloadForComcode(array $payload, string $comcode): array
+    private function payloadForComcode(array $payload, string $comcode, string $operation): array
     {
-        $payload['productDetails'] = collect($payload['productDetails'] ?? [])->map(function (array $detail) use ($comcode): array {
-            $detail['productDetailID'] = data_get($detail, "productDetailIDs.{$comcode}");
-            unset($detail['productDetailIDs'], $detail['uomName']);
+        $payload['productDetails'] = collect($payload['productDetails'] ?? [])
+            ->map(function (array $detail) use ($comcode, $operation): array {
+                if ($operation === 'update') {
+                    $detail['productDetailID'] = data_get($detail, "productDetailIDs.{$comcode}");
+                } else {
+                    unset($detail['productDetailID']);
+                }
 
-            return $detail;
-        })->all();
+                unset($detail['productDetailIDs'], $detail['uomName']);
+
+                return $detail;
+            })
+            ->unique(fn (array $detail): int => (int) ($detail['uomID'] ?? 0))
+            ->unique(function (array $detail, int $index): string {
+                $sku = mb_strtoupper(trim((string) ($detail['sku'] ?? '')));
+
+                return $sku !== '' ? 'sku:'.$sku : 'row:'.$index;
+            })
+            ->values()
+            ->all();
 
         return $payload;
     }

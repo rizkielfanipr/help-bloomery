@@ -217,6 +217,68 @@ it('validates one base and stock unit in the Filament form', function () {
         ->assertHasFormErrors();
 });
 
+it('rejects duplicate units in the Filament form', function () {
+    Http::fake([
+        'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'blss-token']]),
+        'https://core-esb.test/product/list*' => Http::response(['status' => 'ok', 'result' => [
+            'page' => 1, 'limit' => 100, 'count' => 1, 'next' => null,
+            'data' => [['categoryID' => 10, 'categoryName' => 'Bahan Baku', 'subCategoryID' => 11, 'subCategoryName' => 'Tepung']],
+        ]]),
+    ]);
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('IT_STAFF');
+    $this->actingAs($user);
+
+    $details = bulkProductPayload()['productDetails'];
+    $details[] = [...$details[0], 'isBase' => false, 'isStock' => false];
+
+    Livewire::test(CreateBulkProductSubmission::class)
+        ->fillForm([
+            'operation' => 'create',
+            'target_comcodes' => ['BLSS'],
+            'payload' => [...bulkProductPayload(), 'productDetails' => $details],
+        ])
+        ->call('create')
+        ->assertHasErrors(['payload.productDetails']);
+
+    expect(BulkProductSubmission::query()->count())->toBe(0);
+});
+
+it('deduplicates legacy create details and omits empty product detail ids', function () {
+    Http::fake(function (Request $request) {
+        if ($request->url() === 'https://core-esb.test/auth/login') {
+            return Http::response(['status' => 'ok', 'result' => ['accessToken' => 'blss-token']]);
+        }
+
+        return Http::response(['status' => 'ok', 'result' => ['productID' => 101, 'isTemp' => false]]);
+    });
+
+    $payload = bulkProductPayload();
+    $payload['productDetails'][0]['productDetailID'] = null;
+    $payload['productDetails'][] = [...$payload['productDetails'][0], 'isBase' => false, 'isStock' => false];
+    $submission = BulkProductSubmission::factory()->create([
+        'operation' => 'create',
+        'target_comcodes' => ['BLSS'],
+        'payload' => $payload,
+    ]);
+
+    app(SubmitBulkProductAction::class)->execute($submission);
+
+    Http::assertSent(function (Request $request): bool {
+        if ($request->method() !== 'POST' || $request->url() !== 'https://core-esb.test/product') {
+            return false;
+        }
+
+        $details = (array) $request['productDetails'];
+
+        return count($details) === 1
+            && (int) $details[0]['uomID'] === 2
+            && ! array_key_exists('productDetailID', $details[0]);
+    });
+});
+
 it('resets category selections when the target comcode changes', function () {
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),

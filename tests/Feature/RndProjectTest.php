@@ -1346,6 +1346,7 @@ it('stores a new material draft and creates its Master Product in ESB', function
             && data_get($request->data(), 'productDetails.0.sku') === 'BBMK-MATCHA-01-GR'
             && data_get($request->data(), 'productDetails.0.qty') === 1.0
             && data_get($request->data(), 'productDetails.0.isSales') === true
+            && ! array_key_exists('productDetailID', $request['productDetails'][0])
             && data_get($request->data(), 'productDetails.1.uomID') === 16
             && data_get($request->data(), 'productDetails.1.sku') === 'BBMK-MATCHA-01-RESEP'
             && data_get($request->data(), 'productDetails.1.qty') === 300.0;

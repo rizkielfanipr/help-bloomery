@@ -180,7 +180,6 @@ class RndProductEsbMaterial extends Model
 
         if ($units->isEmpty()) {
             return [[
-                'productDetailID' => null,
                 'uomID' => $this->uom_id,
                 'basePrice' => (float) $this->base_price,
                 'sku' => $this->sku,
@@ -197,21 +196,28 @@ class RndProductEsbMaterial extends Model
             ]];
         }
 
-        return $units->map(fn (RndProductEsbMaterialUnit $unit): array => [
-            'productDetailID' => $unit->esb_product_detail_id,
-            'uomID' => $unit->uom_id,
-            'basePrice' => (float) $unit->base_price,
-            'sku' => $unit->sku,
-            'cubication' => 0,
-            'weight' => 0,
-            'qty' => (float) $unit->conversion_factor,
-            'isStock' => $unit->is_stock,
-            'isPurchase' => $unit->is_purchase,
-            'isTransfer' => $unit->is_transfer,
-            'isSales' => $unit->is_sales || $unit->is_base,
-            'isBase' => $unit->is_base,
-            'menuID' => null,
-            'flagActive' => $unit->flag_active,
-        ])->values()->all();
+        return $units->map(function (RndProductEsbMaterialUnit $unit): array {
+            $payload = [
+                'uomID' => $unit->uom_id,
+                'basePrice' => (float) $unit->base_price,
+                'sku' => $unit->sku,
+                'cubication' => 0,
+                'weight' => 0,
+                'qty' => (float) $unit->conversion_factor,
+                'isStock' => $unit->is_stock,
+                'isPurchase' => $unit->is_purchase,
+                'isTransfer' => $unit->is_transfer,
+                'isSales' => $unit->is_sales || $unit->is_base,
+                'isBase' => $unit->is_base,
+                'menuID' => null,
+                'flagActive' => $unit->flag_active,
+            ];
+
+            if ($unit->esb_product_detail_id) {
+                $payload['productDetailID'] = $unit->esb_product_detail_id;
+            }
+
+            return $payload;
+        })->values()->all();
     }
 }

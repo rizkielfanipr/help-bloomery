@@ -90,7 +90,11 @@ it('notifies every active PIC when the deadline changes', function () {
 });
 
 it('does not notify when the task is updated without changing the deadline', function () {
-    $task = RndProjectTask::factory()->create(['status' => 'in_progress', 'due_date' => '2026-10-05']);
+    $task = RndProjectTask::factory()->create([
+        'status' => 'in_progress',
+        'assigned_date' => '2026-10-01',
+        'due_date' => '2026-10-05',
+    ]);
     $pic = User::factory()->create();
     RndProjectTaskAssignment::factory()->create(['rnd_project_task_id' => $task->id, 'user_id' => $pic->id, 'status' => 'in_progress']);
 

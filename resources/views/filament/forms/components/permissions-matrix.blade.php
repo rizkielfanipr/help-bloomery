@@ -32,6 +32,13 @@
             }
         },
 
+        isPartiallyChecked(ids) {
+            if (!Array.isArray(this.state)) return false;
+            const mapped = this.state.map(Number);
+            const checked = ids.filter(id => mapped.includes(Number(id))).length;
+            return checked > 0 && checked < ids.length;
+        },
+
         isGroupAllChecked(ids) {
             if (!Array.isArray(this.state) || !ids.length) return false;
             const mapped = this.state.map(Number);
@@ -116,15 +123,27 @@
             }
 
             // Standard actions get their own column (first permission wins); every other permission goes to "Izin Khusus".
+            // A column cell may hold several permissions toggled together:
+            // - "view any X" + "view X" form one View checkbox (list + detail), so one tick opens both;
+            // - "update X" fills the Edit column when the resource has no "edit X" permission.
             $placePermissions = function (array $permissions) use ($nameToId, $groupActionLabels): array {
                 $byAction = [];
                 $extra = [];
-                foreach ($permissions as $perm) {
-                    if (! isset($nameToId[$perm])) continue;
+                $available = array_values(array_filter($permissions, fn ($perm) => isset($nameToId[$perm])));
+                $hasEdit = collect($available)->contains(fn ($perm) => str_starts_with($perm, 'edit '));
+                foreach ($available as $perm) {
+                    if (str_starts_with($perm, 'view ') && ! str_starts_with($perm, 'view any ') && in_array('view any '.substr($perm, 5), $available, true)) {
+                        continue; // placed together with its "view any" permission below
+                    }
                     $placed = false;
                     foreach (array_keys($groupActionLabels) as $action) {
-                        if (str_starts_with($perm, $action . ' ') && ! isset($byAction[$action])) {
-                            $byAction[$action] = $nameToId[$perm];
+                        $matches = str_starts_with($perm, $action . ' ')
+                            || ($action === 'edit' && ! $hasEdit && str_starts_with($perm, 'update '));
+                        if ($matches && ! isset($byAction[$action])) {
+                            $byAction[$action] = [$nameToId[$perm]];
+                            if (str_starts_with($perm, 'view any ') && in_array('view '.substr($perm, 9), $available, true)) {
+                                $byAction[$action][] = $nameToId['view '.substr($perm, 9)];
+                            }
                             $placed = true;
                             break;
                         }
@@ -200,16 +219,30 @@
                             @foreach ($groupActionLabels as $action => $label)
                                 <td class="px-2 py-3 text-center align-middle">
                                     @if (isset($permByAction[$action]))
-                                        @php $permId = $permByAction[$action]; @endphp
-                                        <label class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-white/5">
-                                            <input
-                                                type="checkbox"
-                                                value="{{ $permId }}"
-                                                :checked="isChecked({{ $permId }})"
-                                                @change="toggle({{ $permId }})"
-                                                class="h-4 w-4 rounded border-gray-300 text-primary-600 shadow-sm focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                                            />
-                                        </label>
+                                        @php $permIds = $permByAction[$action]; @endphp
+                                        @if (count($permIds) === 1)
+                                            <label class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-white/5" title="{{ ucfirst($options[$permIds[0]] ?? '') }}">
+                                                <input
+                                                    type="checkbox"
+                                                    value="{{ $permIds[0] }}"
+                                                    :checked="isChecked({{ $permIds[0] }})"
+                                                    @change="toggle({{ $permIds[0] }})"
+                                                    class="h-4 w-4 rounded border-gray-300 text-primary-600 shadow-sm focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                                />
+                                            </label>
+                                        @else
+                                            {{-- One tick grants every permission of the cell (e.g. list + detail view). --}}
+                                            <label class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-white/5" title="{{ collect($permIds)->map(fn ($id) => ucfirst($options[$id] ?? ''))->implode(' + ') }}">
+                                                <input
+                                                    type="checkbox"
+                                                    value="{{ implode(',', $permIds) }}"
+                                                    :checked="isGroupAllChecked({{ json_encode($permIds) }})"
+                                                    :indeterminate="isPartiallyChecked({{ json_encode($permIds) }})"
+                                                    @change="toggleGroup({{ json_encode($permIds) }}, $event.target.checked)"
+                                                    class="h-4 w-4 rounded border-gray-300 text-primary-600 shadow-sm focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                                />
+                                            </label>
+                                        @endif
                                     @else
                                         <span class="text-gray-300 dark:text-gray-600">—</span>
                                     @endif

@@ -83,7 +83,7 @@ class StockCardSettingsPage extends Page
         $this->showUncategorized = $setting?->show_uncategorized ?? true;
         $this->selectedCategories = $setting?->categories ?? [];
         $this->categorySources = $setting?->category_sources ?? [];
-        $this->categoryRules = $setting?->category_rules ?? [];
+        $this->categoryRules = $this->keyCategoryRules($setting?->category_rules ?? []);
         $this->mergeCategoryOptions();
     }
 
@@ -243,6 +243,42 @@ class StockCardSettingsPage extends Page
         $this->ensureCategoryRules();
     }
 
+    /**
+     * Rules are stored as a list but the form addresses them by the category's key
+     * (sha1 of the normalized name). Re-key them on load so a saved "Limited Count" shows up again
+     * instead of being shadowed by a fresh "All Products" default. Rows duplicated by the old
+     * list/key mismatch are collapsed, keeping a "limited" rule over an auto-created "all" one.
+     *
+     * @param  array<int|string, array<string, mixed>>  $rules
+     * @return array<string, array<string, mixed>>
+     */
+    private function keyCategoryRules(array $rules): array
+    {
+        $normalizer = app(StockCardCategoryFilter::class);
+        $keyed = [];
+
+        foreach ($rules as $rule) {
+            $name = Str::squish((string) ($rule['category_name'] ?? ''));
+            if (! is_array($rule) || $name === '') {
+                continue;
+            }
+
+            $key = sha1($normalizer->normalizeName($name));
+            if (isset($keyed[$key]) && ($keyed[$key]['mode'] ?? 'all') === 'limited' && ($rule['mode'] ?? 'all') !== 'limited') {
+                continue;
+            }
+
+            $keyed[$key] = [
+                'category_name' => $name,
+                'mode' => ($rule['mode'] ?? 'all') === 'limited' ? 'limited' : 'all',
+                'daily_count' => isset($rule['daily_count']) ? (int) $rule['daily_count'] : null,
+                'rotate_daily' => (bool) ($rule['rotate_daily'] ?? false),
+            ];
+        }
+
+        return $keyed;
+    }
+
     private function ensureCategoryRules(): void
     {
         $normalizer = app(StockCardCategoryFilter::class);
@@ -297,7 +333,7 @@ class StockCardSettingsPage extends Page
             'categories' => $this->allCategories ? [] : collect($this->selectedCategories)
                 ->unique(fn (string $name): string => $normalizer->normalizeName($name))->values()->all(),
             'show_uncategorized' => $this->showUncategorized,
-            'category_rules' => collect($this->categoryRules)->map(function (array $rule): array {
+            'category_rules' => collect($this->keyCategoryRules($this->categoryRules))->map(function (array $rule): array {
                 $limited = ($rule['mode'] ?? 'all') === 'limited';
 
                 return [

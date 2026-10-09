@@ -11,13 +11,19 @@
                 @endif
                 <th class="px-4 py-3 text-left">Minimum Order</th>
                 <th class="px-4 py-3 text-left">Diperbarui</th>
+                <th class="px-4 py-3 text-right"><span class="sr-only">Aksi</span></th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($rows as $row)
                 <tr wire:key="summary-{{ $tableKey }}-{{ $row['key'] }}">
                     <td class="px-4 py-3">
-                        <p class="font-semibold text-gray-900 dark:text-white">{{ $row['product_name'] }}</p>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <p class="font-semibold text-gray-900 dark:text-white">{{ $row['product_name'] }}</p>
+                            @if(($row['source'] ?? 'bom') === 'manual')
+                                <span class="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">Manual</span>
+                            @endif
+                        </div>
                         <p class="text-xs text-gray-400">{{ $row['product_code'] ?: '—' }}</p>
                     </td>
                     <td class="px-4 py-3">{{ $row['uom_name'] }}</td>
@@ -69,6 +75,13 @@
                         </div>
                     </td>
                     <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{{ $row['product_synced_at'] ? \Illuminate\Support\Carbon::parse($row['product_synced_at'])->diffForHumans() : '—' }}</td>
+                    <td class="px-4 py-3 text-right">
+                        @if($canManage && ($row['source'] ?? 'bom') === 'manual')
+                            <button type="button" x-on:click="window.BloomeryConfirm.show({ title: 'Hapus Product?', text: @js($row['product_name'].' akan dihapus dari Memo.'), confirmText: 'Hapus' }).then((confirmed) => { if (confirmed) $wire.removeExtraProduct({{ (int) $row['extra_product_id'] }}) })" aria-label="Hapus {{ $row['product_name'] }}" title="Hapus Product" class="inline-flex rounded-lg p-1.5 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">
+                                <x-heroicon-o-trash class="h-4 w-4" aria-hidden="true" />
+                            </button>
+                        @endif
+                    </td>
                 </tr>
             @endforeach
         </tbody>

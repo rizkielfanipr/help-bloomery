@@ -206,8 +206,13 @@ describe('Add Menu from the BLSS catalog', function () {
 
 describe('legacy Brand backfill', function () {
     beforeEach(function () {
+        // Distinct periods so two Memos resolved to the same Brand never collide by chance.
+        $this->legacyPeriod = 0;
         $this->legacyMemo = function (array $branchBrandIds, string $company = 'BLSS'): RndInternalMemo {
-            $memo = RndInternalMemo::factory()->withoutBrand()->create(['company_code' => $company]);
+            $memo = RndInternalMemo::factory()->withoutBrand()->create([
+                'company_code' => $company,
+                'period_month' => now()->startOfMonth()->addMonths(++$this->legacyPeriod)->toDateString(),
+            ]);
             foreach ($branchBrandIds as $brandId) {
                 RndInternalMemoBranch::factory()->create([
                     'rnd_internal_memo_id' => $memo->id,
@@ -234,7 +239,7 @@ describe('legacy Brand backfill', function () {
         $noBranch = ($this->legacyMemo)([]);
         $multiple = ($this->legacyMemo)([$this->brand->id, $this->otherBrand->id]);
         $nonBlss = ($this->legacyMemo)([$this->brand->id], 'BLO6');
-        $existing = RndInternalMemo::factory()->forBrand($this->otherBrand)->create(['brand_name_snapshot' => null]);
+        $existing = RndInternalMemo::factory()->forBrand($this->otherBrand)->create(['brand_name_snapshot' => null, 'period_month' => now()->startOfMonth()->subYears(2)->toDateString()]);
         RndInternalMemoBranch::factory()->create(['rnd_internal_memo_id' => $existing->id, 'branch_id' => Branch::factory()->create(['brand_id' => $this->brand->id])->id]);
 
         expect(Artisan::call('rnd:backfill-internal-memo-brands', ['--apply' => true, '--chunk' => 2]))->toBe(0);

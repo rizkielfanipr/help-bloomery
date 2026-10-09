@@ -72,7 +72,7 @@ class RndInternalMemoProductExportController extends Controller
         $writer->addRow(Row::fromValues([
             'No', 'Product Code', 'Product Name', 'UOM BOM', 'Purchase UOM',
             ...($withShelfLife ? ['Shelf Life', 'Storage'] : []),
-            'Minimum Order', 'UOM Minimum Order',
+            'Minimum Order', 'UOM Minimum Order', 'Sumber',
         ], $header));
 
         foreach ($rows as $index => $row) {
@@ -94,6 +94,7 @@ class RndInternalMemoProductExportController extends Controller
                 ] : []),
                 $row['minimum_order'],
                 $row['minimum_order'] !== null ? $row['uom_name'] : '',
+                ($row['source'] ?? 'bom') === 'manual' ? 'Manual' : 'BOM Menu',
             ]));
         }
     }

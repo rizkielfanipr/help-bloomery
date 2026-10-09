@@ -15,6 +15,7 @@ class EsbReplaceProductUnitsCommand extends Command
         {--company=BLSS : ESB Core company code}
         {--sheet= : Sheet name to read (default: the first sheet)}
         {--deactivate-old : Also set the old unit inactive (default keeps it active, only its flags move)}
+        {--allow-missing-source : When the product has no active old unit, still add the new unit using the conversion factor from the report (flags move later with --finalize)}
         {--finalize : For products that already have the new unit: put the stock/purchase/transfer/sales flags on the new unit only and deactivate the old unit}
         {--execute : Actually PUT the changes (default is a dry run)}
         {--limit=0 : Only change the first N qualifying products}
@@ -121,14 +122,26 @@ class EsbReplaceProductUnitsCommand extends Command
             fn (array $detail): bool => $named($detail) === mb_strtolower($row['oldUnit']) && (bool) $detail['flagActive'],
         ));
 
-        if (count($sources) !== 1) {
+        $allowMissing = (bool) $this->option('allow-missing-source');
+
+        if (count($sources) > 1 || (count($sources) === 0 && ! $allowMissing)) {
             return ['status' => 'no_single_active_source_unit', 'productId' => $productId, 'message' => count($sources).' active '.$row['oldUnit'].' units'];
         }
 
-        $source = $sources[0];
-        $oldDetailId = (int) $source['productDetailID'];
+        if ($allowMissing) {
+            $baseName = collect($details)->first(fn (array $detail): bool => (bool) $detail['isBase']);
+            $baseName = $baseName === null ? '' : mb_strtoupper($this->unitName($baseName));
+            $suffix = preg_match('/@[0-9.]+(.+)$/', $row['newUnit'], $matches) === 1 ? mb_strtoupper(trim($matches[1])) : '';
 
-        if (abs((float) $source['qty'] - $row['factor']) > 0.000001) {
+            if ($suffix === '' || $suffix !== $baseName) {
+                return ['status' => 'base_unit_mismatch', 'productId' => $productId, 'message' => "new unit ends with {$suffix}, product base unit is {$baseName}"];
+            }
+        }
+
+        $source = $sources[0] ?? null;
+        $oldDetailId = $source === null ? null : (int) $source['productDetailID'];
+
+        if ($source !== null && abs((float) $source['qty'] - $row['factor']) > 0.000001) {
             return ['status' => 'factor_mismatch', 'productId' => $productId, 'oldDetailId' => $oldDetailId, 'message' => "ESB qty {$source['qty']} vs report {$row['factor']}"];
         }
 
@@ -136,7 +149,7 @@ class EsbReplaceProductUnitsCommand extends Command
             return ['status' => 'uom_missing', 'productId' => $productId, 'oldDetailId' => $oldDetailId, 'message' => "unit {$row['newUnit']} does not exist"];
         }
 
-        if (($source['menuID'] ?? null) !== null) {
+        if ($source !== null && ($source['menuID'] ?? null) !== null) {
             return ['status' => 'has_menu_mapping', 'productId' => $productId, 'oldDetailId' => $oldDetailId, 'message' => 'old unit is mapped to a menu; decide manually'];
         }
 
@@ -147,7 +160,7 @@ class EsbReplaceProductUnitsCommand extends Command
         $deactivate = (bool) $this->option('deactivate-old');
         $payloadDetails = [];
         foreach ($details as $detail) {
-            $isSource = (int) $detail['productDetailID'] === $oldDetailId;
+            $isSource = $oldDetailId !== null && (int) $detail['productDetailID'] === $oldDetailId;
             $payloadDetails[] = $this->detailPayload($detail, [
                 'isStock' => $isSource ? false : $detail['isStock'],
                 'isPurchase' => $isSource ? false : $detail['isPurchase'],
@@ -159,16 +172,16 @@ class EsbReplaceProductUnitsCommand extends Command
 
         $payloadDetails[] = [
             'uomID' => $unitIds[mb_strtolower($row['newUnit'])],
-            'qty' => $source['qty'],
-            'basePrice' => $source['basePrice'],
+            'qty' => $source['qty'] ?? $row['factor'],
+            'basePrice' => $source['basePrice'] ?? 0,
             'sku' => $row['sku'],
-            'cubication' => $source['cubication'],
-            'weight' => $source['weight'],
+            'cubication' => $source['cubication'] ?? 0,
+            'weight' => $source['weight'] ?? 0,
             'isBase' => false,
-            'isStock' => $source['isStock'],
-            'isPurchase' => $source['isPurchase'],
-            'isTransfer' => $source['isTransfer'],
-            'isSales' => $source['isSales'],
+            'isStock' => $source['isStock'] ?? false,
+            'isPurchase' => $source['isPurchase'] ?? false,
+            'isTransfer' => $source['isTransfer'] ?? false,
+            'isSales' => $source['isSales'] ?? false,
             'menuID' => null,
             'flagActive' => true,
         ];

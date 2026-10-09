@@ -3,6 +3,7 @@
 namespace App\Services\Rnd\InternalMemo;
 
 use App\Models\RndInternalMemo;
+use App\Models\RndInternalMemoExtraProduct;
 use App\Models\RndInternalMemoMaterial;
 use Illuminate\Support\Collection;
 
@@ -68,7 +69,8 @@ class InternalMemoConsolidationService
      * the item: `store` holds only rows of the Menu BOM itself (depth 0), `kitchen` holds the rows
      * reached by tracing WIP/Assembly BOMs (depth > 0). Each scope is split into WIP and Bahan and
      * consolidated by InternalMemoItemIdentity, so the same item reached through more than one Menu
-     * or BOM path within a scope appears once with every contributing source listed.
+     * or BOM path within a scope appears once with every contributing source listed. Products added
+     * by hand (RndInternalMemoExtraProduct) join their WIP/RAW group with `source` = manual.
      *
      * @return array{store: array{wip: list<array<string, mixed>>, bahan: list<array<string, mixed>>}, kitchen: array{wip: list<array<string, mixed>>, bahan: list<array<string, mixed>>}, warnings: list<string>}
      */
@@ -100,6 +102,8 @@ class InternalMemoConsolidationService
 
             return [
                 'key' => $key,
+                'source' => 'bom',
+                'extra_product_id' => null,
                 'scope' => InternalMemoItemIdentity::parseScopedKey($key)[0],
                 'product_detail_id' => $first->esb_product_detail_id,
                 'product_code' => $first->product_code,
@@ -120,7 +124,26 @@ class InternalMemoConsolidationService
                     ->values()
                     ->all(),
             ];
-        })->sortBy('product_name')->values();
+        })->values()
+            ->concat($memo->extraProducts()->get()->map(fn (RndInternalMemoExtraProduct $extra): array => [
+                'key' => InternalMemoItemIdentity::scopedKey($extra->scope, InternalMemoItemIdentity::extraKey($extra->id)),
+                'source' => 'manual',
+                'extra_product_id' => $extra->id,
+                'scope' => $extra->scope,
+                'product_detail_id' => $extra->esb_product_detail_id,
+                'product_code' => $extra->product_code,
+                'product_name' => $extra->product_name,
+                'uom_name' => $extra->uom_name,
+                'has_purchase_uom' => $extra->hasPurchaseUom(),
+                'purchase_uom_name' => $extra->purchase_uom_name,
+                'minimum_order' => $extra->minimum_order !== null ? (float) $extra->minimum_order : null,
+                'product_synced_at' => $extra->product_synced_at,
+                'is_wip' => $extra->isWip(),
+                'is_packaging' => false,
+                'sources' => [],
+            ]))
+            ->sortBy('product_name')
+            ->values();
 
         $split = fn (string $scope): array => [
             'wip' => $rows->where('scope', $scope)->where('is_wip', true)->values()->all(),

@@ -151,3 +151,34 @@ it('applies --limit to finalize runs too', function () {
         'file' => $path, '--finalize' => true, '--limit' => 1, '--report' => tempnam(sys_get_temp_dir(), 'rep'),
     ])->expectsOutputToContain('would_finalize: 1')->assertSuccessful();
 });
+
+it('adds the new unit from the report factor when the product has no old unit, and guards the base unit', function (string $newUnit, string $status) {
+    $path = tempnam(sys_get_temp_dir(), 'replace').'.xlsx';
+    $writer = new Writer;
+    $writer->openToFile($path);
+    $writer->addRow(Row::fromValues(['Product Code', 'Unit Asal', 'Conversion Factor', 'Unit UOM', 'SKU New']));
+    $writer->addRow(Row::fromValues(['BW1', 'Resep', 150, $newUnit, "BW1-{$newUnit}"]));
+    $writer->close();
+
+    $before = replaceUnitsProduct();
+    $before['result']['productDetails'] = [$before['result']['productDetails'][0]];
+    $before['result']['productDetails'][0]['isStock'] = true;
+    $after = $before;
+    $after['result']['productDetails'][] = ['productDetailID' => 3, 'uomID' => 90, 'uomName' => 'Resep@150GR', 'qty' => 150, 'basePrice' => 0, 'SKU' => 'x', 'cubication' => 0, 'weight' => 0, 'isBase' => false, 'isStock' => false, 'isPurchase' => false, 'isTransfer' => false, 'isSales' => false, 'menuID' => null, 'flagActive' => true];
+    fakeReplaceUnits($before, $after);
+
+    $this->artisan('esb:replace-product-units', [
+        'file' => $path, '--allow-missing-source' => true, '--execute' => true, '--report' => tempnam(sys_get_temp_dir(), 'rep'),
+    ])->expectsOutputToContain("{$status}: 1")->assertSuccessful();
+
+    $puts = Http::recorded(fn ($request) => $request->method() === 'PUT');
+
+    if ($status === 'replaced') {
+        $details = $puts->first()[0]->data()['productDetails'];
+        expect($details)->toHaveCount(2)
+            ->and($details[0])->toMatchArray(['productDetailID' => 1, 'isStock' => true])
+            ->and($details[1])->toMatchArray(['uomID' => 90, 'qty' => 150, 'isBase' => false, 'isStock' => false, 'flagActive' => true]);
+    } else {
+        expect($puts)->toHaveCount(0);
+    }
+})->with([['Resep@150GR', 'replaced'], ['Resep@150PCS', 'base_unit_mismatch']]);

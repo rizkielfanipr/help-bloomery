@@ -118,6 +118,12 @@ class RndInternalMemo extends Model
         return $this->hasMany(RndInternalMemoBranch::class);
     }
 
+    /** Products added by hand to the Product Active summary (WIP/RAW × Store/Kitchen). */
+    public function extraProducts(): HasMany
+    {
+        return $this->hasMany(RndInternalMemoExtraProduct::class);
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(RndInternalMemoDocument::class)->latest('revision');

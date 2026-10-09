@@ -2,24 +2,29 @@
 
 namespace App\Filament\Helpdesk\Resources\RndInternalMemos\Pages;
 
+use App\Actions\Rnd\InternalMemo\AddExtraProductToInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\AddMenuToInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\DeleteInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\RefreshInternalMemoMenuAction;
+use App\Actions\Rnd\InternalMemo\RemoveExtraProductFromInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\RemoveMenuFromInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoBrandAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMinimumOrdersAction;
 use App\Actions\Rnd\ShelfLife\CreateWipShelfLifeAction;
 use App\Enums\RndWipShelfLifeSource;
 use App\Exceptions\Rnd\WipShelfLifeAlreadyExistsException;
+use App\Filament\Helpdesk\Concerns\ManagesEsbProductPicker;
 use App\Filament\Helpdesk\Concerns\ManagesWipShelfLifeForm;
 use App\Filament\Helpdesk\Resources\RndInternalMemos\RndInternalMemoResource;
 use App\Models\Brand;
 use App\Models\RndInternalMemoCatalogSync;
+use App\Models\RndInternalMemoExtraProduct;
 use App\Models\RndInternalMemoMaterial;
 use App\Models\RndInternalMemoMenu;
 use App\Models\RndProductEsbShelfLife;
 use App\Services\Rnd\InternalMemo\InternalMemoCatalogContext;
 use App\Services\Rnd\InternalMemo\InternalMemoConsolidationService;
+use App\Services\Rnd\InternalMemo\InternalMemoItemIdentity;
 use App\Services\Rnd\InternalMemo\InternalMemoMenuCatalogQuery;
 use App\Services\Rnd\InternalMemo\InternalMemoShelfLifeLookup;
 use App\Services\Rnd\ShelfLife\WipShelfLifeResolver;
@@ -47,6 +52,7 @@ use RuntimeException;
  */
 class ViewRndInternalMemo extends ViewRecord
 {
+    use ManagesEsbProductPicker;
     use ManagesWipShelfLifeForm;
 
     protected static string $resource = RndInternalMemoResource::class;
@@ -56,6 +62,17 @@ class ViewRndInternalMemo extends ViewRecord
     protected Width|string|null $maxContentWidth = Width::Full;
 
     public bool $menuPickerOpen = false;
+
+    /** Open state of the shared ESB product picker (ManagesEsbProductPicker). */
+    public bool $inlineProductModalOpen = false;
+
+    /**
+     * Product Active section the picker adds to. Locked so the browser cannot redirect the add.
+     *
+     * @var array{scope: string, kind: string}|null
+     */
+    #[Locked]
+    public ?array $extraProductTarget = null;
 
     public string $menuSearchName = '';
 
@@ -539,13 +556,83 @@ class ViewRndInternalMemo extends ViewRecord
     }
 
     /** Server-side check that the Product Detail ID is a WIP of a BLSS Menu of this Memo. */
-    private function memoWipMaterial(int $productDetailId): RndInternalMemoMaterial
+    private function memoWipMaterial(int $productDetailId): RndInternalMemoMaterial|RndInternalMemoExtraProduct
     {
-        $material = app(InternalMemoShelfLifeLookup::class)->blssWipMaterials($this->getRecord())->where('esb_product_detail_id', $productDetailId)->first();
+        $material = app(InternalMemoShelfLifeLookup::class)->wipItem($this->getRecord(), $productDetailId);
 
-        abort_if($material === null || $productDetailId < 1, 422, 'WIP ini bukan bagian dari Memo.');
+        abort_if($material === null, 422, 'WIP ini bukan bagian dari Memo.');
 
         return $material;
+    }
+
+    /**
+     * Opens the shared ESB product picker (same modal as BOM "Tambah Komponen") to add a product by
+     * hand to WIP/RAW Store or Kitchen. WIP starts filtered on category "Barang WIP".
+     */
+    public function openExtraProductPicker(string $scope, string $kind): void
+    {
+        abort_unless($this->canUpdateMemo(), 403);
+        abort_unless(in_array($scope, [InternalMemoItemIdentity::SCOPE_STORE, InternalMemoItemIdentity::SCOPE_KITCHEN], true), 422);
+        abort_unless(in_array($kind, [RndInternalMemoExtraProduct::KIND_WIP, RndInternalMemoExtraProduct::KIND_RAW], true), 422);
+
+        $this->extraProductTarget = ['scope' => $scope, 'kind' => $kind];
+        $this->resetInlineProductPicker();
+
+        if ($kind === RndInternalMemoExtraProduct::KIND_WIP) {
+            $this->inlineProductCategoryId = (string) ($this->inlineProductCategoryIdNamed('Barang WIP') ?? '');
+        }
+
+        $this->inlineProductModalOpen = true;
+    }
+
+    public function closeInlineProductPicker(): void
+    {
+        $this->inlineProductModalOpen = false;
+        $this->extraProductTarget = null;
+    }
+
+    /** Adds the picked row; the action re-reads it from ESB BLSS before saving. */
+    public function selectExtraProduct(int $productDetailId, AddExtraProductToInternalMemoAction $addExtraProduct): void
+    {
+        abort_unless($this->canUpdateMemo(), 403);
+        abort_if($this->extraProductTarget === null, 404);
+        $option = $this->inlineProductOptions[$productDetailId] ?? null;
+        abort_unless(is_array($option) && (int) ($option['productID'] ?? 0) > 0, 422);
+
+        try {
+            $extra = $addExtraProduct->execute(
+                $this->getRecord(),
+                $this->extraProductTarget['scope'],
+                $this->extraProductTarget['kind'],
+                (int) $option['productID'],
+                $productDetailId,
+                auth()->user(),
+            );
+        } catch (ValidationException $exception) {
+            Notification::make()->title('Product tidak dapat ditambahkan')->body(collect($exception->errors())->flatten()->implode(' '))->danger()->send();
+
+            return;
+        } catch (RuntimeException $exception) {
+            Notification::make()->title('Product tidak dapat ditambahkan')->body($exception->getMessage())->danger()->send();
+
+            return;
+        }
+
+        $this->closeInlineProductPicker();
+        $this->summaryCache = null;
+        $this->summaryShelfLifeCache = null;
+        Notification::make()->title('Product ditambahkan')->body($extra->product_name.' masuk ke '.mb_strtoupper($extra->kind).' '.ucfirst($extra->scope).'.')->success()->send();
+    }
+
+    public function removeExtraProduct(int $extraProductId, RemoveExtraProductFromInternalMemoAction $removeExtraProduct): void
+    {
+        abort_unless($this->canUpdateMemo(), 403);
+
+        $removeExtraProduct->execute($this->getRecord(), $extraProductId, auth()->user());
+
+        $this->summaryCache = null;
+        $this->summaryShelfLifeCache = null;
+        Notification::make()->title('Product dihapus dari Memo')->success()->send();
     }
 
     /** Opens the Minimum Order modal for one summary row; product data comes from the server. */

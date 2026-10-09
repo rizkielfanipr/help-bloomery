@@ -25,6 +25,12 @@ class UpdateInternalMemoMinimumOrdersAction
             ->get();
 
         [$scope, $identityKey] = InternalMemoItemIdentity::parseScopedKey($identityKey);
+
+        // A hand-added product keeps its own Minimum Order.
+        if (($extraProductId = InternalMemoItemIdentity::extraProductIdFromKey($identityKey)) !== null) {
+            return $memo->extraProducts()->whereKey($extraProductId)->update(['minimum_order' => $minimumOrder]);
+        }
+
         $updated = 0;
 
         foreach ($materials as $material) {

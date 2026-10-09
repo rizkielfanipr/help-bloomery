@@ -34,6 +34,17 @@ class InternalMemoItemIdentity
         return $scope.'|'.$identityKey;
     }
 
+    /** Identity of a product added by hand (RndInternalMemoExtraProduct), never merged with BOM rows. */
+    public static function extraKey(int $extraProductId): string
+    {
+        return 'extra:'.$extraProductId;
+    }
+
+    public static function extraProductIdFromKey(string $identityKey): ?int
+    {
+        return str_starts_with($identityKey, 'extra:') && ctype_digit(substr($identityKey, 6)) ? (int) substr($identityKey, 6) : null;
+    }
+
     /** @return array{0: ?string, 1: string} [scope or null for an unscoped key, identity key] */
     public static function parseScopedKey(string $key): array
     {

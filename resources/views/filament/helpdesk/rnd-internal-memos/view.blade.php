@@ -175,22 +175,30 @@
             'store' => ['title' => 'Product Active Store', 'wip' => 'WIP Store', 'raw' => 'RAW Store', 'icon' => 'heroicon-o-building-storefront'],
             'kitchen' => ['title' => 'Product Active Kitchen', 'wip' => 'WIP Kitchen', 'raw' => 'RAW Kitchen', 'icon' => 'heroicon-o-fire'],
         ] as $scopeKey => $scope)
-            @if(! empty($summary[$scopeKey]['wip']) || ! empty($summary[$scopeKey]['bahan']))
-                <section wire:key="memo-summary-{{ $scopeKey }}" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            @if($canManage || ! empty($summary[$scopeKey]['wip']) || ! empty($summary[$scopeKey]['bahan']))
+                @php
+                    $scopeTabs = ['wip' => ['label' => $scope['wip'], 'icon' => 'heroicon-o-beaker'], 'bahan' => ['label' => $scope['raw'], 'icon' => 'heroicon-o-cube']];
+                    $defaultTab = ! empty($summary[$scopeKey]['wip']) || empty($summary[$scopeKey]['bahan']) ? 'wip' : 'bahan';
+                @endphp
+                <section wire:key="memo-summary-{{ $scopeKey }}" x-data="{ tab: @js($defaultTab) }" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                         <div class="flex items-center gap-3">
                             <x-dynamic-component :component="$scope['icon']" class="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                             <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $scope['title'] }}</h3>
                         </div>
-                        <a href="{{ route('helpdesk.rnd-internal-memos.product-active-export', ['memo' => $memo->id, 'scope' => $scopeKey]) }}" aria-label="Export {{ $scope['title'] }} ke .xlsx" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
-                            <x-heroicon-o-arrow-down-tray class="h-4 w-4" aria-hidden="true" /> Export .xlsx
-                        </a>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="{{ route('helpdesk.rnd-internal-memos.product-active-export', ['memo' => $memo->id, 'scope' => $scopeKey]) }}" aria-label="Export {{ $scope['title'] }} ke .xlsx" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                                <x-heroicon-o-arrow-down-tray class="h-4 w-4" aria-hidden="true" /> Export .xlsx
+                            </a>
+                            @if($canManage)
+                                <button type="button" x-on:click="$wire.openExtraProductPicker(@js($scopeKey), tab === 'wip' ? 'wip' : 'raw')" wire:loading.attr="disabled" wire:target="openExtraProductPicker" class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50">
+                                    <x-heroicon-o-plus class="h-4 w-4" aria-hidden="true" />
+                                    <span x-text="tab === 'wip' ? @js('Tambah '.$scope['wip']) : @js('Tambah '.$scope['raw'])">Tambah {{ $scope['wip'] }}</span>
+                                </button>
+                            @endif
+                        </div>
                     </div>
-                    @php
-                        $scopeTabs = ['wip' => ['label' => $scope['wip'], 'icon' => 'heroicon-o-beaker'], 'bahan' => ['label' => $scope['raw'], 'icon' => 'heroicon-o-cube']];
-                        $defaultTab = ! empty($summary[$scopeKey]['wip']) ? 'wip' : 'bahan';
-                    @endphp
-                    <div x-data="{ tab: @js($defaultTab) }">
+                    <div>
                         <div class="flex flex-wrap gap-2 border-b border-gray-200 px-5 py-3 dark:border-gray-700" role="group" aria-label="{{ $scope['title'] }}">
                             @foreach($scopeTabs as $groupKey => $tab)
                                 <button type="button" x-on:click="tab = @js($groupKey)" x-bind:aria-pressed="(tab === @js($groupKey)).toString()"
@@ -445,5 +453,12 @@
             </form>
         </div>
     @endif
+    @include('filament.helpdesk.partials.esb-product-picker-modal', [
+        'pickerTitle' => $extraProductTarget
+            ? 'Tambah Product · '.mb_strtoupper($extraProductTarget['kind']).' '.ucfirst($extraProductTarget['scope'])
+            : 'Tambah Product',
+        'pickerSelectMethod' => 'selectExtraProduct',
+        'pickerCloseAction' => 'closeInlineProductPicker',
+    ])
     @include('filament.helpdesk.pages.partials.wip-shelf-life-modal', ['shelfLifeSaveMethod' => 'saveMemoShelfLife'])
 </x-filament-panels::page>

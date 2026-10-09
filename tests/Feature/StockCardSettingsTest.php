@@ -407,3 +407,44 @@ it('groups and sorts products by category on the back office detail page', funct
             'Zebra Box',
         ], escape: false);
 });
+
+it('shows a saved Limited Count again after a reload and does not duplicate rules on the next save', function () {
+    $this->actingAs($this->admin);
+    $key = sha1('bahan baku');
+
+    completeStockCardCategoryRefresh(Livewire::test(StockCardSettingsPage::class))
+        ->set("categoryRules.{$key}.mode", 'limited')
+        ->set("categoryRules.{$key}.daily_count", 5)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    Livewire::test(StockCardSettingsPage::class)
+        ->assertSet("categoryRules.{$key}.mode", 'limited')
+        ->assertSet("categoryRules.{$key}.daily_count", 5)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $rules = collect(StockCardSetting::where('company_code', StockCardSetting::GLOBAL_COMPANY)->firstOrFail()->category_rules)
+        ->where('category_name', 'Bahan Baku');
+    expect($rules)->toHaveCount(1)
+        ->and($rules->first())->toMatchArray(['mode' => 'limited', 'daily_count' => 5]);
+});
+
+it('repairs rules duplicated by the old save format, keeping the Limited Count', function () {
+    $this->actingAs($this->admin);
+    StockCardSetting::updateOrCreate(['company_code' => StockCardSetting::GLOBAL_COMPANY], [
+        'category_rules' => [
+            ['category_name' => 'Bahan Baku', 'mode' => 'limited', 'daily_count' => 7, 'rotate_daily' => true],
+            ['category_name' => 'Bahan Baku', 'mode' => 'all', 'daily_count' => null, 'rotate_daily' => false],
+        ],
+    ]);
+
+    Livewire::test(StockCardSettingsPage::class)
+        ->assertSet('categoryRules.'.sha1('bahan baku').'.mode', 'limited')
+        ->assertSet('categoryRules.'.sha1('bahan baku').'.daily_count', 7)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(StockCardSetting::where('company_code', StockCardSetting::GLOBAL_COMPANY)->firstOrFail()->category_rules)
+        ->toBe([['category_name' => 'Bahan Baku', 'mode' => 'limited', 'daily_count' => 7, 'rotate_daily' => true]]);
+});

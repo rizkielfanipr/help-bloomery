@@ -199,11 +199,11 @@ it('exports a Product Active section to xlsx with a WIP and a RAW sheet, for use
     $reader->close();
 
     expect(array_keys($sheets))->toBe(['WIP Store', 'RAW Store'])
-        ->and($sheets['WIP Store'][6])->toBe(['No', 'Product Code', 'Product Name', 'UOM BOM', 'Purchase UOM', 'Shelf Life', 'Storage', 'Minimum Order', 'UOM Minimum Order'])
+        ->and($sheets['WIP Store'][6])->toBe(['No', 'Product Code', 'Product Name', 'UOM BOM', 'Purchase UOM', 'Shelf Life', 'Storage', 'Minimum Order', 'UOM Minimum Order', 'Sumber'])
         ->and(array_slice($sheets['WIP Store'][7], 1, 2))->toBe(['BW-CREPE', 'Crepe Sheet'])
         ->and($sheets['WIP Store'][7][5])->toBe('3 Hari')
-        ->and($sheets['RAW Store'][6])->toBe(['No', 'Product Code', 'Product Name', 'UOM BOM', 'Purchase UOM', 'Minimum Order', 'UOM Minimum Order'])
-        ->and($sheets['RAW Store'][7])->toBe([1, 'RM-BOX', 'Box Cake', 'GR', 'PACK@100PCS', 50, 'GR']);
+        ->and($sheets['RAW Store'][6])->toBe(['No', 'Product Code', 'Product Name', 'UOM BOM', 'Purchase UOM', 'Minimum Order', 'UOM Minimum Order', 'Sumber'])
+        ->and($sheets['RAW Store'][7])->toBe([1, 'RM-BOX', 'Box Cake', 'GR', 'PACK@100PCS', 50, 'GR', 'BOM Menu']);
 
     $outsider = User::factory()->create(['is_active' => true]);
     $this->actingAs($outsider)->get(route('helpdesk.rnd-internal-memos.product-active-export', ['memo' => $this->memo->id, 'scope' => 'kitchen']))->assertForbidden();

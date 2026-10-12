@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BriefingPeriod;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -56,10 +57,20 @@ class BriefingRecord extends Model
         return $this->items->filter(fn (BriefingItem $item) => $item->is_completed)->count();
     }
 
-    public function createDefaultItems(): void
+    /**
+     * docs/daily-briefing-remediation-prd.md §4/§9 (unit kewajiban = per branch): the single
+     * canonical record for a branch/period/date, regardless of which participant created it. The
+     * oldest record is canonical so a settled "who owns this record" question never flips once
+     * more than one record exists for the scope (legacy data predating per-branch canonicalization
+     * may have more than one).
+     */
+    public static function canonicalForBranch(int $branchId, BriefingPeriod $period, CarbonInterface $recordDate): ?self
     {
-        foreach (BriefingTask::forPeriod($this->period) as $task) {
-            $this->items()->firstOrCreate(['task_key' => $task->key]);
-        }
+        return static::query()
+            ->where('branch_id', $branchId)
+            ->where('period', $period->value)
+            ->whereDate('record_date', $recordDate)
+            ->oldest('id')
+            ->first();
     }
 }

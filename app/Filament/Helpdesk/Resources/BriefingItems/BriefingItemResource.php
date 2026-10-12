@@ -2,6 +2,7 @@
 
 namespace App\Filament\Helpdesk\Resources\BriefingItems;
 
+use App\Actions\Briefing\BriefingReviewAction;
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingReviewStatus;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
@@ -20,6 +21,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Alignment;
@@ -118,14 +120,14 @@ class BriefingItemResource extends Resource
                             ->modalHeading('Approve This Item?')
                             ->modalDescription('After approval, staff can no longer modify this item.')
                             ->action(function (BriefingItem $record): void {
-                                $record->update([
-                                    'review_status' => BriefingReviewStatus::Approved->value,
-                                    'reviewed_by' => auth()->id(),
-                                    'reviewed_at' => now(),
-                                    'rejection_reason' => null,
-                                ]);
+                                $result = app(BriefingReviewAction::class)->approve(auth()->user(), $record);
+
+                                Notification::make()
+                                    ->title($result->message)
+                                    ->status($result->successful ? 'success' : 'danger')
+                                    ->send();
                             })
-                            ->visible(fn (BriefingItem $record): bool => $record->review_status?->isAwaitingSupervisorReview() ?? false),
+                            ->visible(fn (BriefingItem $record): bool => auth()->user()->can('approve', $record)),
 
                         Action::make('reject')
                             ->label('Reject')
@@ -138,14 +140,34 @@ class BriefingItemResource extends Resource
                                     ->rows(3),
                             ])
                             ->action(function (array $data, BriefingItem $record): void {
-                                $record->update([
-                                    'review_status' => BriefingReviewStatus::Rejected->value,
-                                    'rejection_reason' => $data['rejection_reason'],
-                                    'reviewed_by' => auth()->id(),
-                                    'reviewed_at' => now(),
-                                ]);
+                                $result = app(BriefingReviewAction::class)->reject(auth()->user(), $record, $data['rejection_reason']);
+
+                                Notification::make()
+                                    ->title($result->message)
+                                    ->status($result->successful ? 'success' : 'danger')
+                                    ->send();
                             })
-                            ->visible(fn (BriefingItem $record): bool => $record->review_status?->isAwaitingSupervisorReview() ?? false),
+                            ->visible(fn (BriefingItem $record): bool => auth()->user()->can('reject', $record)),
+
+                        Action::make('reopen')
+                            ->label('Buka Kembali')
+                            ->color('warning')
+                            ->icon('heroicon-o-arrow-path')
+                            ->form([
+                                Textarea::make('reopen_reason')
+                                    ->label('Alasan Membuka Kembali')
+                                    ->required()
+                                    ->rows(3),
+                            ])
+                            ->action(function (array $data, BriefingItem $record): void {
+                                $result = app(BriefingReviewAction::class)->reopen(auth()->user(), $record, $data['reopen_reason']);
+
+                                Notification::make()
+                                    ->title($result->message)
+                                    ->status($result->successful ? 'success' : 'danger')
+                                    ->send();
+                            })
+                            ->visible(fn (BriefingItem $record): bool => auth()->user()->can('reopen', $record)),
                     ])
                     ->modalContent(fn (BriefingItem $record, Action $action): View => view(
                         'filament.helpdesk.briefing-items.photo-modal',
@@ -212,7 +234,10 @@ class BriefingItemResource extends Resource
                     ->form([
                         Select::make('branch_id')
                             ->label('Cabang')
-                            ->options(Branch::orderBy('name')->pluck('name', 'id'))
+                            ->options(fn () => auth()->user()->canAccessAllBranches()
+                                ? Branch::orderBy('name')->pluck('name', 'id')
+                                : Branch::whereIn('id', auth()->user()->accessibleBranchIds())->orderBy('name')->pluck('name', 'id')
+                            )
                             ->searchable()
                             ->required(),
 
@@ -269,14 +294,10 @@ class BriefingItemResource extends Resource
                         ->modalHeading('Approve Selected Items?')
                         ->modalDescription('Only items awaiting supervisor review will be approved.')
                         ->action(function (Collection $records): void {
-                            $records
-                                ->filter(fn (BriefingItem $item) => $item->review_status?->isAwaitingSupervisorReview() ?? false)
-                                ->each(fn (BriefingItem $item) => $item->update([
-                                    'review_status' => BriefingReviewStatus::Approved->value,
-                                    'reviewed_by' => auth()->id(),
-                                    'reviewed_at' => now(),
-                                    'rejection_reason' => null,
-                                ]));
+                            $action = app(BriefingReviewAction::class);
+                            $actor = auth()->user();
+
+                            $records->each(fn (BriefingItem $item) => $action->approve($actor, $item));
                         }),
 
                     BulkAction::make('bulk_reject')
@@ -290,14 +311,10 @@ class BriefingItemResource extends Resource
                                 ->rows(3),
                         ])
                         ->action(function (array $data, Collection $records): void {
-                            $records
-                                ->filter(fn (BriefingItem $item) => $item->review_status?->isAwaitingSupervisorReview() ?? false)
-                                ->each(fn (BriefingItem $item) => $item->update([
-                                    'review_status' => BriefingReviewStatus::Rejected->value,
-                                    'rejection_reason' => $data['rejection_reason'],
-                                    'reviewed_by' => auth()->id(),
-                                    'reviewed_at' => now(),
-                                ]));
+                            $action = app(BriefingReviewAction::class);
+                            $actor = auth()->user();
+
+                            $records->each(fn (BriefingItem $item) => $action->reject($actor, $item, $data['rejection_reason']));
                         }),
 
                     DeleteBulkAction::make(),
@@ -312,28 +329,38 @@ class BriefingItemResource extends Resource
         ];
     }
 
+    /**
+     * docs/daily-briefing-remediation-prd.md §10.2/§10.3/§12.2. Branch scope is evaluated from
+     * briefing_records.branch_id (the snapshot taken when the record was created), never from the
+     * submitter's current users.branch_id — a user who later changes branch must not change what
+     * branch their old submissions show up under. Fails closed: missing the `view briefing items`
+     * permission returns no rows rather than every row.
+     */
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
             ->join('briefing_records', 'briefing_items.briefing_record_id', '=', 'briefing_records.id')
             ->join('users', 'briefing_records.user_id', '=', 'users.id')
-            ->leftJoin('branches', 'users.branch_id', '=', 'branches.id')
+            ->leftJoin('branches', 'briefing_records.branch_id', '=', 'branches.id')
             ->select(
                 'briefing_items.*',
                 'briefing_records.period',
                 'briefing_records.record_date',
+                'briefing_records.branch_id as record_branch_id',
                 'users.name as staff_name',
                 'branches.name as branch_name',
             );
 
         $user = auth()->user();
 
-        if (! $user->can('review sales reports as supervisor') || $user->access_all_branches) {
+        if (! $user->can('view briefing items')) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($user->canAccessAllBranches()) {
             return $query;
         }
 
-        $supervisedBranchIds = $user->accessibleBranchIds();
-
-        return $query->whereIn('branches.id', $supervisedBranchIds);
+        return $query->whereIn('briefing_records.branch_id', $user->accessibleBranchIds());
     }
 }

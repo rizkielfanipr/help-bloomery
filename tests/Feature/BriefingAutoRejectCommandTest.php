@@ -89,34 +89,32 @@ it('uses the configured auto-reject reason template with the day count filled in
     expect($item->refresh()->rejection_reason)->toBe('Poin ditolak otomatis karena tidak di-approve dalam 2 hari.');
 });
 
-it('uses the configured deadline reject reason for tasks past their deadline', function () {
-    BriefingSettings::instance()->update([
-        'deadline_reject_reason' => 'Poin tidak diisi sebelum batas waktu.',
-    ]);
+it(
+    'never creates a record or item for a task that missed its deadline with no submission (contract change: '
+    .'missing is derived by BriefingStatusService, not a synthetic rejected row — '
+    .'docs/daily-briefing-remediation-prd.md §11.4)',
+    function () {
+        BriefingTask::create([
+            'key' => 'test_missed_deadline_no_submission',
+            'label' => 'Test Missed Deadline No Submission',
+            'period' => 'daily',
+            'submission_type' => 'photo',
+            'deadline_enabled' => true,
+            'deadline_time' => now()->subMinute()->format('H:i'),
+            'sort_order' => 99,
+            'is_active' => true,
+        ]);
 
-    BriefingTask::create([
-        'key' => 'test_custom_deadline_reason',
-        'label' => 'Test Custom Deadline Reason',
-        'period' => 'daily',
-        'submission_type' => 'photo',
-        'deadline_enabled' => true,
-        'deadline_time' => now()->subMinute()->format('H:i'),
-        'sort_order' => 99,
-        'is_active' => true,
-    ]);
+        BriefingTask::clearCache();
 
-    BriefingTask::clearCache();
+        $beforeRecordCount = BriefingRecord::count();
 
-    $this->artisan('briefing:auto-reject')->assertSuccessful();
+        $this->artisan('briefing:auto-reject')->assertSuccessful();
 
-    $item = BriefingItem::whereHas(
-        'record',
-        fn ($q) => $q->where('user_id', $this->staff->id)->where('period', 'daily')
-    )->where('task_key', 'test_custom_deadline_reason')->first();
-
-    expect($item)->not->toBeNull()
-        ->and($item->rejection_reason)->toBe('Poin tidak diisi sebelum batas waktu.');
-});
+        expect(BriefingRecord::count())->toBe($beforeRecordCount)
+            ->and(BriefingItem::where('task_key', 'test_missed_deadline_no_submission')->exists())->toBeFalse();
+    }
+);
 
 it('does not touch items already approved or rejected', function () {
     BriefingSettings::instance()->update(['auto_reject_after_days' => 3]);

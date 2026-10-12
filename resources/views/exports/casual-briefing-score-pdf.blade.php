@@ -39,7 +39,7 @@
     </div>
 
     <div class="score-card {{ $score->isPassing() ? 'pass' : 'fail' }}">
-        <div class="label">Total Nilai</div>
+        <div class="label">Total Nilai {{ $score->isProvisional() ? '(Sementara)' : '' }}</div>
         <div class="value">{{ number_format($score->score, 2) }}%</div>
         <div class="status">{{ $score->isPassing() ? '✓ Achieve' : '✗ Tidak Achieve' }}</div>
     </div>
@@ -52,19 +52,21 @@
                 <th>Poin</th>
                 <th>Terpenuhi</th>
                 <th>Rate</th>
-                <th style="text-align:right">Nilai Periode</th>
+                <th style="text-align:right">Bobot (Terkonfigurasi / Efektif)</th>
+                <th style="text-align:right">Kontribusi</th>
             </tr>
         </thead>
         <tbody>
             @php
-                $periodOrder = ['daily', 'weekly', 'monthly'];
+                $periodLabels = ['daily' => 'Harian', 'weekly' => 'Mingguan', 'monthly' => 'Bulanan'];
             @endphp
-            @foreach($periodOrder as $period)
-                @continue(! isset($score->breakdown[$period]))
-                @php $info = $score->breakdown[$period]; @endphp
+            @foreach($periodLabels as $period => $label)
+                @php $info = $score->periodBreakdown($period); @endphp
+                @continue(! $info || ! ($info['applicable'] ?? false))
                 <tr class="total-row">
-                    <td colspan="3">{{ $info['label'] }} (Bobot {{ number_format($info['effective_weight'], 2) }}%)</td>
-                    <td class="score-val {{ $info['score'] > 0 ? 'has' : 'none' }}">{{ number_format($info['score'], 2) }}%</td>
+                    <td colspan="3">{{ $label }}</td>
+                    <td style="text-align:right">{{ number_format($info['configured_weight'], 2) }}% / {{ number_format($info['effective_weight'], 2) }}%</td>
+                    <td class="score-val {{ $info['contribution'] > 0 ? 'has' : 'none' }}">{{ number_format($info['contribution'], 2) }}</td>
                 </tr>
                 @foreach($info['tasks'] as $task)
                     <tr>
@@ -72,18 +74,20 @@
                         <td>{{ $task['approved'] }}/{{ $task['expected'] }}</td>
                         <td>{{ number_format($task['rate'], 2) }}%</td>
                         <td></td>
+                        <td></td>
                     </tr>
                 @endforeach
             @endforeach
             <tr class="total-row">
                 <td colspan="3">Total</td>
+                <td></td>
                 <td class="score-val {{ $score->isPassing() ? 'has' : 'none' }}">{{ number_format($score->score, 2) }}%</td>
             </tr>
         </tbody>
     </table>
 
     <div class="footer">
-        Dihitung: {{ $score->computed_at?->isoFormat('D MMMM Y HH:mm') ?? '-' }} &middot; Minimum lulus: 80%
+        Dihitung: {{ $score->computed_at?->isoFormat('D MMMM Y HH:mm') ?? '-' }} &middot; Metode v{{ $score->methodVersion() }} &middot; Minimum lulus: {{ number_format($score->breakdown['passing_score'] ?? 80, 2) }}%
     </div>
 </body>
 </html>

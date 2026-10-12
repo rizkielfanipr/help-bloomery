@@ -100,6 +100,11 @@ class Branch extends Model
         return $this->hasMany(BriefingTask::class);
     }
 
+    public function briefingBranchSettings(): HasMany
+    {
+        return $this->hasMany(BriefingBranchSetting::class);
+    }
+
     public function qualityControlAudits(): HasMany
     {
         return $this->hasMany(QualityControlAudit::class);

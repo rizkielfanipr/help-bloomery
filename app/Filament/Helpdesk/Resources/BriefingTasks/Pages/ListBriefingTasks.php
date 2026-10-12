@@ -13,6 +13,14 @@ use Livewire\Attributes\Computed;
 
 class ListBriefingTasks extends Page
 {
+    /**
+     * CASE expressions (not MySQL's FIELD()/ISNULL(), which SQLite — used by the test suite —
+     * doesn't support) so ordering works identically on both.
+     */
+    private const PERIOD_ORDER_SQL = "CASE period WHEN 'daily' THEN 1 WHEN 'weekly' THEN 2 WHEN 'monthly' THEN 3 ELSE 4 END";
+
+    private const GROUP_ORDER_SQL = 'CASE WHEN `group` IS NULL THEN 1 ELSE 0 END, `group`';
+
     protected static string $resource = BriefingTaskResource::class;
 
     protected string $view = 'filament.helpdesk.resources.briefing-tasks.index';
@@ -33,13 +41,24 @@ class ListBriefingTasks extends Page
     /** period section being added to (for ungrouped quick-add) */
     public ?string $addingToPeriod = null;
 
-    /** @var array{label: string, period: string, submission_type: string} */
-    public array $quickAdd = ['label' => '', 'period' => 'daily', 'submission_type' => 'checkbox'];
+    /** @var array{label: string, period: string, submission_type: string, deadline_enabled: bool, deadline_time: string} */
+    public array $quickAdd = ['label' => '', 'period' => 'daily', 'submission_type' => 'photo', 'deadline_enabled' => false, 'deadline_time' => '23:59'];
+
+    // ── Edit state ───────────────────────────────────────────────────────────
+    public ?int $editingTaskId = null;
+
+    public bool $editingTaskHasGroup = false;
+
+    /** @var array{label: string, key: string, period: string, submission_type: string, note_type: ?string, group_label: ?string, is_active: bool, deadline_enabled: bool, deadline_time: string} */
+    public array $editTask = [];
 
     // ── New-group creation state ─────────────────────────────────────────────
     public ?string $creatingGroupForPeriod = null;
 
     public string $newGroupLabel = '';
+
+    /** @var array<int, array{label: string, submission_type: string}> */
+    public array $newGroupTasks = [['label' => '', 'submission_type' => 'photo']];
 
     /**
      * Groups created in this session but with no DB tasks yet.
@@ -64,6 +83,18 @@ class ListBriefingTasks extends Page
     public function getBreadcrumbs(): array
     {
         return [];
+    }
+
+    /**
+     * Quick stats for the page header card, matching BriefingScoreWorkspacePage's visual
+     * pattern (docs/daily-briefing-scoring-ui-prd.md §13.1).
+     *
+     * @return array{total: int, active: int, global: int, branchSpecific: int}
+     */
+    #[Computed]
+    public function stats(): array
+    {
+        return BriefingTaskResource::summaryStats();
     }
 
     // ── Branch selection ─────────────────────────────────────────────────────
@@ -96,6 +127,7 @@ class ListBriefingTasks extends Page
         $this->copySourceBranchId = null;
         $this->cancelQuickAdd();
         $this->cancelNewGroup();
+        $this->cancelEditTask();
         $this->pendingGroups = [];
     }
 
@@ -106,9 +138,11 @@ class ListBriefingTasks extends Page
         $this->addingToGroup = $group;
         $this->addingGroupLabel = $groupLabel;
         $this->addingToPeriod = null;
-        $this->quickAdd = ['label' => '', 'period' => $period, 'submission_type' => 'checkbox'];
+        $this->quickAdd = ['label' => '', 'period' => $period, 'submission_type' => 'photo', 'deadline_enabled' => false, 'deadline_time' => '23:59'];
         $this->pendingDeleteId = null;
         $this->creatingGroupForPeriod = null;
+        $this->copyPanelOpen = false;
+        $this->cancelEditTask();
     }
 
     public function startPeriodQuickAdd(string $period): void
@@ -116,9 +150,11 @@ class ListBriefingTasks extends Page
         $this->addingToPeriod = $period;
         $this->addingToGroup = null;
         $this->addingGroupLabel = null;
-        $this->quickAdd = ['label' => '', 'period' => $period, 'submission_type' => 'checkbox'];
+        $this->quickAdd = ['label' => '', 'period' => $period, 'submission_type' => 'photo', 'deadline_enabled' => false, 'deadline_time' => '23:59'];
         $this->pendingDeleteId = null;
         $this->creatingGroupForPeriod = null;
+        $this->copyPanelOpen = false;
+        $this->cancelEditTask();
     }
 
     public function cancelQuickAdd(): void
@@ -146,6 +182,8 @@ class ListBriefingTasks extends Page
             'quickAdd.label' => 'required|string|max:255',
             'quickAdd.period' => 'required|in:daily,weekly,monthly',
             'quickAdd.submission_type' => 'required',
+            'quickAdd.deadline_enabled' => 'boolean',
+            'quickAdd.deadline_time' => 'nullable',
         ]);
 
         $branchId = $this->selectedBranchId === 0 ? null : $this->selectedBranchId;
@@ -178,6 +216,8 @@ class ListBriefingTasks extends Page
             'group_label' => $this->addingGroupLabel ?: null,
             'sort_order' => $maxSort + 10,
             'is_active' => true,
+            'deadline_enabled' => (bool) $this->quickAdd['deadline_enabled'],
+            'deadline_time' => $this->quickAdd['deadline_enabled'] ? $this->quickAdd['deadline_time'] : null,
         ]);
 
         // Remove from pendingGroups now that a task exists
@@ -192,6 +232,8 @@ class ListBriefingTasks extends Page
 
         // Keep the quick-add open so user can add more tasks to same context
         $this->quickAdd['label'] = '';
+        $this->quickAdd['deadline_enabled'] = false;
+        $this->quickAdd['deadline_time'] = '23:59';
 
         Notification::make()->title('Poin berhasil ditambahkan.')->success()->send();
     }
@@ -202,41 +244,102 @@ class ListBriefingTasks extends Page
     {
         $this->creatingGroupForPeriod = $period;
         $this->newGroupLabel = '';
+        $this->newGroupTasks = [['label' => '', 'submission_type' => 'photo']];
         $this->addingToGroup = null;
         $this->addingGroupLabel = null;
         $this->addingToPeriod = null;
+        $this->copyPanelOpen = false;
+        $this->cancelEditTask();
     }
 
+    public function addNewGroupTaskRow(): void
+    {
+        $this->newGroupTasks[] = ['label' => '', 'submission_type' => 'photo'];
+    }
+
+    public function removeNewGroupTaskRow(int $index): void
+    {
+        unset($this->newGroupTasks[$index]);
+        $this->newGroupTasks = array_values($this->newGroupTasks);
+
+        if ($this->newGroupTasks === []) {
+            $this->newGroupTasks = [['label' => '', 'submission_type' => 'photo']];
+        }
+    }
+
+    /**
+     * Creates the new group together with all its filled-in points in one submit,
+     * so the user doesn't have to open a second modal to add each point one by one.
+     */
     public function saveNewGroup(): void
     {
-        $this->validate(['newGroupLabel' => 'required|string|max:100']);
+        $this->validate([
+            'newGroupLabel' => 'required|string|max:100',
+            'newGroupTasks.*.label' => 'nullable|string|max:255',
+            'newGroupTasks.*.submission_type' => 'required',
+        ]);
 
-        $key = preg_replace('/[^a-z0-9]+/', '_', strtolower($this->newGroupLabel));
-        $key = trim($key, '_') ?: 'group';
+        $filledTasks = collect($this->newGroupTasks)->filter(fn ($task) => filled($task['label'] ?? null))->values();
 
-        // Ensure key is unique within this period's pending groups
-        $existing = collect($this->pendingGroups[$this->creatingGroupForPeriod] ?? [])->pluck('key')->all();
-        $finalKey = $key;
-        $suffix = 2;
-        while (in_array($finalKey, $existing)) {
-            $finalKey = $key.'_'.$suffix++;
+        if ($filledTasks->isEmpty()) {
+            $this->addError('newGroupTasks.0.label', 'Tambahkan minimal satu poin.');
+
+            return;
         }
 
-        $this->pendingGroups[$this->creatingGroupForPeriod][] = [
-            'key' => $finalKey,
-            'label' => $this->newGroupLabel,
-        ];
+        $period = $this->creatingGroupForPeriod;
+        $groupLabel = $this->newGroupLabel;
+        $branchId = $this->selectedBranchId === 0 ? null : $this->selectedBranchId;
 
-        // Immediately open quick-add for the new group
-        $this->startGroupQuickAdd($finalKey, $this->newGroupLabel, $this->creatingGroupForPeriod);
+        $groupKey = preg_replace('/[^a-z0-9]+/', '_', strtolower($groupLabel));
+        $groupKey = trim($groupKey, '_') ?: 'group';
+
+        $maxSort = BriefingTask::when(
+            $branchId === null,
+            fn ($q) => $q->whereNull('branch_id'),
+            fn ($q) => $q->where('branch_id', $branchId)
+        )
+            ->where('group', $groupKey)
+            ->where('period', $period)
+            ->max('sort_order') ?? 0;
+
+        foreach ($filledTasks as $task) {
+            $baseKey = preg_replace('/[^a-z0-9]+/', '_', strtolower($task['label']));
+            $baseKey = trim($baseKey, '_') ?: 'task';
+            $taskKey = $baseKey;
+            $i = 2;
+
+            while (BriefingTask::where('key', $taskKey)->exists()) {
+                $taskKey = $baseKey.'_'.$i++;
+            }
+
+            $maxSort += 10;
+
+            BriefingTask::create([
+                'branch_id' => $branchId,
+                'key' => $taskKey,
+                'label' => $task['label'],
+                'period' => $period,
+                'submission_type' => $task['submission_type'],
+                'group' => $groupKey,
+                'group_label' => $groupLabel,
+                'sort_order' => $maxSort,
+                'is_active' => true,
+            ]);
+        }
+
         $this->creatingGroupForPeriod = null;
         $this->newGroupLabel = '';
+        $this->newGroupTasks = [['label' => '', 'submission_type' => 'photo']];
+
+        Notification::make()->title("Grup \"{$groupLabel}\" dibuat dengan {$filledTasks->count()} poin.")->success()->send();
     }
 
     public function cancelNewGroup(): void
     {
         $this->creatingGroupForPeriod = null;
         $this->newGroupLabel = '';
+        $this->newGroupTasks = [['label' => '', 'submission_type' => 'photo']];
     }
 
     // ── Reorder ──────────────────────────────────────────────────────────────
@@ -277,12 +380,97 @@ class ListBriefingTasks extends Page
         $this->pendingDeleteId = null;
     }
 
+    // ── Edit ─────────────────────────────────────────────────────────────────
+
+    public function startEditTask(int $taskId): void
+    {
+        $task = BriefingTask::find($taskId);
+
+        if (! $task) {
+            return;
+        }
+
+        $this->editingTaskId = $task->id;
+        $this->editingTaskHasGroup = $task->group !== null;
+        $this->editTask = [
+            'label' => $task->label,
+            'key' => $task->key,
+            'period' => $task->period->value,
+            'submission_type' => $task->submission_type->value,
+            'note_type' => $task->note_type,
+            'group_label' => $task->group_label,
+            'is_active' => $task->is_active,
+            'deadline_enabled' => $task->deadline_enabled,
+            'deadline_time' => $task->deadline_time ? substr($task->deadline_time, 0, 5) : '23:59',
+        ];
+
+        $this->pendingDeleteId = null;
+        $this->cancelQuickAdd();
+        $this->cancelNewGroup();
+        $this->copyPanelOpen = false;
+    }
+
+    public function cancelEditTask(): void
+    {
+        $this->editingTaskId = null;
+        $this->editingTaskHasGroup = false;
+        $this->editTask = [];
+    }
+
+    public function saveEditTask(): void
+    {
+        $task = BriefingTask::find($this->editingTaskId);
+
+        if (! $task) {
+            $this->cancelEditTask();
+
+            return;
+        }
+
+        $this->validate([
+            'editTask.label' => 'required|string|max:255',
+            'editTask.period' => 'required|in:daily,weekly,monthly',
+            'editTask.submission_type' => 'required',
+            'editTask.note_type' => 'nullable|string|max:100',
+            'editTask.group_label' => 'nullable|string|max:100',
+            'editTask.deadline_enabled' => 'boolean',
+            'editTask.deadline_time' => 'nullable',
+        ]);
+
+        $task->update([
+            'label' => $this->editTask['label'],
+            'period' => $this->editTask['period'],
+            'submission_type' => $this->editTask['submission_type'],
+            'note_type' => $this->editTask['note_type'] ?: null,
+            'group_label' => $task->group ? ($this->editTask['group_label'] ?: null) : $task->group_label,
+            'is_active' => (bool) $this->editTask['is_active'],
+            'deadline_enabled' => (bool) $this->editTask['deadline_enabled'],
+            'deadline_time' => $this->editTask['deadline_enabled'] ? $this->editTask['deadline_time'] : null,
+        ]);
+
+        $this->cancelEditTask();
+
+        Notification::make()->title('Poin berhasil diperbarui.')->success()->send();
+    }
+
+    public function deleteFromEditModal(int $taskId): void
+    {
+        $this->cancelEditTask();
+        $this->confirmDelete($taskId);
+    }
+
     // ── Copy panel ───────────────────────────────────────────────────────────
 
     public function toggleCopyPanel(): void
     {
         $this->copyPanelOpen = ! $this->copyPanelOpen;
         $this->copySourceBranchId = null;
+
+        if ($this->copyPanelOpen) {
+            $this->cancelQuickAdd();
+            $this->cancelNewGroup();
+            $this->cancelEditTask();
+        }
     }
 
     public function copyFromBranch(): void
@@ -378,8 +566,8 @@ class ListBriefingTasks extends Page
             : BriefingTask::where('branch_id', $this->selectedBranchId);
 
         return $query
-            ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
-            ->orderByRaw('ISNULL(`group`), `group`')
+            ->orderByRaw(self::PERIOD_ORDER_SQL)
+            ->orderByRaw(self::GROUP_ORDER_SQL)
             ->orderBy('sort_order')
             ->get();
     }
@@ -403,32 +591,14 @@ class ListBriefingTasks extends Page
 
         if ($this->copySourceBranchId === 0) {
             return BriefingTask::whereNull('branch_id')
-                ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
+                ->orderByRaw(self::PERIOD_ORDER_SQL)
                 ->orderBy('sort_order')
                 ->get();
         }
 
         return BriefingTask::where('branch_id', $this->copySourceBranchId)
-            ->orderByRaw("FIELD(period, 'daily', 'weekly', 'monthly')")
+            ->orderByRaw(self::PERIOD_ORDER_SQL)
             ->orderBy('sort_order')
             ->get();
-    }
-
-    // ── URL helpers ──────────────────────────────────────────────────────────
-
-    public function getCreateUrl(): string
-    {
-        $url = BriefingTaskResource::getUrl('create');
-
-        if ($this->selectedBranchId !== null && $this->selectedBranchId !== 0) {
-            $url .= '?branch_id='.$this->selectedBranchId;
-        }
-
-        return $url;
-    }
-
-    public function getEditUrl(int $taskId): string
-    {
-        return BriefingTaskResource::getUrl('edit', ['record' => $taskId]);
     }
 }

@@ -2,9 +2,11 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
+use App\Actions\Briefing\SaveBriefingBranchParticipationAction;
 use App\Actions\Briefing\SaveBriefingGlobalSettingsAction;
 use App\Actions\Briefing\SaveBriefingPeriodWeightAction;
 use App\Models\Branch;
+use App\Models\BriefingBranchSetting;
 use App\Models\BriefingItem;
 use App\Models\BriefingPeriodWeight;
 use App\Models\BriefingSettings;
@@ -53,6 +55,9 @@ class BriefingSettingsPage extends Page
 
     public bool $useCustomWeight = false;
 
+    /** @var array{branch_id: ?int} */
+    public array $participationData = [];
+
     public function mount(): void
     {
         $settings = BriefingSettings::instance();
@@ -70,6 +75,68 @@ class BriefingSettingsPage extends Page
             'override_weekly_weight' => null,
             'override_monthly_weight' => null,
         ];
+
+        $this->participationData = [
+            'branch_id' => null,
+        ];
+    }
+
+    /** @return Collection<int, Branch> */
+    public function availableBranches(): Collection
+    {
+        return Branch::query()
+            ->whereDoesntHave('briefingBranchSettings', fn ($query) => $query
+                ->where('is_enabled', true)
+                ->whereDate('started_at', '<=', today())
+                ->where(fn ($query) => $query
+                    ->whereNull('ended_at')
+                    ->orWhereDate('ended_at', '>=', today())))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
+    /** @return Collection<int, BriefingBranchSetting> */
+    public function participationPeriods(): Collection
+    {
+        return BriefingBranchSetting::query()
+            ->with('branch:id,name')
+            ->latest('started_at')
+            ->latest('id')
+            ->get();
+    }
+
+    public function addParticipation(): void
+    {
+        abort_unless(static::canAccess(), 403);
+
+        try {
+            app(SaveBriefingBranchParticipationAction::class)->execute(
+                auth()->user(),
+                (int) ($this->participationData['branch_id'] ?? 0),
+            );
+        } catch (ValidationException $exception) {
+            foreach ($exception->errors() as $field => $messages) {
+                $this->addError("participationData.{$field}", $messages[0]);
+            }
+
+            return;
+        }
+
+        $this->resetValidation();
+        $this->participationData = [
+            'branch_id' => null,
+        ];
+
+        Notification::make()->title('Branch peserta berhasil ditambahkan')->success()->send();
+    }
+
+    public function deactivateParticipation(int $settingId): void
+    {
+        abort_unless(static::canAccess(), 403);
+
+        app(SaveBriefingBranchParticipationAction::class)->deactivate(auth()->user(), $settingId);
+
+        Notification::make()->title('Partisipasi branch dinonaktifkan')->success()->send();
     }
 
     /**

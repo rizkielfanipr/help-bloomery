@@ -141,6 +141,46 @@ it('saves and resets a branch weight override', function () {
     expect(BriefingPeriodWeight::where('branch_id', $branch->id)->exists())->toBeFalse();
 });
 
+it('registers and deactivates a Daily Briefing participant branch', function () {
+    $this->travelTo('2026-10-13 10:00:00');
+
+    $branch = Branch::factory()->create();
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo(['edit briefing settings', 'edit briefing period weights']);
+    actingAs($user);
+
+    $page = Livewire::test(BriefingSettingsPage::class)
+        ->assertSee($branch->name)
+        ->set('participationData.branch_id', $branch->id)
+        ->call('addParticipation')
+        ->assertHasNoErrors();
+
+    $period = BriefingBranchSetting::where('branch_id', $branch->id)->firstOrFail();
+    expect($period->coversDate(today()))->toBeTrue();
+
+    $page->call('deactivateParticipation', $period->id);
+
+    expect($period->fresh()->coversDate(today()))->toBeFalse()
+        ->and($period->fresh()->ended_at->toDateString())->toBe('2026-10-13');
+});
+
+it('shows an overlap error when a participant period collides', function () {
+    $branch = Branch::factory()->create();
+    BriefingBranchSetting::factory()->create([
+        'branch_id' => $branch->id,
+        'started_at' => '2026-10-01',
+        'ended_at' => null,
+    ]);
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo(['edit briefing settings', 'edit briefing period weights']);
+    actingAs($user);
+
+    Livewire::test(BriefingSettingsPage::class)
+        ->set('participationData.branch_id', $branch->id)
+        ->call('addParticipation')
+        ->assertHasErrors(['participationData.branch_id']);
+});
+
 it('does not touch an existing BriefingScore snapshot when settings are saved (no hidden recompute)', function () {
     $branch = Branch::factory()->create();
     $score = BriefingScore::create([

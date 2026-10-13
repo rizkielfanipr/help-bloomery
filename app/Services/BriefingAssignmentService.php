@@ -18,6 +18,13 @@ use Illuminate\Support\Collection;
  */
 class BriefingAssignmentService
 {
+    public function canSubmit(User $user, CarbonInterface $date): bool
+    {
+        return $user->can('access employee app briefing')
+            && $user->can('submit daily briefing')
+            && $this->isParticipant($user, $date);
+    }
+
     /**
      * §6/§8.2: a participant is an active STORE_STAFF user with a branch whose branch is an
      * explicit, enabled participant on $date. Task availability never implies participation.

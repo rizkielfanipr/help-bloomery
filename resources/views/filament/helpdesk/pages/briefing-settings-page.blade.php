@@ -4,6 +4,8 @@
         $defaultTotal = $this->defaultWeightTotal();
         $overrideTotal = $this->overrideWeightTotal();
         $participantBranches = $this->participantBranches();
+        $availableBranches = $this->availableBranches();
+        $participationPeriods = $this->participationPeriods();
     @endphp
     <form wire:submit="save" class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div class="flex items-start gap-3 border-b border-gray-200 p-5 dark:border-gray-700">
@@ -61,6 +63,53 @@
                     Total Bobot: {{ number_format($defaultTotal, 2) }}% — {{ abs($defaultTotal - 100) <= 0.01 ? 'Valid' : 'Harus 100%' }}
                 </p>
                 <p class="mt-2 text-xs leading-5 text-gray-500">Jika salah satu periode tidak berlaku pada suatu branch/bulan (Not Applicable), bobotnya didistribusikan proporsional ke periode yang berlaku.</p>
+            </section>
+
+            {{-- Partisipasi Branch --}}
+            <section class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                <h4 class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><x-heroicon-o-building-office-2 class="h-5 w-5 text-blue-500" />Peserta Daily Briefing</h4>
+                <p class="mt-2 text-xs leading-5 text-gray-500">Hanya STORE_STAFF pada branch yang terdaftar sebagai peserta yang dapat mengisi Daily Briefing. Branch tetap aktif sampai dilepas dari daftar peserta.</p>
+
+                <div class="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                    <div>
+                        <label for="participant-branch" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Branch <span class="text-red-500">*</span></label>
+                        <select id="participant-branch" wire:model="participationData.branch_id" class="{{ $inputClass }}">
+                            <option value="">— Pilih branch —</option>
+                            @foreach($availableBranches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('participationData.branch_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <button type="button" wire:click="addParticipation" wire:loading.attr="disabled" wire:target="addParticipation" class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">Daftarkan sebagai Peserta</button>
+                </div>
+
+                <div class="mt-5 overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700">
+                        <thead class="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-800/60">
+                            <tr><th class="px-4 py-3">Branch</th><th class="px-4 py-3">Terdaftar Sejak</th><th class="px-4 py-3">Status</th><th class="px-4 py-3 text-right">Aksi</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            @forelse($participationPeriods as $period)
+                                @php($isActiveToday = $period->coversDate(today()))
+                                <tr wire:key="participation-{{ $period->id }}">
+                                    <td class="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100">{{ $period->branch->name }}</td>
+                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $period->started_at->format('d M Y') }}</td>
+                                    <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $isActiveToday ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' }}">{{ $isActiveToday ? 'Aktif' : 'Tidak aktif' }}</span></td>
+                                    <td class="px-4 py-3 text-right">
+                                        @if($period->is_enabled && ($period->ended_at === null || $period->ended_at->gte(today())))
+                                            <button type="button" wire:click="deactivateParticipation({{ $period->id }})" wire:confirm="Lepas branch ini dari peserta Daily Briefing?" class="text-xs font-semibold text-red-600 hover:text-red-700">Lepas Peserta</button>
+                                        @else
+                                            <span class="text-xs text-gray-400">Riwayat</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada branch peserta. Tambahkan branch agar STORE_STAFF dapat membuka Daily Briefing.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </section>
 
             {{-- Override Branch --}}

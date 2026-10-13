@@ -52,11 +52,7 @@ class DailyBriefingPage extends Page
             return false;
         }
 
-        return $user->is_active
-            && $user->hasRole('STORE_STAFF')
-            && $user->can('submit daily briefing')
-            && $user->branch_id !== null
-            && app(BriefingAssignmentService::class)->isBranchParticipant((int) $user->branch_id, now());
+        return app(BriefingAssignmentService::class)->canSubmit($user, now());
     }
 
     public function getTitle(): string|Htmlable

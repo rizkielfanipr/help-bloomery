@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\BriefingPeriod;
 use App\Models\BriefingRecord;
-use App\Models\BriefingTask;
 use Carbon\CarbonImmutable;
 use Generator;
 
@@ -18,6 +17,7 @@ class BriefingLegacyGroupingScanner
     public function __construct(
         private readonly BriefingLegacyGroupingClassifier $classifier,
         private readonly BriefingPeriodNormalizer $periods,
+        private readonly BriefingHistoricalTaskAssignment $assignments,
     ) {}
 
     /**
@@ -82,6 +82,8 @@ class BriefingLegacyGroupingScanner
             ->whereDate('period_start', $start)
             ->first();
 
-        return $this->classifier->classify($group['branch_id'], $group['period'], $start, $records, $existing, BriefingTask::forPeriod($group['period'], $group['branch_id']));
+        $tasks = $this->assignments->tasksFor($group['branch_id'], $group['period'], $start, $records->flatMap->items);
+
+        return $this->classifier->classify($group['branch_id'], $group['period'], $start, $records, $existing, $tasks);
     }
 }

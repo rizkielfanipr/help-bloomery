@@ -24,9 +24,12 @@ use function Pest\Laravel\artisan;
  * unless explicitly executed, converts only deterministic groups, keeps every piece of evidence and
  * its source ids, never duplicates on re-run, and can be restored from its snapshot.
  */
-function groupingTask(string $key, BriefingPeriod $period = BriefingPeriod::Daily, string $type = 'camera_only'): BriefingTask
+function groupingTask(string $key, BriefingPeriod $period = BriefingPeriod::Daily, string $type = 'camera_only', string $createdAt = '2026-01-01 00:00:00', ?int $branchId = null): BriefingTask
 {
-    return BriefingTask::create(['key' => $key, 'label' => 'Poin '.$key, 'period' => $period->value, 'submission_type' => $type, 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
+    $task = BriefingTask::create(['key' => $key, 'label' => 'Poin '.$key, 'period' => $period->value, 'submission_type' => $type, 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1, 'branch_id' => $branchId]);
+    $task->forceFill(['created_at' => $createdAt])->save();
+
+    return $task;
 }
 
 /**
@@ -223,6 +226,56 @@ it('sends a group to manual review when every row holds a duplicate slot', funct
     artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/both.jsonl')->assertSuccessful();
 
     expect(BriefingRecord::whereNotNull('status')->count())->toBe(0);
+});
+
+it('does not require a point that was added after the day it is judging', function () {
+    groupingTask('g_new', createdAt: '2026-09-10 09:00:00');
+    $record = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer), 'g_b' => approvedBy($this->reviewer)]);
+
+    artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/added.jsonl')->assertSuccessful();
+
+    $bundle = $record->refresh()->load('requirements');
+
+    expect($bundle->status)->toBe(BriefingBundleStatus::Approved)
+        ->and($bundle->requirements->pluck('task_key')->sort()->values()->all())->toBe(['g_a', 'g_b']);
+});
+
+it('still requires a point that existed on the day but was not submitted', function () {
+    groupingTask('g_c', createdAt: '2026-08-01 09:00:00');
+    $record = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer), 'g_b' => approvedBy($this->reviewer)]);
+
+    artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/existing.jsonl')->assertSuccessful();
+
+    expect($record->refresh()->status)->toBe(BriefingBundleStatus::Draft);
+});
+
+it('accepts a point that has since been retired when the day holds it, and ignores retired points it does not hold', function () {
+    groupingTask('g_old')->update(['is_active' => false]);
+    groupingTask('g_gone')->update(['is_active' => false]);
+    $record = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', [
+        'g_a' => approvedBy($this->reviewer),
+        'g_b' => approvedBy($this->reviewer),
+        'g_old' => approvedBy($this->reviewer),
+    ]);
+
+    artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/retired.jsonl')->assertSuccessful();
+
+    $bundle = $record->refresh()->load('requirements');
+
+    expect($bundle->status)->toBe(BriefingBundleStatus::Approved)
+        ->and($bundle->requirements->pluck('task_key')->sort()->values()->all())->toBe(['g_a', 'g_b', 'g_old']);
+});
+
+it('uses the global points for days before the branch got its own points', function () {
+    groupingTask('g_branch', createdAt: '2026-09-15 09:00:00', branchId: $this->branch->id);
+    $before = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer), 'g_b' => approvedBy($this->reviewer)]);
+    $after = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-20', ['g_branch' => approvedBy($this->reviewer, '2026-09-21 10:00:00')]);
+
+    artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/scope.jsonl')->assertSuccessful();
+
+    expect($before->refresh()->status)->toBe(BriefingBundleStatus::Approved)
+        ->and($after->refresh()->status)->toBe(BriefingBundleStatus::Approved)
+        ->and($after->requirements()->pluck('task_key')->all())->toBe(['g_branch']);
 });
 
 it('never converts a bundle that already exists on the key', function () {

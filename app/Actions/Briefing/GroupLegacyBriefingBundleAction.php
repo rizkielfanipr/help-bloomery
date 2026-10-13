@@ -8,6 +8,7 @@ use App\Models\BriefingRecord;
 use App\Models\BriefingRecordRequirement;
 use App\Models\BriefingRecordTransition;
 use App\Models\BriefingTask;
+use App\Services\BriefingHistoricalTaskAssignment;
 use App\Services\BriefingLegacyGroupingClassifier;
 use App\Services\BriefingLegacyGroupingPlan;
 use App\Services\BriefingPeriodNormalizer;
@@ -28,6 +29,7 @@ class GroupLegacyBriefingBundleAction
     public function __construct(
         private readonly BriefingLegacyGroupingClassifier $classifier,
         private readonly BriefingPeriodNormalizer $periods,
+        private readonly BriefingHistoricalTaskAssignment $assignments,
     ) {}
 
     /**
@@ -49,7 +51,7 @@ class GroupLegacyBriefingBundleAction
                 ->whereDate('period_start', $plan->periodStart)
                 ->lockForUpdate()
                 ->first();
-            $tasks = BriefingTask::forPeriod($plan->period, $plan->branchId);
+            $tasks = $this->assignments->tasksFor($plan->branchId, $plan->period, $plan->periodStart, $records->flatMap->items);
 
             $fresh = $this->classifier->classify($plan->branchId, $plan->period, CarbonImmutable::instance($plan->periodStart), $records, $existing, $tasks);
 

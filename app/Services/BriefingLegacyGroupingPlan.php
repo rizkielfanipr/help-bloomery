@@ -50,6 +50,7 @@ final readonly class BriefingLegacyGroupingPlan
         public ?string $reviewNotes = null,
         public array $checkboxBackfillItemIds = [],
         public array $corrections = [],
+        public array $leftInSourceItemIds = [],
     ) {}
 
     public function isMutating(): bool

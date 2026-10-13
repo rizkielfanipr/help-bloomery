@@ -84,7 +84,11 @@ class BriefingLegacyGroupingClassifier
             ->values()
             ->all();
         $isComplete = $tasksByKey->every(fn (BriefingTask $task): bool => $this->satisfies($task, $realByKey->get($task->key)));
-        $canonicalId = $this->canonicalId($legacyRecords, $periodStart);
+        [$leftInSource, $canonicalId] = $this->resolveDuplicateSlots($items, $real, $legacyRecords, $periodStart);
+
+        if ($canonicalId === null) {
+            return $manual('duplicate_task');
+        }
 
         $plan = fn (BriefingBundleStatus $status, array $extra = []): BriefingLegacyGroupingPlan => new BriefingLegacyGroupingPlan(...[
             'classification' => $status->value,
@@ -96,6 +100,7 @@ class BriefingLegacyGroupingClassifier
             'status' => $status,
             'completedAt' => $status === BriefingBundleStatus::Draft ? null : $this->latest($real, 'completed_at', 'created_at'),
             'checkboxBackfillItemIds' => $checkboxBackfill,
+            'leftInSourceItemIds' => $leftInSource,
             ...$extra,
         ]);
 
@@ -183,6 +188,45 @@ class BriefingLegacyGroupingClassifier
      *
      * @param  Collection<int, BriefingRecord>  $records
      */
+    /**
+     * A point can sit in more than one source row when an empty or system-rejected slot was created
+     * next to the real submission. Only one item per point may enter the bundle — the real one, else
+     * the oldest — and the others stay in their own source row untouched. The canonical row must
+     * therefore hold none of those leftovers; when every row does, the group needs a person.
+     *
+     * @param  Collection<int, BriefingItem>  $items
+     * @param  Collection<int, BriefingItem>  $real
+     * @param  Collection<int, BriefingRecord>  $records
+     * @return array{0: list<int>, 1: ?int} leftover item ids, canonical record id
+     */
+    private function resolveDuplicateSlots(Collection $items, Collection $real, Collection $records, CarbonImmutable $periodStart): array
+    {
+        $realIds = $real->pluck('id')->map(fn ($id): int => (int) $id)->all();
+
+        $leftInSource = $items->groupBy('task_key')
+            ->filter(fn (Collection $sameKey): bool => $sameKey->count() > 1)
+            ->flatMap(function (Collection $sameKey) use ($realIds): Collection {
+                $keeper = $sameKey->first(fn (BriefingItem $item): bool => in_array((int) $item->id, $realIds, true))
+                    ?? $sameKey->sortBy('id')->first();
+
+                return $sameKey->reject(fn (BriefingItem $item): bool => $item->id === $keeper->id)->pluck('id');
+            })
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        $rowsWithLeftovers = $items->whereIn('id', $leftInSource)->pluck('briefing_record_id')->map(fn ($id): int => (int) $id)->unique();
+        $preferred = $this->canonicalId($records, $periodStart);
+
+        if (! $rowsWithLeftovers->contains($preferred)) {
+            return [$leftInSource, $preferred];
+        }
+
+        $fallback = $records->reject(fn (BriefingRecord $record): bool => $rowsWithLeftovers->contains((int) $record->id))->min('id');
+
+        return [$leftInSource, $fallback !== null ? (int) $fallback : null];
+    }
+
     private function canonicalId(Collection $records, CarbonImmutable $periodStart): int
     {
         $onKey = $records->filter(fn (BriefingRecord $record): bool => $record->record_date->isSameDay($periodStart));

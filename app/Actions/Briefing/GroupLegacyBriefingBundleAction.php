@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\DB;
  * docs/daily-briefing-bundle-approval-prd.md §15.5/§15.6 (Phase 9): turns one classified legacy group
  * into a bundle, in its own transaction. The group is re-read under lock and re-classified first, so
  * a plan made during a long dry-run never writes stale data. Source rows are kept (emptied, never
- * deleted), every item id that moved is recorded, and the returned snapshot is enough to put the
+ * deleted; a duplicate slot of a point already in the bundle stays in its row), every item id that moved is recorded, and the returned snapshot is enough to put the
  * group back exactly as it was. Never recomputes scores.
  */
 class GroupLegacyBriefingBundleAction
@@ -58,7 +58,7 @@ class GroupLegacyBriefingBundleAction
             }
 
             $canonical = $records->firstWhere('id', $fresh->canonicalRecordId);
-            $items = $records->flatMap->items;
+            $items = $records->flatMap->items->reject(fn (BriefingItem $item): bool => in_array((int) $item->id, $fresh->leftInSourceItemIds, true));
             $snapshot = $this->snapshot($runId, $canonical, $items);
             $ownerByRecord = $records->pluck('user_id', 'id');
             $movedItemIds = $items->where('briefing_record_id', '!=', $canonical->id)->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
@@ -108,6 +108,7 @@ class GroupLegacyBriefingBundleAction
                     'source_record_ids' => $fresh->sourceRecordIds,
                     'moved_item_ids' => $movedItemIds,
                     'checkbox_backfill_item_ids' => $fresh->checkboxBackfillItemIds,
+                    'left_in_source_item_ids' => $fresh->leftInSourceItemIds,
                 ],
             ]);
 

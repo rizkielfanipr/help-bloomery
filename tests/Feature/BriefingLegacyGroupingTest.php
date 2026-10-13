@@ -191,6 +191,40 @@ it('leaves ambiguous groups untouched for manual review', function (Closure $set
     ], 'missing_branch_or_date'],
 ]);
 
+it('leaves an empty duplicate slot in its own row and bundles the row without one', function () {
+    $withSlot = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', []);
+    $slot = BriefingItem::factory()->for($withSlot, 'record')->forTask('g_a')->systemRejectedWithoutSubmission()->create();
+    $submitted = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer), 'g_b' => approvedBy($this->reviewer)]);
+
+    artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/slots.jsonl')->assertSuccessful();
+
+    $bundle = $submitted->refresh()->load('items');
+
+    expect($withSlot->id)->toBeLessThan($submitted->id)
+        ->and($bundle->status)->toBe(BriefingBundleStatus::Approved)
+        ->and($bundle->items->pluck('task_key')->sort()->values()->all())->toBe(['g_a', 'g_b'])
+        ->and($slot->refresh()->briefing_record_id)->toBe($withSlot->id)
+        ->and($withSlot->refresh()->status)->toBeNull()
+        ->and($bundle->transitions()->first()->metadata['left_in_source_item_ids'])->toBe([$slot->id]);
+
+    artisan('briefing:group-legacy-bundles --restore=grouping/slots.jsonl')->assertSuccessful();
+
+    expect($submitted->refresh()->status)->toBeNull()
+        ->and($slot->refresh()->briefing_record_id)->toBe($withSlot->id);
+});
+
+it('sends a group to manual review when every row holds a duplicate slot', function () {
+    $first = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer)]);
+    BriefingItem::factory()->for($first, 'record')->forTask('g_b')->systemRejectedWithoutSubmission()->create();
+    $second = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_b' => approvedBy($this->reviewer)]);
+    BriefingItem::factory()->for($second, 'record')->forTask('g_a')->systemRejectedWithoutSubmission()->create();
+
+    artisan('briefing:group-legacy-bundles')->expectsOutputToContain('manual_review (duplicate_task)')->assertSuccessful();
+    artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/both.jsonl')->assertSuccessful();
+
+    expect(BriefingRecord::whereNotNull('status')->count())->toBe(0);
+});
+
 it('never converts a bundle that already exists on the key', function () {
     $legacy = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => [], 'g_b' => []]);
     BriefingRecord::factory()->forBranch($this->branch)->onDate('2026-09-01')->create(['period_start' => '2026-09-01', 'status' => BriefingBundleStatus::Draft->value]);

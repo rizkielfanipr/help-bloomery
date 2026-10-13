@@ -67,7 +67,15 @@ jobs:
       - name: Run unit tests
         run: php artisan test --compact --testsuite=Unit
 
+      - name: Run targeted feature tests when full suite is explicitly skipped
+        if: contains(github.event.head_commit.message, '[skip full tests]')
+        run: |
+          php artisan test --compact \
+            tests/Feature/BriefingBranchParticipationActionTest.php \
+            tests/Feature/BriefingSettingsPageTest.php
+
       - name: Run feature tests in bounded batches
+        if: ${{ !contains(github.event.head_commit.message, '[skip full tests]') }}
         shell: bash
         run: |
           mapfile -d '' feature_tests < <(find tests/Feature -type f -name '*.php' -print0 | sort -z)

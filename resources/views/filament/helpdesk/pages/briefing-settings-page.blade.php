@@ -68,9 +68,9 @@
             {{-- Partisipasi Branch --}}
             <section class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
                 <h4 class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white"><x-heroicon-o-building-office-2 class="h-5 w-5 text-blue-500" />Peserta Daily Briefing</h4>
-                <p class="mt-2 text-xs leading-5 text-gray-500">Hanya STORE_STAFF pada branch yang terdaftar sebagai peserta yang dapat mengisi Daily Briefing. Branch tetap aktif sampai dilepas dari daftar peserta.</p>
+                <p class="mt-2 text-xs leading-5 text-gray-500">Hanya STORE_STAFF pada branch yang terdaftar sebagai peserta yang dapat mengisi Daily Briefing. Branch tetap aktif sampai dilepas dari daftar peserta. Tanggal mulai menentukan sejak kapan branch menjadi peserta.</p>
 
-                <div class="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                <div class="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end">
                     <div>
                         <label for="participant-branch" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Branch <span class="text-red-500">*</span></label>
                         <select id="participant-branch" wire:model="participationData.branch_id" class="{{ $inputClass }}">
@@ -80,6 +80,11 @@
                             @endforeach
                         </select>
                         @error('participationData.branch_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label for="participant-started-at" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Tanggal Mulai <span class="text-red-500">*</span></label>
+                        <input id="participant-started-at" type="date" wire:model="participationData.started_at" max="{{ today()->toDateString() }}" class="{{ $inputClass }}">
+                        @error('participationData.started_at')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <button type="button" wire:click="addParticipation" wire:loading.attr="disabled" wire:target="addParticipation" class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60">Daftarkan sebagai Peserta</button>
                 </div>
@@ -94,7 +99,19 @@
                                 @php($isActiveToday = $period->coversDate(today()))
                                 <tr wire:key="participation-{{ $period->id }}">
                                     <td class="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100">{{ $period->branch->name }}</td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">{{ $period->started_at->format('d M Y') }}</td>
+                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                                        @if($period->is_enabled)
+                                            <div x-data="{ editing: false, value: @js($period->started_at->toDateString()) }" class="flex flex-wrap items-center gap-2">
+                                                <span x-show="! editing">{{ $period->started_at->format('d M Y') }}</span>
+                                                <button type="button" x-show="! editing" x-on:click="editing = true" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Ubah</button>
+                                                <input type="date" x-show="editing" x-cloak x-model="value" max="{{ $period->ended_at?->min(today())->toDateString() ?? today()->toDateString() }}" aria-label="Tanggal mulai {{ $period->branch->name }}" class="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                                <button type="button" x-show="editing" x-cloak x-on:click="$wire.updateParticipationStart({{ $period->id }}, value).then(() => editing = false)" class="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700">Simpan</button>
+                                                <button type="button" x-show="editing" x-cloak x-on:click="editing = false; value = @js($period->started_at->toDateString())" class="text-xs font-semibold text-gray-500 hover:text-gray-700">Batal</button>
+                                            </div>
+                                        @else
+                                            {{ $period->started_at->format('d M Y') }}
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $isActiveToday ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' }}">{{ $isActiveToday ? 'Aktif' : 'Tidak aktif' }}</span></td>
                                     <td class="px-4 py-3 text-right">
                                         @if($period->is_enabled && ($period->ended_at === null || $period->ended_at->gte(today())))

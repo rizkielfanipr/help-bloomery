@@ -55,7 +55,7 @@ class BriefingSettingsPage extends Page
 
     public bool $useCustomWeight = false;
 
-    /** @var array{branch_id: ?int} */
+    /** @var array{branch_id: ?int, started_at: ?string} */
     public array $participationData = [];
 
     public function mount(): void
@@ -78,6 +78,7 @@ class BriefingSettingsPage extends Page
 
         $this->participationData = [
             'branch_id' => null,
+            'started_at' => today()->toDateString(),
         ];
     }
 
@@ -113,6 +114,7 @@ class BriefingSettingsPage extends Page
             app(SaveBriefingBranchParticipationAction::class)->execute(
                 auth()->user(),
                 (int) ($this->participationData['branch_id'] ?? 0),
+                $this->participationData['started_at'] ?: null,
             );
         } catch (ValidationException $exception) {
             foreach ($exception->errors() as $field => $messages) {
@@ -125,9 +127,25 @@ class BriefingSettingsPage extends Page
         $this->resetValidation();
         $this->participationData = [
             'branch_id' => null,
+            'started_at' => today()->toDateString(),
         ];
 
         Notification::make()->title('Branch peserta berhasil ditambahkan')->success()->send();
+    }
+
+    public function updateParticipationStart(int $settingId, string $startedAt): void
+    {
+        abort_unless(static::canAccess(), 403);
+
+        try {
+            app(SaveBriefingBranchParticipationAction::class)->updateStartDate(auth()->user(), $settingId, $startedAt);
+        } catch (ValidationException $exception) {
+            Notification::make()->title('Tanggal mulai tidak dapat diubah')->body(collect($exception->errors())->flatten()->first())->danger()->send();
+
+            return;
+        }
+
+        Notification::make()->title('Tanggal mulai peserta diperbarui')->body('Nilai bulan yang sudah tersimpan tidak berubah sampai dihitung ulang.')->success()->send();
     }
 
     public function deactivateParticipation(int $settingId): void

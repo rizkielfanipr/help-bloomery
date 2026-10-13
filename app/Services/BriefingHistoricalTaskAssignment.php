@@ -20,9 +20,10 @@ use Illuminate\Support\Collection;
  *    the same rule as BriefingTask::forPeriod();
  *  - a scoped task counts once it existed before the period's first day began (a point added
  *    during the day or mid-period is not required retroactively) and while it is still active or
- *    the day holds an item for it;
- *  - any task the day holds an item for counts, whatever its scope or state, because the item is
- *    evidence it was assigned then.
+ *    the day holds a submitted item for it;
+ *  - any task the day holds a submitted item for counts, whatever its scope or state, because the
+ *    submission is evidence it was assigned then. Empty rows the system created do not count, so
+ *    a retired duplicate point is not revived by its placeholder slots.
  */
 class BriefingHistoricalTaskAssignment
 {
@@ -33,7 +34,7 @@ class BriefingHistoricalTaskAssignment
     public function tasksFor(int $branchId, BriefingPeriod $period, CarbonInterface $periodStart, Collection $items): Collection
     {
         $cutoff = CarbonImmutable::instance($periodStart)->startOfDay();
-        $evidence = $items->pluck('task_key')->filter()->unique();
+        $evidence = $items->filter(fn (BriefingItem $item): bool => $item->hasSubmittedContent())->pluck('task_key')->filter()->unique();
         $periodTasks = BriefingTask::cached()->where('period', $period);
         $existed = fn (BriefingTask $task): bool => $task->created_at === null || $task->created_at->lessThan($cutoff);
 

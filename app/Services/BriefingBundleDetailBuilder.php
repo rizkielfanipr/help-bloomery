@@ -72,6 +72,7 @@ class BriefingBundleDetailBuilder
             $this->completeness->itemSatisfies($requirement->submission_type, $item) => 'complete',
             default => 'missing',
         };
+        $submitted = $item?->hasSubmittedContent() ?? false;
 
         return [
             'key' => $requirement->task_key,
@@ -84,8 +85,8 @@ class BriefingBundleDetailBuilder
                 ->map(fn (string $path): string => Storage::disk('b2')->temporaryUrl($path, now()->addMinutes(self::PHOTO_URL_TTL_MINUTES)))
                 ->values()
                 ->all(),
-            'submittedBy' => $item?->submitter?->name,
-            'submittedAt' => $item?->submitted_at?->format('d M Y H:i') ?? $item?->completed_at?->format('d M Y H:i'),
+            'submittedBy' => $submitted ? $item->submitter?->name : null,
+            'submittedAt' => $submitted ? ($item->submitted_at?->format('d M Y H:i') ?? $item->completed_at?->format('d M Y H:i')) : null,
             'correctionNote' => $item?->correction_note,
         ];
     }

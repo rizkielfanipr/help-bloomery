@@ -95,4 +95,13 @@ class BriefingItem extends Model
     {
         return $this->review_status === BriefingReviewStatus::Rejected && $this->reopened_at !== null;
     }
+
+    /**
+     * Whether staff actually put something in: a tick, a photo or a note. A row the system created
+     * without content (an empty slot, or a deadline rejection) is not a submission.
+     */
+    public function hasSubmittedContent(): bool
+    {
+        return (bool) $this->is_completed || ! empty($this->photo_paths) || filled($this->notes);
+    }
 }

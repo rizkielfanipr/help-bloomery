@@ -395,6 +395,18 @@ describe('Monitoring Poin', function () {
             ->assertMountedActionModalSee(['Kontributor', 'Rina Kontributor', 'Belum direview']);
     });
 
+    it('does not credit a sender for a point that holds no submission', function () {
+        $branch = reviewBranch();
+        $bundle = reviewableBundle($branch, ['review_a']);
+        $bundle->items()->update(['is_completed' => false, 'photo_paths' => null, 'notes' => null, 'submitted_by' => User::factory()->create()->id, 'submitted_at' => now()]);
+        actingAs(supervisorOf($branch));
+
+        Livewire::test(ListBriefingBundles::class)
+            ->mountAction(TestAction::make('review')->table($bundle))
+            ->assertMountedActionModalSee('Belum Diisi')
+            ->assertMountedActionModalDontSee('Dikirim oleh');
+    });
+
     it('hides approve and reject for a draft bundle', function () {
         $branch = reviewBranch();
         $draft = reviewableBundle($branch);

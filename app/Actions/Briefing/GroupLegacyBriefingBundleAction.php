@@ -66,11 +66,14 @@ class GroupLegacyBriefingBundleAction
             $movedItemIds = $items->where('briefing_record_id', '!=', $canonical->id)->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
 
             foreach ($items as $item) {
-                $item->forceFill([
-                    'briefing_record_id' => $canonical->id,
-                    'submitted_by' => $item->submitted_by ?? $ownerByRecord[$item->briefing_record_id],
-                    'submitted_at' => $item->submitted_at ?? $item->completed_at ?? $item->created_at,
-                ]);
+                $item->forceFill(['briefing_record_id' => $canonical->id]);
+
+                if ($item->hasSubmittedContent()) {
+                    $item->forceFill([
+                        'submitted_by' => $item->submitted_by ?? $ownerByRecord[$item->getOriginal('briefing_record_id')],
+                        'submitted_at' => $item->submitted_at ?? $item->completed_at ?? $item->created_at,
+                    ]);
+                }
 
                 if (in_array($item->id, $fresh->checkboxBackfillItemIds, true)) {
                     $item->forceFill(['is_completed' => true, 'completed_at' => $item->completed_at ?? $item->created_at]);

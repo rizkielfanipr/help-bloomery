@@ -278,6 +278,22 @@ it('accepts a point that has since been retired when the day holds it, and ignor
         ->and($bundle->requirements->pluck('task_key')->sort()->values()->all())->toBe(['g_a', 'g_b', 'g_old']);
 });
 
+it('does not revive a retired duplicate point from an empty system slot, and never credits a contributor for that slot', function () {
+    groupingTask('g_dupe')->update(['is_active' => false]);
+    $record = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer), 'g_b' => approvedBy($this->reviewer)]);
+    $slot = BriefingItem::factory()->for($record, 'record')->forTask('g_dupe')->systemRejectedWithoutSubmission()->create(['submitted_by' => null, 'submitted_at' => null]);
+
+    artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/dupe.jsonl')->assertSuccessful();
+
+    $bundle = $record->refresh()->load('requirements');
+
+    expect($bundle->status)->toBe(BriefingBundleStatus::Approved)
+        ->and($bundle->requirements->pluck('task_key')->sort()->values()->all())->toBe(['g_a', 'g_b'])
+        ->and($slot->refresh()->submitted_by)->toBeNull()
+        ->and($slot->submitted_at)->toBeNull()
+        ->and($bundle->items()->where('task_key', 'g_a')->value('submitted_by'))->not->toBeNull();
+});
+
 it('uses the global points for days before the branch got its own points', function () {
     groupingTask('g_branch', createdAt: '2026-09-15 09:00:00', branchId: $this->branch->id);
     $before = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer), 'g_b' => approvedBy($this->reviewer)]);

@@ -3,12 +3,9 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Actions\Briefing\BriefingSubmissionAction;
-use App\Enums\BriefingPeriod;
-use App\Enums\BriefingReviewStatus;
-use App\Models\BriefingItem;
-use App\Models\BriefingRecord;
 use App\Models\BriefingTask;
 use App\Services\BriefingAssignmentService;
+use App\Services\BriefingWorkspaceBuilder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -72,19 +69,22 @@ class DailyBriefingPage extends Page
 
     public function openTaskModal(string $taskKey): void
     {
-        $user = auth()->user();
         $task = BriefingTask::cached()->firstWhere('key', $taskKey);
 
-        if (! $task || ! app(BriefingAssignmentService::class)->taskIsAssignedTo($user, $task, now())) {
+        if (! $task || ! app(BriefingAssignmentService::class)->taskIsAssignedTo(auth()->user(), $task, now())) {
             return;
         }
 
-        $item = $this->canonicalItem($task);
+        $row = collect($this->briefingData[$task->period->value]['tasks'] ?? [])->firstWhere('key', $taskKey);
 
-        if ($item?->review_status === BriefingReviewStatus::Approved) {
+        if ($row === null) {
+            return;
+        }
+
+        if (! $row['isEditable']) {
             Notification::make()
-                ->title('Already Approved')
-                ->body('This item has been approved and can no longer be changed.')
+                ->title('Tidak Dapat Diubah')
+                ->body($this->briefingData[$task->period->value]['bundle']['message'] ?? 'Poin ini tidak dapat diubah saat ini.')
                 ->warning()
                 ->send();
 
@@ -92,8 +92,8 @@ class DailyBriefingPage extends Page
         }
 
         $this->activeTaskKey = $taskKey;
-        $this->activeSubmissionType = $task->submission_type->value;
-        $this->activeTaskLabel = $task->label;
+        $this->activeSubmissionType = $row['submissionType'];
+        $this->activeTaskLabel = $row['label'];
         $this->activeTaskNoteType = $task->note_type;
         $this->taskData = ['notes' => null];
         $this->cameraPhotoPaths = [];
@@ -184,85 +184,15 @@ class DailyBriefingPage extends Page
             ->send();
     }
 
-    private function canonicalItem(BriefingTask $task): ?BriefingItem
-    {
-        $branchId = (int) auth()->user()->branch_id;
-        $record = BriefingRecord::canonicalForBranch($branchId, $task->period, now());
-
-        return $record?->items->firstWhere('task_key', $task->key);
-    }
-
+    /**
+     * docs/daily-briefing-bundle-approval-prd.md §12: one bundle workspace per period, built by a
+     * service so the page holds no completeness or editability rules of its own.
+     *
+     * @return array<string, array<string, mixed>>
+     */
     #[Computed]
     public function briefingData(): array
     {
-        $user = auth()->user();
-        $branchId = $user?->branch_id;
-        $assignments = app(BriefingAssignmentService::class);
-        $result = [];
-
-        foreach (BriefingPeriod::cases() as $period) {
-            $record = $branchId
-                ? BriefingRecord::canonicalForBranch((int) $branchId, $period, now())?->load('items')
-                : null;
-
-            $tasks = $assignments->tasksFor($user, $period, now());
-            $itemMap = $record
-                ? $record->items->keyBy(fn (BriefingItem $i) => $i->task_key)
-                : collect();
-
-            $taskList = $tasks->map(function (BriefingTask $task) use ($itemMap): array {
-                $item = $itemMap->get($task->key);
-
-                return [
-                    'key' => $task->key,
-                    'label' => $task->label,
-                    'noteType' => $task->note_type,
-                    'submissionType' => $task->submission_type->value,
-                    'requiresPhoto' => $task->submission_type->requiresPhoto(),
-                    'group' => $task->group,
-                    'groupLabel' => $task->group_label,
-                    'isCompleted' => $item?->is_completed ?? false,
-                    'completedAt' => $item?->completed_at,
-                    'photoPaths' => $item?->photo_paths ?? [],
-                    'notes' => $item?->notes,
-                    'reviewStatus' => $item?->review_status,
-                    'rejectionReason' => $item?->rejection_reason,
-                    'hasOpenReopenGrant' => $item?->hasOpenReopenGrant() ?? false,
-                    'isPastDeadline' => $task->isPastDeadline() && ! ($item?->is_completed) && ! ($item?->hasOpenReopenGrant()),
-                    'deadlineLabel' => $task->deadlineLabel(),
-                ];
-            })->all();
-
-            $completedCount = collect($taskList)->where('isCompleted', true)->count();
-
-            $idDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-            $idMonths = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-
-            $rangeLabel = match ($period) {
-                BriefingPeriod::Daily => $idDays[now()->dayOfWeek].', '.now()->format('j').' '.$idMonths[now()->month].' '.now()->format('Y'),
-                BriefingPeriod::Weekly => (function () use ($idMonths): string {
-                    $start = now()->startOfWeek();
-                    $end = now()->endOfWeek();
-                    $range = $start->month === $end->month
-                        ? $start->format('j').'–'.$end->format('j').' '.$idMonths[$end->month].' '.$end->format('Y')
-                        : $start->format('j').' '.$idMonths[$start->month].'–'.$end->format('j').' '.$idMonths[$end->month].' '.$end->format('Y');
-
-                    return "Periode {$range}";
-                })(),
-                BriefingPeriod::Monthly => $idMonths[now()->month].' '.now()->format('Y'),
-            };
-
-            $result[$period->value] = [
-                'period' => $period,
-                'label' => $period->getLabel(),
-                'periodLabel' => $period->periodLabel(),
-                'rangeLabel' => $rangeLabel,
-                'total' => count($taskList),
-                'completed' => $completedCount,
-                'tasks' => $taskList,
-            ];
-        }
-
-        return $result;
+        return app(BriefingWorkspaceBuilder::class)->forUser(auth()->user(), now());
     }
 }

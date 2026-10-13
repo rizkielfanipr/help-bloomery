@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Actions\Briefing\RecomputeBriefingScoresAction;
 use App\Models\Branch;
 use App\Models\BriefingScore;
-use App\Services\BriefingScoreCalculator;
+use App\Services\BriefingScoringMethod;
 use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -29,12 +29,13 @@ use Illuminate\Support\Str;
     {--branch=}
     {--dry-run}
     {--confirm}
+    {--method= : Preview another scoring method in --dry-run; --confirm always writes the active method}
     {--restore= : Path to a snapshot JSON file to restore instead of recomputing}')]
 #[Description('Dry-run by default; --confirm required to mutate. Snapshots every overwritten row first; --restore=<file> reverts from a snapshot.')]
 class BriefingRecomputeHistoryCommand extends Command
 {
     public function __construct(
-        private readonly BriefingScoreCalculator $calculator,
+        private readonly BriefingScoringMethod $scoring,
         private readonly RecomputeBriefingScoresAction $recompute,
     ) {
         parent::__construct();
@@ -75,9 +76,18 @@ class BriefingRecomputeHistoryCommand extends Command
         }
 
         $branches = Branch::when($branchId, fn ($q) => $q->where('id', $branchId))->orderBy('name')->get();
+        $method = $this->option('method') !== null ? (int) $this->option('method') : null;
 
         if ($dryRun) {
-            return $this->runDryRun($branches, $months);
+            return $this->runDryRun($branches, $months, $method);
+        }
+
+        // Writing a method other than the active one would leave stored scores the next recompute
+        // job or scheduler run silently overwrites with the active method.
+        if ($method !== null && $method !== $this->scoring->activeVersion()) {
+            $this->error("--confirm selalu menulis metode aktif (v{$this->scoring->activeVersion()}). Ubah BRIEFING_SCORING_METHOD_VERSION terlebih dahulu bila cutover sudah disetujui.");
+
+            return Command::FAILURE;
         }
 
         return $this->runConfirmed($branches, $months);
@@ -103,15 +113,15 @@ class BriefingRecomputeHistoryCommand extends Command
         return $months;
     }
 
-    private function runDryRun(Collection $branches, array $months): int
+    private function runDryRun(Collection $branches, array $months, ?int $method = null): int
     {
-        $this->warn('=== DRY RUN — tidak ada data yang diubah ===');
+        $this->warn('=== DRY RUN — tidak ada data yang diubah === (metode v'.($method ?? $this->scoring->activeVersion()).')');
         $rows = [];
 
         foreach ($months as $period) {
             foreach ($branches as $branch) {
                 $old = BriefingScore::where('branch_id', $branch->id)->where('year', $period['year'])->where('month', $period['month'])->first();
-                $new = $this->calculator->calculate($branch, $period['year'], $period['month']);
+                $new = $this->scoring->calculate($branch, $period['year'], $period['month'], $method);
                 $newScore = $new->isNotApplicable() ? null : $new->score;
                 $delta = ($old && $newScore !== null) ? round($newScore - $old->score, 2) : null;
 

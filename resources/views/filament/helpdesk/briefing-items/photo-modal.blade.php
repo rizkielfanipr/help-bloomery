@@ -67,11 +67,7 @@
         </div>
     @endif
 
-    {{-- Approve / Reject actions --}}
-    @if ($record->review_status !== \App\Enums\BriefingReviewStatus::Approved)
-        <div class="flex items-center gap-2 border-t border-gray-100 pt-4 dark:border-gray-800">
-            {{ $action->getModalAction('approve') }}
-            {{ $action->getModalAction('reject') }}
-        </div>
-    @endif
+    <p class="border-t border-gray-100 pt-4 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
+        Review dilakukan per bundle di menu Monitoring Poin.
+    </p>
 </div>

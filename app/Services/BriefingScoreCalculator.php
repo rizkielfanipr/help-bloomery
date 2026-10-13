@@ -112,64 +112,27 @@ class BriefingScoreCalculator
                 ];
             })->values();
 
-            $periodApproved = (int) $taskRows->sum('approved');
-            $periodExpected = (int) $taskRows->sum('expected');
-            $applicable = $periodExpected > 0;
-
             $periodsData[$period->value] = [
-                'applicable' => $applicable,
-                'approved' => $periodApproved,
-                'expected' => $periodExpected,
-                'rate' => $applicable ? round($periodApproved / $periodExpected * 100, 2) : 0.0,
+                'applicable' => false,
+                'approved' => (int) $taskRows->sum('approved'),
+                'expected' => (int) $taskRows->sum('expected'),
+                'rate' => 0.0,
                 'configured_weight' => (float) $configuredWeights[$period->value],
                 'tasks' => $taskRows->all(),
             ];
         }
 
-        $applicablePeriods = collect($periodsData)->filter(fn (array $p): bool => $p['applicable']);
-
-        if ($applicablePeriods->isEmpty()) {
-            return BriefingScoreResult::notApplicable($branchId, $year, $month, $periodStart->toDateString(), $effectiveEnd->toDateString(), $now);
-        }
-
-        $activeWeightSum = $applicablePeriods->sum('configured_weight');
-        $finalScore = 0.0;
-
-        foreach ($periodsData as $periodKey => &$data) {
-            if (! $data['applicable']) {
-                $data['effective_weight'] = 0.0;
-                $data['contribution'] = 0.0;
-
-                continue;
-            }
-
-            $effectiveWeight = $activeWeightSum > 0
-                ? ($data['configured_weight'] / $activeWeightSum) * 100
-                : 100 / $applicablePeriods->count();
-
-            $contribution = round($data['rate'] * $effectiveWeight / 100, 2);
-
-            $data['effective_weight'] = round($effectiveWeight, 2);
-            $data['contribution'] = $contribution;
-            $finalScore += $contribution;
-        }
-        unset($data);
-
-        $finalScore = round($finalScore, 2);
-        $passingScore = (float) $settings->passing_score;
-
-        return new BriefingScoreResult(
+        return BriefingScoreResult::fromPeriods(
             branchId: $branchId,
             year: $year,
             month: $month,
-            score: $finalScore,
-            passingScore: $passingScore,
-            status: $finalScore >= $passingScore ? BriefingScoreResult::STATUS_ACHIEVED : BriefingScoreResult::STATUS_NOT_ACHIEVED,
+            periods: $periodsData,
+            passingScore: (float) $settings->passing_score,
             isProvisional: $isProvisional,
             periodStart: $periodStart->toDateString(),
             periodEnd: $effectiveEnd->toDateString(),
-            periods: $periodsData,
             computedAt: $now,
+            methodVersion: BriefingScoreResult::METHOD_VERSION,
         );
     }
 

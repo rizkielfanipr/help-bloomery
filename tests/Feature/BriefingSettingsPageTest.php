@@ -181,6 +181,35 @@ it('shows an overlap error when a participant period collides', function () {
         ->assertHasErrors(['participationData.branch_id']);
 });
 
+it('registers a participant from the chosen start date and corrects the start of an existing one', function () {
+    $this->travelTo('2026-10-13 10:00:00');
+
+    $branch = Branch::factory()->create();
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo(['edit briefing settings', 'edit briefing period weights']);
+    actingAs($user);
+
+    $page = Livewire::test(BriefingSettingsPage::class)
+        ->assertSet('participationData.started_at', '2026-10-13')
+        ->set('participationData.branch_id', $branch->id)
+        ->set('participationData.started_at', '2026-08-01')
+        ->call('addParticipation')
+        ->assertHasNoErrors();
+
+    $period = BriefingBranchSetting::where('branch_id', $branch->id)->sole();
+    expect($period->started_at->toDateString())->toBe('2026-08-01');
+
+    $page->call('updateParticipationStart', $period->id, '2026-02-02')
+        ->assertNotified('Tanggal mulai peserta diperbarui');
+
+    expect($period->fresh()->started_at->toDateString())->toBe('2026-02-02');
+
+    $page->call('updateParticipationStart', $period->id, '2026-12-01')
+        ->assertNotified('Tanggal mulai tidak dapat diubah');
+
+    expect($period->fresh()->started_at->toDateString())->toBe('2026-02-02');
+});
+
 it('does not touch an existing BriefingScore snapshot when settings are saved (no hidden recompute)', function () {
     $branch = Branch::factory()->create();
     $score = BriefingScore::create([

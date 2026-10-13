@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\BriefingBundleStatus;
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingReviewStatus;
+use App\Exceptions\Briefing\BriefingBundleConflictException;
 use App\Models\Branch;
 use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
@@ -20,7 +22,11 @@ use Illuminate\Support\Collection;
  */
 class BriefingStatusService
 {
-    public function __construct(private readonly BriefingAssignmentService $assignments) {}
+    public function __construct(
+        private readonly BriefingAssignmentService $assignments,
+        private readonly BriefingBundleResolver $bundles,
+        private readonly BriefingPeriodNormalizer $periods,
+    ) {}
 
     /**
      * Status of a single task's submission (or lack of one) on $recordDate.
@@ -50,6 +56,21 @@ class BriefingStatusService
 
         if ($tasks->isEmpty()) {
             return 'not_applicable';
+        }
+
+        // docs/daily-briefing-bundle-approval-prd.md §8.1: a bundle carries its own decision; a draft
+        // is derived missing once its period has ended, exactly like an obligation with no row.
+        try {
+            $bundle = $this->bundles->find((int) $branch->id, $period, $recordDate);
+        } catch (BriefingBundleConflictException) {
+            return 'manual_review';
+        }
+
+        if ($bundle !== null) {
+            return match ($bundle->status) {
+                BriefingBundleStatus::Draft => $this->periods->end($period, $recordDate)->endOfDay()->isPast() ? 'missing' : 'not_due',
+                default => $bundle->status->value,
+            };
         }
 
         $record = BriefingRecord::canonicalForBranch((int) $branch->id, $period, $recordDate)?->load('items');

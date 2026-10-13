@@ -106,6 +106,17 @@
                                                         {{ number_format($info['rate'], 1) }}%
                                                     </span>
                                                 </div>
+                                                @if(isset($info['statuses']))
+                                                    <p class="mt-1 pl-2 text-[11px] text-gray-500 dark:text-gray-400">
+                                                        {{ $info['approved'] }}/{{ $info['expected'] }} disetujui
+                                                        @if(($info['statuses']['missing'] ?? 0) > 0)
+                                                            · {{ $info['statuses']['missing'] }} tidak dikirim
+                                                        @endif
+                                                        @if(($info['statuses']['upcoming'] ?? 0) > 0)
+                                                            · {{ $info['statuses']['upcoming'] }} belum jatuh tempo
+                                                        @endif
+                                                    </p>
+                                                @endif
                                                 <div class="mt-1 space-y-1">
                                                     @foreach($info['tasks'] as $task)
                                                         <div class="flex items-center justify-between gap-2 pl-2">

@@ -199,6 +199,53 @@
                                         <div><p class="text-xs text-gray-500 dark:text-gray-400">Bobot (Effective)</p><p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ number_format($period['effective_weight'], 2) }}%</p></div>
                                         <div><p class="text-xs text-gray-500 dark:text-gray-400">Kontribusi</p><p class="mt-1 text-sm font-semibold text-blue-700 dark:text-blue-300">{{ number_format($period['contribution'], 2) }}</p></div>
                                     </div>
+                                    @if(! empty($period['statuses']))
+                                        @php($occurrenceStatuses = ['approved' => [\App\Enums\BriefingBundleStatus::Approved->getLabel(), 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'], 'supervisor_review' => [\App\Enums\BriefingBundleStatus::SupervisorReview->getLabel(), 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'], 'rejected' => [\App\Enums\BriefingBundleStatus::Rejected->getLabel(), 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'], 'reopened' => [\App\Enums\BriefingBundleStatus::Reopened->getLabel(), 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'], 'draft' => [\App\Enums\BriefingBundleStatus::Draft->getLabel(), 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200'], 'missing' => ['Not Submitted', 'bg-red-50 text-red-500 ring-1 ring-inset ring-red-200 dark:bg-red-950/30 dark:text-red-400 dark:ring-red-900'], 'upcoming' => ['Upcoming', 'border border-dashed border-gray-300 bg-white text-gray-400 dark:border-gray-600 dark:bg-transparent dark:text-gray-500']])
+                                        <div class="mt-3 flex flex-wrap gap-2 text-xs" aria-label="Status kewajiban">
+                                            @foreach($occurrenceStatuses as $statusKey => [$statusLabel, $statusClass])
+                                                @if(($period['statuses'][$statusKey] ?? 0) > 0)
+                                                    <span class="rounded-full px-2.5 py-0.5 {{ $statusClass }}">{{ $statusLabel }}: <span class="font-semibold tabular-nums">{{ $period['statuses'][$statusKey] }}</span></span>
+                                                @endif
+                                            @endforeach
+                                        </div>
+
+                                        @if(! empty($period['occurrences']))
+                                            @if($key === 'daily')
+                                                @php($leadingBlanks = \Carbon\Carbon::parse($period['occurrences'][0]['start'])->dayOfWeekIso - 1)
+                                                <div class="mt-3" aria-label="Rincian harian">
+                                                    <div class="grid grid-cols-7 gap-1.5 text-center text-[10px] font-semibold uppercase text-gray-400">
+                                                        @foreach(['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'] as $weekday)<span>{{ $weekday }}</span>@endforeach
+                                                    </div>
+                                                    <div class="mt-1.5 grid grid-cols-7 gap-1.5">
+                                                        @for($blank = 0; $blank < $leadingBlanks; $blank++)<span></span>@endfor
+                                                        @foreach($period['occurrences'] as $occurrence)
+                                                            @php([$occurrenceLabel, $occurrenceClass] = $occurrenceStatuses[$occurrence['status']] ?? [$occurrence['status'], ''])
+                                                            <div class="flex h-11 flex-col items-center justify-center rounded-lg text-xs {{ $occurrenceClass }}" title="{{ \Carbon\Carbon::parse($occurrence['start'])->format('d M Y') }} · {{ $occurrenceLabel }}">
+                                                                <span class="font-semibold tabular-nums">{{ \Carbon\Carbon::parse($occurrence['start'])->day }}</span>
+                                                                <span class="max-w-full truncate px-1 text-[9px] leading-tight">{{ $occurrenceLabel }}</span>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @else
+                                                <div class="mt-3 divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-100 dark:divide-gray-800 dark:border-gray-800" aria-label="Rincian {{ strtolower($label) }}">
+                                                    @foreach($period['occurrences'] as $occurrence)
+                                                        @php([$occurrenceLabel, $occurrenceClass] = $occurrenceStatuses[$occurrence['status']] ?? [$occurrence['status'], ''])
+                                                        <div class="flex items-center justify-between gap-3 px-3 py-2 text-xs">
+                                                            <span class="text-gray-700 dark:text-gray-300">
+                                                                @if($key === 'weekly')
+                                                                    Minggu {{ \Carbon\Carbon::parse($occurrence['start'])->format('d M') }} – {{ \Carbon\Carbon::parse($occurrence['end'])->format('d M Y') }}
+                                                                @else
+                                                                    {{ \Carbon\Carbon::parse($occurrence['start'])->locale('id')->translatedFormat('F Y') }}
+                                                                @endif
+                                                            </span>
+                                                            <span class="rounded-full px-2.5 py-0.5 font-medium {{ $occurrenceClass }}">{{ $occurrenceLabel }}</span>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        @endif
+                                    @endif
                                     @if(! empty($period['tasks']))
                                         <div class="mt-3 overflow-hidden rounded-lg border border-gray-100 dark:border-gray-800">
                                             <table class="w-full text-xs">

@@ -58,7 +58,8 @@ it('renders the full page over HTTP', function () {
 
     $this->get(route('filament.helpdesk.pages.briefing-score-workspace-page'))
         ->assertOk()
-        ->assertSee('Nilai Daily Briefing');
+        ->assertSee('Nilai Daily Briefing')
+        ->assertSee('openGroups: ["daily_briefing"]', false);
 });
 
 it('ranks scored branches by final score descending with branch name as tie-breaker', function () {

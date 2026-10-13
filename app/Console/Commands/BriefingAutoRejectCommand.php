@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Briefing\AutoRejectBriefingBundleAction;
 use App\Enums\BriefingReviewStatus;
 use App\Models\BriefingItem;
+use App\Models\BriefingRecord;
 use App\Models\BriefingSettings;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -34,15 +36,23 @@ class BriefingAutoRejectCommand extends Command
         $days = $settings->auto_reject_after_days;
         $reason = $settings->formattedAutoRejectReason($days);
 
+        $bundlesRejected = 0;
+
         try {
+            BriefingRecord::query()
+                ->awaitingReviewPastSla($days)
+                ->chunkById(100, function ($bundles) use (&$checked, &$bundlesRejected, $reason, $days): void {
+                    foreach ($bundles as $bundle) {
+                        $checked++;
+
+                        if (app(AutoRejectBriefingBundleAction::class)->execute($bundle, $reason, $days)) {
+                            $bundlesRejected++;
+                        }
+                    }
+                });
+
             BriefingItem::query()
-                ->whereIn('review_status', [
-                    BriefingReviewStatus::LegacyPending->value,
-                    BriefingReviewStatus::SupervisorReview->value,
-                ])
-                ->where('is_completed', true)
-                ->whereNotNull('completed_at')
-                ->where('completed_at', '<=', now()->subDays($days))
+                ->legacyAwaitingReviewPastSla($days)
                 ->chunkById(100, function ($items) use (&$checked, &$updated, $reason): void {
                     foreach ($items as $item) {
                         $checked++;
@@ -74,12 +84,13 @@ class BriefingAutoRejectCommand extends Command
         Log::info('briefing.auto_reject.completed', [
             'run_id' => $runId,
             'checked' => $checked,
-            'updated' => $updated,
+            'bundles_rejected' => $bundlesRejected,
+            'legacy_items_rejected' => $updated,
             'errors' => $errors,
             'duration_ms' => now()->diffInMilliseconds($startedAt),
         ]);
 
-        $this->info("Auto-rejected {$updated} briefing item(s) pending review past the SLA window.");
+        $this->info("Auto-rejected {$bundlesRejected} bundle(s) and {$updated} legacy briefing item(s) pending review past the SLA window.");
 
         return Command::SUCCESS;
     }

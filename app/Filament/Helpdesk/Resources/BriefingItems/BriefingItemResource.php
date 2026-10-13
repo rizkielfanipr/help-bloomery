@@ -2,7 +2,6 @@
 
 namespace App\Filament\Helpdesk\Resources\BriefingItems;
 
-use App\Actions\Briefing\BriefingReviewAction;
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingReviewStatus;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
@@ -14,17 +13,13 @@ use App\Models\User;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -33,7 +28,6 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use UnitEnum;
 
 class BriefingItemResource extends Resource
@@ -53,6 +47,21 @@ class BriefingItemResource extends Resource
     protected static ?string $modelLabel = 'Poin Briefing';
 
     protected static ?string $pluralModelLabel = 'Monitoring Poin Briefing';
+
+    /**
+     * docs/daily-briefing-bundle-approval-prd.md Phase 5: review moved to BriefingBundleResource. This
+     * per-item listing stays read-only and reachable by URL for history during the compatibility
+     * phase; it no longer approves, rejects or reopens individual points.
+     */
+    protected static bool $shouldRegisterNavigation = false;
+
+    /**
+     * The `briefing items` permissions are declared once, by BriefingBundleResource.
+     */
+    public static function permissionDefinition(): ?array
+    {
+        return null;
+    }
 
     public static function table(Table $table): Table
     {
@@ -110,65 +119,6 @@ class BriefingItemResource extends Resource
                     ->color('info')
                     ->modalHeading('Detail Briefing')
                     ->modalWidth(Width::FiveExtraLarge)
-                    ->registerModalActions([
-                        Action::make('approve')
-                            ->label('Approve')
-                            ->color('success')
-                            ->icon('heroicon-o-check-circle')
-                            ->requiresConfirmation()
-                            ->modalFooterActionsAlignment(Alignment::End)
-                            ->modalHeading('Approve This Item?')
-                            ->modalDescription('After approval, staff can no longer modify this item.')
-                            ->action(function (BriefingItem $record): void {
-                                $result = app(BriefingReviewAction::class)->approve(auth()->user(), $record);
-
-                                Notification::make()
-                                    ->title($result->message)
-                                    ->status($result->successful ? 'success' : 'danger')
-                                    ->send();
-                            })
-                            ->visible(fn (BriefingItem $record): bool => auth()->user()->can('approve', $record)),
-
-                        Action::make('reject')
-                            ->label('Reject')
-                            ->color('danger')
-                            ->icon('heroicon-o-x-circle')
-                            ->form([
-                                Textarea::make('rejection_reason')
-                                    ->label('Rejection Reason')
-                                    ->required()
-                                    ->rows(3),
-                            ])
-                            ->action(function (array $data, BriefingItem $record): void {
-                                $result = app(BriefingReviewAction::class)->reject(auth()->user(), $record, $data['rejection_reason']);
-
-                                Notification::make()
-                                    ->title($result->message)
-                                    ->status($result->successful ? 'success' : 'danger')
-                                    ->send();
-                            })
-                            ->visible(fn (BriefingItem $record): bool => auth()->user()->can('reject', $record)),
-
-                        Action::make('reopen')
-                            ->label('Buka Kembali')
-                            ->color('warning')
-                            ->icon('heroicon-o-arrow-path')
-                            ->form([
-                                Textarea::make('reopen_reason')
-                                    ->label('Alasan Membuka Kembali')
-                                    ->required()
-                                    ->rows(3),
-                            ])
-                            ->action(function (array $data, BriefingItem $record): void {
-                                $result = app(BriefingReviewAction::class)->reopen(auth()->user(), $record, $data['reopen_reason']);
-
-                                Notification::make()
-                                    ->title($result->message)
-                                    ->status($result->successful ? 'success' : 'danger')
-                                    ->send();
-                            })
-                            ->visible(fn (BriefingItem $record): bool => auth()->user()->can('reopen', $record)),
-                    ])
                     ->modalContent(fn (BriefingItem $record, Action $action): View => view(
                         'filament.helpdesk.briefing-items.photo-modal',
                         ['record' => $record, 'action' => $action],
@@ -285,38 +235,6 @@ class BriefingItemResource extends Resource
                     }),
 
                 BulkActionGroup::make([
-                    BulkAction::make('bulk_approve')
-                        ->label('Approve')
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->requiresConfirmation()
-                        ->modalFooterActionsAlignment(Alignment::End)
-                        ->modalHeading('Approve Selected Items?')
-                        ->modalDescription('Only items awaiting supervisor review will be approved.')
-                        ->action(function (Collection $records): void {
-                            $action = app(BriefingReviewAction::class);
-                            $actor = auth()->user();
-
-                            $records->each(fn (BriefingItem $item) => $action->approve($actor, $item));
-                        }),
-
-                    BulkAction::make('bulk_reject')
-                        ->label('Reject')
-                        ->icon('heroicon-o-x-circle')
-                        ->color('danger')
-                        ->form([
-                            Textarea::make('rejection_reason')
-                                ->label('Rejection Reason')
-                                ->required()
-                                ->rows(3),
-                        ])
-                        ->action(function (array $data, Collection $records): void {
-                            $action = app(BriefingReviewAction::class);
-                            $actor = auth()->user();
-
-                            $records->each(fn (BriefingItem $item) => $action->reject($actor, $item, $data['rejection_reason']));
-                        }),
-
                     DeleteBulkAction::make(),
                 ]),
             ]);

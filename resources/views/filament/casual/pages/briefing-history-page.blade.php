@@ -64,19 +64,9 @@
                 @foreach($monthRecords as $record)
                     @php
                         $items          = $record->items;
-                        $completedCount = $items->where('is_completed', true)->count();
-                        $totalCount     = $items->count();
-                        $hasRejected    = $items->contains(fn ($i) => $i->review_status?->value === 'rejected');
-                        $allApproved    = $items->isNotEmpty() && $items->every(fn ($i) => $i->review_status?->value === 'approved');
-                        $hasPending     = $items->contains(fn ($i) => $i->review_status?->isAwaitingSupervisorReview() ?? false);
-
-                        $overallBadge = match(true) {
-                            $hasRejected => ['label' => 'Rejected',          'class' => 'bg-red-100 text-red-700'],
-                            $allApproved => ['label' => 'All Approved',      'class' => 'bg-green-100 text-green-700'],
-                            $hasPending  => ['label' => 'Supervisor Review', 'class' => 'bg-amber-100 text-amber-700'],
-                            $items->isNotEmpty() => ['label' => 'Tersubmit','class' => 'bg-blue-100 text-blue-700'],
-                            default      => ['label' => 'Kosong',           'class' => 'bg-gray-100 text-gray-500'],
-                        };
+                        $overallBadge   = $this->summary($record);
+                        $completedCount = $overallBadge['completed'];
+                        $totalCount     = $overallBadge['total'];
 
                         $periodBadgeClass = $this->periodBadgeClass($record->period->value);
                         $isExpanded       = $expandedRecordId === $record->id;

@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Filament\Casual\Resources\ServiceRequests\Pages\ListServiceRequests as CasualListServiceRequests;
+use App\Filament\Helpdesk\Resources\BriefingBundles\BriefingBundleResource;
+use App\Filament\Helpdesk\Resources\BriefingBundles\Pages\ListBriefingBundles;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ListCustomerComplaints;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
 use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillments;
@@ -63,6 +65,14 @@ class AppServiceProvider extends ServiceProvider
                 ListErpRepairRequests::class,
                 ListMaterialSourcings::class,
             ],
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.briefing-bundles.table-header-cell', $data + [
+                'branchOptions' => $data['column']->getName() === 'branch.name' ? BriefingBundleResource::branchFilterOptions() : [],
+            ]),
+            scopes: ListBriefingBundles::class,
         );
 
         FilamentView::registerRenderHook(

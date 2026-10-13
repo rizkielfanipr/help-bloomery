@@ -9,7 +9,10 @@ use App\Models\Branch;
 use App\Models\BriefingBranchSetting;
 use App\Models\BriefingItem;
 use App\Models\BriefingPeriodWeight;
+use App\Models\BriefingRecord;
 use App\Models\BriefingSettings;
+use App\Services\BriefingScoreResult;
+use App\Services\BriefingScoringMethod;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -55,7 +58,7 @@ class BriefingSettingsPage extends Page
 
     public bool $useCustomWeight = false;
 
-    /** @var array{branch_id: ?int} */
+    /** @var array{branch_id: ?int, started_at: ?string} */
     public array $participationData = [];
 
     public function mount(): void
@@ -78,6 +81,7 @@ class BriefingSettingsPage extends Page
 
         $this->participationData = [
             'branch_id' => null,
+            'started_at' => today()->toDateString(),
         ];
     }
 
@@ -113,6 +117,7 @@ class BriefingSettingsPage extends Page
             app(SaveBriefingBranchParticipationAction::class)->execute(
                 auth()->user(),
                 (int) ($this->participationData['branch_id'] ?? 0),
+                $this->participationData['started_at'] ?: null,
             );
         } catch (ValidationException $exception) {
             foreach ($exception->errors() as $field => $messages) {
@@ -125,9 +130,25 @@ class BriefingSettingsPage extends Page
         $this->resetValidation();
         $this->participationData = [
             'branch_id' => null,
+            'started_at' => today()->toDateString(),
         ];
 
         Notification::make()->title('Branch peserta berhasil ditambahkan')->success()->send();
+    }
+
+    public function updateParticipationStart(int $settingId, string $startedAt): void
+    {
+        abort_unless(static::canAccess(), 403);
+
+        try {
+            app(SaveBriefingBranchParticipationAction::class)->updateStartDate(auth()->user(), $settingId, $startedAt);
+        } catch (ValidationException $exception) {
+            Notification::make()->title('Tanggal mulai tidak dapat diubah')->body(collect($exception->errors())->flatten()->first())->danger()->send();
+
+            return;
+        }
+
+        Notification::make()->title('Tanggal mulai peserta diperbarui')->body('Nilai bulan yang sudah tersimpan tidak berubah sampai dihitung ulang.')->success()->send();
     }
 
     public function deactivateParticipation(int $settingId): void
@@ -201,17 +222,39 @@ class BriefingSettingsPage extends Page
      * §14.5 preview: how many real submissions are currently eligible for the next auto-reject
      * SLA run. Mirrors BriefingAutoRejectCommand's own query so the number is never misleading.
      */
+    /**
+     * docs/daily-briefing-bundle-approval-prd.md §11: read-only explanation of the active method; the
+     * cutover itself is a deployment config change, never a setting.
+     *
+     * @return array{version: int, label: string, formula: string}
+     */
+    public function activeScoringMethod(): array
+    {
+        $version = app(BriefingScoringMethod::class)->activeVersion();
+
+        return [
+            'version' => $version,
+            'label' => $version === BriefingScoreResult::BUNDLE_METHOD_VERSION ? 'Bundle disetujui' : 'Poin disetujui per kemunculan',
+            'formula' => $version === BriefingScoreResult::BUNDLE_METHOD_VERSION
+                ? 'Nilai periode = bundle disetujui ÷ kewajiban yang sudah jatuh tempo × 100; Nilai akhir = Σ(nilai periode × bobot efektif)'
+                : 'Nilai periode = poin disetujui ÷ poin yang diharapkan × 100; Nilai akhir = Σ(nilai periode × bobot efektif)',
+        ];
+    }
+
     #[Computed]
-    public function eligibleAutoRejectCount(): int
+    /**
+     * Uses the very scopes BriefingAutoRejectCommand runs, so the preview cannot drift from it.
+     *
+     * @return array{bundles: int, legacy_items: int}
+     */
+    public function eligibleAutoRejectCount(): array
     {
         $days = (int) ($this->data['auto_reject_after_days'] ?? BriefingSettings::instance()->auto_reject_after_days);
 
-        return BriefingItem::query()
-            ->whereIn('review_status', ['pending', 'supervisor_review'])
-            ->where('is_completed', true)
-            ->whereNotNull('completed_at')
-            ->where('completed_at', '<=', now()->subDays($days))
-            ->count();
+        return [
+            'bundles' => BriefingRecord::query()->awaitingReviewPastSla($days)->count(),
+            'legacy_items' => BriefingItem::query()->legacyAwaitingReviewPastSla($days)->count(),
+        ];
     }
 
     public function save(): void

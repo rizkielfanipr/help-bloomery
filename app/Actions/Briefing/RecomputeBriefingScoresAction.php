@@ -5,7 +5,7 @@ namespace App\Actions\Briefing;
 use App\Models\Branch;
 use App\Models\BriefingScore;
 use App\Models\User;
-use App\Services\BriefingScoreCalculator;
+use App\Services\BriefingScoringMethod;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -26,7 +26,7 @@ class RecomputeBriefingScoresAction
     /** Branches processed per batch/round-trip. */
     public const BATCH_SIZE = 10;
 
-    public function __construct(private readonly BriefingScoreCalculator $calculator) {}
+    public function __construct(private readonly BriefingScoringMethod $scoring) {}
 
     /**
      * Branches the actor may recompute for, respecting branch scope.
@@ -52,7 +52,7 @@ class RecomputeBriefingScoresAction
 
         foreach ($branches as $branch) {
             try {
-                $calculated = $this->calculator->calculate($branch, $year, $month);
+                $calculated = $this->scoring->calculate($branch, $year, $month);
 
                 if ($calculated->isNotApplicable()) {
                     $result['skipped']++;

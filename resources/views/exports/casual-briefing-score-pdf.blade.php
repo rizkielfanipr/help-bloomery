@@ -64,7 +64,7 @@
                 @php $info = $score->periodBreakdown($period); @endphp
                 @continue(! $info || ! ($info['applicable'] ?? false))
                 <tr class="total-row">
-                    <td colspan="3">{{ $label }}</td>
+                    <td colspan="3">{{ $label }}@isset($info['statuses']) ({{ $info['approved'] }}/{{ $info['expected'] }} disetujui) @endisset</td>
                     <td style="text-align:right">{{ number_format($info['configured_weight'], 2) }}% / {{ number_format($info['effective_weight'], 2) }}%</td>
                     <td class="score-val {{ $info['contribution'] > 0 ? 'has' : 'none' }}">{{ number_format($info['contribution'], 2) }}</td>
                 </tr>

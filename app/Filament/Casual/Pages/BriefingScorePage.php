@@ -10,16 +10,6 @@ use Livewire\Attributes\Computed;
 
 class BriefingScorePage extends Page
 {
-    /**
-     * docs/daily-briefing-scoring-ui-prd.md §16 (Phase 11): the page and the PDF
-     * (BriefingScorePdfController) must require the same permission — this page previously had
-     * no canAccess() check at all.
-     */
-    public static function canAccess(): bool
-    {
-        return auth()->user()?->can('view briefing scores') ?? false;
-    }
-
     protected static bool $shouldRegisterNavigation = false;
 
     protected static string $layout = 'filament.casual.layouts.bare';

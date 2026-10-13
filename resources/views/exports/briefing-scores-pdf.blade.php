@@ -31,29 +31,17 @@
                 <th>#</th>
                 <th>Branch</th>
                 <th>Bulan</th>
-                <th>Harian</th>
-                <th>Mingguan</th>
-                <th>Bulanan</th>
-                <th>Nilai Akhir</th>
+                <th>Nilai</th>
                 <th>Status</th>
-                <th>Metode</th>
                 <th>Dihitung</th>
             </tr>
         </thead>
         <tbody>
             @foreach($scores as $i => $score)
-                @php
-                    $periodRate = fn (string $period) => ($score->periodBreakdown($period)['applicable'] ?? false)
-                        ? number_format($score->periodBreakdown($period)['rate'], 2).'%'
-                        : '—';
-                @endphp
                 <tr>
                     <td>{{ $i + 1 }}</td>
                     <td>{{ $score->branch->name }}</td>
-                    <td>{{ $score->monthLabel() }}{{ $score->isProvisional() ? ' (Sementara)' : '' }}</td>
-                    <td>{{ $periodRate('daily') }}</td>
-                    <td>{{ $periodRate('weekly') }}</td>
-                    <td>{{ $periodRate('monthly') }}</td>
+                    <td>{{ $score->monthLabel() }}</td>
                     <td>
                         <span class="{{ $score->isPassing() ? 'score-pass' : 'score-fail' }}">
                             {{ number_format($score->score, 2) }}%
@@ -62,7 +50,6 @@
                     <td class="{{ $score->isPassing() ? 'pass' : 'fail' }}">
                         {{ $score->isPassing() ? 'Achieve' : 'Tidak Achieve' }}
                     </td>
-                    <td>v{{ $score->methodVersion() }}</td>
                     <td>{{ $score->computed_at?->format('d/m/Y H:i') ?? '-' }}</td>
                 </tr>
             @endforeach

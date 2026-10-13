@@ -34,7 +34,7 @@
     $path = request()->path();
     $initialOpen = [];
     if (str_contains($path, 'casual')) { $initialOpen[] = 'casual_staff'; }
-    if (str_contains($path, 'briefing-bundles') || str_contains($path, 'briefing-items') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-score') || str_contains($path, 'briefing-settings') || str_contains($path, 'briefing-period-weights')) { $initialOpen[] = 'daily_briefing'; }
+    if (str_contains($path, 'briefing-items') || str_contains($path, 'briefing-calendar') || str_contains($path, 'briefing-tasks') || str_contains($path, 'briefing-scores') || str_contains($path, 'briefing-settings') || str_contains($path, 'briefing-period-weights')) { $initialOpen[] = 'daily_briefing'; }
     if (preg_match('/trip|vehicle|driver|fuel-type/', $path)) { $initialOpen[] = 'driver'; }
     if (preg_match('/service-request|technician-settings|technician-monthly-maintenance|technician-maintenance-checklist|(^|\/)assets(\/|$)/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
@@ -70,9 +70,10 @@
             'label' => 'Daily Briefing',
             'icon'  => 'clipboard-list',
             'items' => [
-                ['label' => 'Monitoring Poin',   'icon' => 'clipboard-check', 'perm' => 'view briefing items',   'href' => $r('filament.helpdesk.resources.briefing-bundles.index'),   'active' => $active($r('filament.helpdesk.resources.briefing-bundles.index'))],
+                ['label' => 'Monitoring Poin',   'icon' => 'clipboard-check', 'perm' => 'view briefing items',   'href' => $r('filament.helpdesk.resources.briefing-items.index'),   'active' => $active($r('filament.helpdesk.resources.briefing-items.index'))],
+                ['label' => 'Kalender Briefing', 'icon' => 'calendar-days',   'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.pages.briefing-calendar-page'),      'active' => $active($r('filament.helpdesk.pages.briefing-calendar-page'))],
                 ['label' => 'Kelola Poin',       'icon' => 'list-checks',     'perm' => 'view briefing records', 'href' => $r('filament.helpdesk.resources.briefing-tasks.index'),   'active' => $active($r('filament.helpdesk.resources.briefing-tasks.index'))],
-                ['label' => 'Nilai Briefing',    'icon' => 'star',            'perm' => 'view briefing scores',  'href' => $r('filament.helpdesk.pages.briefing-score-workspace-page'),  'active' => $active($r('filament.helpdesk.pages.briefing-score-workspace-page'))],
+                ['label' => 'Nilai Briefing',    'icon' => 'star',            'perm' => 'view briefing scores',  'href' => $r('filament.helpdesk.resources.briefing-scores.index'),  'active' => $active($r('filament.helpdesk.resources.briefing-scores.index'))],
                 ['label' => 'Bobot Penilaian',    'icon' => 'scale',           'perm' => 'edit briefing period weights', 'href' => $r('filament.helpdesk.pages.briefing-period-weights-page'), 'active' => $active($r('filament.helpdesk.pages.briefing-period-weights-page'))],
                 ['label' => 'Pengaturan',        'icon' => 'settings',        'perm' => 'edit briefing settings', 'href' => $r('filament.helpdesk.pages.briefing-settings-page'),    'active' => $active($r('filament.helpdesk.pages.briefing-settings-page'))],
             ],

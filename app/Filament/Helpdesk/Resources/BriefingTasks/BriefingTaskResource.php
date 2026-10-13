@@ -7,12 +7,14 @@ use App\Enums\BriefingSubmissionType;
 use App\Filament\Exports\BriefingTaskExporter;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\BriefingTasks\Pages\CreateBriefingTask;
+use App\Filament\Helpdesk\Resources\BriefingTasks\Pages\EditBriefingTask;
 use App\Filament\Helpdesk\Resources\BriefingTasks\Pages\ListBriefingTasks;
 use App\Models\Branch;
 use App\Models\BriefingTask;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -133,9 +135,16 @@ class BriefingTaskResource extends Resource
                         ->helperText('Label yang tampil di header grup, misal: General Cleaning.'),
                 ]),
 
-                Toggle::make('is_active')
-                    ->label('Aktif')
-                    ->default(true),
+                Grid::make(2)->schema([
+                    Toggle::make('is_active')
+                        ->label('Aktif')
+                        ->default(true),
+
+                    Toggle::make('include_in_score')
+                        ->label('Ikut Penilaian')
+                        ->default(false)
+                        ->helperText('Kalau aktif, tingkat penyelesaian poin ini ikut dihitung ke rata-rata periodenya (lihat Bobot Penilaian per Cabang).'),
+                ]),
             ]),
 
             Section::make('Batas Waktu (Deadline)')->schema([
@@ -276,6 +285,9 @@ class BriefingTaskResource extends Resource
             ])
             ->defaultSort('period')
             ->reorderable('sort_order')
+            ->recordActions([
+                EditAction::make()->iconButton()->tooltip('Edit'),
+            ])
             ->toolbarActions([
                 ExportAction::make()->icon('heroicon-o-arrow-down-tray')->color('success')->iconButton()->tooltip('Export Excel')->exporter(BriefingTaskExporter::class),
 
@@ -290,23 +302,7 @@ class BriefingTaskResource extends Resource
         return [
             'index' => ListBriefingTasks::route('/'),
             'create' => CreateBriefingTask::route('/create'),
-        ];
-    }
-
-    /**
-     * Precomputed for the custom header card (registered as a render hook in
-     * AppServiceProvider, scoped to ListBriefingTasks) — kept out of the Blade partial itself so
-     * the view stays presentation-only.
-     *
-     * @return array{total: int, active: int, global: int, branchSpecific: int}
-     */
-    public static function summaryStats(): array
-    {
-        return [
-            'total' => BriefingTask::count(),
-            'active' => BriefingTask::where('is_active', true)->count(),
-            'global' => BriefingTask::whereNull('branch_id')->count(),
-            'branchSpecific' => BriefingTask::whereNotNull('branch_id')->count(),
+            'edit' => EditBriefingTask::route('/{record}/edit'),
         ];
     }
 }

@@ -443,22 +443,6 @@
                              style="width: {{ $pct }}%"></div>
                     </div>
 
-                    {{-- Bundle status (docs/daily-briefing-bundle-approval-prd.md §12) --}}
-                    @if($data['bundle'])
-                        @php
-                            $bundleTone = match ($data['bundle']['tone']) {
-                                'success' => 'bg-green-50 text-green-800 ring-green-200 dark:bg-green-900/30 dark:text-green-200 dark:ring-green-800',
-                                'danger' => 'bg-red-50 text-red-800 ring-red-200 dark:bg-red-900/30 dark:text-red-200 dark:ring-red-800',
-                                'warning' => 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-800',
-                                default => 'bg-blue-50 text-blue-800 ring-blue-200 dark:bg-blue-900/30 dark:text-blue-200 dark:ring-blue-800',
-                            };
-                        @endphp
-                        <div role="status" class="mx-4 mb-3 rounded-lg px-3 py-2 text-xs ring-1 ring-inset {{ $bundleTone }}">
-                            <p class="font-semibold">{{ $data['bundle']['label'] }}</p>
-                            <p class="mt-0.5">{{ $data['bundle']['message'] }}</p>
-                        </div>
-                    @endif
-
                     {{-- Task list —— grouped dynamically --}}
                     @php
                         $allTasks = collect($data['tasks']);
@@ -470,11 +454,12 @@
 
                         @foreach($ungroupedTasks as $task)
                             @php
-                                $isApproved   = $task['itemState'] === 'approved';
-                                $isRejected   = $task['itemState'] === 'correction';
-                                $isPending    = $task['itemState'] === 'submitted';
-                                $isPastDL     = $task['itemState'] === 'missed';
-                                $isClickable  = $task['isEditable'];
+                                $reviewStatus = $task['reviewStatus']?->value ?? null;
+                                $isApproved   = $reviewStatus === 'approved';
+                                $isRejected   = $reviewStatus === 'rejected';
+                                $isPending    = in_array($reviewStatus, ['pending', 'supervisor_review'], true);
+                                $isPastDL     = $task['isPastDeadline'];
+                                $isClickable  = ! $isPastDL && ($isRejected || (! $task['reviewStatus'] && ! $task['isCompleted']));
                             @endphp
 
                             @if($isClickable)
@@ -519,13 +504,13 @@
                                     </p>
                                     <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
                                         @if($isApproved)
-                                            <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">{{ $task['stateLabel'] }}</span>
+                                            <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Approved</span>
                                         @elseif($isRejected)
-                                            <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">{{ $task['stateLabel'] }}</span>
+                                            <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Rejected</span>
                                         @elseif($isPastDL)
-                                            <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">{{ $task['stateLabel'] }}</span>
+                                            <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Deadline Terlewat</span>
                                         @elseif($isPending)
-                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">{{ $task['stateLabel'] }}</span>
+                                            <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Supervisor Review</span>
                                         @elseif($task['requiresPhoto'])
                                             <span class="text-xs text-gray-400">
                                                 <svg class="inline h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -543,14 +528,9 @@
                                             <span class="text-xs text-gray-400">{{ $task['deadlineLabel'] }}</span>
                                         @endif
                                     </div>
-                                    @if($task['submittedByName'] && ($isPending || $isApproved))
-                                        <p class="mt-0.5 text-xs text-gray-400">oleh {{ $task['submittedByName'] }}</p>
-                                    @endif
                                     @if($isRejected && $task['rejectionReason'])
                                         <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $task['rejectionReason'] }}</p>
-                                    @endif
-                                    @if($isRejected && $isClickable)
-                                        <p class="mt-0.5 text-xs font-medium text-red-500">Tap untuk perbaiki</p>
+                                        <p class="mt-0.5 text-xs font-medium text-red-500">Tap untuk submit ulang</p>
                                     @endif
                                 </div>
 
@@ -622,11 +602,12 @@
 
                                     @foreach($groupTasks as $cleanTask)
                                         @php
-                                            $cApproved  = $cleanTask['itemState'] === 'approved';
-                                            $cRejected  = $cleanTask['itemState'] === 'correction';
-                                            $cPending   = $cleanTask['itemState'] === 'submitted';
-                                            $cPastDL    = $cleanTask['itemState'] === 'missed';
-                                            $cClickable = $cleanTask['isEditable'];
+                                            $cReview    = $cleanTask['reviewStatus']?->value ?? null;
+                                            $cApproved  = $cReview === 'approved';
+                                            $cRejected  = $cReview === 'rejected';
+                                            $cPending   = in_array($cReview, ['pending', 'supervisor_review'], true);
+                                            $cPastDL    = $cleanTask['isPastDeadline'];
+                                            $cClickable = ! $cPastDL && ($cRejected || (! $cleanTask['reviewStatus'] && ! $cleanTask['isCompleted']));
                                         @endphp
 
                                         @if($cClickable)
@@ -667,27 +648,22 @@
                                                 </p>
                                                 <div class="mt-0.5 flex flex-wrap items-center gap-1">
                                                     @if($cApproved)
-                                                        <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">{{ $cleanTask['stateLabel'] }}</span>
+                                                        <span class="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700">Approved</span>
                                                     @elseif($cRejected)
-                                                        <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">{{ $cleanTask['stateLabel'] }}</span>
+                                                        <span class="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">Rejected</span>
                                                     @elseif($cPastDL)
-                                                        <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">{{ $cleanTask['stateLabel'] }}</span>
+                                                        <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Deadline Terlewat</span>
                                                     @elseif($cPending)
-                                                        <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">{{ $cleanTask['stateLabel'] }}</span>
+                                                        <span class="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">Supervisor Review</span>
                                                     @elseif($cleanTask['completedAt'])
                                                         <span class="text-xs text-gray-400">{{ $cleanTask['completedAt']->format('H.i') }}</span>
                                                     @else
                                                         <span class="text-xs text-gray-400">{{ $cleanTask['noteType'] }}</span>
                                                     @endif
                                                 </div>
-                                                @if($cleanTask['submittedByName'] && ($cPending || $cApproved))
-                                                    <p class="mt-0.5 text-xs text-gray-400">oleh {{ $cleanTask['submittedByName'] }}</p>
-                                                @endif
                                                 @if($cRejected && $cleanTask['rejectionReason'])
                                                     <p class="mt-0.5 text-xs text-red-600 dark:text-red-400">{{ $cleanTask['rejectionReason'] }}</p>
-                                                @endif
-                                                @if($cRejected && $cClickable)
-                                                    <p class="mt-0.5 text-xs font-medium text-red-500">Tap untuk perbaiki</p>
+                                                    <p class="mt-0.5 text-xs font-medium text-red-500">Tap untuk submit ulang</p>
                                                 @endif
                                             </div>
                                             @if($cClickable)

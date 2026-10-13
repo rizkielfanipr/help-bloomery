@@ -73,7 +73,7 @@ it('notifies the new PIC (not the old one) on reassign', function () {
 });
 
 it('notifies every active PIC when the deadline changes', function () {
-    $task = RndProjectTask::factory()->create(['status' => 'in_progress', 'assigned_date' => '2026-10-01', 'due_date' => '2026-10-05']);
+    $task = RndProjectTask::factory()->create(['status' => 'in_progress', 'due_date' => '2026-10-05']);
     $activePic = User::factory()->create();
     RndProjectTaskAssignment::factory()->create(['rnd_project_task_id' => $task->id, 'user_id' => $activePic->id, 'status' => 'in_progress']);
     $cancelledPic = User::factory()->create();

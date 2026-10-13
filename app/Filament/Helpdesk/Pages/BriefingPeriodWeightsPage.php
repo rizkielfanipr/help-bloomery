@@ -2,22 +2,14 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
-use App\Actions\Briefing\SaveBriefingPeriodWeightAction;
 use App\Models\Branch;
 use App\Models\BriefingPeriodWeight;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
-/**
- * docs/daily-briefing-scoring-ui-prd.md §15/Phase 7. Superseded by the Override Branch section
- * on BriefingSettingsPage, which saves through the same SaveBriefingPeriodWeightAction. The
- * route and class stay registered for compatibility — only the sidebar entry is hidden.
- */
 class BriefingPeriodWeightsPage extends Page
 {
-    protected static bool $shouldRegisterNavigation = false;
-
     public static function canAccess(): bool
     {
         $user = auth()->user();
@@ -50,30 +42,47 @@ class BriefingPeriodWeightsPage extends Page
     {
         abort_unless(static::canAccess(), 403);
 
-        $action = app(SaveBriefingPeriodWeightAction::class);
-
         foreach ($this->rows as $index => $row) {
             if (! $this->rowNeedsSaving($row)) {
-                // Cabang tidak diisi sama sekali -> pakai bobot Default, hapus override lama kalau ada.
-                if ($row['branch_id'] !== null) {
-                    $action->reset(auth()->user(), $row['branch_id']);
-                }
-
                 continue;
             }
 
-            try {
-                $action->execute(auth()->user(), $row['branch_id'], [
-                    'daily_weight' => $row['daily_weight'],
-                    'weekly_weight' => $row['weekly_weight'],
-                    'monthly_weight' => $row['monthly_weight'],
-                ]);
-            } catch (ValidationException $exception) {
-                $this->addError("rows.{$index}.daily_weight", "{$row['branch_label']}: ".$exception->validator->errors()->first());
+            $this->validate([
+                "rows.{$index}.daily_weight" => ['required', 'numeric', 'min:0', 'max:100'],
+                "rows.{$index}.weekly_weight" => ['required', 'numeric', 'min:0', 'max:100'],
+                "rows.{$index}.monthly_weight" => ['required', 'numeric', 'min:0', 'max:100'],
+            ]);
+
+            $sum = round((float) $row['daily_weight'] + (float) $row['weekly_weight'] + (float) $row['monthly_weight'], 2);
+
+            if (abs($sum - 100) > 0.01) {
+                $this->addError("rows.{$index}.daily_weight", "Total bobot {$row['branch_label']} harus 100% (saat ini {$sum}%).");
 
                 return;
             }
         }
+
+        DB::transaction(function (): void {
+            foreach ($this->rows as $row) {
+                if (! $this->rowNeedsSaving($row)) {
+                    // Cabang tidak diisi sama sekali -> pakai bobot Default, hapus override lama kalau ada.
+                    if ($row['branch_id'] !== null) {
+                        BriefingPeriodWeight::where('branch_id', $row['branch_id'])->delete();
+                    }
+
+                    continue;
+                }
+
+                BriefingPeriodWeight::updateOrCreate(
+                    ['branch_id' => $row['branch_id']],
+                    [
+                        'daily_weight' => $row['daily_weight'],
+                        'weekly_weight' => $row['weekly_weight'],
+                        'monthly_weight' => $row['monthly_weight'],
+                    ]
+                );
+            }
+        });
 
         $this->loadRows();
 

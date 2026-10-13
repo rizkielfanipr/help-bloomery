@@ -2,7 +2,6 @@
 
 use App\Enums\BriefingReviewStatus;
 use App\Models\Branch;
-use App\Models\BriefingBranchSetting;
 use App\Models\BriefingItem;
 use App\Models\BriefingPeriodWeight;
 use App\Models\BriefingRecord;
@@ -69,7 +68,6 @@ beforeEach(function () {
 
 it('computes a weighted score using the global default period weights, redistributing weight away from a period with no scoreable tasks', function () {
     $branch = Branch::factory()->create(['is_active' => true]);
-    BriefingBranchSetting::factory()->create(['branch_id' => $branch->id]);
     $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
     BriefingTask::create(['key' => 'daily_a', 'label' => 'Daily A', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
@@ -101,17 +99,16 @@ it('computes a weighted score using the global default period weights, redistrib
     // Global default is Daily 40 / Weekly 30 / Monthly 30. With no Monthly
     // tasks, effective weight is renormalized over Daily+Weekly (70 total):
     // Daily -> 40/70*100 = 57.14, Weekly -> 30/70*100 = 42.86.
-    expect($score->breakdown['periods']['monthly']['applicable'])->toBeFalse()
-        ->and($score->breakdown['periods']['daily']['effective_weight'])->toBe(57.14)
-        ->and($score->breakdown['periods']['weekly']['effective_weight'])->toBe(42.86)
-        ->and($score->breakdown['periods']['daily']['rate'])->toEqual(50.0)
-        ->and($score->breakdown['periods']['weekly']['rate'])->toEqual(100.0)
+    expect($score->breakdown)->not->toHaveKey('monthly')
+        ->and($score->breakdown['daily']['effective_weight'])->toBe(57.14)
+        ->and($score->breakdown['weekly']['effective_weight'])->toBe(42.86)
+        ->and($score->breakdown['daily']['rate'])->toEqual(50.0)
+        ->and($score->breakdown['weekly']['rate'])->toEqual(100.0)
         ->and($score->score)->toBe(71.43);
 });
 
 it('uses a branch-specific period weight override instead of the global default', function () {
     $branch = Branch::factory()->create(['is_active' => true]);
-    BriefingBranchSetting::factory()->create(['branch_id' => $branch->id]);
     $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
     BriefingPeriodWeight::create([
@@ -138,62 +135,53 @@ it('uses a branch-specific period weight override instead of the global default'
 
     // Only Daily has a scoreable task, so its effective weight is 100% of
     // whatever the configured Daily weight is (renormalized alone) -> 100%.
-    expect($score->breakdown['periods']['daily']['effective_weight'])->toEqual(100.0)
-        ->and($score->breakdown['periods']['daily']['configured_weight'])->toEqual(80.0)
+    expect($score->breakdown['daily']['effective_weight'])->toEqual(100.0)
+        ->and($score->breakdown['daily']['configured_weight'])->toEqual(80.0)
         ->and($score->score)->toBe(100.0);
 });
 
-it(
-    'excludes a task with include_in_score=false from the breakdown and the score entirely '
-    .'(contract change from docs/daily-briefing-scoring-ui-prd.md §10 — method_version 1 included '
-    .'every active task in the breakdown and its rate regardless of include_in_score)',
-    function () {
-        $branch = Branch::factory()->create(['is_active' => true]);
-        BriefingBranchSetting::factory()->create(['branch_id' => $branch->id]);
-        $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
+it('includes every active point shown for the branch regardless of include_in_score', function () {
+    $branch = Branch::factory()->create(['is_active' => true]);
+    $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
-        BriefingTask::create(['key' => 'scored', 'label' => 'Scored', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
-        BriefingTask::create(['key' => 'not_scored', 'label' => 'Not Scored', 'period' => 'daily', 'submission_type' => 'text_only', 'is_active' => true, 'include_in_score' => false, 'sort_order' => 2]);
+    BriefingTask::create(['key' => 'scored', 'label' => 'Scored', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
+    BriefingTask::create(['key' => 'not_scored', 'label' => 'Not Scored', 'period' => 'daily', 'submission_type' => 'text_only', 'is_active' => true, 'include_in_score' => false, 'sort_order' => 2]);
 
-        $year = 2026;
-        $month = 6;
-        $daysInMonth = Carbon::create($year, $month)->daysInMonth;
+    $year = 2026;
+    $month = 6;
+    $daysInMonth = Carbon::create($year, $month)->daysInMonth;
 
-        for ($d = 1; $d <= $daysInMonth; $d++) {
-            createDailyBriefingApproval($user, Carbon::create($year, $month, $d), 'scored');
-            // "not_scored" is left REJECTED every day — if it leaked into the formula the score
-            // would drop well below 100, proving it was actually excluded rather than coincidentally neutral.
-            BriefingItem::create([
-                'briefing_record_id' => BriefingRecord::where('user_id', $user->id)
-                    ->whereDate('record_date', Carbon::create($year, $month, $d))
-                    ->value('id'),
-                'task_key' => 'not_scored',
-                'is_completed' => true,
-                'completed_at' => Carbon::create($year, $month, $d),
-                'review_status' => BriefingReviewStatus::Rejected->value,
-            ]);
-        }
-
-        $this->artisan('briefing:compute-scores', ['--year' => $year, '--month' => $month, '--branch' => $branch->id])
-            ->assertSuccessful();
-
-        $score = BriefingScore::where('branch_id', $branch->id)->where('year', $year)->where('month', $month)->first();
-
-        $taskKeys = collect($score->breakdown['periods']['daily']['tasks'])->pluck('key');
-
-        expect($taskKeys)->toContain('scored')
-            ->and($taskKeys)->not->toContain('not_scored')
-            ->and($score->score)->toBe(100.0);
+    for ($d = 1; $d <= $daysInMonth; $d++) {
+        createDailyBriefingApproval($user, Carbon::create($year, $month, $d), 'scored');
+        BriefingItem::create([
+            'briefing_record_id' => BriefingRecord::where('user_id', $user->id)
+                ->whereDate('record_date', Carbon::create($year, $month, $d))
+                ->value('id'),
+            'task_key' => 'not_scored',
+            'is_completed' => true,
+            'completed_at' => Carbon::create($year, $month, $d),
+            'review_status' => BriefingReviewStatus::Approved->value,
+        ]);
     }
-);
+
+    $this->artisan('briefing:compute-scores', ['--year' => $year, '--month' => $month, '--branch' => $branch->id])
+        ->assertSuccessful();
+
+    $score = BriefingScore::where('branch_id', $branch->id)->where('year', $year)->where('month', $month)->first();
+
+    $taskKeys = collect($score->breakdown['daily']['tasks'])->pluck('key');
+
+    expect($taskKeys)->toContain('scored')
+        ->and($taskKeys)->toContain('not_scored')
+        ->and($score->score)->toBe(100.0);
+});
 
 it('scores the branch task that replaces a scoreable global task', function () {
     $branch = Branch::factory()->create(['is_active' => true]);
-    BriefingBranchSetting::factory()->create(['branch_id' => $branch->id]);
     $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
     BriefingTask::create(['key' => 'daily_selfie', 'label' => 'Global Selfie', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
-    BriefingTask::create(['branch_id' => $branch->id, 'key' => 'daily_selfie_branch', 'label' => 'Branch Selfie', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
+    BriefingTask::create(['branch_id' => $branch->id, 'key' => 'daily_selfie_branch', 'label' => 'Branch Selfie', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => false, 'sort_order' => 1]);
 
     $year = 2026;
     $month = 8;
@@ -209,13 +197,12 @@ it('scores the branch task that replaces a scoreable global task', function () {
     $score = BriefingScore::where('branch_id', $branch->id)->where('year', $year)->where('month', $month)->firstOrFail();
 
     expect($score->score)->toBe(100.0)
-        ->and($score->breakdown['periods']['daily']['tasks'][0]['key'])->toBe('daily_selfie_branch')
-        ->and($score->breakdown['periods']['daily']['tasks'][0]['approved'])->toBe($daysInMonth);
+        ->and($score->breakdown['daily']['tasks'][0]['key'])->toBe('daily_selfie_branch')
+        ->and($score->breakdown['daily']['tasks'][0]['approved'])->toBe($daysInMonth);
 });
 
 it('uses the recorded branch and includes historical records from inactive or transferred users', function () {
     $originalBranch = Branch::factory()->create(['is_active' => true]);
-    BriefingBranchSetting::factory()->create(['branch_id' => $originalBranch->id]);
     $newBranch = Branch::factory()->create(['is_active' => true]);
     $user = User::factory()->create(['branch_id' => $originalBranch->id, 'is_active' => true]);
 
@@ -231,13 +218,12 @@ it('uses the recorded branch and includes historical records from inactive or tr
 
     $score = BriefingScore::where('branch_id', $originalBranch->id)->where('year', 2026)->where('month', 7)->firstOrFail();
 
-    expect($score->breakdown['periods']['daily']['tasks'][0]['approved'])->toBe(1)
+    expect($score->breakdown['daily']['tasks'][0]['approved'])->toBe(1)
         ->and($score->score)->toBe(3.23);
 });
 
 it('starts the first scoring month from the configured launch date', function () {
     $branch = Branch::factory()->create(['is_active' => true]);
-    BriefingBranchSetting::factory()->create(['branch_id' => $branch->id]);
     $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
     BriefingSettings::instance()->update(['scoring_started_at' => '2026-07-22']);
@@ -251,81 +237,21 @@ it('starts the first scoring month from the configured launch date', function ()
         ->assertSuccessful();
 
     $score = BriefingScore::where('branch_id', $branch->id)->where('year', 2026)->where('month', 7)->firstOrFail();
-    $daily = $score->breakdown['periods']['daily'];
+    $daily = $score->breakdown['daily'];
 
     expect($score->score)->toBe(100.0)
-        ->and($score->breakdown['period_start'])->toBe('2026-07-22')
-        ->and($score->breakdown['period_end'])->toBe('2026-07-31')
+        ->and($daily['period_start'])->toBe('2026-07-22')
+        ->and($daily['period_end'])->toBe('2026-07-31')
         ->and($daily['tasks'][0]['expected'])->toBe(10)
         ->and($daily['tasks'][0]['approved'])->toBe(10);
 });
 
 it('does nothing for a branch with no scoreable tasks', function () {
     $branch = Branch::factory()->create(['is_active' => true]);
-    BriefingBranchSetting::factory()->create(['branch_id' => $branch->id]);
     User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
 
     $this->artisan('briefing:compute-scores', ['--year' => 2026, '--month' => 7, '--branch' => $branch->id])
         ->assertSuccessful();
 
     expect(BriefingScore::where('branch_id', $branch->id)->exists())->toBeFalse();
-});
-
-it('does not compute a score for a branch that is not an enabled Daily Briefing participant (contract change: '
-    .'docs/daily-briefing-remediation-prd.md §14.1/§27 — a non-participant branch never gets a new score)',
-    function () {
-        $branch = Branch::factory()->create(['is_active' => true]);
-        $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
-
-        BriefingTask::create(['key' => 'daily_nonparticipant', 'label' => 'Daily', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
-        createDailyBriefingApproval($user, Carbon::create(2026, 9, 1), 'daily_nonparticipant');
-
-        $this->artisan('briefing:compute-scores', ['--year' => 2026, '--month' => 9, '--branch' => $branch->id])
-            ->assertSuccessful();
-
-        expect(BriefingScore::where('branch_id', $branch->id)->exists())->toBeFalse();
-    });
-
-it('only counts days on/after the branch\'s own participation started_at as expected (docs/daily-briefing-remediation-prd.md §14.1)', function () {
-    $branch = Branch::factory()->create(['is_active' => true]);
-    BriefingBranchSetting::factory()->startingOn('2026-10-10')->create(['branch_id' => $branch->id]);
-    $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
-
-    BriefingTask::create(['key' => 'daily_branch_start', 'label' => 'Daily', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
-
-    foreach (range(1, 20) as $day) {
-        createDailyBriefingApproval($user, Carbon::create(2026, 10, $day), 'daily_branch_start');
-    }
-
-    $this->artisan('briefing:compute-scores', ['--year' => 2026, '--month' => 10, '--branch' => $branch->id])
-        ->assertSuccessful();
-
-    $score = BriefingScore::where('branch_id', $branch->id)->where('year', 2026)->where('month', 10)->firstOrFail();
-
-    // Days 1-9 predate the branch's own started_at (10th) and must not be counted as expected,
-    // even though the global scoring_started_at is earlier.
-    expect($score->breakdown['periods']['daily']['tasks'][0]['expected'])->toBeLessThanOrEqual(11);
-});
-
-it('does not count future dates in the current month as expected', function () {
-    $branch = Branch::factory()->create(['is_active' => true]);
-    BriefingBranchSetting::factory()->create(['branch_id' => $branch->id]);
-    $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
-
-    BriefingTask::create(['key' => 'daily_current_month', 'label' => 'Daily', 'period' => 'daily', 'submission_type' => 'camera_only', 'is_active' => true, 'include_in_score' => true, 'sort_order' => 1]);
-
-    $year = now()->year;
-    $month = now()->month;
-
-    foreach (range(1, now()->day) as $day) {
-        createDailyBriefingApproval($user, Carbon::create($year, $month, $day), 'daily_current_month');
-    }
-
-    $this->artisan('briefing:compute-scores', ['--year' => $year, '--month' => $month, '--branch' => $branch->id])
-        ->assertSuccessful();
-
-    $score = BriefingScore::where('branch_id', $branch->id)->where('year', $year)->where('month', $month)->firstOrFail();
-
-    expect($score->breakdown['periods']['daily']['tasks'][0]['expected'])->toBe(now()->day)
-        ->and($score->score)->toBe(100.0);
 });

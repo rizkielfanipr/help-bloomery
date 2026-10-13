@@ -1,8 +1,6 @@
 <?php
 
 use App\Filament\Casual\Pages\LauncherPage;
-use App\Models\Branch;
-use App\Models\BriefingBranchSetting;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
@@ -102,21 +100,6 @@ it('only shows feature tiles granted by permissions', function () {
         ->assertDontSee('Daily Briefing')
         ->assertDontSee('Request Desain')
         ->assertDontSee('Request ERP');
-});
-
-it('only shows the Briefing tile to an eligible participant store staff', function () {
-    $branch = Branch::factory()->create();
-    $user = User::factory()->create(['is_active' => true, 'branch_id' => $branch->id]);
-    $user->assignRole('STORE_STAFF');
-    actingAs($user);
-
-    $component = Livewire::test(LauncherPage::class);
-    expect(collect($component->instance()->tiles())->pluck('label'))->not->toContain('Briefing');
-
-    BriefingBranchSetting::factory()->create(['branch_id' => $branch->id]);
-
-    $component = Livewire::test(LauncherPage::class);
-    expect(collect($component->instance()->tiles())->pluck('label'))->toContain('Briefing');
 });
 
 it('blocks direct Employee App URLs for menus that are not granted', function () {

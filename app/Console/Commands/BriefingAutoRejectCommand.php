@@ -2,96 +2,116 @@
 
 namespace App\Console\Commands;
 
-use App\Actions\Briefing\AutoRejectBriefingBundleAction;
 use App\Enums\BriefingReviewStatus;
 use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
 use App\Models\BriefingSettings;
+use App\Models\BriefingTask;
+use App\Models\User;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
-/**
- * docs/daily-briefing-remediation-prd.md §11.3/§11.4 (Phase 7). Auto-rejects only real
- * submissions stuck waiting for review past the SLA window. It must never create a
- * briefing_records/briefing_items row to represent a deadline that passed with nothing submitted
- * — "missing" is a derived read, computed by BriefingStatusService, not a stored row.
- */
 #[Signature('briefing:auto-reject')]
-#[Description('Auto-reject real submissions still pending review past the configured SLA window (see Pengaturan Briefing)')]
+#[Description('Auto-reject overdue briefing submissions and items pending review past the configured window (see Pengaturan Briefing)')]
 class BriefingAutoRejectCommand extends Command
 {
     public function handle(): int
     {
-        $runId = (string) Str::ulid();
-        $startedAt = now();
         $settings = BriefingSettings::instance();
 
-        $checked = 0;
-        $updated = 0;
-        $errors = 0;
+        $rejectedCount = $this->rejectExpiredPendingReviews($settings);
 
+        $tasks = BriefingTask::where('deadline_enabled', true)
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($tasks as $task) {
+            if (! $task->isPastDeadline()) {
+                continue;
+            }
+
+            $period = $task->period;
+            $recordDate = $period->recordDate();
+
+            $users = User::where('is_active', true)
+                ->when(
+                    $task->branch_id !== null,
+                    fn ($q) => $q->where('branch_id', $task->branch_id)
+                )
+                ->get();
+
+            foreach ($users as $user) {
+                $record = BriefingRecord::where('user_id', $user->id)
+                    ->where('period', $period->value)
+                    ->whereDate('record_date', $recordDate)
+                    ->first()
+                    ?? BriefingRecord::create([
+                        'user_id' => $user->id,
+                        'period' => $period->value,
+                        'record_date' => $recordDate,
+                    ]);
+
+                $item = BriefingItem::where('briefing_record_id', $record->id)
+                    ->where('task_key', $task->key)
+                    ->first();
+
+                if ($item && ($item->is_completed || $item->review_status === BriefingReviewStatus::Approved || ($item->review_status?->isAwaitingSupervisorReview() ?? false))) {
+                    continue;
+                }
+
+                if (! $item) {
+                    $item = new BriefingItem([
+                        'briefing_record_id' => $record->id,
+                        'task_key' => $task->key,
+                    ]);
+                }
+
+                $item->fill([
+                    'is_completed' => false,
+                    'completed_at' => null,
+                    'review_status' => BriefingReviewStatus::Rejected->value,
+                    'rejection_reason' => $settings->deadline_reject_reason,
+                    'reviewed_by' => null,
+                    'reviewed_at' => now(),
+                ])->save();
+
+                $rejectedCount++;
+            }
+        }
+
+        $this->info("Auto-rejected {$rejectedCount} briefing item(s).");
+
+        return Command::SUCCESS;
+    }
+
+    private function rejectExpiredPendingReviews(BriefingSettings $settings): int
+    {
+        $rejectedCount = 0;
         $days = $settings->auto_reject_after_days;
         $reason = $settings->formattedAutoRejectReason($days);
 
-        $bundlesRejected = 0;
+        BriefingItem::query()
+            ->whereIn('review_status', [
+                BriefingReviewStatus::LegacyPending->value,
+                BriefingReviewStatus::SupervisorReview->value,
+            ])
+            ->where('is_completed', true)
+            ->whereNotNull('completed_at')
+            ->where('completed_at', '<=', now()->subDays($days))
+            ->chunkById(100, function ($items) use (&$rejectedCount, $reason): void {
+                foreach ($items as $item) {
+                    $item->update([
+                        'review_status' => BriefingReviewStatus::Rejected->value,
+                        'rejection_reason' => $reason,
+                        'reviewed_by' => null,
+                        'reviewed_at' => now(),
+                    ]);
 
-        try {
-            BriefingRecord::query()
-                ->awaitingReviewPastSla($days)
-                ->chunkById(100, function ($bundles) use (&$checked, &$bundlesRejected, $reason, $days): void {
-                    foreach ($bundles as $bundle) {
-                        $checked++;
+                    $rejectedCount++;
+                }
+            });
 
-                        if (app(AutoRejectBriefingBundleAction::class)->execute($bundle, $reason, $days)) {
-                            $bundlesRejected++;
-                        }
-                    }
-                });
-
-            BriefingItem::query()
-                ->legacyAwaitingReviewPastSla($days)
-                ->chunkById(100, function ($items) use (&$checked, &$updated, $reason): void {
-                    foreach ($items as $item) {
-                        $checked++;
-
-                        $item->update([
-                            'review_status' => BriefingReviewStatus::Rejected->value,
-                            'rejection_reason' => $reason,
-                            'reviewed_by' => null,
-                            'reviewed_at' => now(),
-                        ]);
-
-                        $updated++;
-                    }
-                });
-        } catch (\Throwable $exception) {
-            $errors++;
-            $exceptionClass = $exception::class;
-
-            Log::error('briefing.auto_reject.failed', [
-                'run_id' => $runId,
-                'exception' => $exceptionClass,
-            ]);
-
-            $this->error("Auto-reject run failed: {$exceptionClass}");
-
-            return Command::FAILURE;
-        }
-
-        Log::info('briefing.auto_reject.completed', [
-            'run_id' => $runId,
-            'checked' => $checked,
-            'bundles_rejected' => $bundlesRejected,
-            'legacy_items_rejected' => $updated,
-            'errors' => $errors,
-            'duration_ms' => now()->diffInMilliseconds($startedAt),
-        ]);
-
-        $this->info("Auto-rejected {$bundlesRejected} bundle(s) and {$updated} legacy briefing item(s) pending review past the SLA window.");
-
-        return Command::SUCCESS;
+        return $rejectedCount;
     }
 }

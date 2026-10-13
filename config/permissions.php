@@ -11,10 +11,6 @@ return [
         'Teknisi' => ['access employee app technician'],
         'Request Teknisi' => ['access employee app technician request'],
         'Briefing' => ['access employee app briefing'],
-        // Separate from the tile/page-access permission above: docs/daily-briefing-remediation-prd.md
-        // §7/§10.1 keeps "can see the page" and "can submit" as independent permissions so a role
-        // can have one without the other.
-        'Submit Daily Briefing' => ['submit daily briefing'],
         'Sales Report' => ['access employee app sales report'],
         'Stock Card' => ['access employee app stock card'],
         'Penerimaan Barang' => ['access employee app goods receipt'],
@@ -43,9 +39,6 @@ return [
         'Absensi Casual' => ['view clock records', 'create clock records', 'edit clock records', 'delete clock records'],
         'Daily Briefing' => ['view briefing records', 'create briefing records', 'edit briefing records', 'delete briefing records'],
         'Monitoring Poin' => ['view briefing items', 'create briefing items', 'edit briefing items', 'delete briefing items'],
-        // docs/daily-briefing-remediation-prd.md §10.2/§12.3: review (approve/reject/reopen) is
-        // gated by this dedicated permission, never by `review sales reports as supervisor`.
-        'Review Monitoring Poin' => ['review briefing items'],
         'Nilai Briefing' => ['view briefing scores', 'create briefing scores', 'edit briefing scores', 'delete briefing scores'],
         'Pengaturan Briefing' => ['edit briefing settings'],
         'Bobot Penilaian Briefing' => ['edit briefing period weights'],

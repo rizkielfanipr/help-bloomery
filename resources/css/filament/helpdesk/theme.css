@@ -451,56 +451,6 @@ body.fi-body {
     @apply bg-black/40 backdrop-blur-sm;
 }
 
-/* Daily Briefing bundle review: long point lists and correction forms scroll inside the modal. */
-.briefing-bundle-modal {
-    display: flex;
-    width: calc(100vw - 2rem);
-    max-height: calc(100dvh - 2rem);
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.briefing-bundle-modal > .fi-modal-header,
-.briefing-bundle-modal > .fi-modal-footer {
-    flex-shrink: 0;
-}
-
-.briefing-bundle-modal > .fi-modal-content {
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-}
-
-/* Monitoring Poin table: rounded card with a little breathing room around the cells. */
-.briefing-bundle-table .fi-ta-ctn {
-    @apply overflow-hidden rounded-2xl bg-white dark:bg-[#0F172A];
-}
-
-.briefing-bundle-table .fi-ta-table > thead > tr > .fi-ta-header-cell {
-    @apply py-4;
-}
-
-/* !important beats the per-page header-cell padding set in table-header-cell.blade.php */
-.briefing-bundle-table .fi-ta-table > thead > tr > :first-child,
-.briefing-bundle-table .fi-ta-row > td:first-child {
-    padding-inline-start: 1.25rem !important;
-}
-
-.briefing-bundle-table .fi-ta-table > thead > tr > :last-child,
-.briefing-bundle-table .fi-ta-row > td:last-child {
-    padding-inline-end: 1.25rem !important;
-}
-
-.briefing-bundle-table .fi-ta-row > td {
-    @apply py-1;
-}
-
-.briefing-bundle-table .fi-pagination {
-    @apply px-5 py-4;
-}
-
 /* Keep sourcing actions visible while long supplier repeaters scroll. */
 .material-sourcing-modal {
     display: flex;

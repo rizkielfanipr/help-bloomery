@@ -67,20 +67,7 @@ jobs:
       - name: Run unit tests
         run: php artisan test --compact --testsuite=Unit
 
-      - name: Run staging smoke tests
-        if: github.ref_name == 'staging'
-        run: |
-          php artisan test --compact \
-            tests/Feature/Auth/AuthenticationTest.php \
-            tests/Feature/CasualLoginRedirectTest.php \
-            tests/Feature/UserBranchAccessTest.php \
-            tests/Feature/BriefingBranchParticipationActionTest.php \
-            tests/Feature/BriefingBranchIsolationTest.php \
-            tests/Feature/DailyBriefingPageTest.php \
-            tests/Feature/BriefingItemResourceTest.php
-
-      - name: Run main feature tests in bounded batches
-        if: github.ref_name == 'main'
+      - name: Run feature tests in bounded batches
         shell: bash
         run: |
           mapfile -d '' feature_tests < <(find tests/Feature -type f -name '*.php' -print0 | sort -z)
@@ -112,20 +99,6 @@ jobs:
           printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/id_ed25519"
           printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
-
-      - name: Diagnose VPS connectivity
-        env:
-          VPS_HOST: ${{ secrets.VPS_HOST }}
-        run: |
-          echo "Runner public IP:"
-          curl --fail --silent --show-error https://api.ipify.org
-          echo
-
-          echo "VPS IPv4 resolution:"
-          getent ahostsv4 "$VPS_HOST"
-
-          echo "Testing SSH port connectivity:"
-          nc -vz -w 10 "$VPS_HOST" 22
 
       - name: Deploy selected environment
         env:

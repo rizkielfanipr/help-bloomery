@@ -41,7 +41,6 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view clock records', 'create clock records', 'edit clock records', 'delete clock records',
                 'view briefing records', 'create briefing records', 'edit briefing records', 'delete briefing records',
                 'view briefing items', 'create briefing items', 'edit briefing items', 'delete briefing items',
-                'review briefing items',
                 'view briefing scores', 'create briefing scores', 'edit briefing scores', 'delete briefing scores',
                 'edit briefing settings',
                 'edit briefing period weights',
@@ -71,7 +70,6 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access backoffice',
                 'access employee app technician request', 'access employee app briefing',
-                'submit daily briefing', 'view briefing scores',
                 'access employee app sales report', 'access employee app stock card',
                 'access employee app purchasing', 'access employee app design', 'access employee app content', 'access employee app erp',
                 'view service requests', 'create service requests',
@@ -159,7 +157,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access backoffice', 'access employee app briefing', 'access employee app sales report',
                 'access employee app store sop',
-                'view briefing items', 'edit briefing items', 'review briefing items',
+                'view briefing items', 'edit briefing items',
                 'view sales reports', 'review sales reports as supervisor',
                 'view compliment types',
                 'view stock cards', 'review stock cards as supervisor',

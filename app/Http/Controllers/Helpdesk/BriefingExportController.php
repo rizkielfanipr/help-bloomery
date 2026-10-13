@@ -20,17 +20,12 @@ class BriefingExportController
 {
     public function __invoke(Request $request): BinaryFileResponse
     {
-        $user = auth()->user();
-        abort_unless($user?->can('view briefing records'), 403);
+        abort_unless(auth()->user()?->can('view briefing records'), 403);
 
         $period = BriefingPeriod::from($request->input('period', 'daily'));
         $branchId = $request->integer('branch_id');
         $year = $request->integer('year', now()->year);
         $month = $request->integer('month', now()->month);
-
-        // docs/daily-briefing-remediation-prd.md §15.1: the requested branch_id is re-validated
-        // against the viewer's own access server-side, never trusted from the request alone.
-        abort_unless($user->canAccessBranch($branchId), 403);
 
         $branch = Branch::findOrFail($branchId);
         $taskKeys = BriefingTask::forPeriod($period);

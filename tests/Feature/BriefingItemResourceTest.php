@@ -17,11 +17,7 @@ beforeEach(function () {
 
     $this->seed(RolesAndPermissionsSeeder::class);
 
-    // access_all_branches: true because this file exercises the detail-action visibility
-    // contract (photos/notes present or not), not branch scoping — branch isolation for
-    // Monitoring Poin is covered by the dedicated safety-net tests
-    // (docs/daily-briefing-remediation-prd.md §10.2/§12.2, Phase 1).
-    $this->admin = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $this->admin = User::factory()->create(['is_active' => true]);
     $this->admin->givePermissionTo('view briefing items');
 
     actingAs($this->admin);

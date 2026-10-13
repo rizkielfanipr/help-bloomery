@@ -2,10 +2,12 @@
 
 namespace App\Filament\Casual\Pages;
 
-use App\Actions\Briefing\BriefingSubmissionAction;
+use App\Enums\BriefingPeriod;
+use App\Enums\BriefingReviewStatus;
+use App\Enums\BriefingSubmissionType;
+use App\Models\BriefingItem;
+use App\Models\BriefingRecord;
 use App\Models\BriefingTask;
-use App\Services\BriefingAssignmentService;
-use App\Services\BriefingWorkspaceBuilder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -35,23 +37,6 @@ class DailyBriefingPage extends Page
 
     public int $taskModalKey = 0;
 
-    /**
-     * docs/daily-briefing-remediation-prd.md §10.1: authenticated, active STORE_STAFF with the
-     * submit permission, a branch, and that branch an active Daily Briefing participant today.
-     * A hidden link to this page is not a substitute for this check — Filament still resolves the
-     * route directly.
-     */
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-
-        if (! $user) {
-            return false;
-        }
-
-        return app(BriefingAssignmentService::class)->canSubmit($user, now());
-    }
-
     public function getTitle(): string|Htmlable
     {
         return 'Daily Briefing';
@@ -71,29 +56,35 @@ class DailyBriefingPage extends Page
     {
         $task = BriefingTask::cached()->firstWhere('key', $taskKey);
 
-        if (! $task || ! app(BriefingAssignmentService::class)->taskIsAssignedTo(auth()->user(), $task, now())) {
+        if (! $task) {
             return;
         }
 
-        $row = collect($this->briefingData[$task->period->value]['tasks'] ?? [])->firstWhere('key', $taskKey);
+        $period = $task->period;
+        $record = BriefingRecord::where('user_id', auth()->id())
+            ->where('period', $period->value)
+            ->whereDate('record_date', $period->recordDate())
+            ->first();
 
-        if ($row === null) {
-            return;
-        }
+        if ($record) {
+            $item = BriefingItem::where('briefing_record_id', $record->id)
+                ->where('task_key', $taskKey)
+                ->first();
 
-        if (! $row['isEditable']) {
-            Notification::make()
-                ->title('Tidak Dapat Diubah')
-                ->body($this->briefingData[$task->period->value]['bundle']['message'] ?? 'Poin ini tidak dapat diubah saat ini.')
-                ->warning()
-                ->send();
+            if ($item?->review_status === BriefingReviewStatus::Approved) {
+                Notification::make()
+                    ->title('Already Approved')
+                    ->body('This item has been approved and can no longer be changed.')
+                    ->warning()
+                    ->send();
 
-            return;
+                return;
+            }
         }
 
         $this->activeTaskKey = $taskKey;
-        $this->activeSubmissionType = $row['submissionType'];
-        $this->activeTaskLabel = $row['label'];
+        $this->activeSubmissionType = $task->submission_type->value;
+        $this->activeTaskLabel = $task->label;
         $this->activeTaskNoteType = $task->note_type;
         $this->taskData = ['notes' => null];
         $this->cameraPhotoPaths = [];
@@ -147,24 +138,79 @@ class DailyBriefingPage extends Page
             return;
         }
 
-        $result = app(BriefingSubmissionAction::class)->execute(
-            auth()->user(),
-            $task,
-            [
-                'notes' => $this->taskData['notes'] ?? null,
-                'photo_paths' => $this->cameraPhotoPaths,
-            ],
-            now(),
-        );
+        $submissionType = $task->submission_type;
+        $period = $task->period;
 
-        if (! $result->successful) {
+        if ($task->isPastDeadline()) {
             Notification::make()
-                ->title($result->reason === 'deadline_passed' ? 'Deadline Terlewat' : 'Tidak Dapat Disimpan')
-                ->body($result->message)
+                ->title('Deadline Terlewat')
+                ->body('Waktu pengisian sudah berakhir. Tugas ini tidak dapat disubmit.')
                 ->danger()
                 ->send();
 
             return;
+        }
+
+        if ($submissionType->requiresPhoto() && empty($this->cameraPhotoPaths)) {
+            Notification::make()
+                ->title('Foto Diperlukan')
+                ->body('Harap ambil foto terlebih dahulu sebagai bukti.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        if ($submissionType->requiresText() && empty(trim($this->taskData['notes'] ?? ''))) {
+            Notification::make()
+                ->title('Catatan Diperlukan')
+                ->body('Harap isi catatan terlebih dahulu.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $record = BriefingRecord::where('user_id', auth()->id())
+            ->where('period', $period->value)
+            ->whereDate('record_date', $period->recordDate())
+            ->first()
+            ?? BriefingRecord::create([
+                'user_id' => auth()->id(),
+                'period' => $period->value,
+                'record_date' => $period->recordDate(),
+            ]);
+
+        $item = BriefingItem::firstOrNew([
+            'briefing_record_id' => $record->id,
+            'task_key' => $this->activeTaskKey,
+        ]);
+
+        if ($item->exists && $item->review_status === BriefingReviewStatus::Approved) {
+            Notification::make()
+                ->title('Already Approved')
+                ->body('This item has been approved and can no longer be changed.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $isAutoComplete = $submissionType !== BriefingSubmissionType::Checkbox;
+
+        $item->fill([
+            'photo_paths' => ! empty($this->cameraPhotoPaths) ? $this->cameraPhotoPaths : ($item->photo_paths ?? []),
+            'notes' => $this->taskData['notes'] ?? null,
+            'is_completed' => $isAutoComplete,
+            'completed_at' => $isAutoComplete ? now() : null,
+            'review_status' => BriefingReviewStatus::SupervisorReview->value,
+            'rejection_reason' => null,
+            'reviewed_by' => null,
+            'reviewed_at' => null,
+        ])->save();
+
+        if (! $record->submitted_at) {
+            $record->update(['submitted_at' => now()]);
         }
 
         $this->activeTaskKey = null;
@@ -179,20 +225,82 @@ class DailyBriefingPage extends Page
 
         Notification::make()
             ->title('Tugas Selesai!')
-            ->body($result->message)
+            ->body('Data akan diverifikasi oleh HR.')
             ->success()
             ->send();
     }
 
-    /**
-     * docs/daily-briefing-bundle-approval-prd.md §12: one bundle workspace per period, built by a
-     * service so the page holds no completeness or editability rules of its own.
-     *
-     * @return array<string, array<string, mixed>>
-     */
     #[Computed]
     public function briefingData(): array
     {
-        return app(BriefingWorkspaceBuilder::class)->forUser(auth()->user(), now());
+        $userId = auth()->id();
+        $branchId = auth()->user()?->branch_id;
+        $result = [];
+
+        foreach (BriefingPeriod::cases() as $period) {
+            $record = BriefingRecord::where('user_id', $userId)
+                ->where('period', $period->value)
+                ->whereDate('record_date', $period->recordDate())
+                ->with('items')
+                ->first();
+
+            $tasks = BriefingTask::forPeriod($period, $branchId);
+            $itemMap = $record
+                ? $record->items->keyBy(fn (BriefingItem $i) => $i->task_key)
+                : collect();
+
+            $taskList = $tasks->map(function (BriefingTask $task) use ($itemMap): array {
+                $item = $itemMap->get($task->key);
+
+                return [
+                    'key' => $task->key,
+                    'label' => $task->label,
+                    'noteType' => $task->note_type,
+                    'submissionType' => $task->submission_type->value,
+                    'requiresPhoto' => $task->submission_type->requiresPhoto(),
+                    'group' => $task->group,
+                    'groupLabel' => $task->group_label,
+                    'isCompleted' => $item?->is_completed ?? false,
+                    'completedAt' => $item?->completed_at,
+                    'photoPaths' => $item?->photo_paths ?? [],
+                    'notes' => $item?->notes,
+                    'reviewStatus' => $item?->review_status,
+                    'rejectionReason' => $item?->rejection_reason,
+                    'isPastDeadline' => $task->isPastDeadline() && ! ($item?->is_completed),
+                    'deadlineLabel' => $task->deadlineLabel(),
+                ];
+            })->all();
+
+            $completedCount = collect($taskList)->where('isCompleted', true)->count();
+
+            $idDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+            $idMonths = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+            $rangeLabel = match ($period) {
+                BriefingPeriod::Daily => $idDays[now()->dayOfWeek].', '.now()->format('j').' '.$idMonths[now()->month].' '.now()->format('Y'),
+                BriefingPeriod::Weekly => (function () use ($idMonths): string {
+                    $start = now()->startOfWeek();
+                    $end = now()->endOfWeek();
+                    $range = $start->month === $end->month
+                        ? $start->format('j').'–'.$end->format('j').' '.$idMonths[$end->month].' '.$end->format('Y')
+                        : $start->format('j').' '.$idMonths[$start->month].'–'.$end->format('j').' '.$idMonths[$end->month].' '.$end->format('Y');
+
+                    return "Periode {$range}";
+                })(),
+                BriefingPeriod::Monthly => $idMonths[now()->month].' '.now()->format('Y'),
+            };
+
+            $result[$period->value] = [
+                'period' => $period,
+                'label' => $period->getLabel(),
+                'periodLabel' => $period->periodLabel(),
+                'rangeLabel' => $rangeLabel,
+                'total' => count($taskList),
+                'completed' => $completedCount,
+                'tasks' => $taskList,
+            ];
+        }
+
+        return $result;
     }
 }

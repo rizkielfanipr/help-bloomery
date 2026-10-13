@@ -16,10 +16,10 @@ enum BriefingSubmissionType: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::CameraOnly => 'Foto dari Kamera',
-            self::Photo => 'Unggah Foto',
-            self::PhotoAndText => 'Foto & Catatan',
-            self::TextOnly => 'Catatan Teks',
+            self::CameraOnly => 'Foto Kamera',
+            self::Photo => 'Foto Bebas',
+            self::PhotoAndText => 'Foto + Teks',
+            self::TextOnly => 'Teks Saja',
             self::Checkbox => 'Centang Selesai',
         };
     }
@@ -32,17 +32,6 @@ enum BriefingSubmissionType: string implements HasColor, HasLabel
             self::PhotoAndText => 'warning',
             self::TextOnly => 'success',
             self::Checkbox => 'gray',
-        };
-    }
-
-    public function getIcon(): string
-    {
-        return match ($this) {
-            self::CameraOnly => 'heroicon-o-camera',
-            self::Photo => 'heroicon-o-photo',
-            self::PhotoAndText => 'heroicon-o-clipboard-document-list',
-            self::TextOnly => 'heroicon-o-pencil-square',
-            self::Checkbox => 'heroicon-o-check-circle',
         };
     }
 

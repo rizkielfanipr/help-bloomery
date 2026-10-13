@@ -67,7 +67,20 @@ jobs:
       - name: Run unit tests
         run: php artisan test --compact --testsuite=Unit
 
-      - name: Run feature tests in bounded batches
+      - name: Run staging smoke tests
+        if: github.ref_name == 'staging'
+        run: |
+          php artisan test --compact \
+            tests/Feature/Auth/AuthenticationTest.php \
+            tests/Feature/CasualLoginRedirectTest.php \
+            tests/Feature/UserBranchAccessTest.php \
+            tests/Feature/BriefingBranchParticipationActionTest.php \
+            tests/Feature/BriefingBranchIsolationTest.php \
+            tests/Feature/DailyBriefingPageTest.php \
+            tests/Feature/BriefingItemResourceTest.php
+
+      - name: Run main feature tests in bounded batches
+        if: github.ref_name == 'main'
         shell: bash
         run: |
           mapfile -d '' feature_tests < <(find tests/Feature -type f -name '*.php' -print0 | sort -z)

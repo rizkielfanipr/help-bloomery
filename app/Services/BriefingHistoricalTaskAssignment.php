@@ -18,8 +18,9 @@ use Illuminate\Support\Collection;
  *
  *  - scope: the branch's own tasks if any of them existed by then, otherwise the global ones —
  *    the same rule as BriefingTask::forPeriod();
- *  - a scoped task counts once it existed on the period's first day (a point added mid-period is
- *    not required retroactively) and while it is still active or the day holds an item for it;
+ *  - a scoped task counts once it existed before the period's first day began (a point added
+ *    during the day or mid-period is not required retroactively) and while it is still active or
+ *    the day holds an item for it;
  *  - any task the day holds an item for counts, whatever its scope or state, because the item is
  *    evidence it was assigned then.
  */
@@ -31,10 +32,10 @@ class BriefingHistoricalTaskAssignment
      */
     public function tasksFor(int $branchId, BriefingPeriod $period, CarbonInterface $periodStart, Collection $items): Collection
     {
-        $cutoff = CarbonImmutable::instance($periodStart)->endOfDay();
+        $cutoff = CarbonImmutable::instance($periodStart)->startOfDay();
         $evidence = $items->pluck('task_key')->filter()->unique();
         $periodTasks = BriefingTask::cached()->where('period', $period);
-        $existed = fn (BriefingTask $task): bool => $task->created_at === null || $task->created_at->lessThanOrEqualTo($cutoff);
+        $existed = fn (BriefingTask $task): bool => $task->created_at === null || $task->created_at->lessThan($cutoff);
 
         $branchTasks = $periodTasks->filter(fn (BriefingTask $task): bool => $task->branch_id === $branchId && $existed($task));
         $scoped = ($branchTasks->isNotEmpty() ? $branchTasks : $periodTasks->filter(fn (BriefingTask $task): bool => $task->branch_id === null && $existed($task)))

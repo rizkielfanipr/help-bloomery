@@ -228,8 +228,9 @@ it('sends a group to manual review when every row holds a duplicate slot', funct
     expect(BriefingRecord::whereNotNull('status')->count())->toBe(0);
 });
 
-it('does not require a point that was added after the day it is judging', function () {
+it('does not require a point that was added during or after the day it is judging', function () {
     groupingTask('g_new', createdAt: '2026-09-10 09:00:00');
+    groupingTask('g_same_day', createdAt: '2026-09-01 15:00:00');
     $record = legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer), 'g_b' => approvedBy($this->reviewer)]);
 
     artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/added.jsonl')->assertSuccessful();
@@ -247,6 +248,17 @@ it('still requires a point that existed on the day but was not submitted', funct
     artisan('briefing:group-legacy-bundles --execute --snapshot=grouping/existing.jsonl')->assertSuccessful();
 
     expect($record->refresh()->status)->toBe(BriefingBundleStatus::Draft);
+});
+
+it('lists the points most often missing from draft groups in the dry-run report', function () {
+    groupingTask('g_c', createdAt: '2026-08-01 09:00:00');
+    legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-01', ['g_a' => approvedBy($this->reviewer), 'g_b' => approvedBy($this->reviewer)]);
+    legacyRecord($this->branch, BriefingPeriod::Daily, '2026-09-02', ['g_a' => approvedBy($this->reviewer)]);
+
+    artisan('briefing:group-legacy-bundles')
+        ->expectsOutputToContain('Poin yang paling sering kurang di kelompok draft')
+        ->expectsOutputToContain('Poin g_c')
+        ->assertSuccessful();
 });
 
 it('accepts a point that has since been retired when the day holds it, and ignores retired points it does not hold', function () {

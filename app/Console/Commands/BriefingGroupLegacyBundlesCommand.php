@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Actions\Briefing\GroupLegacyBriefingBundleAction;
 use App\Models\Branch;
+use App\Models\BriefingTask;
 use App\Services\BriefingLegacyGroupingPlan;
 use App\Services\BriefingLegacyGroupingScanner;
 use Illuminate\Console\Attributes\Description;
@@ -77,6 +78,7 @@ class BriefingGroupLegacyBundlesCommand extends Command
         $perBranch = [];
         $applied = 0;
         $skippedStale = 0;
+        $draftMissing = [];
         $branchNames = Branch::query()->pluck('name', 'id');
 
         $groups = $this->scanner->groups(
@@ -92,6 +94,10 @@ class BriefingGroupLegacyBundlesCommand extends Command
 
             $tally[$bucket] = ($tally[$bucket] ?? 0) + 1;
             $perBranch[$branchNames[$plan->branchId] ?? 'Tanpa cabang'][$plan->classification] = ($perBranch[$branchNames[$plan->branchId] ?? 'Tanpa cabang'][$plan->classification] ?? 0) + 1;
+
+            foreach ($plan->missingTaskKeys as $missingKey) {
+                $draftMissing[$missingKey] = ($draftMissing[$missingKey] ?? 0) + 1;
+            }
 
             if (count($samples[$bucket] ?? []) < self::SAMPLE_SIZE) {
                 $samples[$bucket][] = $key.' → #'.implode(',#', $plan->sourceRecordIds);
@@ -113,7 +119,7 @@ class BriefingGroupLegacyBundlesCommand extends Command
             $applied++;
         }
 
-        $this->report($tally, $perBranch, $samples);
+        $this->report($tally, $perBranch, $samples, $draftMissing);
 
         Log::info('briefing.group_legacy_bundles.completed', [
             'run_id' => $runId,
@@ -139,8 +145,9 @@ class BriefingGroupLegacyBundlesCommand extends Command
      * @param  array<string, int>  $tally
      * @param  array<string, array<string, int>>  $perBranch
      * @param  array<string, list<string>>  $samples
+     * @param  array<string, int>  $draftMissing  task key => draft groups missing it
      */
-    private function report(array $tally, array $perBranch, array $samples): void
+    private function report(array $tally, array $perBranch, array $samples, array $draftMissing = []): void
     {
         ksort($tally);
         $this->table(['Klasifikasi', 'Jumlah Kelompok'], collect($tally)->map(fn (int $count, string $bucket): array => [$bucket, $count])->values()->all());
@@ -150,6 +157,22 @@ class BriefingGroupLegacyBundlesCommand extends Command
 
         foreach ($samples as $bucket => $lines) {
             $this->line("<comment>{$bucket}</comment> contoh: ".implode('; ', $lines));
+        }
+
+        if ($draftMissing !== []) {
+            arsort($draftMissing);
+            $tasks = BriefingTask::query()->whereIn('key', array_keys($draftMissing))->get(['key', 'label', 'branch_id', 'is_active', 'created_at'])->keyBy('key');
+
+            $this->newLine();
+            $this->line('<comment>Poin yang paling sering kurang di kelompok draft</comment>');
+            $this->table(['Poin', 'Label', 'Cabang', 'Aktif', 'Dibuat', 'Kelompok draft'], collect($draftMissing)->take(25)->map(fn (int $count, string $key): array => [
+                $key,
+                $tasks[$key]->label ?? '-',
+                $tasks[$key]?->branch_id ?? 'global',
+                isset($tasks[$key]) ? ($tasks[$key]->is_active ? 'ya' : 'tidak') : '-',
+                $tasks[$key]?->created_at?->format('Y-m-d') ?? '-',
+                $count,
+            ])->values()->all());
         }
     }
 

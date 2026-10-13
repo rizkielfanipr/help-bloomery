@@ -83,7 +83,8 @@ class BriefingLegacyGroupingClassifier
             ->map(fn (BriefingItem $item): int => (int) $item->id)
             ->values()
             ->all();
-        $isComplete = $tasksByKey->every(fn (BriefingTask $task): bool => $this->satisfies($task, $realByKey->get($task->key)));
+        $missingTaskKeys = $tasksByKey->reject(fn (BriefingTask $task): bool => $this->satisfies($task, $realByKey->get($task->key)))->keys()->values()->all();
+        $isComplete = $missingTaskKeys === [];
         [$leftInSource, $canonicalId] = $this->resolveDuplicateSlots($items, $real, $legacyRecords, $periodStart);
 
         if ($canonicalId === null) {
@@ -105,7 +106,7 @@ class BriefingLegacyGroupingClassifier
         ]);
 
         if (! $isComplete) {
-            return $plan(BriefingBundleStatus::Draft);
+            return $plan(BriefingBundleStatus::Draft, ['missingTaskKeys' => $missingTaskKeys]);
         }
 
         $statuses = $real->map(fn (BriefingItem $item): ?BriefingReviewStatus => $item->review_status?->isAwaitingSupervisorReview() ? BriefingReviewStatus::SupervisorReview : $item->review_status)->unique();

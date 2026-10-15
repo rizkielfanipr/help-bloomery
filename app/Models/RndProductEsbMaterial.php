@@ -9,6 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RndProductEsbMaterial extends Model
 {
+    /** Raised from a Project R&D product's material list. */
+    public const SOURCING_ORIGIN_PROJECT = 'project';
+
+    /** Recorded directly in Sourcing Bahan, e.g. a sample sent without any Project. */
+    public const SOURCING_ORIGIN_STANDALONE = 'standalone';
+
     public const STATUSES = [
         'draft' => 'Draft',
         'syncing' => 'Syncing',
@@ -56,6 +62,10 @@ class RndProductEsbMaterial extends Model
         return 'raw';
     }
 
+    protected $attributes = [
+        'sourcing_origin' => self::SOURCING_ORIGIN_PROJECT,
+    ];
+
     protected $fillable = [
         'rnd_project_product_id',
         'category_id',
@@ -80,6 +90,9 @@ class RndProductEsbMaterial extends Model
         'synced_at',
         'created_by',
         'sourcing_status',
+        'sourcing_origin',
+        'esb_product_detail_id',
+        'esb_product_code',
         'sourcing_selected_id',
         'rnd_reviewed_by',
         'rnd_reviewed_at',
@@ -98,10 +111,20 @@ class RndProductEsbMaterial extends Model
             'last_payload' => 'array',
             'last_response' => 'array',
             'synced_at' => 'datetime',
+            'esb_product_detail_id' => 'integer',
             'sourcing_status' => MaterialSourcingStatus::class,
             'rnd_reviewed_at' => 'datetime',
             'finance_reviewed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * A standalone sourcing has no Project product, ESB category or UOM ID; it only carries the
+     * supplier/sample review through the same R&D and Finance approval.
+     */
+    public function isStandalone(): bool
+    {
+        return $this->sourcing_origin === self::SOURCING_ORIGIN_STANDALONE;
     }
 
     public function product(): BelongsTo

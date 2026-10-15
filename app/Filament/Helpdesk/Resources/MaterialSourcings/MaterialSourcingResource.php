@@ -56,16 +56,19 @@ class MaterialSourcingResource extends Resource
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->where(function (Builder $query): void {
                 $query->whereNull('category_name')
-                    ->orWhere('category_name', '!=', 'Barang WIP');
+                    ->orWhere('category_name', '!=', 'Barang WIP')
+                    ->orWhere('sourcing_origin', RndProductEsbMaterial::SOURCING_ORIGIN_STANDALONE);
             }))
             ->columns([
                 TextColumn::make('product.project.name')
                     ->label('PROJECT')
+                    ->default('Mandiri')
                     ->searchable()
                     ->sortable(),
 
                 TextColumn::make('product.name')
                     ->label('PRODUK')
+                    ->default('Tanpa Project')
                     ->searchable()
                     ->sortable(),
 
@@ -76,6 +79,9 @@ class MaterialSourcingResource extends Resource
 
                 TextColumn::make('product_code')
                     ->label('KODE')
+                    ->state(fn (RndProductEsbMaterial $record): string => $record->isStandalone()
+                        ? ($record->esb_product_code ?: $record->product_code)
+                        : $record->product_code)
                     ->badge()
                     ->color('gray'),
 
@@ -97,9 +103,14 @@ class MaterialSourcingResource extends Resource
                     ->label('PROJECT')
                     ->form([TextInput::make('value')->label('Project')])
                     ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
-                            ->whereHas('product.project', fn (Builder $query) => $query
-                                ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
+                        ->when(filled($data['value'] ?? null), function (Builder $query) use ($data): Builder {
+                            $term = trim((string) $data['value']);
+
+                            return $query->where(fn (Builder $query) => $query
+                                ->whereHas('product.project', fn (Builder $query) => $query->where('name', 'like', '%'.$term.'%'))
+                                ->when(str_contains('mandiri', mb_strtolower($term)), fn (Builder $query) => $query
+                                    ->orWhere('sourcing_origin', RndProductEsbMaterial::SOURCING_ORIGIN_STANDALONE)));
+                        })),
 
                 Filter::make('product_name_filter')
                     ->label('PRODUK')
@@ -121,7 +132,9 @@ class MaterialSourcingResource extends Resource
                     ->form([TextInput::make('value')->label('Kode')])
                     ->query(fn (Builder $query, array $data): Builder => $query
                         ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
-                            ->where('product_code', 'like', '%'.trim((string) $data['value']).'%'))),
+                            ->where(fn (Builder $query) => $query
+                                ->where('product_code', 'like', '%'.trim((string) $data['value']).'%')
+                                ->orWhere('esb_product_code', 'like', '%'.trim((string) $data['value']).'%')))),
 
                 SelectFilter::make('sourcing_status')
                     ->label('STATUS SOURCING')
@@ -362,7 +375,7 @@ class MaterialSourcingResource extends Resource
     }
 
     /** @return array<int, Component> */
-    private static function supplierFormFields(): array
+    public static function supplierFormFields(): array
     {
         return [
             TextInput::make('supplier_name')->label('Nama Supplier')->required()->maxLength(255),

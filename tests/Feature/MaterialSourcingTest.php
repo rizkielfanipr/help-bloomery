@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Rnd\CreateStandaloneMaterialSourcingAction;
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
 use App\Livewire\MaterialSourcingSupplierCard;
@@ -9,9 +10,15 @@ use App\Models\RndProject;
 use App\Models\RndProjectProduct;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -454,4 +461,240 @@ it('renders the sourcing bahan menu link in the custom helpdesk sidebar for purc
     $response->assertOk()
         ->assertSee('Sourcing Bahan')
         ->assertSee(route('filament.helpdesk.resources.material-sourcings.index'), false);
+});
+
+describe('standalone sourcing (without a Project)', function () {
+    beforeEach(function () {
+        config()->set('esb.master_product.base_url', 'https://master-product.test');
+        config()->set('esb.master_product.token', 'master-token');
+        // The picker's active-detail check is cached per product; seeding it keeps tests offline.
+        Cache::put('esb.master_product.active_details.501', [9001], now()->addHour());
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://master-product.test/corev1/master/product*' => Http::response(['status' => 'ok', 'result' => [
+                'page' => 1, 'limit' => 20, 'count' => 1, 'next' => '', 'prev' => '',
+                'data' => [[
+                    'productID' => 501,
+                    'productCode' => 'BB-MATCHA',
+                    'productName' => 'Matcha Uji Jepang',
+                    'categoryName' => 'Bahan Baku',
+                    'subCategoryName' => 'Minuman',
+                    'productDetails' => [
+                        ['productDetailID' => 9001, 'unit' => 'KG', 'conversionFactor' => 1, 'flagActive' => 'true'],
+                    ],
+                ]],
+            ]]),
+        ]);
+    });
+
+    function standaloneInput(array $overrides = []): array
+    {
+        return array_merge([
+            'product_code' => 'BB-MATCHA',
+            'product_detail_id' => 9001,
+            'material_notes' => 'Sample dikirim langsung tanpa project.',
+            'sourcings' => [supplierRow('Supplier Sample', 175000)],
+        ], $overrides);
+    }
+
+    // The picker is re-rendered as a Filament partial next to the action modal, so its current
+    // HTML is read from the response's partials rather than the (skipped) full page render.
+    Testable::macro('sourcingPickerPartial', fn (): ?string => data_get($this->lastState->getEffects(), 'partials.sourcing-product-picker'));
+
+    function pickerRow(array $overrides = []): array
+    {
+        return array_merge([
+            'productDetailID' => 9001, 'productID' => 501, 'productCode' => 'BB-MATCHA', 'productName' => 'Matcha Uji Jepang',
+            'categoryName' => 'Bahan Baku', 'subCategoryName' => 'Minuman', 'unit' => 'KG', 'baseUnit' => 'KG', 'conversionFactor' => 1.0,
+        ], $overrides);
+    }
+
+    it('opens the same Master Product picker as BOM "Tambah Komponen" first, then the form with the picked material', function () {
+        $this->actingAs($this->purchasing);
+
+        $page = Livewire::test(ListMaterialSourcings::class)
+            ->assertActionVisible('create_standalone_sourcing')
+            ->callAction('create_standalone_sourcing')
+            ->assertSet('inlineProductModalOpen', true)
+            ->tap(fn ($page) => expect($page->sourcingPickerPartial())
+                ->toContain('Pilih Bahan Sourcing')
+                ->toContain('Pilih product aktif dari Master Product ESB.')
+                ->toContain('wire:model.live.debounce.700ms="inlineProductCodeSearch"')
+                ->toContain('wire:init="loadInlineProducts"'))
+            ->set('inlineProductOptions', [9001 => pickerRow()])
+            ->call('selectSourcingProduct', 9001)
+            ->assertSet('inlineProductModalOpen', false)
+            ->assertActionMounted('standaloneSourcingForm')
+            ->assertMountedActionModalSee(['Kode Bahan', 'Nama Bahan', 'UOM Utama', 'Daftar Supplier / Pengirim Sample'])
+            ->assertSchemaStateSet(['product_code' => 'BB-MATCHA', 'product_name' => 'Matcha Uji Jepang', 'uom_name' => 'KG'], 'mountedActionSchema0');
+
+        expect($page->sourcingPickerPartial())->toContain('wire:partial="sourcing-product-picker"')
+            ->not->toContain('Pilih product aktif dari Master Product ESB.');
+
+        $data = $page->get('mountedActions.0.data');
+        $firstRowKey = array_key_first($data['sourcings']);
+        $data['material_notes'] = 'Sample dikirim langsung tanpa project.';
+        $data['sourcings'] = [
+            $firstRowKey => supplierRow('Supplier Sample', 175000),
+            (string) Str::uuid() => supplierRow('Supplier Kedua', 160000),
+        ];
+
+        $page->set('mountedActions.0.data', $data)
+            ->callMountedAction()
+            ->assertHasNoActionErrors()
+            ->assertNotified('Sourcing mandiri dikirim untuk review RnD');
+
+        $standalone = RndProductEsbMaterial::query()->where('sourcing_origin', RndProductEsbMaterial::SOURCING_ORIGIN_STANDALONE)->sole();
+
+        expect($standalone->isStandalone())->toBeTrue()
+            ->and($standalone->rnd_project_product_id)->toBeNull()
+            ->and($standalone->product_name)->toBe('Matcha Uji Jepang')
+            ->and($standalone->category_name)->toBe('Bahan Baku')
+            ->and($standalone->sub_category_name)->toBe('Minuman')
+            ->and($standalone->uom_name)->toBe('KG')
+            ->and($standalone->esb_product_id)->toBe(501)
+            ->and($standalone->esb_product_detail_id)->toBe(9001)
+            ->and($standalone->esb_product_code)->toBe('BB-MATCHA')
+            ->and($standalone->status)->toBe('draft')
+            ->and($standalone->product_code)->toStartWith('SRC-')
+            ->and($standalone->sku)->toBe($standalone->product_code)
+            ->and($standalone->notes)->toBe('Sample dikirim langsung tanpa project.')
+            ->and($standalone->created_by)->toBe($this->purchasing->id)
+            ->and($standalone->sourcing_status)->toBe(MaterialSourcingStatus::PendingRndReview)
+            ->and($standalone->sourcings->pluck('supplier_name')->sort()->values()->all())->toBe(['Supplier Kedua', 'Supplier Sample']);
+
+        Livewire::test(ListMaterialSourcings::class)
+            ->assertCanSeeTableRecords([$standalone, $this->material])
+            ->assertSee('Mandiri')
+            ->assertSee('Tanpa Project')
+            ->assertSee('BB-MATCHA');
+    });
+
+    it('lets the user go back to the picker with "Ganti Bahan"', function () {
+        $this->actingAs($this->purchasing);
+
+        Livewire::test(ListMaterialSourcings::class)
+            ->callAction([
+                TestAction::make('standaloneSourcingForm')->arguments(['product_code' => 'BB-MATCHA', 'product_detail_id' => 9001]),
+                TestAction::make('change_sourcing_product'),
+            ])
+            ->assertSet('inlineProductModalOpen', true)
+            ->assertSet('mountedActions', [])
+            ->tap(fn ($page) => expect($page->sourcingPickerPartial())->toContain('Pilih product aktif dari Master Product ESB.'));
+    });
+
+    it('stores what ESB returns, never the picker row the browser sent', function () {
+        $this->actingAs($this->purchasing);
+
+        $page = Livewire::test(ListMaterialSourcings::class)
+            ->callAction('create_standalone_sourcing')
+            ->set('inlineProductOptions', [9001 => pickerRow(['productName' => 'Nama Palsu', 'categoryName' => 'Palsu', 'unit' => 'TON', 'baseUnit' => 'TON'])])
+            ->call('selectSourcingProduct', 9001);
+        $data = $page->get('mountedActions.0.data');
+        $data['sourcings'] = [array_key_first($data['sourcings']) => supplierRow('Supplier Sample', 175000)];
+        $page->set('mountedActions.0.data', $data)->callMountedAction()->assertHasNoActionErrors();
+
+        $standalone = RndProductEsbMaterial::query()->where('sourcing_origin', 'standalone')->sole();
+
+        expect($standalone->product_name)->toBe('Matcha Uji Jepang')
+            ->and($standalone->category_name)->toBe('Bahan Baku')
+            ->and($standalone->uom_name)->toBe('KG');
+    });
+
+    it('refuses a material that ESB does not return as active for that code', function (array $overrides) {
+        expect(fn () => app(CreateStandaloneMaterialSourcingAction::class)->execute(standaloneInput($overrides), $this->purchasing))
+            ->toThrow(ValidationException::class, 'tidak ditemukan atau sudah tidak aktif')
+            ->and(RndProductEsbMaterial::query()->where('sourcing_origin', 'standalone')->exists())->toBeFalse();
+    })->with([
+        'forged detail ID' => [['product_detail_id' => 12345]],
+        'detail of another code' => [['product_code' => 'BB-LAIN']],
+        'inactive detail' => [function () {
+            Cache::put('esb.master_product.active_details.501', [], now()->addHour());
+
+            return [];
+        }],
+    ]);
+
+    it('keeps project materials marked as project sourcing', function () {
+        expect($this->material->refresh()->sourcing_origin)->toBe(RndProductEsbMaterial::SOURCING_ORIGIN_PROJECT)
+            ->and($this->material->isStandalone())->toBeFalse();
+    });
+
+    it('requires a picked material and at least one complete supplier', function (array $overrides, string $field) {
+        try {
+            app(CreateStandaloneMaterialSourcingAction::class)->execute(standaloneInput($overrides), $this->purchasing);
+            $this->fail('Expected a validation error.');
+        } catch (ValidationException $exception) {
+            expect($exception->errors())->toHaveKey($field);
+        }
+
+        expect(RndProductEsbMaterial::query()->where('sourcing_origin', 'standalone')->exists())->toBeFalse();
+    })->with([
+        'no material' => [['product_code' => '', 'product_detail_id' => null], 'product_code'],
+        'no supplier' => [['sourcings' => []], 'sourcings'],
+        'supplier without price' => [['sourcings' => [[...supplierRow('Supplier X', 1), 'price' => null]]], 'sourcings.0.price'],
+        'negative price' => [['sourcings' => [supplierRow('Supplier X', -5)]], 'sourcings.0.price'],
+    ]);
+
+    it('refuses users without the submit permission, in the UI and on the server', function () {
+        $this->actingAs($this->rnd);
+
+        Livewire::test(ListMaterialSourcings::class)
+            ->assertActionHidden('create_standalone_sourcing')
+            ->call('openSourcingProductPicker')
+            ->assertForbidden();
+
+        expect(fn () => app(CreateStandaloneMaterialSourcingAction::class)->execute(standaloneInput(), $this->rnd))
+            ->toThrow(AuthorizationException::class)
+            ->and(RndProductEsbMaterial::query()->where('sourcing_origin', 'standalone')->exists())->toBeFalse();
+    });
+
+    it('goes through the same rnd and finance approval as project sourcing', function () {
+        $standalone = app(CreateStandaloneMaterialSourcingAction::class)->execute(standaloneInput(), $this->purchasing);
+        $winner = $standalone->sourcings->sole();
+
+        $this->actingAs($this->rnd);
+        Livewire::test(ListMaterialSourcings::class)
+            ->callTableAction('approve_rnd', $standalone, data: ['sourcing_selected_id' => $winner->id, 'rnd_note' => 'Sample sesuai'])
+            ->assertHasNoTableActionErrors();
+
+        $this->actingAs($this->finance);
+        Livewire::test(ListMaterialSourcings::class)
+            ->callTableAction('approve_finance', $standalone, data: ['finance_note' => 'OK'])
+            ->assertHasNoTableActionErrors();
+
+        expect($standalone->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::Approved)
+            ->and($standalone->sourcing_selected_id)->toBe($winner->id)
+            ->and($standalone->sourcingApprovals()->pluck('stage')->all())->toBe(['rnd', 'finance']);
+    });
+
+    it('can be sourced twice for the same ESB material, and is found by "mandiri" and its ESB code', function () {
+        $first = app(CreateStandaloneMaterialSourcingAction::class)->execute(standaloneInput(), $this->purchasing);
+        $second = app(CreateStandaloneMaterialSourcingAction::class)->execute(standaloneInput(), $this->purchasing);
+        $this->actingAs($this->purchasing);
+
+        expect($first->product_code)->not->toBe($second->product_code);
+
+        Livewire::test(ListMaterialSourcings::class)
+            ->filterTable('project_name', ['value' => 'Mandiri'])
+            ->assertCanSeeTableRecords([$first, $second])
+            ->assertCanNotSeeTableRecords([$this->material])
+            ->filterTable('project_name', ['value' => ''])
+            ->filterTable('product_code_filter', ['value' => 'BB-MATCHA'])
+            ->assertCanSeeTableRecords([$first, $second])
+            ->assertCanNotSeeTableRecords([$this->material]);
+    });
+
+    it('never hides a standalone material whose ESB category is Barang WIP', function () {
+        Http::fake([
+            'https://master-product.test/corev1/master/product*' => Http::response(['status' => 'ok', 'result' => [
+                'page' => 1, 'limit' => 20, 'count' => 1, 'next' => '', 'prev' => '',
+                'data' => [['productID' => 501, 'productCode' => 'BB-MATCHA', 'productName' => 'Adonan WIP', 'categoryName' => 'Barang WIP', 'subCategoryName' => '', 'productDetails' => [['productDetailID' => 9001, 'unit' => 'GR']]]],
+            ]]),
+        ]);
+        $standalone = app(CreateStandaloneMaterialSourcingAction::class)->execute(standaloneInput(), $this->purchasing);
+        $this->actingAs($this->purchasing);
+
+        Livewire::test(ListMaterialSourcings::class)->assertCanSeeTableRecords([$standalone]);
+    });
 });

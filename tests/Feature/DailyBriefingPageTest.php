@@ -9,6 +9,7 @@ use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
 use App\Models\BriefingTask;
 use App\Models\User;
+use Carbon\Carbon;
 use Database\Seeders\DailyBriefingTestSeeder;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
@@ -256,4 +257,141 @@ it('rejects saveTask for a task key belonging to a different branch (Livewire ta
         ->call('saveTask');
 
     expect(BriefingItem::where('task_key', 'other_branch_only_task')->exists())->toBeFalse();
+});
+
+it('keeps a weekly submission visible on another day in the same week', function () {
+    Carbon::setTestNow('2026-10-12 10:00:00');
+    $user = participantStoreStaff();
+    $taskLabel = BriefingTask::query()->where('key', 'weekly_wm_pic')->value('label');
+    actingAs($user);
+
+    Livewire::test(DailyBriefingPage::class)
+        ->call('openTaskModal', 'weekly_wm_pic')
+        ->set('cameraPhotoPaths', ['briefing-photos/weekly.jpg'])
+        ->call('saveTask');
+
+    Carbon::setTestNow('2026-10-15 10:00:00');
+
+    $item = BriefingRecord::itemsForBranchPeriod(
+        (int) $user->branch_id,
+        BriefingPeriod::Weekly,
+        now(),
+    )->get('weekly_wm_pic');
+
+    expect($item)->not->toBeNull()
+        ->and($item->is_completed)->toBeTrue()
+        ->and($item->photo_paths)->toBe(['briefing-photos/weekly.jpg'])
+        ->and(BriefingRecord::where('period', BriefingPeriod::Weekly->value)->first()->record_date->toDateString())->toBe('2026-10-12');
+
+    Livewire::test(DailyBriefingPage::class)
+        ->assertSee($taskLabel)
+        ->assertSee('Supervisor Review');
+});
+
+it('keeps a monthly submission visible on another day in the same month', function () {
+    Carbon::setTestNow('2026-10-01 10:00:00');
+    $user = participantStoreStaff();
+    $taskLabel = BriefingTask::query()->where('key', 'monthly_cleaning_chiller')->value('label');
+    actingAs($user);
+
+    Livewire::test(DailyBriefingPage::class)
+        ->call('openTaskModal', 'monthly_cleaning_chiller')
+        ->set('cameraPhotoPaths', ['briefing-photos/monthly.jpg'])
+        ->call('saveTask');
+
+    Carbon::setTestNow('2026-10-15 10:00:00');
+
+    $item = BriefingRecord::itemsForBranchPeriod(
+        (int) $user->branch_id,
+        BriefingPeriod::Monthly,
+        now(),
+    )->get('monthly_cleaning_chiller');
+
+    expect($item)->not->toBeNull()
+        ->and($item->is_completed)->toBeTrue()
+        ->and($item->photo_paths)->toBe(['briefing-photos/monthly.jpg'])
+        ->and(BriefingRecord::where('period', BriefingPeriod::Monthly->value)->first()->record_date->toDateString())->toBe('2026-10-01');
+
+    Livewire::test(DailyBriefingPage::class)
+        ->assertSee($taskLabel)
+        ->assertSee('Supervisor Review');
+});
+
+it('does not carry a daily submission into the next day', function () {
+    Carbon::setTestNow('2026-10-14 10:00:00');
+    $user = participantStoreStaff();
+    actingAs($user);
+
+    Livewire::test(DailyBriefingPage::class)
+        ->call('openTaskModal', 'daily_detail_briefing')
+        ->set('taskData.notes', 'Briefing tanggal 14 Oktober')
+        ->call('saveTask');
+
+    Carbon::setTestNow('2026-10-15 10:00:00');
+
+    expect(BriefingRecord::itemsForBranchPeriod(
+        (int) $user->branch_id,
+        BriefingPeriod::Daily,
+        now(),
+    )->has('daily_detail_briefing'))->toBeFalse();
+});
+
+it('prefers a completed legacy item over an empty duplicate in the same weekly period', function () {
+    Carbon::setTestNow('2026-10-15 10:00:00');
+    $user = participantStoreStaff();
+
+    $emptyRecord = BriefingRecord::create([
+        'user_id' => $user->id,
+        'branch_id' => $user->branch_id,
+        'period' => BriefingPeriod::Weekly->value,
+        'record_date' => '2026-10-12',
+    ]);
+    $emptyRecord->items()->create([
+        'task_key' => 'weekly_wm_pic',
+        'is_completed' => false,
+        'review_status' => BriefingReviewStatus::Rejected->value,
+    ]);
+
+    $completedRecord = BriefingRecord::create([
+        'user_id' => $user->id,
+        'branch_id' => $user->branch_id,
+        'period' => BriefingPeriod::Weekly->value,
+        'record_date' => '2026-10-14',
+    ]);
+    $completedItem = $completedRecord->items()->create([
+        'task_key' => 'weekly_wm_pic',
+        'photo_paths' => ['briefing-photos/legacy.jpg'],
+        'is_completed' => true,
+        'completed_at' => '2026-10-14 10:00:00',
+        'review_status' => BriefingReviewStatus::SupervisorReview->value,
+    ]);
+
+    $visibleItem = BriefingRecord::itemsForBranchPeriod(
+        (int) $user->branch_id,
+        BriefingPeriod::Weekly,
+        now(),
+    )->get('weekly_wm_pic');
+
+    expect($visibleItem?->is($completedItem))->toBeTrue();
+});
+
+it('keeps a submitted task visible as read-only after the task is deactivated', function () {
+    Carbon::setTestNow('2026-10-15 10:00:00');
+    $user = participantStoreStaff();
+    $taskLabel = BriefingTask::query()->where('key', 'monthly_cleaning_chiller')->value('label');
+    actingAs($user);
+
+    Livewire::test(DailyBriefingPage::class)
+        ->call('openTaskModal', 'monthly_cleaning_chiller')
+        ->set('cameraPhotoPaths', ['briefing-photos/inactive.jpg'])
+        ->call('saveTask');
+
+    BriefingTask::query()->where('key', 'monthly_cleaning_chiller')->update(['is_active' => false]);
+    BriefingTask::clearCache();
+
+    Livewire::test(DailyBriefingPage::class)
+        ->assertSee($taskLabel)
+        ->assertSee('Poin nonaktif')
+        ->call('openTaskModal', 'monthly_cleaning_chiller')
+        ->assertSet('activeTaskKey', null);
 });

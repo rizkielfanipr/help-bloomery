@@ -187,9 +187,8 @@ class DailyBriefingPage extends Page
     private function canonicalItem(BriefingTask $task): ?BriefingItem
     {
         $branchId = (int) auth()->user()->branch_id;
-        $record = BriefingRecord::canonicalForBranch($branchId, $task->period, now());
 
-        return $record?->items->firstWhere('task_key', $task->key);
+        return BriefingRecord::itemsForBranchPeriod($branchId, $task->period, now())->get($task->key);
     }
 
     #[Computed]
@@ -201,13 +200,9 @@ class DailyBriefingPage extends Page
         $result = [];
 
         foreach (BriefingPeriod::cases() as $period) {
-            $record = $branchId
-                ? BriefingRecord::canonicalForBranch((int) $branchId, $period, now())?->load('items')
-                : null;
-
             $tasks = $assignments->tasksFor($user, $period, now());
-            $itemMap = $record
-                ? $record->items->keyBy(fn (BriefingItem $i) => $i->task_key)
+            $itemMap = $branchId
+                ? BriefingRecord::itemsForBranchPeriod((int) $branchId, $period, now())
                 : collect();
 
             $taskList = $tasks->map(function (BriefingTask $task) use ($itemMap): array {
@@ -230,10 +225,41 @@ class DailyBriefingPage extends Page
                     'hasOpenReopenGrant' => $item?->hasOpenReopenGrant() ?? false,
                     'isPastDeadline' => $task->isPastDeadline() && ! ($item?->is_completed) && ! ($item?->hasOpenReopenGrant()),
                     'deadlineLabel' => $task->deadlineLabel(),
+                    'isAssigned' => true,
                 ];
-            })->all();
+            });
 
-            $completedCount = collect($taskList)->where('isCompleted', true)->count();
+            $historicalItems = $itemMap
+                ->except($tasks->pluck('key'))
+                ->filter(fn (BriefingItem $item): bool => $item->is_completed || ! empty($item->photo_paths) || filled($item->notes))
+                ->map(function (BriefingItem $item): array {
+                    $task = BriefingTask::cached()->firstWhere('key', $item->task_key);
+
+                    return [
+                        'key' => $item->task_key,
+                        'label' => $task?->label ?? $item->task_key,
+                        'noteType' => $task?->note_type ?? 'Riwayat submission',
+                        'submissionType' => $task?->submission_type->value,
+                        'requiresPhoto' => $task?->submission_type->requiresPhoto() ?? ! empty($item->photo_paths),
+                        'group' => null,
+                        'groupLabel' => null,
+                        'isCompleted' => $item->is_completed,
+                        'completedAt' => $item->completed_at,
+                        'photoPaths' => $item->photo_paths ?? [],
+                        'notes' => $item->notes,
+                        'reviewStatus' => $item->review_status,
+                        'rejectionReason' => $item->rejection_reason,
+                        'hasOpenReopenGrant' => false,
+                        'isPastDeadline' => false,
+                        'deadlineLabel' => null,
+                        'isAssigned' => false,
+                    ];
+                });
+
+            $taskList = $taskList->concat($historicalItems)->values()->all();
+
+            $assignedTasks = collect($taskList)->where('isAssigned', true);
+            $completedCount = $assignedTasks->where('isCompleted', true)->count();
 
             $idDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             $idMonths = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -257,7 +283,7 @@ class DailyBriefingPage extends Page
                 'label' => $period->getLabel(),
                 'periodLabel' => $period->periodLabel(),
                 'rangeLabel' => $rangeLabel,
-                'total' => count($taskList),
+                'total' => $assignedTasks->count(),
                 'completed' => $completedCount,
                 'tasks' => $taskList,
             ];

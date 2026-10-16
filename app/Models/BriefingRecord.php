@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use App\Enums\BriefingPeriod;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class BriefingRecord extends Model
 {
@@ -66,11 +69,57 @@ class BriefingRecord extends Model
      */
     public static function canonicalForBranch(int $branchId, BriefingPeriod $period, CarbonInterface $recordDate): ?self
     {
+        return static::forBranchPeriod($branchId, $period, $recordDate)
+            ->oldest('id')
+            ->first();
+    }
+
+    /** @return Builder<self> */
+    public static function forBranchPeriod(int $branchId, BriefingPeriod $period, CarbonInterface $recordDate): Builder
+    {
+        [$startDate, $endDate] = static::periodBounds($period, $recordDate);
+
         return static::query()
             ->where('branch_id', $branchId)
             ->where('period', $period->value)
-            ->whereDate('record_date', $recordDate)
+            ->whereBetween('record_date', [$startDate->toDateString(), $endDate->toDateString()]);
+    }
+
+    /**
+     * Return one visible item per task while remaining compatible with legacy periods that were
+     * stored as multiple daily records. Completed submissions win over generated empty slots.
+     *
+     * @return Collection<string, BriefingItem>
+     */
+    public static function itemsForBranchPeriod(int $branchId, BriefingPeriod $period, CarbonInterface $recordDate): Collection
+    {
+        return static::forBranchPeriod($branchId, $period, $recordDate)
+            ->with('items')
             ->oldest('id')
-            ->first();
+            ->get()
+            ->flatMap(fn (self $record): Collection => $record->items)
+            ->sortBy(fn (BriefingItem $item): array => [
+                $item->is_completed ? 1 : 0,
+                $item->completed_at?->getTimestamp() ?? 0,
+                $item->id,
+            ])
+            ->keyBy(fn (BriefingItem $item): string => $item->task_key);
+    }
+
+    public static function periodStartDate(BriefingPeriod $period, CarbonInterface $recordDate): Carbon
+    {
+        return static::periodBounds($period, $recordDate)[0];
+    }
+
+    /** @return array{0: Carbon, 1: Carbon} */
+    private static function periodBounds(BriefingPeriod $period, CarbonInterface $recordDate): array
+    {
+        $date = Carbon::parse($recordDate->toDateString());
+
+        return match ($period) {
+            BriefingPeriod::Daily => [$date->copy()->startOfDay(), $date->copy()->endOfDay()],
+            BriefingPeriod::Weekly => [$date->copy()->startOfWeek(), $date->copy()->endOfWeek()],
+            BriefingPeriod::Monthly => [$date->copy()->startOfMonth(), $date->copy()->endOfMonth()],
+        };
     }
 }

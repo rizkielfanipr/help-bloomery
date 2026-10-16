@@ -459,7 +459,7 @@
                                 $isRejected   = $reviewStatus === 'rejected';
                                 $isPending    = in_array($reviewStatus, ['pending', 'supervisor_review'], true);
                                 $isPastDL     = $task['isPastDeadline'];
-                                $isClickable  = ! $isPastDL && ($isRejected || (! $task['reviewStatus'] && ! $task['isCompleted']));
+                                $isClickable  = $task['isAssigned'] && ! $isPastDL && ($isRejected || (! $task['reviewStatus'] && ! $task['isCompleted']));
                             @endphp
 
                             @if($isClickable)
@@ -521,6 +521,9 @@
                                             </span>
                                         @else
                                             <span class="text-xs text-gray-400">{{ $task['noteType'] }}</span>
+                                        @endif
+                                        @if(! $task['isAssigned'])
+                                            <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Poin nonaktif</span>
                                         @endif
                                         @if($task['completedAt'] && ! $isRejected && ! $isPending)
                                             <span class="text-xs text-gray-400">{{ $task['completedAt']->format('H.i') }}</span>
@@ -607,7 +610,7 @@
                                             $cRejected  = $cReview === 'rejected';
                                             $cPending   = in_array($cReview, ['pending', 'supervisor_review'], true);
                                             $cPastDL    = $cleanTask['isPastDeadline'];
-                                            $cClickable = ! $cPastDL && ($cRejected || (! $cleanTask['reviewStatus'] && ! $cleanTask['isCompleted']));
+                                            $cClickable = $cleanTask['isAssigned'] && ! $cPastDL && ($cRejected || (! $cleanTask['reviewStatus'] && ! $cleanTask['isCompleted']));
                                         @endphp
 
                                         @if($cClickable)
@@ -659,6 +662,9 @@
                                                         <span class="text-xs text-gray-400">{{ $cleanTask['completedAt']->format('H.i') }}</span>
                                                     @else
                                                         <span class="text-xs text-gray-400">{{ $cleanTask['noteType'] }}</span>
+                                                    @endif
+                                                    @if(! $cleanTask['isAssigned'])
+                                                        <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-400">Poin nonaktif</span>
                                                     @endif
                                                 </div>
                                                 @if($cRejected && $cleanTask['rejectionReason'])

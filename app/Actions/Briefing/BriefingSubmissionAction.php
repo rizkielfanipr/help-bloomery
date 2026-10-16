@@ -44,15 +44,21 @@ class BriefingSubmissionAction
 
         $branchId = (int) $actor->branch_id;
         $period = $task->period;
-        $lockKey = "briefing-submission:{$branchId}:{$period->value}:{$recordDate->toDateString()}";
+        $periodStartDate = BriefingRecord::periodStartDate($period, $recordDate);
+        $lockKey = "briefing-submission:{$branchId}:{$period->value}:{$periodStartDate->toDateString()}";
 
         $lock = Cache::lock($lockKey, 10);
 
-        return $lock->block(5, function () use ($actor, $task, $payload, $recordDate, $branchId, $period): BriefingSubmissionResult {
-            return DB::transaction(function () use ($actor, $task, $payload, $recordDate, $branchId, $period): BriefingSubmissionResult {
+        return $lock->block(5, function () use ($actor, $task, $payload, $recordDate, $branchId, $period, $periodStartDate): BriefingSubmissionResult {
+            return DB::transaction(function () use ($actor, $task, $payload, $recordDate, $branchId, $period, $periodStartDate): BriefingSubmissionResult {
                 $record = BriefingRecord::canonicalForBranch($branchId, $period, $recordDate);
-                $item = $record?->items()->firstOrNew(['task_key' => $task->key])
+                $item = BriefingRecord::itemsForBranchPeriod($branchId, $period, $recordDate)->get($task->key)
+                    ?? $record?->items()->firstOrNew(['task_key' => $task->key])
                     ?? new BriefingItem(['task_key' => $task->key]);
+
+                if ($item->exists) {
+                    $record = $item->record;
+                }
 
                 if ($item->exists && $item->review_status === BriefingReviewStatus::Approved) {
                     return BriefingSubmissionResult::denied(
@@ -92,7 +98,7 @@ class BriefingSubmissionAction
                     'user_id' => $actor->id,
                     'branch_id' => $branchId,
                     'period' => $period->value,
-                    'record_date' => $recordDate->toDateString(),
+                    'record_date' => $periodStartDate->toDateString(),
                 ]);
 
                 if (! $item->exists) {

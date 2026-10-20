@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,8 @@ use Illuminate\Support\Collection;
 class Branch extends Model
 {
     use HasFactory;
+
+    public const KITCHEN_BRAND_NAME = 'Kitchen';
 
     protected $fillable = [
         'brand_id',
@@ -73,6 +76,18 @@ class Branch extends Model
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    /** @param Builder<self> $query */
+    public function scopeKitchenBrand(Builder $query): void
+    {
+        $query->whereHas('brand', fn (Builder $brandQuery): Builder => $brandQuery
+            ->where('name', self::KITCHEN_BRAND_NAME));
+    }
+
+    public function hasKitchenBrand(): bool
+    {
+        return $this->brand()->where('name', self::KITCHEN_BRAND_NAME)->exists();
     }
 
     public function users(): HasMany

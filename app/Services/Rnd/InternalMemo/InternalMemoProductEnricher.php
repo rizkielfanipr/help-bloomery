@@ -107,6 +107,7 @@ class InternalMemoProductEnricher
                 'productName' => $product['productName'] ?? null,
                 'matchedProductDetail' => $matched,
                 'purchaseProductDetail' => $purchase,
+                'productDetails' => $details->values()->all(),
             ],
             'product_synced_at' => now(),
         ]);

@@ -181,7 +181,7 @@ it('exports hand-added products with their source', function () {
     }
     $reader->close();
 
-    expect($rows['RAW Kitchen'][7])->toBe([1, 'BBMK062', 'Minyak', 'ML', 'ML', '', '', 'Manual']);
+    expect($rows['RAW Kitchen'][7])->toBe([1, 'BBMK062', 'Minyak', 'ML', 'ML', '', '', '', 'Manual']);
 });
 
 it('cascades hand-added products away with their Memo and offers the add buttons even before any Menu exists', function () {

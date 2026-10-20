@@ -4,14 +4,12 @@ namespace App\Filament\Helpdesk\Resources\CustomerComplaints;
 
 use App\Enums\CustomerComplaintCategory;
 use App\Enums\CustomerComplaintSource;
-use App\Enums\CustomerComplaintStatus;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ListCustomerComplaints;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ViewCustomerComplaint;
 use App\Models\Branch;
 use App\Models\CustomerComplaint;
 use App\Models\User;
 use BackedEnum;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
@@ -30,7 +28,7 @@ use UnitEnum;
  * docs/customer-complaints-prd.md §10, §12. Every action is gated by CustomerComplaintPolicy
  * (auto-discovered for the CustomerComplaint model), never by role name. Complaints are only ever
  * created from the Casual app's Form Komplain (CustomerComplaintPage), so this Resource has no
- * create/edit route — Follow-up (status/PIC/notes/resolution) is a header action on the View page.
+ * create/edit route. The back-office resource is intentionally read-only and acts as a recap.
  */
 class CustomerComplaintResource extends Resource
 {
@@ -66,18 +64,12 @@ class CustomerComplaintResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
-        /** @var User|null $user */
-        $user = auth()->user();
-
-        return $user?->can('update', $record) ?? false;
+        return false;
     }
 
     public static function canDelete(Model $record): bool
     {
-        /** @var User|null $user */
-        $user = auth()->user();
-
-        return $user?->can('delete', $record) ?? false;
+        return false;
     }
 
     public static function table(Table $table): Table
@@ -114,13 +106,6 @@ class CustomerComplaintResource extends Resource
                     ->placeholder('-')
                     ->searchable(),
 
-                TextColumn::make('status')
-                    ->label('STATUS')
-                    ->badge()
-                    ->sortable()
-                    ->formatStateUsing(fn (CustomerComplaintStatus $state) => $state->getLabel())
-                    ->color(fn (CustomerComplaintStatus $state) => $state->getColor()),
-
                 TextColumn::make('submitter.name')
                     ->label('SUBMITTED BY')
                     ->placeholder('-'),
@@ -154,10 +139,6 @@ class CustomerComplaintResource extends Resource
                     ->label('SOURCE')
                     ->options(CustomerComplaintSource::class),
 
-                SelectFilter::make('status')
-                    ->label('STATUS')
-                    ->options(CustomerComplaintStatus::class),
-
                 Filter::make('occurred_at')
                     ->form([
                         DatePicker::make('from')->label('Dari Tanggal'),
@@ -170,7 +151,6 @@ class CustomerComplaintResource extends Resource
             ->deferFilters(false)
             ->recordActions([
                 ViewAction::make()->iconButton()->tooltip('Lihat Detail'),
-                DeleteAction::make()->iconButton()->tooltip('Hapus'),
             ])
             ->defaultSort('occurred_at', 'desc')
             ->defaultPaginationPageOption(10)
@@ -187,7 +167,7 @@ class CustomerComplaintResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['branch', 'submitter', 'assignee']);
+        $query = parent::getEloquentQuery()->with(['branch', 'submitter']);
 
         $user = auth()->user();
 

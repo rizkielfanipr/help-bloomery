@@ -1,7 +1,3 @@
-@php
-    $statusSteps = \App\Enums\CustomerComplaintStatus::cases();
-@endphp
-
 <div class="flex flex-col bg-blue-600 dark:bg-blue-900" style="min-height:100dvh">
 
     {{-- HEADER --}}
@@ -47,15 +43,7 @@
             <div class="flex flex-col gap-3 px-5">
                 @foreach($complaints as $complaint)
                     @php
-                        $statusColor = match ($complaint->status->getColor()) {
-                            'success' => 'bg-emerald-100 text-emerald-700',
-                            'warning' => 'bg-amber-100 text-amber-700',
-                            'danger' => 'bg-red-100 text-red-700',
-                            'info' => 'bg-sky-100 text-sky-700',
-                            default => 'bg-gray-100 text-gray-700',
-                        };
                         $isExpanded = $expandedId === $complaint->id;
-                        $currentIndex = array_search($complaint->status, $statusSteps, true);
                     @endphp
 
                     <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-gray-900 dark:ring-gray-700">
@@ -64,14 +52,9 @@
                                 class="flex w-full items-start gap-3 p-4 text-left">
 
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-start justify-between gap-2">
-                                    <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                        {{ $complaint->complaint_number }}
-                                    </p>
-                                    <span class="flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $statusColor }}">
-                                        {{ $complaint->status->getLabel() }}
-                                    </span>
-                                </div>
+                                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                    {{ $complaint->complaint_number }}
+                                </p>
                                 <p class="mt-0.5 line-clamp-1 text-xs text-slate-500 dark:text-slate-400">
                                     {{ $complaint->branch?->name }} &middot; {{ $complaint->category->getLabel() }}
                                 </p>
@@ -115,32 +98,6 @@
                                         </div>
                                     </div>
                                 @endif
-
-                                @if($complaint->resolution)
-                                    <div class="border-t border-gray-100 bg-emerald-50 px-4 py-3 dark:border-gray-800 dark:bg-emerald-950/30">
-                                        <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Resolution</p>
-                                        <p class="mt-1 text-xs text-emerald-700 dark:text-emerald-400">{{ $complaint->resolution }}</p>
-                                    </div>
-                                @endif
-
-                                <div class="border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
-                                    <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Progress</p>
-                                    <div class="flex items-center gap-0">
-                                        @foreach($statusSteps as $i => $step)
-                                            @php
-                                                $isDone = $currentIndex !== false && $i <= $currentIndex;
-                                                $isCurrent = $i === $currentIndex;
-                                            @endphp
-                                            <div class="flex flex-1 flex-col items-center">
-                                                <div class="h-2 w-2 rounded-full {{ $isDone ? 'bg-blue-600' : 'bg-gray-200' }} {{ $isCurrent ? 'ring-2 ring-blue-200 ring-offset-1' : '' }}"></div>
-                                                <p class="mt-1 text-center text-[9px] leading-tight {{ $isDone ? 'font-semibold text-blue-700' : 'text-slate-400' }}">{{ $step->getLabel() }}</p>
-                                            </div>
-                                            @if(!$loop->last)
-                                                <div class="mb-3 h-0.5 flex-1 {{ $currentIndex !== false && $i < $currentIndex ? 'bg-blue-600' : 'bg-gray-200' }}"></div>
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                </div>
 
                             </div>
                         @endif

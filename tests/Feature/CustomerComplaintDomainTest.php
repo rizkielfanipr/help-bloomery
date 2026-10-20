@@ -4,10 +4,8 @@ use App\Actions\CustomerComplaint\CreateCustomerComplaintAction;
 use App\Actions\CustomerComplaint\GenerateComplaintNumberAction;
 use App\Enums\CustomerComplaintCategory;
 use App\Enums\CustomerComplaintSource;
-use App\Enums\CustomerComplaintStatus;
 use App\Models\Branch;
 use App\Models\CustomerComplaint;
-use App\Models\CustomerComplaintActivity;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
@@ -26,21 +24,16 @@ function complaintSubmissionData(int $branchId, array $overrides = []): array
     ], $overrides);
 }
 
-it('creates a complaint and its first activity in one transaction', function () {
+it('creates a complaint as a recap record', function () {
     $branch = Branch::factory()->create();
     $user = User::factory()->create(['branch_id' => $branch->id]);
 
     $complaint = app(CreateCustomerComplaintAction::class)->execute(complaintSubmissionData($branch->id), $user);
 
     expect($complaint->exists)->toBeTrue()
-        ->and($complaint->status)->toBe(CustomerComplaintStatus::New)
         ->and($complaint->submitted_by)->toBe($user->id)
-        ->and($complaint->complaint_number)->toStartWith('CMP-'.now()->format('Ymd').'-');
-
-    $activity = CustomerComplaintActivity::query()->where('customer_complaint_id', $complaint->id)->sole();
-    expect($activity->activity_type)->toBe(CustomerComplaintActivity::TYPE_CREATED)
-        ->and($activity->new_status)->toBe(CustomerComplaintStatus::New->value)
-        ->and($activity->created_by)->toBe($user->id);
+        ->and($complaint->complaint_number)->toStartWith('CMP-'.now()->format('Ymd').'-')
+        ->and($complaint->getAttributes())->not->toHaveKey('status');
 });
 
 it('rejects a submission for a branch the user cannot access, even if the request claims it', function () {

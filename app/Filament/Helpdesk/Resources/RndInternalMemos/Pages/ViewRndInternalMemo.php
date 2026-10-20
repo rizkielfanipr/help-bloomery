@@ -10,6 +10,7 @@ use App\Actions\Rnd\InternalMemo\RemoveExtraProductFromInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\RemoveMenuFromInternalMemoAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoBrandAction;
 use App\Actions\Rnd\InternalMemo\UpdateInternalMemoMinimumOrdersAction;
+use App\Actions\Rnd\InternalMemo\UpdateInternalMemoPurchasingUomAction;
 use App\Actions\Rnd\ShelfLife\CreateWipShelfLifeAction;
 use App\Enums\RndWipShelfLifeSource;
 use App\Exceptions\Rnd\WipShelfLifeAlreadyExistsException;
@@ -684,6 +685,17 @@ class ViewRndInternalMemo extends ViewRecord
         $this->minimumOrderTarget = null;
         $this->summaryCache = null;
         Notification::make()->title('Minimum Order tersimpan')->success()->send();
+    }
+
+    public function savePurchasingUom(string $key, string $uomId, UpdateInternalMemoPurchasingUomAction $updatePurchasingUom): void
+    {
+        abort_unless($this->canUpdateMemo(), 403);
+        abort_unless(ctype_digit($uomId) && (int) $uomId > 0, 422);
+
+        $updatePurchasingUom->execute($this->getRecord(), $key, (int) $uomId, auth()->user());
+
+        $this->summaryCache = null;
+        Notification::make()->title('UOM Purchasing tersimpan')->success()->send();
     }
 
     public function canDeleteMemo(): bool

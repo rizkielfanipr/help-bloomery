@@ -136,6 +136,14 @@
             ],
         ],
         [
+            'id'    => 'kitchen',
+            'label' => 'Kitchen',
+            'icon'  => 'chef-hat',
+            'items' => [
+                ['label' => 'Jadwal Produksi', 'icon' => 'calendar-days', 'perm' => 'view kitchen production schedules', 'href' => $r('filament.helpdesk.pages.kitchen-production-schedules'), 'active' => $active($r('filament.helpdesk.pages.kitchen-production-schedules'))],
+            ],
+        ],
+        [
             'id'    => 'purchasing',
             'label' => 'Purchasing',
             'icon'  => 'shopping-cart',
@@ -231,6 +239,16 @@
             ],
         ],
     ];
+
+    /* ── Groups not matched by path above open from their active item ─*/
+    if ($initialOpen === []) {
+        foreach ($allNavGroups as $navGroup) {
+            if (collect($navGroup['items'])->contains(fn (array $item): bool => $item['active'] ?? false)) {
+                $initialOpen = [$navGroup['id']];
+                break;
+            }
+        }
+    }
 
     /* ── Filter groups by permission ───────────────────────────────*/
     $navGroups = array_values(array_filter(array_map(function (array $group) use ($user): ?array {

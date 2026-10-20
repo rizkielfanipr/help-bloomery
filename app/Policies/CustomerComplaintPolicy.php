@@ -34,11 +34,11 @@ class CustomerComplaintPolicy
 
     public function update(User $user, CustomerComplaint $complaint): bool
     {
-        return $user->can('update customer complaints') && $user->canAccessBranch($complaint->branch_id);
+        return false;
     }
 
     public function delete(User $user, CustomerComplaint $complaint): bool
     {
-        return $user->can('delete customer complaints') && $user->canAccessBranch($complaint->branch_id);
+        return false;
     }
 }

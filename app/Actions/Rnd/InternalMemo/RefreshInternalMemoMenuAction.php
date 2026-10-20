@@ -8,6 +8,7 @@ use App\Models\RndInternalMemoMenu;
 use App\Services\Rnd\InternalMemo\InternalMemoBomResolver;
 use App\Services\Rnd\InternalMemo\InternalMemoItemIdentity;
 use App\Services\Rnd\InternalMemo\InternalMemoProductEnricher;
+use App\Services\Rnd\InternalMemo\InternalMemoPurchasingUomOptions;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 use Throwable;
@@ -15,7 +16,8 @@ use Throwable;
 /**
  * Refreshes a single Menu's BOM/Assembly structure from ESB
  * (docs/rnd-internal-memo-simplification-prd.md §7.5, §9.4, §13, Phase 2). Minimum Order values
- * are preserved across the refresh by stable item identity (InternalMemoItemIdentity) even though
+ * and manually selected Purchasing UOMs are preserved across the refresh by stable item identity
+ * (InternalMemoItemIdentity) even though
  * InternalMemoBomResolver::resolve() fully replaces the Menu's Material rows on every call —
  * a raw connection failure never wipes the last valid snapshot because the resolver fetches the
  * BOM before touching any existing row and wraps the replace in its own transaction.
@@ -25,6 +27,7 @@ class RefreshInternalMemoMenuAction
     public function __construct(
         private readonly InternalMemoBomResolver $resolver,
         private readonly InternalMemoProductEnricher $productEnricher,
+        private readonly InternalMemoPurchasingUomOptions $purchasingUomOptions,
     ) {}
 
     public function execute(RndInternalMemoMenu $menu): RndInternalMemoMenu
@@ -37,6 +40,7 @@ class RefreshInternalMemoMenuAction
 
         try {
             $preservedMinimumOrders = $this->captureMinimumOrders($menu);
+            $preservedPurchasingUoms = $this->capturePurchasingUoms($menu);
 
             try {
                 $result = $this->resolver->resolve($menu);
@@ -51,6 +55,7 @@ class RefreshInternalMemoMenuAction
 
             $this->restoreMinimumOrders($menu, $preservedMinimumOrders);
             $this->productEnricher->enrichMenu($menu);
+            $this->restorePurchasingUoms($menu, $preservedPurchasingUoms);
 
             $menu->update([
                 'sync_status' => RndInternalMemoMenuSyncStatus::Synced,
@@ -96,6 +101,41 @@ class RefreshInternalMemoMenuAction
 
             if (array_key_exists($key, $preserved)) {
                 $material->update(['minimum_order' => $preserved[$key]]);
+            }
+        }
+    }
+
+    /** @return array<string, array{id: int, name: string}> */
+    private function capturePurchasingUoms(RndInternalMemoMenu $menu): array
+    {
+        return $menu->materials()
+            ->whereNotNull('purchasing_uom_id')
+            ->whereNotNull('purchasing_uom_name')
+            ->get()
+            ->mapWithKeys(fn (RndInternalMemoMaterial $material): array => [
+                InternalMemoItemIdentity::scopedKey(
+                    InternalMemoItemIdentity::scopeForDepth((int) $material->depth),
+                    InternalMemoItemIdentity::key($material->esb_product_detail_id, $material->esb_product_id, $material->product_code, $material->product_name, $material->uom_name),
+                ) => ['id' => (int) $material->purchasing_uom_id, 'name' => (string) $material->purchasing_uom_name],
+            ])
+            ->all();
+    }
+
+    /** @param array<string, array{id: int, name: string}> $preserved */
+    private function restorePurchasingUoms(RndInternalMemoMenu $menu, array $preserved): void
+    {
+        foreach ($menu->materials()->get() as $material) {
+            $key = InternalMemoItemIdentity::scopedKey(
+                InternalMemoItemIdentity::scopeForDepth((int) $material->depth),
+                InternalMemoItemIdentity::key($material->esb_product_detail_id, $material->esb_product_id, $material->product_code, $material->product_name, $material->uom_name),
+            );
+            $selection = $preserved[$key] ?? null;
+
+            if ($selection !== null && array_key_exists($selection['id'], $this->purchasingUomOptions->fromSnapshot($material->product_detail_snapshot))) {
+                $material->update([
+                    'purchasing_uom_id' => $selection['id'],
+                    'purchasing_uom_name' => $selection['name'],
+                ]);
             }
         }
     }

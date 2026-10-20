@@ -36,6 +36,8 @@ class RndInternalMemoMaterial extends Model
         'uom_name',
         'purchase_uom_id',
         'purchase_uom_name',
+        'purchasing_uom_id',
+        'purchasing_uom_name',
         'quantity_per_menu',
         'net_quantity',
         'minimum_order',

@@ -180,6 +180,16 @@ return [
         ],
     ],
 
+    'Kitchen' => [
+        'Jadwal Produksi' => [
+            'view kitchen production schedules',
+            'view all branch kitchen production schedules',
+            'create kitchen production schedules',
+            'update kitchen production schedules',
+            'cancel kitchen production schedules',
+        ],
+    ],
+
     'Sales & Growth' => [
         'Sales Projection' => ['view sales projections'],
     ],

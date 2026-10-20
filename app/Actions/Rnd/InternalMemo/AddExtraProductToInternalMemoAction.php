@@ -76,7 +76,11 @@ class AddExtraProductToInternalMemoAction
                 'category_name' => filled($product['categoryName'] ?? null) ? (string) $product['categoryName'] : null,
                 'purchase_uom_id' => $purchase !== null && (int) ($purchase['uomID'] ?? 0) > 0 ? (int) $purchase['uomID'] : null,
                 'purchase_uom_name' => $purchase !== null && filled($purchase['uomName'] ?? null) ? (string) $purchase['uomName'] : null,
-                'product_detail_snapshot' => ['matchedProductDetail' => $detail, 'purchaseProductDetail' => $purchase],
+                'product_detail_snapshot' => [
+                    'matchedProductDetail' => $detail,
+                    'purchaseProductDetail' => $purchase,
+                    'productDetails' => $details->values()->all(),
+                ],
                 'product_synced_at' => now(),
                 'created_by' => $actor->id,
             ]);

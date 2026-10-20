@@ -2,19 +2,15 @@
 
 use App\Enums\CustomerComplaintCategory;
 use App\Enums\CustomerComplaintSource;
-use App\Enums\CustomerComplaintStatus;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\CustomerComplaintResource;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ListCustomerComplaints;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ViewCustomerComplaint;
 use App\Models\Branch;
 use App\Models\CustomerComplaint;
-use App\Models\CustomerComplaintActivity;
 use App\Models\User;
-use App\Notifications\CustomerComplaintResolvedNotification;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -41,6 +37,7 @@ it('renders Customer Complaint filters inline in the table header', function () 
 
     Livewire::test(ListCustomerComplaints::class)
         ->assertSuccessful()
+        ->assertTableActionDoesNotExist('delete')
         ->assertSee('Cari komplain...')
         ->assertSee('Pilih rentang tanggal')
         ->assertSee('- Semua Branch -')
@@ -110,23 +107,32 @@ it('searches by complaint number, order reference, customer name, and descriptio
         ->assertCanSeeTableRecords([$byDescription]);
 });
 
-it('filters the index by branch, category, source, and status', function () {
+it('filters the index by branch, category, and source', function () {
     $branchA = Branch::factory()->create();
     $branchB = Branch::factory()->create();
     $reviewer = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $reviewer->givePermissionTo(['view any customer complaints', 'view customer complaints']);
 
-    $matching = CustomerComplaint::factory()->create(['branch_id' => $branchA->id, 'status' => CustomerComplaintStatus::InReview]);
-    $otherBranch = CustomerComplaint::factory()->create(['branch_id' => $branchB->id, 'status' => CustomerComplaintStatus::InReview]);
-    $otherStatus = CustomerComplaint::factory()->create(['branch_id' => $branchA->id, 'status' => CustomerComplaintStatus::New]);
+    $matching = CustomerComplaint::factory()->create([
+        'branch_id' => $branchA->id,
+        'category' => CustomerComplaintCategory::ProductQuality,
+        'source' => CustomerComplaintSource::InStore,
+    ]);
+    $otherBranch = CustomerComplaint::factory()->create(['branch_id' => $branchB->id]);
+    $otherCategory = CustomerComplaint::factory()->create([
+        'branch_id' => $branchA->id,
+        'category' => CustomerComplaintCategory::Service,
+        'source' => CustomerComplaintSource::InStore,
+    ]);
 
     $this->actingAs($reviewer);
 
     Livewire::test(ListCustomerComplaints::class)
         ->filterTable('branch_id', $branchA->id)
-        ->filterTable('status', CustomerComplaintStatus::InReview->value)
+        ->filterTable('category', CustomerComplaintCategory::ProductQuality->value)
+        ->filterTable('source', CustomerComplaintSource::InStore->value)
         ->assertCanSeeTableRecords([$matching])
-        ->assertCanNotSeeTableRecords([$otherBranch, $otherStatus]);
+        ->assertCanNotSeeTableRecords([$otherBranch, $otherCategory]);
 });
 
 it('filters realistic dummy complaints through every inline header filter', function () {
@@ -142,7 +148,6 @@ it('filters realistic dummy complaints through every inline header filter', func
         'occurred_at' => '2026-10-01 09:00:00',
         'category' => CustomerComplaintCategory::ProductQuality,
         'source' => CustomerComplaintSource::InStore,
-        'status' => CustomerComplaintStatus::New,
     ]);
     $other = CustomerComplaint::factory()->create([
         'branch_id' => $branchB->id,
@@ -151,7 +156,6 @@ it('filters realistic dummy complaints through every inline header filter', func
         'occurred_at' => '2026-11-15 10:00:00',
         'category' => CustomerComplaintCategory::Service,
         'source' => CustomerComplaintSource::WhatsApp,
-        'status' => CustomerComplaintStatus::InReview,
     ]);
 
     $this->actingAs($reviewer);
@@ -162,65 +166,45 @@ it('filters realistic dummy complaints through every inline header filter', func
         ->set('tableFilters.branch_id.value', $branchA->id)
         ->set('tableFilters.category.value', CustomerComplaintCategory::ProductQuality->value)
         ->set('tableFilters.source.value', CustomerComplaintSource::InStore->value)
-        ->set('tableFilters.status.value', CustomerComplaintStatus::New->value)
         ->set('tableFilters.occurred_at.from', '2026-10-01')
         ->set('tableFilters.occurred_at.until', '2026-10-10')
         ->assertCanSeeTableRecords([$matching])
         ->assertCanNotSeeTableRecords([$other]);
 });
 
-it('accepts the New -> In Review -> Resolved -> Closed transition and records each as an activity', function () {
+it('shows complaint details as a read-only recap without follow-up actions', function () {
     $branch = Branch::factory()->create();
     $reviewer = User::factory()->create(['is_active' => true, 'branch_id' => $branch->id]);
     $reviewer->givePermissionTo(['view any customer complaints', 'view customer complaints', 'update customer complaints']);
-    $complaint = CustomerComplaint::factory()->create(['branch_id' => $branch->id, 'status' => CustomerComplaintStatus::New]);
+    $complaint = CustomerComplaint::factory()->create(['branch_id' => $branch->id]);
 
     $this->actingAs($reviewer);
-    $page = Livewire::test(ViewCustomerComplaint::class, ['record' => $complaint->id]);
+    Livewire::test(ViewCustomerComplaint::class, ['record' => $complaint->id])
+        ->assertSuccessful()
+        ->assertActionDoesNotExist('follow_up')
+        ->assertDontSee('Tindak Lanjut')
+        ->assertDontSee('Rekapan Penanganan')
+        ->assertDontSee('Person in Charge')
+        ->assertDontSee('Internal Notes')
+        ->assertDontSee('Resolution');
 
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::InReview->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => null])
-        ->assertHasNoActionErrors();
-    expect($complaint->refresh()->status)->toBe(CustomerComplaintStatus::InReview);
-
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Resolved->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => 'Sudah diganti menu baru.'])
-        ->assertHasNoActionErrors();
-    $complaint->refresh();
-    expect($complaint->status)->toBe(CustomerComplaintStatus::Resolved)
-        ->and($complaint->resolved_at)->not->toBeNull();
-
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Closed->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => 'Sudah diganti menu baru.'])
-        ->assertHasNoActionErrors();
-    $complaint->refresh();
-    expect($complaint->status)->toBe(CustomerComplaintStatus::Closed)
-        ->and($complaint->closed_at)->not->toBeNull();
-
-    expect(CustomerComplaintActivity::query()->where('customer_complaint_id', $complaint->id)
-        ->where('activity_type', CustomerComplaintActivity::TYPE_STATUS_CHANGED)->count())->toBe(3);
+    expect($complaint->refresh()->getAttributes())->not->toHaveKey('status');
 });
 
-it('rejects skipping a status in the transition, and rejects Resolved/Closed without a resolution', function () {
+it('does not expose a follow-up action even to users holding the legacy update permission', function () {
     $branch = Branch::factory()->create();
     $reviewer = User::factory()->create(['is_active' => true, 'branch_id' => $branch->id]);
     $reviewer->givePermissionTo(['view any customer complaints', 'view customer complaints', 'update customer complaints']);
-    $complaint = CustomerComplaint::factory()->create(['branch_id' => $branch->id, 'status' => CustomerComplaintStatus::New]);
+    $complaint = CustomerComplaint::factory()->create(['branch_id' => $branch->id]);
 
     $this->actingAs($reviewer);
-    $page = Livewire::test(ViewCustomerComplaint::class, ['record' => $complaint->id]);
+    Livewire::test(ViewCustomerComplaint::class, ['record' => $complaint->id])
+        ->assertActionDoesNotExist('follow_up');
 
-    // New -> Resolved skips In Review entirely.
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Resolved->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => 'x']);
-    expect($complaint->refresh()->status)->toBe(CustomerComplaintStatus::New);
-
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::InReview->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => null]);
-    expect($complaint->refresh()->status)->toBe(CustomerComplaintStatus::InReview);
-
-    // In Review -> Resolved without a resolution.
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Resolved->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => null]);
-    expect($complaint->refresh()->status)->toBe(CustomerComplaintStatus::InReview)
-        ->and($complaint->resolution)->toBeNull();
+    expect($complaint->refresh()->getAttributes())->not->toHaveKey('status');
 });
 
-it('only lets a user with update permission and branch access see the Tindak Lanjut action', function () {
+it('denies update and delete capabilities because the back office is recap-only', function () {
     $ownBranch = Branch::factory()->create();
     $otherBranch = Branch::factory()->create();
     $reviewer = User::factory()->create(['is_active' => true, 'branch_id' => $ownBranch->id]);
@@ -231,7 +215,8 @@ it('only lets a user with update permission and branch access see the Tindak Lan
 
     $this->actingAs($reviewer);
 
-    expect(CustomerComplaintResource::canEdit($ownBranchComplaint))->toBeTrue()
+    expect(CustomerComplaintResource::canEdit($ownBranchComplaint))->toBeFalse()
+        ->and(CustomerComplaintResource::canDelete($ownBranchComplaint))->toBeFalse()
         ->and(CustomerComplaintResource::canEdit($otherBranchComplaint))->toBeFalse()
         ->and(CustomerComplaintResource::canView($otherBranchComplaint))->toBeTrue();
 });
@@ -267,24 +252,21 @@ it('does not grow the index query count as the number of complaints grows (no N+
     expect($largeCount)->toBe($smallCount);
 });
 
-it('notifies the submitter only when the status transitions into Resolved, not on a later edit while already Resolved', function () {
-    Notification::fake();
+it('keeps the complaint unchanged when a reviewer only opens the recap detail', function () {
     $branch = Branch::factory()->create();
     $reviewer = User::factory()->create(['is_active' => true, 'branch_id' => $branch->id]);
     $reviewer->givePermissionTo(['view any customer complaints', 'view customer complaints', 'update customer complaints']);
     $submitter = User::factory()->create();
-    $complaint = CustomerComplaint::factory()->create(['branch_id' => $branch->id, 'status' => CustomerComplaintStatus::InReview, 'submitted_by' => $submitter->id]);
+    $complaint = CustomerComplaint::factory()->create(['branch_id' => $branch->id, 'submitted_by' => $submitter->id]);
 
     $this->actingAs($reviewer);
-    $page = Livewire::test(ViewCustomerComplaint::class, ['record' => $complaint->id]);
+    Livewire::test(ViewCustomerComplaint::class, ['record' => $complaint->id])
+        ->assertSuccessful()
+        ->assertActionDoesNotExist('follow_up');
 
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Resolved->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => 'Sudah diselesaikan.']);
-    Notification::assertSentToTimes($submitter, CustomerComplaintResolvedNotification::class, 1);
-
-    // Editing the Internal Notes while the complaint stays Resolved must not re-notify.
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Resolved->value, 'assigned_to' => null, 'internal_notes' => 'catatan tambahan', 'resolution' => 'Sudah diselesaikan.']);
-    Notification::assertSentToTimes($submitter, CustomerComplaintResolvedNotification::class, 1);
-
-    $page->callAction('follow_up', ['status' => CustomerComplaintStatus::Closed->value, 'assigned_to' => null, 'internal_notes' => null, 'resolution' => 'Sudah diselesaikan.']);
-    Notification::assertSentToTimes($submitter, CustomerComplaintResolvedNotification::class, 2);
+    expect($complaint->refresh()->getAttributes())->not->toHaveKeys([
+        'status',
+        'assigned_to', 'internal_notes', 'resolution', 'resolved_at',
+        'resolved_by', 'closed_at', 'closed_by',
+    ]);
 });

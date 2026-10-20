@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Branch;
+use App\Models\Brand;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -28,5 +29,10 @@ class BranchFactory extends Factory
             'lat' => fake()->latitude(-8.5, -6.0),
             'lng' => fake()->longitude(106.0, 112.0),
         ]);
+    }
+
+    public function kitchen(): static
+    {
+        return $this->for(Brand::factory()->state(['name' => Branch::KITCHEN_BRAND_NAME]));
     }
 }

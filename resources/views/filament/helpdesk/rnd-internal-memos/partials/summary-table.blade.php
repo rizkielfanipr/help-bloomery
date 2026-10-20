@@ -6,6 +6,7 @@
                 <th class="px-4 py-3 text-left">Produk</th>
                 <th class="px-4 py-3 text-left">UOM BOM</th>
                 <th class="px-4 py-3 text-left">Purchase UOM</th>
+                <th class="px-4 py-3 text-left">Purchasing UOM</th>
                 @if($showShelfLife)
                     <th class="px-4 py-3 text-left">Shelf Life</th>
                 @endif
@@ -32,6 +33,26 @@
                             {{ $row['purchase_uom_name'] }}
                         @else
                             <span class="text-xs italic text-gray-400">Purchase UOM belum tersedia</span>
+                        @endif
+                    </td>
+                    <td class="px-4 py-3">
+                        @if($canManage && $row['purchase_uom_options'] !== [])
+                            <select
+                                wire:change="savePurchasingUom({{ \Illuminate\Support\Js::from($row['key']) }}, $event.target.value)"
+                                wire:loading.attr="disabled"
+                                wire:target="savePurchasingUom"
+                                aria-label="Pilih Purchasing UOM {{ $row['product_name'] }}"
+                                class="min-w-36 rounded-lg border border-gray-300 bg-white py-1.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                            >
+                                <option value="" disabled @selected(! $row['purchasing_uom_id'])>Pilih UOM</option>
+                                @foreach($row['purchase_uom_options'] as $uomId => $uomName)
+                                    <option value="{{ $uomId }}" @selected((int) $row['purchasing_uom_id'] === (int) $uomId)>{{ $uomName }}</option>
+                                @endforeach
+                            </select>
+                        @elseif($row['purchasing_uom_name'])
+                            {{ $row['purchasing_uom_name'] }}
+                        @else
+                            <span class="text-xs italic text-gray-400">Purchasing UOM belum tersedia</span>
                         @endif
                     </td>
                     @if($showShelfLife)

@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Enums\CustomerComplaintCategory;
 use App\Enums\CustomerComplaintSource;
-use App\Enums\CustomerComplaintStatus;
 use App\Models\Branch;
 use App\Models\CustomerComplaint;
 use App\Models\User;
@@ -28,35 +27,7 @@ class CustomerComplaintFactory extends Factory
             'customer_name' => $this->faker->optional()->name(),
             'customer_contact' => $this->faker->optional()->phoneNumber(),
             'description' => $this->faker->sentence(12),
-            'status' => CustomerComplaintStatus::New,
             'submitted_by' => User::factory(),
         ];
-    }
-
-    public function inReview(): static
-    {
-        return $this->state(fn (): array => ['status' => CustomerComplaintStatus::InReview]);
-    }
-
-    public function resolved(): static
-    {
-        return $this->state(fn (): array => [
-            'status' => CustomerComplaintStatus::Resolved,
-            'resolution' => $this->faker->sentence(10),
-            'resolved_at' => now(),
-            'resolved_by' => User::factory(),
-        ]);
-    }
-
-    public function closed(): static
-    {
-        return $this->state(fn (): array => [
-            'status' => CustomerComplaintStatus::Closed,
-            'resolution' => $this->faker->sentence(10),
-            'resolved_at' => now()->subHour(),
-            'resolved_by' => User::factory(),
-            'closed_at' => now(),
-            'closed_by' => User::factory(),
-        ]);
     }
 }

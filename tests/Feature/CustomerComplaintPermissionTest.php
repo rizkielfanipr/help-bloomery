@@ -9,7 +9,7 @@ beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
 });
 
-it('lets only users with the matching permission view any, create, update, and delete complaints', function () {
+it('allows complaint submission and viewing but keeps back-office records read-only', function () {
     $operator = User::factory()->create(['is_active' => true]);
     $operator->givePermissionTo([
         'view any customer complaints', 'view customer complaints',
@@ -24,8 +24,8 @@ it('lets only users with the matching permission view any, create, update, and d
     expect($operator->can('viewAny', CustomerComplaint::class))->toBeTrue()
         ->and($operator->can('view', $complaint))->toBeTrue()
         ->and($operator->can('create', CustomerComplaint::class))->toBeTrue()
-        ->and($operator->can('update', $complaint))->toBeTrue()
-        ->and($operator->can('delete', $complaint))->toBeTrue()
+        ->and($operator->can('update', $complaint))->toBeFalse()
+        ->and($operator->can('delete', $complaint))->toBeFalse()
         ->and($outsider->can('viewAny', CustomerComplaint::class))->toBeFalse()
         ->and($outsider->can('view', $complaint))->toBeFalse()
         ->and($outsider->can('create', CustomerComplaint::class))->toBeFalse()
@@ -55,7 +55,7 @@ it('restricts a reviewer to complaints within their accessible branches', functi
     $otherBranchComplaint = CustomerComplaint::factory()->create(['branch_id' => $otherBranch->id]);
 
     expect($reviewer->can('view', $ownBranchComplaint))->toBeTrue()
-        ->and($reviewer->can('update', $ownBranchComplaint))->toBeTrue()
+        ->and($reviewer->can('update', $ownBranchComplaint))->toBeFalse()
         ->and($reviewer->can('view', $otherBranchComplaint))->toBeFalse()
         ->and($reviewer->can('update', $otherBranchComplaint))->toBeFalse();
 });

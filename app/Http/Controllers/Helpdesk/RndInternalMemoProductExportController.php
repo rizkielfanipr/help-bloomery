@@ -70,7 +70,7 @@ class RndInternalMemoProductExportController extends Controller
         $writer->addRow(Row::fromValues([]));
 
         $writer->addRow(Row::fromValues([
-            'No', 'Product Code', 'Product Name', 'UOM BOM', 'Purchase UOM',
+            'No', 'Product Code', 'Product Name', 'UOM BOM', 'Purchase UOM', 'Purchasing UOM',
             ...($withShelfLife ? ['Shelf Life', 'Storage'] : []),
             'Minimum Order', 'UOM Minimum Order', 'Sumber',
         ], $header));
@@ -84,6 +84,7 @@ class RndInternalMemoProductExportController extends Controller
                 $row['product_name'],
                 $row['uom_name'],
                 $row['has_purchase_uom'] ? $row['purchase_uom_name'] : '',
+                $row['purchasing_uom_name'] ?? '',
                 ...($withShelfLife ? [
                     match (true) {
                         $shelfLife === null => 'Belum diisi',

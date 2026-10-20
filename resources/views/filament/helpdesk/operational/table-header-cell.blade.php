@@ -1,7 +1,6 @@
 @php
     use App\Enums\CustomerComplaintCategory;
     use App\Enums\CustomerComplaintSource;
-    use App\Enums\CustomerComplaintStatus;
     use App\Enums\StoreSalesOrderEventType;
     use App\Enums\StoreSalesOrderStatus;
 
@@ -16,7 +15,7 @@
         'event_type', 'category', 'source' => '12%',
         'items_summary' => '18%',
         'esb_status_name' => '12%',
-        'operational_status', 'status' => '14%',
+        'operational_status' => '14%',
         'submitter.name' => '12%',
         default => null,
     };
@@ -124,13 +123,5 @@
             </select>
             @break
 
-        @case('status')
-            <select wire:model.live="tableFilters.status.value" aria-label="Filter Complaint Status" class="{{ $inputClass }}">
-                <option value="">- Semua Status -</option>
-                @foreach(CustomerComplaintStatus::cases() as $status)
-                    <option value="{{ $status->value }}">{{ $status->getLabel() }}</option>
-                @endforeach
-            </select>
-            @break
     @endswitch
 </th>

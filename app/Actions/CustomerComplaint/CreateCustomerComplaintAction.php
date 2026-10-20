@@ -2,10 +2,8 @@
 
 namespace App\Actions\CustomerComplaint;
 
-use App\Enums\CustomerComplaintStatus;
 use App\Models\Branch;
 use App\Models\CustomerComplaint;
-use App\Models\CustomerComplaintActivity;
 use App\Models\User;
 use App\Notifications\CustomerComplaintSubmittedNotification;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -18,9 +16,7 @@ use RuntimeException;
 /**
  * docs/customer-complaints-prd.md §7.1, §13, §14.2. Branch is re-validated server-side even
  * though the form only offers accessible branches, since the request body is not trusted
- * (§12 "validasi branch dilakukan kembali di server"). The first Activity row is created in the
- * same transaction as the complaint itself (§14.2 "Perubahan record utama dan pembuatan activity
- * dijalankan dalam transaction yang sama").
+ * (§12 "validasi branch dilakukan kembali di server").
  *
  * @param  array{branch_id: int, occurred_at: string, source: string, category: string, order_reference: ?string, customer_name: ?string, customer_contact: ?string, description: string, attachment_paths: ?array}  $data
  */
@@ -55,14 +51,7 @@ class CreateCustomerComplaintAction
                         'customer_contact' => filled($data['customer_contact'] ?? null) ? trim((string) $data['customer_contact']) : null,
                         'description' => trim((string) $data['description']),
                         'attachment_paths' => $data['attachment_paths'] ?? null,
-                        'status' => CustomerComplaintStatus::New,
                         'submitted_by' => $actor->id,
-                    ]);
-
-                    $complaint->activities()->create([
-                        'activity_type' => CustomerComplaintActivity::TYPE_CREATED,
-                        'new_status' => CustomerComplaintStatus::New->value,
-                        'created_by' => $actor->id,
                     ]);
 
                     return $complaint;

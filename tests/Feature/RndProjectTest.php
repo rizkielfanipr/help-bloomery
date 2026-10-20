@@ -1273,6 +1273,16 @@ it('stores a new material draft and creates its Master Product in ESB', function
             'status' => 'ok',
             'result' => ['page' => 1, 'limit' => 100, 'count' => 0, 'data' => [], 'prev' => null, 'next' => null],
         ]),
+        'https://services.esb.co.id/core/product/9150' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'productID' => 9150,
+                'productDetails' => [
+                    ['productDetailID' => 19150, 'uomID' => 5, 'SKU' => 'BBMK-MATCHA-01-GR', 'flagActive' => true],
+                    ['productDetailID' => 19151, 'unitID' => 16, 'SKU' => 'BBMK-MATCHA-01-RESEP', 'flagActive' => true],
+                ],
+            ],
+        ]),
     ]);
 
     config()->set('esb.core.base_url', 'https://services.esb.co.id/core');
@@ -1333,7 +1343,8 @@ it('stores a new material draft and creates its Master Product in ESB', function
     $material->refresh();
     expect($material->status)->toBe('synced')
         ->and($material->esb_product_id)->toBe(9150)
-        ->and($material->synced_at)->not->toBeNull();
+        ->and($material->synced_at)->not->toBeNull()
+        ->and($material->units()->orderBy('uom_id')->pluck('esb_product_detail_id')->all())->toBe([19150, 19151]);
 
     Http::assertSent(function ($request): bool {
         if ($request->url() !== 'https://services.esb.co.id/core/product') {

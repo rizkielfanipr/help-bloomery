@@ -194,3 +194,73 @@ it('updates ESB when an already linked material is edited', function () {
         && $request['productName'] === 'Tepung Tapioka Premium'
         && data_get($request->data(), 'productDetails.0.productDetailID') === 9123);
 });
+
+it('reconciles a missing local Product Detail ID before updating ESB', function () {
+    Http::fake(function ($request) {
+        if ($request->url() === 'https://services.esb.co.id/core/auth/login') {
+            return Http::response(['status' => 'ok', 'result' => ['accessToken' => 'access-token-test']]);
+        }
+
+        if ($request->url() === 'https://services.esb.co.id/core/product/8123') {
+            return Http::response(['status' => 'ok', 'result' => [
+                'productID' => 8123,
+                'productDetails' => [[
+                    'productDetailID' => 9123,
+                    'unitID' => 5,
+                    'unit' => 'GR',
+                    'SKU' => 'BBMK-TAPIOKA-GR',
+                    'flagActive' => true,
+                ]],
+            ]]);
+        }
+
+        return Http::response(['status' => 'ok', 'result' => [
+            'page' => 1, 'limit' => 100, 'count' => 0, 'data' => [], 'prev' => null, 'next' => null,
+        ]]);
+    });
+
+    $material = $this->product->esbMaterials()->create([
+        'category_id' => 11,
+        'category_name' => 'Bahan Baku',
+        'sub_category_id' => 21,
+        'sub_category_name' => 'Tepung',
+        'uom_id' => 5,
+        'uom_name' => 'GR',
+        'product_code' => 'BBMK-TAPIOKA',
+        'product_name' => 'Tepung Tapioka',
+        'sku' => 'BBMK-TAPIOKA-GR',
+        'conversion_factor' => 1,
+        'base_price' => 100,
+        'status' => 'synced',
+        'esb_product_id' => 8123,
+        'created_by' => auth()->id(),
+    ]);
+    $material->units()->create([
+        'uom_id' => 5,
+        'uom_name' => 'GR',
+        'esb_product_detail_id' => null,
+        'sku' => 'BBMK-TAPIOKA-GR',
+        'conversion_factor' => 1,
+        'base_price' => 100,
+        'is_base' => true,
+        'is_stock' => true,
+        'is_purchase' => true,
+        'is_transfer' => true,
+        'is_sales' => true,
+        'flag_active' => true,
+    ]);
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->product->rnd_project_id,
+        'product' => $this->product->id,
+    ])->set('esbCategoryOptions', [11 => 'Bahan Baku'])
+        ->set('esbSubCategoryOptions', [21 => 'Tepung'])
+        ->call('openEsbMaterialForm', $material->id)
+        ->set('esbMaterialNotes', 'Perubahan aman')
+        ->call('saveEsbMaterial')
+        ->assertHasNoErrors();
+
+    expect($material->units()->sole()->esb_product_detail_id)->toBe(9123);
+    Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
+        && data_get($request->data(), 'productDetails.0.productDetailID') === 9123);
+});

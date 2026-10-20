@@ -58,9 +58,48 @@ class EsbMasterProductService
 
     public function findProductById(int $productId): ?array
     {
-        return collect($this->getAllProducts())->first(
-            fn (array $product): bool => (int) ($product['productID'] ?? 0) === $productId,
+        if ($productId < 1) {
+            return null;
+        }
+
+        $result = $this->client->successfulResult(
+            $this->client->request('get', '/product/'.$productId),
+            'mengambil detail Master Product',
         );
+
+        return $result === [] ? null : $result;
+    }
+
+    /**
+     * Keep one authoritative active row for every product and UOM combination.
+     *
+     * Legacy ESB products may contain duplicate Product Detail rows. The newest active row is
+     * preferred so pickers remain useful without exposing duplicate choices to users.
+     *
+     * @param  array<int, array<string, mixed>>  $details
+     * @return array<int, array<string, mixed>>
+     */
+    public function deduplicateProductDetails(array $details): array
+    {
+        return collect($details)
+            ->sortByDesc(fn (array $detail): array => [
+                ! array_key_exists('flagActive', $detail)
+                    || in_array(mb_strtolower((string) $detail['flagActive']), ['1', 'true', 'yes'], true),
+                (int) ($detail['productDetailID'] ?? 0),
+            ])
+            ->unique(function (array $detail): string {
+                $productId = (int) ($detail['productID'] ?? 0);
+                $uomId = (int) ($detail['uomID'] ?? $detail['unitID'] ?? 0);
+                $unit = mb_strtolower(trim((string) ($detail['unit'] ?? $detail['uomName'] ?? '')));
+
+                return $productId.'|'.($uomId > 0 ? 'uom:'.$uomId : 'unit:'.$unit);
+            })
+            ->sortBy(fn (array $detail): array => [
+                mb_strtolower((string) ($detail['productName'] ?? '')),
+                mb_strtolower((string) ($detail['unit'] ?? $detail['uomName'] ?? '')),
+            ])
+            ->keyBy(fn (array $detail): int => (int) ($detail['productDetailID'] ?? 0))
+            ->all();
     }
 
     /** @param array<int, array<string, mixed>> $details */
@@ -94,12 +133,14 @@ class EsbMasterProductService
             Cache::put("esb.master_product.active_details.{$productId}", $activeIds, now()->addHours(6));
         }
 
-        return collect($details)->filter(function (array $detail) use ($activeIdsByProduct): bool {
+        $activeDetails = collect($details)->filter(function (array $detail) use ($activeIdsByProduct): bool {
             $productId = (int) ($detail['productID'] ?? 0);
 
             return ! isset($activeIdsByProduct[$productId])
                 || in_array((int) ($detail['productDetailID'] ?? 0), $activeIdsByProduct[$productId], true);
         })->all();
+
+        return $this->deduplicateProductDetails($activeDetails);
     }
 
     /** @return array{productID:int,isTemp:bool} */
@@ -123,6 +164,143 @@ class EsbMasterProductService
             $this->client->request('put', '/product/'.$productId, $payload),
             'memperbarui Master Product',
         );
+    }
+
+    /**
+     * Update a product while replacing, instead of mutating, Product Details whose conversion
+     * factor changed. ESB requires the old detail to be inactive before the replacement is made.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $remoteProduct
+     * @return array<string, mixed>
+     */
+    public function updateProductWithUnitReplacements(int $productId, array $payload, array $remoteProduct): array
+    {
+        $desiredDetails = collect($payload['productDetails'] ?? [])->values();
+        $remoteDetails = collect($remoteProduct['productDetails'] ?? [])->values();
+        $changedDetailIds = $desiredDetails
+            ->filter(function (array $desired) use ($remoteDetails): bool {
+                $detailId = (int) ($desired['productDetailID'] ?? 0);
+                if ($detailId < 1) {
+                    return false;
+                }
+
+                $remote = $remoteDetails->firstWhere('productDetailID', $detailId);
+
+                return is_array($remote)
+                    && (array_key_exists('qty', $remote) || array_key_exists('conversionFactor', $remote))
+                    && abs($this->detailConversionFactor($remote) - $this->detailConversionFactor($desired)) > 0.000001;
+            })
+            ->pluck('productDetailID')
+            ->map(fn ($detailId): int => (int) $detailId)
+            ->values();
+
+        if ($changedDetailIds->isEmpty()) {
+            $this->updateProduct($productId, $payload);
+
+            return $this->findProductById($productId) ?? [];
+        }
+
+        $deactivationPayload = $payload;
+        $deactivationPayload['productDetails'] = $remoteDetails
+            ->map(fn (array $detail): array => $this->remoteDetailPayload($detail, $changedDetailIds->contains((int) ($detail['productDetailID'] ?? 0))))
+            ->all();
+        $this->updateProduct($productId, $deactivationPayload);
+
+        $afterDeactivation = $this->findProductById($productId);
+        if (! is_array($afterDeactivation)) {
+            throw new RuntimeException('Product Detail lama sudah dikirim untuk dinonaktifkan, tetapi hasilnya belum dapat diverifikasi.');
+        }
+
+        $stillActive = collect($afterDeactivation['productDetails'] ?? [])->contains(
+            fn (array $detail): bool => $changedDetailIds->contains((int) ($detail['productDetailID'] ?? 0))
+                && $this->detailIsActive($detail),
+        );
+        if ($stillActive) {
+            throw new RuntimeException('ESB belum menonaktifkan Product Detail lama. Product Detail baru tidak dibuat untuk mencegah duplikasi.');
+        }
+
+        $replacementPayload = $payload;
+        $replacementDetails = collect($afterDeactivation['productDetails'] ?? [])
+            ->map(fn (array $detail): array => $this->remoteDetailPayload($detail))
+            ->keyBy(fn (array $detail): int => (int) ($detail['productDetailID'] ?? 0));
+
+        foreach ($desiredDetails as $desired) {
+            $detailId = (int) ($desired['productDetailID'] ?? 0);
+            if ($changedDetailIds->contains($detailId)) {
+                unset($desired['productDetailID']);
+                $replacementDetails->push($desired);
+
+                continue;
+            }
+
+            if ($detailId > 0) {
+                $replacementDetails->put($detailId, $desired);
+            } else {
+                $replacementDetails->push($desired);
+            }
+        }
+
+        $replacementPayload['productDetails'] = $replacementDetails->values()->all();
+        $this->updateProduct($productId, $replacementPayload);
+
+        $updatedProduct = $this->findProductById($productId);
+        if (! is_array($updatedProduct)) {
+            throw new RuntimeException('Product Detail baru sudah dikirim, tetapi hasilnya belum dapat direkonsiliasi dari ESB.');
+        }
+
+        foreach ($desiredDetails->whereIn('productDetailID', $changedDetailIds) as $desired) {
+            $replacementExists = collect($updatedProduct['productDetails'] ?? [])->contains(
+                fn (array $detail): bool => $this->detailIsActive($detail)
+                    && $this->sameUnit($detail, $desired)
+                    && abs($this->detailConversionFactor($detail) - $this->detailConversionFactor($desired)) <= 0.000001,
+            );
+            if (! $replacementExists) {
+                throw new RuntimeException('ESB belum mengembalikan Product Detail baru dengan conversion factor yang diminta.');
+            }
+        }
+
+        return $updatedProduct;
+    }
+
+    /** @return array<string, mixed> */
+    private function remoteDetailPayload(array $detail, bool $deactivate = false): array
+    {
+        return [
+            'productDetailID' => (int) ($detail['productDetailID'] ?? 0),
+            'uomID' => (int) ($detail['uomID'] ?? $detail['unitID'] ?? 0),
+            'qty' => $this->detailConversionFactor($detail),
+            'basePrice' => (float) ($detail['basePrice'] ?? 0),
+            'sku' => (string) ($detail['sku'] ?? $detail['SKU'] ?? ''),
+            'cubication' => (float) ($detail['cubication'] ?? 0),
+            'weight' => (float) ($detail['weight'] ?? 0),
+            'isBase' => (bool) ($detail['isBase'] ?? false),
+            'isStock' => $deactivate ? false : (bool) ($detail['isStock'] ?? false),
+            'isPurchase' => $deactivate ? false : (bool) ($detail['isPurchase'] ?? false),
+            'isTransfer' => $deactivate ? false : (bool) ($detail['isTransfer'] ?? false),
+            'isSales' => $deactivate ? false : (bool) ($detail['isSales'] ?? false),
+            'menuID' => $detail['menuID'] ?? null,
+            'flagActive' => $deactivate ? false : $this->detailIsActive($detail),
+        ];
+    }
+
+    private function detailConversionFactor(array $detail): float
+    {
+        return (float) ($detail['qty'] ?? $detail['conversionFactor'] ?? 0);
+    }
+
+    private function detailIsActive(array $detail): bool
+    {
+        return ! array_key_exists('flagActive', $detail)
+            || in_array(mb_strtolower((string) $detail['flagActive']), ['1', 'true', 'yes'], true);
+    }
+
+    private function sameUnit(array $left, array $right): bool
+    {
+        $leftUomId = (int) ($left['uomID'] ?? $left['unitID'] ?? 0);
+        $rightUomId = (int) ($right['uomID'] ?? $right['unitID'] ?? 0);
+
+        return $leftUomId > 0 && $leftUomId === $rightUomId;
     }
 
     /** @return array{categories:array<int,string>,subCategories:array<int,string>} */

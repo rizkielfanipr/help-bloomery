@@ -1712,9 +1712,20 @@ class ViewProjectProductPage extends Page
                     ])->all());
 
                 if ($wasSynced && $material->esb_product_id) {
+                    $esb = app(EsbMasterProductService::class);
+                    $remoteProduct = $esb->findProductById($material->esb_product_id);
+                    $this->syncEsbProductDetailIds($material->fresh('units'), $remoteProduct);
                     $payload = $material->fresh('units')->toEsbPayload();
                     $attemptedPayload = $payload;
-                    app(EsbMasterProductService::class)->updateProduct($material->esb_product_id, $payload);
+                    $updatedProduct = $esb->updateProductWithUnitReplacements(
+                        $material->esb_product_id,
+                        $payload,
+                        $remoteProduct ?? [],
+                    );
+                    $this->syncEsbProductDetailIds(
+                        $material->fresh('units'),
+                        $updatedProduct,
+                    );
                     $material->update([
                         'last_payload' => $payload,
                         'last_response' => ['productID' => $material->esb_product_id, 'updated' => true],
@@ -1724,7 +1735,7 @@ class ViewProjectProductPage extends Page
                 }
             });
         } catch (Throwable $exception) {
-            if ($material && $this->isConnectionFailure($exception)) {
+            if ($material && $wasSynced && $attemptedPayload !== null) {
                 $material->refresh()->update([
                     'status' => 'unknown',
                     'last_payload' => $attemptedPayload,
@@ -2089,11 +2100,24 @@ class ViewProjectProductPage extends Page
         }
 
         $payload = $material->toEsbPayload();
-        $material->update([
-            'status' => 'syncing',
-            'last_payload' => $payload,
-            'sync_error' => null,
-        ]);
+        $claimed = RndProductEsbMaterial::query()
+            ->whereKey($material->id)
+            ->whereIn('status', ['draft', 'failed'])
+            ->update([
+                'status' => 'syncing',
+                'last_payload' => $payload,
+                'sync_error' => null,
+            ]);
+        if ($claimed !== 1) {
+            Notification::make()
+                ->title('Sinkronisasi sedang diproses')
+                ->body('Permintaan ganda dihentikan agar Product Detail tidak terduplikasi.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+        $material->refresh();
 
         try {
             $esb = app(EsbMasterProductService::class);
@@ -2115,7 +2139,7 @@ class ViewProjectProductPage extends Page
                 $material,
                 $existingProductId > 0
                     ? $existingProduct
-                    : $esb->findProductByExactName($material->product_name),
+                    : $esb->findProductById($result['productID']),
             );
             Notification::make()
                 ->title($existingProductId > 0 ? 'Bahan ditautkan ke Master Product ESB yang sudah ada' : 'Bahan berhasil dibuat di ESB')
@@ -2152,11 +2176,20 @@ class ViewProjectProductPage extends Page
             return;
         }
 
-        $details = collect($esbProduct['productDetails'] ?? []);
+        $details = collect($esbProduct['productDetails'] ?? [])
+            ->filter(fn (array $candidate): bool => ! array_key_exists('flagActive', $candidate)
+                || in_array(mb_strtolower((string) $candidate['flagActive']), ['1', 'true', 'yes'], true))
+            ->sortByDesc(fn (array $candidate): int => (int) ($candidate['productDetailID'] ?? 0));
         foreach ($material->units as $unit) {
-            $detail = $details->first(fn (array $candidate): bool => ((int) ($candidate['uomID'] ?? 0) > 0 && (int) $candidate['uomID'] === $unit->uom_id)
-                || mb_strtolower(trim((string) ($candidate['sku'] ?? ''))) === mb_strtolower($unit->sku)
-            );
+            $detail = $details->first(function (array $candidate) use ($unit): bool {
+                $candidateUomId = (int) ($candidate['uomID'] ?? $candidate['unitID'] ?? 0);
+                $candidateSku = mb_strtolower(trim((string) ($candidate['sku'] ?? $candidate['SKU'] ?? '')));
+                $candidateUnit = mb_strtolower(trim((string) ($candidate['uomName'] ?? $candidate['unit'] ?? '')));
+
+                return ($candidateSku !== '' && $candidateSku === mb_strtolower(trim($unit->sku)))
+                    || ($candidateUomId > 0 && $candidateUomId === $unit->uom_id)
+                    || ($candidateUnit !== '' && $candidateUnit === mb_strtolower(trim($unit->uom_name)));
+            });
             $detailId = (int) ($detail['productDetailID'] ?? 0);
             if ($detailId > 0) {
                 $unit->update(['esb_product_detail_id' => $detailId]);

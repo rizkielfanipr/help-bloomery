@@ -33,7 +33,13 @@ class SyncRndEsbMaterialFromRemote
                 'synced_at' => now(),
             ]);
 
-            $details = collect($remoteProduct['productDetails'] ?? [])->values();
+            $details = collect($this->esb->deduplicateProductDetails(
+                collect($remoteProduct['productDetails'] ?? [])->map(function (array $detail) use ($remoteProduct): array {
+                    $detail['productID'] ??= $remoteProduct['productID'] ?? 0;
+
+                    return $detail;
+                })->all(),
+            ))->values();
             if ($details->isEmpty()) {
                 return;
             }
@@ -46,11 +52,11 @@ class SyncRndEsbMaterialFromRemote
             $material->units()->createMany($details->map(function (array $detail, int $index) use ($existingUnits, $hasExplicitBase): array {
                 $detailId = (int) ($detail['productDetailID'] ?? 0);
                 $existing = $existingUnits->firstWhere('esb_product_detail_id', $detailId)
-                    ?? $existingUnits->firstWhere('sku', (string) ($detail['sku'] ?? ''));
+                    ?? $existingUnits->firstWhere('sku', (string) ($detail['sku'] ?? $detail['SKU'] ?? ''));
                 $isBase = (bool) ($detail['isBase'] ?? false)
                     || mb_strtolower((string) data_get($detail, 'defaultUnit.baseUnit', '')) === 'yes'
                     || ($index === 0 && ! $hasExplicitBase);
-                $uomId = (int) ($detail['uomID'] ?? $existing?->uom_id ?? 0);
+                $uomId = (int) ($detail['uomID'] ?? $detail['unitID'] ?? $existing?->uom_id ?? 0);
 
                 if ($uomId < 1) {
                     throw new RuntimeException('ESB tidak mengembalikan UOM ID untuk salah satu unit produk.');
@@ -60,7 +66,7 @@ class SyncRndEsbMaterialFromRemote
                     'uom_id' => $uomId,
                     'uom_name' => (string) ($detail['uomName'] ?? $detail['unit'] ?? $existing?->uom_name ?? ''),
                     'esb_product_detail_id' => $detailId > 0 ? $detailId : null,
-                    'sku' => (string) ($detail['sku'] ?? $existing?->sku ?? ''),
+                    'sku' => (string) ($detail['sku'] ?? $detail['SKU'] ?? $existing?->sku ?? ''),
                     'conversion_factor' => (float) ($detail['qty'] ?? $detail['conversionFactor'] ?? $existing?->conversion_factor ?? 1),
                     'base_price' => (float) ($detail['basePrice'] ?? $existing?->base_price ?? 0),
                     'is_base' => $isBase,

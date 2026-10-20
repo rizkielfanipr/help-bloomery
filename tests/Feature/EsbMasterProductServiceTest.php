@@ -40,10 +40,17 @@ it('preserves list filters pagination and compatibility delegation', function ()
         && $request['productName'] === 'Tepung' && $request['flagActive'] === 1);
 });
 
-it('loads every product page and preserves exact name and id lookup', function () {
+it('loads every product page and uses the authoritative endpoint for id lookup', function () {
     Http::fake(function (Request $request) {
         if (str_contains($request->url(), '/auth/login')) {
             return Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]);
+        }
+        if ($request->url() === 'https://core-esb.test/product/2') {
+            return Http::response(['status' => 'ok', 'result' => [
+                'productID' => 2,
+                'productName' => 'Product 2',
+                'productDetails' => [['productDetailID' => 22, 'uomID' => 5]],
+            ]]);
         }
         $page = (int) ($request['page'] ?? 1);
         $name = $request['productName'] ?? null;
@@ -61,6 +68,19 @@ it('loads every product page and preserves exact name and id lookup', function (
     expect($service->getAllProducts())->toHaveCount(2)
         ->and($service->findProductById(2)['productName'])->toBe('Product 2')
         ->and($service->findProductByExactName('tepung test')['productID'])->toBe(2);
+});
+
+it('deduplicates legacy product details by product and unit while preferring an active row', function () {
+    $details = [
+        ['productID' => 81, 'productDetailID' => 101, 'uomID' => 5, 'unit' => 'GR', 'flagActive' => true],
+        ['productID' => 81, 'productDetailID' => 102, 'uomID' => 5, 'unit' => 'GR', 'flagActive' => false],
+        ['productID' => 81, 'productDetailID' => 103, 'uomID' => 9, 'unit' => 'PCS', 'flagActive' => true],
+        ['productID' => 81, 'productDetailID' => 104, 'unitID' => 16, 'uomName' => 'Resep', 'flagActive' => true],
+    ];
+
+    $result = app(EsbMasterProductService::class)->deduplicateProductDetails($details);
+
+    expect(array_keys($result))->toBe([101, 103, 104]);
 });
 
 it('keeps taxonomy cache and concurrent page requests', function () {
@@ -126,6 +146,94 @@ it('preserves create and update payloads and mapped create response', function (
     expect($service->createProduct($payload))->toBe(['productID' => 81, 'isTemp' => true])
         ->and($service->updateProduct(81, $payload))->toBeNull();
     Http::assertSent(fn (Request $request): bool => $request->data() === $payload);
+});
+
+it('deactivates an old Product Detail before creating a replacement conversion factor', function () {
+    Cache::put('esb_core.access_token', 'token');
+    $oldDetail = [
+        'productDetailID' => 101,
+        'uomID' => 9,
+        'uomName' => 'PCS',
+        'qty' => 61.53,
+        'basePrice' => 0,
+        'SKU' => 'BW1398-PCS',
+        'cubication' => 0,
+        'weight' => 0,
+        'isBase' => false,
+        'isStock' => true,
+        'isPurchase' => true,
+        'isTransfer' => true,
+        'isSales' => true,
+        'menuID' => null,
+        'flagActive' => true,
+    ];
+    $inactiveDetail = array_merge($oldDetail, [
+        'isStock' => false,
+        'isPurchase' => false,
+        'isTransfer' => false,
+        'isSales' => false,
+        'flagActive' => false,
+    ]);
+    $newDetail = array_merge($oldDetail, [
+        'productDetailID' => 202,
+        'qty' => 60,
+    ]);
+
+    Http::fake([
+        'https://core-esb.test/product/81' => Http::sequence()
+            ->push(['status' => 'ok', 'result' => null])
+            ->push(['status' => 'ok', 'result' => ['productID' => 81, 'productDetails' => [$inactiveDetail]]])
+            ->push(['status' => 'ok', 'result' => null])
+            ->push(['status' => 'ok', 'result' => ['productID' => 81, 'productDetails' => [$inactiveDetail, $newDetail]]]),
+    ]);
+
+    $payload = [
+        'productCode' => 'BW1398',
+        'productName' => 'WIP Test',
+        'productDetails' => [[
+            'productDetailID' => 101,
+            'uomID' => 9,
+            'qty' => 60,
+            'basePrice' => 0,
+            'sku' => 'BW1398-PCS',
+            'cubication' => 0,
+            'weight' => 0,
+            'isBase' => false,
+            'isStock' => true,
+            'isPurchase' => true,
+            'isTransfer' => true,
+            'isSales' => true,
+            'menuID' => null,
+            'flagActive' => true,
+        ]],
+    ];
+
+    $updated = app(EsbMasterProductService::class)->updateProductWithUnitReplacements(
+        81,
+        $payload,
+        ['productID' => 81, 'productDetails' => [$oldDetail]],
+    );
+
+    expect(data_get($updated, 'productDetails.1.productDetailID'))->toBe(202);
+
+    $putRequests = Http::recorded(fn (Request $request): bool => $request->method() === 'PUT')->values();
+    expect($putRequests)->toHaveCount(2)
+        ->and(data_get($putRequests[0][0]->data(), 'productDetails.0'))->toMatchArray([
+            'productDetailID' => 101,
+            'qty' => 61.53,
+            'flagActive' => false,
+            'isStock' => false,
+        ])
+        ->and(data_get($putRequests[1][0]->data(), 'productDetails.0'))->toMatchArray([
+            'productDetailID' => 101,
+            'flagActive' => false,
+        ])
+        ->and(data_get($putRequests[1][0]->data(), 'productDetails.1'))->toMatchArray([
+            'uomID' => 9,
+            'qty' => 60,
+            'flagActive' => true,
+        ])
+        ->and(data_get($putRequests[1][0]->data(), 'productDetails.1'))->not->toHaveKey('productDetailID');
 });
 
 it('filters modal product units using the authoritative product detail status', function () {

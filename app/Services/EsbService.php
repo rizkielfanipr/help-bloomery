@@ -94,7 +94,7 @@ class EsbService
             $right['unit'],
         ]);
 
-        return $products;
+        return app(EsbMasterProductService::class)->deduplicateProductDetails($products);
     }
 
     /**
@@ -232,7 +232,7 @@ class EsbService
             'unit' => (string) ($detail['unit'] ?? ''),
             'baseUnit' => $this->resolveBaseUnit($product),
             'conversionFactor' => (float) ($detail['conversionFactor'] ?? 0),
-            'sku' => (string) ($detail['sku'] ?? ''),
+            'sku' => (string) ($detail['sku'] ?? $detail['SKU'] ?? ''),
             'basePrice' => (float) ($detail['basePrice'] ?? 0),
             'receiptTolerance' => (float) ($product['receiptTolerance'] ?? 0),
         ];

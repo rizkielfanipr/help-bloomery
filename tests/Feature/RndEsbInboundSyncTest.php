@@ -125,5 +125,28 @@ function fakeInboundEsbProducts(): void
                 'next' => null,
             ],
         ]),
+        'https://services.esb.co.id/core/product/8123' => Http::response([
+            'status' => 'ok',
+            'result' => [
+                'productID' => 8123,
+                'productCode' => 'BBMK-TAPIOKA-NEW',
+                'productName' => 'Tepung Tapioka Premium ESB',
+                'categoryID' => 12,
+                'categoryName' => 'Bahan Baku Baru',
+                'subCategoryID' => 22,
+                'subCategoryName' => 'Tepung Baru',
+                'notes' => 'Diubah langsung dari ESB',
+                'productDetails' => [[
+                    'productDetailID' => 9123,
+                    'uomID' => 5,
+                    'unit' => 'GR',
+                    'sku' => 'BBMK-TAPIOKA-NEW-GR',
+                    'conversionFactor' => 1,
+                    'basePrice' => 150,
+                    'defaultUnit' => ['baseUnit' => 'yes'],
+                    'isSales' => true,
+                ]],
+            ],
+        ]),
     ]);
 }

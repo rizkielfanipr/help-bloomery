@@ -48,6 +48,7 @@
     if (str_contains($path, 'store-sops') || str_contains($path, 'store-sop-categories') || str_contains($path, 'customer-complaints') || str_contains($path, 'store-sales-orders')) { $initialOpen[] = 'operational'; }
     if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || str_contains($path, 'vendor-compliance') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
+    if (str_contains($path, 'system-monitoring')) { $initialOpen[] = 'system_monitoring'; }
     if (str_contains($path, 'sales-projection')) { $initialOpen[] = 'sales_growth'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
 
@@ -107,6 +108,21 @@
                 ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => $active($r('filament.helpdesk.resources.erp-modules.index'))],
                 ['label' => 'Request Types',  'icon' => 'tags',        'perm' => 'view it request types', 'href' => $r('filament.helpdesk.resources.it-request-types.index'),  'active' => $active($r('filament.helpdesk.resources.it-request-types.index'))],
                 ['label' => 'Bulk Data', 'icon' => 'cloud-upload', 'perm' => 'view bulk product submissions', 'href' => $r('filament.helpdesk.pages.bulk-data'), 'active' => $active($r('filament.helpdesk.pages.bulk-data')) || $active($r('filament.helpdesk.resources.bulk-data.product.index')) || $active($r('filament.helpdesk.pages.bulk-data.promotion'))],
+            ],
+        ],
+        [
+            'id'    => 'system_monitoring',
+            'label' => 'System Monitoring',
+            'icon'  => 'activity',
+            'items' => [
+                ['label' => 'Overview', 'icon' => 'heart-pulse', 'perm' => 'view system monitoring', 'href' => $r(\App\Filament\Helpdesk\Pages\Monitoring\MonitoringOverviewPage::getRouteName()), 'active' => $activeExact($r(\App\Filament\Helpdesk\Pages\Monitoring\MonitoringOverviewPage::getRouteName()))],
+                ['label' => 'Service Health', 'icon' => 'signal', 'perm' => 'view system monitoring', 'href' => $r(\App\Filament\Helpdesk\Pages\Monitoring\MonitoringServiceHealthPage::getRouteName()), 'active' => $active($r(\App\Filament\Helpdesk\Pages\Monitoring\MonitoringServiceHealthPage::getRouteName()))],
+                ['label' => 'ESB Transactions', 'icon' => 'arrow-left-right', 'perm' => 'view monitoring technical details', 'href' => $r(\App\Filament\Helpdesk\Resources\MonitoringTransactions\MonitoringTransactionResource::getRouteBaseName().'.index'), 'active' => $active($r(\App\Filament\Helpdesk\Resources\MonitoringTransactions\MonitoringTransactionResource::getRouteBaseName().'.index'))],
+                ['label' => 'Queue & Scheduler', 'icon' => 'list-ordered', 'perm' => 'view monitoring technical details', 'href' => $r(\App\Filament\Helpdesk\Pages\Monitoring\MonitoringQueueSchedulerPage::getRouteName()), 'active' => $active($r(\App\Filament\Helpdesk\Pages\Monitoring\MonitoringQueueSchedulerPage::getRouteName()))],
+                ['label' => 'Errors', 'icon' => 'bug', 'perm' => 'view monitoring technical details', 'href' => $r(\App\Filament\Helpdesk\Resources\MonitoringErrors\MonitoringErrorResource::getRouteBaseName().'.index'), 'active' => $active($r(\App\Filament\Helpdesk\Resources\MonitoringErrors\MonitoringErrorResource::getRouteBaseName().'.index'))],
+                ['label' => 'Deployments', 'icon' => 'rocket', 'perm' => 'view monitoring technical details', 'href' => $r(\App\Filament\Helpdesk\Resources\MonitoringDeployments\MonitoringDeploymentResource::getRouteBaseName().'.index'), 'active' => $active($r(\App\Filament\Helpdesk\Resources\MonitoringDeployments\MonitoringDeploymentResource::getRouteBaseName().'.index'))],
+                ['label' => 'Incidents', 'icon' => 'siren', 'perm' => 'view system monitoring', 'href' => $r(\App\Filament\Helpdesk\Resources\MonitoringIncidents\MonitoringIncidentResource::getRouteBaseName().'.index'), 'active' => $active($r(\App\Filament\Helpdesk\Resources\MonitoringIncidents\MonitoringIncidentResource::getRouteBaseName().'.index'))],
+                ['label' => 'Settings', 'icon' => 'settings', 'perm' => 'manage monitoring settings', 'href' => $r(\App\Filament\Helpdesk\Pages\Monitoring\MonitoringSettingsPage::getRouteName()), 'active' => $active($r(\App\Filament\Helpdesk\Pages\Monitoring\MonitoringSettingsPage::getRouteName()))],
             ],
         ],
         [

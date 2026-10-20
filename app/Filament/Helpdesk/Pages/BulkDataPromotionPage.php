@@ -5,6 +5,8 @@ namespace App\Filament\Helpdesk\Pages;
 use App\Models\Branch;
 use App\Models\BranchEsbCode;
 use App\Services\EsbPromotionService;
+use App\Services\Monitoring\EsbTransactionRecorder;
+use App\Services\Monitoring\EsbTransactionScope;
 use BackedEnum;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
@@ -20,6 +22,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -359,14 +362,34 @@ class BulkDataPromotionPage extends Page
         $payload = $this->payload($data);
         $results = [];
 
-        foreach ($targets as $comcode) {
-            try {
-                $response = app(EsbPromotionService::class)->createFreeItem($comcode, $this->payloadForComcode($payload, $data, $comcode));
-                $results[] = $comcode.' sukses'.($response['promotionID'] ? ' (#'.$response['promotionID'].')' : '');
-            } catch (Throwable $exception) {
-                report($exception);
-                $results[] = $comcode.' gagal: '.$exception->getMessage();
-            }
+        // A concurrent double submit of the same promotion only sends it once; the endpoint has
+        // no proven idempotency key (docs/system-monitoring-prd.md §11.6).
+        $submissionKey = 'bulk-promotion:'.auth()->id().':'.hash('sha256', json_encode([$targets, $payload]));
+        $lock = Cache::lock($submissionKey, 300);
+        if (! $lock->get()) {
+            Notification::make()
+                ->title('Promotion sedang dikirim ke ESB')
+                ->body('Permintaan ganda dihentikan agar promotion tidak terduplikasi.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        try {
+            app(EsbTransactionRecorder::class)->transaction('bulk_promotion', 'submit', 'create_promotion', function (EsbTransactionScope $monitoring) use ($targets, $payload, $data, &$results): void {
+                foreach ($targets as $comcode) {
+                    try {
+                        $response = $monitoring->forTarget($comcode, $comcode, fn (): array => app(EsbPromotionService::class)->createFreeItem($comcode, $this->payloadForComcode($payload, $data, $comcode)));
+                        $results[] = $comcode.' sukses'.($response['promotionID'] ? ' (#'.$response['promotionID'].')' : '');
+                    } catch (Throwable $exception) {
+                        report($exception);
+                        $results[] = $comcode.' gagal: '.$exception->getMessage();
+                    }
+                }
+            }, ['idempotency_key' => $submissionKey, 'external_reference' => $payload['promotionMasterCode'] ?? null]);
+        } finally {
+            $lock->release();
         }
 
         Notification::make()

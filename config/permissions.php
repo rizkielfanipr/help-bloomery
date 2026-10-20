@@ -224,6 +224,22 @@ return [
         ],
     ],
 
+    // docs/system-monitoring-prd.md §7: every monitoring Page, query, record, and action checks
+    // these server-side; Management roles should only receive `view system monitoring`.
+    'System Monitoring' => [
+        'Monitoring' => [
+            'view system monitoring',
+            'view monitoring technical details',
+            'view monitoring sanitized payloads',
+            'manage monitoring incidents',
+            'acknowledge monitoring alerts',
+            'reconcile esb transactions',
+            'retry safe esb transactions',
+            'export monitoring reports',
+            'manage monitoring settings',
+        ],
+    ],
+
     'Management Access' => [
         'Pengguna' => ['view users', 'create users', 'edit users', 'delete users'],
         'Role & Permission' => ['view roles', 'create roles', 'edit roles', 'delete roles'],

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\EsbBranchMappingResolver;
 use App\Services\EsbGoodsReceiptService;
 use App\Services\InboundGoodsReceiptQcService;
+use App\Services\Monitoring\EsbTransactionRecorder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -476,8 +477,16 @@ class GoodsReceiptPage extends Page
 
             return;
         }
+        $recorder = app(EsbTransactionRecorder::class);
+        $monitoringContext = [
+            'company_code' => $this->sourceCompanyCode,
+            'branch_id' => $mapping->branch_id,
+            'local_model' => $receipt,
+            'external_reference' => $purchaseNumber,
+            'idempotency_key' => 'goods-receipt:'.$receipt->submission_key,
+        ];
         try {
-            $response = app(EsbGoodsReceiptService::class)->create($this->sourceCompanyCode, $purchaseNumber, $payload);
+            $response = $recorder->transaction('goods_receipt', 'submit', 'create_goods_receipt', fn () => app(EsbGoodsReceiptService::class)->create($this->sourceCompanyCode, $purchaseNumber, $payload), $monitoringContext);
             $partial = $assessed->contains(fn (array $item): bool => (float) $item['holdQty'] > 0 || (float) $item['rejectedQty'] > 0);
             $receipt->update(['status' => $partial ? GoodsReceipt::STATUS_PARTIAL_SUCCEEDED : GoodsReceipt::STATUS_SUCCEEDED,
                 'esb_goods_receipt_number' => data_get($response, 'result.goodsReceiptNum'), 'esb_code' => data_get($response, 'response.code'),

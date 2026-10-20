@@ -28,3 +28,7 @@ window.BloomeryConfirm = {
         return result.isConfirmed;
     },
 };
+
+import { registerMonitoringBrowserErrors } from './monitoring-browser-errors';
+
+registerMonitoringBrowserErrors();

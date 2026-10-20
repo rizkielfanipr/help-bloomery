@@ -6,6 +6,7 @@ use App\Providers\Filament\CasualPanelProvider;
 use App\Providers\Filament\DriverPanelProvider;
 use App\Providers\Filament\HelpdeskPanelProvider;
 use App\Providers\Filament\TechnicianPanelProvider;
+use App\Providers\MonitoringServiceProvider;
 
 return [
     AppServiceProvider::class,
@@ -14,4 +15,5 @@ return [
     DriverPanelProvider::class,
     HelpdeskPanelProvider::class,
     TechnicianPanelProvider::class,
+    MonitoringServiceProvider::class,
 ];

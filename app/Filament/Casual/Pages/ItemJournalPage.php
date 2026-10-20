@@ -6,6 +6,9 @@ use App\Models\QualityControlItemJournal;
 use App\Services\EsbItemJournalService;
 use App\Services\EsbService;
 use App\Services\EsbStockMovementService;
+use App\Services\Monitoring\EsbTransactionRecorder;
+use App\Services\Monitoring\EsbTransactionScope;
+use Closure;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -361,20 +364,36 @@ class ItemJournalPage extends Page
 
             return;
         }
-        try {
-            $result = $service->create($validated['companyCode'], $payload);
-            $journal->update(['item_journal_number' => $result['itemJournalNum'], 'response_payload' => $result['response'], 'submitted_at' => now(), 'status' => 'succeeded']);
-            if ($journal->attachments()->exists()) {
-                $this->uploadStoredAttachments($journal, $service);
+        app(EsbTransactionRecorder::class)->transaction('item_journal', 'submit', 'create_item_journal', function (EsbTransactionScope $monitoring) use ($service, $validated, $payload, $journal): void {
+            try {
+                $result = $service->create($validated['companyCode'], $payload);
+                $journal->update(['item_journal_number' => $result['itemJournalNum'], 'response_payload' => $result['response'], 'submitted_at' => now(), 'status' => 'succeeded']);
+                $monitoring->reference($result['itemJournalNum']);
+                if ($journal->attachments()->exists()) {
+                    $this->uploadStoredAttachments($journal, $service);
+                }
+                $this->formOpen = false;
+                unset($this->journals);
+                Notification::make()->success()->title('Item Journal berhasil dibuat')->body($result['itemJournalNum'])->send();
+            } catch (Throwable $exception) {
+                report($exception);
+                $journal->update(['status' => $journal->item_journal_number ? 'attachment_failed' : ($this->isConnectionFailure($exception) ? 'unknown' : 'verification_required'), 'last_error' => $exception->getMessage()]);
+                Notification::make()->danger()->title('Item Journal perlu diperiksa')->body($exception->getMessage())->send();
             }
-            $this->formOpen = false;
-            unset($this->journals);
-            Notification::make()->success()->title('Item Journal berhasil dibuat')->body($result['itemJournalNum'])->send();
-        } catch (Throwable $exception) {
-            report($exception);
-            $journal->update(['status' => $journal->item_journal_number ? 'attachment_failed' : ($this->isConnectionFailure($exception) ? 'unknown' : 'verification_required'), 'last_error' => $exception->getMessage()]);
-            Notification::make()->danger()->title('Item Journal perlu diperiksa')->body($exception->getMessage())->send();
-        }
+        }, ['company_code' => $validated['companyCode'], 'local_model' => $journal, 'idempotency_key' => 'item-journal:'.$journal->submission_key]);
+    }
+
+    /**
+     * Attachment retries and deletes are appended to the journal's existing monitoring parent so
+     * the create attempt and every attachment operation stay in one timeline.
+     */
+    private function monitorJournal(QualityControlItemJournal $journal, string $action, string $operation, Closure $callback): void
+    {
+        app(EsbTransactionRecorder::class)->resumeOrStart($journal, 'item_journal', $action, $operation, fn () => $callback(), [
+            'company_code' => $journal->esb_comcode,
+            'external_reference' => $journal->item_journal_number,
+            'idempotency_key' => 'item-journal:'.$journal->submission_key,
+        ]);
     }
 
     private function isConnectionFailure(Throwable $exception): bool
@@ -396,7 +415,7 @@ class ItemJournalPage extends Page
         abort_unless(auth()->user()?->can('retryAttachments', $journal), 403);
         abort_unless(filled($journal->item_journal_number), 422);
         try {
-            $this->uploadStoredAttachments($journal, app(EsbItemJournalService::class));
+            $this->monitorJournal($journal, 'retry_attachments', 'upload_attachments', fn () => $this->uploadStoredAttachments($journal, app(EsbItemJournalService::class)));
             Notification::make()->success()->title('Attachment berhasil diunggah')->send();
         } catch (Throwable $exception) {
             report($exception);
@@ -409,7 +428,7 @@ class ItemJournalPage extends Page
     {
         $journal = $this->authorizedJournal($journalId);
         abort_unless(auth()->user()?->can('deleteAttachments', $journal), 403);
-        app(EsbItemJournalService::class)->deleteAttachments($journal->esb_comcode, $journal->item_journal_number);
+        $this->monitorJournal($journal, 'delete_attachments', 'delete_attachments', fn () => app(EsbItemJournalService::class)->deleteAttachments($journal->esb_comcode, $journal->item_journal_number));
         foreach ($journal->attachments as $attachment) {
             Storage::disk('b2')->delete($attachment->file_path);
         }

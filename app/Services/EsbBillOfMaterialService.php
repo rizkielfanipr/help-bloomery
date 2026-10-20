@@ -2,10 +2,15 @@
 
 namespace App\Services;
 
+use App\Services\Monitoring\EsbAttempt;
+use App\Services\Monitoring\EsbMutation;
+use App\Services\Monitoring\RecordsEsbMutations;
 use RuntimeException;
 
 class EsbBillOfMaterialService
 {
+    use RecordsEsbMutations;
+
     public function __construct(private readonly EsbGlobalCoreClient $client) {}
 
     /** @return array{page:int,limit:int,count:int,data:array<int,mixed>,prev:?string,next:?string} */
@@ -61,23 +66,33 @@ class EsbBillOfMaterialService
     public function createAssembly(array $payload): int
     {
         $payload['bomTypeID'] ??= 1;
-        $result = $this->client->successfulResult(
-            $this->client->request('post', '/product/bom', $payload),
-            'membuat Bill of Material',
-        );
-        $bomId = (int) ($result['bomID'] ?? 0);
-        if ($bomId < 1) {
-            throw new RuntimeException('ESB tidak mengembalikan ID Bill of Material.');
-        }
 
-        return $bomId;
+        return $this->recordEsbMutation(
+            new EsbMutation('POST', '/product/bom', 'create_bom', 'bom', $payload, targetKey: 'bom'),
+            function (EsbAttempt $attempt) use ($payload): int {
+                $result = $this->client->successfulResult(
+                    $this->client->request('post', '/product/bom', $payload),
+                    'membuat Bill of Material',
+                );
+                $bomId = (int) ($result['bomID'] ?? 0);
+                if ($bomId < 1) {
+                    throw new RuntimeException('ESB tidak mengembalikan ID Bill of Material.');
+                }
+                $attempt->reference($bomId);
+
+                return $bomId;
+            },
+        );
     }
 
     public function updateBillOfMaterial(int $bomId, array $payload): void
     {
-        $this->client->successfulResult(
-            $this->client->request('put', '/product/bom/'.$bomId, $payload),
-            'memperbarui Bill of Material',
+        $this->recordEsbMutation(
+            new EsbMutation('PUT', '/product/bom/{bomID}', 'update_bom', 'bom', $payload, targetKey: 'bom', externalReference: (string) $bomId),
+            fn () => $this->client->successfulResult(
+                $this->client->request('put', '/product/bom/'.$bomId, $payload),
+                'memperbarui Bill of Material',
+            ),
         );
     }
 }

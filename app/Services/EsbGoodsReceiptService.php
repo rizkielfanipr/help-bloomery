@@ -2,6 +2,10 @@
 
 namespace App\Services;
 
+use App\Services\Monitoring\EsbAttempt;
+use App\Services\Monitoring\EsbMutation;
+use App\Services\Monitoring\RecordsEsbMutations;
+
 /**
  * docs/receiving-simplification-prd.md §12: every operation now takes the Company Code as an
  * explicit, caller-supplied context (resolved by the caller from the selected PO's own mapping —
@@ -10,6 +14,8 @@ namespace App\Services;
  */
 class EsbGoodsReceiptService
 {
+    use RecordsEsbMutations;
+
     public const PURCHASE_ORDER_STATUS_AUTHORIZED = 3;
 
     public const PURCHASE_ORDER_STATUS_RECEIVING = 4;
@@ -44,12 +50,20 @@ class EsbGoodsReceiptService
     public function create(string $companyCode, string $referenceNumber, array $payload): array
     {
         $path = '/inventory/goods-receipt/'.rawurlencode($referenceNumber);
-        $response = $this->client->request($companyCode, 'post', $path, $payload);
 
-        return [
-            'result' => $this->client->successfulResult($response, 'membuat Goods Receipt', $companyCode, $path),
-            'response' => (array) $response->json(),
-        ];
+        return $this->recordEsbMutation(
+            new EsbMutation('POST', '/inventory/goods-receipt/{purchaseNum}', 'create_goods_receipt', 'goods_receipt', $payload, $companyCode, 'goods_receipt'),
+            function (EsbAttempt $attempt) use ($companyCode, $path, $payload): array {
+                $response = $this->client->request($companyCode, 'post', $path, $payload);
+                $result = $this->client->successfulResult($response, 'membuat Goods Receipt', $companyCode, $path);
+                $attempt->reference($result['goodsReceiptNum'] ?? null);
+
+                return [
+                    'result' => $result,
+                    'response' => (array) $response->json(),
+                ];
+            },
+        );
     }
 
     /** @return array<string, mixed> */

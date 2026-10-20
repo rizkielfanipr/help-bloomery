@@ -57,6 +57,12 @@ class HelpdeskPanelProvider extends PanelProvider
                 ),
             )
             ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => config('monitoring.errors.browser_enabled') && auth()->check()
+                    ? '<meta name="monitoring-browser-errors" content="'.e(route('monitoring.browser-errors.store')).'">'
+                    : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn (): string => Blade::render(
                     '<script>window.BloomeryConfirm ||= { show: async function (options) { return window.confirm(options.title + "\n\n" + options.text); } };</script>

@@ -3,11 +3,16 @@
 namespace App\Services;
 
 use App\Models\BulkProductSubmission;
+use App\Services\Monitoring\EsbAttempt;
+use App\Services\Monitoring\EsbMutation;
+use App\Services\Monitoring\RecordsEsbMutations;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
 class EsbCompanyProductService
 {
+    use RecordsEsbMutations;
+
     public function __construct(private readonly EsbCoreClient $client) {}
 
     /** @return array{categories:array<int,string>,subCategoriesByCategory:array<int,array<int,string>>,productCodesByCategory:array<int,array<int,string>>} */
@@ -149,27 +154,54 @@ class EsbCompanyProductService
     /** @return array{productID:int,isTemp:bool} */
     public function create(string $comcode, array $payload): array
     {
-        $result = $this->successfulResult($comcode, 'post', '/product', $payload, 'membuat produk');
-        $productId = (int) ($result['productID'] ?? 0);
+        $this->ensureSupported($comcode);
 
-        if ($productId < 1) {
-            throw new RuntimeException("ESB {$comcode} tidak mengembalikan Product ID.");
-        }
+        $created = $this->recordEsbMutation(
+            new EsbMutation('POST', '/product', 'create_product', 'master_product', $payload, $comcode),
+            function (EsbAttempt $attempt) use ($comcode, $payload): array {
+                $result = $this->successfulResult($comcode, 'post', '/product', $payload, 'membuat produk');
+                $productId = (int) ($result['productID'] ?? 0);
+
+                if ($productId < 1) {
+                    throw new RuntimeException("ESB {$comcode} tidak mengembalikan Product ID.");
+                }
+                $attempt->reference($productId);
+
+                return ['productID' => $productId, 'isTemp' => (bool) ($result['isTemp'] ?? false)];
+            },
+        );
 
         Cache::forget($this->taxonomyCacheKey($comcode));
 
-        return ['productID' => $productId, 'isTemp' => (bool) ($result['isTemp'] ?? false)];
+        return $created;
     }
 
     public function update(string $comcode, int $productId, array $payload): void
     {
-        $this->successfulResult(
-            $comcode,
-            'put',
-            '/product/'.$productId,
-            $payload,
-            'memperbarui produk',
+        $this->ensureSupported($comcode);
+
+        $this->recordEsbMutation(
+            new EsbMutation('PUT', '/product/{productID}', 'update_product', 'master_product', $payload, $comcode, externalReference: (string) $productId),
+            fn () => $this->successfulResult(
+                $comcode,
+                'put',
+                '/product/'.$productId,
+                $payload,
+                'memperbarui produk',
+            ),
         );
+    }
+
+    /**
+     * Master Product operations bound to one company, so multi-company updates use the same
+     * canonical Product Detail replacement flow as R&D Product Release instead of changing the
+     * conversion factor of an existing Product Detail ID.
+     */
+    public function masterProducts(string $comcode): EsbMasterProductService
+    {
+        $this->ensureSupported($comcode);
+
+        return new EsbMasterProductService(new EsbCompanyBomClient($this->client, $comcode));
     }
 
     private function taxonomyCacheKey(string $comcode): string

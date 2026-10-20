@@ -2,11 +2,17 @@
 
 namespace App\Services;
 
+use App\Services\Monitoring\EsbAttempt;
+use App\Services\Monitoring\EsbMutation;
+use App\Services\Monitoring\EsbTransactionRecorder;
+use App\Services\Monitoring\RecordsEsbMutations;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
 class EsbMasterProductService
 {
+    use RecordsEsbMutations;
+
     public function __construct(private readonly EsbGlobalCoreClient $client) {}
 
     /** @return array{page:int,limit:int,count:int,data:array<int,mixed>,prev:?string,next:?string} */
@@ -146,23 +152,35 @@ class EsbMasterProductService
     /** @return array{productID:int,isTemp:bool} */
     public function createProduct(array $payload): array
     {
-        $result = $this->client->successfulResult(
-            $this->client->request('post', '/product', $payload),
-            'membuat Master Product',
-        );
-        $productId = (int) ($result['productID'] ?? 0);
-        if ($productId < 1) {
-            throw new RuntimeException('ESB tidak mengembalikan Product ID.');
-        }
+        return $this->recordEsbMutation(
+            new EsbMutation('POST', '/product', 'create_product', 'master_product', $payload, targetKey: 'product'),
+            function (EsbAttempt $attempt) use ($payload): array {
+                $result = $this->client->successfulResult(
+                    $this->client->request('post', '/product', $payload),
+                    'membuat Master Product',
+                );
+                $productId = (int) ($result['productID'] ?? 0);
+                if ($productId < 1) {
+                    throw new RuntimeException('ESB tidak mengembalikan Product ID.');
+                }
+                $attempt->reference($productId);
 
-        return ['productID' => $productId, 'isTemp' => (bool) ($result['isTemp'] ?? false)];
+                return ['productID' => $productId, 'isTemp' => (bool) ($result['isTemp'] ?? false)];
+            },
+        );
     }
 
-    public function updateProduct(int $productId, array $payload): void
+    /**
+     * @param  string  $operation  monitoring operation name; the replacement flow distinguishes its two phases
+     */
+    public function updateProduct(int $productId, array $payload, string $operation = 'update_product'): void
     {
-        $this->client->successfulResult(
-            $this->client->request('put', '/product/'.$productId, $payload),
-            'memperbarui Master Product',
+        $this->recordEsbMutation(
+            new EsbMutation('PUT', '/product/{productID}', $operation, 'master_product', $payload, targetKey: $operation, externalReference: (string) $productId),
+            fn () => $this->client->successfulResult(
+                $this->client->request('put', '/product/'.$productId, $payload),
+                'memperbarui Master Product',
+            ),
         );
     }
 
@@ -205,10 +223,12 @@ class EsbMasterProductService
         $deactivationPayload['productDetails'] = $remoteDetails
             ->map(fn (array $detail): array => $this->remoteDetailPayload($detail, $changedDetailIds->contains((int) ($detail['productDetailID'] ?? 0))))
             ->all();
-        $this->updateProduct($productId, $deactivationPayload);
+        $this->updateProduct($productId, $deactivationPayload, 'deactivate_product_detail');
 
         $afterDeactivation = $this->findProductById($productId);
         if (! is_array($afterDeactivation)) {
+            $this->monitoringTimeline('verify_deactivation', 'not_verifiable');
+
             throw new RuntimeException('Product Detail lama sudah dikirim untuk dinonaktifkan, tetapi hasilnya belum dapat diverifikasi.');
         }
 
@@ -217,8 +237,11 @@ class EsbMasterProductService
                 && $this->detailIsActive($detail),
         );
         if ($stillActive) {
+            $this->monitoringTimeline('verify_deactivation', 'still_active');
+
             throw new RuntimeException('ESB belum menonaktifkan Product Detail lama. Product Detail baru tidak dibuat untuk mencegah duplikasi.');
         }
+        $this->monitoringTimeline('verify_deactivation', 'verified');
 
         $replacementPayload = $payload;
         $replacementDetails = collect($afterDeactivation['productDetails'] ?? [])
@@ -242,10 +265,12 @@ class EsbMasterProductService
         }
 
         $replacementPayload['productDetails'] = $replacementDetails->values()->all();
-        $this->updateProduct($productId, $replacementPayload);
+        $this->updateProduct($productId, $replacementPayload, 'create_replacement_detail');
 
         $updatedProduct = $this->findProductById($productId);
         if (! is_array($updatedProduct)) {
+            $this->monitoringTimeline('verify_replacement', 'not_verifiable');
+
             throw new RuntimeException('Product Detail baru sudah dikirim, tetapi hasilnya belum dapat direkonsiliasi dari ESB.');
         }
 
@@ -256,11 +281,19 @@ class EsbMasterProductService
                     && abs($this->detailConversionFactor($detail) - $this->detailConversionFactor($desired)) <= 0.000001,
             );
             if (! $replacementExists) {
+                $this->monitoringTimeline('verify_replacement', 'missing_replacement');
+
                 throw new RuntimeException('ESB belum mengembalikan Product Detail baru dengan conversion factor yang diminta.');
             }
         }
+        $this->monitoringTimeline('verify_replacement', 'verified');
 
         return $updatedProduct;
+    }
+
+    private function monitoringTimeline(string $step, string $result): void
+    {
+        app(EsbTransactionRecorder::class)->currentScope()?->timeline($step, $result);
     }
 
     /** @return array<string, mixed> */

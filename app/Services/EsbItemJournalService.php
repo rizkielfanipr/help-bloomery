@@ -2,12 +2,17 @@
 
 namespace App\Services;
 
+use App\Services\Monitoring\EsbAttempt;
+use App\Services\Monitoring\EsbMutation;
+use App\Services\Monitoring\RecordsEsbMutations;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
 class EsbItemJournalService
 {
+    use RecordsEsbMutations;
+
     public function __construct(protected readonly EsbCoreClient $client) {}
 
     /** @return array<int, array<string, mixed>> */
@@ -101,29 +106,47 @@ class EsbItemJournalService
     /** @return array{itemJournalNum:string,response:array<string,mixed>} */
     public function create(string $companyCode, array $payload): array
     {
-        $response = $this->request($companyCode, 'post', '/inventory/item-journal', $payload);
-        $result = $this->client->successfulResult($response, 'membuat Item Journal', $companyCode, '/inventory/item-journal');
-        $number = (string) ($result['itemJournalNum'] ?? '');
-        if ($number === '') {
-            throw new RuntimeException('ESB tidak mengembalikan nomor Item Journal.');
-        }
+        return $this->recordEsbMutation(
+            new EsbMutation('POST', '/inventory/item-journal', 'create_item_journal', 'item_journal', $payload, $companyCode, 'journal'),
+            function (EsbAttempt $attempt) use ($companyCode, $payload): array {
+                $response = $this->request($companyCode, 'post', '/inventory/item-journal', $payload);
+                $result = $this->client->successfulResult($response, 'membuat Item Journal', $companyCode, '/inventory/item-journal');
+                $number = (string) ($result['itemJournalNum'] ?? '');
+                if ($number === '') {
+                    throw new RuntimeException('ESB tidak mengembalikan nomor Item Journal.');
+                }
+                $attempt->reference($number);
 
-        return ['itemJournalNum' => $number, 'response' => (array) $response->json()];
+                return ['itemJournalNum' => $number, 'response' => (array) $response->json()];
+            },
+        );
     }
 
     /** @param array<int, array{name:string,contents:string,mime:?string}> $files */
     public function uploadAttachments(string $companyCode, string $journalNumber, array $files): array
     {
         $path = '/inventory/item-journal/'.rawurlencode($journalNumber).'/attachment';
-        $response = $this->client->multipart($companyCode, 'patch', $path, $files);
+        $fileSummary = ['files' => collect($files)->map(fn (array $file): array => [
+            'name' => $file['name'], 'mime' => $file['mime'], 'size' => strlen($file['contents']),
+        ])->all()];
 
-        return $this->client->successfulResult($response, 'mengunggah attachment Item Journal', $companyCode, $path)['urls'] ?? [];
+        return $this->recordEsbMutation(
+            new EsbMutation('PATCH', '/inventory/item-journal/{itemJournalNum}/attachment', 'upload_attachments', 'item_journal', $fileSummary, $companyCode, 'attachments', $journalNumber),
+            function () use ($companyCode, $path, $files): array {
+                $response = $this->client->multipart($companyCode, 'patch', $path, $files);
+
+                return $this->client->successfulResult($response, 'mengunggah attachment Item Journal', $companyCode, $path)['urls'] ?? [];
+            },
+        );
     }
 
     public function deleteAttachments(string $companyCode, string $journalNumber): void
     {
         $path = '/inventory/item-journal/'.rawurlencode($journalNumber).'/attachment';
-        $this->requestResult($companyCode, 'delete', $path, [], 'menghapus attachment Item Journal');
+        $this->recordEsbMutation(
+            new EsbMutation('DELETE', '/inventory/item-journal/{itemJournalNum}/attachment', 'delete_attachments', 'item_journal', [], $companyCode, 'attachments', $journalNumber),
+            fn () => $this->requestResult($companyCode, 'delete', $path, [], 'menghapus attachment Item Journal'),
+        );
     }
 
     protected function request(string $companyCode, string $method, string $path, array $data = []): Response

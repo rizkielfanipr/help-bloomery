@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Services\Monitoring\EsbAttempt;
+use App\Services\Monitoring\EsbMutation;
+use App\Services\Monitoring\RecordsEsbMutations;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -10,6 +13,8 @@ use RuntimeException;
 
 class EsbPromotionService
 {
+    use RecordsEsbMutations;
+
     /** @return array<string, string> */
     public function branchOptions(array $comcodes): array
     {
@@ -364,6 +369,15 @@ class EsbPromotionService
 
         $requestBody = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 
+        return $this->recordEsbMutation(
+            new EsbMutation('POST', '/corev1/promotion/', 'create_promotion', 'promotion', $payload, $comcode),
+            fn (EsbAttempt $attempt): array => $this->sendFreeItem($comcode, $token, $payload, $requestBody, $attempt),
+        );
+    }
+
+    /** @return array{promotionID:int|null,message:string} */
+    private function sendFreeItem(string $comcode, string $token, array $payload, string $requestBody, EsbAttempt $attempt): array
+    {
         $response = Http::acceptJson()
             ->asJson()
             ->withToken($token)
@@ -384,8 +398,11 @@ class EsbPromotionService
             throw new RuntimeException($this->errorMessage($response, "membuat promotion free item {$comcode}"));
         }
 
+        $promotionId = filled(data_get($body, 'data.promotionID')) ? (int) data_get($body, 'data.promotionID') : null;
+        $attempt->reference($promotionId);
+
         return [
-            'promotionID' => filled(data_get($body, 'data.promotionID')) ? (int) data_get($body, 'data.promotionID') : null,
+            'promotionID' => $promotionId,
             'message' => (string) ($body['message'] ?? 'Save Data Successfully'),
         ];
     }

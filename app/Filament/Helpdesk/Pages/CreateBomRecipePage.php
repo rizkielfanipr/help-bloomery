@@ -2,16 +2,21 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
+use App\Enums\MonitoringTransactionStatus;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Models\MonitoringTransaction;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
 use App\Models\RndProjectProduct;
 use App\Services\EsbBillOfMaterialService;
 use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
+use App\Services\Monitoring\EsbTransactionRecorder;
+use App\Services\Monitoring\EsbTransactionScope;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
 use UnitEnum;
@@ -431,10 +436,46 @@ class CreateBomRecipePage extends Page
         }, $payload['bomDetails']);
         $payload['bomCosts'] = [];
 
+        // docs/system-monitoring-prd.md §11.6: a BOM create whose ESB result is unknown must be
+        // reconciled before the same payload can be sent again, and a concurrent double submit
+        // only sends one request.
+        $idempotencyKey = 'rnd-bom-create:'.hash('sha256', $this->projectId.'|'.$this->productId.'|'.json_encode($payload));
+        if ($this->hasUnreconciledBomCreate($idempotencyKey)) {
+            Notification::make()
+                ->title('Pengiriman BOM sebelumnya belum pasti')
+                ->body('Hasil pengiriman resep yang sama ke ESB belum diketahui. Periksa BOM di ESB atau rekonsiliasi transaksi di System Monitoring sebelum mengirim ulang.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $lock = Cache::lock('rnd-bom-create-lock:'.$idempotencyKey, 120);
+        if (! $lock->get()) {
+            Notification::make()->title('Resep sedang dikirim ke ESB')->body('Permintaan ganda dihentikan agar BOM tidak terduplikasi.')->warning()->send();
+
+            return;
+        }
+
         try {
-            $bomId = $this->persistBom($payload);
-            $this->syncProjectBom($bomId, $payload);
-            $this->syncDocumentMaterials($bomId, $documentMaterials);
+            $bomId = app(EsbTransactionRecorder::class)->transaction(
+                'rnd_bom',
+                'create_bom',
+                'create_bom',
+                function (EsbTransactionScope $monitoring) use ($payload, $documentMaterials): int {
+                    $bomId = $this->persistBom($payload);
+                    $monitoring->reference($bomId);
+                    $this->syncProjectBom($bomId, $payload);
+                    $this->syncDocumentMaterials($bomId, $documentMaterials);
+                    $projectBom = RndProjectBom::query()->where('esb_bom_id', $bomId)->first();
+                    if ($projectBom) {
+                        $monitoring->linkLocal($projectBom);
+                    }
+
+                    return $bomId;
+                },
+                ['idempotency_key' => $idempotencyKey],
+            );
 
             Notification::make()
                 ->title($this->isEditing ? 'BOM berhasil diperbarui' : 'Resep berhasil dibuat')
@@ -445,7 +486,19 @@ class CreateBomRecipePage extends Page
             $this->redirect($this->successRedirectUrl($bomId));
         } catch (\RuntimeException $exception) {
             Notification::make()->title('Resep gagal dibuat')->body($exception->getMessage())->danger()->send();
+        } finally {
+            $lock->release();
         }
+    }
+
+    private function hasUnreconciledBomCreate(string $idempotencyKey): bool
+    {
+        return MonitoringTransaction::query()
+            ->parents()
+            ->forCurrentEnvironment()
+            ->where('idempotency_key', $idempotencyKey)
+            ->where('status', MonitoringTransactionStatus::Unknown->value)
+            ->exists();
     }
 
     protected function persistBom(array $payload): int

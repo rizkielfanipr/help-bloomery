@@ -9,6 +9,8 @@ use App\Exceptions\Rnd\BomInvariantException;
 use App\Models\RndBomChangeLog;
 use App\Models\User;
 use App\Services\EsbBillOfMaterialService;
+use App\Services\Monitoring\EsbTransactionRecorder;
+use App\Services\Monitoring\EsbTransactionScope;
 use App\Services\Rnd\Bom\BomChangeComparator;
 use App\Services\Rnd\Bom\BomPayloadBuilder;
 use Illuminate\Http\Client\ConnectionException;
@@ -31,6 +33,7 @@ class UpdateEsbBillOfMaterialAction
         private readonly EsbBillOfMaterialService $bomService,
         private readonly BomPayloadBuilder $payloadBuilder,
         private readonly BomChangeComparator $comparator,
+        private readonly EsbTransactionRecorder $recorder,
     ) {}
 
     /**
@@ -74,6 +77,26 @@ class UpdateEsbBillOfMaterialAction
             'changed_by' => $actor?->id,
         ]);
 
+        return $this->recorder->transaction(
+            $source === RndBomChangeLogSource::BomAdjustment ? 'bom_adjustment' : 'rnd_bom',
+            'update_bom',
+            'update_bom',
+            fn (EsbTransactionScope $monitoring): RndBomChangeLog => $this->mutate($bomId, $payload, $latest, $changeLog, $monitoring),
+            [
+                'local_model' => $changeLog,
+                'external_reference' => (string) $bomId,
+                'idempotency_key' => 'bom-change-log:'.$changeLog->id,
+                'actor' => $actor,
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $latest
+     */
+    private function mutate(int $bomId, array $payload, array $latest, RndBomChangeLog $changeLog, EsbTransactionScope $monitoring): RndBomChangeLog
+    {
         try {
             $this->bomService->updateBillOfMaterial($bomId, $payload);
         } catch (ConnectionException $exception) {
@@ -102,10 +125,13 @@ class UpdateEsbBillOfMaterialAction
                 'status' => RndBomChangeLogStatus::NeedsReconciliation,
                 'error_message' => $exception->getMessage(),
             ]);
+            $monitoring->timeline('verify_after_update', 'not_verifiable')
+                ->markUnknown('BOM sudah dikirim ke ESB, tetapi hasil akhirnya belum dapat diverifikasi.');
 
             return $changeLog->fresh();
         }
 
+        $monitoring->timeline('verify_after_update', 'verified');
         $diff = $this->comparator->compare($latest, $after);
 
         $changeLog->update([

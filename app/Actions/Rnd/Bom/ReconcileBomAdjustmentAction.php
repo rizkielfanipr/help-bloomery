@@ -6,6 +6,7 @@ use App\Enums\RndBomChangeLogStatus;
 use App\Models\RndBomChangeLog;
 use App\Models\User;
 use App\Services\EsbBillOfMaterialService;
+use App\Services\Monitoring\EsbTransactionRecorder;
 use App\Services\Rnd\Bom\BomChangeComparator;
 use Illuminate\Validation\ValidationException;
 
@@ -21,6 +22,7 @@ class ReconcileBomAdjustmentAction
     public function __construct(
         private readonly EsbBillOfMaterialService $bomService,
         private readonly BomChangeComparator $comparator,
+        private readonly EsbTransactionRecorder $recorder,
     ) {}
 
     public function execute(RndBomChangeLog $changeLog, User $reconciler): RndBomChangeLog
@@ -43,6 +45,18 @@ class ReconcileBomAdjustmentAction
             'reconciled_by' => $reconciler->id,
             'reconciled_at' => now(),
         ]);
+
+        // Mirror the verified outcome into the System Monitoring record of this attempt; the
+        // change log remains the source of truth.
+        $monitoring = $this->recorder->latestParentFor($changeLog);
+        if ($monitoring) {
+            $this->recorder->reconcile(
+                $monitoring,
+                $applied ? 'confirmed_applied' : 'confirmed_not_applied',
+                'Rekonsiliasi otomatis dari Recipe Adjustment.',
+                $reconciler,
+            );
+        }
 
         return $changeLog->fresh();
     }

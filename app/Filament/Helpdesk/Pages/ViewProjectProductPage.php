@@ -24,6 +24,8 @@ use App\Services\EsbBillOfMaterialService;
 use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
 use App\Services\EsbUnitCatalogService;
+use App\Services\Monitoring\EsbTransactionRecorder;
+use App\Services\Monitoring\EsbTransactionScope;
 use App\Services\ProductPriceIndexService;
 use App\Services\Rnd\Bom\BomPayloadBuilder;
 use App\Services\Rnd\Bom\ProjectWipRecipeDiscovery;
@@ -1686,54 +1688,57 @@ class ViewProjectProductPage extends Page
         ];
 
         try {
-            DB::transaction(function () use (&$material, &$attemptedPayload, $values, $validated, $wasSynced): void {
-                $existingDetailIds = $material?->units()->pluck('esb_product_detail_id', 'uom_id') ?? collect();
+            app(EsbTransactionRecorder::class)->transaction('rnd_product_release', 'update_material', 'update_product', function (EsbTransactionScope $monitoring) use (&$material, &$attemptedPayload, $values, $validated, $wasSynced): void {
+                DB::transaction(function () use (&$material, &$attemptedPayload, $values, $validated, $wasSynced, $monitoring): void {
+                    $existingDetailIds = $material?->units()->pluck('esb_product_detail_id', 'uom_id') ?? collect();
 
-                if ($material) {
-                    $material->update($values);
-                } else {
-                    $material = $this->productRecord->esbMaterials()->create($values + ['created_by' => auth()->id()]);
-                }
-                $material->units()->delete();
-                $material->units()->createMany(collect($validated['esbMaterialUnits'])
-                    ->map(fn (array $unit): array => [
-                        'uom_id' => $unit['uom_id'],
-                        'uom_name' => $unit['uom_name'],
-                        'esb_product_detail_id' => $existingDetailIds->get($unit['uom_id']),
-                        'sku' => $unit['sku'],
-                        'conversion_factor' => $unit['is_base'] ? 1 : $unit['conversion_factor'],
-                        'base_price' => $unit['base_price'],
-                        'is_base' => $unit['is_base'],
-                        'is_stock' => $unit['is_base'],
-                        'is_purchase' => $unit['is_base'],
-                        'is_transfer' => $unit['is_base'],
-                        'is_sales' => $unit['is_base'],
-                        'flag_active' => true,
-                    ])->all());
+                    if ($material) {
+                        $material->update($values);
+                    } else {
+                        $material = $this->productRecord->esbMaterials()->create($values + ['created_by' => auth()->id()]);
+                    }
+                    $material->units()->delete();
+                    $material->units()->createMany(collect($validated['esbMaterialUnits'])
+                        ->map(fn (array $unit): array => [
+                            'uom_id' => $unit['uom_id'],
+                            'uom_name' => $unit['uom_name'],
+                            'esb_product_detail_id' => $existingDetailIds->get($unit['uom_id']),
+                            'sku' => $unit['sku'],
+                            'conversion_factor' => $unit['is_base'] ? 1 : $unit['conversion_factor'],
+                            'base_price' => $unit['base_price'],
+                            'is_base' => $unit['is_base'],
+                            'is_stock' => $unit['is_base'],
+                            'is_purchase' => $unit['is_base'],
+                            'is_transfer' => $unit['is_base'],
+                            'is_sales' => $unit['is_base'],
+                            'flag_active' => true,
+                        ])->all());
 
-                if ($wasSynced && $material->esb_product_id) {
-                    $esb = app(EsbMasterProductService::class);
-                    $remoteProduct = $esb->findProductById($material->esb_product_id);
-                    $this->syncEsbProductDetailIds($material->fresh('units'), $remoteProduct);
-                    $payload = $material->fresh('units')->toEsbPayload();
-                    $attemptedPayload = $payload;
-                    $updatedProduct = $esb->updateProductWithUnitReplacements(
-                        $material->esb_product_id,
-                        $payload,
-                        $remoteProduct ?? [],
-                    );
-                    $this->syncEsbProductDetailIds(
-                        $material->fresh('units'),
-                        $updatedProduct,
-                    );
-                    $material->update([
-                        'last_payload' => $payload,
-                        'last_response' => ['productID' => $material->esb_product_id, 'updated' => true],
-                        'sync_error' => null,
-                        'synced_at' => now(),
-                    ]);
-                }
-            });
+                    if ($wasSynced && $material->esb_product_id) {
+                        $monitoring->linkLocal($material)->reference($material->esb_product_id);
+                        $esb = app(EsbMasterProductService::class);
+                        $remoteProduct = $esb->findProductById($material->esb_product_id);
+                        $this->syncEsbProductDetailIds($material->fresh('units'), $remoteProduct);
+                        $payload = $material->fresh('units')->toEsbPayload();
+                        $attemptedPayload = $payload;
+                        $updatedProduct = $esb->updateProductWithUnitReplacements(
+                            $material->esb_product_id,
+                            $payload,
+                            $remoteProduct ?? [],
+                        );
+                        $this->syncEsbProductDetailIds(
+                            $material->fresh('units'),
+                            $updatedProduct,
+                        );
+                        $material->update([
+                            'last_payload' => $payload,
+                            'last_response' => ['productID' => $material->esb_product_id, 'updated' => true],
+                            'sync_error' => null,
+                            'synced_at' => now(),
+                        ]);
+                    }
+                });
+            }, ['idempotency_key' => $material ? 'rnd-material:'.$material->id.':update' : null]);
         } catch (Throwable $exception) {
             if ($material && $wasSynced && $attemptedPayload !== null) {
                 $material->refresh()->update([
@@ -2125,7 +2130,13 @@ class ViewProjectProductPage extends Page
             $existingProductId = (int) ($existingProduct['productID'] ?? 0);
             $result = $existingProductId > 0
                 ? ['productID' => $existingProductId, 'isTemp' => (bool) ($existingProduct['isTemp'] ?? false)]
-                : $esb->createProduct($payload);
+                : app(EsbTransactionRecorder::class)->transaction(
+                    'rnd_product_release',
+                    'sync_material',
+                    'create_product',
+                    fn (): array => $esb->createProduct($payload),
+                    ['local_model' => $material, 'idempotency_key' => 'rnd-material:'.$material->id.':create'],
+                );
 
             $material->update([
                 'status' => 'synced',

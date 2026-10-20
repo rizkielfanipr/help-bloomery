@@ -26,10 +26,19 @@ use App\Http\Controllers\Helpdesk\RndProjectMaterialForecastExportController;
 use App\Http\Controllers\Helpdesk\RndProjectTaskAttachmentController;
 use App\Http\Controllers\Helpdesk\ShelfLifeExportController;
 use App\Http\Controllers\Helpdesk\StoreSalesOrderAttachmentController;
+use App\Http\Controllers\MonitoringBrowserErrorController;
+use App\Http\Controllers\MonitoringDeploymentIngestionController;
 use App\Models\Asset;
 use App\Models\RndProjectBom;
 use Filament\Facades\Filament;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
+
+// Signed, rate-limited deployment callback for System Monitoring; 404 until a secret is configured.
+Route::post('/monitoring/deployments', MonitoringDeploymentIngestionController::class)
+    ->middleware('throttle:30,1')
+    ->withoutMiddleware([PreventRequestForgery::class])
+    ->name('monitoring.deployments.ingest');
 
 Route::get('/employee-login', fn () => redirect()->to(Filament::getPanel('casual')->getLoginUrl()))->name('login');
 
@@ -61,6 +70,10 @@ if ($employeeAppDomain) {
 }
 
 Route::middleware(['auth'])->group(function (): void {
+    Route::post('/monitoring/browser-errors', MonitoringBrowserErrorController::class)
+        ->middleware('throttle:20,1')
+        ->name('monitoring.browser-errors.store');
+
     Route::get('/helpdesk/exports/casual-clock-records', CasualClockRecordExportController::class)
         ->name('helpdesk.exports.casual-clock-records');
 

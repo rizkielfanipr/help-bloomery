@@ -6,12 +6,13 @@ use App\Enums\ItRequestStatus;
 use App\Models\ErpRepairRequest;
 use App\Models\User;
 use App\Services\ErpRequestSlaService;
+use App\Services\ItBusinessHoursService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class UpdateErpRequestStatusAction
 {
-    public function __construct(public ErpRequestSlaService $sla) {}
+    public function __construct(public ErpRequestSlaService $sla, public ItBusinessHoursService $businessHours) {}
 
     public function execute(ErpRepairRequest $request, ItRequestStatus $status, ?string $notes, User $actor, string $statusErrorKey = 'status', string $notesErrorKey = 'itNotes'): ErpRepairRequest
     {
@@ -31,8 +32,13 @@ class UpdateErpRequestStatusAction
                 $request->first_responded_at = now();
             }
 
-            if ($status === ItRequestStatus::Completed && $previousStatus !== ItRequestStatus::Completed) {
+            if ($status === ItRequestStatus::Warranty && $previousStatus === ItRequestStatus::Progress) {
                 $request->resolved_at = now();
+                $request->warranty_started_at = now();
+                $request->warranty_expires_at = $this->businessHours->addBusinessDays(now(), 3);
+            }
+
+            if ($status === ItRequestStatus::Completed && $previousStatus !== ItRequestStatus::Completed) {
                 $request->closed_by = $actor->getKey();
             }
 

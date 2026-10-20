@@ -137,7 +137,7 @@ it('requires IT notes when rejecting a ticket at the review step', function () {
     expect($request->refresh()->status)->toBe(ItRequestStatus::Review);
 });
 
-it('walks an ERP ticket through the full sequential flow to completion', function () {
+it('walks an ERP ticket through the full sequential flow to warranty', function () {
     $request = ErpRepairRequest::factory()->create([
         'requester_id' => $this->user->id,
         'branch_id' => $this->branch->id,
@@ -152,7 +152,7 @@ it('walks an ERP ticket through the full sequential flow to completion', functio
 
     $page = Livewire::test(ViewErpRepairRequest::class, ['record' => $request->getRouteKey()]);
 
-    foreach ([ItRequestStatus::Review, ItRequestStatus::Approved, ItRequestStatus::Progress, ItRequestStatus::Completed] as $nextStatus) {
+    foreach ([ItRequestStatus::Review, ItRequestStatus::Approved, ItRequestStatus::Progress, ItRequestStatus::Warranty] as $nextStatus) {
         $page->call('transitionTo', $nextStatus->value)->assertHasNoErrors();
         expect($request->refresh()->status)->toBe($nextStatus);
     }

@@ -19,7 +19,7 @@ class ErpRequestSlaService
     public function calculate(ErpRepairRequest $request): void
     {
         $request->response_business_seconds = $this->businessHours->secondsBetween($request->submitted_at, $request->first_responded_at);
-        $request->resolution_business_seconds = $request->status === ItRequestStatus::Completed
+        $request->resolution_business_seconds = in_array($request->status, [ItRequestStatus::Warranty, ItRequestStatus::Completed], true)
             ? $this->businessHours->secondsBetween($request->submitted_at, $request->resolved_at)
             : null;
     }

@@ -42,7 +42,7 @@ class ViewErpRepairRequest extends ViewRecord
         $metrics = [];
         foreach ([
             ['Respons pertama: Submitted → Review', $this->record->first_responded_at, $this->record->response_business_seconds],
-            ['Penyelesaian: Submitted → Completed', $this->record->status === ItRequestStatus::Completed ? $this->record->resolved_at : null, $this->record->resolution_business_seconds],
+            ['Penyelesaian: Submitted → Warranty', in_array($this->record->status, [ItRequestStatus::Warranty, ItRequestStatus::Completed], true) ? $this->record->resolved_at : null, $this->record->resolution_business_seconds],
         ] as [$label, $end, $seconds]) {
             if ($seconds === null || ! $this->record->submitted_at || ! $end) {
                 continue;
@@ -95,7 +95,7 @@ class ViewErpRepairRequest extends ViewRecord
     public function canFollowUp(): bool
     {
         return (auth()->user()?->can('edit erp requests') ?? false)
-            && ! in_array($this->record->status, [ItRequestStatus::Completed, ItRequestStatus::Rejected], true);
+            && ! in_array($this->record->status, [ItRequestStatus::Warranty, ItRequestStatus::Completed, ItRequestStatus::Rejected], true);
     }
 
     /** @return array<string, string> */

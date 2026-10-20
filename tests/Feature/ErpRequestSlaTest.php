@@ -45,7 +45,7 @@ it('records the first response once and counts completion from submission across
     $page->call('transitionTo', ItRequestStatus::Approved->value)->assertHasNoErrors()
         ->call('transitionTo', ItRequestStatus::Progress->value)->assertHasNoErrors();
     $this->travelTo(CarbonImmutable::parse('2026-09-15 09:00:00', 'Asia/Jakarta'));
-    $page->call('transitionTo', ItRequestStatus::Completed->value)->assertHasNoErrors()
+    $page->call('transitionTo', ItRequestStatus::Warranty->value)->assertHasNoErrors()
         ->assertSee('10 jam 30 menit')
         ->assertSee('11/09/2026')
         ->assertSee('14/09/2026')
@@ -53,11 +53,11 @@ it('records the first response once and counts completion from submission across
         ->assertSee('Cara menghitung SLA ERP IT');
 
     expect($request->refresh()->resolution_business_seconds)->toBe(37800)
-        ->and($request->closed_by)->toBe($this->itStaff->id)
+        ->and($request->closed_by)->toBeNull()
         ->and($request->first_responded_at->format('H:i:s'))->toBe('09:30:00');
 
     $this->travelTo(CarbonImmutable::parse('2026-09-16 10:00:00', 'Asia/Jakarta'));
-    app(UpdateErpRequestStatusAction::class)->execute($request, ItRequestStatus::Completed, 'Additional note', $this->itStaff);
+    app(UpdateErpRequestStatusAction::class)->execute($request, ItRequestStatus::Warranty, 'Additional note', $this->itStaff);
     expect($request->refresh()->resolved_at->format('Y-m-d H:i:s'))->toBe('2026-09-15 09:00:00')
         ->and($request->resolution_business_seconds)->toBe(37800);
 });

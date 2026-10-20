@@ -8,6 +8,7 @@ use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
 use App\Models\ItRequestType;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -26,6 +27,9 @@ class ErpRepairRequestFactory extends Factory
     {
         $status = fake()->randomElement(ItRequestStatus::cases());
         $requestType = ItRequestType::inRandomOrder()->first();
+        $resolvedAt = in_array($status, [ItRequestStatus::Warranty, ItRequestStatus::Completed], true)
+            ? CarbonImmutable::instance(fake()->dateTimeBetween('-30 days', '-4 days'))
+            : null;
 
         return [
             'requester_id' => User::inRandomOrder()->value('id'),
@@ -38,7 +42,9 @@ class ErpRepairRequestFactory extends Factory
             // Priority is derived from the Request Type's configured default,
             // mirroring how a real ticket is created via ErpRequestPage::submit().
             'priority' => $requestType?->priority ?? 'medium',
-            'resolved_at' => $status === ItRequestStatus::Completed ? fake()->dateTimeBetween('-30 days', 'now') : null,
+            'resolved_at' => $resolvedAt,
+            'warranty_started_at' => $status === ItRequestStatus::Warranty ? $resolvedAt : null,
+            'warranty_expires_at' => $status === ItRequestStatus::Warranty ? $resolvedAt?->addWeekdays(3) : null,
         ];
     }
 }

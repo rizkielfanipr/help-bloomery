@@ -30,6 +30,10 @@ class ErpRepairRequest extends Model
         'it_notes',
         'closed_by',
         'resolved_at',
+        'warranty_started_at',
+        'warranty_expires_at',
+        'warranty_claimed_at',
+        'warranty_claim_notes',
     ];
 
     protected function casts(): array
@@ -42,6 +46,9 @@ class ErpRepairRequest extends Model
             'first_responded_at' => 'datetime',
             'response_business_seconds' => 'integer',
             'resolution_business_seconds' => 'integer',
+            'warranty_started_at' => 'datetime',
+            'warranty_expires_at' => 'datetime',
+            'warranty_claimed_at' => 'datetime',
         ];
     }
 

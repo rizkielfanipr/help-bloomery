@@ -12,6 +12,7 @@ enum ItRequestStatus: string implements HasColor, HasLabel
     case Approved = 'approved';
     case Rejected = 'rejected';
     case Progress = 'in_progress';
+    case Warranty = 'warranty';
     case Completed = 'completed';
 
     public function getLabel(): string
@@ -22,6 +23,7 @@ enum ItRequestStatus: string implements HasColor, HasLabel
             self::Approved => 'Approved',
             self::Rejected => 'Rejected',
             self::Progress => 'In Progress',
+            self::Warranty => 'Warranty',
             self::Completed => 'Completed',
         };
     }
@@ -34,6 +36,7 @@ enum ItRequestStatus: string implements HasColor, HasLabel
             self::Approved => 'success',
             self::Rejected => 'danger',
             self::Progress => 'primary',
+            self::Warranty => 'warning',
             self::Completed => 'success',
         };
     }
@@ -45,8 +48,8 @@ enum ItRequestStatus: string implements HasColor, HasLabel
             self::Submitted => [self::Review],
             self::Review => [self::Approved, self::Rejected],
             self::Approved => [self::Progress],
-            self::Progress => [self::Completed],
-            self::Rejected, self::Completed => [],
+            self::Progress => [self::Warranty],
+            self::Rejected, self::Warranty, self::Completed => [],
         };
     }
 

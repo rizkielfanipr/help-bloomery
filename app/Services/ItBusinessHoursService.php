@@ -60,4 +60,9 @@ class ItBusinessHoursService
 
         return $hours.' jam '.$minutes.' menit'.($remainingSeconds > 0 ? ' '.$remainingSeconds.' detik' : '');
     }
+
+    public function addBusinessDays(CarbonInterface $start, int $days): CarbonImmutable
+    {
+        return CarbonImmutable::instance($start)->setTimezone(self::TIMEZONE)->addWeekdays($days);
+    }
 }

@@ -3,14 +3,26 @@
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Actions\ArchiveRndProjectAction;
+use App\Actions\Rnd\Project\AddPartnershipMenusAction;
+use App\Actions\Rnd\Project\AddPremixAssembliesAction;
+use App\Actions\Rnd\Project\RemovePartnershipMenuAction;
+use App\Actions\Rnd\Project\RemovePremixAssemblyAction;
+use App\Actions\Rnd\Project\UpdateRndProjectAction;
+use App\Enums\RndProjectType;
+use App\Filament\Helpdesk\Concerns\ManagesEsbProductPicker;
 use App\Filament\Helpdesk\Concerns\ReleasesBomToStoreSop;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
 use App\Models\Branch;
+use App\Models\RndInternalMemoCatalogSync;
 use App\Models\RndProductSalesProjection;
 use App\Models\RndProject;
 use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
+use App\Services\EsbService;
+use App\Services\Rnd\InternalMemo\InternalMemoCatalogContext;
+use App\Services\Rnd\Project\PartnershipMenuCatalogQuery;
+use App\Services\Rnd\Project\PremixAssemblyCatalogQuery;
 use App\Services\Rnd\ShelfLife\ProjectProductShelfLifeReadiness;
 use App\Services\RndProjectMaterialForecastService;
 use Carbon\Carbon;
@@ -27,6 +39,7 @@ use Throwable;
 
 class ViewProject extends ViewRecord
 {
+    use ManagesEsbProductPicker;
     use ReleasesBomToStoreSop;
     use WithFileUploads;
 
@@ -78,6 +91,36 @@ class ViewProject extends ViewRecord
 
     public string $editProjectEndDate = '';
 
+    public string $editPartnershipEventName = '';
+
+    /** @var list<int|string> */
+    public array $editPartnershipBranchIds = [];
+
+    public bool $premixPickerOpen = false;
+
+    public string $premixCatalogSearch = '';
+
+    public int $premixCatalogPage = 1;
+
+    /** @var list<int> */
+    public array $selectedAssemblyIds = [];
+
+    public bool $partnershipMenuPickerOpen = false;
+
+    public string $partnershipMenuSearchName = '';
+
+    public string $partnershipMenuSearchCode = '';
+
+    public int $partnershipMenuPage = 1;
+
+    /** @var list<int> */
+    public array $selectedPartnershipMenuIds = [];
+
+    public bool $inlineProductModalOpen = false;
+
+    /** @var array<int, array{quantity: string, notes: string}> */
+    public array $partnershipEquipmentDrafts = [];
+
     public $productPhoto = null;
 
     public string $productImagePath = '';
@@ -116,6 +159,14 @@ class ViewProject extends ViewRecord
         return Branch::query()->where('is_active', true)->orderBy('name')->get();
     }
 
+    public function toggleEditPartnershipBranchId(int $branchId): void
+    {
+        $selectedIds = collect($this->editPartnershipBranchIds)->map(fn ($id): int => (int) $id);
+        $this->editPartnershipBranchIds = $selectedIds->contains($branchId)
+            ? $selectedIds->reject(fn (int $id): bool => $id === $branchId)->values()->all()
+            : $selectedIds->push($branchId)->unique()->values()->all();
+    }
+
     protected function getHeaderActions(): array
     {
         return [];
@@ -129,6 +180,8 @@ class ViewProject extends ViewRecord
         $this->editProjectDescription = $this->record->description ?? '';
         $this->editProjectStartDate = $this->record->start_date->format('Y-m-d');
         $this->editProjectEndDate = $this->record->end_date->format('Y-m-d');
+        $this->editPartnershipEventName = $this->record->partnership_event_name ?? '';
+        $this->editPartnershipBranchIds = $this->record->partnershipBranches()->pluck('branches.id')->all();
         $this->editProjectModalOpen = true;
     }
 
@@ -138,7 +191,7 @@ class ViewProject extends ViewRecord
         $this->editProjectModalOpen = false;
     }
 
-    public function saveProjectInformation(): void
+    public function saveProjectInformation(UpdateRndProjectAction $updateProject): void
     {
         abort_unless(ProjectResource::canEdit($this->record), 403);
         $validated = $this->validate([
@@ -146,18 +199,272 @@ class ViewProject extends ViewRecord
             'editProjectDescription' => ['nullable', 'string'],
             'editProjectStartDate' => ['required', 'date'],
             'editProjectEndDate' => ['required', 'date', 'after_or_equal:editProjectStartDate'],
+            'editPartnershipEventName' => [Rule::requiredIf($this->record->project_type === RndProjectType::Partnership), 'nullable', 'string', 'max:255'],
+            'editPartnershipBranchIds' => [
+                Rule::requiredIf($this->record->project_type === RndProjectType::Partnership),
+                'array',
+                Rule::when($this->record->project_type === RndProjectType::Partnership, ['min:1']),
+            ],
+            'editPartnershipBranchIds.*' => ['integer', 'distinct', Rule::exists('branches', 'id')->where('is_active', true)],
         ]);
 
-        $this->record->update([
+        $actor = auth()->user();
+        abort_unless($actor !== null, 403);
+        $this->record = $updateProject->execute($actor, $this->record, [
             'name' => trim($validated['editProjectName']),
             'description' => trim($validated['editProjectDescription']) ?: null,
             'start_date' => $validated['editProjectStartDate'],
             'end_date' => $validated['editProjectEndDate'],
+            'partnership_event_name' => $validated['editPartnershipEventName'] ?? null,
+            'partnership_branch_ids' => $this->record->project_type === RndProjectType::Partnership
+                ? collect($validated['editPartnershipBranchIds'])->map(fn ($branchId): int => (int) $branchId)->all()
+                : [],
         ]);
 
         $this->editProjectModalOpen = false;
         $this->reloadProject();
         Notification::make()->title('Project berhasil diperbarui')->success()->send();
+    }
+
+    public function openPremixPicker(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record) && $this->record->project_type === RndProjectType::Premix, 403);
+        $this->resetValidation();
+        $this->selectedAssemblyIds = [];
+        $this->premixCatalogSearch = '';
+        $this->premixCatalogPage = 1;
+        $this->premixPickerOpen = true;
+    }
+
+    public function closePremixPicker(): void
+    {
+        $this->premixPickerOpen = false;
+        $this->selectedAssemblyIds = [];
+    }
+
+    public function updatedPremixCatalogSearch(): void
+    {
+        $this->premixCatalogPage = 1;
+    }
+
+    public function getPremixCatalogProperty(): mixed
+    {
+        return app(PremixAssemblyCatalogQuery::class)->paginate($this->premixCatalogSearch, $this->premixCatalogPage);
+    }
+
+    public function previousPremixCatalogPage(): void
+    {
+        $this->premixCatalogPage = max(1, $this->premixCatalogPage - 1);
+    }
+
+    public function nextPremixCatalogPage(): void
+    {
+        if ($this->premixCatalog->hasMorePages()) {
+            $this->premixCatalogPage++;
+        }
+    }
+
+    public function addPremixAssemblies(AddPremixAssembliesAction $action): void
+    {
+        $actor = auth()->user();
+        abort_unless($actor !== null, 403);
+        $added = $action->execute($actor, $this->record, $this->selectedAssemblyIds);
+        $this->closePremixPicker();
+        $this->reloadProject();
+        Notification::make()->title($added.' BOM Assembly berhasil ditambahkan')->success()->send();
+    }
+
+    public function removePremixAssembly(int $bomId, RemovePremixAssemblyAction $action): void
+    {
+        $actor = auth()->user();
+        abort_unless($actor !== null, 403);
+        $action->execute($actor, $this->record, $bomId);
+        $this->reloadProject();
+        Notification::make()->title('BOM Assembly berhasil dilepas')->success()->send();
+    }
+
+    public function openPartnershipMenuPicker(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record) && $this->record->project_type === RndProjectType::Partnership, 403);
+        $this->resetValidation();
+        $this->selectedPartnershipMenuIds = [];
+        $this->partnershipMenuSearchName = '';
+        $this->partnershipMenuSearchCode = '';
+        $this->partnershipMenuPage = 1;
+        $this->partnershipMenuPickerOpen = true;
+    }
+
+    public function closePartnershipMenuPicker(): void
+    {
+        $this->partnershipMenuPickerOpen = false;
+        $this->selectedPartnershipMenuIds = [];
+    }
+
+    public function updatedPartnershipMenuSearchName(): void
+    {
+        $this->partnershipMenuPage = 1;
+    }
+
+    public function updatedPartnershipMenuSearchCode(): void
+    {
+        $this->partnershipMenuPage = 1;
+    }
+
+    public function getPartnershipMenuCatalogProperty(): mixed
+    {
+        return app(PartnershipMenuCatalogQuery::class)->paginate(
+            $this->partnershipMenuSearchName,
+            $this->partnershipMenuSearchCode,
+            $this->partnershipMenuPage,
+        );
+    }
+
+    public function previousPartnershipMenuPage(): void
+    {
+        $this->partnershipMenuPage = max(1, $this->partnershipMenuPage - 1);
+    }
+
+    public function nextPartnershipMenuPage(): void
+    {
+        if ($this->partnershipMenuCatalog->hasMorePages()) {
+            $this->partnershipMenuPage++;
+        }
+    }
+
+    public function goToPartnershipMenuPage(int $page): void
+    {
+        $lastPage = max(1, $this->partnershipMenuCatalog->lastPage());
+        $this->partnershipMenuPage = min($lastPage, max(1, $page));
+    }
+
+    /** @return array{syncing: bool, failed: bool, last_synced_at: mixed} */
+    public function partnershipMenuCatalogStatus(): array
+    {
+        $state = app(InternalMemoCatalogContext::class)->state();
+
+        return [
+            'syncing' => $state?->isInProgress() ?? false,
+            'failed' => $state?->status === RndInternalMemoCatalogSync::STATUS_FAILED,
+            'last_synced_at' => $state?->last_synced_at,
+        ];
+    }
+
+    /** @return array{category: ?string, detail: ?string} */
+    public function splitPartnershipMenuCategory(?string $categoryDetail): array
+    {
+        if (blank($categoryDetail)) {
+            return ['category' => null, 'detail' => null];
+        }
+
+        [$category, $detail] = array_pad(explode(' - ', $categoryDetail, 2), 2, null);
+
+        return ['category' => trim($category), 'detail' => $detail !== null ? trim($detail) : null];
+    }
+
+    public function addPartnershipMenus(AddPartnershipMenusAction $action): void
+    {
+        $actor = auth()->user();
+        abort_unless($actor !== null, 403);
+        $added = $action->execute($actor, $this->record, $this->selectedPartnershipMenuIds);
+        $this->closePartnershipMenuPicker();
+        $this->reloadProject();
+        Notification::make()->title($added.' Menu Partnership berhasil ditambahkan')->success()->send();
+    }
+
+    public function removePartnershipMenu(int $menuId, RemovePartnershipMenuAction $action): void
+    {
+        $actor = auth()->user();
+        abort_unless($actor !== null, 403);
+        $action->execute($actor, $this->record, $menuId);
+        $this->reloadProject();
+        Notification::make()->title('Menu Partnership berhasil dilepas')->success()->send();
+    }
+
+    public function openPartnershipEquipmentPicker(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record) && $this->record->project_type === RndProjectType::Partnership, 403);
+        $this->resetInlineProductPicker();
+
+        $equipmentCategoryId = $this->inlineProductCategoryIdNamed('Peralatan');
+
+        if ($equipmentCategoryId === null) {
+            Notification::make()
+                ->title('Kategori Peralatan tidak ditemukan')
+                ->body('Periksa kategori Product List pada Master Product ESB.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->inlineProductCategoryId = (string) $equipmentCategoryId;
+        $this->inlineProductModalOpen = true;
+    }
+
+    public function closePartnershipEquipmentPicker(): void
+    {
+        $this->inlineProductModalOpen = false;
+        $this->resetInlineProductPicker();
+    }
+
+    public function selectPartnershipEquipment(int $productDetailId): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record) && $this->record->project_type === RndProjectType::Partnership, 403);
+        $option = $this->inlineProductOptions[$productDetailId] ?? null;
+        abort_unless(is_array($option), 422, 'Product tidak tersedia pada daftar aktif.');
+
+        $product = app(EsbService::class)->findActiveProductDetail(
+            $productDetailId,
+            (string) ($option['productCode'] ?? ''),
+            (string) ($option['productName'] ?? ''),
+        );
+        abort_unless(is_array($product), 422, 'Product tidak aktif atau tidak ditemukan di Master Product ESB.');
+        abort_unless(
+            mb_strtolower(trim((string) ($product['categoryName'] ?? ''))) === 'peralatan',
+            422,
+            'Hanya product kategori Peralatan yang dapat ditambahkan.',
+        );
+
+        $this->record->partnershipEquipment()->firstOrCreate(
+            ['product_detail_id' => $productDetailId],
+            [
+                'product_code' => $product['productCode'] ?? null,
+                'product_name' => $product['productName'] ?? 'Product Detail '.$productDetailId,
+                'uom_name' => $product['unit'] ?? null,
+                'quantity' => 1,
+                'sort_order' => (int) $this->record->partnershipEquipment()->max('sort_order') + 1,
+                'created_by' => auth()->id(),
+            ],
+        );
+
+        $this->closePartnershipEquipmentPicker();
+        $this->reloadProject();
+        Notification::make()->title('Peralatan berhasil ditambahkan')->success()->send();
+    }
+
+    public function savePartnershipEquipment(int $equipmentId): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record) && $this->record->project_type === RndProjectType::Partnership, 403);
+        $equipment = $this->record->partnershipEquipment()->findOrFail($equipmentId);
+        $validated = $this->validate([
+            "partnershipEquipmentDrafts.$equipmentId.quantity" => ['required', 'numeric', 'gt:0'],
+            "partnershipEquipmentDrafts.$equipmentId.notes" => ['nullable', 'string', 'max:1000'],
+        ]);
+        $draft = $validated['partnershipEquipmentDrafts'][$equipmentId];
+        $equipment->update([
+            'quantity' => (float) $draft['quantity'],
+            'notes' => trim((string) ($draft['notes'] ?? '')) ?: null,
+        ]);
+        $this->reloadProject();
+        Notification::make()->title('Peralatan berhasil diperbarui')->success()->send();
+    }
+
+    public function removePartnershipEquipment(int $equipmentId): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record) && $this->record->project_type === RndProjectType::Partnership, 403);
+        $this->record->partnershipEquipment()->findOrFail($equipmentId)->delete();
+        $this->reloadProject();
+        Notification::make()->title('Peralatan berhasil dilepas')->success()->send();
     }
 
     public function addCcpDocumentUpload(): void
@@ -242,7 +549,11 @@ class ViewProject extends ViewRecord
 
     public function openCreateProduct(): void
     {
-        abort_unless(ProjectResource::canEdit($this->record), 403);
+        abort_unless(
+            ProjectResource::canEdit($this->record)
+            && in_array($this->record->project_type, [RndProjectType::ReleaseProduct, RndProjectType::Partnership], true),
+            403,
+        );
         $this->resetProductForm();
         $this->loadRegionalPriceForm();
         $this->dispatch('open-product-form');
@@ -250,7 +561,11 @@ class ViewProject extends ViewRecord
 
     public function editProduct(int $productId): void
     {
-        abort_unless(ProjectResource::canEdit($this->record), 403);
+        abort_unless(
+            ProjectResource::canEdit($this->record)
+            && in_array($this->record->project_type, [RndProjectType::ReleaseProduct, RndProjectType::Partnership], true),
+            403,
+        );
         $product = $this->record->products()->findOrFail($productId);
 
         $this->editingProductId = $product->id;
@@ -269,6 +584,81 @@ class ViewProject extends ViewRecord
         $this->productPhoto = null;
         $this->resetValidation();
         $this->dispatch('open-product-form');
+    }
+
+    public function savePartnershipReleaseMenu(): void
+    {
+        abort_unless(ProjectResource::canEdit($this->record) && $this->record->project_type === RndProjectType::Partnership, 403);
+
+        $validated = $this->validate([
+            'productName' => ['required', 'string', 'max:255'],
+            'productCode' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('rnd_project_products', 'product_code')
+                    ->where('rnd_project_id', $this->record->id)
+                    ->ignore($this->editingProductId),
+            ],
+            'productDescription' => ['nullable', 'string', 'max:3000'],
+            'offlinePrice' => ['nullable', 'numeric', 'min:0'],
+            'onlinePrice' => ['nullable', 'numeric', 'min:0'],
+            'releaseDate' => ['nullable', 'date'],
+            'productStatus' => ['required', Rule::in(array_keys(RndProjectProduct::STATUSES))],
+            'productPhoto' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        $newImagePath = null;
+        if ($this->productPhoto) {
+            $newImagePath = $this->productPhoto->store('rnd/products/'.$this->record->id, 'b2');
+            if (! is_string($newImagePath) || $newImagePath === '') {
+                $this->addError('productPhoto', 'Foto gagal diunggah ke Cloudflare R2.');
+
+                return;
+            }
+        }
+
+        $payload = [
+            'name' => trim($validated['productName']),
+            'product_code' => trim($validated['productCode']) ?: null,
+            'description' => trim($validated['productDescription']) ?: null,
+            'offline_price' => (float) ($validated['offlinePrice'] ?: 0),
+            'online_price' => (float) ($validated['onlinePrice'] ?: 0),
+            'release_date' => $validated['releaseDate'] ?: null,
+            'status' => $validated['productStatus'],
+        ];
+        if ($newImagePath !== null) {
+            $payload['image_path'] = $newImagePath;
+        }
+
+        try {
+            DB::transaction(function () use ($payload): RndProjectProduct {
+                if ($this->editingProductId !== null) {
+                    $product = $this->record->products()->findOrFail($this->editingProductId);
+                    $product->update($payload);
+                } else {
+                    $product = $this->record->products()->create($payload + ['created_by' => auth()->id()]);
+                }
+
+                return $product;
+            });
+        } catch (Throwable $exception) {
+            if ($newImagePath !== null) {
+                Storage::disk('b2')->delete($newImagePath);
+            }
+
+            throw $exception;
+        }
+
+        if ($newImagePath !== null && $this->productImagePath !== '' && $this->productImagePath !== $newImagePath) {
+            Storage::disk('b2')->delete($this->productImagePath);
+        }
+
+        $wasEditing = $this->editingProductId !== null;
+        $this->reloadProject();
+        $this->resetProductForm();
+        $this->dispatch('close-product-form');
+        Notification::make()->title($wasEditing ? 'Menu Release berhasil diperbarui' : 'Menu Release berhasil ditambahkan')->success()->send();
     }
 
     public function saveProduct(): void
@@ -433,7 +823,11 @@ class ViewProject extends ViewRecord
 
     public function deleteProduct(int $productId): void
     {
-        abort_unless(ProjectResource::canEdit($this->record), 403);
+        abort_unless(
+            ProjectResource::canEdit($this->record)
+            && in_array($this->record->project_type, [RndProjectType::ReleaseProduct, RndProjectType::Partnership], true),
+            403,
+        );
         $product = $this->record->products()->findOrFail($productId);
         $imagePath = $product->image_path;
         $materialPaths = $product->marketingMaterials()->pluck('file_path')->all();
@@ -1047,13 +1441,28 @@ class ViewProject extends ViewRecord
 
     private function reloadProject(): void
     {
-        $this->record->refresh()->load([
-            'products.boms.documentMaterials',
-            'products.currentRegionalPrices.region',
-            'products.salesProjections.region',
-            'products.salesProjections.targetBranches',
-            'boms.documentMaterials',
-            'documents.creator',
-        ]);
+        $this->record->refresh()->load('creator');
+
+        match ($this->record->project_type) {
+            RndProjectType::Premix => $this->record->load('premixAssemblies'),
+            RndProjectType::Partnership => $this->record->load(['partnershipMenus', 'partnershipBranches', 'partnershipEquipment', 'products']),
+            RndProjectType::ReleaseProduct => $this->record->load([
+                'products.boms.documentMaterials',
+                'products.currentRegionalPrices.region',
+                'products.salesProjections.region',
+                'products.salesProjections.targetBranches',
+                'boms.documentMaterials',
+                'documents.creator',
+            ]),
+        };
+
+        if ($this->record->project_type === RndProjectType::Partnership) {
+            $this->partnershipEquipmentDrafts = $this->record->partnershipEquipment->mapWithKeys(fn ($equipment): array => [
+                $equipment->id => [
+                    'quantity' => (string) $equipment->quantity,
+                    'notes' => (string) ($equipment->notes ?? ''),
+                ],
+            ])->all();
+        }
     }
 }

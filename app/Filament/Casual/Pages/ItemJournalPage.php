@@ -5,6 +5,7 @@ namespace App\Filament\Casual\Pages;
 use App\Models\QualityControlItemJournal;
 use App\Services\EsbItemJournalService;
 use App\Services\EsbService;
+use App\Services\EsbStockMovementService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -74,6 +75,8 @@ class ItemJournalPage extends Page
 
     public ?string $loadError = null;
 
+    public ?string $stockLoadWarning = null;
+
     public static function canAccess(): bool
     {
         return auth()->user()?->can('viewAny', QualityControlItemJournal::class) ?? false;
@@ -121,7 +124,7 @@ class ItemJournalPage extends Page
     {
         abort_unless(auth()->user()?->can('create', QualityControlItemJournal::class), 403);
         $this->resetValidation();
-        $this->reset(['companyCode', 'branchId', 'locationId', 'additionalInfo', 'esbBranches', 'locations', 'purposes', 'productOptions', 'selectedProducts', 'items', 'attachments', 'loadError', 'productSearch', 'productCodeSearch', 'productPickerOpen', 'productPickerItemIndex', 'productPage', 'productTotal', 'productHasNext']);
+        $this->reset(['companyCode', 'branchId', 'locationId', 'additionalInfo', 'esbBranches', 'locations', 'purposes', 'productOptions', 'selectedProducts', 'items', 'attachments', 'loadError', 'stockLoadWarning', 'productSearch', 'productCodeSearch', 'productPickerOpen', 'productPickerItemIndex', 'productPage', 'productTotal', 'productHasNext']);
         $this->submissionKey = (string) Str::uuid();
         $this->journalDate = today()->toDateString();
         $this->items = [$this->blankItem()];
@@ -141,12 +144,15 @@ class ItemJournalPage extends Page
         $this->productOptions = $this->selectedProducts = [];
         $this->productPickerOpen = false;
         $this->productPickerItemIndex = null;
+        $this->stockLoadWarning = null;
         foreach ($this->items as $index => $item) {
             $this->items[$index] = array_merge($item, [
                 'productDetailID' => '',
                 'productCode' => null,
                 'productName' => null,
                 'unit' => null,
+                'availableStock' => null,
+                'availableStockUnit' => null,
                 'purposeID' => '',
             ]);
         }
@@ -168,6 +174,8 @@ class ItemJournalPage extends Page
     {
         $this->locationId = '';
         $this->locations = [];
+        $this->stockLoadWarning = null;
+        $this->clearAvailableStocks();
         if ($this->companyCode === '' || $this->branchId === '') {
             return;
         }
@@ -180,6 +188,12 @@ class ItemJournalPage extends Page
             report($exception);
             $this->loadError = $exception->getMessage();
         }
+    }
+
+    public function updatedLocationId(): void
+    {
+        $this->stockLoadWarning = null;
+        $this->clearAvailableStocks();
     }
 
     public function openProductPicker(int $itemIndex): void
@@ -213,9 +227,10 @@ class ItemJournalPage extends Page
                 'productName' => trim($this->productSearch),
                 'productCode' => trim($this->productCodeSearch),
             ]);
-            $this->productOptions = app(EsbService::class)->getActiveProductDetailsByCodes(
+            $productOptions = app(EsbService::class)->getActiveProductDetailsByCodes(
                 array_column($list['data'], 'productCode'),
             );
+            $this->productOptions = $this->withAvailableStocks($productOptions);
             $this->productPage = $list['page'];
             $this->productTotal = $list['count'];
             $this->productPerPage = $list['limit'];
@@ -265,6 +280,8 @@ class ItemJournalPage extends Page
         $this->items[$this->productPickerItemIndex]['productCode'] = $product['productCode'] ?? null;
         $this->items[$this->productPickerItemIndex]['productName'] = $product['productName'] ?? null;
         $this->items[$this->productPickerItemIndex]['unit'] = $product['unit'] ?? null;
+        $this->items[$this->productPickerItemIndex]['availableStock'] = $product['availableStock'] ?? null;
+        $this->items[$this->productPickerItemIndex]['availableStockUnit'] = $product['availableStockUnit'] ?? null;
         $this->selectedProducts[$productDetailId] = $product;
         $this->closeProductPicker();
     }
@@ -295,7 +312,9 @@ class ItemJournalPage extends Page
             'journalDate' => ['required', 'date'], 'companyCode' => ['required', Rule::in(array_keys($this->companyOptions()))], 'branchId' => ['required', 'integer'], 'locationId' => ['required', 'integer'],
             'additionalInfo' => ['nullable', 'string', 'max:1000', 'regex:/^[\x20-\x7E\r\n]*$/'],
             'items' => ['required', 'array', 'min:1'], 'items.*.productDetailID' => ['required', 'integer', Rule::in($productIds), 'distinct'],
-            'items.*.purposeID' => ['required', 'integer', Rule::in($purposeIds)], 'items.*.qty' => ['required', 'numeric', 'not_in:0'],
+            'items.*.purposeID' => ['required', 'integer', Rule::in($purposeIds)],
+            'items.*.adjustmentMode' => ['required', Rule::in(['increase', 'decrease'])],
+            'items.*.qty' => ['required', 'numeric', 'gt:0'],
             'items.*.hpp' => ['nullable', 'numeric', 'min:0'], 'attachments' => ['array', 'max:5'],
             'attachments.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
         ]);
@@ -304,7 +323,17 @@ class ItemJournalPage extends Page
         abort_unless(is_array($esbBranch), 422, 'Cabang ESB tidak valid untuk company ini.');
         $location = collect($this->locations)->firstWhere('locationID', (int) $validated['locationId']);
         abort_unless(is_array($location), 422, 'Lokasi tidak valid untuk cabang ini.');
-        $payloadDetails = collect($validated['items'])->map(fn (array $item): array => ['ID' => -1, 'productDetailID' => (int) $item['productDetailID'], 'purposeID' => (int) $item['purposeID'], 'qty' => (float) $item['qty'], 'hpp' => filled($item['hpp'] ?? null) ? (float) $item['hpp'] : 0])->all();
+        $payloadDetails = collect($validated['items'])->map(function (array $item): array {
+            $quantity = abs((float) $item['qty']);
+
+            return [
+                'ID' => -1,
+                'productDetailID' => (int) $item['productDetailID'],
+                'purposeID' => (int) $item['purposeID'],
+                'qty' => $item['adjustmentMode'] === 'decrease' ? -$quantity : $quantity,
+                'hpp' => filled($item['hpp'] ?? null) ? (float) $item['hpp'] : 0,
+            ];
+        })->all();
         $payload = ['itemJournalDate' => $validated['journalDate'], 'branchID' => (int) $esbBranch['branchID'], 'locationID' => (int) $validated['locationId'], 'requestTemplateID' => null, 'additionalInfo' => trim($validated['additionalInfo']) ?: null, 'itemJournalDetails' => $payloadDetails];
         $payloadHash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
         $journal = DB::transaction(function () use ($validated, $payload, $payloadHash, $esbBranch, $location, $availableProducts): QualityControlItemJournal {
@@ -315,10 +344,10 @@ class ItemJournalPage extends Page
             if (! $journal->wasRecentlyCreated) {
                 return $journal;
             }
-            foreach ($validated['items'] as $item) {
+            foreach ($validated['items'] as $index => $item) {
                 $product = $availableProducts->firstWhere('productDetailID', (int) $item['productDetailID']);
                 $purpose = collect($this->purposes)->firstWhere('purposeID', (int) $item['purposeID']);
-                $journal->details()->create(['product_detail_id' => $item['productDetailID'], 'product_code' => $product['productCode'] ?? null, 'product_name' => $product['productName'] ?? 'Product '.$item['productDetailID'], 'uom_name' => $product['unit'] ?? null, 'purpose_id' => $item['purposeID'], 'purpose_name' => $purpose['purposeName'] ?? null, 'purpose_account' => $purpose['purposeAccount'] ?? null, 'qty' => $item['qty'], 'hpp' => $item['hpp'] ?: 0]);
+                $journal->details()->create(['product_detail_id' => $item['productDetailID'], 'product_code' => $product['productCode'] ?? null, 'product_name' => $product['productName'] ?? 'Product '.$item['productDetailID'], 'uom_name' => $product['unit'] ?? null, 'purpose_id' => $item['purposeID'], 'purpose_name' => $purpose['purposeName'] ?? null, 'purpose_account' => $purpose['purposeAccount'] ?? null, 'qty' => $payload['itemJournalDetails'][$index]['qty'], 'hpp' => $item['hpp'] ?: 0]);
             }
             foreach ($this->attachments as $file) {
                 $path = $file->store('quality-control/item-journals/'.$journal->id, 'b2');
@@ -411,6 +440,72 @@ class ItemJournalPage extends Page
 
     private function blankItem(): array
     {
-        return ['productDetailID' => '', 'productCode' => null, 'productName' => null, 'unit' => null, 'purposeID' => '', 'qty' => '', 'hpp' => '0'];
+        return ['productDetailID' => '', 'productCode' => null, 'productName' => null, 'unit' => null, 'availableStock' => null, 'availableStockUnit' => null, 'purposeID' => '', 'adjustmentMode' => 'decrease', 'qty' => '', 'hpp' => '0'];
+    }
+
+    /** @param array<int, array<string, mixed>> $products
+     * @return array<int, array<string, mixed>>
+     */
+    private function withAvailableStocks(array $products): array
+    {
+        if ($this->branchId === '' || $this->locationId === '') {
+            return collect($products)->map(fn (array $product): array => array_merge($product, [
+                'availableStock' => null,
+                'availableStockUnit' => null,
+            ]))->all();
+        }
+
+        $branch = collect($this->esbBranches)->first(
+            fn (array $candidate): bool => (string) ($candidate['branchID'] ?? '') === (string) $this->branchId,
+        );
+        $location = collect($this->locations)->first(
+            fn (array $candidate): bool => (string) ($candidate['locationID'] ?? '') === (string) $this->locationId,
+        );
+        if (! is_array($branch) || ! is_array($location)) {
+            return $products;
+        }
+
+        try {
+            $result = app(EsbStockMovementService::class)->availableBalancesForItemJournal(
+                $this->companyCode,
+                (string) ($branch['branchCode'] ?? ''),
+                (int) $location['locationID'],
+                (string) ($location['locationName'] ?? ''),
+            );
+            $balances = $result['balances'];
+            $this->stockLoadWarning = null;
+
+            return collect($products)->map(function (array $product) use ($balances): array {
+                $key = strtoupper(trim((string) ($product['productCode'] ?? '')))
+                    .'|'.strtoupper(trim((string) ($product['unit'] ?? '')));
+                $balance = $balances[$key] ?? null;
+
+                return array_merge($product, [
+                    'availableStock' => $balance['quantity'] ?? null,
+                    'availableStockUnit' => $balance['unit'] ?? null,
+                ]);
+            })->all();
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->stockLoadWarning = 'Stok saat ini tidak dapat dimuat dari ESB. Pemilihan produk tetap dapat dilanjutkan.';
+
+            return collect($products)->map(fn (array $product): array => array_merge($product, [
+                'availableStock' => null,
+                'availableStockUnit' => null,
+            ]))->all();
+        }
+    }
+
+    private function clearAvailableStocks(): void
+    {
+        $this->productOptions = collect($this->productOptions)->map(fn (array $product): array => array_merge($product, [
+            'availableStock' => null,
+            'availableStockUnit' => null,
+        ]))->all();
+
+        foreach ($this->items as $index => $item) {
+            $this->items[$index]['availableStock'] = null;
+            $this->items[$index]['availableStockUnit'] = null;
+        }
     }
 }

@@ -178,14 +178,12 @@ it('renders the ERP repair request list with Purchasing-style columns, filters, 
         ->assertSuccessful()
         ->assertSee($request->ticket_number)
         ->assertSee('TIKET')
-        ->assertSee('PEMOHON')
         ->assertSee('CABANG')
         ->assertSee('KETERANGAN')
         // Proves the Purchasing-style per-column header filter row (custom
         // TablesRenderHook::HEADER_CELL override) is actually rendering,
         // not Filament's default boxed "above content" filter panel.
         ->assertSee('Cari tiket...')
-        ->assertSee('Cari pemohon...')
         ->assertSee('Cari keterangan...')
         ->assertSee('Pilih rentang tanggal')
         ->assertSee('- Semua Cabang -');
@@ -198,11 +196,7 @@ it('renders the ERP repair request list with Purchasing-style columns, filters, 
     $page->set('tableFilters.ticket_number.value', $request->ticket_number)
         ->assertCanSeeTableRecords([$request]);
 
-    $page->set('tableFilters.ticket_number.value', '')
-        ->set('tableFilters.requester_name.value', $this->user->name)
-        ->assertCanSeeTableRecords([$request]);
-
-    $page->set('tableFilters.requester_name.value', 'Nama Yang Tidak Ada Sama Sekali')
+    $page->set('tableFilters.ticket_number.value', 'Tiket Yang Tidak Ada Sama Sekali')
         ->assertCanNotSeeTableRecords([$request]);
 });
 

@@ -18,6 +18,11 @@ class ListErpRepairRequests extends ListRecords
         return [ErpRequestSlaStatsWidget::class];
     }
 
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
+    }
+
     protected function getHeaderActions(): array
     {
         return [];

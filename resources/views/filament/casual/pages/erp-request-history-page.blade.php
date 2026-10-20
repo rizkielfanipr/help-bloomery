@@ -196,6 +196,10 @@
                                     </div>
                                 @endif
 
+                                <div class="border-t border-gray-100 bg-gray-50 px-4 py-4 dark:border-gray-800 dark:bg-gray-950/40">
+                                    <x-erp-request.activity-history :activities="$request->activities" compact />
+                                </div>
+
                             </div>
                         @endif
 

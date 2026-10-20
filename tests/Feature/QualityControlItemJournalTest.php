@@ -81,6 +81,64 @@ it('selects products from a paginated ESB picker', function () {
         ->assertSet('items.0.productName', 'Whipping Cream');
 });
 
+it('shows current available stock for the selected branch and location', function () {
+    Http::fake([
+        'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'company-token']]),
+        'https://esb.test/core/branch' => Http::response(['status' => 'ok', 'result' => [['branchID' => 373, 'branchCode' => 'BLA', 'branchName' => 'Bloomery Test']]]),
+        'https://esb.test/core/location*' => Http::response(['status' => 'ok', 'result' => [['locationID' => 964, 'locationName' => 'Kitchen']]]),
+        'https://esb.test/core/purpose*' => Http::response(['status' => 'ok', 'result' => ['data' => [], 'next' => '']]),
+        'https://esb.test/core/product/list*' => Http::response(['status' => 'ok', 'result' => [
+            'page' => 1,
+            'limit' => 20,
+            'count' => 1,
+            'next' => '',
+            'prev' => '',
+            'data' => [['productCode' => 'BB001', 'productName' => 'Whipping Cream']],
+        ]]),
+        'https://esb.test/core/report/stock-movement*' => Http::response(['status' => 'ok', 'result' => [
+            'data' => [[
+                'branchCode' => 'BLA',
+                'productCode' => 'BB001',
+                'UOM' => 'GR',
+                'locationID' => 964,
+                'documentDate' => now()->toDateString(),
+                'createdDate' => now()->toDateTimeString(),
+                'qtyBalance' => 12.5,
+            ]],
+            'next' => '',
+            'count' => 1,
+        ]]),
+        'https://master-product.test/corev1/master/product*' => Http::response(['status' => 'ok', 'result' => [
+            'page' => 1,
+            'limit' => 10,
+            'count' => 1,
+            'next' => '',
+            'data' => [[
+                'productCode' => 'BB001',
+                'productName' => 'Whipping Cream',
+                'productDetails' => [['productDetailID' => 2112, 'unit' => 'GR']],
+            ]],
+        ]]),
+    ]);
+
+    $component = Livewire::test(ItemJournalPage::class)
+        ->call('openForm')
+        ->set('companyCode', 'BLSS')
+        ->set('branchId', '373')
+        ->set('locationId', '964')
+        ->call('openProductPicker', 0)
+        ->call('loadProducts');
+
+    $component
+        ->assertSet('stockLoadWarning', null)
+        ->assertSet('productOptions.2112.availableStock', 12.5)
+        ->assertSee('Stok saat ini:')
+        ->assertSee('12,5 GR')
+        ->call('selectProduct', 2112)
+        ->assertSet('items.0.availableStock', 12.5)
+        ->assertSet('items.0.availableStockUnit', 'GR');
+});
+
 it('finds products by name through the fuzzy ESB product list', function () {
     Http::fake([
         'https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'core-token']]),
@@ -107,7 +165,7 @@ it('finds products by name through the fuzzy ESB product list', function () {
                 'data' => [[
                     'productCode' => 'BB001',
                     'productName' => 'Whipping Cream',
-                    'productDetails' => [['productDetailID' => 2112, 'uomName' => 'GR']],
+                    'productDetails' => [['productDetailID' => 2112, 'unit' => 'GR']],
                 ]],
             ],
         ]),
@@ -144,7 +202,8 @@ it('creates a non-template item journal from the quality control app', function 
         ->set('productOptions', [['productDetailID' => 2112, 'productCode' => 'BB001', 'productName' => 'Whipping Cream', 'unit' => 'GR']])
         ->set('items.0.productDetailID', 2112)
         ->set('items.0.purposeID', 10)
-        ->set('items.0.qty', -2)
+        ->set('items.0.adjustmentMode', 'decrease')
+        ->set('items.0.qty', 2)
         ->set('items.0.hpp', 45000)
         ->set('additionalInfo', 'Sampling QC')
         ->call('submit')
@@ -167,7 +226,8 @@ it('creates a non-template item journal from the quality control app', function 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://esb.test/core/inventory/item-journal'
         && $request['requestTemplateID'] === null
         && $request['branchID'] === 373
-        && $request['itemJournalDetails'][0]['productDetailID'] === 2112);
+        && $request['itemJournalDetails'][0]['productDetailID'] === 2112
+        && (float) $request['itemJournalDetails'][0]['qty'] === -2.0);
     Http::assertSentCount(5);
 });
 
@@ -187,7 +247,8 @@ it('marks a connection failure as unknown for reconciliation', function () {
         ->set('productOptions', [['productDetailID' => 2112, 'productCode' => 'BB001', 'productName' => 'Whipping Cream', 'unit' => 'GR']])
         ->set('items.0.productDetailID', 2112)
         ->set('items.0.purposeID', 10)
-        ->set('items.0.qty', -2)
+        ->set('items.0.adjustmentMode', 'decrease')
+        ->set('items.0.qty', 2)
         ->call('submit');
 
     $journal = QualityControlItemJournal::query()->sole();

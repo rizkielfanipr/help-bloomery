@@ -45,25 +45,43 @@ class EsbStockMovementService
         if (! $pair->is_active || blank($pair->esb_comcode) || blank($pair->esb_branch_code)) {
             throw new RuntimeException('Mapping Company Code dan ESB Branch Code belum lengkap.');
         }
+
+        return $this->movementPageForEsbBranch(
+            $pair->esb_comcode,
+            $pair->esb_branch_code,
+            $from,
+            $to,
+            $unit,
+            $page,
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function movementPageForEsbBranch(string $companyCode, string $branchCode, string $from, string $to, string $unit = 'stockUnit', int $page = 1): array
+    {
+        if (blank($companyCode) || blank($branchCode)) {
+            throw new RuntimeException('Company Code dan ESB Branch Code wajib diisi.');
+        }
+
         $start = CarbonImmutable::parse($from)->startOfDay();
         $end = CarbonImmutable::parse($to)->startOfDay();
         if ($start->gt($end) || $end->gt(CarbonImmutable::today())) {
             throw new RuntimeException('Periode Stock Movement tidak valid.');
         }
 
-        $result = $this->client->successfulResult($this->client->request($pair->esb_comcode, 'get', '/report/stock-movement', [
+        $result = $this->client->successfulResult($this->client->request($companyCode, 'get', '/report/stock-movement', [
             'startPeriod' => $start->toDateString(),
             'endPeriod' => $end->toDateString(),
-            'branchCode' => $pair->esb_branch_code,
+            'branchCode' => $branchCode,
             'unitToShow' => $this->unitToShow($unit),
             'page' => max(1, $page),
             'limit' => 100,
-        ]), 'mengambil Stock Movement '.$pair->esb_branch_code, $pair->esb_comcode, '/report/stock-movement');
+        ]), 'mengambil Stock Movement '.$branchCode, $companyCode, '/report/stock-movement');
         if (! is_array($result['data'] ?? null)) {
             throw new RuntimeException('Format respons Stock Movement tidak valid.');
         }
         foreach ($result['data'] as $row) {
-            if (strcasecmp((string) ($row['branchCode'] ?? ''), $pair->esb_branch_code) !== 0) {
+            if (strcasecmp((string) ($row['branchCode'] ?? ''), $branchCode) !== 0) {
                 throw new RuntimeException('Stock Movement mengembalikan data di luar cabang yang dipilih.');
             }
         }
@@ -74,9 +92,19 @@ class EsbStockMovementService
     /** @return list<array<string, mixed>> */
     public function movements(BranchEsbCode $pair, string $from, string $to, string $unit = 'stockUnit'): array
     {
+        if (! $pair->is_active || blank($pair->esb_comcode) || blank($pair->esb_branch_code)) {
+            throw new RuntimeException('Mapping Company Code dan ESB Branch Code belum lengkap.');
+        }
+
+        return $this->movementsForEsbBranch($pair->esb_comcode, $pair->esb_branch_code, $from, $to, $unit);
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function movementsForEsbBranch(string $companyCode, string $branchCode, string $from, string $to, string $unit = 'stockUnit'): array
+    {
         $rows = [];
         for ($page = 1; $page <= 1000; $page++) {
-            $result = $this->movementPage($pair, $from, $to, $unit, $page);
+            $result = $this->movementPageForEsbBranch($companyCode, $branchCode, $from, $to, $unit, $page);
             array_push($rows, ...$result['data']);
             $hasNext = filled($result['next'] ?? null)
                 || $page * 100 < (int) ($result['count'] ?? 0);
@@ -89,6 +117,79 @@ class EsbStockMovementService
         }
 
         throw new RuntimeException('Stock Movement melebihi batas pengambilan halaman.');
+    }
+
+    /**
+     * @return array{balances: array<string, array{quantity: float, unit: string}>, fetched_at: string}
+     */
+    public function availableBalancesForItemJournal(
+        string $companyCode,
+        string $branchCode,
+        int $locationId,
+        string $locationName,
+    ): array {
+        $cacheKey = implode(':', [
+            'item-journal.available-stock.v1',
+            $companyCode,
+            $branchCode,
+            $locationId,
+            CarbonImmutable::today()->toDateString(),
+        ]);
+
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($companyCode, $branchCode, $locationId, $locationName): array {
+            $rows = $this->movementsForEsbBranch(
+                $companyCode,
+                $branchCode,
+                CarbonImmutable::today()->toDateString(),
+                CarbonImmutable::today()->toDateString(),
+            );
+            $latest = [];
+
+            foreach ($rows as $row) {
+                if (! $this->stockRowMatchesLocation($row, $locationId, $locationName)) {
+                    continue;
+                }
+
+                $productCode = trim((string) ($row['productCode'] ?? ''));
+                $unit = trim((string) ($row['UOM'] ?? ''));
+                if ($productCode === '' || $unit === '' || ! is_numeric($row['qtyBalance'] ?? null)) {
+                    continue;
+                }
+
+                $key = strtoupper($productCode).'|'.strtoupper($unit);
+                $order = [(string) ($row['documentDate'] ?? ''), (string) ($row['createdDate'] ?? '')];
+                if (! isset($latest[$key]) || $order >= $latest[$key]['order']) {
+                    $latest[$key] = [
+                        'order' => $order,
+                        'quantity' => (float) $row['qtyBalance'],
+                        'unit' => $unit,
+                    ];
+                }
+            }
+
+            return [
+                'balances' => collect($latest)->map(fn (array $balance): array => [
+                    'quantity' => $balance['quantity'],
+                    'unit' => $balance['unit'],
+                ])->all(),
+                'fetched_at' => now()->toIso8601String(),
+            ];
+        });
+    }
+
+    /** @param array<string, mixed> $row */
+    private function stockRowMatchesLocation(array $row, int $locationId, string $locationName): bool
+    {
+        $rowLocationId = (int) ($row['locationID'] ?? $row['locationId'] ?? 0);
+        if ($rowLocationId > 0) {
+            return $rowLocationId === $locationId;
+        }
+
+        $normalize = static fn (string $value): string => mb_strtolower(preg_replace('/\s+/', ' ', trim($value)) ?? '');
+        $rowLocationName = (string) ($row['location'] ?? $row['locationName'] ?? '');
+
+        return $normalize($rowLocationName) !== ''
+            && $normalize($rowLocationName) === $normalize($locationName);
     }
 
     /** @return array<string, string> */
@@ -144,13 +245,26 @@ class EsbStockMovementService
             }
             $products[$code] ??= [
                 'product_code' => $code, 'product_name' => $name, 'category' => $categories[$code] ?? '',
-                'unit' => $unit, 'usage_dates' => [], 'total_qty' => 0.0,
+                'unit' => $unit, 'usage_dates' => [], 'total_qty' => 0.0, 'latest_balances' => [],
             ];
             if ($company !== null) {
                 $products[$code]['category_sources'][$company] = trim($categories[$code] ?? '');
             }
             $products[$code]['usage_dates'][(string) $row['documentDate']] = true;
             $products[$code]['total_qty'] += (float) ($row['qtyOut'] ?? 0);
+
+            if (is_numeric($row['qtyBalance'] ?? null)) {
+                $locationKey = (string) ($row['locationID'] ?? $row['locationId'] ?? $row['location'] ?? $row['locationName'] ?? '');
+                $balanceKey = $locationKey.'|'.$unit;
+                $order = [(string) ($row['documentDate'] ?? ''), (string) ($row['createdDate'] ?? '')];
+                $currentBalance = $products[$code]['latest_balances'][$balanceKey] ?? null;
+                if (! is_array($currentBalance) || $order >= $currentBalance['order']) {
+                    $products[$code]['latest_balances'][$balanceKey] = [
+                        'order' => $order,
+                        'quantity' => (float) $row['qtyBalance'],
+                    ];
+                }
+            }
         }
 
         return $products;
@@ -239,7 +353,7 @@ class EsbStockMovementService
     }
 
     /**
-     * @param  array<string, array{product_code: string, product_name: string, category: string, unit: string, usage_dates: array<string, bool>, total_qty: float}>  $products
+     * @param  array<string, array{product_code: string, product_name: string, category: string, unit: string, usage_dates: array<string, bool>, total_qty: float, latest_balances?: array<string, array{order: array{string, string}, quantity: float}>}>  $products
      * @return array{products: list<array{product_code: string, product_name: string, category: string, unit: string, usage_days: int, total_qty: float}>, period_from: string, period_to: string, failed_requests: int}
      */
     public function buildStockCardProductCatalog(
@@ -248,15 +362,22 @@ class EsbStockMovementService
         string $periodTo,
         int $failedRequests = 0,
     ): array {
-        $catalog = collect($products)->map(fn (array $product): array => [
-            'product_code' => $product['product_code'],
-            'product_name' => $product['product_name'],
-            'category' => $product['category'] !== '' ? $product['category'] : 'Tanpa Kategori',
-            'category_sources' => $product['category_sources'] ?? [],
-            'unit' => $product['unit'],
-            'usage_days' => count($product['usage_dates']),
-            'total_qty' => $product['total_qty'],
-        ]);
+        $catalog = collect($products)
+            ->reject(function (array $product): bool {
+                $balances = $product['latest_balances'] ?? [];
+
+                return $balances !== []
+                    && abs((float) collect($balances)->sum('quantity')) < 0.0000001;
+            })
+            ->map(fn (array $product): array => [
+                'product_code' => $product['product_code'],
+                'product_name' => $product['product_name'],
+                'category' => $product['category'] !== '' ? $product['category'] : 'Tanpa Kategori',
+                'category_sources' => $product['category_sources'] ?? [],
+                'unit' => $product['unit'],
+                'usage_days' => count($product['usage_dates']),
+                'total_qty' => $product['total_qty'],
+            ]);
 
         return [
             'products' => $catalog->sortBy('product_name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all(),

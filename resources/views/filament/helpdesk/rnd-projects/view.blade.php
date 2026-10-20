@@ -33,9 +33,14 @@
                                 ])>
                                     <span class="h-1.5 w-1.5 rounded-full bg-current"></span>{{ $status }}
                                 </span>
+                                <span class="inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{{ $project->project_type->label() }}</span>
                             </div>
                             <h2 class="mt-2 text-2xl font-bold text-gray-950 dark:text-white sm:text-3xl">{{ $project->name }}</h2>
                             <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $project->description ?: 'Deskripsi project belum ditambahkan.' }}</p>
+                            @if($project->project_type === \App\Enums\RndProjectType::Partnership)
+                                <p class="mt-2 text-sm font-bold text-violet-700 dark:text-violet-300">Event: {{ $project->partnership_event_name }}</p>
+                                <div class="mt-2 flex flex-wrap gap-1.5">@foreach($project->partnershipBranches as $branch)<span class="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">{{ $branch->name }}</span>@endforeach</div>
+                            @endif
                         </div>
                     </div>
                     @if($canManage || $canDelete)
@@ -62,7 +67,7 @@
                 </div>
                 <div class="flex items-start gap-3 p-5">
                     <x-heroicon-o-cube class="mt-0.5 h-5 w-5 shrink-0 text-violet-500" />
-                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">Menu Release</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ $project->products->count() }} Menu</p><p class="mt-1 text-xs text-gray-500">Menu yang terdaftar di project</p></div>
+                    <div><p class="text-xs font-bold uppercase tracking-wide text-gray-400">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => 'BOM Assembly', \App\Enums\RndProjectType::Partnership => 'Menu Digunakan / Release', default => 'Menu Release' } }}</p><p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => $project->premixAssemblies->count(), \App\Enums\RndProjectType::Partnership => $project->partnershipMenus->count().' / '.$project->products->count(), default => $project->products->count() } }} Item</p><p class="mt-1 text-xs text-gray-500">Konten yang terdaftar di project</p></div>
                 </div>
                 <div class="flex items-start gap-3 border-t border-gray-200 p-5 dark:border-gray-700 sm:border-l-0 xl:border-l xl:border-t-0">
                     <x-heroicon-o-user-circle class="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
@@ -89,6 +94,36 @@
                         </button>
                     </div>
                     <div class="grid gap-4 overflow-y-auto p-5 sm:grid-cols-2">
+                        <div class="sm:col-span-2">
+                            <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Tipe Project</label>
+                            <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">{{ $project->project_type->label() }}</div>
+                            <p class="mt-1 text-xs text-gray-500">Tipe Project tidak dapat diubah.</p>
+                        </div>
+                        @if($project->project_type === \App\Enums\RndProjectType::Partnership)
+                            <div class="sm:col-span-2">
+                                <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Nama Event/Partnership *</label>
+                                <input wire:model="editPartnershipEventName" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                @error('editPartnershipEventName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div x-data="{ open: false, search: '' }" class="relative sm:col-span-2" @click.outside="open = false; search = ''">
+                                <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Branch Partnership *</label>
+                                <div @click="open = true; $nextTick(() => $refs.editPartnershipBranchSearch.focus())" class="flex min-h-11 cursor-text flex-wrap items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-2 dark:border-gray-600 dark:bg-gray-800">
+                                    @foreach($this->activeBranches->whereIn('id', $editPartnershipBranchIds) as $branch)
+                                        <span class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{{ $branch->name }}<button type="button" wire:click.stop="toggleEditPartnershipBranchId({{ $branch->id }})" class="leading-none hover:text-red-500">×</button></span>
+                                    @endforeach
+                                    <input x-ref="editPartnershipBranchSearch" x-model="search" @focus="open = true" placeholder="{{ count($editPartnershipBranchIds) ? 'Tambah branch...' : 'Pilih branch...' }}" class="min-w-32 flex-1 border-none bg-transparent p-0 text-sm text-gray-700 placeholder-gray-400 outline-none ring-0 focus:ring-0 dark:text-gray-200">
+                                    <x-heroicon-o-chevron-down class="h-4 w-4 shrink-0 text-gray-400" />
+                                </div>
+                                <div x-show="open" x-transition x-cloak class="absolute z-40 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                    @foreach($this->activeBranches->whereNotIn('id', $editPartnershipBranchIds) as $branch)
+                                        <button type="button" x-show="search === '' || @js(mb_strtolower($branch->name)).includes(search.toLowerCase())" wire:click="toggleEditPartnershipBranchId({{ $branch->id }})" class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 dark:text-gray-200 dark:hover:bg-gray-700">{{ $branch->name }}</button>
+                                    @endforeach
+                                    @if($this->activeBranches->whereNotIn('id', $editPartnershipBranchIds)->isEmpty())<p class="px-3 py-3 text-sm text-gray-400">Semua branch sudah dipilih.</p>@endif
+                                </div>
+                                @error('editPartnershipBranchIds')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                @error('editPartnershipBranchIds.*')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        @endif
                         <div class="sm:col-span-2">
                             <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Nama Project *</label>
                             <input wire:model="editProjectName" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Contoh: Pengembangan Menu Seasonal">
@@ -123,6 +158,12 @@
         @can('viewAny', \App\Models\RndProjectTask::class)
             <livewire:rnd-project-task-calendar :project-id="$project->id" :key="'project-task-calendar-'.$project->id" />
         @endcan
+
+        @if($project->project_type === \App\Enums\RndProjectType::Premix)
+            @include('filament.helpdesk.rnd-projects.partials.premix-workspace')
+        @elseif($project->project_type === \App\Enums\RndProjectType::Partnership)
+            @include('filament.helpdesk.rnd-projects.partials.partnership-workspace')
+        @else
 
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
             <div class="flex flex-col justify-between gap-3 border-b border-gray-200 p-5 dark:border-gray-700 sm:flex-row sm:items-center">
@@ -850,14 +891,16 @@
             </div>
         @endif
 
+        @endif
+
     </div>
-    @if(! $projectExportModalOpen)
+    @if($project->project_type === \App\Enums\RndProjectType::ReleaseProduct && ! $projectExportModalOpen)
         @include('filament.helpdesk.rnd-projects.partials.pdf-preview-modal', [
             'canReleaseSop' => $this->canReleaseBomToStoreSop(),
             'releasedSopUrl' => $this->releasedStoreSopUrl(),
         ])
     @endif
-    @if($releaseSopModalOpen)
+    @if($project->project_type === \App\Enums\RndProjectType::ReleaseProduct && $releaseSopModalOpen)
         <x-rnd.release-store-sop-modal
             :category-options="$releaseSopCategoryOptions"
             :brand-options="$releaseSopBrandOptions"

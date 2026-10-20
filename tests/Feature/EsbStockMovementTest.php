@@ -67,6 +67,49 @@ it('takes the latest balance per location instead of adding historical balances'
     Http::assertSent(fn ($request): bool => $request['startPeriod'] === '2026-09-17' && $request['endPeriod'] === '2026-09-17');
 });
 
+it('returns the latest available stock only for the selected item journal location', function () {
+    Http::fake(['*stock-movement*' => Http::response(['status' => 'ok', 'result' => [
+        'data' => [
+            ['branchCode' => 'BLA', 'productCode' => 'P-1', 'UOM' => 'GR', 'location' => 'Kitchen', 'documentDate' => '2026-09-17', 'createdDate' => '2026-09-17 08:00:00', 'qtyBalance' => 100],
+            ['branchCode' => 'BLA', 'productCode' => 'P-1', 'UOM' => 'GR', 'location' => 'Kitchen', 'documentDate' => '2026-09-17', 'createdDate' => '2026-09-17 10:00:00', 'qtyBalance' => 12.5],
+            ['branchCode' => 'BLA', 'productCode' => 'P-1', 'UOM' => 'GR', 'location' => 'Warehouse', 'documentDate' => '2026-09-17', 'createdDate' => '2026-09-17 11:00:00', 'qtyBalance' => 90],
+        ],
+        'next' => '',
+        'count' => 3,
+    ]])]);
+
+    $service = app(EsbStockMovementService::class);
+    $result = $service->availableBalancesForItemJournal('BLSS', 'BLA', 964, 'Kitchen');
+    $cachedResult = $service->availableBalancesForItemJournal('BLSS', 'BLA', 964, 'Kitchen');
+
+    expect($result['balances']['P-1|GR'])
+        ->toMatchArray(['quantity' => 12.5, 'unit' => 'GR'])
+        ->and($cachedResult)->toBe($result);
+    Http::assertSentCount(1);
+    Http::assertSent(fn ($request): bool => $request['branchCode'] === 'BLA'
+        && $request['startPeriod'] === '2026-09-17'
+        && $request['endPeriod'] === '2026-09-17'
+        && $request['unitToShow'] === 'Default Stock Unit');
+});
+
+it('excludes zero-balance products from the Stock Card catalog', function () {
+    $service = app(EsbStockMovementService::class);
+    $products = $service->mergeCatalogRows([], [
+        ['productCode' => 'ZERO', 'productName' => 'Produk Habis', 'UOM' => 'PCS', 'location' => 'Kitchen', 'documentDate' => '2026-09-17', 'createdDate' => '2026-09-17 08:00:00', 'qtyOut' => 2, 'qtyBalance' => 4],
+        ['productCode' => 'ZERO', 'productName' => 'Produk Habis', 'UOM' => 'PCS', 'location' => 'Kitchen', 'documentDate' => '2026-09-17', 'createdDate' => '2026-09-17 10:00:00', 'qtyOut' => 4, 'qtyBalance' => 0],
+        ['productCode' => 'AVAILABLE', 'productName' => 'Produk Tersedia', 'UOM' => 'PCS', 'location' => 'Kitchen', 'documentDate' => '2026-09-17', 'createdDate' => '2026-09-17 10:00:00', 'qtyOut' => 1, 'qtyBalance' => 3],
+    ], [
+        'ZERO' => 'Bahan Baku',
+        'AVAILABLE' => 'Bahan Baku',
+    ], 'BLSS');
+
+    $catalog = $service->buildStockCardProductCatalog($products, '2026-09-17', '2026-09-17');
+
+    expect(array_column($catalog['products'], 'product_code'))
+        ->toBe(['AVAILABLE'])
+        ->not->toContain('ZERO');
+});
+
 it('uses only the explicitly selected Stock Card source when multiple mappings are active', function () {
     $selected = $this->branch->esbCodes()->create(['esb_comcode' => 'BLO6', 'esb_branch_code' => 'BL6', 'is_active' => true]);
     $this->branch->update(['stock_card_esb_code_id' => $selected->id]);

@@ -39,6 +39,47 @@
                     </div>
                     <div class="grid gap-4 overflow-y-auto p-5 sm:grid-cols-2">
                         <div class="sm:col-span-2">
+                            <label for="project-type" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Tipe Project *</label>
+                            @if($editingProjectId)
+                                <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-bold text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                                    {{ \App\Enums\RndProjectType::from($projectType)->label() }}
+                                </div>
+                                <p class="mt-1 text-xs text-gray-500">Tipe Project tidak dapat diubah setelah dibuat.</p>
+                            @else
+                                <select id="project-type" wire:model.live="projectType" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                    @foreach(\App\Enums\RndProjectType::cases() as $type)
+                                        <option value="{{ $type->value }}">{{ $type->label() }}</option>
+                                    @endforeach
+                                </select>
+                            @endif
+                            @error('projectType')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        @if($projectType === \App\Enums\RndProjectType::Partnership->value)
+                            <div class="sm:col-span-2">
+                                <label for="partnership-event-name" class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Nama Event/Partnership *</label>
+                                <input id="partnership-event-name" wire:model="partnershipEventName" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Contoh: Bloomery x Partner Launch Event">
+                                @error('partnershipEventName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                            <div x-data="{ open: false, search: '' }" class="relative sm:col-span-2" @click.outside="open = false; search = ''">
+                                <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Branch Partnership *</label>
+                                <div @click="open = true; $nextTick(() => $refs.partnershipBranchSearch.focus())" class="flex min-h-11 cursor-text flex-wrap items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-2 dark:border-gray-600 dark:bg-gray-800">
+                                    @foreach($this->activeBranches->whereIn('id', $partnershipBranchIds) as $branch)
+                                        <span class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{{ $branch->name }}<button type="button" wire:click.stop="togglePartnershipBranchId({{ $branch->id }})" class="leading-none hover:text-red-500">×</button></span>
+                                    @endforeach
+                                    <input x-ref="partnershipBranchSearch" x-model="search" @focus="open = true" placeholder="{{ count($partnershipBranchIds) ? 'Tambah branch...' : 'Pilih branch...' }}" class="min-w-32 flex-1 border-none bg-transparent p-0 text-sm text-gray-700 placeholder-gray-400 outline-none ring-0 focus:ring-0 dark:text-gray-200">
+                                    <x-heroicon-o-chevron-down class="h-4 w-4 shrink-0 text-gray-400" />
+                                </div>
+                                <div x-show="open" x-transition x-cloak class="absolute z-40 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                    @foreach($this->activeBranches->whereNotIn('id', $partnershipBranchIds) as $branch)
+                                        <button type="button" x-show="search === '' || @js(mb_strtolower($branch->name)).includes(search.toLowerCase())" wire:click="togglePartnershipBranchId({{ $branch->id }})" class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 dark:text-gray-200 dark:hover:bg-gray-700">{{ $branch->name }}</button>
+                                    @endforeach
+                                    @if($this->activeBranches->whereNotIn('id', $partnershipBranchIds)->isEmpty())<p class="px-3 py-3 text-sm text-gray-400">Semua branch sudah dipilih.</p>@endif
+                                </div>
+                                @error('partnershipBranchIds')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                @error('partnershipBranchIds.*')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        @endif
+                        <div class="sm:col-span-2">
                             <label class="mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200">Nama Project *</label>
                             <input wire:model="projectName" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" placeholder="Contoh: Pengembangan Menu Seasonal">
                             @error('projectName')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
@@ -72,7 +113,7 @@
         @endif
 
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_190px_190px_auto]">
                 <div class="relative">
                     <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
                     <input wire:model.live.debounce.300ms="projectSearch" type="search" placeholder="Cari nama atau deskripsi project..."
@@ -84,6 +125,12 @@
                     <option value="active">Active</option>
                     <option value="completed">Completed</option>
                     <option value="archived">Diarsipkan</option>
+                </select>
+                <select wire:model.live="projectTypeFilter" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800">
+                    <option value="">Semua Tipe</option>
+                    @foreach(\App\Enums\RndProjectType::cases() as $type)
+                        <option value="{{ $type->value }}">{{ $type->label() }}</option>
+                    @endforeach
                 </select>
                 <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1 dark:border-gray-600 dark:bg-gray-800">
                     <button type="button" wire:click="showProjectList" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'list' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
@@ -198,13 +245,14 @@
                             </div>
                             <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $statusClass }}">{{ $status }}</span>
                         </div>
+                        <span class="mt-3 inline-flex w-fit rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{{ $project->project_type->label() }}</span>
                         <h3 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">{{ $project->name }}</h3>
                         <p class="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-gray-500">{{ $project->description ?: 'Tidak ada deskripsi project.' }}</p>
 
                         <div class="mt-5">
                             <div class="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                                <p class="text-xs text-gray-400">Product Release</p>
-                                <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ $project->products_count }}</p>
+                                <p class="text-xs text-gray-400">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => 'BOM Assembly', \App\Enums\RndProjectType::Partnership => 'Menu Partnership', default => 'Product Release' } }}</p>
+                                <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => $project->premix_assemblies_count, \App\Enums\RndProjectType::Partnership => $project->partnership_menus_count, default => $project->products_count } }}</p>
                             </div>
                         </div>
 

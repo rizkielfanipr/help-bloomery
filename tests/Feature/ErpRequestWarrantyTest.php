@@ -3,10 +3,15 @@
 use App\Actions\ClaimErpRequestWarrantyAction;
 use App\Actions\UpdateErpRequestStatusAction;
 use App\Enums\ItRequestStatus;
+use App\Filament\Casual\Pages\ErpRequestHistoryPage;
+use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ViewErpRepairRequest;
 use App\Models\ErpRepairRequest;
 use App\Models\User;
+use Database\Seeders\RolesAndPermissionsSeeder;
+use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 
 it('moves completed IT work into a three-business-day Warranty period', function () {
     $this->travelTo('2026-10-16 10:00:00');
@@ -67,4 +72,39 @@ it('auto-completes only expired Warranty tickets and records the event', functio
     expect($expired->refresh()->status)->toBe(ItRequestStatus::Completed)
         ->and($expired->activities()->latest()->first()->action)->toBe('warranty_auto_completed')
         ->and($active->refresh()->status)->toBe(ItRequestStatus::Warranty);
+});
+
+it('shows warranty complaints and activity logs to the requester and back office', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    $requester = User::factory()->create(['is_active' => true]);
+    $requester->assignRole('STORE_STAFF');
+    $request = ErpRepairRequest::factory()->create([
+        'requester_id' => $requester->id,
+        'status' => ItRequestStatus::Warranty,
+        'warranty_expires_at' => now()->addDay(),
+    ]);
+
+    app(ClaimErpRequestWarrantyAction::class)->execute(
+        $request,
+        $requester,
+        'Error yang sama muncul kembali setelah perbaikan.',
+    );
+
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $this->actingAs($requester);
+    Livewire::test(ErpRequestHistoryPage::class)
+        ->call('toggleItem', $request->id)
+        ->assertSee('Keluhan Setelah Warranty')
+        ->assertSee('Error yang sama muncul kembali setelah perbaikan.')
+        ->assertSee('Log Aktivitas');
+
+    $admin = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $admin->assignRole('SUPERADMIN');
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $this->actingAs($admin);
+    Livewire::test(ViewErpRepairRequest::class, ['record' => $request->id])
+        ->assertSee('Riwayat Permintaan')
+        ->assertSee('Keluhan Setelah Warranty')
+        ->assertSee('Error yang sama muncul kembali setelah perbaikan.')
+        ->assertSee('Log Aktivitas');
 });

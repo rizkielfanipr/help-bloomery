@@ -54,7 +54,7 @@ class ErpRequestHistoryPage extends Page
 
     public function requests(): Collection
     {
-        return ErpRepairRequest::with(['module', 'requestType'])
+        return ErpRepairRequest::with(['module', 'requestType', 'activities.actor'])
             ->where('requester_id', auth()->id())
             ->orderBy('created_at', 'desc')
             ->get();

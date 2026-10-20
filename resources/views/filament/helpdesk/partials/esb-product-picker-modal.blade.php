@@ -39,7 +39,7 @@
                             <th class="px-4 pb-3 pt-2"><input wire:model.live.debounce.700ms="inlineProductCodeSearch" type="search" placeholder="Cari semua kode..." class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-xs font-normal normal-case tracking-normal dark:border-gray-600 dark:bg-gray-900"></th>
                             <th class="px-4 pb-3 pt-2"><input wire:model.live.debounce.700ms="inlineProductNameSearch" type="search" placeholder="Cari semua nama..." class="w-full rounded-md border border-gray-300 px-2.5 py-2 text-xs font-normal normal-case tracking-normal dark:border-gray-600 dark:bg-gray-900"></th>
                             <th class="px-4 pb-3 pt-2">
-                                <select wire:model.live="inlineProductCategoryId" class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-normal normal-case dark:border-gray-600 dark:bg-gray-900">
+                                <select wire:model.live="inlineProductCategoryId" @disabled(filled($pickerLockedCategoryName ?? null)) class="w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-normal normal-case disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-600 dark:border-gray-600 dark:bg-gray-900 dark:disabled:bg-gray-800">
                                     <option value="">- Semua Kategori -</option>
                                     @foreach($inlineProductCategoryOptions as $categoryId => $categoryName)<option value="{{ $categoryId }}">{{ $categoryName }}</option>@endforeach
                                 </select>

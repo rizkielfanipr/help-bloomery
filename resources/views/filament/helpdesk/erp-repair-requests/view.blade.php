@@ -167,8 +167,12 @@
         <section class="rounded-xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-700 dark:bg-gray-900"><h2 class="text-sm font-semibold text-gray-900 dark:text-white">Attachments</h2><div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">@foreach($record->attachments as $path)<a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($path, now()->addHour()) }}" target="_blank" class="rounded-lg border border-gray-200 p-3 text-sm font-semibold text-gray-700 hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:text-gray-300">↗ {{ basename($path) }}</a>@endforeach</div></section>
     @endif
 
-    @if($record->activities->isNotEmpty())
-        <section class="rounded-xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-700 dark:bg-gray-900"><h2 class="text-sm font-semibold text-gray-900 dark:text-white">Activity History</h2><div class="mt-4 divide-y divide-gray-100 dark:divide-gray-800">@foreach($record->activities as $activity)<div class="py-3 first:pt-0 last:pb-0"><div class="flex flex-wrap items-center justify-between gap-2"><p class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ ucwords(str_replace('_', ' ', $activity->action)) }}</p><time class="text-xs text-gray-400">{{ $activity->created_at->format('d M Y, H:i') }}</time></div><p class="mt-1 text-xs text-gray-500">{{ $activity->actor?->name ?? 'System' }}@if($activity->from_status || $activity->to_status) · {{ $activity->from_status ?: 'New' }} → {{ $activity->to_status ?: '-' }}@endif</p>@if($activity->notes)<p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ $activity->notes }}</p>@endif</div>@endforeach</div></section>
-    @endif
+    <section class="rounded-xl border border-gray-200 bg-white px-6 py-5 dark:border-gray-700 dark:bg-gray-900">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Riwayat Permintaan</h2>
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Mencakup perubahan status dan seluruh keluhan yang dikirim selama masa Warranty.</p>
+        <div class="mt-4">
+            <x-erp-request.activity-history :activities="$record->activities" />
+        </div>
+    </section>
 </div>
 </x-filament-panels::page>

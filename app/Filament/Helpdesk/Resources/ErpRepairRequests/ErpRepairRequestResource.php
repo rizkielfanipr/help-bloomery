@@ -12,7 +12,6 @@ use App\Models\Branch;
 use App\Models\ErpModule;
 use App\Models\ErpRepairRequest;
 use App\Models\ItRequestType;
-use App\Services\ItBusinessHoursService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -150,11 +149,16 @@ class ErpRepairRequestResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->extraAttributes([
+                'class' => '[&_.fi-ta-header-cell]:px-2 [&_.fi-ta-text]:px-2 [&_.fi-ta-text]:py-3',
+            ])
+            ->stackedOnMobile()
             ->columns([
                 TextColumn::make('ticket_number')
                     ->label('TIKET')
                     ->searchable()
                     ->copyable()
+                    ->width('8rem')
                     ->weight('semibold'),
 
                 TextColumn::make('created_at')
@@ -162,38 +166,40 @@ class ErpRepairRequestResource extends Resource
                     ->getStateUsing(fn (ErpRepairRequest $record) => $record->submitted_at)
                     ->date('d M Y')
                     ->placeholder('Tidak tersedia')
+                    ->width('6.5rem')
                     ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderBy('submitted_at', $direction)),
-
-                TextColumn::make('requester.name')
-                    ->label('PEMOHON')
-                    ->searchable()
-                    ->sortable(),
 
                 TextColumn::make('branch.name')
                     ->label('CABANG')
                     ->placeholder('-')
+                    ->width('8rem')
+                    ->wrap()
                     ->sortable(),
 
                 TextColumn::make('module.name')
                     ->label('MODUL ERP')
                     ->badge()
                     ->color('info')
+                    ->width('7rem')
                     ->placeholder('-'),
 
                 TextColumn::make('requestType.name')
                     ->label('TYPE')
                     ->badge()
+                    ->width('6rem')
                     ->placeholder('-'),
 
                 TextColumn::make('keterangan')
                     ->label('KETERANGAN')
-                    ->limit(55)
+                    ->limit(45)
                     ->tooltip(fn (ErpRepairRequest $record): string => (string) $record->keterangan)
+                    ->grow()
                     ->wrap(),
 
                 TextColumn::make('status')
                     ->label('STATUS')
                     ->badge()
+                    ->width('7rem')
                     ->sortable()
                     ->formatStateUsing(fn (ItRequestStatus $state) => $state->getLabel())
                     ->color(fn (ItRequestStatus $state) => $state->getColor()),
@@ -201,6 +207,7 @@ class ErpRepairRequestResource extends Resource
                 TextColumn::make('priority')
                     ->label('PRIORITY')
                     ->badge()
+                    ->width('6rem')
                     ->color(fn (string $state): string => match ($state) {
                         'critical' => 'danger',
                         'high' => 'warning',
@@ -208,23 +215,6 @@ class ErpRepairRequestResource extends Resource
                         default => 'info',
                     }),
 
-                TextColumn::make('response_business_seconds')
-                    ->label('RESPONS PERTAMA')
-                    ->formatStateUsing(fn (int $state): string => app(ItBusinessHoursService::class)->formatDuration($state))
-                    ->placeholder(fn (ErpRepairRequest $record): string => $record->status === ItRequestStatus::Submitted ? 'Belum direspons' : 'Tidak tersedia')
-                    ->tooltip('Submitted → Review. Hanya Senin–Jumat 08.00–17.00 WIB.')
-                    ->sortable(),
-
-                TextColumn::make('resolution_business_seconds')
-                    ->label('PENYELESAIAN')
-                    ->formatStateUsing(fn (int $state): string => app(ItBusinessHoursService::class)->formatDuration($state))
-                    ->placeholder(fn (ErpRepairRequest $record): string => match ($record->status) {
-                        ItRequestStatus::Completed => 'Tidak tersedia',
-                        ItRequestStatus::Rejected => 'Ditolak',
-                        default => 'Belum selesai',
-                    })
-                    ->tooltip('Submitted → Completed, termasuk review dan approval. Hanya jam kerja.')
-                    ->sortable(),
             ])
             ->filters([
                 Filter::make('ticket_number')

@@ -43,7 +43,7 @@
             <form wire:submit="submit" class="flex-1 rounded-t-3xl bg-gray-50 px-5 pb-10 pt-6 dark:bg-gray-950">
                 <div class="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
                     <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30">
-                        <div class="flex items-start gap-2"><x-heroicon-o-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-500" /><div class="text-xs leading-relaxed text-blue-700 dark:text-blue-300"><p class="font-semibold">Informasi Pengisian</p><p class="mt-1">Pilih Comcode untuk memuat seluruh cabang yang tersedia pada akun ESB. Qty positif menambah stok dan qty negatif mengurangi stok.</p></div></div>
+                        <div class="flex items-start gap-2"><x-heroicon-o-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-500" /><div class="text-xs leading-relaxed text-blue-700 dark:text-blue-300"><p class="font-semibold">Informasi Pengisian</p><p class="mt-1">Pilih Comcode untuk memuat seluruh cabang yang tersedia pada akun ESB. Pilih mode Tambah atau Kurangi, lalu masukkan Qty positif.</p></div></div>
                     </div>
                     @if($loadError)<p class="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{{ $loadError }}</p>@endif
 
@@ -64,7 +64,13 @@
                                         </div>
                                         <button type="button" wire:click="openProductPicker({{ $index }})" @disabled(blank($companyCode)) class="flex w-full items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:hover:border-gray-200 disabled:hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-700 dark:hover:bg-blue-950/20 dark:disabled:bg-gray-800">
                                             @if(filled($item['productDetailID']))
-                                                <span class="min-w-0"><span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{{ $item['productName'] }}</span><span class="mt-0.5 block truncate text-xs text-slate-400">{{ $item['productCode'] }} · {{ $item['unit'] }}</span></span>
+                                                <span class="min-w-0">
+                                                    <span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{{ $item['productName'] }}</span>
+                                                    <span class="mt-0.5 block truncate text-xs text-slate-400">{{ $item['productCode'] }} · {{ $item['unit'] }}</span>
+                                                    <span class="mt-1 block text-xs font-medium {{ $item['availableStock'] !== null ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400' }}">
+                                                        Stok saat ini: {{ $item['availableStock'] !== null ? ((float) $item['availableStock'] === 0.0 ? '0' : rtrim(rtrim(number_format((float) $item['availableStock'], 4, ',', '.'), '0'), ',')).' '.($item['availableStockUnit'] ?: $item['unit']) : 'tidak tersedia' }}
+                                                    </span>
+                                                </span>
                                             @else
                                                 <span class="text-sm text-slate-400">{{ blank($companyCode) ? 'Pilih Comcode terlebih dahulu' : 'Pilih produk dari Master Product ESB' }}</span>
                                             @endif
@@ -73,7 +79,21 @@
                                         @error("items.$index.productDetailID")<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                                     </div>
                                     <div><label class="{{ $labelClass }}">Purpose <span class="text-red-400">*</span></label><select wire:model="items.{{ $index }}.purposeID" @disabled(blank($companyCode)) class="{{ $fieldClass }} disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-gray-800"><option value="">{{ blank($companyCode) ? '-- Pilih Comcode terlebih dahulu --' : '-- Pilih purpose --' }}</option>@foreach($purposes as $purpose)<option value="{{ $purpose['purposeID'] }}">{{ $purpose['purposeName'] }}{{ filled($purpose['purposeAccount'] ?? null) ? ' · '.$purpose['purposeAccount'] : '' }}</option>@endforeach</select>@error("items.$index.purposeID")<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror</div>
-                                    <div class="grid grid-cols-2 gap-3"><div><label class="{{ $labelClass }}">Qty <span class="text-red-400">*</span></label><input type="number" step="0.0001" wire:model="items.{{ $index }}.qty" class="{{ $fieldClass }}" placeholder="Contoh: -2">@error("items.$index.qty")<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror</div><div><label class="{{ $labelClass }}">HPP</label><input type="number" min="0" step="0.0001" wire:model="items.{{ $index }}.hpp" class="{{ $fieldClass }}">@error("items.$index.hpp")<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror</div></div>
+                                    <div>
+                                        <label class="{{ $labelClass }}">Mode Penyesuaian <span class="text-red-400">*</span></label>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <label class="cursor-pointer">
+                                                <input type="radio" wire:model="items.{{ $index }}.adjustmentMode" value="increase" class="peer sr-only">
+                                                <span class="flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-600 transition peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-700 dark:border-gray-700 dark:text-gray-300 dark:peer-checked:border-emerald-500 dark:peer-checked:bg-emerald-950/30 dark:peer-checked:text-emerald-300"><span class="text-base">+</span> Tambah Stok</span>
+                                            </label>
+                                            <label class="cursor-pointer">
+                                                <input type="radio" wire:model="items.{{ $index }}.adjustmentMode" value="decrease" class="peer sr-only">
+                                                <span class="flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-600 transition peer-checked:border-red-500 peer-checked:bg-red-50 peer-checked:text-red-700 dark:border-gray-700 dark:text-gray-300 dark:peer-checked:border-red-500 dark:peer-checked:bg-red-950/30 dark:peer-checked:text-red-300"><span class="text-base">−</span> Kurangi Stok</span>
+                                            </label>
+                                        </div>
+                                        @error("items.$index.adjustmentMode")<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3"><div><label class="{{ $labelClass }}">Qty <span class="text-red-400">*</span></label><input type="number" min="0.0001" step="0.0001" wire:model="items.{{ $index }}.qty" class="{{ $fieldClass }}" placeholder="Contoh: 2">@error("items.$index.qty")<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror</div><div><label class="{{ $labelClass }}">HPP</label><input type="number" min="0" step="0.0001" wire:model="items.{{ $index }}.hpp" class="{{ $fieldClass }}">@error("items.$index.hpp")<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror</div></div>
                                 </div>
                             @endforeach
                         </div>
@@ -106,6 +126,11 @@
                         <label class="relative"><x-heroicon-o-magnifying-glass class="absolute left-3 top-3 h-4 w-4 text-gray-400" /><input type="search" wire:model.live.debounce.700ms="productSearch" class="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-950" placeholder="Cari nama produk"></label>
                         <label class="relative"><x-heroicon-o-qr-code class="absolute left-3 top-3 h-4 w-4 text-gray-400" /><input type="search" wire:model.live.debounce.700ms="productCodeSearch" class="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-950" placeholder="Cari kode produk"></label>
                     </div>
+                    @if($stockLoadWarning)
+                        <div class="border-b border-amber-100 bg-amber-50 px-5 py-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">{{ $stockLoadWarning }}</div>
+                    @elseif(blank($branchId) || blank($locationId))
+                        <div class="border-b border-blue-100 bg-blue-50 px-5 py-3 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">Pilih cabang dan lokasi untuk melihat stok saat ini.</div>
+                    @endif
                     <div class="relative min-h-[300px] flex-1 overflow-y-auto">
                         <div wire:loading.flex wire:target="loadProducts,productSearch,productCodeSearch,previousProductPage,nextProductPage" class="absolute inset-0 z-20 items-center justify-center bg-white/85 dark:bg-gray-900/85" role="status">
                             <div class="text-center"><div class="mx-auto h-11 w-11 animate-spin rounded-full border-4 border-blue-100 border-r-blue-500 border-t-blue-600 dark:border-blue-950"></div><p class="mt-3 text-xs font-semibold text-blue-600">Memuat produk ESB...</p></div>
@@ -113,7 +138,13 @@
                         <div class="divide-y divide-gray-100 dark:divide-gray-800">
                             @forelse($productOptions as $product)
                                 <button type="button" wire:key="journal-product-{{ $product['productDetailID'] }}" wire:click="selectProduct({{ $product['productDetailID'] }})" class="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-blue-50 dark:hover:bg-blue-950/20">
-                                    <span class="min-w-0"><span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $product['productName'] }}</span><span class="mt-1 block text-xs text-gray-500"><span class="font-mono text-blue-600">{{ $product['productCode'] }}</span> · {{ $product['unit'] ?: '-' }}</span></span>
+                                    <span class="min-w-0">
+                                        <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $product['productName'] }}</span>
+                                        <span class="mt-1 block text-xs text-gray-500"><span class="font-mono text-blue-600">{{ $product['productCode'] }}</span> · {{ $product['unit'] ?: '-' }}</span>
+                                        <span class="mt-1 block text-xs font-medium {{ $product['availableStock'] !== null ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400' }}">
+                                            Stok saat ini: {{ $product['availableStock'] !== null ? ((float) $product['availableStock'] === 0.0 ? '0' : rtrim(rtrim(number_format((float) $product['availableStock'], 4, ',', '.'), '0'), ',')).' '.($product['availableStockUnit'] ?: $product['unit']) : 'tidak tersedia' }}
+                                        </span>
+                                    </span>
                                     <x-heroicon-o-plus-circle class="h-5 w-5 shrink-0 text-blue-500" />
                                 </button>
                             @empty

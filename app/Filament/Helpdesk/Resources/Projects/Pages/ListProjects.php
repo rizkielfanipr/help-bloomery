@@ -3,13 +3,18 @@
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Actions\ArchiveRndProjectAction;
+use App\Actions\Rnd\Project\CreateRndProjectAction;
+use App\Actions\Rnd\Project\UpdateRndProjectAction;
+use App\Enums\RndProjectType;
 use App\Filament\Helpdesk\Concerns\HasProjectTaskCalendar;
 use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
+use App\Models\Branch;
 use App\Models\RndProject;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
 
 class ListProjects extends ListRecords
@@ -31,6 +36,8 @@ class ListProjects extends ListRecords
 
     public string $projectStatus = '';
 
+    public string $projectTypeFilter = '';
+
     public string $projectView = 'list';
 
     public string $calendarMonth = '';
@@ -47,6 +54,26 @@ class ListProjects extends ListRecords
 
     public string $projectEndDate = '';
 
+    public string $projectType = 'release_product';
+
+    public string $partnershipEventName = '';
+
+    /** @var list<int|string> */
+    public array $partnershipBranchIds = [];
+
+    public function getActiveBranchesProperty(): Collection
+    {
+        return Branch::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+    }
+
+    public function togglePartnershipBranchId(int $branchId): void
+    {
+        $selectedIds = collect($this->partnershipBranchIds)->map(fn ($id): int => (int) $id);
+        $this->partnershipBranchIds = $selectedIds->contains($branchId)
+            ? $selectedIds->reject(fn (int $id): bool => $id === $branchId)->values()->all()
+            : $selectedIds->push($branchId)->unique()->values()->all();
+    }
+
     public function mount(): void
     {
         parent::mount();
@@ -61,7 +88,8 @@ class ListProjects extends ListRecords
     {
         return RndProject::query()
             ->when($this->projectStatus === 'archived', fn ($query) => $query->onlyTrashed())
-            ->withCount('products')
+            ->withCount(['products', 'premixAssemblies', 'partnershipMenus'])
+            ->when($this->projectTypeFilter !== '', fn ($query) => $query->where('project_type', $this->projectTypeFilter))
             ->when($this->projectSearch !== '', fn ($query) => $query->where(function ($query): void {
                 $query
                     ->where('name', 'like', '%'.$this->projectSearch.'%')
@@ -172,7 +200,8 @@ class ListProjects extends ListRecords
     {
         abort_unless(ProjectResource::canCreate(), 403);
         $this->resetValidation();
-        $this->reset(['projectName', 'projectDescription', 'projectStartDate', 'projectEndDate']);
+        $this->reset(['projectName', 'projectDescription', 'projectStartDate', 'projectEndDate', 'partnershipEventName', 'partnershipBranchIds']);
+        $this->projectType = RndProjectType::ReleaseProduct->value;
         $this->editingProjectId = null;
         $this->createProjectModalOpen = true;
     }
@@ -187,6 +216,9 @@ class ListProjects extends ListRecords
         $this->projectDescription = $project->description ?? '';
         $this->projectStartDate = $project->start_date->format('Y-m-d');
         $this->projectEndDate = $project->end_date->format('Y-m-d');
+        $this->projectType = $project->project_type->value;
+        $this->partnershipEventName = $project->partnership_event_name ?? '';
+        $this->partnershipBranchIds = $project->partnershipBranches()->pluck('branches.id')->all();
         $this->createProjectModalOpen = true;
     }
 
@@ -220,14 +252,17 @@ class ListProjects extends ListRecords
         Notification::make()->title('Project berhasil dipulihkan')->success()->send();
     }
 
-    public function createProject(): void
+    public function createProject(CreateRndProjectAction $createProject, UpdateRndProjectAction $updateProject): void
     {
-        $this->saveProject();
+        $this->saveProject($createProject, $updateProject);
     }
 
-    public function saveProject(): void
+    public function saveProject(CreateRndProjectAction $createProject, UpdateRndProjectAction $updateProject): void
     {
         $isEditing = $this->editingProjectId !== null;
+        $persistedType = $isEditing
+            ? RndProject::query()->findOrFail($this->editingProjectId)->project_type
+            : RndProjectType::from($this->projectType);
         $validated = $this->validate([
             'projectName' => ['required', 'string', 'max:255'],
             'projectDescription' => ['nullable', 'string'],
@@ -235,23 +270,40 @@ class ListProjects extends ListRecords
             'projectEndDate' => $isEditing
                 ? ['required', 'date', 'after_or_equal:projectStartDate']
                 : ['required', 'date', 'after_or_equal:today'],
+            'projectType' => $isEditing ? ['required', Rule::enum(RndProjectType::class)] : ['required', Rule::enum(RndProjectType::class)],
+            'partnershipEventName' => [Rule::requiredIf($persistedType === RndProjectType::Partnership), 'nullable', 'string', 'max:255'],
+            'partnershipBranchIds' => [
+                Rule::requiredIf($persistedType === RndProjectType::Partnership),
+                'array',
+                Rule::when($persistedType === RndProjectType::Partnership, ['min:1']),
+            ],
+            'partnershipBranchIds.*' => ['integer', 'distinct', Rule::exists('branches', 'id')->where('is_active', true)],
         ]);
+
+        $type = RndProjectType::from($validated['projectType']);
 
         $projectData = [
             'name' => trim($validated['projectName']),
             'description' => trim($validated['projectDescription']) ?: null,
             'start_date' => $isEditing ? $validated['projectStartDate'] : today()->toDateString(),
             'end_date' => $validated['projectEndDate'],
+            'partnership_event_name' => $validated['partnershipEventName'] ?? null,
+            'partnership_branch_ids' => $persistedType === RndProjectType::Partnership
+                ? collect($validated['partnershipBranchIds'])->map(fn ($branchId): int => (int) $branchId)->all()
+                : [],
         ];
+
+        $actor = auth()->user();
+        abort_unless($actor !== null, 403);
 
         if ($this->editingProjectId !== null) {
             $project = RndProject::query()->findOrFail($this->editingProjectId);
             abort_unless(ProjectResource::canEdit($project), 403);
-            $project->update($projectData);
+            $project = $updateProject->execute($actor, $project, $projectData);
             $notificationTitle = 'Project berhasil diperbarui';
         } else {
             abort_unless(ProjectResource::canCreate(), 403);
-            $project = RndProject::query()->create($projectData + ['created_by' => auth()->id()]);
+            $project = $createProject->execute($actor, $projectData + ['project_type' => $type]);
             $notificationTitle = 'Project berhasil dibuat';
         }
 

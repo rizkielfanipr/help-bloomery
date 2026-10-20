@@ -141,8 +141,14 @@ it('uses all filtered tickets rather than just one table page for the SLA widget
     expect($filtered->instance()->getStats()[2]['value'])->toBe('1');
 
     Livewire::test(ListErpRepairRequests::class)->assertSee('Rata-rata respons pertama')
-        ->assertSee('RESPONS PERTAMA')->assertSee('PENYELESAIAN')
+        ->assertSee('Ringkasan SLA Permintaan IT')
+        ->assertSee('IT Support · Performance')
+        ->assertTableColumnDoesNotExist('requester.name')
+        ->assertTableColumnDoesNotExist('response_business_seconds')
+        ->assertTableColumnDoesNotExist('resolution_business_seconds')
         ->assertSee('Cara menghitung SLA ERP IT');
+
+    expect(app(ListErpRepairRequests::class)->getHeaderWidgetsColumns())->toBe(1);
 });
 
 it('filters SLA reports by submission date rather than an earlier creation date', function () {

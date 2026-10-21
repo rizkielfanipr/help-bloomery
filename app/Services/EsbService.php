@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -886,7 +887,24 @@ class EsbService
      */
     public function getDailySalesMaterialUsage(string $branchCode, string $salesDate, string $flagUnit, string $token): array
     {
-        $response = Http::withHeaders([
+        $response = $this->dailySalesMaterialUsageResponse($branchCode, $salesDate, $flagUnit, $token);
+
+        if ($response->failed()) {
+            throw new \RuntimeException('ESB Material Usage API error: '.$response->status().' '.$response->body());
+        }
+
+        return $response->json() ?? [];
+    }
+
+    /**
+     * The raw Daily Sales Material Usage response, for callers that must tell an invalid body or
+     * an error status apart from an empty successful day (Ordering Recommendation snapshots).
+     *
+     * @throws ConnectionException
+     */
+    public function dailySalesMaterialUsageResponse(string $branchCode, string $salesDate, string $flagUnit, string $token): Response
+    {
+        return Http::withHeaders([
             'Authorization' => 'Bearer '.$token,
             'Content-Type' => 'application/json',
         ])->timeout(60)->get($this->baseUrl.'/corev1/sales/get-daily-sales-material-usage', [
@@ -894,12 +912,6 @@ class EsbService
             'salesDate' => $salesDate,
             'flagUnit' => $flagUnit,
         ]);
-
-        if ($response->failed()) {
-            throw new \RuntimeException('ESB Material Usage API error: '.$response->status().' '.$response->body());
-        }
-
-        return $response->json() ?? [];
     }
 
     /**

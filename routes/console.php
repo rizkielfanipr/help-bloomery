@@ -26,3 +26,6 @@ Schedule::command('rnd:send-project-task-reminders')->dailyAt('07:00')->withoutO
 Schedule::command('monitoring:run-checks')->everyMinute()->withoutOverlapping(5);
 Schedule::command('monitoring:aggregate')->dailyAt('00:20')->withoutOverlapping(30);
 Schedule::command('monitoring:prune')->dailyAt('03:15')->withoutOverlapping(60);
+// Ordering Recommendation: dispatch the previous day's snapshot after the data is final
+// (docs/ordering-recommendation-prd.md §12.2). The time comes from config.
+Schedule::command('ordering:sync')->dailyAt((string) config('ordering_recommendation.sync_time'))->withoutOverlapping(60)->onOneServer();

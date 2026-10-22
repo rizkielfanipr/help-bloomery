@@ -1,4 +1,4 @@
-const CACHE = 'bloomery-v2';
+const CACHE = 'bloomery-v3';
 
 const PRECACHE = [
     '/icons/pwa-192.png',
@@ -26,26 +26,9 @@ self.addEventListener('fetch', (e) => {
     if (e.request.method !== 'GET') return;
     if (!e.request.url.startsWith(self.location.origin)) return;
 
-    const acceptsHtml = (e.request.headers.get('accept') || '').includes('text/html');
-    const isPageRequest = e.request.mode === 'navigate' || acceptsHtml;
     const isStaticAsset = /\.(png|jpe?g|webp|gif|svg|ico|woff2?|css|js)(\?|$)/i.test(e.request.url);
 
-    // Handle regular navigation and wire:navigate page requests network-first.
-    if (isPageRequest) {
-        e.respondWith(
-            fetch(e.request).catch(async () => {
-                const cached = await caches.match(e.request);
-
-                return cached || new Response('Koneksi ke server terputus. Silakan muat ulang halaman.', {
-                    status: 503,
-                    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-                });
-            })
-        );
-        return;
-    }
-
-    // Do not intercept ordinary application GET requests.
+    // Let the browser handle application pages and Livewire navigation directly.
     if (!isStaticAsset) return;
 
     // For static assets: cache-first with a non-rejecting network fallback.

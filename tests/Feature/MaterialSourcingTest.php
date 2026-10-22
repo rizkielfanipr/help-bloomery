@@ -665,7 +665,9 @@ describe('standalone sourcing (without a Project)', function () {
 
         expect($standalone->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::Approved)
             ->and($standalone->sourcing_selected_id)->toBe($winner->id)
-            ->and($standalone->sourcingApprovals()->pluck('stage')->all())->toBe(['rnd', 'finance']);
+            // The relation lists newest first; the approval order is asserted chronologically by key
+            // so the result never depends on both approvals landing in the same second.
+            ->and($standalone->sourcingApprovals()->reorder()->orderBy('id')->pluck('stage')->all())->toBe(['rnd', 'finance']);
     });
 
     it('can be sourced twice for the same ESB material, and is found by "mandiri" and its ESB code', function () {

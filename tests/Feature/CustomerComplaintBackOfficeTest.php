@@ -191,6 +191,29 @@ it('shows complaint details as a read-only recap without follow-up actions', fun
     expect($complaint->refresh()->getAttributes())->not->toHaveKey('status');
 });
 
+it('renders every complaint attachment as an authorized link', function () {
+    $branch = Branch::factory()->create();
+    $reviewer = User::factory()->create(['is_active' => true, 'branch_id' => $branch->id]);
+    $reviewer->givePermissionTo(['view any customer complaints', 'view customer complaints']);
+    $paths = [
+        "customer-complaints/{$branch->id}/foto-awal.jpg",
+        "customer-complaints/{$branch->id}/foto-kedua.jpg",
+    ];
+    $complaint = CustomerComplaint::factory()->create([
+        'branch_id' => $branch->id,
+        'attachment_paths' => $paths,
+    ]);
+
+    $this->actingAs($reviewer);
+
+    Livewire::test(ViewCustomerComplaint::class, ['record' => $complaint->id])
+        ->assertSuccessful()
+        ->assertSee('foto-awal.jpg')
+        ->assertSee('foto-kedua.jpg')
+        ->assertSeeHtml(route('helpdesk.customer-complaints.attachments.show', ['path' => $paths[0]]))
+        ->assertSeeHtml(route('helpdesk.customer-complaints.attachments.show', ['path' => $paths[1]]));
+});
+
 it('does not expose a follow-up action even to users holding the legacy update permission', function () {
     $branch = Branch::factory()->create();
     $reviewer = User::factory()->create(['is_active' => true, 'branch_id' => $branch->id]);

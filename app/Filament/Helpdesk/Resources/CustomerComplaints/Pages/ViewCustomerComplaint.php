@@ -78,7 +78,10 @@ class ViewCustomerComplaint extends ViewRecord
                         ->label('')
                         ->state(fn (): array => $this->getAttachmentLinks())
                         ->schema([
-                            TextEntry::make('name')->label('')->url(fn (array $state): ?string => $state['url'] ?? null, shouldOpenInNewTab: true),
+                            TextEntry::make('url')
+                                ->label('')
+                                ->formatStateUsing(fn (string $state): string => basename($state))
+                                ->url(fn (string $state): string => $state, shouldOpenInNewTab: true),
                         ]),
                 ])
                 ->visible(fn (CustomerComplaint $record): bool => filled($record->attachment_paths)),

@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\SalesReportDataSource;
+use App\Services\SalesReport\SalesReportEvidenceStore;
 use Database\Factories\SalesReportComplimentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class SalesReportCompliment extends Model
 {
@@ -16,17 +17,18 @@ class SalesReportCompliment extends Model
     protected static function booted(): void
     {
         static::deleting(function (SalesReportCompliment $compliment): void {
-            $paths = $compliment->attachment_paths ?? [];
-
-            if ($paths !== []) {
-                Storage::disk('b2')->delete($paths);
-            }
+            app(SalesReportEvidenceStore::class)->delete($compliment->attachment_paths ?? []);
         });
     }
 
     protected $fillable = [
         'sales_report_id',
         'shift_number',
+        'sales_number',
+        'sales_number_source',
+        'source_comcode',
+        'source_branch_code',
+        'sales_transaction_at',
         'compliment_type_id',
         'compliment_type_name',
         'attachment_paths',
@@ -38,8 +40,19 @@ class SalesReportCompliment extends Model
     {
         return [
             'shift_number' => 'integer',
+            'sales_number_source' => SalesReportDataSource::class,
+            'sales_transaction_at' => 'datetime',
             'attachment_paths' => 'array',
         ];
+    }
+
+    /**
+     * Rows saved before the Sales Number requirement have no source; they are presented as legacy
+     * instead of being backfilled (docs/sales-report-compliment-void-remediation-prd.md §18.2).
+     */
+    public function effectiveSalesNumberSource(): SalesReportDataSource
+    {
+        return $this->sales_number_source ?? SalesReportDataSource::Legacy;
     }
 
     public function salesReport(): BelongsTo

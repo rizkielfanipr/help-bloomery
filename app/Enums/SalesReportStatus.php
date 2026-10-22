@@ -19,7 +19,8 @@ enum SalesReportStatus: string implements HasColor, HasLabel
         return match ($this) {
             self::Draft => 'Draft',
             self::PendingSupervisor => 'Supervisor Review',
-            self::PendingFinance => 'Finance Review',
+            // Legacy: no longer produced; kept readable until the status migration (PRD §18.4).
+            self::PendingFinance => 'Finance Review (Legacy)',
             self::Completed => 'Completed',
             self::Rejected => 'Rejected',
             self::RejectedBySystem => 'Rejected by System',

@@ -1,5 +1,7 @@
 <?php
 
+use App\Actions\SalesReport\ApproveSalesReportAsSupervisorAction;
+use App\Actions\SalesReport\RejectCompletedSalesReportAction;
 use App\Enums\SalesReportStatus;
 use App\Filament\Casual\Pages\SalesReportShiftPage;
 use App\Filament\Helpdesk\Pages\DriverTripSettingsPage;
@@ -17,6 +19,8 @@ use App\Models\User;
 use App\Services\SalesReportScoreCalculator;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -175,7 +179,7 @@ it('keeps the app locked after submission and rejects re-save attempts', functio
     expect((float) $this->entry->refresh()->sales_store_amount)->toBe(1000000.0);
 });
 
-it('moves a report from supervisor approval through finance reconciliation', function () {
+it('completes a report directly on supervisor approval without a finance approval step', function () {
     $supervisor = User::factory()->create([
         'branch_id' => $this->branch->id,
         'is_active' => true,
@@ -184,29 +188,35 @@ it('moves a report from supervisor approval through finance reconciliation', fun
 
     $this->actingAs($supervisor);
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+        ->assertSee('Approve Report')
+        ->assertDontSee('Set as Finance Review')
         ->set('reviewNote', 'Data toko sudah diperiksa.')
         ->call('approveSupervisor')
-        ->assertHasNoErrors();
+        ->assertHasNoErrors()
+        ->assertDontSee('Approve Report');
 
-    expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingFinance)
-        ->and($this->report->supervisor_reviewed_by)->toBe($supervisor->id);
+    $this->report->refresh();
+    $this->reconciliation->refresh();
+    $approval = $this->report->approvals()->sole();
+
+    expect($this->report->status)->toBe(SalesReportStatus::Completed)
+        ->and($this->report->supervisor_reviewed_by)->toBe($supervisor->id)
+        ->and($this->report->supervisor_note)->toBe('Data toko sudah diperiksa.')
+        ->and($this->report->finance_reviewed_by)->toBeNull()
+        ->and($this->report->finance_reviewed_at)->toBeNull()
+        ->and($approval->stage)->toBe('supervisor')
+        ->and($approval->action)->toBe('approved')
+        ->and($this->reconciliation->settlement_amount)->toBeNull()
+        ->and($this->reconciliation->reconciliation_status)->toBeNull();
 
     $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
-    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->call('approveFinance')
-        ->assertHasNoErrors();
-
-    $this->report->refresh();
-    $this->reconciliation->refresh();
-
-    expect($this->report->status)->toBe(SalesReportStatus::Completed)
-        ->and($this->report->finance_reviewed_by)->toBe($finance->id)
-        ->and($this->reconciliation->settlement_amount)->toBeNull()
-        ->and($this->reconciliation->reconciliation_status)->toBeNull()
-        ->and($this->report->approvals()->count())->toBe(2);
+    // The Finance approval is gone from the page entirely, not just hidden.
+    expect(fn () => Livewire::test(ViewSalesReport::class, ['record' => $this->report])->call('approveFinance'))
+        ->toThrow(Exception::class);
+    expect($this->report->refresh()->finance_reviewed_by)->toBeNull();
 });
 
 it('requires supervisor notes while corrected store and system sales still differ', function () {
@@ -225,24 +235,26 @@ it('requires supervisor notes while corrected store and system sales still diffe
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingSupervisor);
 });
 
-it('makes a finance rejection final with an audit trail', function () {
+it('keeps a legacy finance review report readable without any approval or rejection action', function () {
     $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
     $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->set('rejectionReason', 'Settlement bank belum sesuai.')
-        ->call('rejectFinance')
-        ->assertHasNoErrors();
-
-    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Rejected)
-        ->and($this->report->approvals()->where('stage', 'finance')->where('action', 'rejected')->exists())->toBeTrue();
-
-    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+        ->assertSee('Legacy Finance Review')
+        ->assertDontSee('Approve Report')
+        ->assertDontSee('Reject Report')
         ->assertDontSee('Set as Finance Review')
         ->assertDontSee('Set as Completed')
-        ->assertDontSee('Return to Supervisor');
+        ->assertDontSee('Return to Supervisor')
+        ->call('rejectCompleted')
+        ->assertForbidden();
+
+    expect(fn () => Livewire::test(ViewSalesReport::class, ['record' => $this->report])->call('rejectFinance'))
+        ->toThrow(Exception::class);
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingFinance)
+        ->and($this->report->approvals()->count())->toBe(0);
 });
 
 it('lets finance reject a completed report with a required reason and an audit trail', function () {
@@ -402,22 +414,24 @@ it('preserves first input while the supervisor corrects the working values', fun
     $this->report->refresh();
     $this->reconciliation->refresh();
 
-    expect($this->report->status)->toBe(SalesReportStatus::PendingFinance)
+    expect($this->report->status)->toBe(SalesReportStatus::Completed)
         ->and((float) $this->reconciliation->reported_store_amount)->toBe(900000.0)
         ->and((float) $this->reconciliation->store_amount)->toBe(1000000.0)
         ->and($this->reconciliation->supervisor_notes)->toBe('Shortage reconciled by supervisor.');
 });
 
-it('allows finance to complete without settlement data', function () {
-    $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
+it('offers finance only a rejection on a completed report, without settlement input', function () {
+    $this->report->update(['status' => SalesReportStatus::Completed->value]);
     $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
         ->assertDontSeeHtml('wire:model.live.debounce.400ms="settlementRows')
-        ->call('approveFinance')
-        ->assertHasNoErrors();
+        ->assertSee('Reject Report')
+        ->assertSee('the score for this date becomes 0')
+        ->assertDontSee('Approve Report')
+        ->assertDontSee('Refresh Data ESB');
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
         ->and($this->reconciliation->refresh()->settlement_amount)->toBeNull();
@@ -436,7 +450,7 @@ it('shows the workflow status in the finance sales report list', function () {
 it('uses concise English labels throughout the sales report workflow', function () {
     expect(SalesReportStatus::Draft->getLabel())->toBe('Draft')
         ->and(SalesReportStatus::PendingSupervisor->getLabel())->toBe('Supervisor Review')
-        ->and(SalesReportStatus::PendingFinance->getLabel())->toBe('Finance Review')
+        ->and(SalesReportStatus::PendingFinance->getLabel())->toBe('Finance Review (Legacy)')
         ->and(SalesReportStatus::Completed->getLabel())->toBe('Completed')
         ->and(SalesReportStatus::Rejected->getLabel())->toBe('Rejected');
 });
@@ -482,7 +496,7 @@ it('limits employee branches and records to branches accessible by the superviso
         ->and(EmployeeResource::canDelete($hiddenEmployee))->toBeFalse();
 });
 
-it('allows a superadmin to test both supervisor and finance approval stages', function () {
+it('lets a superadmin approve as supervisor straight to completed', function () {
     $superadmin = User::factory()->create([
         'is_active' => true,
         'access_all_branches' => true,
@@ -490,18 +504,13 @@ it('allows a superadmin to test both supervisor and finance approval stages', fu
     $superadmin->assignRole('SUPERADMIN');
     $this->actingAs($superadmin);
 
-    $page = Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
         ->call('approveSupervisor')
-        ->assertHasNoErrors();
-
-    expect($this->report->refresh()->status)->toBe(SalesReportStatus::PendingFinance);
-
-    $page->call('approveFinance')
         ->assertHasNoErrors();
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
         ->and($this->report->supervisor_reviewed_by)->toBe($superadmin->id)
-        ->and($this->report->finance_reviewed_by)->toBe($superadmin->id)
+        ->and($this->report->finance_reviewed_by)->toBeNull()
         ->and($this->reconciliation->refresh()->reconciliation_status)->toBeNull();
 });
 
@@ -514,30 +523,27 @@ it('allows a superadmin to approve a report they submitted for testing', functio
     $superadmin->assignRole('SUPERADMIN');
     $this->actingAs($superadmin);
 
-    $page = Livewire::test(ViewSalesReport::class, ['record' => $this->report])
-        ->assertSee('Set as Finance Review')
+    Livewire::test(ViewSalesReport::class, ['record' => $this->report])
+        ->assertSee('Approve Report')
         ->call('approveSupervisor')
         ->assertHasNoErrors()
-        ->assertSee('Set as Completed');
-
-    $page->call('approveFinance')
-        ->assertHasNoErrors();
+        ->assertDontSee('Approve Report')
+        ->assertDontSee('Set as Completed');
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed);
 });
 
-it('allows finance to complete cash reports without settlement data', function () {
+it('shows completed cash reports to finance without settlement data or an approval', function () {
     $this->entry->update(['payment_method_name' => 'Cash']);
     $this->reconciliation->update(['payment_method_name' => 'Cash']);
-    $this->report->update(['status' => SalesReportStatus::PendingFinance->value]);
+    $this->report->update(['status' => SalesReportStatus::Completed->value]);
     $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
     $finance->assignRole('FINANCE_STAFF');
     $this->actingAs($finance);
 
     Livewire::test(ViewSalesReport::class, ['record' => $this->report])
         ->assertDontSee('N/A')
-        ->call('approveFinance')
-        ->assertHasNoErrors();
+        ->assertDontSee('Approve Report');
 
     expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
         ->and($this->reconciliation->refresh()->settlement_amount)->toBeNull();
@@ -559,4 +565,77 @@ it('locks shift two until shift one has been submitted', function () {
             ->whereDate('report_date', today()))
         ->where('shift_number', 2)
         ->exists())->toBeFalse();
+});
+
+it('records exactly one approval when the supervisor approval is sent twice', function () {
+    $supervisor = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
+    $supervisor->assignRole('SUPERVISOR_STORE');
+    $rows = [$this->reconciliation->id => ['store_amount' => '1000000', 'notes' => '']];
+
+    app(ApproveSalesReportAsSupervisorAction::class)->execute($this->report, $supervisor, $rows, null);
+
+    // A stale second request (double click, second tab) carries the old PendingSupervisor model.
+    $stale = $this->report->replicate()->forceFill(['id' => $this->report->id, 'status' => SalesReportStatus::PendingSupervisor]);
+    $stale->exists = true;
+    expect(fn () => app(ApproveSalesReportAsSupervisorAction::class)->execute($stale, $supervisor, $rows, null))
+        ->toThrow(ValidationException::class);
+
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
+        ->and($this->report->approvals()->count())->toBe(1);
+});
+
+it('records exactly one finance rejection when it is sent twice', function () {
+    $this->report->update(['status' => SalesReportStatus::Completed->value]);
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $finance->assignRole('FINANCE_STAFF');
+
+    app(RejectCompletedSalesReportAction::class)->execute($this->report, $finance, 'Mutasi bank berbeda.');
+
+    $stale = $this->report->replicate()->forceFill(['id' => $this->report->id, 'status' => SalesReportStatus::Completed]);
+    $stale->exists = true;
+    expect(fn () => app(RejectCompletedSalesReportAction::class)->execute($stale, $finance, 'Mutasi bank berbeda.'))
+        ->toThrow(ValidationException::class);
+
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Rejected)
+        ->and($this->report->approvals()->where('stage', 'finance')->count())->toBe(1);
+});
+
+it('refuses a finance rejection without a valid reason or outside the branch scope, without any change', function () {
+    $this->report->update(['status' => SalesReportStatus::Completed->value]);
+    $finance = User::factory()->create(['is_active' => true]);
+    $finance->assignRole('FINANCE_STAFF');
+    $finance->syncBranchAccess([Branch::factory()->create()->id], null);
+    $scopedFinance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $scopedFinance->assignRole('FINANCE_STAFF');
+
+    expect(fn () => app(RejectCompletedSalesReportAction::class)->execute($this->report, $finance, 'Alasan yang cukup panjang.'))
+        ->toThrow(AuthorizationException::class)
+        ->and(fn () => app(RejectCompletedSalesReportAction::class)->execute($this->report, $scopedFinance, 'abc'))
+        ->toThrow(ValidationException::class);
+
+    $this->actingAs($finance);
+    Livewire::test(ViewSalesReport::class, ['record' => $this->report])->assertForbidden();
+
+    expect($this->report->refresh()->status)->toBe(SalesReportStatus::Completed)
+        ->and($this->report->approvals()->count())->toBe(0);
+});
+
+it('scores the date 100 after supervisor approval and 0 after a finance rejection', function () {
+    $yesterday = today()->subDay();
+    $this->branch->update(['sales_assessment_started_at' => $yesterday->toDateString()]);
+    $this->report->update(['report_date' => $yesterday->toDateString()]);
+    $calculate = fn (): array => app(SalesReportScoreCalculator::class)
+        ->calculate(Branch::query()->whereKey($this->branch->id)->get(), $yesterday->format('Y-m'))[$this->branch->id];
+    $supervisor = User::factory()->create(['branch_id' => $this->branch->id, 'is_active' => true]);
+    $supervisor->assignRole('SUPERVISOR_STORE');
+    $finance = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $finance->assignRole('FINANCE_STAFF');
+
+    expect($calculate())->passed->toBe(0)->pending->toBe(1);
+
+    app(ApproveSalesReportAsSupervisorAction::class)->execute($this->report, $supervisor, [$this->reconciliation->id => ['store_amount' => '1000000', 'notes' => '']], null);
+    expect($calculate())->passed->toBe(1)->score->toBe(100.0);
+
+    app(RejectCompletedSalesReportAction::class)->execute($this->report->refresh(), $finance, 'Nominal tidak sesuai.');
+    expect($calculate())->passed->toBe(0)->rejected->toBe(1)->score->toBe(0.0);
 });

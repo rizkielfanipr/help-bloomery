@@ -9,6 +9,7 @@ use App\Filament\Helpdesk\Resources\SalesReports\Pages\ListSalesReports;
 use App\Filament\Helpdesk\Resources\SalesReports\Pages\ViewSalesReport;
 use App\Models\Branch;
 use App\Models\SalesReport;
+use App\Services\SalesReport\SalesReportAccess;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -17,6 +18,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -40,6 +42,8 @@ class SalesReportResource extends Resource
     protected static string|UnitEnum|null $navigationGroup = 'Finance';
 
     protected static ?int $navigationSort = 1;
+
+    protected static ?SubNavigationPosition $subNavigationPosition = SubNavigationPosition::Top;
 
     protected static ?string $modelLabel = 'Sales Report';
 
@@ -197,25 +201,15 @@ class SalesReportResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['entries', 'branch', 'employees', 'reconciliations', 'shiftSubmissions.submittedBy', 'compliments.submittedBy']);
-        $user = auth()->user();
-
-        if ($user && ! $user->canAccessAllBranches()) {
-            $query->whereIn('branch_id', $user->accessibleBranchIds());
-        }
-
-        return $query;
+        return app(SalesReportAccess::class)->scopeReports(
+            parent::getEloquentQuery()->with(['entries', 'branch', 'employees', 'reconciliations', 'shiftSubmissions.submittedBy', 'compliments.submittedBy']),
+            auth()->user(),
+        );
     }
 
     public static function canView($record): bool
     {
-        $user = auth()->user();
-        if (! $user?->can('view sales reports')) {
-            return false;
-        }
-
-        return $user->canAccessAllBranches()
-            || $user->canAccessBranch($record->branch_id);
+        return app(SalesReportAccess::class)->canView(auth()->user(), $record);
     }
 
     public static function getPages(): array

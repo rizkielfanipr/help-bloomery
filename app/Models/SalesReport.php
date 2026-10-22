@@ -3,12 +3,12 @@
 namespace App\Models;
 
 use App\Enums\SalesReportStatus;
+use App\Services\SalesReport\SalesReportEvidenceStore;
 use Database\Factories\SalesReportFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Storage;
 
 class SalesReport extends Model
 {
@@ -39,15 +39,17 @@ class SalesReport extends Model
 
     protected static function booted(): void
     {
+        // Child rows are removed by the database cascade (no model events), so their evidence is
+        // collected and deleted exactly once here.
         static::deleting(function (SalesReport $salesReport): void {
             $paths = $salesReport->compliments()
                 ->get(['attachment_paths'])
                 ->flatMap(fn (SalesReportCompliment $compliment): array => $compliment->attachment_paths ?? [])
+                ->merge($salesReport->voids()->get(['original_receipt_path', 'voided_receipt_path'])
+                    ->flatMap(fn (SalesReportVoid $void): array => [$void->original_receipt_path, $void->voided_receipt_path]))
                 ->all();
 
-            if ($paths !== []) {
-                Storage::disk('b2')->delete($paths);
-            }
+            app(SalesReportEvidenceStore::class)->delete($paths);
         });
     }
 
@@ -115,6 +117,11 @@ class SalesReport extends Model
     public function compliments(): HasMany
     {
         return $this->hasMany(SalesReportCompliment::class);
+    }
+
+    public function voids(): HasMany
+    {
+        return $this->hasMany(SalesReportVoid::class);
     }
 
     public function supervisorReviewer(): BelongsTo

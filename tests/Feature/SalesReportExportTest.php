@@ -135,7 +135,7 @@ it('exports sales reports to xlsx with all data and proper formatting', function
         ->and($data['Waktu Approval SPV'])->toBe('2026-09-11 09:00:00')
         ->and($data['Catatan SPV'])->toBe('Sesuai.')
         ->and($data['Reviewer Finance'])->toBe('Finance Pusat')
-        ->and($data['Waktu Approval Finance'])->toBe('2026-09-12 10:30:00')
+        ->and($data['Waktu Review Finance'])->toBe('2026-09-12 10:30:00')
         ->and($data['Catatan Finance'])->toBe("'=HYPERLINK(\"http://x\")");
 });
 

@@ -60,12 +60,12 @@ it('rechecks eligibility when a candidate was approved during processing', funct
     $report = SalesReport::factory()->create(['branch_id' => $this->branch->id, 'report_date' => '2026-09-01', 'submitted_at' => now()->subDays(10)]);
     SalesReport::retrieved(function (SalesReport $candidate) use ($report): void {
         if ($candidate->id === $report->id && ! array_key_exists('status', $candidate->getAttributes())) {
-            SalesReport::whereKey($candidate->id)->update(['status' => SalesReportStatus::PendingFinance]);
+            SalesReport::whereKey($candidate->id)->update(['status' => SalesReportStatus::Completed]);
         }
     });
     try {
         $this->artisan('sales-reports:auto-reject')->assertSuccessful();
-        expect($report->fresh()->status)->toBe(SalesReportStatus::PendingFinance)->and($report->approvals()->count())->toBe(0);
+        expect($report->fresh()->status)->toBe(SalesReportStatus::Completed)->and($report->approvals()->count())->toBe(0);
     } finally {
         SalesReport::flushEventListeners();
         SalesReport::clearBootedModels();

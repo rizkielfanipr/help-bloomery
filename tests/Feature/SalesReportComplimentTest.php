@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SalesReportDataSource;
 use App\Enums\SalesReportStatus;
 use App\Filament\Casual\Pages\SalesReportShiftPage;
 use App\Filament\Helpdesk\Resources\ComplimentTypes\ComplimentTypeResource;
@@ -34,7 +35,7 @@ it('seeds the default compliment types', function () {
         ->toBe(['Compliment Owner', 'Compliment Training']);
 });
 
-it('submits multiple compliments and multiple nota attachments for a shift', function () {
+it('submits multiple compliments and multiple photo attachments for a shift', function () {
     Storage::fake('b2');
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     $this->actingAs($this->staff);
@@ -42,6 +43,7 @@ it('submits multiple compliments and multiple nota attachments for a shift', fun
     $owner = ComplimentType::where('name', 'Compliment Owner')->sole();
     $training = ComplimentType::where('name', 'Compliment Training')->sole();
 
+    // Without a fetched ESB snapshot both rows use the explicit manual (unverified) Sales Number.
     Livewire::test(SalesReportShiftPage::class, ['reportDate' => today()->toDateString(), 'shiftNumber' => 1])
         ->set('esbFetched', true)
         ->set('rows', [[
@@ -51,18 +53,22 @@ it('submits multiple compliments and multiple nota attachments for a shift', fun
         ->set('compliments', [
             [
                 'compliment_type_id' => $owner->id,
+                'sales_number' => 'S-0001',
+                'sales_number_source' => 'manual',
                 'attachments' => [],
                 'notes' => 'Compliment untuk tamu owner.',
             ],
             [
                 'compliment_type_id' => $training->id,
+                'sales_number' => 'S-0002',
+                'sales_number_source' => 'manual',
                 'attachments' => [],
                 'notes' => 'Compliment kebutuhan training.',
             ],
         ])
         ->set('compliments.0.attachments', [
             UploadedFile::fake()->image('owner-1.jpg'),
-            UploadedFile::fake()->create('owner-2.pdf', 100, 'application/pdf'),
+            UploadedFile::fake()->image('owner-2.webp'),
         ])
         ->set('compliments.1.attachments', [UploadedFile::fake()->image('training.jpg')])
         ->call('requestConfirm')
@@ -79,7 +85,9 @@ it('submits multiple compliments and multiple nota attachments for a shift', fun
         ->and($compliments[0]->notes)->toBe('Compliment untuk tamu owner.')
         ->and($compliments[1]->compliment_type_name)->toBe('Compliment Training')
         ->and($compliments[1]->attachment_paths)->toHaveCount(1)
-        ->and($compliments[1]->shift_number)->toBe(1);
+        ->and($compliments[1]->shift_number)->toBe(1)
+        ->and($compliments[0]->sales_number)->toBe('S-0001')
+        ->and($compliments[0]->sales_number_source)->toBe(SalesReportDataSource::Manual);
 
     foreach ($compliments->flatMap->attachment_paths as $path) {
         Storage::disk('b2')->assertExists($path);

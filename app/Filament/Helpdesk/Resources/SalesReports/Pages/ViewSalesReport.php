@@ -2,15 +2,15 @@
 
 namespace App\Filament\Helpdesk\Resources\SalesReports\Pages;
 
-use App\Enums\SalesReportStatus;
+use App\Actions\SalesReport\ApproveSalesReportAsSupervisorAction;
+use App\Actions\SalesReport\RejectCompletedSalesReportAction;
 use App\Filament\Helpdesk\Resources\SalesReports\SalesReportResource;
 use App\Models\SalesReport;
-use App\Models\SalesReportApproval;
 use App\Models\SalesReportReconciliation;
+use App\Services\SalesReport\SalesReportAccess;
 use App\Services\SalesReportReconciliationService;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ViewSalesReport extends Page
@@ -47,36 +47,20 @@ class ViewSalesReport extends Page
 
     public function canReviewAsSupervisor(): bool
     {
-        $user = auth()->user();
-
-        return $this->record->status === SalesReportStatus::PendingSupervisor
-            && $user?->can('review sales reports as supervisor')
-            && ($user->canAccessAllBranches() || ! $this->record->shiftSubmissions->contains('submitted_by', $user->id))
-            && ($user->canAccessAllBranches() || $user->canAccessBranch($this->record->branch_id));
-    }
-
-    public function canReviewAsFinance(): bool
-    {
-        $user = auth()->user();
-
-        return $this->record->status === SalesReportStatus::PendingFinance
-            && $user?->can('review sales reports as finance')
-            && ($user->canAccessAllBranches() || ! $this->record->shiftSubmissions->contains('submitted_by', $user->id));
+        return app(SalesReportAccess::class)->canReviewAsSupervisor(auth()->user(), $this->record);
     }
 
     public function canRejectCompleted(): bool
     {
-        $user = auth()->user();
-
-        return $this->record->status === SalesReportStatus::Completed
-            && $user?->can('review sales reports as finance')
-            && ($user->canAccessAllBranches() || ! $this->record->shiftSubmissions->contains('submitted_by', $user->id));
+        return app(SalesReportAccess::class)->canRejectCompleted(auth()->user(), $this->record);
     }
 
+    /**
+     * Only the Supervisor refreshes System Sales, while the report still awaits their review.
+     */
     public function canRefetchEsb(): bool
     {
-        return in_array($this->record->status, [SalesReportStatus::PendingSupervisor, SalesReportStatus::PendingFinance], true)
-            && ($this->canReviewAsSupervisor() || $this->canReviewAsFinance());
+        return $this->canReviewAsSupervisor();
     }
 
     public function refetchEsb(SalesReportReconciliationService $reconciliationService): void
@@ -94,161 +78,63 @@ class ViewSalesReport extends Page
         }
     }
 
-    public function approveSupervisor(): void
+    public function approveSupervisor(ApproveSalesReportAsSupervisorAction $approve): void
     {
         abort_unless($this->canReviewAsSupervisor(), 403);
 
-        foreach ($this->record->reconciliations as $reconciliation) {
-            $this->validate([
-                "supervisorRows.{$reconciliation->id}.store_amount" => ['required', 'numeric', 'min:0'],
-                "supervisorRows.{$reconciliation->id}.notes" => ['nullable', 'string', 'max:2000'],
-            ]);
-
-            $row = $this->supervisorRows[$reconciliation->id];
-            if (
-                $reconciliation->system_amount !== null
-                && abs((float) $row['store_amount'] - (float) $reconciliation->system_amount) > 0.009
-                && trim($row['notes']) === ''
-            ) {
-                throw ValidationException::withMessages([
-                    "supervisorRows.{$reconciliation->id}.notes" => 'Supervisor notes are required while System Sales and corrected Store Sales differ.',
-                ]);
+        try {
+            $approve->execute($this->record, auth()->user(), $this->supervisorRows, $this->reviewNote);
+        } catch (ValidationException $exception) {
+            if ($this->reportStatusChanged($exception)) {
+                return;
             }
+
+            throw ValidationException::withMessages(collect($exception->errors())
+                ->mapWithKeys(fn (array $messages, string $key): array => [preg_replace('/^corrections\./', 'supervisorRows.', $key) => $messages])
+                ->all());
         }
-
-        DB::transaction(function (): void {
-            $report = SalesReport::query()->lockForUpdate()->findOrFail($this->record->id);
-            abort_unless($report->status === SalesReportStatus::PendingSupervisor, 409);
-
-            foreach ($report->reconciliations as $reconciliation) {
-                $row = $this->supervisorRows[$reconciliation->id];
-                $reconciliation->update([
-                    'store_amount' => (float) $row['store_amount'],
-                    'supervisor_notes' => trim($row['notes']) ?: null,
-                    'settlement_amount' => null,
-                    'mdr_percentage' => null,
-                    'mdr_amount' => null,
-                    'expected_settlement_amount' => null,
-                    'settlement_difference' => null,
-                    'reconciliation_status' => null,
-                    'finance_note' => null,
-                ]);
-            }
-
-            $report->update([
-                'status' => SalesReportStatus::PendingFinance->value,
-                'supervisor_reviewed_by' => auth()->id(),
-                'supervisor_reviewed_at' => now(),
-                'supervisor_note' => trim($this->reviewNote) ?: null,
-            ]);
-            $this->recordApproval($report, 'supervisor', 'approved', trim($this->reviewNote) ?: null);
-        });
 
         $this->refreshRecord();
         $this->reset(['reviewNote', 'rejectionReason']);
 
-        Notification::make()->title('Status updated to Finance Review')->success()->send();
+        Notification::make()->title('Sales Report approved')->body('Status updated to Completed.')->success()->send();
     }
 
-    public function approveFinance(): void
-    {
-        abort_unless($this->canReviewAsFinance(), 403);
-
-        $this->transitionReview(
-            expected: SalesReportStatus::PendingFinance,
-            next: SalesReportStatus::Completed,
-            stage: 'finance',
-            action: 'approved',
-            notes: trim($this->reviewNote) ?: null,
-            values: [
-                'status' => SalesReportStatus::Completed->value,
-                'finance_reviewed_by' => auth()->id(),
-                'finance_reviewed_at' => now(),
-                'finance_note' => trim($this->reviewNote) ?: null,
-            ],
-        );
-        Notification::make()->title('Status updated to Completed')->success()->send();
-    }
-
-    public function rejectFinance(): void
-    {
-        abort_unless($this->canReviewAsFinance(), 403);
-        $this->validate(['rejectionReason' => ['required', 'string', 'min:5', 'max:2000']]);
-
-        $this->transitionReview(
-            expected: SalesReportStatus::PendingFinance,
-            next: SalesReportStatus::Rejected,
-            stage: 'finance',
-            action: 'rejected',
-            notes: trim($this->rejectionReason),
-            values: [
-                'finance_reviewed_by' => auth()->id(),
-                'finance_reviewed_at' => now(),
-            ],
-        );
-
-        Notification::make()->title('Sales Report rejected')->danger()->send();
-    }
-
-    public function rejectCompleted(): void
+    public function rejectCompleted(RejectCompletedSalesReportAction $reject): void
     {
         abort_unless($this->canRejectCompleted(), 403);
         $this->validate(['rejectionReason' => ['required', 'string', 'min:5', 'max:2000']]);
 
-        $this->transitionReview(
-            expected: SalesReportStatus::Completed,
-            next: SalesReportStatus::Rejected,
-            stage: 'finance',
-            action: 'rejected',
-            notes: trim($this->rejectionReason),
-            values: [
-                'finance_reviewed_by' => auth()->id(),
-                'finance_reviewed_at' => now(),
-            ],
-            metadata: ['previous_status' => SalesReportStatus::Completed->value],
-        );
+        try {
+            $reject->execute($this->record, auth()->user(), $this->rejectionReason);
+        } catch (ValidationException $exception) {
+            if ($this->reportStatusChanged($exception)) {
+                return;
+            }
+
+            throw ValidationException::withMessages(['rejectionReason' => $exception->errors()['reason'] ?? collect($exception->errors())->flatten()->all()]);
+        }
+
+        $this->refreshRecord();
+        $this->reset(['reviewNote', 'rejectionReason']);
 
         Notification::make()->title('Completed Sales Report rejected')->danger()->send();
     }
 
     /**
-     * @param  array<string, mixed>  $values
-     * @param  array<string, mixed>  $metadata
+     * Another request already moved the report (double click, second tab): show it and reload
+     * instead of failing silently.
      */
-    private function transitionReview(
-        SalesReportStatus $expected,
-        SalesReportStatus $next,
-        string $stage,
-        string $action,
-        ?string $notes,
-        array $values,
-        array $metadata = [],
-    ): void {
-        DB::transaction(function () use ($expected, $next, $stage, $action, $notes, $values, $metadata): void {
-            $report = SalesReport::query()->lockForUpdate()->findOrFail($this->record->id);
-            abort_unless($report->status === $expected, 409);
-            $report->update(array_merge($values, ['status' => $next->value]));
-            $this->recordApproval($report, $stage, $action, $notes, $metadata);
-        });
+    private function reportStatusChanged(ValidationException $exception): bool
+    {
+        if (! array_key_exists('status', $exception->errors())) {
+            return false;
+        }
 
         $this->refreshRecord();
-        $this->reset(['reviewNote', 'rejectionReason']);
-    }
+        Notification::make()->title('Sales Report sudah diproses')->body($exception->errors()['status'][0])->warning()->send();
 
-    /**
-     * @param  array<string, mixed>  $metadata
-     */
-    private function recordApproval(SalesReport $report, string $stage, string $action, ?string $notes, array $metadata = []): void
-    {
-        SalesReportApproval::create([
-            'sales_report_id' => $report->id,
-            'stage' => $stage,
-            'action' => $action,
-            'actor_id' => auth()->id(),
-            'notes' => $notes,
-            'revision_number' => $report->revision_number,
-            'metadata' => $metadata ?: null,
-        ]);
+        return true;
     }
 
     private function loadSupervisorRows(): void
@@ -269,6 +155,7 @@ class ViewSalesReport extends Page
             'approvals.actor',
             'basketSizeRecords.employeeRecords',
             'compliments.submittedBy',
+            'voids.submittedBy',
         ]);
     }
 

@@ -11,6 +11,12 @@
     $entriesByKey = $record->entries->groupBy(fn ($e) => $e->label.'|'.$e->payment_method_name);
     $employeesByShift = $record->employees->groupBy('shift_number');
     $complimentsByShift = $record->compliments->groupBy('shift_number')->sortKeys();
+    $voidsByShift = $record->voids->groupBy('shift_number')->sortKeys();
+    $sourceBadge = fn (\App\Enums\SalesReportDataSource $source): string => match ($source) {
+        \App\Enums\SalesReportDataSource::EsbSnapshot => 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300',
+        \App\Enums\SalesReportDataSource::Manual => 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300',
+        \App\Enums\SalesReportDataSource::Legacy => 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    };
     $totalSystem = (float) $reconciliations->sum('system_amount');
     $totalReportedStore = (float) $reconciliations->sum('reported_store_amount');
     $totalStore = (float) $reconciliations->sum('store_amount');
@@ -20,8 +26,8 @@
         \App\Enums\SalesReportStatus::PendingSupervisor,
         \App\Enums\SalesReportStatus::PendingFinance,
     ], true);
-    $approvalStageLabels = ['submitter' => 'Submitter', 'supervisor' => 'Supervisor', 'finance' => 'Finance'];
-    $approvalActionLabels = ['submitted' => 'Submitted', 'resubmitted' => 'Resubmitted', 'approved' => 'Approved', 'rejected' => 'Rejected'];
+    $approvalStageLabels = ['submitter' => 'Submitter', 'supervisor' => 'Supervisor', 'finance' => 'Finance', 'system' => 'System'];
+    $approvalActionLabels = ['submitted' => 'Submitted', 'resubmitted' => 'Resubmitted', 'approved' => 'Approved', 'rejected' => 'Rejected', 'migrated' => 'Workflow Migration', 'restored' => 'Migration Restored'];
 @endphp
 
 <div class="mx-auto w-full max-w-6xl space-y-5">
@@ -38,6 +44,7 @@
                     'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300' => $record->status === \App\Enums\SalesReportStatus::Draft,
                     'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300' => $isPending,
                     'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300' => $record->status === \App\Enums\SalesReportStatus::Completed,
+                    'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300' => in_array($record->status, [\App\Enums\SalesReportStatus::Rejected, \App\Enums\SalesReportStatus::RejectedBySystem], true),
                 ])>{{ $record->status->getLabel() }}</span>
                 <span class="text-xs text-gray-400">{{ $record->submitted_at?->isoFormat('D MMM Y, HH:mm') ?? '-' }}</span>
                 @if($this->canRefetchEsb())
@@ -95,7 +102,7 @@
     <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Compliment per Shift</h2>
-            <p class="mt-1 text-xs text-gray-400">Nota dan keterangan compliment yang dilaporkan oleh store.</p>
+            <p class="mt-1 text-xs text-gray-400">Sales Number, keterangan transaksi, dan foto bukti yang dilaporkan store.</p>
         </div>
 
         @if($complimentsByShift->isEmpty())
@@ -107,22 +114,63 @@
                         <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">Shift {{ $shiftNumber }}</h3>
                         <div class="grid gap-3 md:grid-cols-2">
                             @foreach($compliments as $compliment)
+                                @php $source = $compliment->effectiveSalesNumberSource(); @endphp
                                 <article class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
-                                    <div class="flex items-start justify-between gap-3">
+                                    <div class="flex flex-wrap items-start justify-between gap-2">
                                         <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $compliment->compliment_type_name }}</p>
-                                        <span class="text-[11px] text-gray-400">{{ $compliment->submittedBy?->name ?? '-' }}</span>
+                                        <span class="rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $sourceBadge($source) }}">{{ $source->getLabel() }}</span>
                                     </div>
-                                    <p class="mt-2 whitespace-pre-line text-sm text-gray-600 dark:text-gray-300">{{ $compliment->notes }}</p>
+                                    <p class="mt-2 break-all font-mono text-sm font-semibold text-gray-800 dark:text-gray-200">{{ $compliment->sales_number ?? 'Data lama — Sales Number belum tersedia' }}</p>
+                                    <p class="mt-1 text-[11px] uppercase tracking-wide text-gray-400">Keterangan Transaksi</p>
+                                    <p class="mt-0.5 whitespace-pre-line break-words text-sm text-gray-600 dark:text-gray-300">{{ $compliment->notes }}</p>
                                     <div class="mt-3 flex flex-wrap gap-2">
                                         @foreach($compliment->attachment_paths ?? [] as $attachment)
-                                            <a href="{{ \Illuminate\Support\Facades\Storage::disk('b2')->temporaryUrl($attachment, now()->addHour()) }}"
-                                               target="_blank"
+                                            <a href="{{ route('sales-report-evidence.compliment', ['compliment' => $compliment->id, 'index' => $loop->index]) }}"
+                                               target="_blank" rel="noopener"
                                                class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 transition hover:bg-blue-50 dark:border-blue-900 dark:bg-gray-900 dark:text-blue-300">
                                                 <x-heroicon-o-paper-clip class="h-4 w-4" />
-                                                Lihat Nota {{ $loop->iteration }}
+                                                {{ \App\Services\SalesReport\SalesReportEvidenceStore::isLegacyPdf($attachment) ? 'File lama (PDF) '.$loop->iteration : 'Foto '.$loop->iteration }}
                                             </a>
                                         @endforeach
                                     </div>
+                                    <p class="mt-2 text-[11px] text-gray-400">Disubmit oleh {{ $compliment->submittedBy?->name ?? '-' }}</p>
+                                </article>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </section>
+
+    <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+        <div class="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Void per Shift</h2>
+            <p class="mt-1 text-xs text-gray-400">Transaksi yang di-void beserta nota awal dan nota setelah void.</p>
+        </div>
+
+        @if($voidsByShift->isEmpty())
+            <p class="px-6 py-8 text-center text-sm text-gray-400">Tidak ada void pada laporan ini.</p>
+        @else
+            <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                @foreach($voidsByShift as $shiftNumber => $voids)
+                    <div class="px-6 py-5">
+                        <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">Shift {{ $shiftNumber }}</h3>
+                        <div class="grid gap-3 md:grid-cols-2">
+                            @foreach($voids as $void)
+                                <article class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                                    <div class="flex flex-wrap items-start justify-between gap-2">
+                                        <p class="break-all font-mono text-sm font-semibold text-gray-900 dark:text-white">{{ $void->sales_number }}</p>
+                                        <span class="rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $sourceBadge($void->sales_number_source) }}">{{ $void->sales_number_source->getLabel() }}</span>
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">Payment Method: <span class="font-semibold text-gray-700 dark:text-gray-200">{{ $void->payment_method_name }}</span>@if($void->payment_method_source === \App\Enums\SalesReportDataSource::Manual) <span class="text-amber-600">(manual)</span>@endif @if($void->transaction_amount !== null)· {{ $fmt($void->transaction_amount) }}@endif</p>
+                                    <p class="mt-2 text-[11px] uppercase tracking-wide text-gray-400">Alasan Void</p>
+                                    <p class="mt-0.5 whitespace-pre-line break-words text-sm text-gray-600 dark:text-gray-300">{{ $void->reason }}</p>
+                                    <div class="mt-3 grid grid-cols-2 gap-2">
+                                        <a href="{{ route('sales-report-evidence.void', ['void' => $void->id, 'kind' => 'original']) }}" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:bg-gray-900 dark:text-blue-300"><x-heroicon-o-document-text class="h-4 w-4" />Nota Awal</a>
+                                        <a href="{{ route('sales-report-evidence.void', ['void' => $void->id, 'kind' => 'voided']) }}" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:border-blue-900 dark:bg-gray-900 dark:text-blue-300"><x-heroicon-o-document-minus class="h-4 w-4" />Nota Setelah Void</a>
+                                    </div>
+                                    <p class="mt-2 text-[11px] text-gray-400">Disubmit oleh {{ $void->submittedBy?->name ?? '-' }} · {{ $void->created_at?->isoFormat('D MMM Y, HH:mm') }}</p>
                                 </article>
                             @endforeach
                         </div>
@@ -219,39 +267,41 @@
             </table>
         </div>
 
-        @if($this->canReviewAsSupervisor() || $this->canReviewAsFinance())
+        @if($this->canReviewAsSupervisor())
             <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
-                <div @class(['grid gap-5', 'lg:grid-cols-2' => $this->canReviewAsFinance()])>
-                    @if($this->canReviewAsFinance())
-                    <div>
-                        <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Review Notes <span class="font-normal normal-case text-gray-400">(optional, required when sales differ)</span></label>
-                        <textarea wire:model="reviewNote" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Add review notes if needed"></textarea>
-                        @error('reviewNote') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    <div>
-                        <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Rejection Reason <span class="font-normal normal-case text-gray-400">(required when rejected)</span></label>
-                        <textarea wire:model="rejectionReason" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Explain what must be corrected"></textarea>
-                        @error('rejectionReason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
-                    </div>
-                    @endif
+                <label for="review-note" class="text-xs font-semibold uppercase tracking-wide text-gray-500">Review Notes <span class="font-normal normal-case text-gray-400">(optional)</span></label>
+                <textarea id="review-note" wire:model="reviewNote" rows="3" maxlength="2000" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Add review notes if needed"></textarea>
+                @error('reviewNote') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <p class="max-w-xl text-xs leading-5 text-gray-500 dark:text-gray-400">Approving saves the corrections above and completes the report. The date then counts as Completed (100) in the branch score.</p>
+                    <button type="button" wire:click="approveSupervisor" wire:confirm="Approve this report? The status will change to Completed." wire:loading.attr="disabled" wire:target="approveSupervisor" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50">
+                        <x-heroicon-o-check class="h-4 w-4" wire:loading.remove wire:target="approveSupervisor" />
+                        <x-heroicon-o-arrow-path class="h-4 w-4 animate-spin" wire:loading wire:target="approveSupervisor" />
+                        Approve Report
+                    </button>
                 </div>
-                <div class="mt-4 flex flex-wrap justify-end gap-2">
-                    @if($this->canReviewAsFinance())
-                        <button type="button" wire:click="rejectFinance" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-x-circle class="h-4 w-4" />Reject</button>
-                    @endif
-                    <button type="button" wire:click="{{ $this->canReviewAsSupervisor() ? 'approveSupervisor' : 'approveFinance' }}" wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition hover:bg-blue-50 disabled:opacity-50 dark:border-blue-900 dark:bg-gray-900"><x-heroicon-o-check class="h-4 w-4" />{{ $this->canReviewAsSupervisor() ? 'Set as Finance Review' : 'Set as Completed' }}</button>
-                </div>
+            </div>
+        @endif
+
+        @if($record->status === \App\Enums\SalesReportStatus::PendingFinance)
+            <div class="flex items-start gap-3 border-t border-gray-200 px-6 py-5 dark:border-gray-700">
+                <x-heroicon-o-information-circle class="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+                <p class="text-xs leading-5 text-gray-600 dark:text-gray-300"><span class="font-semibold">Legacy Finance Review.</span> Finance approval is no longer part of the workflow. This report waits for the status migration and has no approval action here.</p>
             </div>
         @endif
 
         @if($this->canRejectCompleted())
             <div class="border-t border-gray-200 px-6 py-5 dark:border-gray-700">
-                <label class="text-xs font-semibold uppercase tracking-wide text-gray-500">Rejection Reason <span class="font-normal normal-case text-gray-400">(required)</span></label>
-                <textarea wire:model="rejectionReason" rows="3" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Explain why this completed report is rejected"></textarea>
+                <label for="rejection-reason" class="text-xs font-semibold uppercase tracking-wide text-gray-500">Rejection Reason <span class="text-red-500">*</span> <span class="font-normal normal-case text-gray-400">(5–2,000 characters)</span></label>
+                <textarea id="rejection-reason" wire:model="rejectionReason" rows="3" maxlength="2000" class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="Explain why this completed report is rejected"></textarea>
                 @error('rejectionReason') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-                    <p class="max-w-xl text-xs leading-5 text-gray-500 dark:text-gray-400">This report is already Completed. Rejecting it changes the status to Rejected, and this date counts as rejected in the branch score.</p>
-                    <button type="button" wire:click="rejectCompleted" wire:confirm="Reject this completed report? The status will change to Rejected." wire:loading.attr="disabled" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900"><x-heroicon-o-x-circle class="h-4 w-4" />Reject Report</button>
+                    <p class="max-w-xl text-xs leading-5 text-gray-500 dark:text-gray-400">This report is Completed. Rejecting it changes the status to Rejected and the score for this date becomes 0. This cannot be undone.</p>
+                    <button type="button" wire:click="rejectCompleted" wire:confirm="Reject this completed report? The status will change to Rejected and the score for this date becomes 0." wire:loading.attr="disabled" wire:target="rejectCompleted" class="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:bg-gray-900">
+                        <x-heroicon-o-x-circle class="h-4 w-4" wire:loading.remove wire:target="rejectCompleted" />
+                        <x-heroicon-o-arrow-path class="h-4 w-4 animate-spin" wire:loading wire:target="rejectCompleted" />
+                        Reject Report
+                    </button>
                 </div>
             </div>
         @endif

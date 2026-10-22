@@ -28,6 +28,7 @@ use App\Http\Controllers\Helpdesk\ShelfLifeExportController;
 use App\Http\Controllers\Helpdesk\StoreSalesOrderAttachmentController;
 use App\Http\Controllers\MonitoringBrowserErrorController;
 use App\Http\Controllers\MonitoringDeploymentIngestionController;
+use App\Http\Controllers\SalesReportEvidenceController;
 use App\Models\Asset;
 use App\Models\RndProjectBom;
 use Filament\Facades\Filament;
@@ -149,6 +150,12 @@ Route::middleware(['auth'])->group(function (): void {
         ->where('path', '.*')
         ->name('helpdesk.rnd-products.bom-instruction-images.show');
 
+    Route::get('/sales-report-evidence/compliments/{compliment}/{index}', [SalesReportEvidenceController::class, 'compliment'])
+        ->whereNumber('index')
+        ->name('sales-report-evidence.compliment');
+    Route::get('/sales-report-evidence/voids/{void}/{kind}', [SalesReportEvidenceController::class, 'void'])
+        ->whereIn('kind', ['original', 'voided'])
+        ->name('sales-report-evidence.void');
     Route::get('/rnd-project-task-attachments/{path}', [RndProjectTaskAttachmentController::class, 'show'])
         ->where('path', '.*')
         ->name('helpdesk.rnd-project-tasks.attachments.show');

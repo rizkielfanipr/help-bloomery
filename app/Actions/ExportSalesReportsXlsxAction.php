@@ -52,7 +52,7 @@ class ExportSalesReportsXlsxAction
             'ID', 'Cabang', 'Tanggal', 'Shift Terkirim', 'Waktu Submit', 'Disubmit Oleh',
             'Sales System', 'Sales Store', 'Settlement', 'ID Employee', 'Staff In Charge',
             'Posisi Employee', 'Status', 'Reviewer SPV', 'Waktu Approval SPV', 'Catatan SPV',
-            'Reviewer Finance', 'Waktu Approval Finance', 'Catatan Finance', 'Dibuat',
+            'Reviewer Finance', 'Waktu Review Finance', 'Catatan Finance', 'Dibuat',
         ];
     }
 

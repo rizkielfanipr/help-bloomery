@@ -287,6 +287,8 @@ it('does not compute a score for a branch that is not an enabled Daily Briefing 
     });
 
 it('only counts days on/after the branch\'s own participation started_at as expected (docs/daily-briefing-remediation-prd.md §14.1)', function () {
+    // The current month only counts up to today, so the clock is fixed inside the seeded month.
+    $this->travelTo(Carbon::create(2026, 10, 20, 12));
     $branch = Branch::factory()->create(['is_active' => true]);
     BriefingBranchSetting::factory()->startingOn('2026-10-10')->create(['branch_id' => $branch->id]);
     $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
@@ -303,8 +305,8 @@ it('only counts days on/after the branch\'s own participation started_at as expe
     $score = BriefingScore::where('branch_id', $branch->id)->where('year', 2026)->where('month', 10)->firstOrFail();
 
     // Days 1-9 predate the branch's own started_at (10th) and must not be counted as expected,
-    // even though the global scoring_started_at is earlier.
-    expect($score->breakdown['periods']['daily']['tasks'][0]['expected'])->toBeLessThanOrEqual(11);
+    // even though the global scoring_started_at is earlier: 10th through today (20th) = 11 days.
+    expect($score->breakdown['periods']['daily']['tasks'][0]['expected'])->toBe(11);
 });
 
 it('does not count future dates in the current month as expected', function () {

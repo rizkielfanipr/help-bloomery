@@ -2,8 +2,8 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Models\BranchEsbCode;
 use App\Models\GoodsReceipt;
-use App\Models\User;
 use App\Services\EsbBranchMappingResolver;
 use App\Services\EsbGoodsReceiptService;
 use App\Services\InboundGoodsReceiptQcService;
@@ -426,8 +426,19 @@ class GoodsReceiptPage extends Page
             (int) data_get($latest, 'branchID'),
             data_get($latest, 'branchCode'),
         );
-        $user = auth()->user();
-        abort_unless($user instanceof User && $mapping && ($user->canAccessAllBranches() || $user->canAccessBranch($mapping->branch_id)), 403, 'Cabang PO ini tidak dapat diakses oleh akun Anda.');
+        if (! $mapping) {
+            $message = 'Branch PO belum dimapping. Hubungkan branch ESB PO ini ke branch lokal sebelum memproses penerimaan.';
+            $this->loadError = $message;
+            $this->addError('purchaseOrder', $message);
+            Notification::make()
+                ->danger()
+                ->title('Branch PO belum dimapping')
+                ->body($message)
+                ->persistent()
+                ->send();
+
+            return;
+        }
         $selected = collect($this->items)->filter(fn (array $item): bool => $item['selected'] && (float) $item['physicalQty'] > 0)
             // Server-side defense in depth: "Sesuai" always means the full qty is Accepted and
             // the exception fields are blank, regardless of whatever the client last held for
@@ -459,7 +470,7 @@ class GoodsReceiptPage extends Page
                 return $item;
             });
             $payload = $this->payload($assessed);
-            $receipt = DB::transaction(fn (): GoodsReceipt => $this->persist($purchaseNumber, $location, $payload, $assessed, $documentPhotos, $goodsPhotos, $qc));
+            $receipt = DB::transaction(fn (): GoodsReceipt => $this->persist($purchaseNumber, $location, $payload, $assessed, $documentPhotos, $goodsPhotos, $mapping, $qc));
         } catch (Throwable $exception) {
             Storage::disk('b2')->delete($paths);
             throw $exception;
@@ -592,24 +603,17 @@ class GoodsReceiptPage extends Page
             ])->values()->all()];
     }
 
-    private function persist(string $po, array $location, array $payload, $items, array $documentPhotos, array $goodsPhotos, InboundGoodsReceiptQcService $qc): GoodsReceipt
+    private function persist(string $po, array $location, array $payload, $items, array $documentPhotos, array $goodsPhotos, BranchEsbCode $branchMapping, InboundGoodsReceiptQcService $qc): GoodsReceipt
     {
         $accepted = (float) $items->sum('acceptedQty');
         $hold = (float) $items->sum('holdQty');
         $rejected = (float) $items->sum('rejectedQty');
         $esbBranchId = (int) data_get($this->purchaseOrder, 'branchID');
-        $branchMapping = app(EsbBranchMappingResolver::class)->resolve(
-            $this->sourceCompanyCode,
-            $esbBranchId,
-            data_get($this->purchaseOrder, 'branchCode'),
-        );
-        $user = auth()->user();
-        abort_unless($user instanceof User && ($user->canAccessAllBranches() || ($branchMapping && $user->canAccessBranch($branchMapping->branch_id))), 403, 'Cabang PO belum terhubung atau tidak dapat diakses oleh akun Anda.');
 
         $payloadHash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
         $receipt = GoodsReceipt::query()->createOrFirst(['submission_key' => $this->submissionKey], [
             'company_code' => $this->sourceCompanyCode, 'reference_number' => $po, 'purchase_date' => data_get($this->purchaseOrder, 'purchaseDate'), 'goods_receipt_date' => $this->goodsReceiptDate,
-            'esb_branch_id' => $esbBranchId, 'local_branch_id' => $branchMapping?->branch_id, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
+            'esb_branch_id' => $esbBranchId, 'local_branch_id' => $branchMapping->branch_id, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
             'supplier_id' => data_get($this->purchaseOrder, 'supplierID'), 'supplier_name' => data_get($this->purchaseOrder, 'supplierName'),
             'location_id' => $location['locationID'], 'location_name' => $location['locationName'],
             'document_type' => $this->documentType, 'document_number' => $this->documentNumber, 'document_date' => $this->documentDate,

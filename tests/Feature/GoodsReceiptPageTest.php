@@ -246,6 +246,118 @@ test('receiving only requests purchase orders from BLSS without requiring a BLSS
         ->assertSet('loadError', 'Company Code Receiving tidak dapat diakses.');
 });
 
+test('tile permission can submit receiving for every mapped branch without branch access', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $unrelatedBranch = Branch::factory()->create(['name' => 'Unrelated User Branch']);
+    $user = User::factory()->create([
+        'is_active' => true,
+        'access_all_branches' => false,
+        'branch_id' => $unrelatedBranch->id,
+    ]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+
+    $order = [
+        'purchaseNum' => 'PO-GLOBAL-RECEIVING',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 10,
+        'branchCode' => 'BLS',
+        'branchName' => 'Receiving Test Branch',
+        'purchaseDetails' => [[
+            'ID' => 11,
+            'productID' => 12,
+            'productDetailID' => 13,
+            'productCode' => 'BB001',
+            'productName' => 'Bahan Test',
+            'uomID' => 1,
+            'uomName' => 'GR',
+            'qty' => 2,
+        ]],
+    ];
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-GLOBAL-RECEIVING')->twice()->andReturn($order);
+    $service->shouldReceive('locations')->with('BLSS', 10)->once()->andReturn([
+        ['locationID' => 9, 'locationName' => 'Warehouse'],
+    ]);
+    $service->shouldReceive('create')->once()->andReturn([
+        'result' => ['goodsReceiptNum' => 'GR-GLOBAL-RECEIVING'],
+        'response' => ['code' => 'OK', 'message' => 'OK'],
+    ]);
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-GLOBAL-RECEIVING', 'BLSS')
+        ->set('documentType', 'delivery_note')
+        ->set('documentNumber', 'DO-GLOBAL-RECEIVING')
+        ->set('documentDate', now()->toDateString())
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $mapping = BranchEsbCode::query()->where('esb_comcode', 'BLSS')->where('esb_branch_id', 10)->sole();
+    $receipt = GoodsReceipt::query()->where('reference_number', 'PO-GLOBAL-RECEIVING')->sole();
+
+    expect($user->canAccessBranch($mapping->branch_id))->toBeFalse()
+        ->and($receipt->local_branch_id)->toBe($mapping->branch_id)
+        ->and($receipt->status)->toBe(GoodsReceipt::STATUS_SUCCEEDED);
+});
+
+test('receiving explains an unmapped purchase order branch instead of returning forbidden', function () {
+    $this->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    BranchEsbCode::query()->where('esb_comcode', 'BLSS')->where('esb_branch_id', 10)->delete();
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
+    $user->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($user);
+
+    $order = [
+        'purchaseNum' => 'PO-UNMAPPED-BRANCH',
+        'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
+        'branchID' => 999,
+        'branchCode' => 'UNMAPPED',
+        'purchaseDetails' => [[
+            'ID' => 11,
+            'productID' => 12,
+            'productDetailID' => 13,
+            'productCode' => 'BB001',
+            'productName' => 'Bahan Test',
+            'uomID' => 1,
+            'uomName' => 'GR',
+            'qty' => 2,
+        ]],
+    ];
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-UNMAPPED-BRANCH')->twice()->andReturn($order);
+    $service->shouldReceive('locations')->with('BLSS', 999)->once()->andReturn([
+        ['locationID' => 9, 'locationName' => 'Warehouse'],
+    ]);
+    $service->shouldNotReceive('create');
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    $message = 'Branch PO belum dimapping. Hubungkan branch ESB PO ini ke branch lokal sebelum memproses penerimaan.';
+
+    Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', 'PO-UNMAPPED-BRANCH', 'BLSS')
+        ->set('documentType', 'delivery_note')
+        ->set('documentNumber', 'DO-UNMAPPED-BRANCH')
+        ->set('documentDate', now()->toDateString())
+        ->call('submit')
+        ->assertHasErrors(['purchaseOrder'])
+        ->assertSet('loadError', $message);
+
+    expect(GoodsReceipt::query()->where('reference_number', 'PO-UNMAPPED-BRANCH')->exists())->toBeFalse();
+});
+
+test('all branch access without the receiving tile permission remains forbidden', function () {
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $this->actingAs($user);
+
+    $this->get(GoodsReceiptPage::getUrl(panel: 'casual'))->assertForbidden();
+});
+
 test('receiving saves calculated shelf life for form batches', function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('casual'));

@@ -814,7 +814,10 @@
             </div>
 
             {{-- Form body --}}
-            @php $submissionType = $this->activeSubmissionType; @endphp
+            @php
+                $submissionType = $this->activeSubmissionType;
+                $maxPhotos = \App\Actions\Briefing\BriefingSubmissionAction::MAX_PHOTOS;
+            @endphp
             <div class="px-5 pb-4 pt-2" wire:key="task-form-{{ $taskModalKey }}">
 
                 @if($this->activeTaskKey)
@@ -828,7 +831,7 @@
                                     <span class="ml-1 text-xs font-normal text-red-500">* Wajib</span>
                                 </p>
                                 @if(count($this->cameraPhotoPaths) > 0)
-                                    <span class="text-xs text-gray-400">{{ count($this->cameraPhotoPaths) }}/5 foto</span>
+                                    <span class="text-xs text-gray-400">{{ count($this->cameraPhotoPaths) }}/{{ $maxPhotos }} foto</span>
                                 @endif
                             </div>
 
@@ -863,7 +866,7 @@
                                     </div>
                                 </div>
 
-                                @if(count($this->cameraPhotoPaths) < 5)
+                                @if(count($this->cameraPhotoPaths) < $maxPhotos)
                                     <button @click="openCamera()"
                                             x-show="!uploading"
                                             class="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-300 bg-blue-50 transition active:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30">

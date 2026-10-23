@@ -197,7 +197,7 @@ class DailyBriefingPage extends Page
 
     public function storeCameraPhoto(string $base64Data): void
     {
-        if (count($this->cameraPhotoPaths) >= 5) {
+        if (count($this->cameraPhotoPaths) >= BriefingSubmissionAction::MAX_PHOTOS) {
             return;
         }
 

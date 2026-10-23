@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Briefing\BriefingSubmissionAction;
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingReviewStatus;
 use App\Filament\Casual\Pages\DailyBriefingPage;
@@ -12,6 +13,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Database\Seeders\DailyBriefingTestSeeder;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -209,6 +211,40 @@ it('requires a photo before saving a task', function () {
         ->call('saveTask');
 
     expect(BriefingRecord::count())->toBe(0);
+});
+
+it('allows up to ten photos for each briefing point', function () {
+    actingAs(participantStoreStaff());
+    Storage::fake('b2');
+
+    $page = app(DailyBriefingPage::class);
+    $page->cameraPhotoPaths = array_fill(0, BriefingSubmissionAction::MAX_PHOTOS - 1, 'briefing-photos/existing.jpg');
+    $photo = 'data:image/jpeg;base64,'.base64_encode('test-image');
+
+    $page->storeCameraPhoto($photo);
+
+    expect($page->cameraPhotoPaths)->toHaveCount(10)
+        ->and(Storage::disk('b2')->allFiles())->toHaveCount(1);
+
+    $page->storeCameraPhoto($photo);
+
+    expect($page->cameraPhotoPaths)->toHaveCount(10)
+        ->and(Storage::disk('b2')->allFiles())->toHaveCount(1);
+});
+
+it('rejects more than ten photos even when the client limit is bypassed', function () {
+    $user = participantStoreStaff();
+    actingAs($user);
+    $task = BriefingTask::query()->where('key', 'monthly_cleaning_chiller')->firstOrFail();
+
+    $result = app(BriefingSubmissionAction::class)->execute($user, $task, [
+        'photo_paths' => array_fill(0, BriefingSubmissionAction::MAX_PHOTOS + 1, 'briefing-photos/test.jpg'),
+    ], now());
+
+    expect($result->successful)->toBeFalse()
+        ->and($result->reason)->toBe('photo_limit_exceeded')
+        ->and($result->message)->toBe('Maksimal 10 foto untuk setiap poin Daily Briefing.')
+        ->and(BriefingRecord::count())->toBe(0);
 });
 
 it('saves daily_detail_briefing without photo when notes are filled', function () {

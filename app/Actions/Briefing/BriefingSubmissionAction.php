@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\DB;
  */
 class BriefingSubmissionAction
 {
+    public const MAX_PHOTOS = 10;
+
     public function __construct(
         private readonly BriefingAssignmentService $assignments,
         private readonly BriefingBackdateEligibility $backdateEligibility,
@@ -107,6 +109,13 @@ class BriefingSubmissionAction
                 $submissionType = $task->submission_type;
                 $photoPaths = $payload['photo_paths'] ?? [];
                 $notes = $payload['notes'] ?? null;
+
+                if (count($photoPaths) > self::MAX_PHOTOS) {
+                    return BriefingSubmissionResult::denied(
+                        'photo_limit_exceeded',
+                        'Maksimal '.self::MAX_PHOTOS.' foto untuk setiap poin Daily Briefing.',
+                    );
+                }
 
                 if ($submissionType->requiresPhoto() && empty($photoPaths) && empty($item->photo_paths)) {
                     return BriefingSubmissionResult::denied(

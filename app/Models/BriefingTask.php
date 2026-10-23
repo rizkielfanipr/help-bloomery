@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BriefingPeriod;
 use App\Enums\BriefingSubmissionType;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Collection;
@@ -46,32 +47,37 @@ class BriefingTask extends Model
         return $this->belongsTo(Branch::class);
     }
 
-    public function deadlineAt(): ?Carbon
+    public function deadlineAt(?CarbonInterface $recordDate = null): ?Carbon
     {
         if (! $this->deadline_enabled || ! $this->deadline_time) {
             return null;
         }
 
         [$hour, $minute] = array_map('intval', explode(':', $this->deadline_time));
+        $date = Carbon::parse(
+            ($recordDate ?? now(config('app.timezone')))->toDateString(),
+            config('app.timezone'),
+        );
 
         return match ($this->period) {
-            BriefingPeriod::Daily => today()->setHour($hour)->setMinute($minute)->setSecond(0),
+            BriefingPeriod::Daily => $date->startOfDay()->setHour($hour)->setMinute($minute)->setSecond(0),
 
-            BriefingPeriod::Weekly => now()->startOfWeek()
+            BriefingPeriod::Weekly => $date->startOfWeek()
                 ->addDays(max(0, ($this->deadline_day ?? 5) - 1))
                 ->setHour($hour)->setMinute($minute)->setSecond(0),
 
             BriefingPeriod::Monthly => ($this->deadline_day === 0 || $this->deadline_day === null)
-                ? now()->endOfMonth()->setHour($hour)->setMinute($minute)->setSecond(0)
-                : now()->startOfMonth()->addDays(($this->deadline_day) - 1)->setHour($hour)->setMinute($minute)->setSecond(0),
+                ? $date->endOfMonth()->setHour($hour)->setMinute($minute)->setSecond(0)
+                : $date->startOfMonth()->addDays(($this->deadline_day) - 1)->setHour($hour)->setMinute($minute)->setSecond(0),
         };
     }
 
-    public function isPastDeadline(): bool
+    public function isPastDeadline(?CarbonInterface $recordDate = null, ?CarbonInterface $evaluatedAt = null): bool
     {
-        $deadline = $this->deadlineAt();
+        $deadline = $this->deadlineAt($recordDate);
 
-        return $deadline !== null && now()->greaterThanOrEqualTo($deadline);
+        return $deadline !== null
+            && ($evaluatedAt ?? now(config('app.timezone')))->greaterThanOrEqualTo($deadline);
     }
 
     public function deadlineLabel(): ?string

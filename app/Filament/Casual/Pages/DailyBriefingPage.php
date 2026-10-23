@@ -9,11 +9,14 @@ use App\Models\BriefingItem;
 use App\Models\BriefingRecord;
 use App\Models\BriefingTask;
 use App\Services\BriefingAssignmentService;
+use App\Services\BriefingBackdateEligibility;
+use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
 
 class DailyBriefingPage extends Page
 {
@@ -37,6 +40,33 @@ class DailyBriefingPage extends Page
     public array $cameraPhotoPaths = [];
 
     public int $taskModalKey = 0;
+
+    #[Url(as: 'backdate')]
+    public bool $requestBackdate = false;
+
+    #[Url(as: 'date')]
+    public string $briefingDate = '';
+
+    public string $requestedBackdate = '';
+
+    public function mount(): void
+    {
+        $today = now(config('app.timezone'))->startOfDay();
+        $requestedDate = $this->parseDate($this->briefingDate);
+
+        if ($this->requestBackdate) {
+            $eligibility = app(BriefingBackdateEligibility::class);
+            $selectedDate = $requestedDate && $eligibility->isWithinWindow($requestedDate)
+                ? $requestedDate
+                : $eligibility->latestDate();
+
+            $this->briefingDate = $selectedDate->toDateString();
+        } else {
+            $this->briefingDate = $today->toDateString();
+        }
+
+        $this->requestedBackdate = $this->briefingDate;
+    }
 
     /**
      * docs/daily-briefing-remediation-prd.md §10.1: authenticated, active STORE_STAFF with the
@@ -70,16 +100,80 @@ class DailyBriefingPage extends Page
         return [];
     }
 
+    public function selectedDate(): Carbon
+    {
+        return $this->parseDate($this->briefingDate)
+            ?? now(config('app.timezone'))->startOfDay();
+    }
+
+    public function isBackdateMode(): bool
+    {
+        return $this->requestBackdate
+            && $this->selectedDate()->isBefore(now(config('app.timezone'))->startOfDay());
+    }
+
+    public function backdateEarliestDate(): string
+    {
+        return app(BriefingBackdateEligibility::class)->earliestDate()->toDateString();
+    }
+
+    public function backdateLatestDate(): string
+    {
+        return app(BriefingBackdateEligibility::class)->latestDate()->toDateString();
+    }
+
+    public function applyBackdate(): void
+    {
+        $this->resetErrorBag('requestedBackdate');
+        $date = $this->parseDate($this->requestedBackdate);
+
+        if (! $date) {
+            $this->addError('requestedBackdate', 'Pilih tanggal backdate yang valid.');
+
+            return;
+        }
+
+        $reason = app(BriefingBackdateEligibility::class)->denialReason(auth()->user(), $date);
+
+        if ($reason) {
+            $this->addError('requestedBackdate', $reason);
+
+            return;
+        }
+
+        $this->requestBackdate = true;
+        $this->briefingDate = $date->toDateString();
+        $this->resetTaskModal();
+        unset($this->briefingData);
+
+        Notification::make()
+            ->title('Tanggal Backdate Dipilih')
+            ->body('Menampilkan poin yang belum diinput pada '.$date->locale('id')->isoFormat('D MMMM Y').'.')
+            ->success()
+            ->send();
+    }
+
     public function openTaskModal(string $taskKey): void
     {
         $user = auth()->user();
         $task = BriefingTask::cached()->firstWhere('key', $taskKey);
+        $recordDate = $this->selectedDate();
 
-        if (! $task || ! app(BriefingAssignmentService::class)->taskIsAssignedTo($user, $task, now())) {
+        if (! $task || ! app(BriefingAssignmentService::class)->taskIsAssignedTo($user, $task, $recordDate)) {
             return;
         }
 
         $item = $this->canonicalItem($task);
+
+        if ($this->isBackdateMode() && $this->itemHasSubmission($item)) {
+            Notification::make()
+                ->title('Poin Sudah Diinput')
+                ->body('Poin ini sudah memiliki input pada periode yang dipilih.')
+                ->warning()
+                ->send();
+
+            return;
+        }
 
         if ($item?->review_status === BriefingReviewStatus::Approved) {
             Notification::make()
@@ -154,7 +248,7 @@ class DailyBriefingPage extends Page
                 'notes' => $this->taskData['notes'] ?? null,
                 'photo_paths' => $this->cameraPhotoPaths,
             ],
-            now(),
+            $this->selectedDate(),
         );
 
         if (! $result->successful) {
@@ -167,12 +261,7 @@ class DailyBriefingPage extends Page
             return;
         }
 
-        $this->activeTaskKey = null;
-        $this->activeSubmissionType = null;
-        $this->activeTaskLabel = null;
-        $this->activeTaskNoteType = null;
-        $this->taskData = [];
-        $this->cameraPhotoPaths = [];
+        $this->resetTaskModal();
         $this->dispatch('close-task-modal');
 
         unset($this->briefingData);
@@ -188,7 +277,7 @@ class DailyBriefingPage extends Page
     {
         $branchId = (int) auth()->user()->branch_id;
 
-        return BriefingRecord::itemsForBranchPeriod($branchId, $task->period, now())->get($task->key);
+        return BriefingRecord::itemsForBranchPeriod($branchId, $task->period, $this->selectedDate())->get($task->key);
     }
 
     #[Computed]
@@ -197,15 +286,17 @@ class DailyBriefingPage extends Page
         $user = auth()->user();
         $branchId = $user?->branch_id;
         $assignments = app(BriefingAssignmentService::class);
+        $recordDate = $this->selectedDate();
+        $isBackdateMode = $this->isBackdateMode();
         $result = [];
 
         foreach (BriefingPeriod::cases() as $period) {
-            $tasks = $assignments->tasksFor($user, $period, now());
+            $tasks = $assignments->tasksFor($user, $period, $recordDate);
             $itemMap = $branchId
-                ? BriefingRecord::itemsForBranchPeriod((int) $branchId, $period, now())
+                ? BriefingRecord::itemsForBranchPeriod((int) $branchId, $period, $recordDate)
                 : collect();
 
-            $taskList = $tasks->map(function (BriefingTask $task) use ($itemMap): array {
+            $taskList = $tasks->map(function (BriefingTask $task) use ($itemMap, $isBackdateMode, $recordDate): array {
                 $item = $itemMap->get($task->key);
 
                 return [
@@ -223,7 +314,8 @@ class DailyBriefingPage extends Page
                     'reviewStatus' => $item?->review_status,
                     'rejectionReason' => $item?->rejection_reason,
                     'hasOpenReopenGrant' => $item?->hasOpenReopenGrant() ?? false,
-                    'isPastDeadline' => $task->isPastDeadline() && ! ($item?->is_completed) && ! ($item?->hasOpenReopenGrant()),
+                    'hasSubmission' => $this->itemHasSubmission($item),
+                    'isPastDeadline' => ! $isBackdateMode && $task->isPastDeadline($recordDate) && ! ($item?->is_completed) && ! ($item?->hasOpenReopenGrant()),
                     'deadlineLabel' => $task->deadlineLabel(),
                     'isAssigned' => true,
                 ];
@@ -250,32 +342,36 @@ class DailyBriefingPage extends Page
                         'reviewStatus' => $item->review_status,
                         'rejectionReason' => $item->rejection_reason,
                         'hasOpenReopenGrant' => false,
+                        'hasSubmission' => $this->itemHasSubmission($item),
                         'isPastDeadline' => false,
                         'deadlineLabel' => null,
                         'isAssigned' => false,
                     ];
                 });
 
-            $taskList = $taskList->concat($historicalItems)->values()->all();
-
-            $assignedTasks = collect($taskList)->where('isAssigned', true);
+            $allTasks = $taskList->concat($historicalItems)->values();
+            $assignedTasks = $allTasks->where('isAssigned', true);
             $completedCount = $assignedTasks->where('isCompleted', true)->count();
+            $submittedCount = $assignedTasks->where('hasSubmission', true)->count();
+            $visibleTasks = $isBackdateMode
+                ? $allTasks->filter(fn (array $task): bool => $task['isAssigned'] && ! $task['hasSubmission'])->values()->all()
+                : $allTasks->all();
 
             $idDays = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
             $idMonths = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
             $rangeLabel = match ($period) {
-                BriefingPeriod::Daily => $idDays[now()->dayOfWeek].', '.now()->format('j').' '.$idMonths[now()->month].' '.now()->format('Y'),
-                BriefingPeriod::Weekly => (function () use ($idMonths): string {
-                    $start = now()->startOfWeek();
-                    $end = now()->endOfWeek();
+                BriefingPeriod::Daily => $idDays[$recordDate->dayOfWeek].', '.$recordDate->format('j').' '.$idMonths[$recordDate->month].' '.$recordDate->format('Y'),
+                BriefingPeriod::Weekly => (function () use ($idMonths, $recordDate): string {
+                    $start = $recordDate->copy()->startOfWeek();
+                    $end = $recordDate->copy()->endOfWeek();
                     $range = $start->month === $end->month
                         ? $start->format('j').'–'.$end->format('j').' '.$idMonths[$end->month].' '.$end->format('Y')
                         : $start->format('j').' '.$idMonths[$start->month].'–'.$end->format('j').' '.$idMonths[$end->month].' '.$end->format('Y');
 
                     return "Periode {$range}";
                 })(),
-                BriefingPeriod::Monthly => $idMonths[now()->month].' '.now()->format('Y'),
+                BriefingPeriod::Monthly => $idMonths[$recordDate->month].' '.$recordDate->format('Y'),
             };
 
             $result[$period->value] = [
@@ -285,10 +381,55 @@ class DailyBriefingPage extends Page
                 'rangeLabel' => $rangeLabel,
                 'total' => $assignedTasks->count(),
                 'completed' => $completedCount,
-                'tasks' => $taskList,
+                'submitted' => $submittedCount,
+                'remaining' => max(0, $assignedTasks->count() - $submittedCount),
+                'allSubmitted' => $assignedTasks->isNotEmpty() && $submittedCount === $assignedTasks->count(),
+                'tasks' => $visibleTasks,
             ];
         }
 
         return $result;
+    }
+
+    private function itemHasSubmission(?BriefingItem $item): bool
+    {
+        if (! $item) {
+            return false;
+        }
+
+        return in_array($item->review_status, [
+            BriefingReviewStatus::LegacyPending,
+            BriefingReviewStatus::SupervisorReview,
+            BriefingReviewStatus::Approved,
+        ], true)
+            || $item->is_completed
+            || $item->completed_at !== null
+            || ! empty($item->photo_paths)
+            || filled($item->notes);
+    }
+
+    private function resetTaskModal(): void
+    {
+        $this->activeTaskKey = null;
+        $this->activeSubmissionType = null;
+        $this->activeTaskLabel = null;
+        $this->activeTaskNoteType = null;
+        $this->taskData = [];
+        $this->cameraPhotoPaths = [];
+    }
+
+    private function parseDate(?string $value): ?Carbon
+    {
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            $date = Carbon::createFromFormat('Y-m-d', $value, config('app.timezone'))->startOfDay();
+
+            return $date->format('Y-m-d') === $value ? $date : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

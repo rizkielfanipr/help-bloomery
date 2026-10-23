@@ -50,6 +50,7 @@ it('renders the daily briefing page for a participant store_staff', function () 
 
     Livewire::test(DailyBriefingPage::class)
         ->assertSee('Daily Briefing')
+        ->assertSee('Request Backdate')
         ->assertSee('Harian')
         ->assertSee('Mingguan')
         ->assertSee('Bulanan');
@@ -393,5 +394,91 @@ it('keeps a submitted task visible as read-only after the task is deactivated', 
         ->assertSee($taskLabel)
         ->assertSee('Poin nonaktif')
         ->call('openTaskModal', 'monthly_cleaning_chiller')
+        ->assertSet('activeTaskKey', null);
+});
+
+it('opens request backdate with yesterday selected and a one-month window', function () {
+    Carbon::setTestNow('2026-10-23 10:00:00');
+    actingAs(participantStoreStaff());
+
+    Livewire::withQueryParams(['backdate' => 1])
+        ->test(DailyBriefingPage::class)
+        ->assertSet('requestBackdate', true)
+        ->assertSet('briefingDate', '2026-10-22')
+        ->assertSet('requestedBackdate', '2026-10-22')
+        ->assertSee('Mode Backdate')
+        ->assertSee('2026-09-23', escape: false)
+        ->assertSee('2026-10-22', escape: false);
+});
+
+it('saves a missing daily point for the selected backdate', function () {
+    Carbon::setTestNow('2026-10-23 10:00:00');
+    $user = participantStoreStaff();
+    actingAs($user);
+
+    Livewire::withQueryParams(['backdate' => 1, 'date' => '2026-10-20'])
+        ->test(DailyBriefingPage::class)
+        ->call('openTaskModal', 'daily_detail_briefing')
+        ->set('taskData.notes', 'Briefing backdate tanggal 20 Oktober.')
+        ->call('saveTask');
+
+    $record = BriefingRecord::query()
+        ->where('branch_id', $user->branch_id)
+        ->where('period', BriefingPeriod::Daily->value)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->record_date->toDateString())->toBe('2026-10-20')
+        ->and($record->items()->where('task_key', 'daily_detail_briefing')->exists())->toBeTrue();
+});
+
+it('rejects backdate outside the one-month window', function (string $date) {
+    Carbon::setTestNow('2026-10-23 10:00:00');
+    actingAs(participantStoreStaff());
+
+    Livewire::withQueryParams(['backdate' => 1])
+        ->test(DailyBriefingPage::class)
+        ->set('requestedBackdate', $date)
+        ->call('applyBackdate')
+        ->assertHasErrors('requestedBackdate')
+        ->assertSet('briefingDate', '2026-10-22');
+})->with([
+    'older than one month' => '2026-09-22',
+    'today' => '2026-10-23',
+    'future date' => '2026-10-24',
+]);
+
+it('hides points that already have a real submission in backdate mode', function () {
+    Carbon::setTestNow('2026-10-23 10:00:00');
+    $user = participantStoreStaff();
+    $submittedTask = BriefingTask::query()->where('key', 'daily_detail_briefing')->firstOrFail();
+    $missingTask = BriefingTask::query()->where('key', 'daily_selfie_pagi')->firstOrFail();
+
+    $record = BriefingRecord::create([
+        'user_id' => $user->id,
+        'branch_id' => $user->branch_id,
+        'period' => BriefingPeriod::Daily->value,
+        'record_date' => '2026-10-20',
+    ]);
+    $record->items()->create([
+        'task_key' => $submittedTask->key,
+        'notes' => 'Sudah pernah diinput.',
+        'is_completed' => true,
+        'completed_at' => '2026-10-20 09:00:00',
+        'review_status' => BriefingReviewStatus::SupervisorReview->value,
+    ]);
+
+    actingAs($user);
+
+    $component = Livewire::withQueryParams(['backdate' => 1, 'date' => '2026-10-20'])
+        ->test(DailyBriefingPage::class);
+
+    $visibleDailyTaskKeys = collect($component->get('briefingData')['daily']['tasks'])->pluck('key');
+
+    expect($visibleDailyTaskKeys)->not->toContain($submittedTask->key)
+        ->and($visibleDailyTaskKeys)->toContain($missingTask->key);
+
+    $component
+        ->call('openTaskModal', $submittedTask->key)
         ->assertSet('activeTaskKey', null);
 });

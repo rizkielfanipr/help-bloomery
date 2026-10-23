@@ -19,6 +19,23 @@
         @endif
     </a>
 
+    {{-- Request Backdate --}}
+    <a href="{{ route('filament.casual.pages.daily-briefing-page', ['backdate' => 1]) }}"
+       class="flex flex-1 flex-col items-center gap-1 py-3">
+        @if($active === 'backdate')
+            <svg class="h-6 w-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                <path fill-rule="evenodd" d="M9.53 2.47a.75.75 0 0 1 0 1.06L8.81 4.25H15A5.75 5.75 0 1 1 9.25 10a.75.75 0 0 1 1.5 0A4.25 4.25 0 1 0 15 5.75H8.81l.72.72a.75.75 0 0 1-1.06 1.06l-2-2a.75.75 0 0 1 0-1.06l2-2a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/>
+                <path d="M14.25 8.25a.75.75 0 0 0-1.5 0V12c0 .199.079.39.22.53l2.25 2.25a.75.75 0 1 0 1.06-1.06l-2.03-2.03V8.25Z"/>
+            </svg>
+            <span class="text-[10px] font-semibold leading-tight text-blue-600">Request Backdate</span>
+        @else
+            <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5.25H6.75A2.25 2.25 0 0 0 4.5 7.5v9.75a2.25 2.25 0 0 0 2.25 2.25h9.75a2.25 2.25 0 0 0 2.25-2.25V15M8.25 3 6 5.25 8.25 7.5M6 5.25h8.25A3.75 3.75 0 0 1 18 9v1.5M12 9.75V13.5l2.25 1.5"/>
+            </svg>
+            <span class="text-[10px] leading-tight text-gray-400">Request Backdate</span>
+        @endif
+    </a>
+
     {{-- Riwayat --}}
     <a href="{{ route('filament.casual.pages.briefing-history-page') }}"
        class="flex flex-1 flex-col items-center gap-1 py-3">

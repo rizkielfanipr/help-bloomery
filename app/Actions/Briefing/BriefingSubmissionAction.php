@@ -9,6 +9,8 @@ use App\Models\BriefingRecord;
 use App\Models\BriefingTask;
 use App\Models\User;
 use App\Services\BriefingAssignmentService;
+use App\Services\BriefingBackdateEligibility;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -21,14 +23,33 @@ use Illuminate\Support\Facades\DB;
  */
 class BriefingSubmissionAction
 {
-    public function __construct(private readonly BriefingAssignmentService $assignments) {}
+    public function __construct(
+        private readonly BriefingAssignmentService $assignments,
+        private readonly BriefingBackdateEligibility $backdateEligibility,
+    ) {}
 
     /**
      * @param  array{notes?: ?string, photo_paths?: string[]}  $payload
      */
     public function execute(User $actor, BriefingTask $task, array $payload, CarbonInterface $recordDate): BriefingSubmissionResult
     {
-        if (! $this->assignments->isParticipant($actor, $recordDate)) {
+        $recordDate = Carbon::parse($recordDate->toDateString(), config('app.timezone'))->startOfDay();
+        $today = now(config('app.timezone'))->startOfDay();
+
+        if ($recordDate->isAfter($today)) {
+            return BriefingSubmissionResult::denied(
+                'future_date',
+                'Tanggal Daily Briefing tidak boleh berada di masa mendatang.',
+            );
+        }
+
+        $isBackdated = $recordDate->isBefore($today);
+
+        if ($isBackdated && ($reason = $this->backdateEligibility->denialReason($actor, $recordDate))) {
+            return BriefingSubmissionResult::denied('backdate_not_allowed', $reason);
+        }
+
+        if (! $isBackdated && ! $this->assignments->canSubmit($actor, $recordDate)) {
             return BriefingSubmissionResult::denied(
                 'not_participant',
                 'Anda tidak terdaftar sebagai peserta Daily Briefing.',
@@ -49,8 +70,8 @@ class BriefingSubmissionAction
 
         $lock = Cache::lock($lockKey, 10);
 
-        return $lock->block(5, function () use ($actor, $task, $payload, $recordDate, $branchId, $period, $periodStartDate): BriefingSubmissionResult {
-            return DB::transaction(function () use ($actor, $task, $payload, $recordDate, $branchId, $period, $periodStartDate): BriefingSubmissionResult {
+        return $lock->block(5, function () use ($actor, $task, $payload, $recordDate, $branchId, $period, $periodStartDate, $isBackdated): BriefingSubmissionResult {
+            return DB::transaction(function () use ($actor, $task, $payload, $recordDate, $branchId, $period, $periodStartDate, $isBackdated): BriefingSubmissionResult {
                 $record = BriefingRecord::canonicalForBranch($branchId, $period, $recordDate);
                 $item = BriefingRecord::itemsForBranchPeriod($branchId, $period, $recordDate)->get($task->key)
                     ?? $record?->items()->firstOrNew(['task_key' => $task->key])
@@ -67,9 +88,16 @@ class BriefingSubmissionAction
                     );
                 }
 
+                if ($isBackdated && $item->exists && $this->itemHasSubmission($item)) {
+                    return BriefingSubmissionResult::denied(
+                        'already_submitted',
+                        'Poin ini sudah memiliki input pada periode yang dipilih.',
+                    );
+                }
+
                 $hasReopenGrant = $item->exists && $item->hasOpenReopenGrant();
 
-                if ($task->isPastDeadline() && ! $hasReopenGrant) {
+                if (! $isBackdated && $task->isPastDeadline($recordDate) && ! $hasReopenGrant) {
                     return BriefingSubmissionResult::denied(
                         'deadline_passed',
                         'Waktu pengisian sudah berakhir. Tugas ini tidak dapat disubmit.',
@@ -131,5 +159,18 @@ class BriefingSubmissionAction
                 return BriefingSubmissionResult::success($item);
             });
         });
+    }
+
+    private function itemHasSubmission(BriefingItem $item): bool
+    {
+        return in_array($item->review_status, [
+            BriefingReviewStatus::LegacyPending,
+            BriefingReviewStatus::SupervisorReview,
+            BriefingReviewStatus::Approved,
+        ], true)
+            || $item->is_completed
+            || $item->completed_at !== null
+            || ! empty($item->photo_paths)
+            || filled($item->notes);
     }
 }

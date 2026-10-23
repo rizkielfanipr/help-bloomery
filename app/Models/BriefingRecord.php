@@ -82,7 +82,8 @@ class BriefingRecord extends Model
         return static::query()
             ->where('branch_id', $branchId)
             ->where('period', $period->value)
-            ->whereBetween('record_date', [$startDate->toDateString(), $endDate->toDateString()]);
+            ->whereDate('record_date', '>=', $startDate->toDateString())
+            ->whereDate('record_date', '<=', $endDate->toDateString());
     }
 
     /**

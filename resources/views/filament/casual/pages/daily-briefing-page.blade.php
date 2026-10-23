@@ -2,6 +2,8 @@
     $user = auth()->user();
     $firstName = explode(' ', $user->name)[0];
     $briefingData = $this->briefingData;
+    $selectedDate = $this->selectedDate();
+    $isBackdateMode = $this->isBackdateMode();
 
     $periodColors = [
         'daily'   => ['bg' => 'bg-blue-600',   'light' => 'bg-blue-50',   'icon' => 'text-blue-600',   'pill' => 'bg-blue-100 text-blue-700',   'bar' => 'bg-blue-500',   'chip' => 'bg-blue-50 text-blue-500 ring-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:ring-blue-800',   'divider' => 'bg-blue-100 dark:bg-blue-900/30'],
@@ -372,7 +374,7 @@
         </div>
 
         <p class="text-blue-200">
-            {{ now()->locale('id')->isoFormat('dddd, D MMMM Y') }}
+            {{ $selectedDate->locale('id')->isoFormat('dddd, D MMMM Y') }}
         </p>
         <p class="text-xl font-semibold text-white">Halo, {{ $firstName }}!</p>
     </div>
@@ -383,6 +385,61 @@
     <div class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 pb-28 pt-6 dark:bg-gray-950">
 
         <div class="flex flex-col gap-5 px-5">
+
+            @if($requestBackdate)
+                <div class="rounded-2xl border border-blue-100 bg-white p-4 dark:border-blue-900 dark:bg-gray-900">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white">Request Backdate</p>
+                            <p class="mt-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                                Pilih tanggal maksimal satu bulan ke belakang. Hanya poin yang belum pernah diinput yang ditampilkan.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex items-end gap-2">
+                        <div class="min-w-0 flex-1">
+                            <label for="briefing-backdate" class="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-300">Tanggal briefing</label>
+                            <input id="briefing-backdate"
+                                   type="date"
+                                   wire:model="requestedBackdate"
+                                   min="{{ $this->backdateEarliestDate() }}"
+                                   max="{{ $this->backdateLatestDate() }}"
+                                   class="block w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        </div>
+                        <button type="button"
+                                wire:click="applyBackdate"
+                                wire:loading.attr="disabled"
+                                class="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition active:bg-blue-700 disabled:opacity-60">
+                            Tampilkan
+                        </button>
+                    </div>
+                    @error('requestedBackdate')
+                        <p class="mt-2 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+
+                    <a href="{{ route('filament.casual.pages.daily-briefing-page') }}"
+                       class="mt-3 inline-flex text-xs font-semibold text-blue-600 dark:text-blue-400">
+                        Kembali ke briefing hari ini
+                    </a>
+                </div>
+
+                @if($isBackdateMode)
+                    <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/30">
+                        <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                            Mode Backdate · {{ $selectedDate->locale('id')->isoFormat('D MMMM Y') }}
+                        </p>
+                        <p class="mt-1 text-xs leading-5 text-amber-700 dark:text-amber-400">
+                            Bukti diunggah sekarang untuk melengkapi briefing pada tanggal yang dipilih.
+                        </p>
+                    </div>
+                @endif
+            @endif
 
             @foreach($briefingData as $periodKey => $data)
                 @php $colors = $periodColors[$periodKey]; @endphp
@@ -431,14 +488,21 @@
                             </div>
                             <div>
                                 <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $data['label'] }}</p>
-                                <p class="text-xs text-gray-400">{{ $data['completed'] }}/{{ $data['total'] }} tugas selesai</p>
+                                @if($isBackdateMode)
+                                    <p class="text-xs text-gray-400">{{ $data['submitted'] }}/{{ $data['total'] }} sudah diinput · {{ $data['remaining'] }} belum diinput</p>
+                                @else
+                                    <p class="text-xs text-gray-400">{{ $data['completed'] }}/{{ $data['total'] }} tugas selesai</p>
+                                @endif
                             </div>
                         </div>
                     </div>
 
                     {{-- Progress bar --}}
                     <div class="mx-4 mb-3 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                        @php $pct = $data['total'] > 0 ? round($data['completed'] / $data['total'] * 100) : 0; @endphp
+                        @php
+                            $progressValue = $isBackdateMode ? $data['submitted'] : $data['completed'];
+                            $pct = $data['total'] > 0 ? round($progressValue / $data['total'] * 100) : 0;
+                        @endphp
                         <div class="h-full rounded-full transition-all duration-500 {{ $colors['bar'] }}"
                              style="width: {{ $pct }}%"></div>
                     </div>
@@ -451,6 +515,22 @@
                     @endphp
 
                     <div class="divide-y divide-gray-100 dark:divide-gray-800">
+
+                        @if($isBackdateMode && $allTasks->isEmpty())
+                            <div class="px-4 py-6 text-center">
+                                <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-950/50 dark:text-green-400">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
+                                    </svg>
+                                </div>
+                                <p class="mt-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                    {{ $data['allSubmitted'] ? 'Sudah diinput untuk periode ini' : 'Tidak ada poin yang perlu diisi' }}
+                                </p>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    {{ $data['allSubmitted'] ? 'Semua poin yang berlaku sudah memiliki input.' : 'Tidak ada poin aktif untuk branch pada periode ini.' }}
+                                </p>
+                            </div>
+                        @endif
 
                         @foreach($ungroupedTasks as $task)
                             @php
@@ -863,5 +943,5 @@
 
     <x-filament-actions::modals />
 
-    <x-briefing.bottom-nav active="briefing" />
+    <x-briefing.bottom-nav :active="$requestBackdate ? 'backdate' : 'briefing'" />
 </div>

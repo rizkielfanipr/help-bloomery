@@ -439,6 +439,16 @@ Sharding bawaan Pest 4 sempat diuji, tetapi inventaris seluruh `tests/Feature` b
 
 Workflow deployment lama `.github/workflows/deploy.yml` tidak diubah. Oleh karena itu implementasi CI baru belum dapat memicu staging atau production.
 
+### 13.1 Validasi Pull Request #1
+
+Run CI pertama menemukan bahwa pembagian modulo per file mengubah kombinasi test dalam satu proses. `ClearBranchSalesShiftsCommandTest` kemudian mengalami benturan unique constraint dengan test lain pada batch yang sama. Ini merupakan efek urutan batch, bukan kegagalan build atau konfigurasi artifact.
+
+Runner diperbaiki dengan mempertahankan kelompok berurutan maksimal 20 file persis seperti workflow lama, kemudian membagikan kelompok tersebut ke empat shard. Verifikasi lokal setelah koreksi:
+
+- seluruh 222 file tetap terpilih tepat satu kali;
+- distribusi shard menjadi 60, 60, 60, dan 42 file;
+- kelompok kompatibilitas yang memuat `ClearBranchSalesShiftsCommandTest` lulus 176 test dengan 729 assertion.
+
 ---
 
 ## 14. Acceptance criteria tahap audit

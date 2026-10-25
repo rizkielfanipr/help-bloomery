@@ -401,9 +401,12 @@ done < <(find tests/Feature -type f -name '*.php' -print0 | sort -z)
 selected_tests=()
 selected_remainder=$((SHARD_INDEX - 1))
 
-for test_index in "${!feature_tests[@]}"; do
-    if (( test_index % SHARD_TOTAL == selected_remainder )); then
-        selected_tests+=("${feature_tests[$test_index]}")
+for ((batch_start = 0; batch_start < ${#feature_tests[@]}; batch_start += 20)); do
+    batch_number=$((batch_start / 20))
+
+    if (( batch_number % SHARD_TOTAL == selected_remainder )); then
+        batch=("${feature_tests[@]:batch_start:20}")
+        selected_tests+=("${batch[@]}")
     fi
 done
 
@@ -415,7 +418,7 @@ done
 
 Script aktual wajib memvalidasi bahwa index, total shard, dan ukuran batch merupakan bilangan bulat positif, index tidak melebihi total, serta direktori `tests/Feature` tersedia.
 
-Pembagian modulo menjamin seluruh file test masuk tepat satu shard. Setelah pipeline stabil, distribusi dapat diubah menjadi manifest berbobot berdasarkan histori durasi bila waktu antar-shard tidak seimbang.
+Pembagian dilakukan pada kelompok berurutan yang masing-masing berisi maksimal 20 file. Kelompok tersebut kemudian dibagikan secara modulo ke empat shard. Strategi ini menjamin seluruh file test masuk tepat satu shard sambil mempertahankan kombinasi dan urutan batch workflow lama. Setelah pipeline stabil, distribusi dapat diubah menjadi manifest berbobot berdasarkan histori durasi bila waktu antar-shard tidak seimbang.
 
 ### 8.6 Required check agregat
 

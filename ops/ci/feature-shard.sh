@@ -40,9 +40,12 @@ done < <(find tests/Feature -type f -name '*.php' -print0 | sort -z)
 selected_tests=()
 selected_remainder=$((shard_index - 1))
 
-for test_index in "${!feature_tests[@]}"; do
-    if (( test_index % shard_total == selected_remainder )); then
-        selected_tests+=("${feature_tests[$test_index]}")
+for ((batch_start = 0; batch_start < ${#feature_tests[@]}; batch_start += batch_size)); do
+    batch_number=$((batch_start / batch_size))
+
+    if (( batch_number % shard_total == selected_remainder )); then
+        batch=("${feature_tests[@]:batch_start:batch_size}")
+        selected_tests+=("${batch[@]}")
     fi
 done
 

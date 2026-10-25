@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ENV: testing
+  APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  APP_DEBUG: true
+  APP_URL: https://help-bloomery.test
+  APP_DOMAIN: casual.help-bloomery.test
+  DB_CONNECTION: sqlite
+  DB_DATABASE: ':memory:'
+  CACHE_STORE: array
+  SESSION_DRIVER: array
+  QUEUE_CONNECTION: sync
+  MAIL_MAILER: array
+  R2_ACCESS_KEY_ID: testing
+  R2_SECRET_ACCESS_KEY: testing
+  R2_BUCKET: testing
+  R2_ENDPOINT: https://testing.invalid
+  RND_PROJECT_TASK_ATTACHMENT_DISK: b2
+  ESB_CORE_USERNAME: testing
+  ESB_CORE_PASSWORD: testing
+  ESB_MASTER_PRODUCT_TOKEN: testing
+
+jobs:
+  build-unit:
+    name: Build and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@d52fc211a0436f8839a587b3b5b8efddab4744ea # v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Create test environment
+        run: cp .env.example .env
+
+      - name: Validate Composer configuration
+        run: composer validate --strict --no-check-publish
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Run unit tests
+        run: php artisan test --compact --testsuite=Unit
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ci-public-build
+          path: public/build
+          if-no-files-found: error
+          retention-days: 1
+
+  feature:
+    name: Feature shard ${{ matrix.shard }}/4
+    needs: build-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - 1
+          - 2
+          - 3
+          - 4
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@d52fc211a0436f8839a587b3b5b8efddab4744ea # v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Create test environment
+        run: cp .env.example .env
+
+      - name: Install PHP dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Download frontend build
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: ci-public-build
+          path: public/build
+
+      - name: Run feature-test shard
+        env:
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_TOTAL: 4
+        run: bash ops/ci/feature-shard.sh
+
+  ci-required:
+    name: CI Required
+    if: ${{ always() }}
+    needs:
+      - build-unit
+      - feature
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Verify required jobs
+        env:
+          BUILD_UNIT_RESULT: ${{ needs.build-unit.result }}
+          FEATURE_RESULT: ${{ needs.feature.result }}
+        run: |
+          if [[ "$BUILD_UNIT_RESULT" != 'success' || "$FEATURE_RESULT" != 'success' ]]; then
+            echo "Build and unit result: $BUILD_UNIT_RESULT"
+            echo "Feature matrix result: $FEATURE_RESULT"
+            exit 1
+          fi
+
+          echo 'All required CI jobs passed.'

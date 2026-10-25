@@ -8,7 +8,7 @@
 | Repository | `rizkielfanipr/help-bloomery` |
 | Baseline commit | `aba7a2c049ff113ebe63cc77aa724dfd418ef662` |
 | Branch lokal | `main` |
-| Status | Audit repository dan GitHub selesai; verifikasi VPS masih menunggu akses read-only |
+| Status | Phase 1 CI Pull Request selesai; verifikasi VPS dan GitHub Environment masih tertunda |
 | Dokumen target | `docs/ci-cd-release-pipeline.md` |
 
 Audit ini adalah implementasi tahap pertama dari pembangunan ulang CI/CD. Tujuannya adalah mencatat kondisi nyata sebelum workflow, server, atau aturan GitHub diubah.
@@ -21,23 +21,23 @@ Audit ini tidak mengotorisasi deployment, perubahan konfigurasi VPS, perubahan G
 
 | Area | Status | Hasil utama |
 | --- | --- | --- |
-| Repository | Selesai | Hanya ada satu workflow aktif: `.github/workflows/deploy.yml` |
+| Repository | Selesai | `ci.yml` aktif untuk PR dan `deploy.yml` lama tetap aktif setelah merge |
 | Laravel runtime | Selesai | PHP 8.4, Laravel 13.8, Filament 5.6, Livewire 4.3 |
-| Test pipeline | Selesai | Unit test dan seluruh Feature test berjalan serial setelah push |
+| Test pipeline | Selesai untuk PR | Build/Unit dan empat Feature shard lulus; workflow push lama masih serial |
 | Deployment | Selesai sebagian | GitHub mengirim `deploy production` atau `deploy staging`; implementasi command berada di VPS |
-| GitHub repository | Selesai | Default branch `main`, repository public, belum ada riwayat Pull Request |
+| GitHub repository | Selesai | PR #1 sudah squash-merge ke `main` sebagai commit `d66410c9` |
 | GitHub branches | Selesai | `main`, `staging`, `feature/ci-cd-delivery-flow`, dan satu fix branch |
-| GitHub Ruleset | Berdasarkan audit sebelumnya | Belum tersedia; harus diverifikasi lagi sebelum aktivasi |
+| GitHub Ruleset | Selesai | `Protect main` (`25804747`) aktif dan mewajibkan `CI Required` |
 | VPS | Tertunda | SSH read-only gagal karena autentikasi key non-interaktif ditolak |
-| Monitoring | Selesai | Health `/up`, Redis check, monitoring checks, dan deployment recorder tersedia |
+| Monitoring | Selesai dari aplikasi | Production `/up` terverifikasi sehat setelah deployment run #63 |
 | Queue dan scheduler | Selesai dari kode | Queue memakai database secara default; scheduler memiliki tugas operasional penting |
 
-Kesimpulan tahap pertama:
+Kesimpulan terkini:
 
-1. Workflow sekarang belum menjadi gate sebelum kode masuk `main`.
+1. Workflow `CI Required` sudah menjadi gate teknis yang dapat diwajibkan sebelum merge.
 2. Implementasi deployment yang sebenarnya masih berada di VPS dan belum version-controlled.
 3. Branch eksperimen CI/CD lama tidak boleh di-merge apa adanya karena berbasis commit yang tertinggal jauh dari `main`.
-4. Perubahan paling aman berikutnya adalah membuat workflow CI khusus Pull Request dari `main` terbaru, tanpa mengubah deployment production terlebih dahulu.
+4. Perubahan paling aman berikutnya adalah menyelesaikan audit VPS dan GitHub Environment sebelum mengubah deployment.
 
 ---
 
@@ -373,10 +373,10 @@ sudo grep -Rsn "bloomery\|queue:work" /etc/supervisor/conf.d
 | Gate | Status | Syarat selesai |
 | --- | --- | --- |
 | G0. Repository baseline | Selesai | Workflow dan runtime tercatat |
-| G1. GitHub baseline | Selesai sebagian | Environment, Ruleset, dan scope secret diverifikasi di UI |
+| G1. GitHub baseline | Selesai sebagian | Ruleset aktif; scope GitHub Environment masih perlu diverifikasi |
 | G2. VPS baseline | Tertunda | Checklist bagian 10 dikumpulkan |
 | G3. Branch eksperimen diamankan | Selesai secara keputusan | Branch tidak di-merge apa adanya |
-| G4. Working tree pekerjaan dipisahkan | Tertunda | Branch/worktree CI bersih dari perubahan aplikasi |
+| G4. Working tree pekerjaan dipisahkan | Selesai | Commit CI dibuat terisolasi tanpa perubahan aplikasi |
 
 Pipeline deployment baru tidak boleh menyentuh production sebelum G1–G4 selesai. Workflow CI Pull Request yang tidak melakukan deployment boleh dibuat lebih dahulu dari `main` terbaru.
 
@@ -384,17 +384,21 @@ Pipeline deployment baru tidak boleh menyentuh production sebelum G1–G4 selesa
 
 ## 12. Langkah implementasi berikutnya
 
-Urutan yang direkomendasikan:
+Subproses yang sudah selesai:
 
-1. Kumpulkan hasil checklist VPS read-only.
-2. Buat branch baru dari `main` terbaru, misalnya `feature/ci-cd-pull-request-gate-v2`.
-3. Buat `.github/workflows/ci.yml` khusus `pull_request` dan `merge_group`.
-4. Hapus mekanisme `[skip full tests]` dari CI baru.
-5. Pecah Feature test menjadi empat shard paralel secara deterministik dan jalankan setiap shard dalam batch terbatas.
-6. Tambahkan job agregator stabil bernama `CI Required`.
-7. Uji CI melalui Pull Request tanpa mengubah deployment lama.
-8. Setelah stabil, aktifkan Ruleset `main` dengan required check `CI Required`.
-9. Baru lanjutkan artifact release, staging, production approval, atomic deployment, dan rollback.
+1. [x] Buat branch baru dari `main` terbaru.
+2. [x] Buat `.github/workflows/ci.yml` khusus `pull_request` dan `merge_group`.
+3. [x] Pastikan CI baru tidak memiliki mekanisme `[skip full tests]`.
+4. [x] Pecah Feature test menjadi empat shard paralel dan batch terbatas.
+5. [x] Tambahkan job agregator stabil bernama `CI Required`.
+6. [x] Uji melalui PR #1 dan squash-merge ke `main`.
+
+Subproses berikutnya:
+
+1. [x] Aktifkan Ruleset `main` dengan required check `CI Required`.
+2. [ ] Kumpulkan hasil checklist VPS read-only.
+3. [ ] Verifikasi scope GitHub Environment untuk staging dan production.
+4. [ ] Implementasikan artifact release, staging verification, production approval, atomic deployment, dan rollback.
 
 Perubahan pada langkah 2–8 harus menjadi commit CI-only. Jangan sertakan source aplikasi yang saat ini masih berubah di working tree.
 
@@ -402,7 +406,7 @@ Perubahan pada langkah 2–8 harus menjadi commit CI-only. Jangan sertakan sourc
 
 ## 13. Hasil implementasi CI-only
 
-File berikut sudah dibuat pada working tree lokal dan belum di-commit atau dipush:
+File berikut sudah berada di `main` melalui squash commit `d66410c9`:
 
 | File | Fungsi |
 | --- | --- |
@@ -435,7 +439,7 @@ Hasil verifikasi lokal:
 | Sample runner shard | 19 test lulus, 69 assertion |
 | `git diff --check` | Lulus |
 
-Sharding bawaan Pest 4 sempat diuji, tetapi inventaris seluruh `tests/Feature` berhenti dengan exit code 255 pada suite proyek ini. Implementasi menggunakan pembagian file deterministik dan batch maksimal 20 file, mengikuti pola workflow lama yang sudah berjalan. Full Feature suite belum dijalankan lokal; validasi tersebut dilakukan saat workflow pertama dijalankan di GitHub.
+Sharding bawaan Pest 4 sempat diuji, tetapi inventaris seluruh `tests/Feature` berhenti dengan exit code 255 pada suite proyek ini. Implementasi menggunakan pembagian kelompok file deterministik dan batch maksimal 20 file, mengikuti pola workflow lama yang sudah berjalan. Full Feature suite sudah tervalidasi melalui empat shard pada CI run #2.
 
 Workflow deployment lama `.github/workflows/deploy.yml` tidak diubah. Oleh karena itu implementasi CI baru belum dapat memicu staging atau production.
 
@@ -449,6 +453,19 @@ Runner diperbaiki dengan mempertahankan kelompok berurutan maksimal 20 file pers
 - distribusi shard menjadi 60, 60, 60, dan 42 file;
 - kelompok kompatibilitas yang memuat `ClearBranchSalesShiftsCommandTest` lulus 176 test dengan 729 assertion.
 
+CI run #2 selesai sukses dalam 7 menit 12 detik. Seluruh job berikut lulus:
+
+- `Build and unit tests`;
+- `Feature shard 1/4`;
+- `Feature shard 2/4`;
+- `Feature shard 3/4`;
+- `Feature shard 4/4`;
+- `CI Required`.
+
+PR #1 kemudian di-squash ke `main` sebagai commit `d66410c9`. Workflow lama `Test and deploy` run #63 juga selesai sukses untuk `Test and build` serta `Deploy main`. Pemeriksaan `https://office.bloomery.co.id/up` setelah deployment menampilkan `Application up` dengan response render 21 ms.
+
+Dengan bukti tersebut, subproses implementasi dan validasi CI selesai. Pada 25 Oktober 2026, Ruleset `Protect main` (`25804747`) kemudian diaktifkan untuk default branch. GitHub API mengonfirmasi bahwa branch `main` menerima aturan efektif `deletion`, `non_fast_forward`, `pull_request`, dan `required_status_checks`; check wajibnya adalah `CI Required`, strict up-to-date aktif, dan bypass admin dibatasi pada Pull Request. Phase 1 dinyatakan **selesai**.
+
 ---
 
 ## 14. Acceptance criteria tahap audit
@@ -460,9 +477,10 @@ Runner diperbaiki dengan mempertahankan kelompok berurutan maksimal 20 file pers
 - [x] Kondisi branch dan Pull Request GitHub terdokumentasi.
 - [x] Branch eksperimen lama diaudit dan diberi keputusan aman.
 - [x] Tidak ada secret yang dibaca atau ditulis.
-- [x] Tidak ada perubahan pada production.
+- [x] Tidak ada perubahan source aplikasi, schema, atau konfigurasi server; redeployment workflow lama berhasil.
 - [ ] Script deploy VPS berhasil dibaca.
 - [ ] Konfigurasi Nginx, Supervisor, cron, dan PHP-FPM production diverifikasi.
-- [ ] GitHub Environment dan Ruleset diverifikasi dari UI.
+- [x] GitHub Ruleset dibuat dan aturan efektif branch `main` diverifikasi melalui GitHub API.
+- [ ] GitHub Environment diverifikasi.
 
-Tahap audit dinyatakan **selesai sebagian dan aman untuk melanjutkan CI-only**. Tahap deployment tetap tertahan sampai item VPS dan GitHub Environment yang belum terverifikasi diselesaikan.
+Phase 1 CI Pull Request dinyatakan **selesai**. Pembangunan deployment baru tetap tertahan sampai audit VPS dan GitHub Environment selesai.

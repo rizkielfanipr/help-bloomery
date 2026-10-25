@@ -12,6 +12,22 @@
 | Infrastruktur target | GitHub Actions, satu VPS, Nginx, PHP-FPM, Redis, Supervisor, MySQL, Cloudflare R2 |
 | Strategi | Trunk-based development, Pull Request ke `main`, build once, atomic release, promote artifact yang sama |
 
+### 1.1 Status implementasi
+
+| Tahap | Status | Bukti |
+| --- | --- | --- |
+| Audit repository dan runtime | Selesai | `docs/ci-cd-current-state-audit.md` |
+| Implementasi workflow CI Pull Request | Selesai | PR #1, squash commit `d66410c9` |
+| Build dan Unit test | Selesai | CI run #2 sukses |
+| Empat Feature shard | Selesai | Seluruh shard CI run #2 sukses dalam total run 7 menit 12 detik |
+| Check agregat `CI Required` | Selesai | Check sukses pada PR #1 |
+| Deployment workflow lama setelah merge | Terverifikasi | `Test and deploy` run #63 sukses |
+| Production health | Terverifikasi | `/up` menampilkan `Application up` setelah run #63 |
+| Phase 1 — CI Pull Request | Selesai | CI tervalidasi dan Ruleset `main` aktif |
+| Ruleset `main` | Selesai | `Protect main` (`25804747`) aktif dengan required check `CI Required` |
+| Audit deployment VPS | Tertunda | SSH read-only belum tersedia dari sesi audit |
+| Artifact dan atomic release | Belum dimulai | Menunggu audit VPS |
+
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
 Dokumen ini tidak memberikan izin untuk:
@@ -1042,6 +1058,8 @@ Artifact release bukan backup database dan bukan backup attachment R2.
 
 Setelah `CI Required` pernah berhasil minimal satu kali, buat ruleset active untuk default branch.
 
+**Status implementasi:** selesai pada 25 Oktober 2026. Ruleset `Protect main` (`25804747`) aktif dan aturan efektif branch `main` sudah diverifikasi melalui GitHub API.
+
 ### 21.1 Target
 
 - Include default branch (`main`).
@@ -1096,8 +1114,11 @@ Referensi resmi:
 - Buat PR percobaan dan ukur durasi.
 - Stabilkan test flaky.
 - Jangan aktifkan Ruleset sebelum nama required check muncul di GitHub.
+- Setelah `CI Required` berhasil, aktifkan Ruleset `main` agar perubahan berikutnya wajib melalui PR dan check tersebut.
 
-**Rollback:** hapus/nonaktifkan `ci.yml`; deployment production belum berubah.
+**Exit criteria:** tercapai. PR percobaan lulus, `CI Required` tersedia, dan Ruleset `main` aktif.
+
+**Rollback:** ubah Ruleset ke Evaluate/nonaktifkan dan hapus/nonaktifkan `ci.yml`; deployment production belum berubah.
 
 ### Phase 2 — Bootstrap release staging
 
@@ -1137,7 +1158,7 @@ Lakukan pada waktu traffic rendah:
 
 ### Phase 5 — Enforcement
 
-- Aktifkan Ruleset `main`.
+- Verifikasi Ruleset `main` tetap aktif dan tidak memiliki bypass reguler.
 - Hapus `[skip full tests]` dari workflow lama.
 - Hentikan direct push reguler.
 - Nonaktifkan workflow deploy lama setelah minimal tiga release production baru sukses.
@@ -1200,12 +1221,12 @@ Pipeline baru dinyatakan selesai jika seluruh kondisi berikut terpenuhi:
 
 ### Repository dan GitHub
 
-- [ ] Pull Request ke `main` menjalankan CI lengkap.
-- [ ] CI tidak dapat dilewati melalui commit message.
-- [ ] Empat shard menjalankan seluruh file `tests/Feature` tepat satu kali.
-- [ ] `CI Required` menjadi required status check.
-- [ ] Direct push reguler ke `main` ditolak.
-- [ ] Workflow action dipin ke SHA terverifikasi.
+- [x] Pull Request ke `main` menjalankan CI lengkap.
+- [x] CI tidak dapat dilewati melalui commit message.
+- [x] Empat shard menjalankan seluruh file `tests/Feature` tepat satu kali.
+- [x] `CI Required` menjadi required status check.
+- [x] Direct push reguler ke `main` ditolak oleh rule `pull_request`; bypass admin dibatasi pada Pull Request.
+- [x] Workflow action dipin ke SHA terverifikasi.
 
 ### Artifact
 
@@ -1282,10 +1303,10 @@ Summary tidak boleh memuat host internal sensitif, `.env`, token, database DSN, 
 
 | ID | Pekerjaan | Ketergantungan | Bukti selesai |
 | --- | --- | --- | --- |
-| CICD-01 | Inventaris command deploy existing | - | Runbook privat baseline |
+| CICD-01 | Inventaris command deploy existing | - | **Sebagian:** repository selesai, command VPS tertunda |
 | CICD-02 | Tambah PR template | - | Template muncul pada PR |
-| CICD-03 | Tambah `ci.yml` | - | PR check berjalan |
-| CICD-04 | Implementasi deterministic sharding | CICD-03 | Semua test terdistribusi sekali |
+| CICD-03 | Tambah `ci.yml` | - | **Selesai:** PR #1 / CI run #2 |
+| CICD-04 | Implementasi deterministic sharding | CICD-03 | **Selesai:** 222 file, empat shard lulus |
 | CICD-05 | Optimasi cache dependency | CICD-03 | Durasi tercatat lebih rendah |
 | CICD-06 | Buat artifact builder | CICD-03 | Archive dan checksum tervalidasi |
 | CICD-07 | Implementasi server deploy script | CICD-06 | Static checks dan staging dry run |
@@ -1296,7 +1317,7 @@ Summary tidak boleh memuat host internal sensitif, `.env`, token, database DSN, 
 | CICD-12 | Konfigurasi GitHub environments | CICD-11 | Secret/policy terpisah |
 | CICD-13 | Bootstrap production | CICD-09 | Initial release tersedia |
 | CICD-14 | Cutover production | CICD-13 | Nginx menuju current release |
-| CICD-15 | Aktifkan Ruleset `main` | CICD-03 | Direct push ditolak |
+| CICD-15 | Aktifkan Ruleset `main` | CICD-03 | **Selesai:** Ruleset `25804747` aktif |
 | CICD-16 | Nonaktifkan workflow lama | CICD-14 | Tiga release baru sukses |
 | CICD-17 | Hapus branch staging | CICD-16 | Tidak ada referensi workflow/policy |
 

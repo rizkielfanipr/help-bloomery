@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Tanggal baseline | 26 Oktober 2026 |
-| Status | Phase 1 dan Phase 2 selesai; implementasi aman Phase 3 sedang direview |
+| Status | Phase 1, Phase 2, dan Phase 3 selesai; Phase 4 belum dimulai |
 | Aplikasi | Help Bloomery |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Stack | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Pest 4, Node.js 22, Vite 8 |
@@ -26,12 +26,13 @@
 | Phase 1 — CI Pull Request | Selesai | CI tervalidasi dan Ruleset `main` aktif |
 | Ruleset `main` | Selesai | `Protect main` (`25804747`) aktif dengan required check `CI Required` |
 | Audit deployment VPS | Selesai | Runtime, Nginx, Supervisor, cron, backup, permission, disk, dan script deploy lama telah diverifikasi |
-| GitHub Environment | Sebagian | Environment tersedia; required reviewer production harus dikonfigurasi sebelum rehearsal diaktifkan |
+| GitHub Environment | Selesai | Environment `production` memakai required reviewer dan hanya menerima protected branch |
 | Artifact dan atomic release | Selesai | PR #3 (`7a10c0ae`) dan perbaikan monitoring PR #4 (`8f1353f8`) |
 | Bootstrap server staging | Selesai | Nginx memakai `/var/www/bloomery/staging/current/public`; shared `.env` dan `storage` aktif |
 | Validasi atomic staging | Selesai | Release #2, #3, dan #4 sukses; rollback #4→#3→#4 sehat |
 | Phase 2 — Atomic staging | Selesai | Exit criteria tiga deployment dan satu simulasi rollback tercapai |
-| Phase 3 — Promotion pipeline | Dalam review | Auto-release staging, approval rehearsal, dan fallback manual disiapkan tanpa kemampuan deploy production |
+| Uji restore backup | Selesai | Backup production 26 Oktober 2026 berhasil direstore terisolasi: 191 tabel, 338 migration, dan seluruh `mysqlcheck` OK |
+| Phase 3 — Promotion pipeline | Selesai | Release #6 membuktikan jalur reject; Release #7 membuktikan jalur approve dan checksum tanpa deployment production |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1151,18 +1152,28 @@ berhasil. Uji restore backup database staging tetap wajib sebelum cutover produc
 - Konfigurasikan environment production dengan approval tetapi jangan approve dahulu.
 - Verifikasi artifact, record monitoring, dan smoke check.
 
-**Implementasi aman yang direview:** push ke `main` membuat artifact satu kali dan mendeploy artifact
+**Status 26 Oktober 2026:** selesai. Push ke `main` membuat artifact satu kali dan mendeploy artifact
 tersebut ke atomic staging. Job berikutnya mereferensikan environment `production`, tetapi hanya
 mengunduh artifact staging dan memverifikasi checksum. Job tidak mempunyai konfigurasi SSH maupun
-command deployment production. Repository variable `PRODUCTION_APPROVAL_REHEARSAL_ENABLED=true`
-baru boleh dibuat setelah required reviewer dan branch policy environment production selesai.
+command deployment production. Environment `production` telah memakai required reviewer dan aturan
+protected branch. Repository variable `PRODUCTION_APPROVAL_REHEARSAL_ENABLED=true` telah diaktifkan.
 
 Workflow lama diubah menjadi `workflow_dispatch` fallback manual. Dengan demikian merge biasa tidak
 lagi menjalankan full Feature test serial dan tidak lagi otomatis memanggil `deploy production`.
 
-**Validasi Phase 3:** jalankan satu release untuk membuktikan job berhenti pada status Waiting lalu
-reject, kemudian satu release rehearsal lain untuk approve dan membuktikan checksum artifact sama.
-Keduanya tidak boleh membuka koneksi SSH pada job production.
+**Validasi Phase 3:** Release #6 berhenti pada status Waiting dan berhasil direject tanpa mengubah
+production. Release #7 berhasil di-approve, memverifikasi checksum artifact, dan mengaktifkan staging
+release `7-532bd5a2`. Production tetap sehat pada commit `09d0d5b`; job approval tidak membuka koneksi
+SSH dan tidak menjalankan deployment production.
+
+Backup production `bloomery_office_prod_2026-10-26_16-20-42.sql.gz` juga berhasil direstore ke
+database sementara tanpa menulis binary log. Restore menghasilkan 191 tabel, 338 migration, 97 user,
+dan 28 branch. `mysqlcheck --check --quick` selesai dengan exit code 0 untuk seluruh tabel. Warning
+`Integer display width is deprecated` berasal dari sintaks integer lama pada dump dan tidak menggagalkan
+restore.
+
+**Exit criteria:** tercapai. Jalur reject dan approve telah diuji, artifact staging terverifikasi,
+production tidak berubah, fallback lama hanya manual, dan restore backup berhasil.
 
 **Rollback:** batalkan job production dan gunakan workflow lama.
 
@@ -1278,7 +1289,7 @@ Pipeline baru dinyatakan selesai jika seluruh kondisi berikut terpenuhi:
 - [ ] Deployment tercatat di System Monitoring.
 - [ ] Simulasi rollback aplikasi berhasil.
 - [ ] Tim memahami bahwa migration tidak otomatis di-rollback.
-- [ ] Backup dan restore staging pernah diuji.
+- [x] Backup production berhasil direstore dan diperiksa pada database sementara yang terisolasi.
 
 ### Performa
 

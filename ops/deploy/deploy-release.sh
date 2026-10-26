@@ -186,7 +186,7 @@ switched=true
 "$health_check_script" "$current_path" "$health_url"
 
 if (cd "$current_path" && "$php_binary" artisan list --raw | grep -q '^monitoring:record-deployment[[:space:]]'); then
-    (
+    if ! (
         cd "$current_path"
         "$php_binary" artisan monitoring:record-deployment \
             --environment="$environment_name" \
@@ -197,10 +197,12 @@ if (cd "$current_path" && "$php_binary" artisan list --raw | grep -q '^monitorin
             --branch=main \
             --commit="$commit_sha" \
             --actor="${GITHUB_ACTOR:-deploy}" \
-            --migration-status=succeeded \
+            --migration-status=ran \
             --health-status=healthy \
             --finished-at="$(date --iso-8601=seconds)"
-    )
+    ); then
+        echo 'Warning: release succeeded, but deployment monitoring could not be recorded.' >&2
+    fi
 fi
 
 mapfile -t obsolete_releases < <(find "$releases_path" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -Vr | tail -n +6)

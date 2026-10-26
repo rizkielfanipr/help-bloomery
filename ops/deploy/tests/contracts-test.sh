@@ -30,6 +30,13 @@ for script in \
     bash -n "${scripts_directory}/${script}"
 done
 
+grep -q -- '--migration-status=ran' "${scripts_directory}/deploy-release.sh"
+
+if grep -q -- '--migration-status=succeeded' "${scripts_directory}/deploy-release.sh"; then
+    echo 'Deployment script uses an invalid migration monitoring status.' >&2
+    exit 1
+fi
+
 expect_failure "${scripts_directory}/deploy-release.sh"
 expect_failure "${scripts_directory}/deploy-release.sh" invalid 1 "$valid_sha" /tmp/a /tmp/b
 expect_failure "${scripts_directory}/rollback-release.sh" staging invalid
@@ -49,6 +56,7 @@ if mv --help 2>&1 | grep -q -- ' -T'; then
     deployment_root="${temporary_directory}/deployment"
     environment_root="${deployment_root}/staging"
     fake_health_check="${temporary_directory}/health-check.sh"
+    fake_artisan_log="${temporary_directory}/artisan.log"
     php_binary="$(command -v php)"
 
     mkdir -p \
@@ -73,7 +81,17 @@ if mv --help 2>&1 | grep -q -- ' -T'; then
         local archive_path="${environment_root}/incoming/${archive_name}"
 
         mkdir -p "${source_path}/bootstrap/cache" "${source_path}/public/build"
-        printf '#!/usr/bin/env php\n<?php exit(0);\n' > "${source_path}/artisan"
+        printf '%s\n' \
+            '#!/usr/bin/env php' \
+            '<?php' \
+            'if (getenv("FAKE_ARTISAN_LOG")) {' \
+            '    file_put_contents(getenv("FAKE_ARTISAN_LOG"), implode(" ", array_slice($argv, 1)).PHP_EOL, FILE_APPEND);' \
+            '}' \
+            'if (($argv[1] ?? null) === "list") {' \
+            '    echo "monitoring:record-deployment  Record deployment metadata\\n";' \
+            '}' \
+            'exit(0);' \
+            > "${source_path}/artisan"
         printf '{}\n' > "${source_path}/public/build/manifest.json"
         printf '{"application":"help-bloomery","commit":"%s","run_number":"%s"}\n' \
             "$commit_sha" \
@@ -95,6 +113,7 @@ if mv --help 2>&1 | grep -q -- ' -T'; then
         DEPLOY_HEALTH_CHECK_SCRIPT="$fake_health_check" \
         DEPLOY_PHP_BINARY="$php_binary" \
         DEPLOY_ROOT="$deployment_root" \
+        FAKE_ARTISAN_LOG="$fake_artisan_log" \
         "${scripts_directory}/deploy-release.sh" \
         staging \
         10 \
@@ -110,6 +129,7 @@ if mv --help 2>&1 | grep -q -- ' -T'; then
         DEPLOY_HEALTH_CHECK_SCRIPT="$fake_health_check" \
         DEPLOY_PHP_BINARY="$php_binary" \
         DEPLOY_ROOT="$deployment_root" \
+        FAKE_ARTISAN_LOG="$fake_artisan_log" \
         "${scripts_directory}/deploy-release.sh" \
         staging \
         11 \
@@ -118,6 +138,7 @@ if mv --help 2>&1 | grep -q -- ' -T'; then
         "${environment_root}/incoming/help-bloomery-${second_sha}.tar.gz.sha256"
 
     test "$(readlink -f "${environment_root}/current")" = "${environment_root}/releases/11-bbbbbbbb"
+    grep -q 'monitoring:record-deployment .*--migration-status=ran' "$fake_artisan_log"
 
     env \
         APP_HEALTH_URL='https://staging.example.test/up' \

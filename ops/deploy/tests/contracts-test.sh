@@ -31,6 +31,7 @@ for script in \
 done
 
 grep -q -- '--migration-status=ran' "${scripts_directory}/deploy-release.sh"
+grep -q -- 'atomic-release-enabled' "${scripts_directory}/receive-release.sh"
 
 if grep -q -- '--migration-status=succeeded' "${scripts_directory}/deploy-release.sh"; then
     echo 'Deployment script uses an invalid migration monitoring status.' >&2
@@ -51,6 +52,25 @@ expect_failure env \
     DEPLOY_ROOT="$temporary_directory" \
     SSH_ORIGINAL_COMMAND="release staging 1 ${valid_sha} ${valid_checksum}" \
     "${scripts_directory}/receive-release.sh" < /dev/null
+
+mkdir -p \
+    "${temporary_directory}/production/incoming" \
+    "${temporary_directory}/production/shared"
+printf 'https://production.example.test/up\n' \
+    > "${temporary_directory}/production/shared/health-url"
+
+if production_gate_output="$(
+    env \
+        DEPLOY_ROOT="$temporary_directory" \
+        SSH_ORIGINAL_COMMAND="release production 1 ${valid_sha} ${valid_checksum}" \
+        "${scripts_directory}/receive-release.sh" < /dev/null 2>&1
+)"; then
+    echo 'Expected production release to fail while the server gate is absent.' >&2
+    exit 1
+fi
+
+grep -q 'Atomic production releases are not enabled on this server.' \
+    <<< "$production_gate_output"
 
 if mv --help 2>&1 | grep -q -- ' -T'; then
     deployment_root="${temporary_directory}/deployment"

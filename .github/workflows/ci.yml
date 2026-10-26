@@ -67,7 +67,9 @@ jobs:
         run: composer validate --strict --no-check-publish
 
       - name: Validate deployment contracts
-        run: bash ops/deploy/tests/contracts-test.sh
+        run: |
+          bash ops/ci/workflow-contracts.sh
+          bash ops/deploy/tests/contracts-test.sh
 
       - name: Install PHP dependencies
         run: composer install --prefer-dist --no-interaction --no-progress

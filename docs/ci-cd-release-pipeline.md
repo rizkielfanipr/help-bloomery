@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Tanggal baseline | 26 Oktober 2026 |
-| Status | Phase 1 dan Phase 2 selesai; atomic staging aktif dan tervalidasi, Phase 3 belum dimulai |
+| Status | Phase 1 dan Phase 2 selesai; implementasi aman Phase 3 sedang direview |
 | Aplikasi | Help Bloomery |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Stack | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Pest 4, Node.js 22, Vite 8 |
@@ -26,12 +26,12 @@
 | Phase 1 — CI Pull Request | Selesai | CI tervalidasi dan Ruleset `main` aktif |
 | Ruleset `main` | Selesai | `Protect main` (`25804747`) aktif dengan required check `CI Required` |
 | Audit deployment VPS | Selesai | Runtime, Nginx, Supervisor, cron, backup, permission, disk, dan script deploy lama telah diverifikasi |
-| GitHub Environment | Selesai | Environment `staging` dan `production` tersedia; proteksi production masih perlu diaktifkan sebelum Phase 3 |
+| GitHub Environment | Sebagian | Environment tersedia; required reviewer production harus dikonfigurasi sebelum rehearsal diaktifkan |
 | Artifact dan atomic release | Selesai | PR #3 (`7a10c0ae`) dan perbaikan monitoring PR #4 (`8f1353f8`) |
 | Bootstrap server staging | Selesai | Nginx memakai `/var/www/bloomery/staging/current/public`; shared `.env` dan `storage` aktif |
 | Validasi atomic staging | Selesai | Release #2, #3, dan #4 sukses; rollback #4→#3→#4 sehat |
 | Phase 2 — Atomic staging | Selesai | Exit criteria tiga deployment dan satu simulasi rollback tercapai |
-| Phase 3 — Promotion pipeline | Belum dimulai | Production approval dan promosi artifact yang sama belum diaktifkan |
+| Phase 3 — Promotion pipeline | Dalam review | Auto-release staging, approval rehearsal, dan fallback manual disiapkan tanpa kemampuan deploy production |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1150,6 +1150,19 @@ berhasil. Uji restore backup database staging tetap wajib sebelum cutover produc
 - Deploy staging otomatis.
 - Konfigurasikan environment production dengan approval tetapi jangan approve dahulu.
 - Verifikasi artifact, record monitoring, dan smoke check.
+
+**Implementasi aman yang direview:** push ke `main` membuat artifact satu kali dan mendeploy artifact
+tersebut ke atomic staging. Job berikutnya mereferensikan environment `production`, tetapi hanya
+mengunduh artifact staging dan memverifikasi checksum. Job tidak mempunyai konfigurasi SSH maupun
+command deployment production. Repository variable `PRODUCTION_APPROVAL_REHEARSAL_ENABLED=true`
+baru boleh dibuat setelah required reviewer dan branch policy environment production selesai.
+
+Workflow lama diubah menjadi `workflow_dispatch` fallback manual. Dengan demikian merge biasa tidak
+lagi menjalankan full Feature test serial dan tidak lagi otomatis memanggil `deploy production`.
+
+**Validasi Phase 3:** jalankan satu release untuk membuktikan job berhenti pada status Waiting lalu
+reject, kemudian satu release rehearsal lain untuk approve dan membuktikan checksum artifact sama.
+Keduanya tidak boleh membuka koneksi SSH pada job production.
 
 **Rollback:** batalkan job production dan gunakan workflow lama.
 

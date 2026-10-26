@@ -1,10 +1,19 @@
-name: Test and deploy
+name: Legacy deployment fallback
 
 on:
-  push:
-    branches:
-      - main
-      - staging
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Legacy environment to deploy
+        required: true
+        type: choice
+        options:
+          - production
+          - staging
+      reason:
+        description: Incident or rollback reason
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,6 +21,7 @@ permissions:
 jobs:
   test:
     name: Test and build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -37,17 +47,20 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.environment == 'production' && 'main' || 'staging' }}
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@d52fc211a0436f8839a587b3b5b8efddab4744ea # v2
         with:
           php-version: '8.4'
           coverage: none
           tools: composer:v2
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
           cache: npm
@@ -59,7 +72,7 @@ jobs:
         run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Build frontend assets
         run: npm run build
@@ -67,15 +80,7 @@ jobs:
       - name: Run unit tests
         run: php artisan test --compact --testsuite=Unit
 
-      - name: Run targeted feature tests when full suite is explicitly skipped
-        if: contains(github.event.head_commit.message, '[skip full tests]')
-        run: |
-          php artisan test --compact \
-            tests/Feature/BriefingBranchParticipationActionTest.php \
-            tests/Feature/BriefingSettingsPageTest.php
-
       - name: Run feature tests in bounded batches
-        if: ${{ !contains(github.event.head_commit.message, '[skip full tests]') }}
         shell: bash
         run: |
           mapfile -d '' feature_tests < <(find tests/Feature -type f -name '*.php' -print0 | sort -z)
@@ -88,11 +93,11 @@ jobs:
           done
 
   deploy:
-    name: Deploy ${{ github.ref_name }}
+    name: Legacy deploy ${{ inputs.environment }}
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    environment: ${{ inputs.environment }}
     concurrency:
       group: bloomery-vps-deployment
       cancel-in-progress: false
@@ -124,21 +129,25 @@ jobs:
 
       - name: Deploy selected environment
         env:
+          LEGACY_ENVIRONMENT: ${{ inputs.environment }}
+          LEGACY_REASON: ${{ inputs.reason }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          case "$GITHUB_REF_NAME" in
-            main)
+          case "$LEGACY_ENVIRONMENT" in
+            production)
               deploy_command='deploy production'
               ;;
             staging)
               deploy_command='deploy staging'
               ;;
             *)
-              echo "Unsupported deployment branch: $GITHUB_REF_NAME"
+              echo 'Unsupported legacy deployment environment.'
               exit 1
               ;;
           esac
+
+          echo "Legacy fallback reason: $LEGACY_REASON"
 
           ssh \
             -i "$HOME/.ssh/id_ed25519" \

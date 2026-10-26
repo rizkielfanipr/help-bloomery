@@ -1,13 +1,16 @@
-name: Release staging
+name: Release
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: bloomery-atomic-staging-release
+  group: bloomery-vps-deployment
   cancel-in-progress: false
 
 jobs:
@@ -59,7 +62,7 @@ jobs:
             dist/help-bloomery-${{ github.sha }}.tar.gz
             dist/help-bloomery-${{ github.sha }}.tar.gz.sha256
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
   deploy-staging:
     name: Deploy staging atomically
@@ -122,4 +125,38 @@ jobs:
             echo "- Run: \`$GITHUB_RUN_NUMBER\`"
             echo '- Environment: `staging`'
             echo '- Result: artifact verified, activated, and health-checked'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  production-approval-rehearsal:
+    name: Production approval rehearsal (no deploy)
+    needs: deploy-staging
+    if: vars.PRODUCTION_APPROVAL_REHEARSAL_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+
+    steps:
+      - name: Download the staging-verified artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: release-${{ github.sha }}
+          path: dist
+
+      - name: Verify promoted artifact checksum
+        working-directory: dist
+        run: sha256sum --check "help-bloomery-${GITHUB_SHA}.tar.gz.sha256"
+
+      - name: Confirm production remains unchanged
+        run: |
+          archive_path="dist/help-bloomery-${GITHUB_SHA}.tar.gz"
+          archive_checksum="$(sha256sum "$archive_path" | awk '{print $1}')"
+
+          {
+            echo '## Production approval rehearsal'
+            echo
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Artifact SHA-256: \`$archive_checksum\`"
+            echo '- Staging result: healthy'
+            echo '- Production deployment: disabled in Phase 3'
+            echo '- No SSH credentials were used by this job'
           } >> "$GITHUB_STEP_SUMMARY"

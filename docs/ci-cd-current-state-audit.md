@@ -446,7 +446,7 @@ Subproses berikutnya:
 5. [x] Review dan merge PR Phase 2 tanpa mengaktifkan deploy staging.
 6. [x] Bootstrap layout release staging dan forced-command gateway.
 7. [x] Uji tiga release staging dan satu rollback.
-8. [ ] Implementasikan production approval dan promosi artifact yang sama pada Phase 3.
+8. [ ] Review, merge, dan validasikan production approval rehearsal serta promosi artifact yang sama pada Phase 3.
 
 Perubahan pada langkah 2–8 harus menjadi commit CI-only. Jangan sertakan source aplikasi yang saat ini masih berubah di working tree.
 
@@ -552,6 +552,26 @@ Bukti akhir Phase 2:
 
 Phase 2 dinyatakan **selesai**. Uji restore database staging dan konfigurasi approval environment
 production tetap menjadi gate sebelum cutover production.
+
+### 13.3 Implementasi repository Phase 3
+
+Branch Phase 3 mengubah `release.yml` agar push protected `main` membangun satu artifact, mendeploy
+atomic staging, lalu menawarkan job `Production approval rehearsal (no deploy)`. Job rehearsal:
+
+- memakai environment `production` agar required reviewer GitHub berlaku;
+- mengunduh artifact yang sama dari job build;
+- memverifikasi checksum SHA-256 setelah staging sehat;
+- tidak mengonfigurasi SSH dan tidak memiliki command deployment production;
+- hanya aktif bila repository variable `PRODUCTION_APPROVAL_REHEARSAL_ENABLED=true`.
+
+Workflow lama diubah menjadi fallback `workflow_dispatch` dengan pilihan environment dan alasan
+insiden. Trigger push `main`/`staging` serta mekanisme `[skip full tests]` dihapus. Semua third-party
+action pada fallback dipin ke full commit SHA. Contract test CI menolak bila release Phase 3 memuat
+command `release production` atau fallback lama kembali mempunyai trigger push.
+
+Phase 3 belum dapat dinyatakan selesai sampai required reviewer production dikonfigurasi, satu job
+Waiting berhasil di-reject, satu rehearsal berhasil di-approve dan memverifikasi checksum, serta uji
+restore database staging selesai.
 
 ---
 

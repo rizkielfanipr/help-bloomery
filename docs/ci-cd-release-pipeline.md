@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Tanggal baseline | 26 Oktober 2026 |
-| Status | Phase 1 selesai; kode Phase 2 atomic staging siap direview, tetapi bootstrap VPS dan cutover belum dijalankan |
+| Status | Phase 1 dan Phase 2 selesai; atomic staging aktif dan tervalidasi, Phase 3 belum dimulai |
 | Aplikasi | Help Bloomery |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Stack | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Pest 4, Node.js 22, Vite 8 |
@@ -27,8 +27,11 @@
 | Ruleset `main` | Selesai | `Protect main` (`25804747`) aktif dengan required check `CI Required` |
 | Audit deployment VPS | Selesai | Runtime, Nginx, Supervisor, cron, backup, permission, disk, dan script deploy lama telah diverifikasi |
 | GitHub Environment | Selesai | Environment `staging` dan `production` tersedia; proteksi production masih perlu diaktifkan sebelum Phase 3 |
-| Artifact dan atomic release | Dalam review | `release.yml` dan `ops/deploy/*`; deploy staging terkunci oleh `ATOMIC_STAGING_ENABLED` |
-| Bootstrap server staging | Belum dijalankan | Menunggu merge PR, salinan backup, dan eksekusi runbook server dengan persetujuan |
+| Artifact dan atomic release | Selesai | PR #3 (`7a10c0ae`) dan perbaikan monitoring PR #4 (`8f1353f8`) |
+| Bootstrap server staging | Selesai | Nginx memakai `/var/www/bloomery/staging/current/public`; shared `.env` dan `storage` aktif |
+| Validasi atomic staging | Selesai | Release #2, #3, dan #4 sukses; rollback #4→#3→#4 sehat |
+| Phase 2 — Atomic staging | Selesai | Exit criteria tiga deployment dan satu simulasi rollback tercapai |
+| Phase 3 — Promotion pipeline | Belum dimulai | Production approval dan promosi artifact yang sama belum diaktifkan |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1130,12 +1133,15 @@ Referensi resmi:
 - Implementasikan artifact build dan script deployment.
 - Deploy ke staging tanpa mengubah production.
 
-**Status 26 Oktober 2026:** implementasi repository sudah disiapkan pada branch
-`feature/ci-cd-atomic-staging`. Workflow hanya dapat dijalankan manual dari `main`, dan job deploy
-akan dilewati sampai variable environment staging `ATOMIC_STAGING_ENABLED=true` disetel setelah
-bootstrap VPS selesai. Workflow deployment production lama tidak diubah pada tahap ini.
+**Status 26 Oktober 2026:** selesai. PR #3 menambahkan workflow dan script release, kemudian PR #4
+memperbaiki kontrak `migration_status` untuk System Monitoring. Staging memakai struktur
+`incoming`, `releases`, `shared`, dan symlink `current`; Nginx menunjuk ke `current/public`.
+Repository variable `ATOMIC_STAGING_ENABLED=true` mengaktifkan job staging. Release #2, #3, dan #4
+berhasil berurutan. Simulasi rollback #4 ke #3 lulus health check, lalu staging dikembalikan ke #4
+dan kembali sehat. Workflow deployment production lama tidak diubah.
 
-**Exit criteria:** tiga deployment staging berurutan berhasil dan satu simulasi rollback berhasil.
+**Exit criteria:** tercapai. Tiga deployment staging berurutan berhasil dan satu simulasi rollback
+berhasil. Uji restore backup database staging tetap wajib sebelum cutover production.
 
 ### Phase 3 — Release workflow dengan production tertahan
 

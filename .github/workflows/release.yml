@@ -1,0 +1,125 @@
+name: Release staging
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bloomery-atomic-staging-release
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    name: Build immutable release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@d52fc211a0436f8839a587b3b5b8efddab4744ea # v2
+        with:
+          php-version: '8.4'
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Create build environment
+        run: cp .env.example .env
+
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Build release artifact
+        run: bash ops/deploy/build-artifact.sh
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: release-${{ github.sha }}
+          path: |
+            dist/help-bloomery-${{ github.sha }}.tar.gz
+            dist/help-bloomery-${{ github.sha }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-staging:
+    name: Deploy staging atomically
+    needs: build-release
+    if: vars.ATOMIC_STAGING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+
+    steps:
+      - name: Download release artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: release-${{ github.sha }}
+          path: dist
+
+      - name: Verify release checksum
+        working-directory: dist
+        run: sha256sum --check "help-bloomery-${GITHUB_SHA}.tar.gz.sha256"
+
+      - name: Configure SSH
+        env:
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: Check VPS connectivity
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: nc -vz -w 10 "$VPS_HOST" 22
+
+      - name: Stream release to staging
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          archive_path="dist/help-bloomery-${GITHUB_SHA}.tar.gz"
+          archive_checksum="$(sha256sum "$archive_path" | awk '{print $1}')"
+
+          ssh \
+            -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "release staging $GITHUB_RUN_NUMBER $GITHUB_SHA $archive_checksum" \
+            < "$archive_path"
+
+      - name: Write release summary
+        run: |
+          {
+            echo '## Atomic staging release'
+            echo
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Run: \`$GITHUB_RUN_NUMBER\`"
+            echo '- Environment: `staging`'
+            echo '- Result: artifact verified, activated, and health-checked'
+          } >> "$GITHUB_STEP_SUMMARY"

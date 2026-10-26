@@ -4,8 +4,8 @@
 
 | Field | Nilai |
 | --- | --- |
-| Tanggal baseline | 25 Oktober 2026 |
-| Status | Rancangan implementasi dan runbook; belum mengotorisasi perubahan GitHub, VPS, atau deployment production |
+| Tanggal baseline | 26 Oktober 2026 |
+| Status | Phase 1 selesai; kode Phase 2 atomic staging siap direview, tetapi bootstrap VPS dan cutover belum dijalankan |
 | Aplikasi | Help Bloomery |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Stack | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Pest 4, Node.js 22, Vite 8 |
@@ -25,8 +25,10 @@
 | Production health | Terverifikasi | `/up` menampilkan `Application up` setelah run #63 |
 | Phase 1 — CI Pull Request | Selesai | CI tervalidasi dan Ruleset `main` aktif |
 | Ruleset `main` | Selesai | `Protect main` (`25804747`) aktif dengan required check `CI Required` |
-| Audit deployment VPS | Tertunda | SSH read-only belum tersedia dari sesi audit |
-| Artifact dan atomic release | Belum dimulai | Menunggu audit VPS |
+| Audit deployment VPS | Selesai | Runtime, Nginx, Supervisor, cron, backup, permission, disk, dan script deploy lama telah diverifikasi |
+| GitHub Environment | Selesai | Environment `staging` dan `production` tersedia; proteksi production masih perlu diaktifkan sebelum Phase 3 |
+| Artifact dan atomic release | Dalam review | `release.yml` dan `ops/deploy/*`; deploy staging terkunci oleh `ATOMIC_STAGING_ENABLED` |
+| Bootstrap server staging | Belum dijalankan | Menunggu merge PR, salinan backup, dan eksekusi runbook server dengan persetujuan |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1127,6 +1129,11 @@ Referensi resmi:
 - Pasang Supervisor dan cron staging bila diperlukan.
 - Implementasikan artifact build dan script deployment.
 - Deploy ke staging tanpa mengubah production.
+
+**Status 26 Oktober 2026:** implementasi repository sudah disiapkan pada branch
+`feature/ci-cd-atomic-staging`. Workflow hanya dapat dijalankan manual dari `main`, dan job deploy
+akan dilewati sampai variable environment staging `ATOMIC_STAGING_ENABLED=true` disetel setelah
+bootstrap VPS selesai. Workflow deployment production lama tidak diubah pada tahap ini.
 
 **Exit criteria:** tiga deployment staging berurutan berhasil dan satu simulasi rollback berhasil.
 

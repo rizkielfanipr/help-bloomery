@@ -4,11 +4,11 @@
 
 | Field | Nilai |
 | --- | --- |
-| Tanggal audit | 25 Oktober 2026 |
+| Tanggal audit | 26 Oktober 2026 |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Baseline commit | `aba7a2c049ff113ebe63cc77aa724dfd418ef662` |
 | Branch lokal | `main` |
-| Status | Phase 1 CI Pull Request selesai; verifikasi VPS dan GitHub Environment masih tertunda |
+| Status | Phase 1 selesai; audit VPS/GitHub selesai dan implementasi repository Phase 2 sedang direview |
 | Dokumen target | `docs/ci-cd-release-pipeline.md` |
 
 Audit ini adalah implementasi tahap pertama dari pembangunan ulang CI/CD. Tujuannya adalah mencatat kondisi nyata sebelum workflow, server, atau aturan GitHub diubah.
@@ -24,11 +24,11 @@ Audit ini tidak mengotorisasi deployment, perubahan konfigurasi VPS, perubahan G
 | Repository | Selesai | `ci.yml` aktif untuk PR dan `deploy.yml` lama tetap aktif setelah merge |
 | Laravel runtime | Selesai | PHP 8.4, Laravel 13.8, Filament 5.6, Livewire 4.3 |
 | Test pipeline | Selesai untuk PR | Build/Unit dan empat Feature shard lulus; workflow push lama masih serial |
-| Deployment | Selesai sebagian | GitHub mengirim `deploy production` atau `deploy staging`; implementasi command berada di VPS |
+| Deployment | Selesai | GitHub mengirim `deploy production` atau `deploy staging`; forced-command gateway dan script VPS sudah diaudit |
 | GitHub repository | Selesai | PR #1 sudah squash-merge ke `main` sebagai commit `d66410c9` |
 | GitHub branches | Selesai | `main`, `staging`, `feature/ci-cd-delivery-flow`, dan satu fix branch |
 | GitHub Ruleset | Selesai | `Protect main` (`25804747`) aktif dan mewajibkan `CI Required` |
-| VPS | Tertunda | SSH read-only gagal karena autentikasi key non-interaktif ditolak |
+| VPS | Selesai | Runtime, deploy script, Nginx, worker, scheduler, backup, permission, dan kapasitas disk sudah diverifikasi |
 | Monitoring | Selesai dari aplikasi | Production `/up` terverifikasi sehat setelah deployment run #63 |
 | Queue dan scheduler | Selesai dari kode | Queue memakai database secara default; scheduler memiliki tugas operasional penting |
 
@@ -37,7 +37,7 @@ Kesimpulan terkini:
 1. Workflow `CI Required` sudah menjadi gate teknis yang dapat diwajibkan sebelum merge.
 2. Implementasi deployment yang sebenarnya masih berada di VPS dan belum version-controlled.
 3. Branch eksperimen CI/CD lama tidak boleh di-merge apa adanya karena berbasis commit yang tertinggal jauh dari `main`.
-4. Perubahan paling aman berikutnya adalah menyelesaikan audit VPS dan GitHub Environment sebelum mengubah deployment.
+4. Perubahan paling aman berikutnya adalah merge kode Phase 2, bootstrap layout release staging, lalu menguji staging tanpa mengubah production.
 
 ---
 
@@ -271,22 +271,66 @@ Cron production harus menjalankan Laravel scheduler tepat satu kali setiap menit
 
 ---
 
-## 9. Baseline VPS yang sudah diketahui
+## 9. Baseline VPS terverifikasi
 
-Informasi berikut berasal dari histori operasional dan file referensi, tetapi tetap harus diverifikasi langsung:
+Audit read-only langsung melalui SSH selesai pada 26 Oktober 2026. Tidak ada secret yang disalin ke
+dokumentasi.
 
 | Item | Kandidat nilai | Tingkat kepastian |
 | --- | --- | --- |
 | User deployment | `deploy` | Tinggi |
 | Host production | `202.155.136.47` | Tinggi |
 | Production path | `/var/www/bloomery-office-production` | Tinggi |
-| Staging path | `/var/www/bloomery-office-staging` | Sedang; muncul pada branch eksperimen |
+| Staging path | `/var/www/bloomery-office-staging` | Terverifikasi |
 | Production URL | `https://office.bloomery.co.id` | Tinggi |
 | SSH port | `22` | Tinggi |
 | Firewall | UFW aktif, port 22/80/443 terbuka | Berdasarkan pemeriksaan terdahulu |
-| Fail2ban | Jail `sshd` aktif | Berdasarkan pemeriksaan terdahulu |
+| Fail2ban | Jail `sshd` aktif | Terverifikasi |
 
-Percobaan audit SSH otomatis pada 25 Oktober 2026 menghasilkan `Permission denied (publickey)`. Tidak ada perubahan server yang dilakukan.
+### 9.1 Runtime dan proses
+
+| Komponen | Hasil audit |
+| --- | --- |
+| Sistem operasi | Ubuntu 24.04.5 LTS |
+| PHP | 8.4.26; PHP-FPM memakai `/run/php/php8.4-fpm.sock` |
+| Composer | 2.10.3 |
+| Node.js / npm | 22.23.3 / 10.9.9 |
+| Nginx | Konfigurasi valid; root masih menunjuk ke working tree lama masing-masing environment |
+| Production worker | Satu worker Supervisor, queue database `default`, timeout 300 detik, max-time 3600 detik |
+| Scheduler | Cron production menjalankan Laravel scheduler setiap menit |
+| Redis | Service dan `app:check-redis` sehat; queue dan cache default aplikasi masih database |
+
+### 9.2 Deployment lama
+
+Forced-command gateway berada di `/home/deploy/bin/bloomery-github-deploy`. Alurnya memakai global
+`flock`, memeriksa tracked working tree, mengambil commit terbaru, menyalakan maintenance mode,
+membuat backup production, menjalankan merge, Composer, npm build, migration, permission sync,
+optimization, queue restart, lalu membuka aplikasi.
+
+Risiko yang terverifikasi:
+
+- build berlangsung pada working tree aktif;
+- kegagalan setelah maintenance mode berpotensi meninggalkan aplikasi tetap down;
+- artifact CI tidak identik secara terjamin dengan hasil build server;
+- tidak ada atomic symlink, post-deploy health gate, atau rollback aplikasi otomatis.
+
+### 9.3 Permission, backup, dan kapasitas
+
+| Item | Hasil audit |
+| --- | --- |
+| Owner aplikasi | `deploy:www-data`; direktori runtime memakai mode setgid 2775 |
+| `.env` | File reguler `deploy:www-data` mode 640 pada working tree lama |
+| Backup database | Harian pukul 03.30, gzip tervalidasi, retensi file 7 hari |
+| Database production | Sekitar 405 MB pada saat pemeriksaan direktori MySQL |
+| Database staging | Sekitar 210 MB pada saat pemeriksaan direktori MySQL |
+| Replikasi MySQL | Tidak ada replica dan tidak ada proses Binlog Dump |
+| Binlog | Aktif; auto-purge aktif; retensi dipersistenkan menjadi 604800 detik atau 7 hari |
+| Disk setelah purge aman | `/var/lib/mysql` 46 GB; root 53/79 GB, 22 GB tersedia, penggunaan 72% |
+
+Sebelum pembersihan, binlog mengisi mayoritas `/var/lib/mysql` dan root mencapai 87%. Backup gzip
+terbaru divalidasi, status replica diperiksa, lalu binlog lebih tua dari tujuh hari dipurge melalui
+MySQL. Tidak dilakukan pemangkasan lanjutan setelah ruang kosong kembali aman. Uji restore backup
+ke staging tetap menjadi gate sebelum cutover production.
 
 ---
 
@@ -373,8 +417,8 @@ sudo grep -Rsn "bloomery\|queue:work" /etc/supervisor/conf.d
 | Gate | Status | Syarat selesai |
 | --- | --- | --- |
 | G0. Repository baseline | Selesai | Workflow dan runtime tercatat |
-| G1. GitHub baseline | Selesai sebagian | Ruleset aktif; scope GitHub Environment masih perlu diverifikasi |
-| G2. VPS baseline | Tertunda | Checklist bagian 10 dikumpulkan |
+| G1. GitHub baseline | Selesai | Ruleset aktif; Environment `staging` dan `production` tersedia |
+| G2. VPS baseline | Selesai | Checklist bagian 10, deploy script, backup, dan kapasitas dikumpulkan |
 | G3. Branch eksperimen diamankan | Selesai secara keputusan | Branch tidak di-merge apa adanya |
 | G4. Working tree pekerjaan dipisahkan | Selesai | Commit CI dibuat terisolasi tanpa perubahan aplikasi |
 
@@ -396,9 +440,13 @@ Subproses yang sudah selesai:
 Subproses berikutnya:
 
 1. [x] Aktifkan Ruleset `main` dengan required check `CI Required`.
-2. [ ] Kumpulkan hasil checklist VPS read-only.
-3. [ ] Verifikasi scope GitHub Environment untuk staging dan production.
-4. [ ] Implementasikan artifact release, staging verification, production approval, atomic deployment, dan rollback.
+2. [x] Kumpulkan hasil checklist VPS read-only.
+3. [x] Verifikasi scope GitHub Environment untuk staging dan production.
+4. [x] Implementasikan artifact build, atomic staging deploy, health check, dan rollback di repository.
+5. [ ] Review dan merge PR Phase 2 tanpa mengaktifkan deploy staging.
+6. [ ] Bootstrap layout release staging dan forced-command gateway.
+7. [ ] Uji tiga release staging dan satu rollback.
+8. [ ] Implementasikan production approval dan promosi artifact yang sama pada Phase 3.
 
 Perubahan pada langkah 2–8 harus menjadi commit CI-only. Jangan sertakan source aplikasi yang saat ini masih berubah di working tree.
 
@@ -478,9 +526,11 @@ Dengan bukti tersebut, subproses implementasi dan validasi CI selesai. Pada 25 O
 - [x] Branch eksperimen lama diaudit dan diberi keputusan aman.
 - [x] Tidak ada secret yang dibaca atau ditulis.
 - [x] Tidak ada perubahan source aplikasi, schema, atau konfigurasi server; redeployment workflow lama berhasil.
-- [ ] Script deploy VPS berhasil dibaca.
-- [ ] Konfigurasi Nginx, Supervisor, cron, dan PHP-FPM production diverifikasi.
+- [x] Script deploy VPS berhasil dibaca.
+- [x] Konfigurasi Nginx, Supervisor, cron, dan PHP-FPM production diverifikasi.
 - [x] GitHub Ruleset dibuat dan aturan efektif branch `main` diverifikasi melalui GitHub API.
-- [ ] GitHub Environment diverifikasi.
+- [x] GitHub Environment diverifikasi.
 
-Phase 1 CI Pull Request dinyatakan **selesai**. Pembangunan deployment baru tetap tertahan sampai audit VPS dan GitHub Environment selesai.
+Phase 1 CI Pull Request dan baseline audit dinyatakan **selesai**. Kode Phase 2 boleh direview dan
+di-merge, tetapi aktivasi staging tetap tertahan sampai bootstrap server serta uji restore backup
+selesai dengan persetujuan terpisah.

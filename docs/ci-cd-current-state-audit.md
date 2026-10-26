@@ -8,7 +8,7 @@
 | Repository | `rizkielfanipr/help-bloomery` |
 | Baseline commit | `aba7a2c049ff113ebe63cc77aa724dfd418ef662` |
 | Branch lokal | `main` |
-| Status | Phase 1 selesai; audit VPS/GitHub selesai dan implementasi repository Phase 2 sedang direview |
+| Status | Phase 1 dan Phase 2 selesai; atomic staging aktif, production masih memakai deployment lama |
 | Dokumen target | `docs/ci-cd-release-pipeline.md` |
 
 Audit ini adalah implementasi tahap pertama dari pembangunan ulang CI/CD. Tujuannya adalah mencatat kondisi nyata sebelum workflow, server, atau aturan GitHub diubah.
@@ -24,7 +24,7 @@ Audit ini tidak mengotorisasi deployment, perubahan konfigurasi VPS, perubahan G
 | Repository | Selesai | `ci.yml` aktif untuk PR dan `deploy.yml` lama tetap aktif setelah merge |
 | Laravel runtime | Selesai | PHP 8.4, Laravel 13.8, Filament 5.6, Livewire 4.3 |
 | Test pipeline | Selesai untuk PR | Build/Unit dan empat Feature shard lulus; workflow push lama masih serial |
-| Deployment | Selesai | GitHub mengirim `deploy production` atau `deploy staging`; forced-command gateway dan script VPS sudah diaudit |
+| Deployment | Selesai untuk staging | Atomic staging aktif; production masih memakai forced-command deployment lama |
 | GitHub repository | Selesai | PR #1 sudah squash-merge ke `main` sebagai commit `d66410c9` |
 | GitHub branches | Selesai | `main`, `staging`, `feature/ci-cd-delivery-flow`, dan satu fix branch |
 | GitHub Ruleset | Selesai | `Protect main` (`25804747`) aktif dan mewajibkan `CI Required` |
@@ -35,9 +35,9 @@ Audit ini tidak mengotorisasi deployment, perubahan konfigurasi VPS, perubahan G
 Kesimpulan terkini:
 
 1. Workflow `CI Required` sudah menjadi gate teknis yang dapat diwajibkan sebelum merge.
-2. Implementasi deployment yang sebenarnya masih berada di VPS dan belum version-controlled.
+2. Script artifact, atomic deployment, health check, dan rollback sudah version-controlled di `ops/deploy`.
 3. Branch eksperimen CI/CD lama tidak boleh di-merge apa adanya karena berbasis commit yang tertinggal jauh dari `main`.
-4. Perubahan paling aman berikutnya adalah merge kode Phase 2, bootstrap layout release staging, lalu menguji staging tanpa mengubah production.
+4. Atomic staging sudah tervalidasi; perubahan paling aman berikutnya adalah Phase 3 dengan production tetap tertahan approval.
 
 ---
 
@@ -443,9 +443,9 @@ Subproses berikutnya:
 2. [x] Kumpulkan hasil checklist VPS read-only.
 3. [x] Verifikasi scope GitHub Environment untuk staging dan production.
 4. [x] Implementasikan artifact build, atomic staging deploy, health check, dan rollback di repository.
-5. [ ] Review dan merge PR Phase 2 tanpa mengaktifkan deploy staging.
-6. [ ] Bootstrap layout release staging dan forced-command gateway.
-7. [ ] Uji tiga release staging dan satu rollback.
+5. [x] Review dan merge PR Phase 2 tanpa mengaktifkan deploy staging.
+6. [x] Bootstrap layout release staging dan forced-command gateway.
+7. [x] Uji tiga release staging dan satu rollback.
 8. [ ] Implementasikan production approval dan promosi artifact yang sama pada Phase 3.
 
 Perubahan pada langkah 2–8 harus menjadi commit CI-only. Jangan sertakan source aplikasi yang saat ini masih berubah di working tree.
@@ -514,6 +514,45 @@ PR #1 kemudian di-squash ke `main` sebagai commit `d66410c9`. Workflow lama `Tes
 
 Dengan bukti tersebut, subproses implementasi dan validasi CI selesai. Pada 25 Oktober 2026, Ruleset `Protect main` (`25804747`) kemudian diaktifkan untuk default branch. GitHub API mengonfirmasi bahwa branch `main` menerima aturan efektif `deletion`, `non_fast_forward`, `pull_request`, dan `required_status_checks`; check wajibnya adalah `CI Required`, strict up-to-date aktif, dan bypass admin dibatasi pada Pull Request. Phase 1 dinyatakan **selesai**.
 
+### 13.2 Validasi Phase 2 atomic staging
+
+PR #3 di-squash ke `main` sebagai commit `7a10c0ae` dan menambahkan workflow `Release staging`,
+immutable artifact, checksum, manifest release, forced-command receiver, atomic symlink, health check,
+serta rollback. Server staging kemudian menggunakan layout:
+
+```text
+/var/www/bloomery/staging/
+├── current -> releases/<run>-<sha8>
+├── incoming/
+├── releases/
+└── shared/
+    ├── .env
+    ├── health-url
+    └── storage/
+```
+
+Nginx staging menunjuk ke `/var/www/bloomery/staging/current/public`. Endpoint `/up` dapat diakses
+tanpa Basic Auth untuk health check, sedangkan halaman staging lain tetap mengembalikan HTTP 401.
+PHP-FPM dapat membaca shared environment dan frontend manifest serta menulis ke shared storage.
+
+Release pertama menemukan ketidaksesuaian kontrak monitoring: script mengirim
+`migration_status=succeeded`, sedangkan aplikasi menerima `ran`. Migration, aktivasi release, Redis,
+dan health check sudah berhasil; hanya pencatatan monitoring yang gagal. PR #4 (`8f1353f8`)
+memperbaiki nilai tersebut, menambahkan regression test, dan menjadikan kegagalan monitoring sebagai
+peringatan non-fatal setelah release sehat.
+
+Bukti akhir Phase 2:
+
+- release #2, #3, dan #4 berhasil berurutan;
+- `current` mencapai `4-8f1353f8` dan health check lulus;
+- rollback #4 ke #3 berhasil dan sehat;
+- staging dikembalikan ke #4 dan kembali sehat;
+- production belum dipindahkan ke atomic release;
+- workflow deployment production lama tetap tersedia sebagai fallback.
+
+Phase 2 dinyatakan **selesai**. Uji restore database staging dan konfigurasi approval environment
+production tetap menjadi gate sebelum cutover production.
+
 ---
 
 ## 14. Acceptance criteria tahap audit
@@ -531,6 +570,6 @@ Dengan bukti tersebut, subproses implementasi dan validasi CI selesai. Pada 25 O
 - [x] GitHub Ruleset dibuat dan aturan efektif branch `main` diverifikasi melalui GitHub API.
 - [x] GitHub Environment diverifikasi.
 
-Phase 1 CI Pull Request dan baseline audit dinyatakan **selesai**. Kode Phase 2 boleh direview dan
-di-merge, tetapi aktivasi staging tetap tertahan sampai bootstrap server serta uji restore backup
-selesai dengan persetujuan terpisah.
+Phase 1 CI Pull Request, baseline audit, dan Phase 2 atomic staging dinyatakan **selesai**. Langkah
+berikutnya adalah Phase 3: mempromosikan artifact staging yang sama ke job production yang tertahan
+approval, tanpa melakukan cutover production terlebih dahulu.

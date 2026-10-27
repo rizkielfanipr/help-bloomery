@@ -20,7 +20,7 @@
             <p class="whitespace-nowrap text-base font-bold text-primary-700 dark:text-primary-300">
                 Rp{{ number_format((float) $sourcing->price, 0, ',', '.') }}
             </p>
-            @can('submit material sourcing')
+            @if ($this->canEdit())
                 <button
                     type="button"
                     wire:click="toggleEdit"
@@ -38,7 +38,7 @@
                         Edit
                     @endif
                 </button>
-            @endcan
+            @endif
         </div>
     </div>
 
@@ -127,7 +127,7 @@
                     <input
                         wire:model="price"
                         type="number"
-                        min="0"
+                        min="0.01"
                         step="any"
                         class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs text-gray-900 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                         placeholder="Contoh: 15000"

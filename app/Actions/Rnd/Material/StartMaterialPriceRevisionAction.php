@@ -27,21 +27,19 @@ class StartMaterialPriceRevisionAction
             throw ValidationException::withMessages(['reason' => 'Alasan revisi harga wajib diisi minimal 10 karakter.']);
         }
 
-        $revision = DB::transaction(function () use ($request, $actor, $reason): int {
+        return DB::transaction(function () use ($request, $actor, $reason): RndMaterialPricingRequest {
             $request = $this->lockForFinance($request, $actor, [MaterialPricingStatus::Priced]);
             $latest = (int) RndMaterialPricingRequest::query()->where('rnd_product_esb_material_id', $request->rnd_product_esb_material_id)->max('revision');
             $material = $request->material;
             $material->forceFill(['workflow_completed_at' => null])->save();
             $this->audit->event($material, 'pricing_revision_started', $actor, $reason, MaterialPricingStatus::Priced->value, MaterialPricingStatus::ReadyForPricing->value, ['previous_request' => $request->uuid]);
 
-            return $latest + 1;
+            $new = $this->eligibility->ensure($material->refresh(), $actor, $latest + 1);
+            if (! $new) {
+                throw ValidationException::withMessages(['reason' => 'Bahan tidak lagi memenuhi syarat Pricelist; periksa status ESB/sampel.']);
+            }
+
+            return $new;
         });
-
-        $new = $this->eligibility->ensure($request->material->refresh(), $actor, $revision);
-        if (! $new) {
-            throw ValidationException::withMessages(['reason' => 'Bahan tidak lagi memenuhi syarat Pricelist; periksa status ESB/sampel.']);
-        }
-
-        return $new;
     }
 }

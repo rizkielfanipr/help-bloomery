@@ -66,11 +66,10 @@ class ConfirmMaterialPricelistAction
                 'notes' => 'Pricelist '.$validated['external_reference'].($validated['note'] ?? null ? ' — '.$validated['note'] : ''),
             ]);
             $this->audit->event($material, 'pricelist_confirmed', $actor, $validated['note'] ?? null, MaterialPricingStatus::DraftPricing->value, MaterialPricingStatus::Priced->value, ['pricing_request' => $request->uuid, 'external_reference' => $validated['external_reference'], 'verification' => 'manual']);
+            $this->completion->evaluate($material->refresh());
 
             return $request;
         });
-
-        $this->completion->evaluate($request->material->refresh());
 
         return $request;
     }

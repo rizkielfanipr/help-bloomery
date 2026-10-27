@@ -48,7 +48,7 @@ class ReviewMaterialSampleAction
             throw ValidationException::withMessages(['reason' => 'Alasan wajib diisi minimal 10 karakter untuk reject atau sampel ulang.']);
         }
 
-        $cycle = DB::transaction(function () use ($material, $actor, $decision, $reason): RndMaterialSampleCycle {
+        return DB::transaction(function () use ($material, $actor, $decision, $reason): RndMaterialSampleCycle {
             $material = RndProductEsbMaterial::query()->lockForUpdate()->findOrFail($material->id);
             $cycle = RndMaterialSampleCycle::query()->lockForUpdate()->where('rnd_product_esb_material_id', $material->id)
                 ->where('status', MaterialSampleCycleStatus::Received->value)->latest('cycle_number')->first();
@@ -65,13 +65,13 @@ class ReviewMaterialSampleAction
             $cycle->fill(['status' => $cycleStatus, 'evaluation' => $decision, 'evaluation_reason' => $reason, 'evaluated_by' => $actor->id, 'evaluated_at' => now()])->save();
 
             $previous = $material->sourcing_status;
-            $material->forceFill(array_filter([
+            $material->forceFill([
                 'sourcing_status' => $materialStatus,
                 'sourcing_selected_id' => $decision === RndMaterialSampleCycle::EVALUATION_APPROVE ? $cycle->material_sourcing_id : null,
                 'rnd_reviewed_by' => $actor->id,
                 'rnd_reviewed_at' => now(),
-                'rnd_note' => $reason,
-            ], fn ($value): bool => $value !== null))->save();
+                'rnd_note' => $decision === RndMaterialSampleCycle::EVALUATION_APPROVE ? null : trim((string) $reason),
+            ])->save();
             MaterialSourcingApproval::query()->create([
                 'rnd_product_esb_material_id' => $material->id,
                 'stage' => 'rnd',
@@ -91,14 +91,12 @@ class ReviewMaterialSampleAction
 
             $this->audit->event($material, 'sample_'.$decision, $actor, $reason, $previous?->value, $materialStatus->value, ['cycle' => $cycle->cycle_number]);
 
+            if ($decision === RndMaterialSampleCycle::EVALUATION_APPROVE) {
+                $this->pricing->ensure($material->refresh(), $actor);
+                $this->completion->evaluate($material->refresh());
+            }
+
             return $cycle;
         });
-
-        if ($decision === RndMaterialSampleCycle::EVALUATION_APPROVE) {
-            $this->pricing->ensure($material->refresh(), $actor);
-            $this->completion->evaluate($material->refresh());
-        }
-
-        return $cycle;
     }
 }

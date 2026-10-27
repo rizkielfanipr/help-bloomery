@@ -59,6 +59,7 @@ class ReopenMaterialSampleApprovalAction
 
             $material->forceFill([
                 'sourcing_status' => MaterialSourcingStatus::SampleReceived,
+                'sourcing_selected_id' => null,
                 'pricing_status' => MaterialPricingStatus::NotReady,
                 'workflow_completed_at' => null,
             ])->save();

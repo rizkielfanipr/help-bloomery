@@ -87,6 +87,7 @@ class ReviewSourcingResource extends Resource
                 MaterialSourcingActions::receiveSample(),
                 MaterialSourcingActions::evaluateSample(),
                 MaterialSourcingActions::reopenSampleApproval(),
+                MaterialSourcingActions::reopenRejectedSourcing(),
                 MaterialSourcingActions::approveRnd(),
                 MaterialSourcingActions::rejectRnd(),
                 MaterialSourcingActions::sampleHistory(),

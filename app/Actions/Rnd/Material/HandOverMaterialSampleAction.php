@@ -31,7 +31,6 @@ class HandOverMaterialSampleAction
         MaterialSourcingStatus::WaitingPurchasing,
         MaterialSourcingStatus::SourcingInProgress,
         MaterialSourcingStatus::ResampleRequested,
-        MaterialSourcingStatus::RejectedByRnd,
     ];
 
     public function __construct(

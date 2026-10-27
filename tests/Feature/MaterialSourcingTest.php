@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Rnd\CreateStandaloneMaterialSourcingAction;
+use App\Actions\Rnd\Material\ReviewLegacyMaterialSourcingAction;
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
 use App\Filament\Helpdesk\Resources\ReviewSourcings\Pages\ListReviewSourcings;
@@ -279,6 +280,32 @@ it('lets rnd select the winning supplier and approve, moving the material to fin
         ->and($this->material->sourcing_selected_id)->toBe($winner->id)
         ->and($this->material->rnd_reviewed_by)->toBe($this->rnd->id)
         ->and(MaterialSourcingApproval::where('stage', 'rnd')->where('action', 'approved')->exists())->toBeTrue();
+});
+
+it('refuses a supplier candidate belonging to another material during rnd approval', function () {
+    $this->material->update(['sourcing_status' => MaterialSourcingStatus::PendingRndReview]);
+    $otherMaterial = RndProductEsbMaterial::create([
+        'rnd_project_product_id' => $this->material->rnd_project_product_id,
+        'category_id' => 1,
+        'sub_category_id' => 1,
+        'uom_id' => 1,
+        'uom_name' => 'KG',
+        'product_code' => 'MAT-FOREIGN',
+        'product_name' => 'Bahan Lain',
+        'sku' => 'SKU-MAT-FOREIGN',
+        'status' => 'draft',
+    ]);
+    $foreignCandidate = $otherMaterial->sourcings()->create(supplierRow('Supplier Asing', 9000));
+
+    expect(fn () => app(ReviewLegacyMaterialSourcingAction::class)->execute(
+        $this->material,
+        $this->rnd,
+        'approve',
+        $foreignCandidate->id,
+        null,
+    ))->toThrow(ValidationException::class)
+        ->and($this->material->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::PendingRndReview)
+        ->and($this->material->sourcing_selected_id)->toBeNull();
 });
 
 it('lets finance approve the rnd-selected supplier, completing the sourcing', function () {

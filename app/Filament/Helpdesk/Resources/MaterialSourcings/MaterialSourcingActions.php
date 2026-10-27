@@ -5,6 +5,8 @@ namespace App\Filament\Helpdesk\Resources\MaterialSourcings;
 use App\Actions\Rnd\Material\ConfirmMaterialSampleReceiptAction;
 use App\Actions\Rnd\Material\HandOverMaterialSampleAction;
 use App\Actions\Rnd\Material\ReopenMaterialSampleApprovalAction;
+use App\Actions\Rnd\Material\ReopenRejectedMaterialSourcingAction;
+use App\Actions\Rnd\Material\ReviewLegacyMaterialSourcingAction;
 use App\Actions\Rnd\Material\ReviewMaterialSampleAction;
 use App\Enums\MaterialSourcingStatus;
 use App\Models\RndMaterialSampleCycle;
@@ -19,7 +21,6 @@ use Filament\Forms\Components\ViewField;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Width;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -62,7 +63,7 @@ class MaterialSourcingActions
             ->modalHeading(fn (RndProductEsbMaterial $record): string => 'Serahkan Sampel — '.$record->product_name)
             ->modalSubmitActionLabel('Catat Penyerahan')
             ->visible(fn (RndProductEsbMaterial $record): bool => self::isSampleWorkflow($record)
-                && in_array($record->sourcing_status, [MaterialSourcingStatus::WaitingPurchasing, MaterialSourcingStatus::SourcingInProgress, MaterialSourcingStatus::ResampleRequested, MaterialSourcingStatus::RejectedByRnd], true)
+                && in_array($record->sourcing_status, [MaterialSourcingStatus::WaitingPurchasing, MaterialSourcingStatus::SourcingInProgress, MaterialSourcingStatus::ResampleRequested], true)
                 && $record->sourcings_count > 0
                 && (auth()->user()?->can('handOverSample', $record) ?? false))
             ->schema([
@@ -133,6 +134,20 @@ class MaterialSourcingActions
             ->action(fn (RndProductEsbMaterial $record, array $data) => self::run(fn () => app(ReopenMaterialSampleApprovalAction::class)->execute($record, auth()->user(), $data['reason']), 'Approval sampel dibuka ulang'));
     }
 
+    public static function reopenRejectedSourcing(): Action
+    {
+        return Action::make('reopen_rejected_sourcing')
+            ->label('Buka Kembali Sourcing')
+            ->icon('heroicon-o-arrow-path')
+            ->tooltip('Buka Kembali Sourcing')
+            ->color('warning')
+            ->iconButton()
+            ->modalDescription('Sourcing kembali ke antrean Purchasing. Riwayat sampel yang ditolak tetap tersimpan.')
+            ->visible(fn (RndProductEsbMaterial $record): bool => self::isSampleWorkflow($record) && $record->sourcing_status === MaterialSourcingStatus::RejectedByRnd && (auth()->user()?->can('reopenSampleApproval', $record) ?? false))
+            ->schema([Textarea::make('reason')->label('Alasan')->required()->minLength(10)->rows(3)])
+            ->action(fn (RndProductEsbMaterial $record, array $data) => self::run(fn () => app(ReopenRejectedMaterialSourcingAction::class)->execute($record, auth()->user(), $data['reason']), 'Sourcing dibuka kembali ke Purchasing'));
+    }
+
     public static function sampleHistory(): Action
     {
         return Action::make('sample_history')
@@ -177,26 +192,10 @@ class MaterialSourcingActions
                     ->required(),
                 Textarea::make('rnd_note')->label('Catatan'),
             ])
-            ->action(function (RndProductEsbMaterial $record, array $data): void {
-                DB::transaction(function () use ($record, $data): void {
-                    $record->update([
-                        'sourcing_selected_id' => $data['sourcing_selected_id'],
-                        'rnd_reviewed_by' => auth()->id(),
-                        'rnd_reviewed_at' => now(),
-                        'rnd_note' => $data['rnd_note'] ?? null,
-                        'sourcing_status' => MaterialSourcingStatus::PendingFinanceReview,
-                    ]);
-
-                    $record->sourcingApprovals()->create([
-                        'stage' => 'rnd',
-                        'action' => 'approved',
-                        'actor_id' => auth()->id(),
-                        'notes' => $data['rnd_note'] ?? null,
-                    ]);
-                });
-
-                Notification::make()->title('Sourcing disetujui, menunggu review Finance')->success()->send();
-            });
+            ->action(fn (RndProductEsbMaterial $record, array $data) => self::run(
+                fn () => app(ReviewLegacyMaterialSourcingAction::class)->execute($record, auth()->user(), 'approve', (int) $data['sourcing_selected_id'], $data['rnd_note'] ?? null),
+                'Sourcing disetujui, menunggu review Finance',
+            ));
     }
 
     /**
@@ -217,25 +216,10 @@ class MaterialSourcingActions
             ->form([
                 Textarea::make('rnd_note')->label('Alasan Penolakan')->required()->minLength(5),
             ])
-            ->action(function (RndProductEsbMaterial $record, array $data): void {
-                DB::transaction(function () use ($record, $data): void {
-                    $record->update([
-                        'rnd_reviewed_by' => auth()->id(),
-                        'rnd_reviewed_at' => now(),
-                        'rnd_note' => $data['rnd_note'],
-                        'sourcing_status' => MaterialSourcingStatus::Rejected,
-                    ]);
-
-                    $record->sourcingApprovals()->create([
-                        'stage' => 'rnd',
-                        'action' => 'rejected',
-                        'actor_id' => auth()->id(),
-                        'notes' => $data['rnd_note'],
-                    ]);
-                });
-
-                Notification::make()->title('Sourcing ditolak, dikembalikan ke Purchasing')->warning()->send();
-            });
+            ->action(fn (RndProductEsbMaterial $record, array $data) => self::run(
+                fn () => app(ReviewLegacyMaterialSourcingAction::class)->execute($record, auth()->user(), 'reject', null, $data['rnd_note']),
+                'Sourcing ditolak, dikembalikan ke Purchasing',
+            ));
     }
 
     private static function isSampleWorkflow(RndProductEsbMaterial $record): bool

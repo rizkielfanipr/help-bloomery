@@ -5,10 +5,12 @@ use App\Actions\Rnd\Material\ConfirmMaterialPricelistAction;
 use App\Actions\Rnd\Material\ConfirmMaterialSampleReceiptAction;
 use App\Actions\Rnd\Material\HandOverMaterialSampleAction;
 use App\Actions\Rnd\Material\ReopenMaterialSampleApprovalAction;
+use App\Actions\Rnd\Material\ReopenRejectedMaterialSourcingAction;
 use App\Actions\Rnd\Material\ReturnMaterialPricingToItAction;
 use App\Actions\Rnd\Material\ReviewMaterialSampleAction;
 use App\Actions\Rnd\Material\SaveMaterialPricingDraftAction;
 use App\Actions\Rnd\Material\StartMaterialPriceRevisionAction;
+use App\Actions\Rnd\Material\UpdateMaterialSupplierCandidateAction;
 use App\Enums\MaterialEsbSyncStatus;
 use App\Enums\MaterialPricingStatus;
 use App\Enums\MaterialSourcingStatus;
@@ -94,6 +96,52 @@ it('runs supplier → hand-over → receipt → approval and creates exactly one
         ->and($request->supplier_name)->toBe('PT Tepung Jaya');
 });
 
+it('updates a supplier candidate without resetting an active workflow', function () {
+    $candidateId = supplierCandidate($this->material, $this->purchasing);
+    $candidate = $this->material->sourcings()->findOrFail($candidateId);
+
+    app(UpdateMaterialSupplierCandidateAction::class)->execute($candidate, $this->purchasing, [
+        'supplier_name' => 'PT Tepung Baru',
+        'brand' => 'Baru',
+        'price' => 14000,
+        'moq' => '25 kg',
+        'lead_time_days' => 3,
+        'contact_name' => 'Budi',
+        'contact_phone' => '081211111111',
+        'notes' => 'Penawaran diperbarui',
+        'attachment_path' => null,
+    ]);
+
+    expect($candidate->refresh()->supplier_name)->toBe('PT Tepung Baru')
+        ->and((float) $candidate->price)->toBe(14000.0)
+        ->and($this->material->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::SourcingInProgress)
+        ->and($this->material->auditLogs()->where('event', 'supplier_candidate_updated')->exists())->toBeTrue();
+});
+
+it('locks supplier data after sample hand-over', function () {
+    $candidateId = supplierCandidate($this->material, $this->purchasing);
+    $candidate = $this->material->sourcings()->findOrFail($candidateId);
+    handOver($this->material, $this->purchasing, $candidateId);
+
+    expect(fn () => app(UpdateMaterialSupplierCandidateAction::class)->execute($candidate, $this->purchasing, [
+        'supplier_name' => 'Perubahan Terlambat',
+        'price' => 15000,
+        'attachment_path' => null,
+    ]))->toThrow(ValidationException::class)
+        ->and(fn () => supplierCandidate($this->material, $this->purchasing, 'Supplier Terlambat'))
+        ->toThrow(ValidationException::class)
+        ->and($candidate->refresh()->supplier_name)->toBe('PT Tepung Jaya');
+});
+
+it('validates supplier candidate payloads on the server', function () {
+    expect(fn () => app(AddMaterialSupplierCandidatesAction::class)->execute($this->material, $this->purchasing, [[
+        'supplier_name' => '',
+        'price' => -1,
+        'attachment_path' => '../forged.pdf',
+    ]]))->toThrow(ValidationException::class)
+        ->and($this->material->sourcings()->count())->toBe(0);
+});
+
 it('keeps hand-over and receipt evidence separate and requires photos for both', function () {
     $candidate = supplierCandidate($this->material, $this->purchasing);
 
@@ -145,8 +193,36 @@ it('creates no Pricing Request when R&D rejects the sample', function () {
     app(ReviewMaterialSampleAction::class)->execute($this->material, $this->rnd, RndMaterialSampleCycle::EVALUATION_REJECT, 'Aroma tidak sesuai spesifikasi');
 
     expect($this->material->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::RejectedByRnd)
+        ->and($this->material->sourcing_selected_id)->toBeNull()
         ->and(RndMaterialPricingRequest::query()->count())->toBe(0)
         ->and(app(MaterialPricingEligibility::class)->isEligible($this->material))->toBeFalse();
+
+    expect(fn () => supplierCandidate($this->material, $this->purchasing, 'Supplier Setelah Reject'))
+        ->toThrow(ValidationException::class)
+        ->and(fn () => handOver($this->material, $this->purchasing, $candidate))
+        ->toThrow(ValidationException::class);
+});
+
+it('reopens rejected sourcing only by an explicit reopen with a reason', function () {
+    $admin = User::factory()->create();
+    $admin->givePermissionTo('reopen material sample approval');
+    $candidate = supplierCandidate($this->material, $this->purchasing);
+    handOver($this->material, $this->purchasing, $candidate);
+    receive($this->material, $this->rnd);
+    app(ReviewMaterialSampleAction::class)->execute($this->material, $this->rnd, RndMaterialSampleCycle::EVALUATION_REJECT, 'Aroma tidak sesuai spesifikasi');
+
+    expect(fn () => app(ReopenRejectedMaterialSourcingAction::class)->execute($this->material, $this->rnd, 'Supplier kirim formula baru'))->toThrow(AuthorizationException::class)
+        ->and(fn () => app(ReopenRejectedMaterialSourcingAction::class)->execute($this->material, $admin, 'pendek'))->toThrow(ValidationException::class);
+
+    app(ReopenRejectedMaterialSourcingAction::class)->execute($this->material, $admin, 'Supplier mengirim formula baru');
+
+    expect($this->material->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::SourcingInProgress)
+        ->and($this->material->auditLogs()->where('event', 'sourcing_reopened')->exists())->toBeTrue()
+        ->and(fn () => app(ReopenRejectedMaterialSourcingAction::class)->execute($this->material, $admin, 'Supplier mengirim formula baru'))->toThrow(ValidationException::class);
+
+    $second = handOver($this->material, $this->purchasing, $candidate);
+    expect($second->cycle_number)->toBe(2)
+        ->and($this->material->sampleCycles()->pluck('status', 'cycle_number')->map->value->all())->toBe([2 => 'handed_over', 1 => 'rejected']);
 });
 
 it('authorizes each sample step by its own permission', function () {
@@ -223,6 +299,7 @@ it('cancels an untouched Pricing Request on reopen and refuses reopen once Finan
 
     expect($request->refresh()->status)->toBe(MaterialPricingStatus::Cancelled)
         ->and($this->material->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::SampleReceived);
+    expect($this->material->sourcing_selected_id)->toBeNull();
 
     app(ReviewMaterialSampleAction::class)->execute($this->material, $this->rnd, RndMaterialSampleCycle::EVALUATION_APPROVE);
     $second = RndMaterialPricingRequest::query()->where('status', MaterialPricingStatus::ReadyForPricing->value)->sole();

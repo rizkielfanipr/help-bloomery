@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\MaterialSourcings;
 
 use App\Actions\Rnd\Material\AddMaterialSupplierCandidatesAction;
+use App\Actions\Rnd\Material\ReviewLegacyMaterialSourcingFinanceAction;
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
@@ -25,7 +26,6 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use UnitEnum;
 
@@ -78,7 +78,7 @@ class MaterialSourcingResource extends Resource
                     ->modalHeading(fn (RndProductEsbMaterial $record): string => ($record->sourcings_count > 0 ? 'Tambah Supplier — ' : 'Kelola Supplier — ').$record->product_name)
                     ->modalSubmitActionLabel('Kirim ke RnD')
                     ->visible(fn (RndProductEsbMaterial $record): bool => (auth()->user()?->can('submit material sourcing') ?? false)
-                        && (! $record->isInWorkflow() || in_array($record->sourcing_status, [MaterialSourcingStatus::WaitingPurchasing, MaterialSourcingStatus::SourcingInProgress, MaterialSourcingStatus::ResampleRequested, MaterialSourcingStatus::RejectedByRnd], true)))
+                        && (! $record->isInWorkflow() || in_array($record->sourcing_status, [MaterialSourcingStatus::WaitingPurchasing, MaterialSourcingStatus::SourcingInProgress, MaterialSourcingStatus::ResampleRequested], true)))
                     ->fillForm(fn (): array => ['sourcings' => [[]]])
                     ->form([
                         Repeater::make('sourcings')
@@ -123,21 +123,13 @@ class MaterialSourcingResource extends Resource
                         Textarea::make('finance_note')->label('Catatan'),
                     ])
                     ->action(function (RndProductEsbMaterial $record, array $data): void {
-                        DB::transaction(function () use ($record, $data): void {
-                            $record->update([
-                                'finance_reviewed_by' => auth()->id(),
-                                'finance_reviewed_at' => now(),
-                                'finance_note' => $data['finance_note'] ?? null,
-                                'sourcing_status' => MaterialSourcingStatus::Approved,
-                            ]);
+                        try {
+                            app(ReviewLegacyMaterialSourcingFinanceAction::class)->execute($record, auth()->user(), 'approve', $data['finance_note'] ?? null);
+                        } catch (ValidationException $exception) {
+                            Notification::make()->title('Sourcing tidak dapat diproses')->body(collect($exception->errors())->flatten()->implode(' '))->danger()->send();
 
-                            $record->sourcingApprovals()->create([
-                                'stage' => 'finance',
-                                'action' => 'approved',
-                                'actor_id' => auth()->id(),
-                                'notes' => $data['finance_note'] ?? null,
-                            ]);
-                        });
+                            return;
+                        }
 
                         Notification::make()->title('Sourcing disetujui Finance')->success()->send();
                     }),
@@ -156,21 +148,13 @@ class MaterialSourcingResource extends Resource
                         Textarea::make('finance_note')->label('Alasan Penolakan')->required()->minLength(5),
                     ])
                     ->action(function (RndProductEsbMaterial $record, array $data): void {
-                        DB::transaction(function () use ($record, $data): void {
-                            $record->update([
-                                'finance_reviewed_by' => auth()->id(),
-                                'finance_reviewed_at' => now(),
-                                'finance_note' => $data['finance_note'],
-                                'sourcing_status' => MaterialSourcingStatus::PendingRndReview,
-                            ]);
+                        try {
+                            app(ReviewLegacyMaterialSourcingFinanceAction::class)->execute($record, auth()->user(), 'reject', $data['finance_note']);
+                        } catch (ValidationException $exception) {
+                            Notification::make()->title('Sourcing tidak dapat diproses')->body(collect($exception->errors())->flatten()->implode(' '))->danger()->send();
 
-                            $record->sourcingApprovals()->create([
-                                'stage' => 'finance',
-                                'action' => 'rejected',
-                                'actor_id' => auth()->id(),
-                                'notes' => $data['finance_note'],
-                            ]);
-                        });
+                            return;
+                        }
 
                         Notification::make()->title('Sourcing dikembalikan ke RnD')->warning()->send();
                     }),
@@ -315,7 +299,7 @@ class MaterialSourcingResource extends Resource
         return [
             TextInput::make('supplier_name')->label('Nama Supplier')->required()->maxLength(255),
             TextInput::make('brand')->label('Merk')->maxLength(255),
-            TextInput::make('price')->label('Harga')->numeric()->required(),
+            TextInput::make('price')->label('Harga')->numeric()->required()->gt(0),
             TextInput::make('moq')->label('MOQ')->placeholder('mis. 100 kg'),
             TextInput::make('lead_time_days')->label('Lead Time (hari)')->numeric()->integer(),
             TextInput::make('contact_name')->label('Nama Kontak'),

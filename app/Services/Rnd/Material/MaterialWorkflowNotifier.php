@@ -34,6 +34,7 @@ class MaterialWorkflowNotifier
         'sourcing_requested' => ['submit material sourcing'],
         'sample_handed_over' => ['receive material samples', 'review material samples as rnd'],
         'resample_requested' => ['submit material sourcing', 'hand over material samples'],
+        'sourcing_reopened' => ['submit material sourcing', 'hand over material samples'],
         'pricing_ready' => ['manage material pricelist'],
         'pricing_returned' => ['review rnd materials as it', 'reconcile rnd material esb'],
         'completed' => [],
@@ -103,7 +104,7 @@ class MaterialWorkflowNotifier
     {
         try {
             return match ($event) {
-                'sourcing_requested', 'resample_requested' => MaterialSourcingResource::getUrl('index', panel: 'helpdesk'),
+                'sourcing_requested', 'resample_requested', 'sourcing_reopened' => MaterialSourcingResource::getUrl('index', panel: 'helpdesk'),
                 'sample_handed_over' => ReviewSourcingResource::getUrl('index', panel: 'helpdesk'),
                 'pricing_ready' => MaterialPricelistResource::getUrl('index', panel: 'helpdesk'),
                 'revision_required', 'completed' => $this->productUrl($material),

@@ -1,3 +1,18 @@
+# Help Bloomery — Project Workflow
+
+These project rules sit outside the Laravel Boost guidelines block below, so `boost:install` and `boost:update` keep them.
+
+## Delivery workflow (always)
+
+Every new feature, behaviour change, or remediation follows **Plan → Branch → Implement → Deliver**. Read and follow `.claude/skills/feature-delivery/SKILL.md` (Claude Code loads it as the `feature-delivery` skill; other agents read the file directly).
+
+- **Plan:** document first in `docs/products/{domain}/`. Update the existing feature PRD when one exists; otherwise copy `docs/templates/feature/`. Ask the user only blocking open decisions.
+- **Branch:** before any code change, branch from the latest `main` (`feature/`, `fix/`, `docs/`, `ci/` …). Never commit on `main`; one concern per branch.
+- **Implement:** follow the rules below, with tests for every change.
+- **Deliver:** in the same branch, update `docs/products/{domain}/README.md` so it matches the code, set the PRD status, add an implementation report when the work had phases or deviations, run tests + Pint + `bash ops/ci/check-doc-links.sh`, then commit, push, and open a Pull Request to `main` using `.github/pull_request_template.md` in Bahasa Indonesia.
+- The user has authorised creating docs, branches, commits, pushes, and Pull Requests as part of this flow. Merging, approving deployments, and production changes stay with the user.
+- Reply to the user in Bahasa Indonesia. Documentation rules: `docs/standards/documentation-standard.md`.
+
 <laravel-boost-guidelines>
 === foundation rules ===
 

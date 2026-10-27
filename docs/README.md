@@ -85,6 +85,8 @@ Setelah fitur selesai, perbarui README domain agar tetap sesuai kode, lalu hapus
 
 ## Aturan kontribusi
 
+Setiap fitur atau perubahan perilaku mengikuti alur **Plan → Branch → Implement → Deliver**: dokumentasi dari template, branch dari `main` sebelum menulis kode, lalu README modul, laporan, dan Pull Request. Prosedur lengkapnya ada di [feature-delivery](../.claude/skills/feature-delivery/SKILL.md) dan dibaca otomatis oleh agent AI melalui `CLAUDE.md`/`AGENTS.md`.
+
 - Simpan dokumen sesuai [Standar Dokumentasi](standards/documentation-standard.md); jangan menambah file di root `docs/`.
 - Pindahkan file dengan `git mv` dan perbarui seluruh rujukan dalam PR yang sama.
 - Perubahan perilaku modul wajib memperbarui README domain terkait dalam PR yang sama.

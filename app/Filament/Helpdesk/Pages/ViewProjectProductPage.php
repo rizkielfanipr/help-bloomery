@@ -3,6 +3,11 @@
 namespace App\Filament\Helpdesk\Pages;
 
 use App\Actions\Rnd\Bom\UpdateEsbBillOfMaterialAction;
+use App\Actions\Rnd\Material\SubmitMaterialForItReviewAction;
+use App\Actions\Rnd\Material\WithdrawMaterialReviewAction;
+use App\Enums\MaterialEsbSyncStatus;
+use App\Enums\MaterialPricingStatus;
+use App\Enums\MaterialReviewStatus;
 use App\Enums\RndBomChangeLogSource;
 use App\Enums\RndBomChangeLogStatus;
 use App\Exceptions\Rnd\BomConflictException;
@@ -24,12 +29,11 @@ use App\Services\EsbBillOfMaterialService;
 use App\Services\EsbMasterProductService;
 use App\Services\EsbService;
 use App\Services\EsbUnitCatalogService;
-use App\Services\Monitoring\EsbTransactionRecorder;
-use App\Services\Monitoring\EsbTransactionScope;
 use App\Services\ProductPriceIndexService;
 use App\Services\Rnd\Bom\BomPayloadBuilder;
 use App\Services\Rnd\Bom\ProjectWipRecipeDiscovery;
 use App\Services\Rnd\BomCalculationService;
+use App\Services\Rnd\Material\MaterialAuditLogger;
 use App\Services\Rnd\MenuPricingCalculator;
 use App\Services\SyncRndEsbMaterialFromRemote;
 use Filament\Actions\Action;
@@ -38,12 +42,13 @@ use Filament\Forms\Components\RichEditor\RichContentRenderer;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
-use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\WithFileUploads;
 use Throwable;
@@ -1608,8 +1613,12 @@ class ViewProjectProductPage extends Page
 
             return;
         }
+        if ($material && ! $this->materialIsEditableByRnd($material)) {
+            Notification::make()->title('Bahan sedang diproses')->body('Bahan sedang direview IT atau diproses ke ESB sehingga dikunci untuk R&D.')->warning()->send();
+
+            return;
+        }
         $wasSynced = $material?->status === 'synced';
-        $attemptedPayload = null;
 
         $validated = $this->validate([
             'esbMaterialProductName' => ['required', 'string', 'max:100'],
@@ -1683,81 +1692,52 @@ class ViewProjectProductPage extends Page
             'conversion_factor' => 1,
             'base_price' => $baseUnit['base_price'],
             'notes' => trim($validated['esbMaterialNotes']) ?: null,
-            'status' => $wasSynced ? 'synced' : 'draft',
             'sync_error' => null,
+            // docs/material-sourcing-lifecycle-prd.md §12.5: every save is local. Editing a synced
+            // material opens a new draft version; ESB is only updated after IT approves it.
+            'review_status' => MaterialReviewStatus::Draft,
         ];
 
-        try {
-            app(EsbTransactionRecorder::class)->transaction('rnd_product_release', 'update_material', 'update_product', function (EsbTransactionScope $monitoring) use (&$material, &$attemptedPayload, $values, $validated, $wasSynced): void {
-                DB::transaction(function () use (&$material, &$attemptedPayload, $values, $validated, $wasSynced, $monitoring): void {
-                    $existingDetailIds = $material?->units()->pluck('esb_product_detail_id', 'uom_id') ?? collect();
+        DB::transaction(function () use (&$material, $values, $validated, $wasSynced): void {
+            $existingDetailIds = $material?->units()->pluck('esb_product_detail_id', 'uom_id') ?? collect();
 
-                    if ($material) {
-                        $material->update($values);
-                    } else {
-                        $material = $this->productRecord->esbMaterials()->create($values + ['created_by' => auth()->id()]);
-                    }
-                    $material->units()->delete();
-                    $material->units()->createMany(collect($validated['esbMaterialUnits'])
-                        ->map(fn (array $unit): array => [
-                            'uom_id' => $unit['uom_id'],
-                            'uom_name' => $unit['uom_name'],
-                            'esb_product_detail_id' => $existingDetailIds->get($unit['uom_id']),
-                            'sku' => $unit['sku'],
-                            'conversion_factor' => $unit['is_base'] ? 1 : $unit['conversion_factor'],
-                            'base_price' => $unit['base_price'],
-                            'is_base' => $unit['is_base'],
-                            'is_stock' => $unit['is_base'],
-                            'is_purchase' => $unit['is_base'],
-                            'is_transfer' => $unit['is_base'],
-                            'is_sales' => $unit['is_base'],
-                            'flag_active' => true,
-                        ])->all());
-
-                    if ($wasSynced && $material->esb_product_id) {
-                        $monitoring->linkLocal($material)->reference($material->esb_product_id);
-                        $esb = app(EsbMasterProductService::class);
-                        $remoteProduct = $esb->findProductById($material->esb_product_id);
-                        $this->syncEsbProductDetailIds($material->fresh('units'), $remoteProduct);
-                        $payload = $material->fresh('units')->toEsbPayload();
-                        $attemptedPayload = $payload;
-                        $updatedProduct = $esb->updateProductWithUnitReplacements(
-                            $material->esb_product_id,
-                            $payload,
-                            $remoteProduct ?? [],
-                        );
-                        $this->syncEsbProductDetailIds(
-                            $material->fresh('units'),
-                            $updatedProduct,
-                        );
-                        $material->update([
-                            'last_payload' => $payload,
-                            'last_response' => ['productID' => $material->esb_product_id, 'updated' => true],
-                            'sync_error' => null,
-                            'synced_at' => now(),
-                        ]);
-                    }
-                });
-            }, ['idempotency_key' => $material ? 'rnd-material:'.$material->id.':update' : null]);
-        } catch (Throwable $exception) {
-            if ($material && $wasSynced && $attemptedPayload !== null) {
-                $material->refresh()->update([
-                    'status' => 'unknown',
-                    'last_payload' => $attemptedPayload,
-                    'last_response' => ['message' => $exception->getMessage()],
-                    'sync_error' => $exception->getMessage(),
+            if ($material) {
+                $material->update($values + ['esb_sync_status' => $material->effectiveEsbSyncStatus()]);
+            } else {
+                $material = $this->productRecord->esbMaterials()->create($values + [
+                    'status' => 'draft',
+                    'esb_sync_status' => MaterialEsbSyncStatus::NotReady,
+                    'pricing_status' => MaterialPricingStatus::NotReady,
+                    'created_by' => auth()->id(),
                 ]);
             }
-            $this->addError('esbMaterialProductName', $exception->getMessage());
-            Notification::make()->title('Perubahan gagal disinkronkan ke ESB')->body($exception->getMessage())->danger()->send();
-
-            return;
-        }
+            $material->units()->delete();
+            $material->units()->createMany(collect($validated['esbMaterialUnits'])
+                ->map(fn (array $unit): array => [
+                    'uom_id' => $unit['uom_id'],
+                    'uom_name' => $unit['uom_name'],
+                    'esb_product_detail_id' => $existingDetailIds->get($unit['uom_id']),
+                    'sku' => $unit['sku'],
+                    'conversion_factor' => $unit['is_base'] ? 1 : $unit['conversion_factor'],
+                    'base_price' => $unit['base_price'],
+                    'is_base' => $unit['is_base'],
+                    'is_stock' => $unit['is_base'],
+                    'is_purchase' => $unit['is_base'],
+                    'is_transfer' => $unit['is_base'],
+                    'is_sales' => $unit['is_base'],
+                    'flag_active' => true,
+                ])->all());
+            app(MaterialAuditLogger::class)->event($material, $wasSynced ? 'change_draft_saved' : 'draft_saved', auth()->user());
+        });
 
         $this->reloadProduct();
         $this->esbMaterialModalOpen = false;
         $this->dispatch('close-esb-material-form');
-        Notification::make()->title($wasSynced ? 'Bahan dan Master Product ESB berhasil diperbarui' : 'Draft bahan berhasil disimpan')->success()->send();
+        Notification::make()
+            ->title($wasSynced ? 'Perubahan disimpan sebagai draft' : 'Draft bahan berhasil disimpan')
+            ->body($wasSynced ? 'Kirim untuk Review IT agar perubahan diterapkan ke ESB. Identitas ESB saat ini tetap dipakai sampai disetujui.' : 'Kirim untuk Review IT sebelum bahan dibuat di ESB.')
+            ->success()
+            ->send();
     }
 
     public function updatedEsbMaterialUomId(): void
@@ -2089,123 +2069,77 @@ class ViewProjectProductPage extends Page
         ];
     }
 
-    public function syncEsbMaterial(int $materialId): void
+    /**
+     * R&D sends the material to the mandatory IT review (docs/material-sourcing-lifecycle-prd.md
+     * §10.1). R&D can no longer push to ESB directly; IT approves and pushes after review.
+     */
+    public function submitEsbMaterialForReview(int $materialId): void
     {
         $this->authorizeProjectManagement();
         $material = $this->productRecord->esbMaterials()->findOrFail($materialId);
-        if ($material->status === 'synced') {
-            Notification::make()->title('Bahan sudah tersinkron ke ESB')->warning()->send();
-
-            return;
-        }
-        if ($material->status === 'unknown') {
-            Notification::make()->title('Periksa produk di ESB terlebih dahulu')->body('Hasil pengiriman sebelumnya belum diketahui dan tidak boleh dikirim ulang.')->danger()->send();
-
-            return;
-        }
-
-        $payload = $material->toEsbPayload();
-        $claimed = RndProductEsbMaterial::query()
-            ->whereKey($material->id)
-            ->whereIn('status', ['draft', 'failed'])
-            ->update([
-                'status' => 'syncing',
-                'last_payload' => $payload,
-                'sync_error' => null,
-            ]);
-        if ($claimed !== 1) {
-            Notification::make()
-                ->title('Sinkronisasi sedang diproses')
-                ->body('Permintaan ganda dihentikan agar Product Detail tidak terduplikasi.')
-                ->warning()
-                ->send();
-
-            return;
-        }
-        $material->refresh();
 
         try {
-            $esb = app(EsbMasterProductService::class);
-            $existingProduct = $esb->findProductByExactName($material->product_name);
-            $existingProductId = (int) ($existingProduct['productID'] ?? 0);
-            $result = $existingProductId > 0
-                ? ['productID' => $existingProductId, 'isTemp' => (bool) ($existingProduct['isTemp'] ?? false)]
-                : app(EsbTransactionRecorder::class)->transaction(
-                    'rnd_product_release',
-                    'sync_material',
-                    'create_product',
-                    fn (): array => $esb->createProduct($payload),
-                    ['local_model' => $material, 'idempotency_key' => 'rnd-material:'.$material->id.':create'],
-                );
+            $review = app(SubmitMaterialForItReviewAction::class)->execute($material, auth()->user());
+        } catch (AuthorizationException) {
+            abort(403);
+        } catch (ValidationException $exception) {
+            Notification::make()->title('Belum dapat dikirim untuk Review IT')->body(collect($exception->errors())->flatten()->implode(' '))->danger()->send();
 
-            $material->update([
-                'status' => 'synced',
-                'esb_product_id' => $result['productID'],
-                'esb_is_temp' => $result['isTemp'],
-                'last_response' => $result,
-                'sync_error' => null,
-                'synced_at' => now(),
-            ]);
-            $this->syncEsbProductDetailIds(
-                $material,
-                $existingProductId > 0
-                    ? $existingProduct
-                    : $esb->findProductById($result['productID']),
-            );
-            Notification::make()
-                ->title($existingProductId > 0 ? 'Bahan ditautkan ke Master Product ESB yang sudah ada' : 'Bahan berhasil dibuat di ESB')
-                ->success()
-                ->send();
-        } catch (Throwable $exception) {
-            $material->update([
-                'status' => $this->isConnectionFailure($exception) ? 'unknown' : 'failed',
-                'sync_error' => $exception->getMessage(),
-                'last_response' => ['message' => $exception->getMessage()],
-            ]);
-            Notification::make()->title('Sinkronisasi bahan gagal')->body($exception->getMessage())->danger()->send();
+            return;
         }
 
         $this->reloadProduct();
+        Notification::make()
+            ->title('Dikirim untuk Review IT')
+            ->body("Versi {$review->submission_version} dikunci selama review. IT akan menautkan atau mengirim produk ke ESB setelah data disetujui.")
+            ->success()
+            ->send();
     }
 
-    private function isConnectionFailure(Throwable $exception): bool
+    /**
+     * Kept for compatibility with pages opened before the IT review gate: the former "push to ESB"
+     * entry point now only submits for review and can never mutate ESB.
+     */
+    public function syncEsbMaterial(int $materialId): void
     {
-        do {
-            if ($exception instanceof ConnectionException) {
-                return true;
-            }
-
-            $exception = $exception->getPrevious();
-        } while ($exception instanceof Throwable);
-
-        return false;
+        $this->submitEsbMaterialForReview($materialId);
     }
 
-    private function syncEsbProductDetailIds(RndProductEsbMaterial $material, ?array $esbProduct): void
+    public function withdrawEsbMaterialReview(int $materialId): void
     {
-        if (! is_array($esbProduct)) {
+        $this->authorizeProjectManagement();
+        $material = $this->productRecord->esbMaterials()->findOrFail($materialId);
+
+        try {
+            app(WithdrawMaterialReviewAction::class)->execute($material, auth()->user(), 'Dibatalkan R&D sebelum diambil IT.');
+        } catch (AuthorizationException) {
+            abort(403);
+        } catch (ValidationException $exception) {
+            Notification::make()->title('Pengajuan tidak dapat dibatalkan')->body(collect($exception->errors())->flatten()->implode(' '))->warning()->send();
+
             return;
         }
 
-        $details = collect($esbProduct['productDetails'] ?? [])
-            ->filter(fn (array $candidate): bool => ! array_key_exists('flagActive', $candidate)
-                || in_array(mb_strtolower((string) $candidate['flagActive']), ['1', 'true', 'yes'], true))
-            ->sortByDesc(fn (array $candidate): int => (int) ($candidate['productDetailID'] ?? 0));
-        foreach ($material->units as $unit) {
-            $detail = $details->first(function (array $candidate) use ($unit): bool {
-                $candidateUomId = (int) ($candidate['uomID'] ?? $candidate['unitID'] ?? 0);
-                $candidateSku = mb_strtolower(trim((string) ($candidate['sku'] ?? $candidate['SKU'] ?? '')));
-                $candidateUnit = mb_strtolower(trim((string) ($candidate['uomName'] ?? $candidate['unit'] ?? '')));
+        $this->reloadProduct();
+        Notification::make()->title('Pengajuan review dibatalkan')->success()->send();
+    }
 
-                return ($candidateSku !== '' && $candidateSku === mb_strtolower(trim($unit->sku)))
-                    || ($candidateUomId > 0 && $candidateUomId === $unit->uom_id)
-                    || ($candidateUnit !== '' && $candidateUnit === mb_strtolower(trim($unit->uom_name)));
-            });
-            $detailId = (int) ($detail['productDetailID'] ?? 0);
-            if ($detailId > 0) {
-                $unit->update(['esb_product_detail_id' => $detailId]);
-            }
+    /**
+     * R&D may edit while the material is a draft/revision or, after a verified sync, to start a
+     * new change version. During review, approval, ESB processing, or reconciliation it is locked.
+     */
+    public function materialIsEditableByRnd(RndProductEsbMaterial $material): bool
+    {
+        $esb = $material->effectiveEsbSyncStatus();
+        if (in_array($esb, [MaterialEsbSyncStatus::Queued, MaterialEsbSyncStatus::Syncing, MaterialEsbSyncStatus::NeedsReconciliation], true)) {
+            return false;
         }
+
+        if ($material->review_status === null || $material->review_status->isEditableByRnd()) {
+            return true;
+        }
+
+        return $material->review_status === MaterialReviewStatus::ApprovedForEsb && $esb === MaterialEsbSyncStatus::Synced;
     }
 
     /**
@@ -2217,6 +2151,7 @@ class ViewProjectProductPage extends Page
         $this->authorizeProjectManagement();
         $material = $this->productRecord->esbMaterials()->findOrFail($materialId);
         abort_if($material->status === 'synced' && $material->sync_error === null, 422, 'Data yang sudah tersinkron tidak dapat dihapus.');
+        abort_if($material->submission_version > 0, 422, 'Bahan yang sudah pernah diajukan untuk Review IT tidak dapat dihapus; riwayat review harus dipertahankan.');
         $sourcingCount = $material->sourcings()->count();
         $material->delete();
         $this->reloadProduct();

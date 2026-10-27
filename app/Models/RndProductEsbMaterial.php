@@ -2,13 +2,23 @@
 
 namespace App\Models;
 
+use App\Enums\MaterialEsbSyncStatus;
+use App\Enums\MaterialPricingStatus;
+use App\Enums\MaterialReviewStatus;
 use App\Enums\MaterialSourcingStatus;
+use App\Enums\MonitoringTransactionStatus;
+use Database\Factories\RndProductEsbMaterialFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class RndProductEsbMaterial extends Model
 {
+    /** @use HasFactory<RndProductEsbMaterialFactory> */
+    use HasFactory;
+
     /** Raised from a Project R&D product's material list. */
     public const SOURCING_ORIGIN_PROJECT = 'project';
 
@@ -20,7 +30,7 @@ class RndProductEsbMaterial extends Model
         'syncing' => 'Syncing',
         'synced' => 'Synced',
         'failed' => 'Failed',
-        'unknown' => 'Perlu Rekonsiliasi',
+        'unknown' => 'Needs Reconciliation',
     ];
 
     /**
@@ -100,6 +110,14 @@ class RndProductEsbMaterial extends Model
         'finance_reviewed_by',
         'finance_reviewed_at',
         'finance_note',
+        'review_status',
+        'submission_version',
+        'esb_sync_status',
+        'esb_sync_claimed_at',
+        'esb_verified_at',
+        'pricing_status',
+        'sourcing_requested_at',
+        'workflow_completed_at',
     ];
 
     protected function casts(): array
@@ -115,7 +133,105 @@ class RndProductEsbMaterial extends Model
             'sourcing_status' => MaterialSourcingStatus::class,
             'rnd_reviewed_at' => 'datetime',
             'finance_reviewed_at' => 'datetime',
+            'review_status' => MaterialReviewStatus::class,
+            'submission_version' => 'integer',
+            'esb_sync_status' => MaterialEsbSyncStatus::class,
+            'esb_sync_claimed_at' => 'datetime',
+            'esb_verified_at' => 'datetime',
+            'pricing_status' => MaterialPricingStatus::class,
+            'sourcing_requested_at' => 'datetime',
+            'workflow_completed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Created through the Master Bahan workflow (docs/material-sourcing-lifecycle-prd.md). Rows
+     * created before the workflow and standalone sourcing keep `review_status = null` and follow
+     * the legacy flow without receiving review history they never had.
+     */
+    public function isInWorkflow(): bool
+    {
+        return $this->review_status !== null;
+    }
+
+    public function isWip(): bool
+    {
+        return $this->materialSection() === 'wip';
+    }
+
+    /** WIP never goes through supplier sourcing or samples (§10.2). */
+    public function requiresSourcing(): bool
+    {
+        return ! $this->isWip();
+    }
+
+    /**
+     * ESB state for display and guards: the workflow column when present, otherwise the legacy
+     * `status` value. A legacy `synced` is not proof of verified mapping (see isVerifiedSynced).
+     */
+    public function effectiveEsbSyncStatus(): MaterialEsbSyncStatus
+    {
+        return $this->esb_sync_status ?? match ($this->status) {
+            'synced' => MaterialEsbSyncStatus::Synced,
+            'syncing' => MaterialEsbSyncStatus::Syncing,
+            'failed' => MaterialEsbSyncStatus::Failed,
+            'unknown' => MaterialEsbSyncStatus::NeedsReconciliation,
+            default => MaterialEsbSyncStatus::NotReady,
+        };
+    }
+
+    /** Product ID and every active unit's Product Detail ID were read back and verified (§13.3). */
+    /**
+     * Minutes after which an unfinished `syncing` claim is considered abandoned (the request or
+     * worker died between the ESB call and the local result).
+     */
+    public const ESB_CLAIM_STALE_MINUTES = 15;
+
+    /**
+     * Grace period after which a `syncing` claim whose ESB transaction already finished is
+     * reconcilable, leaving the normal run time to store its own result first.
+     */
+    public const ESB_CLAIM_FINISHED_GRACE_MINUTES = 2;
+
+    /**
+     * IT must reconcile: an uncertain outcome, or a `syncing` claim that never finished — either
+     * because its ESB transaction already ended without a local result, or because it is stale.
+     */
+    public function needsEsbReconciliation(): bool
+    {
+        if ($this->effectiveEsbSyncStatus() === MaterialEsbSyncStatus::NeedsReconciliation) {
+            return true;
+        }
+        if ($this->esb_sync_status !== MaterialEsbSyncStatus::Syncing || $this->esb_sync_claimed_at === null) {
+            return false;
+        }
+
+        return $this->esb_sync_claimed_at->lte(now()->subMinutes(self::ESB_CLAIM_STALE_MINUTES))
+            || ($this->esb_sync_claimed_at->lte(now()->subMinutes(self::ESB_CLAIM_FINISHED_GRACE_MINUTES))
+                && $this->finishedEsbClaimTransaction() !== null);
+    }
+
+    /**
+     * The monitoring transaction of the current `syncing` claim when its ESB request already ended
+     * (its `external_reference` is the Product ID ESB returned, if any).
+     */
+    public function finishedEsbClaimTransaction(): ?MonitoringTransaction
+    {
+        if ($this->esb_sync_status !== MaterialEsbSyncStatus::Syncing || $this->esb_sync_claimed_at === null) {
+            return null;
+        }
+
+        return MonitoringTransaction::query()->parents()
+            ->where('idempotency_key', "material:{$this->id}:v{$this->submission_version}")
+            ->where('created_at', '>=', $this->esb_sync_claimed_at)
+            ->whereNotIn('status', [MonitoringTransactionStatus::Pending->value, MonitoringTransactionStatus::Processing->value])
+            ->latest('id')
+            ->first();
+    }
+
+    public function isVerifiedSynced(): bool
+    {
+        return $this->esb_sync_status === MaterialEsbSyncStatus::Synced && $this->esb_verified_at !== null;
     }
 
     /**
@@ -152,6 +268,31 @@ class RndProductEsbMaterial extends Model
     public function selectedSourcing(): BelongsTo
     {
         return $this->belongsTo(MaterialSourcing::class, 'sourcing_selected_id');
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(RndMaterialReview::class)->orderByDesc('submission_version');
+    }
+
+    public function latestReview(): HasOne
+    {
+        return $this->hasOne(RndMaterialReview::class)->latestOfMany('submission_version');
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(RndMaterialAuditLog::class)->latest('created_at')->latest('id');
+    }
+
+    public function sampleCycles(): HasMany
+    {
+        return $this->hasMany(RndMaterialSampleCycle::class)->orderByDesc('cycle_number');
+    }
+
+    public function pricingRequests(): HasMany
+    {
+        return $this->hasMany(RndMaterialPricingRequest::class)->latest('id');
     }
 
     public function sourcingApprovals(): HasMany

@@ -253,6 +253,23 @@ class OrderingRecommendationQuery
     }
 
     /**
+     * Plain label and explanation of a source state for every user, shared by the page and the export.
+     *
+     * @return array{label: string, description: string}
+     */
+    public static function stateText(string $state): array
+    {
+        $hours = (int) config('ordering_recommendation.stock_stale_hours');
+
+        return match ($state) {
+            'fresh' => ['label' => 'Data lengkap', 'description' => "Data penjualan dan stok dari ESB sudah lengkap dan diperbarui dalam {$hours} jam terakhir."],
+            'partial' => ['label' => 'Data belum lengkap', 'description' => 'Ada hari yang datanya belum berhasil diambil dari ESB, jadi rekomendasi bisa kurang akurat.'],
+            'stale' => ['label' => 'Data perlu diperbarui', 'description' => "Data terakhir diambil dari ESB lebih dari {$hours} jam yang lalu, jadi rekomendasi mungkin tidak sesuai kondisi saat ini."],
+            default => ['label' => 'Data penjualan tidak tersedia', 'description' => 'Data pemakaian bahan dari ESB belum tersedia, jadi rekomendasi belum bisa dihitung.'],
+        };
+    }
+
+    /**
      * Fresh / Stale / Partial / Failed per branch from the run's completeness and the latest sync.
      *
      * @return array{state: string, warnings: list<string>, last_synced_at: ?string, pairs: list<array<string, mixed>>}

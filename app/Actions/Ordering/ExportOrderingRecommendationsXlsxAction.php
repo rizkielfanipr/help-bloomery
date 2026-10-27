@@ -76,7 +76,7 @@ class ExportOrderingRecommendationsXlsxAction
             $writer->addRow(Row::fromValues([
                 $this->text($run->branch?->name), $run->generated_at?->timezone(config('app.timezone'))->format('Y-m-d H:i:s') ?? '',
                 $run->history_from->toDateString().' – '.$run->history_to->toDateString(), $run->forecast_from->toDateString().' – '.$run->forecast_to->toDateString(),
-                $this->text($run->algorithm_version), ucfirst($states[$run->branch_id]['state']),
+                $this->text($run->algorithm_version), OrderingRecommendationQuery::stateText($states[$run->branch_id]['state'])['label'],
                 $kpis['products'], $kpis['need_order'], $kpis['stockout'], $kpis['trend_up'], $kpis['high_waste'], $kpis['incomplete'],
             ]));
         }
@@ -97,7 +97,7 @@ class ExportOrderingRecommendationsXlsxAction
             $this->number($item->gross_requirement), $this->number($item->final_recommendation),
             $item->predicted_stockout_date?->toDateString() ?? '', $item->confidence->getLabel(),
             $this->text($item->explanation.($item->confidence === OrderingConfidence::Blocked ? '' : ' '.implode('; ', array_map(fn (string $code): string => OrderingReasonCodes::label($code), $item->reason_codes ?? [])))),
-            ucfirst($states[$item->branch_id]['state'] ?? 'unknown'),
+            OrderingRecommendationQuery::stateText($states[$item->branch_id]['state'] ?? 'failed')['label'],
         ]);
 
         $writer->addNewSheetAndMakeItCurrent()->setName('Daily History');

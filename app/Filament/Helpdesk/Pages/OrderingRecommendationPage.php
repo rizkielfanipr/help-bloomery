@@ -6,10 +6,8 @@ use App\Actions\Ordering\ExportOrderingRecommendationsXlsxAction;
 use App\Enums\OrderingConfidence;
 use App\Models\Brand;
 use App\Models\OrderingForecastItem;
-use App\Models\OrderingForecastRun;
 use App\Services\Ordering\OrderingRecommendationQuery;
 use BackedEnum;
-use Carbon\CarbonImmutable;
 use Filament\Pages\Page;
 use Illuminate\Validation\Rule;
 use Livewire\WithPagination;
@@ -68,8 +66,6 @@ class OrderingRecommendationPage extends Page
     public ?int $activeBranchId = null;
 
     public string $rankingType = 'priority';
-
-    public ?string $chartUom = null;
 
     public string $sort = 'priority';
 
@@ -160,7 +156,6 @@ class OrderingRecommendationPage extends Page
             'filters' => ['category' => $this->category, 'confidence' => $this->confidence, 'risk' => $this->risk, 'search' => trim($this->search)],
         ];
         $this->activeBranchId = $branchIds[0] ?? null;
-        $this->chartUom = null;
         $this->detailItemId = null;
         $this->resetPage('itemsPage');
     }
@@ -178,7 +173,6 @@ class OrderingRecommendationPage extends Page
     {
         if (in_array($branchId, $this->scopedBranchIds(), true)) {
             $this->activeBranchId = $branchId;
-            $this->chartUom = null;
         }
     }
 
@@ -221,11 +215,9 @@ class OrderingRecommendationPage extends Page
         $runs = $query->latestRuns($branchIds, (int) ($this->applied['horizon'] ?? $this->horizon));
         $runIds = $runs->pluck('id')->all();
         $activeRun = $runs->get($this->activeBranchId) ?? $runs->first();
-        [$from, $to] = $this->displayPeriod($activeRun);
-
         $detail = null;
         if ($this->detailItemId !== null) {
-            $detail = $this->scopedItems()->with(['run:id,history_from,history_to,forecast_from,forecast_to,algorithm_version', 'branch:id,name'])->find($this->detailItemId);
+            $detail = $this->scopedItems()->with(['run:id,horizon_days,history_from,history_to,forecast_from,forecast_to,algorithm_version', 'branch:id,name'])->find($this->detailItemId);
         }
 
         return [
@@ -233,21 +225,14 @@ class OrderingRecommendationPage extends Page
             'branchOptions' => $query->accessibleBranches($user)->when($this->brandIds !== [], fn ($q) => $q->whereIn('brand_id', $this->brandIds))->get(['id', 'name']),
             'categoryOptions' => OrderingForecastItem::query()->whereIn('ordering_forecast_run_id', $runIds === [] ? [0] : $runIds)->whereNotNull('category_name')->distinct()->orderBy('category_name')->pluck('category_name'),
             'horizons' => config('ordering_recommendation.horizons'),
-            'selectedBranchCount' => count($branchIds),
             'runs' => $runs,
             'activeRun' => $activeRun,
-            'kpis' => $query->kpis($runIds, $filters),
             'overview' => $runs->count() > 1 ? $query->branchOverview($runs, $filters) : [],
             'sourceState' => $activeRun ? $query->sourceState($activeRun) : null,
             'ranking' => $activeRun ? $query->ranking($activeRun->id, $this->rankingType, $filters, (int) config('ordering_recommendation.ranking_limit')) : collect(),
-            'demandChart' => $activeRun ? $query->demandChart($activeRun, $this->chartUom, $from, $to) : null,
-            'coverageChart' => $activeRun ? $query->coverageDistribution($activeRun->id, $filters) : [],
-            'trendChart' => $activeRun ? $query->ranking($activeRun->id, 'trend_up', $filters, (int) config('ordering_recommendation.chart_limit')) : collect(),
-            'wasteChart' => $activeRun ? $query->ranking($activeRun->id, 'waste', $filters, (int) config('ordering_recommendation.chart_limit')) : collect(),
             'items' => $query->items($runIds, $filters, $this->sort, $this->direction)->with('branch:id,name')->paginate(25, pageName: 'itemsPage'),
             'detail' => $detail,
             'canExport' => $user->can('export ordering recommendations'),
-            'highWasteRate' => (float) config('ordering_recommendation.high_waste_rate'),
         ];
     }
 
@@ -266,18 +251,6 @@ class OrderingRecommendationPage extends Page
         $runIds = $this->query()->latestRuns($this->scopedBranchIds(), (int) ($this->applied['horizon'] ?? $this->horizon))->pluck('id')->all();
 
         return OrderingForecastItem::query()->whereIn('ordering_forecast_run_id', $runIds === [] ? [0] : $runIds);
-    }
-
-    /** @return array{0: string, 1: string} */
-    private function displayPeriod(?OrderingForecastRun $run): array
-    {
-        $end = $run?->history_to?->toDateString() ?? now()->subDay()->toDateString();
-
-        return match ($this->applied['period'] ?? '30') {
-            'custom' => [(string) $this->applied['date_from'], (string) $this->applied['date_to']],
-            '7' => [CarbonImmutable::parse($end)->subDays(6)->toDateString(), $end],
-            default => [CarbonImmutable::parse($end)->subDays(29)->toDateString(), $end],
-        };
     }
 
     private function query(): OrderingRecommendationQuery

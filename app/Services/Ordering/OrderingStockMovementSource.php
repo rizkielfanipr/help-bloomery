@@ -48,6 +48,7 @@ class OrderingStockMovementSource
                 'category_name' => filled($categories[$code] ?? null) ? trim((string) $categories[$code]) : null,
                 'uom' => $uom,
                 'transaction_type' => trim((string) ($row['transactionType'] ?? '')),
+                'document_code' => trim((string) ($row['documentCode'] ?? '')),
                 'qty_in' => (float) ($row['qtyIn'] ?? 0),
                 'qty_out' => (float) ($row['qtyOut'] ?? 0),
                 'qty_balance' => is_numeric($row['qtyBalance'] ?? null) ? (float) $row['qtyBalance'] : null,

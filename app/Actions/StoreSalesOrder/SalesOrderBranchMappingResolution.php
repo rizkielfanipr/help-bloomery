@@ -7,7 +7,7 @@ use App\Models\BranchEsbCode;
 
 /**
  * Result of resolving one Branch's ESB mapping for Store Sales Order
- * (docs/store-sales-order-prd.md §8). `blockedReason` is the specific, credential-free message
+ * (docs/products/operational/store-sales-order/prd.md §8). `blockedReason` is the specific, credential-free message
  * shown next to a disabled Branch in the picker (§8.6).
  */
 final class SalesOrderBranchMappingResolution

@@ -1,6 +1,6 @@
 {{--
     WIP Shelf Life form shared by the Shelf Life menu and the Project Product page
-    (docs/rnd-wip-shelf-life-prd.md §16.3). Expects the host to use ManagesWipShelfLifeForm and to
+    (docs/products/rnd/wip-shelf-life/prd.md §16.3). Expects the host to use ManagesWipShelfLifeForm and to
     provide $shelfLifeSaveMethod; $shelfLifeContextNote is optional.
 --}}
 @if($shelfLifeModalOpen && $shelfLifeTarget)

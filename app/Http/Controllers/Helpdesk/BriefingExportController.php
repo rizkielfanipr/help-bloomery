@@ -28,7 +28,7 @@ class BriefingExportController
         $year = $request->integer('year', now()->year);
         $month = $request->integer('month', now()->month);
 
-        // docs/daily-briefing-remediation-prd.md §15.1: the requested branch_id is re-validated
+        // docs/products/daily-briefing/remediation/prd.md §15.1: the requested branch_id is re-validated
         // against the viewer's own access server-side, never trusted from the request alone.
         abort_unless($user->canAccessBranch($branchId), 403);
 

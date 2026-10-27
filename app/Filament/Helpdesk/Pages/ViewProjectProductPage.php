@@ -1693,7 +1693,7 @@ class ViewProjectProductPage extends Page
             'base_price' => $baseUnit['base_price'],
             'notes' => trim($validated['esbMaterialNotes']) ?: null,
             'sync_error' => null,
-            // docs/material-sourcing-lifecycle-prd.md §12.5: every save is local. Editing a synced
+            // docs/products/rnd/material-sourcing-lifecycle/prd.md §12.5: every save is local. Editing a synced
             // material opens a new draft version; ESB is only updated after IT approves it.
             'review_status' => MaterialReviewStatus::Draft,
         ];
@@ -2070,7 +2070,7 @@ class ViewProjectProductPage extends Page
     }
 
     /**
-     * R&D sends the material to the mandatory IT review (docs/material-sourcing-lifecycle-prd.md
+     * R&D sends the material to the mandatory IT review (docs/products/rnd/material-sourcing-lifecycle/prd.md
      * §10.1). R&D can no longer push to ESB directly; IT approves and pushes after review.
      */
     public function submitEsbMaterialForReview(int $materialId): void

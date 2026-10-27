@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * docs/receiving-simplification-prd.md §5.2, §15. Additive only — `delivery_number`,
+     * docs/products/inventory/receiving-simplification/prd.md §5.2, §15. Additive only — `delivery_number`,
      * `invoice_number`, `delivery_date`, `invoice_date`, `invoice_status`, and
      * `document_evidence_photos` are kept so existing reports keep reading them.
      * `GoodsReceiptPage` fills both the new and the legacy columns on submit.

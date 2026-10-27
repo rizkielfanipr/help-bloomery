@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 
 /**
- * Read model for the Jadwal Produksi calendar (docs/kitchen-production-schedule-prd.md §13, §17,
+ * Read model for the Jadwal Produksi calendar (docs/products/kitchen/production-schedule/prd.md §13, §17,
  * §19). The visible range and the Branch scope are applied in SQL before anything is fetched;
  * filters only narrow that scope. Only header columns plus an item count are selected — never
  * `detail_snapshot` — and Branch names come from one eager load, so the query count stays flat.

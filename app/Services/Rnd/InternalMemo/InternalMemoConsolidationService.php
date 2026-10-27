@@ -8,7 +8,7 @@ use App\Models\RndInternalMemoMaterial;
 use Illuminate\Support\Collection;
 
 /**
- * docs/rnd-internal-memo-prd.md §10.5. Consolidates every consolidation-candidate material
+ * docs/products/rnd/internal-memo/prd.md §10.5. Consolidates every consolidation-candidate material
  * (base materials and packaging; WIP/Assembly rows are excluded, per
  * RndInternalMemoMaterial::isConsolidationCandidate()) across all of a Memo's Menus, grouped by
  * `productDetailID + normalized UOM`. A row without a Product Detail ID still consolidates, keyed
@@ -65,7 +65,7 @@ class InternalMemoConsolidationService
     }
 
     /**
-     * Ringkasan produk (docs/rnd-internal-memo-simplification-prd.md §9.4, §12.2), split by who uses
+     * Ringkasan produk (docs/products/rnd/internal-memo-simplification/prd.md §9.4, §12.2), split by who uses
      * the item: `store` holds only rows of the Menu BOM itself (depth 0), `kitchen` holds the rows
      * reached by tracing WIP/Assembly BOMs (depth > 0). Each scope is split into WIP and Bahan and
      * consolidated by InternalMemoItemIdentity, so the same item reached through more than one Menu

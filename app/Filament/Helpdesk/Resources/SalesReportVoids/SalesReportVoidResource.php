@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Sales Report → Void (docs/sales-report-compliment-void-remediation-prd.md §12): every Void in
+ * Sales Report → Void (docs/products/finance/sales-report-compliment-void-remediation/prd.md §12): every Void in
  * the user's branch scope with server-side filters, pagination, detail, and export.
  */
 class SalesReportVoidResource extends Resource

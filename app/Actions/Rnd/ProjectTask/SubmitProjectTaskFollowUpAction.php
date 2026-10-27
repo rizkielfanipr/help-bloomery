@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 
 /**
- * Records one append-only follow-up entry from a PIC (docs/rnd-project-task-calendar-prd.md §12).
+ * Records one append-only follow-up entry from a PIC (docs/products/rnd/project-task-calendar/prd.md §12).
  * A `Progress` entry never changes the assignment's status (business rule #12) — only a
  * `Submission` moves it to Submitted, which also re-syncs the Task's own status. Ownership is
  * the caller's responsibility (`RndProjectTaskAssignmentPolicy::respond`).

@@ -6,7 +6,7 @@ use App\Enums\MonitoringTransactionStatus;
 use Throwable;
 
 /**
- * Maps an observed mutation attempt to a monitoring status (docs/system-monitoring-prd.md §11.2).
+ * Maps an observed mutation attempt to a monitoring status (docs/operations/monitoring/prd.md §11.2).
  *
  * A failure is only `failed` when there is evidence ESB did not apply the mutation: it was never
  * sent, the connection was refused before delivery, or ESB answered with an explicit rejection.

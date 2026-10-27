@@ -543,7 +543,7 @@ it('scales a shared-batch Main Recipe proportionally to how much of it the Menu 
 
     // Froyo Mix is a shared batch recipe: one recipe run yields 6000 GR, but a single
     // sold unit only consumes 130 GR of it per the Menu BOM below — the two must not be
-    // conflated into "1 recipe run per unit sold" (docs/rnd-bom-adjustment-prd.md-style
+    // conflated into "1 recipe run per unit sold" (docs/products/rnd/bom-adjustment/prd.md-style
     // regression: Kitchen forecast must reflect actual batch usage, not sales units 1:1).
     $mainBom = $project->boms()->create([
         'esb_bom_id' => 9300,

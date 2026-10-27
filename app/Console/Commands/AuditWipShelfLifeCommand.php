@@ -6,7 +6,7 @@ use App\Services\Rnd\ShelfLife\WipShelfLifeIdentityAudit;
 use Illuminate\Console\Command;
 
 /**
- * Dry-run audit of the Shelf Life master table (docs/rnd-wip-shelf-life-prd.md §21.2, §28 step 2).
+ * Dry-run audit of the Shelf Life master table (docs/products/rnd/wip-shelf-life/prd.md §21.2, §28 step 2).
  * Read-only: it reports conflicts and legacy data but never fixes them.
  */
 class AuditWipShelfLifeCommand extends Command

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
- * docs/rnd-internal-memo-multi-branch-prd.md §9.1. One row per (Memo, resolved ESB mapping) pair
+ * docs/products/rnd/internal-memo-multi-branch/prd.md §9.1. One row per (Memo, resolved ESB mapping) pair
  * — a snapshot taken at the moment the branch was added to the Memo. Changes to the underlying
  * Master Branch mapping afterward never silently update this snapshot (§8); that requires the
  * explicit "Perbarui Mapping Branch" action.

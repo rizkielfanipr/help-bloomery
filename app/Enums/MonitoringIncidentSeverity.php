@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Incident severity SEV-1 to SEV-4 (docs/system-monitoring-prd.md §16).
+ * Incident severity SEV-1 to SEV-4 (docs/operations/monitoring/prd.md §16).
  */
 enum MonitoringIncidentSeverity: string implements HasColor, HasLabel
 {

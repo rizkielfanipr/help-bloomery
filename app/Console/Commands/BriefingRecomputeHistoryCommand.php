@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §13/§18.3/Phase 13. Safe tooling for recomputing a range
+ * docs/products/daily-briefing/scoring-ui/prd.md §13/§18.3/Phase 13. Safe tooling for recomputing a range
  * of historical months at once. Defaults to --dry-run (read-only, identical in shape to
  * `briefing:compare-scores` but across a range). Mutation only runs behind the explicit
  * --confirm flag — this command never runs that flag itself; it must be invoked by a human who

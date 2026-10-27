@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 /**
- * docs/rnd-internal-memo-brand-prd.md §11.4, §14, §23.5: one global BLSS catalog, refreshed by one
+ * docs/products/rnd/internal-memo-brand/prd.md §11.4, §14, §23.5: one global BLSS catalog, refreshed by one
  * idempotent, locked job. The branchCode the ESB Master Menu endpoint needs is discovered from
  * ESB's own BLSS branch list (sorted by code) — there is no env/config value and no Brand input.
  */

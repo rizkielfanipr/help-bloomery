@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/material-sourcing-lifecycle-prd.md §11: separate IT review, ESB sync, and pricing
+ * docs/products/rnd/material-sourcing-lifecycle/prd.md §11: separate IT review, ESB sync, and pricing
  * dimensions next to the existing sourcing status. Additive only: existing rows keep
  * `review_status = null` / `esb_sync_status = null` (legacy, pre-workflow) and are never given
  * review history they did not have. The legacy `status` column stays authoritative for them.

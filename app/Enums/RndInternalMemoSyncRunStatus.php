@@ -7,7 +7,7 @@ use Filament\Support\Contracts\HasLabel;
 
 /**
  * Status of one `rnd_internal_memo_sync_runs` record — one sync job execution across every
- * Menu of a memo (docs/rnd-internal-memo-prd.md §12.5, §17).
+ * Menu of a memo (docs/products/rnd/internal-memo/prd.md §12.5, §17).
  */
 enum RndInternalMemoSyncRunStatus: string implements HasColor, HasLabel
 {

@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Phase 3 of docs/rnd-internal-memo-simplification-prd.md. `product_snapshot` already stores
-     * the raw BOM component from InternalMemoBomResolver (docs/rnd-internal-memo-prd.md §12.3) —
+     * Phase 3 of docs/products/rnd/internal-memo-simplification/prd.md. `product_snapshot` already stores
+     * the raw BOM component from InternalMemoBomResolver (docs/products/rnd/internal-memo/prd.md §12.3) —
      * this is a distinct raw response from the Product/Purchase-UOM lookup so the two never
      * overwrite each other.
      */

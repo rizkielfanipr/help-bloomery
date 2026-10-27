@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §19: daily aggregates used by the Overview 7-day trend so the
+ * docs/operations/monitoring/prd.md §19: daily aggregates used by the Overview 7-day trend so the
  * dashboard never scans detail rows older than one day.
  */
 return new class extends Migration

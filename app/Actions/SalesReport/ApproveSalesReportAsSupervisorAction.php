@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Supervisor approval (docs/sales-report-compliment-void-remediation-prd.md §7.3): the only
+ * Supervisor approval (docs/products/finance/sales-report-compliment-void-remediation/prd.md §7.3): the only
  * positive approval. It saves the correction rows and moves `PendingSupervisor` straight to
  * `Completed` (score 100) in one locked transaction with exactly one audit row; Finance fields
  * are left untouched. A second click finds the status already changed and is refused.

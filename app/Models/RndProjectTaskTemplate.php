@@ -12,7 +12,7 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 /**
- * Reusable checkpoint blueprint for R&D Project Tasks (docs/rnd-project-checkpoint-calendar-prd.md
+ * Reusable checkpoint blueprint for R&D Project Tasks (docs/products/rnd/project-checkpoint-calendar/prd.md
  * §16.1). Applying it creates independent `RndProjectTask` snapshots, so editing or deactivating a
  * template never changes Tasks created earlier. Templates that were applied are deactivated, not
  * deleted (§12.9).

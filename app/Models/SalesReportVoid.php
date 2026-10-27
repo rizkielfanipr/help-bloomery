@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One voided transaction reported on a Sales Report shift, with two separate receipt photos
- * (docs/sales-report-compliment-void-remediation-prd.md §10).
+ * (docs/products/finance/sales-report-compliment-void-remediation/prd.md §10).
  */
 class SalesReportVoid extends Model
 {

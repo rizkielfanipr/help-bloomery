@@ -5,7 +5,7 @@ namespace App\Services\Ordering;
 /**
  * Reason codes stored on every forecast item, with their operational labels. Blocking reasons
  * stop the recommendation quantity; the others lower confidence
- * (docs/ordering-recommendation-prd.md §16).
+ * (docs/products/analytics/ordering-recommendation/prd.md §16).
  */
 class OrderingReasonCodes
 {

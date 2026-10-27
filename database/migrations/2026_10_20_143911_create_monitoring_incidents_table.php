@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §16 and §18.5: incident holds the latest state only; its timeline
+ * docs/operations/monitoring/prd.md §16 and §18.5: incident holds the latest state only; its timeline
  * lives in the append-only monitoring_incident_events table. Incidents are never pruned
  * automatically. Permintaan IT is linked through erp_repair_request_id without copying the ticket.
  */

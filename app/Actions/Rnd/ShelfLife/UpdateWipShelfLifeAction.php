@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Edits, deactivates, or reactivates an existing WIP Shelf Life master — Shelf Life menu only
- * (docs/rnd-wip-shelf-life-prd.md §14.2, §14.4). Only the Shelf Life allowlist can change; the
+ * (docs/products/rnd/wip-shelf-life/prd.md §14.2, §14.4). Only the Shelf Life allowlist can change; the
  * identity never does. The row is locked inside the transaction and `updated_by` records the actor;
  * the model's activity log keeps the before/after diff. Local only — nothing is sent to ESB.
  */

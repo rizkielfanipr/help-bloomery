@@ -1342,7 +1342,7 @@ it('stores a new material draft and creates its Master Product in ESB', function
     expect($material->units()->count())->toBe(2)
         ->and($material->units()->where('is_base', true)->value('is_sales'))->toBeTrue();
 
-    // docs/material-sourcing-lifecycle-prd.md: R&D only submits; IT approves before any ESB push.
+    // docs/products/rnd/material-sourcing-lifecycle/prd.md: R&D only submits; IT approves before any ESB push.
     $page->call('submitEsbMaterialForReview', $material->id)->assertHasNoErrors();
     Http::assertNotSent(fn ($request): bool => $request->method() === 'POST' && $request->url() === 'https://services.esb.co.id/core/product');
     app(ClaimMaterialReviewAction::class)->execute($material->refresh(), auth()->user());

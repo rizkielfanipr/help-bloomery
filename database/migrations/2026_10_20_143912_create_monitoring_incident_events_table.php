@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §18.5: append-only incident timeline. There is no updated_at
+ * docs/operations/monitoring/prd.md §18.5: append-only incident timeline. There is no updated_at
  * column because events are never edited.
  */
 return new class extends Migration

@@ -330,7 +330,7 @@ class BriefingItemResource extends Resource
     }
 
     /**
-     * docs/daily-briefing-remediation-prd.md §10.2/§10.3/§12.2. Branch scope is evaluated from
+     * docs/products/daily-briefing/remediation/prd.md §10.2/§10.3/§12.2. Branch scope is evaluated from
      * briefing_records.branch_id (the snapshot taken when the record was created), never from the
      * submitter's current users.branch_id — a user who later changes branch must not change what
      * branch their old submissions show up under. Fails closed: missing the `view briefing items`

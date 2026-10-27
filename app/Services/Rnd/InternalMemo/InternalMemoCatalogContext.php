@@ -10,7 +10,7 @@ use App\Services\EsbItemJournalService;
 
 /**
  * The single, fixed source of the Memo Internal Master Menu catalog
- * (docs/rnd-internal-memo-brand-prd.md §8.3, §14). Company Code is always BLSS. The ESB endpoint
+ * (docs/products/rnd/internal-memo-brand/prd.md §8.3, §14). Company Code is always BLSS. The ESB endpoint
  * also needs a branchCode; it is discovered from ESB's own BLSS branch list by a fixed rule —
  * never from a Brand, a Memo Branch, the user, or Livewire state — and is never shown in the UI.
  *
@@ -37,7 +37,7 @@ class InternalMemoCatalogContext
     /**
      * BLSS branch codes to read the catalog from, in a fixed order: ESB's branch list sorted by
      * code. The Master Menu catalog is the same for every branch of one company (verified for
-     * BLS/BLP/BLEV in docs/rnd-internal-memo-multi-branch-phase0-report.md §5), so the first one
+     * BLS/BLP/BLEV in docs/products/rnd/internal-memo-multi-branch/reports/phase-0-report.md §5), so the first one
      * that answers with active Menus is used; the next ones are only a fallback.
      *
      * @return list<string>

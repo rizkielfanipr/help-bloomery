@@ -3,7 +3,7 @@
 namespace App\Enums;
 
 /**
- * Where a WIP Shelf Life master was created from (docs/rnd-wip-shelf-life-prd.md §14.3). It only
+ * Where a WIP Shelf Life master was created from (docs/products/rnd/wip-shelf-life/prd.md §14.3). It only
  * selects the authorization rule; both sources write the same master record.
  */
 enum RndWipShelfLifeSource: string

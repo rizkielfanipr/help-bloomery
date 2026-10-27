@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Read model for the Overview page (docs/system-monitoring-prd.md §9). It only reads local
+ * Read model for the Overview page (docs/operations/monitoring/prd.md §9). It only reads local
  * monitoring tables — never ESB, GitHub, shell commands, or log files — and is cached briefly.
  */
 class MonitoringOverview

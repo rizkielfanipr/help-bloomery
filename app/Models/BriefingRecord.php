@@ -61,7 +61,7 @@ class BriefingRecord extends Model
     }
 
     /**
-     * docs/daily-briefing-remediation-prd.md §4/§9 (unit kewajiban = per branch): the single
+     * docs/products/daily-briefing/remediation/prd.md §4/§9 (unit kewajiban = per branch): the single
      * canonical record for a branch/period/date, regardless of which participant created it. The
      * oldest record is canonical so a settled "who owns this record" question never flips once
      * more than one record exists for the scope (legacy data predating per-branch canonicalization

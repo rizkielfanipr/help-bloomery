@@ -7,7 +7,7 @@ use Filament\Support\Contracts\HasLabel;
 
 /**
  * Per-PIC status of one `rnd_project_task_assignments` record
- * (docs/rnd-project-task-calendar-prd.md §9-10). A Task's own status is aggregated from its
+ * (docs/products/rnd/project-task-calendar/prd.md §9-10). A Task's own status is aggregated from its
  * active (non-Cancelled) assignments by `ProjectTaskStatusService`.
  */
 enum RndProjectTaskAssignmentStatus: string implements HasColor, HasLabel
@@ -32,7 +32,7 @@ enum RndProjectTaskAssignmentStatus: string implements HasColor, HasLabel
     }
 
     /**
-     * Status palette of docs/ui-consistency-prd.md §7 — amber waits for review, red was returned
+     * Status palette of docs/standards/ui-consistency.md §7 — amber waits for review, red was returned
      * for revision; never purple.
      */
     public function getColor(): string
@@ -49,7 +49,7 @@ enum RndProjectTaskAssignmentStatus: string implements HasColor, HasLabel
 
     /**
      * Reminders stop once an assignment reaches one of these statuses
-     * (docs/rnd-project-task-calendar-prd.md §16, business rule #16).
+     * (docs/products/rnd/project-task-calendar/prd.md §16, business rule #16).
      */
     public function stopsReminders(): bool
     {
@@ -58,7 +58,7 @@ enum RndProjectTaskAssignmentStatus: string implements HasColor, HasLabel
 
     /**
      * Statuses that still count as an active obligation for the assignee
-     * (docs/rnd-project-task-calendar-prd.md §10, business rule #14).
+     * (docs/products/rnd/project-task-calendar/prd.md §10, business rule #14).
      */
     public function isActive(): bool
     {

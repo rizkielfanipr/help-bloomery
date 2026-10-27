@@ -20,7 +20,7 @@ return new class extends Migration
 
     /**
      * New permissions only exist after a fresh seed; this grants them on an already-deployed
-     * production database (docs/store-sales-order-prd.md §16). STORE_STAFF/SUPERVISOR_STORE can
+     * production database (docs/products/operational/store-sales-order/prd.md §16). STORE_STAFF/SUPERVISOR_STORE can
      * submit a Store Sales Order; SUPERVISOR_STORE additionally reviews and manages status within
      * their branch scope (StoreSalesOrderPolicy). `delete store sales orders` is intentionally left
      * to SUPERADMIN only (which already holds every permission).

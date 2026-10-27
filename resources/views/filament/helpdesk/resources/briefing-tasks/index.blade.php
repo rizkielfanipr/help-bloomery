@@ -1,6 +1,6 @@
 <x-filament-panels::page>
 
-{{-- ═══ HEADER ═══ (docs/daily-briefing-scoring-ui-prd.md §13.1 visual pattern) --}}
+{{-- ═══ HEADER ═══ (docs/products/daily-briefing/scoring-ui/prd.md §13.1 visual pattern) --}}
 @php
     $stats = $this->stats;
 @endphp

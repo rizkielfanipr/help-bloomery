@@ -7,7 +7,7 @@ use App\Models\RndProductEsbMaterial;
 /**
  * Material kind used by the workflow. It reuses the existing section rules (category name, BW/
  * PKG/PAM code prefixes, explicit marketing section): WIP skips sourcing, every other section
- * needs sourcing and a sample (docs/material-sourcing-lifecycle-prd.md §8, §32 item 4).
+ * needs sourcing and a sample (docs/products/rnd/material-sourcing-lifecycle/prd.md §8, §32 item 4).
  */
 class MaterialClassification
 {

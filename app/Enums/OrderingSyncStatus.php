@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Outcome of one source sync or forecast run (docs/ordering-recommendation-prd.md §11.1).
+ * Outcome of one source sync or forecast run (docs/products/analytics/ordering-recommendation/prd.md §11.1).
  * `Failed` and `Partial` never turn into zero quantities.
  */
 enum OrderingSyncStatus: string implements HasColor, HasLabel

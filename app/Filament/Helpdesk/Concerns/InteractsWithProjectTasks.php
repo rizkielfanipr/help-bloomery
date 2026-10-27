@@ -31,10 +31,10 @@ use RuntimeException;
 
 /**
  * The existing R&D Task workflow UI — create/edit form, detail, PIC assignment, cancel, progress,
- * submission, and review (docs/rnd-project-task-calendar-prd.md) — shared by the global Kalender
+ * submission, and review (docs/products/rnd/project-task-calendar/prd.md) — shared by the global Kalender
  * (`HasProjectTaskCalendar` on `ListProjects`) and the per-Project calendar
  * (`App\Livewire\RndProjectTaskCalendar`), so neither duplicates validation, authorization, or
- * Action calls (docs/rnd-project-checkpoint-calendar-prd.md §7.4).
+ * Action calls (docs/products/rnd/project-checkpoint-calendar/prd.md §7.4).
  *
  * Hosts narrow it through two hooks: `lockedTaskProject()` pins Task creation to one Project, and
  * `projectTaskQuery()` limits which Tasks may be opened or mutated.
@@ -75,7 +75,7 @@ trait InteractsWithProjectTasks
 
     /**
      * Task detail to reopen once the edit form closes — only one primary modal is shown at a time
-     * (docs/ui-consistency-prd.md §10).
+     * (docs/standards/ui-consistency.md §10).
      */
     #[Locked]
     public ?int $restoreTaskDetailId = null;

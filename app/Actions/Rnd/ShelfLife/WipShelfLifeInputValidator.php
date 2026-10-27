@@ -10,7 +10,7 @@ use Illuminate\Validation\Rule;
 
 /**
  * Domain validation shared by the create/update Actions and the BOM Adjustment / Project forms
- * (docs/rnd-wip-shelf-life-prd.md §12, §24), so both entry points enforce identical rules.
+ * (docs/products/rnd/wip-shelf-life/prd.md §12, §24), so both entry points enforce identical rules.
  */
 class WipShelfLifeInputValidator
 {

@@ -468,7 +468,7 @@ test('a single document number and date save correctly for whichever document ty
         ->andReturn(['result' => ['goodsReceiptNum' => 'GR-DOC-TYPE'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
     app()->instance(EsbGoodsReceiptService::class, $service);
 
-    // "Surat Jalan valid tanpa Invoice" (docs/receiving-simplification-prd.md §19): choosing
+    // "Surat Jalan valid tanpa Invoice" (docs/products/inventory/receiving-simplification/prd.md §19): choosing
     // delivery_note never requires any invoice-specific field.
     Livewire::test(GoodsReceiptPage::class)
         ->call('selectPurchaseOrder', 'PO-DOC-TYPE', 'BLSS')
@@ -552,7 +552,7 @@ test('submit is blocked client-side while a photo upload is still in flight', fu
     $service->shouldReceive('locations')->with('BLSS', 10)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
     app()->instance(EsbGoodsReceiptService::class, $service);
 
-    // docs/receiving-simplification-prd.md §5.3 "Tombol submit dinonaktifkan selama file masih
+    // docs/products/inventory/receiving-simplification/prd.md §5.3 "Tombol submit dinonaktifkan selama file masih
     // diunggah". The actual blocking is client-side Alpine state driven by Livewire's
     // `livewire-upload-start`/`livewire-upload-finish` window events (there is no server-side
     // "upload in progress" state to assert against in a Livewire test), so this asserts the
@@ -642,7 +642,7 @@ test('switching an item back to Sesuai clears exception data entered while Berma
         ->assertSet('items.0.shelfLifeRequired', false)
         ->assertSet('items.0.batches', [])
         ->assertSet('items.0.rejectionReason', '')
-        // Switching back to Sesuai also closes the detail view (docs/receiving-simplification-prd.md §7).
+        // Switching back to Sesuai also closes the detail view (docs/products/inventory/receiving-simplification/prd.md §7).
         ->assertSet('activeItemIndex', null);
 });
 

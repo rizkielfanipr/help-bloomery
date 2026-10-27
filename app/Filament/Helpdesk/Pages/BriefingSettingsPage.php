@@ -17,7 +17,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §14/Phase 6. Follows the Sales Report Settings visual
+ * docs/products/daily-briefing/scoring-ui/prd.md §14/Phase 6. Follows the Sales Report Settings visual
  * pattern (resources/views/filament/helpdesk/pages/sales-report-settings-page.blade.php): a
  * hand-built Blade form with `wire:model`, not Filament Schema components, so the layout matches
  * that reference exactly instead of Filament's default form rendering.
@@ -26,7 +26,7 @@ class BriefingSettingsPage extends Page
 {
     /**
      * This page now manages both the global settings and the default/override period weights in
-     * one form (docs/daily-briefing-scoring-ui-prd.md §14), so it requires both permissions —
+     * one form (docs/products/daily-briefing/scoring-ui/prd.md §14), so it requires both permissions —
      * every role that holds one already holds the other (RolesAndPermissionsSeeder).
      */
     public static function canAccess(): bool

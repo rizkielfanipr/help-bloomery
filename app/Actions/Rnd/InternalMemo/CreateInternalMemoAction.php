@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/rnd-internal-memo-brand-prd.md §11.1, §15.1. The user picks exactly one Brand; Company Code
+ * docs/products/rnd/internal-memo-brand/prd.md §11.1, §15.1. The user picks exactly one Brand; Company Code
  * is always RndInternalMemo::COMPANY_CODE, set here and never read from input. The Brand is
  * metadata only: no Branch resolution, no Memo–Branch rows, and no catalog sync is triggered.
  */

@@ -4,7 +4,7 @@ namespace App\Services\Rnd\InternalMemo;
 
 /**
  * Stable identity for reconciling the same item across a Menu refresh and for grouping it in the
- * Ringkasan Item Akhir (docs/rnd-internal-memo-simplification-prd.md §9.4 priority order):
+ * Ringkasan Item Akhir (docs/products/rnd/internal-memo-simplification/prd.md §9.4 priority order):
  * productDetailID, then productID, then productCode, then productName — each of the last three
  * paired with UOM BOM since a proven Purchase UOM is not always available (Phase 0 audit finding).
  *

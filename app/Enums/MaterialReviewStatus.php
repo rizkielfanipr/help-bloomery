@@ -7,7 +7,7 @@ use Filament\Support\Contracts\HasLabel;
 
 /**
  * IT review gate before a Master Bahan/WIP may be linked or pushed to ESB
- * (docs/material-sourcing-lifecycle-prd.md §11.1). Used for the material's current review state
+ * (docs/products/rnd/material-sourcing-lifecycle/prd.md §11.1). Used for the material's current review state
  * and for each submission version row.
  */
 enum MaterialReviewStatus: string implements HasColor, HasLabel

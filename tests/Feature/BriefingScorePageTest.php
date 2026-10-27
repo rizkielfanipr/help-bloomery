@@ -11,7 +11,7 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §16/Phase 11. Contract change: this page previously had
+ * docs/products/daily-briefing/scoring-ui/prd.md §16/Phase 11. Contract change: this page previously had
  * no canAccess() at all.
  */
 beforeEach(function () {

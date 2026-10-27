@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Log;
 
 /**
- * docs/rnd-internal-memo-prd.md §12.1, docs/rnd-internal-memo-brand-prd.md §8, §13. Company Code
+ * docs/products/rnd/internal-memo/prd.md §12.1, docs/products/rnd/internal-memo-brand/prd.md §8, §13. Company Code
  * is always BLSS for every new write and is set server-side; the column stays so legacy non-BLSS
  * rows remain readable. The Brand is business metadata only — it never selects a company, branch,
  * credential, or catalog. `brand_name_snapshot` keeps history stable when the Master Brand changes.
@@ -109,9 +109,9 @@ class RndInternalMemo extends Model
     }
 
     /**
-     * Legacy multi-branch rows (docs/rnd-internal-memo-multi-branch-prd.md §9.1). Kept read-only for
+     * Legacy multi-branch rows (docs/products/rnd/internal-memo-multi-branch/prd.md §9.1). Kept read-only for
      * the Brand backfill and audit during the compatibility window
-     * (docs/rnd-internal-memo-brand-prd.md §13.4); no active flow reads or writes it.
+     * (docs/products/rnd/internal-memo-brand/prd.md §13.4); no active flow reads or writes it.
      */
     public function branches(): HasMany
     {

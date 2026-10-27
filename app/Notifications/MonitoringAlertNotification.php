@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notification;
 use Throwable;
 
 /**
- * Alert state change notification (docs/system-monitoring-prd.md §17). The message only carries
+ * Alert state change notification (docs/operations/monitoring/prd.md §17). The message only carries
  * the alert title, severity, and sanitized summary — never payloads, stack traces, or secrets.
  * The link still passes the application's own authorization.
  */

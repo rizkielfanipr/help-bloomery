@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * The single source of BOM Assembly eligibility for production schedules
- * (docs/kitchen-production-schedule-prd.md §9). The picker and save Action
+ * (docs/products/kitchen/production-schedule/prd.md §9). The picker and save Action
  * all ask this class, so a BOM the picker hides can never be added by a forged request. Only the
  * local catalog is read; ESB is never called from here.
  *

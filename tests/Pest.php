@@ -129,13 +129,13 @@ function runRecalculation($page)
 
 /*
 |--------------------------------------------------------------------------
-| R&D Internal Memo BOM fixtures (docs/rnd-internal-memo-prd.md Phase 0 contract report)
+| R&D Internal Memo BOM fixtures (docs/products/rnd/internal-memo/prd.md Phase 0 contract report)
 |--------------------------------------------------------------------------
 */
 
 /**
  * Marks the global Memo Internal BLSS catalog as synced from $branchCode, so the Menu picker and
- * Add Menu read the local snapshot rows of that branch (docs/rnd-internal-memo-brand-prd.md §14).
+ * Add Menu read the local snapshot rows of that branch (docs/products/rnd/internal-memo-brand/prd.md §14).
  */
 function markInternalMemoCatalogSynced(string $branchCode = 'BLS', ?DateTimeInterface $syncedAt = null): RndInternalMemoCatalogSync
 {
@@ -146,7 +146,7 @@ function markInternalMemoCatalogSynced(string $branchCode = 'BLS', ?DateTimeInte
 }
 
 /**
- * Phase 0 (docs/rnd-internal-memo-prd.md §19) — Contract validation.
+ * Phase 0 (docs/products/rnd/internal-memo/prd.md §19) — Contract validation.
  *
  * No live ESB Master Menu / ESB Core BOM response was available to sample directly from
  * this environment. These fixtures are reconstructed only from fields already read or

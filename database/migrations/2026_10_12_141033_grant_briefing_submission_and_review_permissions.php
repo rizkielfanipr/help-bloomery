@@ -8,7 +8,7 @@ use Spatie\Permission\PermissionRegistrar;
 return new class extends Migration
 {
     /**
-     * docs/daily-briefing-remediation-prd.md §10/§12.3. Submission and review were previously
+     * docs/products/daily-briefing/remediation/prd.md §10/§12.3. Submission and review were previously
      * gated by page access (`access employee app briefing`) and by `edit briefing items`/
      * `review sales reports as supervisor` respectively — neither expresses the actual business
      * rule, and the latter couples Briefing review to an unrelated Sales Report permission. These

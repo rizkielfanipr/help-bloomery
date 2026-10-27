@@ -6,7 +6,7 @@ use Carbon\CarbonImmutable;
 
 /**
  * Compares the candidate methods on days whose actual demand is already known
- * (docs/ordering-recommendation-prd.md §14): each holdout day is forecast only from the history
+ * (docs/products/analytics/ordering-recommendation/prd.md §14): each holdout day is forecast only from the history
  * before it. The best method is picked only when the sample is large enough; otherwise the
  * default method is kept and the item's confidence stays Low.
  */

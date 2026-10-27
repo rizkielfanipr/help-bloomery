@@ -10,8 +10,8 @@ use Illuminate\Support\Collection;
 use Throwable;
 
 /**
- * Enriches a Menu's Material rows with Product data from ESB Core (docs/rnd-internal-memo-
- * simplification-prd.md §7.2 step 6). Each ESB Product is read once per Menu through
+ * Enriches a Menu's Material rows with Product data from ESB Core
+ * (docs/products/rnd/internal-memo-simplification/prd.md §7.2 step 6). Each ESB Product is read once per Menu through
  * `GET /product/{productID}`, in concurrent batches, using the Menu's own Company Code.
  *
  * Purchase UOM comes from the Product's units: `/product/{id}` lists every Product Detail with an

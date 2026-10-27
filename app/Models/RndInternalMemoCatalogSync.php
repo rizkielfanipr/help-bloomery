@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Global Master Menu catalog sync state for one technical context (docs/rnd-internal-memo-brand-prd.md
+ * Global Master Menu catalog sync state for one technical context (docs/products/rnd/internal-memo-brand/prd.md
  * §13.5). Memo Internal always uses Company Code BLSS; the technical Branch Code comes from config.
  */
 class RndInternalMemoCatalogSync extends Model

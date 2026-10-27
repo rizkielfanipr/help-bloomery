@@ -41,14 +41,14 @@ use Livewire\Attributes\Locked;
 use RuntimeException;
 
 /**
- * Simplified Memo Internal workspace (docs/rnd-internal-memo-simplification-prd.md §12.2, Phase
+ * Simplified Memo Internal workspace (docs/products/rnd/internal-memo-simplification/prd.md §12.2, Phase
  * 4). The old status/Syncing/Finalized/revision/archive/PDF controls are gone from the UI —
  * every mutation here only needs the single `update rnd internal memo` permission (or `delete`
  * for deleteMemo), matching the simplified Policy. The underlying workflow columns and Actions
  * (RndInternalMemoPolicy::finalize/archive/etc., FinalizeInternalMemoAction, and so on) still
  * exist for the transition period per PRD §5.2/§15 Phase 5, just unused by this page.
  *
- * docs/rnd-internal-memo-brand-prd.md §12.2–§12.5: the Memo carries one Brand (metadata only) and
+ * docs/products/rnd/internal-memo-brand/prd.md §12.2–§12.5: the Memo carries one Brand (metadata only) and
  * the Menu picker reads the single global BLSS catalog — no Branch or company state remains here.
  */
 class ViewRndInternalMemo extends ViewRecord
@@ -169,7 +169,7 @@ class ViewRndInternalMemo extends ViewRecord
     /**
      * Saves the Memo info. The Brand goes through UpdateInternalMemoBrandAction, which only touches
      * `brand_id`/`brand_name_snapshot`; Menus, items, and Minimum Orders are never changed and no
-     * sync is queued (docs/rnd-internal-memo-brand-prd.md §8.5, §18.5). On any validation error the
+     * sync is queued (docs/products/rnd/internal-memo-brand/prd.md §8.5, §18.5). On any validation error the
      * modal and the typed values stay.
      */
     public function saveMemoInfo(UpdateInternalMemoBrandAction $updateBrand): void
@@ -359,7 +359,7 @@ class ViewRndInternalMemo extends ViewRecord
     /**
      * The ESB Master Menu contract only proves one category-related field, `categoryDetail`
      * (e.g. "BEVERAGES - COFFEE") — confirmed via a live request, Phase 0 of
-     * docs/rnd-internal-memo-simplification-prd.md. There is no separate "category" field. Per
+     * docs/products/rnd/internal-memo-simplification/prd.md. There is no separate "category" field. Per
      * explicit user confirmation, the picker table splits it on the first " - " into Category
      * (before) and Category Detail (after); a value with no " - " is shown as Category only.
      *
@@ -465,7 +465,7 @@ class ViewRndInternalMemo extends ViewRecord
     }
 
     /**
-     * Ringkasan Item Akhir (docs/rnd-internal-memo-simplification-prd.md §9.4, §12.2), memoized
+     * Ringkasan Item Akhir (docs/products/rnd/internal-memo-simplification/prd.md §9.4, §12.2), memoized
      * per request since the Blade view reads it more than once.
      *
      * @var array{store: array{wip: list<array<string, mixed>>, bahan: list<array<string, mixed>>}, kitchen: array{wip: list<array<string, mixed>>, bahan: list<array<string, mixed>>}, warnings: list<string>}|null

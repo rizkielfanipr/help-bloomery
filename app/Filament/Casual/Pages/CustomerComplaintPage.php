@@ -18,7 +18,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 /**
- * docs/customer-complaints-prd.md §8, §9. Optional, not a daily checklist item (§4): there is no
+ * docs/products/operational/customer-complaints/prd.md §8, §9. Optional, not a daily checklist item (§4): there is no
  * "belum diisi" indicator and nothing here feeds compliance scoring. Mutation goes through
  * CreateCustomerComplaintAction (not an inline `::create()`), authorization through
  * CustomerComplaintPolicy — this Page only owns UI state and upload handling (§17).

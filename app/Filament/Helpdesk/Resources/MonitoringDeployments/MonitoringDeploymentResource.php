@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * Deployment Monitor (docs/system-monitoring-prd.md §14): read-only; there is intentionally no
+ * Deployment Monitor (docs/operations/monitoring/prd.md §14): read-only; there is intentionally no
  * deploy, redeploy, or rollback action.
  */
 class MonitoringDeploymentResource extends Resource

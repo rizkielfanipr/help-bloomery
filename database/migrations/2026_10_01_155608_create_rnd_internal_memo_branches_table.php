@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /** docs/rnd-internal-memo-multi-branch-prd.md §9.1. */
+    /** docs/products/rnd/internal-memo-multi-branch/prd.md §9.1. */
     public function up(): void
     {
         if (Schema::hasTable('rnd_internal_memo_branches')) {

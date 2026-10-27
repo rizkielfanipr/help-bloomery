@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One ESB read of a source for a branch, company pair, and date (docs/ordering-recommendation-prd.md §11.1).
+ * One ESB read of a source for a branch, company pair, and date (docs/products/analytics/ordering-recommendation/prd.md §11.1).
  */
 class OrderingSyncRun extends Model
 {

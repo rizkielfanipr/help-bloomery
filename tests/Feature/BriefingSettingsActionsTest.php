@@ -9,7 +9,7 @@ use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §12/§16/§21 (Phase 4/14).
+ * docs/products/daily-briefing/scoring-ui/prd.md §12/§16/§21 (Phase 4/14).
  */
 it('saves global settings for an authorized user', function () {
     $user = User::factory()->create();

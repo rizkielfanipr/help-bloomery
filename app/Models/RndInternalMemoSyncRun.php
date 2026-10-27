@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One BOM synchronization attempt across every Menu of a memo (docs/rnd-internal-memo-prd.md
+ * One BOM synchronization attempt across every Menu of a memo (docs/products/rnd/internal-memo/prd.md
  * §12.5, §17).
  */
 class RndInternalMemoSyncRun extends Model

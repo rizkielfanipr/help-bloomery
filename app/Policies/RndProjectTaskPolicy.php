@@ -8,7 +8,7 @@ use App\Models\RndProjectTask;
 use App\Models\User;
 
 /**
- * Permission strings match docs/rnd-project-task-calendar-prd.md §7. Branch visibility falls
+ * Permission strings match docs/products/rnd/project-task-calendar/prd.md §7. Branch visibility falls
  * back to `Branch\Model::canAccessBranch()`/`canAccessAllBranches()` — the same mechanism every
  * other branch-scoped Policy in this app uses (e.g. `StockCardPolicy`) — plus the
  * `view all branch rnd project tasks` permission for roles that should see every Task without
@@ -48,7 +48,7 @@ class RndProjectTaskPolicy
 
     /**
      * Creating a Task inside a specific Project — archived (soft-deleted) Projects are read-only
-     * (docs/rnd-project-checkpoint-calendar-prd.md §11.3).
+     * (docs/products/rnd/project-checkpoint-calendar/prd.md §11.3).
      */
     public function createForProject(User $user, RndProject $project): bool
     {

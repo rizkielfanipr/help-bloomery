@@ -8,7 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Single source of Sales Report record access (docs/sales-report-compliment-void-remediation-prd.md
+ * Single source of Sales Report record access (docs/products/finance/sales-report-compliment-void-remediation/prd.md
  * §16): branch scope for lists, detail, export, and evidence, plus the review rules. Pages only
  * use it to show or hide controls; every Action calls it again server-side.
  */

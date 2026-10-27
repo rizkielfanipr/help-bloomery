@@ -22,7 +22,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Snapshots one source for one company pair and one day (docs/ordering-recommendation-prd.md §12,
+ * Snapshots one source for one company pair and one day (docs/products/analytics/ordering-recommendation/prd.md §12,
  * §21). The ESB read happens before any transaction; only a complete read is written. A run that
  * already completed is skipped (resume), a retryable failure (timeout, 429, 5xx) is retried with
  * backoff, and a validation or mapping failure is recorded without a retry. A failure never

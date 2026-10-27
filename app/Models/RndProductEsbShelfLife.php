@@ -14,10 +14,10 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 /**
- * Local Shelf Life master per WIP / Product Detail (docs/rnd-wip-shelf-life-prd.md §9.1, §12).
+ * Local Shelf Life master per WIP / Product Detail (docs/products/rnd/wip-shelf-life/prd.md §9.1, §12).
  * Identity is `company_code + esb_product_detail_id`; `product_code`/`product_name` are display
  * snapshots only. Rows that only carry the legacy `esb_menu_id` (the retired Menu master,
- * docs/rnd-internal-memo-prd.md §11) never take part in WIP lookups. Never synced to ESB.
+ * docs/products/rnd/internal-memo/prd.md §11) never take part in WIP lookups. Never synced to ESB.
  */
 class RndProductEsbShelfLife extends Model
 {

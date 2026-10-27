@@ -7,7 +7,7 @@ use App\Models\RndInternalMemo;
 use App\Services\Rnd\InternalMemo\InternalMemoValidationService;
 
 /**
- * docs/rnd-internal-memo-prd.md §6, §15. Recomputes Draft/NeedsAttention/Ready after anything
+ * docs/products/rnd/internal-memo/prd.md §6, §15. Recomputes Draft/NeedsAttention/Ready after anything
  * that can change readiness — a sync run finishing (called while the memo is still Syncing, to
  * decide what it becomes next) or a Forecast/Shelf Life edit. Finalized and Archived are left
  * untouched — those transitions belong to their own dedicated Actions.

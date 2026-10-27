@@ -9,7 +9,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 
 /**
- * Retirement contract of the old "Master Shelf Life Menu" (docs/rnd-wip-shelf-life-prd.md §19, §20).
+ * Retirement contract of the old "Master Shelf Life Menu" (docs/products/rnd/wip-shelf-life/prd.md §19, §20).
  */
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);

@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Simplified from docs/rnd-internal-memo-prd.md §12.3 on explicit user instruction: waste,
+     * Simplified from docs/products/rnd/internal-memo/prd.md §12.3 on explicit user instruction: waste,
      * tolerance, and gross quantity are dropped because no ESB BOM contract evidence proves
      * those fields exist (see the Phase 0 contract report). Only the material and its quantity
      * are used, matching the already-proven production algorithm in

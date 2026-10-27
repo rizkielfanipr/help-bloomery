@@ -21,7 +21,7 @@ use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 /**
- * docs/rnd-internal-memo-brand-prd.md §11, §12, §18, §23.7: the Memo Internal pages ask for one
+ * docs/products/rnd/internal-memo-brand/prd.md §11, §12, §18, §23.7: the Memo Internal pages ask for one
  * Brand, show the Brand snapshot, and have no Branch Tujuan, company, or Branch filter left.
  * Replaces the multi-branch form tests whose requirements the Brand PRD supersedes.
  */
@@ -272,7 +272,7 @@ it('authorizes by Memo permission only: no Branch access needed, and missing per
 });
 
 /*
- * Legacy compatibility (docs/rnd-internal-memo-brand-prd.md §13.4, §15.2): the deprecated
+ * Legacy compatibility (docs/products/rnd/internal-memo-brand/prd.md §13.4, §15.2): the deprecated
  * multi-branch action is no longer called by any page but is kept until the cleanup phase, so its
  * own reconciliation rule stays covered.
  */

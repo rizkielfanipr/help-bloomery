@@ -5,7 +5,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Storage condition of the WIP Shelf Life master (docs/rnd-wip-shelf-life-prd.md §12.5).
+ * Storage condition of the WIP Shelf Life master (docs/products/rnd/wip-shelf-life/prd.md §12.5).
  * Temperature details such as `2–5°C` belong in the master's notes, not in new cases.
  */
 enum RndStorageCondition: string implements HasLabel

@@ -9,7 +9,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/rnd-internal-memo-multi-branch-prd.md Phase 2 ("Schema dan domain branch").
+ * docs/products/rnd/internal-memo-multi-branch/prd.md Phase 2 ("Schema dan domain branch").
  */
 beforeEach(function () {
     config()->set('esb.tokens.BLSS', 'static-blss-token');

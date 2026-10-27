@@ -30,7 +30,7 @@ use Throwable;
 use UnitEnum;
 
 /**
- * Kitchen → Jadwal Produksi (docs/kitchen-production-schedule-prd.md §8, §13–§16). A month calendar
+ * Kitchen → Jadwal Produksi (docs/products/kitchen/production-schedule/prd.md §8, §13–§16). A month calendar
  * with a mobile agenda, one schedule editor whose BOM picker is a step of the same dialog (never a
  * stacked modal), and one detail dialog with an inline cancellation confirmation.
  *

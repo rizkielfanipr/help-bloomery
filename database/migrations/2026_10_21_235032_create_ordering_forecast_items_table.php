@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * One recommendation per branch, company pair, product, and UOM inside a forecast run
- * (docs/ordering-recommendation-prd.md §11.4). The daily breakdown is a bounded JSON snapshot
+ * (docs/products/analytics/ordering-recommendation/prd.md §11.4). The daily breakdown is a bounded JSON snapshot
  * (at most the 14-day horizon) because its only consumers are this item's chart, stockout date,
  * and detail; it never needs to be queried on its own (§11.5).
  */

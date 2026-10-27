@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Bus;
 /**
  * Plans and dispatches the Ordering Recommendation sync in small units — one source, company
  * pair, and day per job — and chains the forecast after the snapshot of a branch
- * (docs/ordering-recommendation-prd.md §12.2, §12.4). Units whose run already completed are
+ * (docs/products/analytics/ordering-recommendation/prd.md §12.2, §12.4). Units whose run already completed are
  * skipped so a backfill can be resumed safely.
  */
 class OrderingSyncPlanner

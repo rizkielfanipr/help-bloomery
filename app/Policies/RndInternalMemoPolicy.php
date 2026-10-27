@@ -7,7 +7,7 @@ use App\Models\RndInternalMemo;
 use App\Models\User;
 
 /**
- * Permission strings match docs/rnd-internal-memo-prd.md §5.2. Role names are never
+ * Permission strings match docs/products/rnd/internal-memo/prd.md §5.2. Role names are never
  * hardcoded; only permissions and record status govern access.
  */
 class RndInternalMemoPolicy
@@ -25,7 +25,7 @@ class RndInternalMemoPolicy
     }
 
     /**
-     * docs/rnd-internal-memo-brand-prd.md §9.2, §15.6: permission-only. Neither Branch access nor
+     * docs/products/rnd/internal-memo-brand/prd.md §9.2, §15.6: permission-only. Neither Branch access nor
      * the Memo's Brand grants or limits access, and legacy Branch rows are never consulted.
      */
     public function view(User $user, RndInternalMemo $memo): bool
@@ -39,11 +39,11 @@ class RndInternalMemoPolicy
     }
 
     /**
-     * docs/rnd-internal-memo-simplification-prd.md §6: metadata, Menu add/remove, per-Menu
+     * docs/products/rnd/internal-memo-simplification/prd.md §6: metadata, Menu add/remove, per-Menu
      * refresh, and Minimum Order all stay editable regardless of the legacy workflow status —
      * "Menu dapat ditambah dan dihapus kapan saja". The old Draft-only gate belonged to the
      * finalize/lock workflow this PRD removes from the UI.
-     * Permission-only as well (docs/rnd-internal-memo-brand-prd.md §9.2): no Branch access check.
+     * Permission-only as well (docs/products/rnd/internal-memo-brand/prd.md §9.2): no Branch access check.
      */
     public function update(User $user, RndInternalMemo $memo): bool
     {
@@ -105,7 +105,7 @@ class RndInternalMemoPolicy
     }
 
     /**
-     * docs/rnd-internal-memo-simplification-prd.md §6/§7.5: the simplified UI has no path left to
+     * docs/products/rnd/internal-memo-simplification/prd.md §6/§7.5: the simplified UI has no path left to
      * move a Memo out of Finalized/Archived (those controls were removed in Phase 4), so gating
      * delete on status would permanently strand any Memo finalized under the old workflow with no
      * way to remove it. Delete is permission-only, same as `update`.

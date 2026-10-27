@@ -2,7 +2,7 @@
 
 {{--
     A clickable calendar entry for one Task. Its colour follows the Task status (RndProjectTaskStatus::getColor(),
-    docs/ui-consistency-prd.md §7); deadline conditions only add a left accent strip — red when overdue, amber when
+    docs/standards/ui-consistency.md §7); deadline conditions only add a left accent strip — red when overdue, amber when
     due within three days. The status text is always available too, so colour is never the only signal.
 --}}
 @php

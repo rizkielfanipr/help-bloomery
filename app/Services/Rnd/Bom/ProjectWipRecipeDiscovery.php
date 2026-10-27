@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * The Project Product page's existing WIP mapping, extracted unchanged so the Shelf Life section
- * and the Ready/Released gate can reuse it server-side (docs/rnd-wip-shelf-life-prd.md §9.7,
+ * and the Ready/Released gate can reuse it server-side (docs/products/rnd/wip-shelf-life/prd.md §9.7,
  * §17.1). For each WIP component of a Main BOM it finds that WIP's own recipe in ESB; results are
  * cached per Main BOM. It is one level deep — the same scope the Project page has always mapped.
  */

@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * Updates a Task's own descriptive fields (docs/rnd-project-task-calendar-prd.md §11). Branch and
+ * Updates a Task's own descriptive fields (docs/products/rnd/project-task-calendar/prd.md §11). Branch and
  * PIC changes go through `AssignProjectTaskAction` instead, since adding/replacing an assignment
  * has its own eligibility and history rules.
  *

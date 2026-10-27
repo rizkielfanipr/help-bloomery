@@ -3,7 +3,7 @@
 namespace App\Services\Monitoring;
 
 /**
- * Sanitizes monitoring data before it is persisted (docs/system-monitoring-prd.md §20).
+ * Sanitizes monitoring data before it is persisted (docs/operations/monitoring/prd.md §20).
  *
  * Domain payloads are reduced through a per-domain allowlist first, so unknown fields are dropped
  * instead of stored. Every surviving value then passes global deny rules (secret-like keys,

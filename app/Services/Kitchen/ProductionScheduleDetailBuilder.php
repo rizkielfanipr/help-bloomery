@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * Everything the schedule detail shows, loaded here so Blade runs no query
- * (docs/kitchen-production-schedule-prd.md §12). Cancelled items stay readable from their snapshot.
+ * (docs/products/kitchen/production-schedule/prd.md §12). Cancelled items stay readable from their snapshot.
  */
 class ProductionScheduleDetailBuilder
 {

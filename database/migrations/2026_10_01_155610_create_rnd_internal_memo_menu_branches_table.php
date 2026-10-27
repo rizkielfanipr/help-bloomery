@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /** docs/rnd-internal-memo-multi-branch-prd.md §9.2 — which branches a merged Menu is available from. */
+    /** docs/products/rnd/internal-memo-multi-branch/prd.md §9.2 — which branches a merged Menu is available from. */
     public function up(): void
     {
         if (Schema::hasTable('rnd_internal_memo_menu_branches')) {

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** docs/store-sales-order-prd.md §15.2 — a local operational note, not an official ESB line item. */
+/** docs/products/operational/store-sales-order/prd.md §15.2 — a local operational note, not an official ESB line item. */
 class StoreSalesOrderItem extends Model
 {
     /** @use HasFactory<StoreSalesOrderItemFactory> */

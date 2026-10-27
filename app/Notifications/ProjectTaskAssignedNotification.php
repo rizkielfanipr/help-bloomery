@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Sent when a PIC is assigned to a Task, whether the assignment is brand new or a replacement
- * for a previous PIC via `AssignProjectTaskAction::reassign()` (docs/rnd-project-task-calendar-prd.md
+ * for a previous PIC via `AssignProjectTaskAction::reassign()` (docs/products/rnd/project-task-calendar/prd.md
  * §16 — "assignment baru dibuat" / "PIC berubah").
  */
 class ProjectTaskAssignedNotification extends Notification implements ShouldQueue

@@ -12,7 +12,7 @@ use Filament\Navigation\NavigationItem;
 
 /**
  * One Sales Report area with three tabs — Laporan Harian, Compliment, Void — instead of three
- * unrelated sidebar menus (docs/sales-report-compliment-void-remediation-prd.md §15.1).
+ * unrelated sidebar menus (docs/products/finance/sales-report-compliment-void-remediation/prd.md §15.1).
  */
 trait HasSalesReportSubNavigation
 {

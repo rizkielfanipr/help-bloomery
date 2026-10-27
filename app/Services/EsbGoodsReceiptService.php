@@ -7,7 +7,7 @@ use App\Services\Monitoring\EsbMutation;
 use App\Services\Monitoring\RecordsEsbMutations;
 
 /**
- * docs/receiving-simplification-prd.md §12: every operation now takes the Company Code as an
+ * docs/products/inventory/receiving-simplification/prd.md §12: every operation now takes the Company Code as an
  * explicit, caller-supplied context (resolved by the caller from the selected PO's own mapping —
  * see EsbBranchMappingResolver) rather than a single constant, so Receiving is no longer limited
  * to BLSS.

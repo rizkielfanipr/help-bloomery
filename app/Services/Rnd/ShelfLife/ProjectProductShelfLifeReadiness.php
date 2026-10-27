@@ -6,7 +6,7 @@ use App\Enums\RndWipShelfLifeStatus;
 use App\Models\RndProjectProduct;
 
 /**
- * Ready/Released gate for a Project Product (docs/rnd-wip-shelf-life-prd.md §9.4): every WIP the
+ * Ready/Released gate for a Project Product (docs/products/rnd/wip-shelf-life/prd.md §9.4): every WIP the
  * mapping found must have an active master. A Product without WIP is never blocked; unresolved or
  * unidentified WIP and a failed mapping are blockers, never silently treated as complete. Computed
  * entirely server-side from stored BOM snapshots and the WIP mapping.

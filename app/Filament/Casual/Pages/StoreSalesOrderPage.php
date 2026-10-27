@@ -20,7 +20,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 /**
- * docs/store-sales-order-prd.md §10, §12, §17. No separate Riwayat tile for this feature (§12
+ * docs/products/operational/store-sales-order/prd.md §10, §12, §17. No separate Riwayat tile for this feature (§12
  * "Tidak dibuat tile Riwayat terpisah") — the last five accessible records are rendered on this
  * same page. Mutation and the ESB lookup both go through Actions (never raw HTTP/Eloquent here);
  * this Page only owns UI state and upload handling, same division of responsibility as

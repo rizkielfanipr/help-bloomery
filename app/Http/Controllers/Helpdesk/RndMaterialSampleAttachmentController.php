@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 /**
- * Serves private sample photos after authorization (docs/material-sourcing-lifecycle-prd.md §23),
+ * Serves private sample photos after authorization (docs/products/rnd/material-sourcing-lifecycle/prd.md §23),
  * following the R&D Task attachment pattern instead of public URLs.
  */
 class RndMaterialSampleAttachmentController extends Controller

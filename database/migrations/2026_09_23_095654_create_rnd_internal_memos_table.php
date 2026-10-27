@@ -8,7 +8,7 @@ return new class extends Migration
 {
     /**
      * `memo_number` is a free-text business document number typed by the R&D Operator
-     * (docs/rnd-internal-memo-prd.md §7.1) and is globally unique. `revision` numbers the
+     * (docs/products/rnd/internal-memo/prd.md §7.1) and is globally unique. `revision` numbers the
      * corrections of a single monthly memo; the (company_code, period_month, revision)
      * combination is unique so a period cannot get two documents at the same revision.
      * A revision's predecessor is looked up by that combination — there is no separate

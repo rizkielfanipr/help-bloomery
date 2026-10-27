@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * docs/customer-complaints-prd.md §7.1, §13, §14.2. Branch is re-validated server-side even
+ * docs/products/operational/customer-complaints/prd.md §7.1, §13, §14.2. Branch is re-validated server-side even
  * though the form only offers accessible branches, since the request body is not trusted
  * (§12 "validasi branch dilakukan kembali di server").
  *
@@ -71,7 +71,7 @@ class CreateCustomerComplaintAction
             throw new RuntimeException('Gagal membuat nomor komplain setelah beberapa percobaan.');
         }
 
-        // Dispatched after the transaction has committed (docs/customer-complaints-prd.md §16
+        // Dispatched after the transaction has committed (docs/products/operational/customer-complaints/prd.md §16
         // "Notifikasi tidak boleh dikirim sebelum transaction database berhasil"), matching the
         // house convention of calling Notification::send() on the line after DB::transaction()
         // returns rather than inside an afterCommit() closure (no queue connection in this app

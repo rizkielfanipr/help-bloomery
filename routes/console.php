@@ -21,11 +21,11 @@ Schedule::command('sales-reports:auto-reject')->everyMinute()->withoutOverlappin
 Schedule::command('basket-size:finalize')->everyTenMinutes()->withoutOverlapping(30);
 Schedule::command('rnd:send-project-task-reminders')->dailyAt('07:00')->withoutOverlapping();
 
-// System Monitoring (docs/system-monitoring-prd.md §10, §19): read-only checks every minute and
+// System Monitoring (docs/operations/monitoring/prd.md §10, §19): read-only checks every minute and
 // local retention/aggregation at night. No task sends ESB mutations.
 Schedule::command('monitoring:run-checks')->everyMinute()->withoutOverlapping(5);
 Schedule::command('monitoring:aggregate')->dailyAt('00:20')->withoutOverlapping(30);
 Schedule::command('monitoring:prune')->dailyAt('03:15')->withoutOverlapping(60);
 // Ordering Recommendation: dispatch the previous day's snapshot after the data is final
-// (docs/ordering-recommendation-prd.md §12.2). The time comes from config.
+// (docs/products/analytics/ordering-recommendation/prd.md §12.2). The time comes from config.
 Schedule::command('ordering:sync')->dailyAt((string) config('ordering_recommendation.sync_time'))->withoutOverlapping(60)->onOneServer();

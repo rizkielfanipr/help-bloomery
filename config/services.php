@@ -36,7 +36,7 @@ return [
     ],
 
     /*
-    | Telegram notifications for the Master Bahan IT review (docs/material-sourcing-lifecycle-prd.md
+    | Telegram notifications for the Master Bahan IT review (docs/products/rnd/material-sourcing-lifecycle/prd.md
     | §14). Disabled until a bot token and chat IDs are configured on the server; chat IDs are
     | referenced by destination key, never stored in the database.
     */

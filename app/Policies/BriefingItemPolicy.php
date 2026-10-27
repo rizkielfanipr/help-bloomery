@@ -7,7 +7,7 @@ use App\Models\BriefingItem;
 use App\Models\User;
 
 /**
- * docs/daily-briefing-remediation-prd.md §10.2/§12.3/§14. Review actions require the
+ * docs/products/daily-briefing/remediation/prd.md §10.2/§12.3/§14. Review actions require the
  * `review briefing items` permission AND the item's branch snapshot
  * (briefing_records.branch_id, not users.branch_id) to be within accessibleBranchIds(), unless
  * the reviewer canAccessAllBranches(). Mirrors the same branch-scope mechanism every other

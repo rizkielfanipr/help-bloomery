@@ -436,7 +436,7 @@ class CreateBomRecipePage extends Page
         }, $payload['bomDetails']);
         $payload['bomCosts'] = [];
 
-        // docs/system-monitoring-prd.md §11.6: a BOM create whose ESB result is unknown must be
+        // docs/operations/monitoring/prd.md §11.6: a BOM create whose ESB result is unknown must be
         // reconciled before the same payload can be sent again, and a concurrent double submit
         // only sends one request.
         $idempotencyKey = 'rnd-bom-create:'.hash('sha256', $this->projectId.'|'.$this->productId.'|'.json_encode($payload));

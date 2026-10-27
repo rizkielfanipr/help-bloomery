@@ -38,7 +38,7 @@ class RndInternalMemoFactory extends Factory
     }
 
     /**
-     * A legacy Memo created before Brand existed (docs/rnd-internal-memo-brand-prd.md §16.3).
+     * A legacy Memo created before Brand existed (docs/products/rnd/internal-memo-brand/prd.md §16.3).
      */
     public function withoutBrand(): static
     {

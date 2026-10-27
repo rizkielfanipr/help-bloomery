@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One append-only progress/submission entry from a PIC (docs/rnd-project-task-calendar-prd.md
+ * One append-only progress/submission entry from a PIC (docs/products/rnd/project-task-calendar/prd.md
  * §8.4, §12). Never updated or deleted — corrections are new rows so history is preserved
  * (business rule #13).
  */

@@ -14,7 +14,7 @@ use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 /**
  * Generates one forecast run per branch, cutoff, and horizon from the local snapshot
- * (docs/ordering-recommendation-prd.md §13). Reruns are idempotent; a failure leaves the latest
+ * (docs/products/analytics/ordering-recommendation/prd.md §13). Reruns are idempotent; a failure leaves the latest
  * completed run in place.
  */
 class GenerateOrderingForecastJob implements ShouldBeUnique, ShouldQueue

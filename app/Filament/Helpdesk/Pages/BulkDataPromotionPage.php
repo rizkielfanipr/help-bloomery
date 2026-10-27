@@ -363,7 +363,7 @@ class BulkDataPromotionPage extends Page
         $results = [];
 
         // A concurrent double submit of the same promotion only sends it once; the endpoint has
-        // no proven idempotency key (docs/system-monitoring-prd.md §11.6).
+        // no proven idempotency key (docs/operations/monitoring/prd.md §11.6).
         $submissionKey = 'bulk-promotion:'.auth()->id().':'.hash('sha256', json_encode([$targets, $payload]));
         $lock = Cache::lock($submissionKey, 300);
         if (! $lock->get()) {

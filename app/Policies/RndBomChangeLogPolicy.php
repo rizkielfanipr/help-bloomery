@@ -6,7 +6,7 @@ use App\Models\RndBomChangeLog;
 use App\Models\User;
 
 /**
- * Permission strings match docs/rnd-bom-adjustment-prd.md §17.
+ * Permission strings match docs/products/rnd/bom-adjustment/prd.md §17.
  */
 class RndBomChangeLogPolicy
 {
@@ -22,7 +22,7 @@ class RndBomChangeLogPolicy
 
     /**
      * Reconciliation only makes sense while the mutation's true outcome is still unknown
-     * (docs/rnd-bom-adjustment-prd.md §14).
+     * (docs/products/rnd/bom-adjustment/prd.md §14).
      */
     public function reconcile(User $user, RndBomChangeLog $log): bool
     {

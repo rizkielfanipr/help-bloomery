@@ -21,7 +21,7 @@ use UnitEnum;
 
 /**
  * Search, filter, and paginate the local BOM Assembly catalog, review Change History, and
- * trigger/monitor a background catalog refresh (docs/rnd-bom-adjustment-prd.md §7, §10, §15).
+ * trigger/monitor a background catalog refresh (docs/products/rnd/bom-adjustment/prd.md §7, §10, §15).
  */
 class BomAdjustmentPage extends Page
 {

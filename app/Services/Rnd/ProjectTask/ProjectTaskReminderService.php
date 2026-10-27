@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 /**
  * Finds which (assignment, reminder type) pairs are due today and haven't been logged yet
- * (docs/rnd-project-task-calendar-prd.md §16). The `rnd_task_reminder_unique` constraint on
+ * (docs/products/rnd/project-task-calendar/prd.md §16). The `rnd_task_reminder_unique` constraint on
  * `RndProjectTaskReminder` is the final idempotency guard — this query is just an optimization to
  * avoid dispatching Jobs that would immediately no-op.
  */

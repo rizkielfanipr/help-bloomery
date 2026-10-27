@@ -5,7 +5,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
-/** docs/store-sales-order-prd.md §11. Operational status only — never sent to or derived from ESB. */
+/** docs/products/operational/store-sales-order/prd.md §11. Operational status only — never sent to or derived from ESB. */
 enum StoreSalesOrderStatus: string implements HasColor, HasLabel
 {
     case Draft = 'draft';

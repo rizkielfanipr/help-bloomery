@@ -69,7 +69,7 @@ class DailyBriefingPage extends Page
     }
 
     /**
-     * docs/daily-briefing-remediation-prd.md §10.1: authenticated, active STORE_STAFF with the
+     * docs/products/daily-briefing/remediation/prd.md §10.1: authenticated, active STORE_STAFF with the
      * submit permission, a branch, and that branch an active Daily Briefing participant today.
      * A hidden link to this page is not a substitute for this check — Filament still resolves the
      * route directly.

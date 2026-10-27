@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Compliment export for comparison with the ESB report
- * (docs/sales-report-compliment-void-remediation-prd.md §11.2): one row per Compliment. The
+ * (docs/products/finance/sales-report-compliment-void-remediation/prd.md §11.2): one row per Compliment. The
  * caller passes the already filtered and branch-scoped query of the report page.
  *
  * Header names and order are the PRD baseline; they are kept in HEADERS so they can be aligned

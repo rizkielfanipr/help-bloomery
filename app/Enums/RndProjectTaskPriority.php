@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * `rnd_project_tasks.priority` (docs/rnd-project-task-calendar-prd.md §9). Default is Medium.
+ * `rnd_project_tasks.priority` (docs/products/rnd/project-task-calendar/prd.md §9). Default is Medium.
  */
 enum RndProjectTaskPriority: string implements HasColor, HasLabel
 {
@@ -37,7 +37,7 @@ enum RndProjectTaskPriority: string implements HasColor, HasLabel
 
     /**
      * Priorities that qualify a task for the dashboard's "needs attention" ordering
-     * (docs/rnd-project-task-calendar-prd.md §15).
+     * (docs/products/rnd/project-task-calendar/prd.md §15).
      */
     public function isUrgentOrHigh(): bool
     {

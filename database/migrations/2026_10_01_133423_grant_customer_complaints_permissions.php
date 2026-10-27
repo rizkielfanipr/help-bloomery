@@ -19,7 +19,7 @@ return new class extends Migration
 
     /**
      * New permissions only exist after a fresh seed; this grants them on an already-deployed
-     * production database (docs/customer-complaints-prd.md §12). STORE_STAFF/SUPERVISOR_STORE can
+     * production database (docs/products/operational/customer-complaints/prd.md §12). STORE_STAFF/SUPERVISOR_STORE can
      * submit a complaint; SUPERVISOR_STORE additionally reviews complaints within their branch
      * scope (CustomerComplaintPolicy). `delete customer complaints` is intentionally left to
      * SUPERADMIN only (which already holds every permission).

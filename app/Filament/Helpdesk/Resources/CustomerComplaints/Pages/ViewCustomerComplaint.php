@@ -35,7 +35,7 @@ class ViewCustomerComplaint extends ViewRecord
     /**
      * Routed through CustomerComplaintAttachmentController rather than a raw disk temporary URL,
      * so every open re-checks CustomerComplaintPolicy::view() instead of relying solely on a
-     * signed URL's own expiry (docs/customer-complaints-prd.md §15, §20.3).
+     * signed URL's own expiry (docs/products/operational/customer-complaints/prd.md §15, §20.3).
      *
      * @return list<array{name: string, url: string}>
      */

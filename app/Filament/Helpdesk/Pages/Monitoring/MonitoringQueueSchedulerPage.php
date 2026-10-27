@@ -25,7 +25,7 @@ use Throwable;
 use UnitEnum;
 
 /**
- * Queue & Scheduler Monitor (docs/system-monitoring-prd.md §12). Strictly read-only: no worker
+ * Queue & Scheduler Monitor (docs/operations/monitoring/prd.md §12). Strictly read-only: no worker
  * restart, terminal, or command execution, and no failed-job retry because no job has been proven
  * idempotent for UI retry.
  */

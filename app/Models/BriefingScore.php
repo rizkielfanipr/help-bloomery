@@ -29,7 +29,7 @@ class BriefingScore extends Model
     }
 
     /**
-     * docs/daily-briefing-scoring-ui-prd.md §8.4/§11: the passing score is read from this row's
+     * docs/products/daily-briefing/scoring-ui/prd.md §8.4/§11: the passing score is read from this row's
      * own snapshot so a later settings change never changes a historical row's achieved/not status.
      * Rows computed before `passing_score` existed in the breakdown (method_version 1) fall back
      * to 80, the hardcoded threshold they were actually computed against.

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * One scheduled task execution captured from scheduler events (docs/system-monitoring-prd.md §12.2).
+ * One scheduled task execution captured from scheduler events (docs/operations/monitoring/prd.md §12.2).
  */
 class MonitoringScheduledTaskRun extends Model
 {

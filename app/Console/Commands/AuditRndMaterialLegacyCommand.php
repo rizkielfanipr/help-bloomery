@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Dry-run classification of Master Bahan rows created before the IT review workflow
- * (docs/material-sourcing-lifecycle-prd.md §26). Read-only and local-only: it never calls ESB,
+ * (docs/products/rnd/material-sourcing-lifecycle/prd.md §26). Read-only and local-only: it never calls ESB,
  * never writes a review, sample evidence or Pricing Request, and never marks a row verified.
  */
 class AuditRndMaterialLegacyCommand extends Command

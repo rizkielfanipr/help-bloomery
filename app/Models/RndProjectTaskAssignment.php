@@ -12,12 +12,12 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
 /**
- * One PIC's obligation for a Task on one Branch (docs/rnd-project-task-calendar-prd.md §8.3).
+ * One PIC's obligation for a Task on one Branch (docs/products/rnd/project-task-calendar/prd.md §8.3).
  * `user_id` is a snapshot: it is never revoked just because the user later loses access to
  * `branch_id` (business rule #6). Status/review changes are recorded via `LogsActivity` (the same
  * audit-trail mechanism already used by ErpRepairRequest/DesignRequest/PurchasingRequest) so every
  * review decision stays in history even though `review_note` itself only holds the latest one
- * (docs/rnd-project-task-calendar-prd.md §21 Phase 4 — "Simpan audit trail keputusan").
+ * (docs/products/rnd/project-task-calendar/prd.md §21 Phase 4 — "Simpan audit trail keputusan").
  */
 class RndProjectTaskAssignment extends Model
 {

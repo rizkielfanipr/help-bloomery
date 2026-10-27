@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One IT review submission version of a Master Bahan with the canonical snapshot that was
- * submitted (docs/material-sourcing-lifecycle-prd.md §19.1). An approval is only valid for the
+ * submitted (docs/products/rnd/material-sourcing-lifecycle/prd.md §19.1). An approval is only valid for the
  * exact `submission_version` + `snapshot_hash` it was given for.
  */
 class RndMaterialReview extends Model

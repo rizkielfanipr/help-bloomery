@@ -8,7 +8,7 @@ use App\Models\KitchenProductionSchedule;
 use App\Models\User;
 
 /**
- * docs/kitchen-production-schedule-prd.md §6. Every ability needs its feature permission; viewing
+ * docs/products/kitchen/production-schedule/prd.md §6. Every ability needs its feature permission; viewing
  * additionally needs the record's Branch to be accessible (all-branch users and the
  * `view all branch kitchen production schedules` permission only widen the Branch scope), and
  * every mutation needs real access to the Branch via `canAccessBranch()`. No role is named here.

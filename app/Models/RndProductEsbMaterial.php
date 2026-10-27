@@ -145,7 +145,7 @@ class RndProductEsbMaterial extends Model
     }
 
     /**
-     * Created through the Master Bahan workflow (docs/material-sourcing-lifecycle-prd.md). Rows
+     * Created through the Master Bahan workflow (docs/products/rnd/material-sourcing-lifecycle/prd.md). Rows
      * created before the workflow and standalone sourcing keep `review_status = null` and follow
      * the legacy flow without receiving review history they never had.
      */

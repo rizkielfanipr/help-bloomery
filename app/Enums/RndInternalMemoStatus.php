@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * docs/rnd-internal-memo-prd.md §6 — Status Memo.
+ * docs/products/rnd/internal-memo/prd.md §6 — Status Memo.
  */
 enum RndInternalMemoStatus: string implements HasColor, HasLabel
 {
@@ -43,7 +43,7 @@ enum RndInternalMemoStatus: string implements HasColor, HasLabel
 
     /**
      * Metadata and Menu selection stay editable only while the memo is a Draft
-     * (docs/rnd-internal-memo-prd.md §6 table).
+     * (docs/products/rnd/internal-memo/prd.md §6 table).
      */
     public function isEditable(): bool
     {

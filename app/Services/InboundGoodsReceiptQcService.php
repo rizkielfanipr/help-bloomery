@@ -55,7 +55,7 @@ class InboundGoodsReceiptQcService
     }
 
     /**
-     * docs/receiving-simplification-prd.md §5.2: a single unified document (Surat Jalan or
+     * docs/products/inventory/receiving-simplification/prd.md §5.2: a single unified document (Surat Jalan or
      * Invoice) replaces the old delivery+invoice duality, so there is no longer a "belum
      * diterima" state to gate on — whichever document type was chosen is, by definition, the
      * document of record for this receipt.
@@ -67,7 +67,7 @@ class InboundGoodsReceiptQcService
     }
 
     /**
-     * docs/receiving-simplification-prd.md §9: a plain remaining-days readout shown on every
+     * docs/products/inventory/receiving-simplification/prd.md §9: a plain remaining-days readout shown on every
      * product row regardless of condition — independent of the detailed per-batch shelf-life
      * percentage workflow reserved for "Bermasalah" items.
      *

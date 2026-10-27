@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * docs/daily-briefing-scoring-ui-prd.md §8.4/§12.1. Default 80, matching the hardcoded
+     * docs/products/daily-briefing/scoring-ui/prd.md §8.4/§12.1. Default 80, matching the hardcoded
      * threshold `BriefingScore::isPassing()` used before this field existed — existing rows read
      * through a fallback to 80 when their breakdown predates this snapshot field, so this does not
      * change any historical score's achieved/not-achieved status.

@@ -11,7 +11,7 @@ return [
         'Teknisi' => ['access employee app technician'],
         'Request Teknisi' => ['access employee app technician request'],
         'Briefing' => ['access employee app briefing'],
-        // Separate from the tile/page-access permission above: docs/daily-briefing-remediation-prd.md
+        // Separate from the tile/page-access permission above: docs/products/daily-briefing/remediation/prd.md
         // §7/§10.1 keeps "can see the page" and "can submit" as independent permissions so a role
         // can have one without the other.
         'Submit Daily Briefing' => ['submit daily briefing'],
@@ -27,11 +27,11 @@ return [
         // Deliberately the same permission used by CustomerComplaintPolicy::create() and the
         // back office (not a separate "access employee app ..." flag): the PRD requires the
         // Form Komplain tile to be gated by exactly one permission, `create customer complaints`
-        // (docs/customer-complaints-prd.md §12), and User::canAccessPanel('casual') only checks
+        // (docs/products/operational/customer-complaints/prd.md §12), and User::canAccessPanel('casual') only checks
         // membership in this config group.
         'Customer Complaints' => ['create customer complaints'],
-        // Same single-permission-gates-everything pattern as Customer Complaints (docs/
-        // store-sales-order-prd.md §16): `create store sales orders` is both the Casual panel
+        // Same single-permission-gates-everything pattern as Customer Complaints
+        // (docs/products/operational/store-sales-order/prd.md §16): `create store sales orders` is both the Casual panel
         // gate and the tile/submission permission.
         'Store Sales Order' => ['create store sales orders'],
     ],
@@ -43,7 +43,7 @@ return [
         'Absensi Casual' => ['view clock records', 'create clock records', 'edit clock records', 'delete clock records'],
         'Daily Briefing' => ['view briefing records', 'create briefing records', 'edit briefing records', 'delete briefing records'],
         'Monitoring Poin' => ['view briefing items', 'create briefing items', 'edit briefing items', 'delete briefing items'],
-        // docs/daily-briefing-remediation-prd.md §10.2/§12.3: review (approve/reject/reopen) is
+        // docs/products/daily-briefing/remediation/prd.md §10.2/§12.3: review (approve/reject/reopen) is
         // gated by this dedicated permission, never by `review sales reports as supervisor`.
         'Review Monitoring Poin' => ['review briefing items'],
         'Nilai Briefing' => ['view briefing scores', 'create briefing scores', 'edit briefing scores', 'delete briefing scores'],
@@ -151,7 +151,7 @@ return [
             'archive rnd internal memo',
             'delete rnd internal memo',
         ],
-        // docs/material-sourcing-lifecycle-prd.md §20: Master Bahan workflow. R&D creates and
+        // docs/products/rnd/material-sourcing-lifecycle/prd.md §20: Master Bahan workflow. R&D creates and
         // edits materials with `edit rnd projects`; every other step has its own permission.
         'Master Bahan Workflow' => [
             'submit rnd material review',
@@ -239,7 +239,7 @@ return [
         ],
     ],
 
-    // docs/system-monitoring-prd.md §7: every monitoring Page, query, record, and action checks
+    // docs/operations/monitoring/prd.md §7: every monitoring Page, query, record, and action checks
     // these server-side; Management roles should only receive `view system monitoring`.
     'System Monitoring' => [
         'Monitoring' => [

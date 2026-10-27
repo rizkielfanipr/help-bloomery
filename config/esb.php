@@ -77,4 +77,13 @@ return [
         'BLAR' => env('ESB_TOKEN_BLAR', ''),
         'BLSS' => env('ESB_TOKEN_BLSS', ''),
     ],
+
+    /*
+    | Master Pricelist (docs/material-sourcing-lifecycle-prd.md §18). No write/read Pricelist
+    | endpoint contract is available in this repository, so only the controlled manual mode is
+    | supported: Finance enters the price in ESB and confirms it here with a reference.
+    */
+    'pricelist' => [
+        'mode' => env('ESB_PRICELIST_MODE', 'manual'),
+    ],
 ];

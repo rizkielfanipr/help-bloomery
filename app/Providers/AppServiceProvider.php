@@ -7,8 +7,11 @@ use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ListCustomerComplai
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
 use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillments;
 use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillmentsToReceive;
+use App\Filament\Helpdesk\Resources\MaterialPricelists\Pages\ListMaterialPricelists;
+use App\Filament\Helpdesk\Resources\MaterialReviews\Pages\ListMaterialReviews;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
 use App\Filament\Helpdesk\Resources\PurchaseRequests\Pages\ListPurchaseRequests;
+use App\Filament\Helpdesk\Resources\ReviewSourcings\Pages\ListReviewSourcings;
 use App\Filament\Helpdesk\Resources\ServiceRequests\Pages\ListServiceRequests as HelpdeskListServiceRequests;
 use App\Filament\Helpdesk\Resources\StoreSalesOrders\Pages\ListStoreSalesOrders;
 use App\Filament\Helpdesk\Resources\Trips\Pages\ListTrips;
@@ -62,6 +65,7 @@ class AppServiceProvider extends ServiceProvider
             scopes: [
                 ListErpRepairRequests::class,
                 ListMaterialSourcings::class,
+                ListReviewSourcings::class,
             ],
         );
 
@@ -100,6 +104,23 @@ class AppServiceProvider extends ServiceProvider
                 ListStoreSalesOrders::class,
                 ListCustomerComplaints::class,
             ],
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.material-reviews.table-header-cell', $data + [
+                'submitterOptions' => $data['column']->getName() === 'latestReview.submitter.name' ? $filterOptions->materialReviewSubmitters() : [],
+            ]),
+            scopes: ListMaterialReviews::class,
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.material-pricelists.table-header-cell', $data + [
+                'categoryOptions' => $data['column']->getName() === 'material.category_name' ? $filterOptions->materialPricelistCategories() : [],
+                'supplierOptions' => $data['column']->getName() === 'supplier_name' ? $filterOptions->materialPricelistSuppliers() : [],
+            ]),
+            scopes: ListMaterialPricelists::class,
         );
     }
 }

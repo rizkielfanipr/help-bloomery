@@ -94,12 +94,13 @@ return [
         'Compliment Types' => ['view compliment types', 'create compliment types', 'edit compliment types', 'delete compliment types'],
         'Basket Size' => ['view basket sizes', 'recalculate basket sizes', 'export basket sizes'],
         'Sourcing Bahan' => ['review material sourcing as finance'],
+        'Product Pricelist' => ['view material pricelist', 'manage material pricelist'],
     ],
 
     'Purchasing' => [
         'Vendor Compliance' => ['view vendor compliance incidents', 'edit vendor compliance incidents'],
         'Permintaan Pembelian' => ['view purchase requests', 'create purchase requests', 'edit purchase requests', 'delete purchase requests'],
-        'Sourcing Bahan' => ['view material sourcings', 'submit material sourcing'],
+        'Sourcing Bahan' => ['view material sourcings', 'submit material sourcing', 'hand over material samples'],
         'Proses Material Marketing' => ['view marketing material fulfillments', 'process marketing material as purchasing'],
     ],
 
@@ -149,6 +150,20 @@ return [
             'download rnd internal memo pdf',
             'archive rnd internal memo',
             'delete rnd internal memo',
+        ],
+        // docs/material-sourcing-lifecycle-prd.md §20: Master Bahan workflow. R&D creates and
+        // edits materials with `edit rnd projects`; every other step has its own permission.
+        'Master Bahan Workflow' => [
+            'submit rnd material review',
+            'review rnd materials as it',
+            'edit rnd material technical data',
+            'approve rnd material esb push',
+            'reconcile rnd material esb',
+            'receive material samples',
+            'review material samples as rnd',
+            'reopen material sample approval',
+            'retry material notifications',
+            'view material workflow audit',
         ],
         'Recipe Adjustment' => [
             'view bom adjustment history',

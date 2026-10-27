@@ -19,6 +19,7 @@ use App\Http\Controllers\Helpdesk\RndBomInstructionImageController;
 use App\Http\Controllers\Helpdesk\RndInternalMemoPdfController;
 use App\Http\Controllers\Helpdesk\RndInternalMemoProductExportController;
 use App\Http\Controllers\Helpdesk\RndInternalMemoReleaseExportController;
+use App\Http\Controllers\Helpdesk\RndMaterialSampleAttachmentController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
@@ -156,6 +157,8 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/sales-report-evidence/voids/{void}/{kind}', [SalesReportEvidenceController::class, 'void'])
         ->whereIn('kind', ['original', 'voided'])
         ->name('sales-report-evidence.void');
+    Route::get('/rnd-material-sample-attachments/{attachment}', [RndMaterialSampleAttachmentController::class, 'show'])
+        ->name('helpdesk.rnd-material-sample-attachments.show');
     Route::get('/rnd-project-task-attachments/{path}', [RndProjectTaskAttachmentController::class, 'show'])
         ->where('path', '.*')
         ->name('helpdesk.rnd-project-tasks.attachments.show');

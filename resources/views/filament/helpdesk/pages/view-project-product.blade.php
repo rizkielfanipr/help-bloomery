@@ -315,15 +315,6 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @forelse($groupMaterials as $esbMaterial)
-                        @php
-                            $esbStatusStyle = match($esbMaterial->status) {
-                                'synced' => 'bg-emerald-50 text-emerald-700',
-                                'failed' => 'bg-red-50 text-red-700',
-                                'unknown' => 'bg-red-50 text-red-700',
-                                'syncing' => 'bg-blue-50 text-blue-700',
-                                default => 'bg-gray-100 text-gray-700',
-                            };
-                        @endphp
                         <tr class="align-top">
                             <td class="px-4 py-3">
                                 <p class="font-mono text-xs font-bold text-blue-600">{{ $esbMaterial->product_code }}</p>
@@ -336,7 +327,20 @@
                             </td>
                             <td class="px-4 py-3"><p class="font-bold">{{ $esbMaterial->uom_name }}</p><p class="text-xs text-gray-400">ID {{ $esbMaterial->uom_id }} · Base {{ rtrim(rtrim($esbMaterial->conversion_factor, '0'), '.') }}</p></td>
                             <td class="px-4 py-3 font-mono text-xs">{{ $esbMaterial->sku }}</td>
-                            <td class="px-4 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $esbStatusStyle }}">{{ \App\Models\RndProductEsbMaterial::STATUSES[$esbMaterial->status] ?? ucfirst($esbMaterial->status) }}</span></td>
+                            <td class="px-4 py-3">
+                                <div class="flex flex-col items-start gap-1">
+                                    @if($esbMaterial->review_status)
+                                        <x-helpdesk.monitoring.status-badge :label="'Review IT: '.$esbMaterial->review_status->getLabel()" :color="$esbMaterial->review_status->getColor()" />
+                                    @endif
+                                    <x-helpdesk.monitoring.status-badge :label="'ESB: '.$esbMaterial->effectiveEsbSyncStatus()->getLabel()" :color="$esbMaterial->effectiveEsbSyncStatus()->getColor()" />
+                                    @if($esbMaterial->isInWorkflow() && $esbMaterial->pricing_status && $esbMaterial->pricing_status !== \App\Enums\MaterialPricingStatus::NotReady)
+                                        <x-helpdesk.monitoring.status-badge :label="'Pricelist: '.$esbMaterial->pricing_status->getLabel()" :color="$esbMaterial->pricing_status->getColor()" />
+                                    @endif
+                                    @if($esbMaterial->workflow_completed_at)
+                                        <x-helpdesk.monitoring.status-badge label="Completed" color="success" icon="heroicon-o-check-circle" />
+                                    @endif
+                                </div>
+                            </td>
                             <td class="px-4 py-3">
                                 <button type="button" wire:click="openSourcingDetail({{ $esbMaterial->id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/30"><x-heroicon-o-eye class="h-4 w-4" />Detail Sourcing</button>
                             </td>
@@ -347,19 +351,31 @@
                             <td class="px-4 py-3">
                                 @if($canManageProject)
                                     <div class="flex justify-end gap-1.5">
-                                        <button type="button" wire:click="openEsbMaterialForm({{ $esbMaterial->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50" title="{{ $esbMaterial->status === 'synced' ? 'Edit dan sinkronkan ke ESB' : 'Edit' }}"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
-                                        @if(in_array($esbMaterial->status, ['draft', 'failed'], true))
-                                            <button type="button" wire:click="syncEsbMaterial({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="syncEsbMaterial({{ $esbMaterial->id }})" title="{{ $esbMaterial->status === 'failed' ? 'Coba kirim ulang ke ESB' : 'Kirim data ke ESB' }}" aria-label="{{ $esbMaterial->status === 'failed' ? 'Coba kirim ulang ke ESB' : 'Kirim data ke ESB' }}" class="inline-flex items-center justify-center rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700 disabled:opacity-50">
-                                                <x-heroicon-o-cloud-arrow-up wire:loading.remove wire:target="syncEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4" />
-                                                <x-heroicon-o-arrow-path wire:loading wire:target="syncEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4 animate-spin" />
+                                        @php
+                                            $canEditMaterial = $this->materialIsEditableByRnd($esbMaterial);
+                                            $reviewActive = $esbMaterial->review_status?->isActiveReview() ?? false;
+                                            $esbState = $esbMaterial->effectiveEsbSyncStatus();
+                                        @endphp
+                                        @if($canEditMaterial)
+                                            <button type="button" wire:click="openEsbMaterialForm({{ $esbMaterial->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50" title="{{ $esbState === \App\Enums\MaterialEsbSyncStatus::Synced ? 'Ajukan perubahan (perlu Review IT)' : 'Edit' }}" aria-label="Edit bahan"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
+                                        @endif
+                                        @if($canEditMaterial && $esbMaterial->review_status !== \App\Enums\MaterialReviewStatus::ApprovedForEsb)
+                                            <button type="button" wire:click="submitEsbMaterialForReview({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="submitEsbMaterialForReview({{ $esbMaterial->id }})" wire:confirm="Kirim untuk Review IT? Data dikunci selama review dan IT yang akan menautkan atau mengirim produk ke ESB." title="Kirim untuk Review IT" aria-label="Kirim untuk Review IT" class="inline-flex items-center justify-center rounded-lg bg-blue-600 p-2 text-white hover:bg-blue-700 disabled:opacity-50">
+                                                <x-heroicon-o-paper-airplane wire:loading.remove wire:target="submitEsbMaterialForReview({{ $esbMaterial->id }})" class="h-4 w-4" />
+                                                <x-heroicon-o-arrow-path wire:loading wire:target="submitEsbMaterialForReview({{ $esbMaterial->id }})" class="h-4 w-4 animate-spin" />
                                             </button>
-                                        @else
+                                        @elseif($esbMaterial->review_status === \App\Enums\MaterialReviewStatus::WaitingItReview)
+                                            <button type="button" wire:click="withdrawEsbMaterialReview({{ $esbMaterial->id }})" wire:confirm="Batalkan pengajuan review ini?" title="Batalkan pengajuan" aria-label="Batalkan pengajuan review" class="rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50"><x-heroicon-o-x-mark class="h-4 w-4" /></button>
+                                        @elseif($reviewActive || in_array($esbState, [\App\Enums\MaterialEsbSyncStatus::Queued, \App\Enums\MaterialEsbSyncStatus::Syncing, \App\Enums\MaterialEsbSyncStatus::NeedsReconciliation], true))
+                                            <span class="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-2 text-xs text-gray-500" title="Dikunci selama review/proses IT"><x-heroicon-o-lock-closed class="h-4 w-4" aria-hidden="true" /><span class="sr-only">Dikunci selama review IT</span></span>
+                                        @endif
+                                        @if($esbState === \App\Enums\MaterialEsbSyncStatus::Synced && $esbMaterial->esb_product_id)
                                             <button type="button" wire:click="refreshEsbMaterial({{ $esbMaterial->id }})" wire:loading.attr="disabled" wire:target="refreshEsbMaterial({{ $esbMaterial->id }})" title="Tarik nama dan data terbaru dari ESB" aria-label="Tarik nama dan data terbaru dari ESB" class="inline-flex items-center justify-center rounded-lg border border-emerald-200 p-2 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">
                                                 <x-heroicon-o-cloud-arrow-down wire:loading.remove wire:target="refreshEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4" />
                                                 <x-heroicon-o-arrow-path wire:loading wire:target="refreshEsbMaterial({{ $esbMaterial->id }})" class="h-4 w-4 animate-spin" />
                                             </button>
                                         @endif
-                                        @if($esbMaterial->status !== 'synced' || $esbMaterial->sync_error)
+                                        @if(($esbMaterial->status !== 'synced' || $esbMaterial->sync_error) && $esbMaterial->submission_version === 0)
                                             @php
                                                 $sourcingCount = $esbMaterial->sourcings->count();
                                                 $deleteConfirm = $sourcingCount > 0

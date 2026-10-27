@@ -7,7 +7,7 @@ use App\Models\User;
 
 /**
  * Service Health snapshots are readable by Management; editing check configuration needs
- * `manage monitoring settings` (docs/operations/monitoring/prd.md §7).
+ * `manage monitoring settings` (docs/products/system-monitoring/prd.md §7).
  */
 class MonitoringServicePolicy
 {

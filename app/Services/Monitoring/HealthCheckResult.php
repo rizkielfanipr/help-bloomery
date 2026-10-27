@@ -5,7 +5,7 @@ namespace App\Services\Monitoring;
 use App\Enums\MonitoringServiceStatus;
 
 /**
- * Uniform output of one health check (docs/operations/monitoring/prd.md §10.2). `message` must be
+ * Uniform output of one health check (docs/products/system-monitoring/prd.md §10.2). `message` must be
  * safe to display; `metadata` is sanitized before persistence.
  */
 final readonly class HealthCheckResult

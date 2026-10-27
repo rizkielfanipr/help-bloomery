@@ -10,7 +10,7 @@ use App\Models\MonitoringTransaction;
 use Carbon\CarbonInterface;
 
 /**
- * Builds the daily rollups the Overview 7-day trend reads (docs/operations/monitoring/prd.md §19).
+ * Builds the daily rollups the Overview 7-day trend reads (docs/products/system-monitoring/prd.md §19).
  * Only metrics the dashboard uses are aggregated. Re-running a day overwrites the same rows.
  */
 class MonitoringAggregator

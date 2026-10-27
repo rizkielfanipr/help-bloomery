@@ -239,7 +239,7 @@ return [
         ],
     ],
 
-    // docs/operations/monitoring/prd.md §7: every monitoring Page, query, record, and action checks
+    // docs/products/system-monitoring/prd.md §7: every monitoring Page, query, record, and action checks
     // these server-side; Management roles should only receive `view system monitoring`.
     'System Monitoring' => [
         'Monitoring' => [

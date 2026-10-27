@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Lifecycle of one ESB mutation transaction or attempt (docs/operations/monitoring/prd.md §11.2).
+ * Lifecycle of one ESB mutation transaction or attempt (docs/products/system-monitoring/prd.md §11.2).
  */
 enum MonitoringTransactionStatus: string implements HasColor, HasLabel
 {

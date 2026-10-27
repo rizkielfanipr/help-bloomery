@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Baseline | 6 Oktober 2026 |
-| Status | Rancangan untuk review; belum mengotorisasi migrasi atau deployment production |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Rancangan untuk review; belum mengotorisasi migrasi atau deployment production |
 | Modul | Research & Development |
 | Menu | `R&D → Memo Internal` |
 | Perubahan utama | Mengganti pilihan `Branch Tujuan` menjadi satu pilihan `Brand` |

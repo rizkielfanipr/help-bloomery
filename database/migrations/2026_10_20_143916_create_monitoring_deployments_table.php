@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/operations/monitoring/prd.md §14 and §18.6: read-only deployment metadata received through the
+ * docs/products/system-monitoring/prd.md §14 and §18.6: read-only deployment metadata received through the
  * signed ingestion contract or the local `monitoring:record-deployment` command.
  */
 return new class extends Migration

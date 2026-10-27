@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * Shared helpers for incident Actions: server-side authorization and append-only timeline
- * events (docs/operations/monitoring/prd.md §16, §18.5).
+ * events (docs/products/system-monitoring/prd.md §16, §18.5).
  */
 trait RecordsIncidentEvents
 {

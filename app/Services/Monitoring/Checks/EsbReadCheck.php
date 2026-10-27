@@ -14,7 +14,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Lightweight, read-only ESB probes (docs/operations/monitoring/prd.md §10.1). Every probe is a
+ * Lightweight, read-only ESB probes (docs/products/system-monitoring/prd.md §10.1). Every probe is a
  * single GET with `limit=1` or a small reference list. The existing clients reuse their cached
  * access token, so a probe only logs in when the token expired. ESB timeouts are lowered to the
  * service timeout for the duration of the probe.

@@ -1,15 +1,11 @@
 # Architecture
 
-Gambaran teknis aplikasi. Prosedur server dan pipeline berada di [operations](../operations/README.md).
+Gambaran teknis aplikasi, ditulis dari kode per 27 Oktober 2026. Prosedur server dan pipeline ada di [operations](../operations/README.md).
 
-| Dokumen | Isi | Indeks |
-|---|---|---|
-| [Overview](overview.md) | Arsitektur multi-panel, struktur folder, alur request, pola desain, enum | needs-review — belum diverifikasi terhadap kode terbaru |
-| [Data Model](data-model.md) | Model, relasi, dan struktur tabel | needs-review — belum diverifikasi terhadap migration terbaru |
-| [Panels](panels.md) | Panel Filament, role akses, routing | needs-review |
-| [RBAC](rbac.md) | Role, permission, aturan akses | needs-review — sumber permission aktual ada di `config/permissions.php` |
-| [Integrations](integrations/README.md) | Integrasi sistem eksternal | — |
-
-Dokumen modul lama di `docs/modules/` (Casual, Driver, Helpdesk, Technician) belum dipindahkan; lihat [README utama](../README.md#dokumen-yang-belum-diklasifikasikan).
-
-Path lama: `docs/architecture.md` → `overview.md`, `docs/models.md` → `data-model.md`, `docs/panels.md`, `docs/rbac.md`.
+| Dokumen | Isi |
+|---|---|
+| [Overview](overview.md) | Tech stack, struktur folder, pola desain, panel, alur request, scheduler, integrasi |
+| [Panels](panels.md) | Syarat akses panel, menu Back Office per grup, tile Employee App, halaman publik |
+| [RBAC](rbac.md) | Sumber permission, domain permission, role bawaan, branch scope |
+| [Data Model](data-model.md) | 162 model dan tabelnya per domain (dihasilkan dari kode) |
+| [Integrations](integrations/README.md) | Integrasi sistem eksternal |

@@ -23,7 +23,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * ESB Transaction Monitor (docs/operations/monitoring/prd.md §11, §21.2). The index only selects
+ * ESB Transaction Monitor (docs/products/system-monitoring/prd.md §11, §21.2). The index only selects
  * metadata columns; sanitized payload summaries are loaded on the detail page for users with
  * `view monitoring sanitized payloads`.
  */

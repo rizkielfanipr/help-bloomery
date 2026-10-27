@@ -21,7 +21,7 @@ Schedule::command('sales-reports:auto-reject')->everyMinute()->withoutOverlappin
 Schedule::command('basket-size:finalize')->everyTenMinutes()->withoutOverlapping(30);
 Schedule::command('rnd:send-project-task-reminders')->dailyAt('07:00')->withoutOverlapping();
 
-// System Monitoring (docs/operations/monitoring/prd.md §10, §19): read-only checks every minute and
+// System Monitoring (docs/products/system-monitoring/prd.md §10, §19): read-only checks every minute and
 // local retention/aggregation at night. No task sends ESB mutations.
 Schedule::command('monitoring:run-checks')->everyMinute()->withoutOverlapping(5);
 Schedule::command('monitoring:aggregate')->dailyAt('00:20')->withoutOverlapping(30);

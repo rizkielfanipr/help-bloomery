@@ -1431,5 +1431,5 @@ Workflow deployment production tidak boleh diuji dengan memalsukan success. Guna
 - [GitHub repository rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets)
 - `docs/operations/production/stability-scalability-prd.md`
 - `docs/operations/production/redis.md`
-- `docs/operations/monitoring/prd.md`
+- `docs/products/system-monitoring/prd.md`
 - `docs/standards/code-remediation.md`

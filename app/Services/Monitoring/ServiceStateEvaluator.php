@@ -7,7 +7,7 @@ use App\Models\MonitoringService;
 
 /**
  * Applies failure/recovery thresholds and the maintenance window to one observation
- * (docs/operations/monitoring/prd.md §10.3). Alerts are only evaluated on effective state changes.
+ * (docs/products/system-monitoring/prd.md §10.3). Alerts are only evaluated on effective state changes.
  */
 class ServiceStateEvaluator
 {

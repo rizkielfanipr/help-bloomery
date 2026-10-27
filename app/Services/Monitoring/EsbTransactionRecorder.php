@@ -18,7 +18,7 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Records ESB mutation transactions (docs/operations/monitoring/prd.md §11, §22).
+ * Records ESB mutation transactions (docs/products/system-monitoring/prd.md §11, §22).
  *
  * - Domain Actions/Pages open a parent with `transaction()`; domain services wrap each mutation
  *   request with `attempt()`. Attempts outside a parent get an implicit `system` parent.

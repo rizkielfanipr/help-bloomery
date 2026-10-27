@@ -7,7 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Opt-in browser error intake (docs/operations/monitoring/prd.md §13.2): authenticated web session,
+ * Opt-in browser error intake (docs/products/system-monitoring/prd.md §13.2): authenticated web session,
  * CSRF-protected, rate-limited, and accepting only a small allowlisted payload.
  */
 class MonitoringBrowserErrorController extends Controller

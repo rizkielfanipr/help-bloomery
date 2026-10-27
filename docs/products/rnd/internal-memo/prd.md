@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Baseline | 23 September 2026 |
-| Status | Rancangan final untuk review; implementasi belum dimulai |
+| Status | Sebagian digantikan: alur operasional oleh `docs/products/rnd/internal-memo-simplification/prd.md`, scope Brand oleh `docs/products/rnd/internal-memo-brand/prd.md`. Tetap dirujuk kode untuk aturan BOM, konsolidasi, dan forecast. Status awal: Rancangan final untuk review; implementasi belum dimulai |
 | Modul | Research & Development |
 | Menu | `R&D → Memo Internal` |
 | Company Code | Khusus `BLSS`; tidak dapat dipilih atau diganti dari UI/request |

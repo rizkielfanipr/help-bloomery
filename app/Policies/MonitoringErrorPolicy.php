@@ -6,7 +6,7 @@ use App\Models\MonitoringError;
 use App\Models\User;
 
 /**
- * Error Monitor access (docs/operations/monitoring/prd.md §13). Stack frames are technical details.
+ * Error Monitor access (docs/products/system-monitoring/prd.md §13). Stack frames are technical details.
  */
 class MonitoringErrorPolicy
 {

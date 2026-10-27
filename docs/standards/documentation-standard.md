@@ -26,12 +26,27 @@ Dokumen ini mengatur di mana dokumentasi disimpan, bagaimana diberi nama, kapan 
 | `docs/templates/` | Template reusable; tidak berisi dokumen fitur |
 | `docs/standards/` | Standar lintas modul: kode, UI, struktur codebase, dokumentasi |
 | `docs/architecture/` | Gambaran sistem, data model, panel, RBAC, dan integrasi |
-| `docs/products/{domain}/{feature}/` | Dokumentasi fitur per domain bisnis |
-| `docs/operations/` | CI/CD, deployment, production, monitoring, backup/restore |
+| `docs/products/{domain}/README.md` | Dokumentasi modul: perilaku sistem saat ini |
+| `docs/products/{domain}/{feature}/` | Dokumen fitur (PRD, plan, rollout, keputusan, laporan) |
+| `docs/operations/` | CI/CD, deployment, production, backup/restore |
 | `docs/reports/` | Audit dan laporan implementasi lintas modul yang tidak dimiliki satu fitur |
 | `docs/archive/` | Dokumen yang sudah tidak berlaku; dibuat saat pertama kali ada dokumen yang diarsipkan |
 
-Domain produk mengikuti kelompok menu/permission aplikasi: `analytics`, `daily-briefing`, `finance`, `information-technology`, `inventory`, `kitchen`, `operational`, `purchasing`, `rnd`, `sales-growth`, `workforce`. Folder domain dibuat hanya ketika ada dokumen di dalamnya.
+Domain produk mengikuti grup menu Back Office: `access-management`, `analytics`, `brand-marketing`, `daily-briefing`, `driver`, `finance`, `information-technology`, `inventory`, `kitchen`, `master-data`, `operational`, `purchasing`, `quality-control`, `rnd`, `sales-growth`, `system-monitoring`, `technician`, `workforce`.
+
+### Dokumentasi modul
+
+`docs/products/{domain}/README.md` adalah sumber kebenaran tentang **perilaku sistem saat ini** dan wajib diperbarui dalam PR yang mengubah perilaku modul tersebut. Isi minimal:
+
+1. Lokasi: menu Back Office / tile Employee App beserta permission.
+2. Alur kerja dan status.
+3. Aturan bisnis penting yang dijaga server.
+4. Otomatisasi: command dan jadwal.
+5. Data: model utama dengan tautan ke [Data Model](../architecture/data-model.md).
+6. Dokumen terkait: PRD dan statusnya.
+7. Role bawaan.
+
+PRD menyimpan requirement saat fitur dirancang. Bila implementasi berbeda dari PRD, README domain yang mengikuti kode, dan perbedaannya dicatat di README tersebut.
 
 ## 2. Jenis dokumen
 
@@ -146,8 +161,9 @@ Setelah fitur berjalan di production:
 
 1. Ubah `status` PRD menjadi `implemented` dan perbarui `updated_at`.
 2. Catat deviasi antara PRD dan implementasi pada implementation report, bukan dengan menulis ulang PRD.
-3. Perbarui README fitur dan README domain.
-4. Perbarui `docs/architecture/` bila data model, panel, RBAC, atau integrasi berubah.
+3. Perbarui README domain (dokumentasi modul) dan README fitur.
+4. Perbarui `docs/architecture/` bila data model, panel, RBAC, atau integrasi berubah. `data-model.md` dihasilkan dari kode; perbarui dengan menjalankan ulang generator yang sama, bukan diedit manual sebagian.
+5. Hapus implementation prompt yang tidak lagi dipakai, serta laporan yang tidak dirujuk dokumen aktif atau kode. Isinya tetap ada di riwayat Git.
 
 ## 13. Menggunakan template
 

@@ -14,7 +14,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Single ingestion path for deployment metadata (docs/operations/monitoring/prd.md §14), used by the
+ * Single ingestion path for deployment metadata (docs/products/system-monitoring/prd.md §14), used by the
  * signed HTTP callback and the local `monitoring:record-deployment` command. Re-sending the same
  * provider + run ID updates that deployment (stage progression) instead of creating duplicates.
  */

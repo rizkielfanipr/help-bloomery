@@ -7,7 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
 /**
- * Proves a queue worker is processing jobs (docs/operations/monitoring/prd.md §12.1). Idempotent,
+ * Proves a queue worker is processing jobs (docs/products/system-monitoring/prd.md §12.1). Idempotent,
  * single try, and failure-tolerant so it never blocks business jobs.
  */
 class RecordQueueHeartbeatJob implements ShouldQueue

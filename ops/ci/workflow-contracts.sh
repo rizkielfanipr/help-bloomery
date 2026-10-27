@@ -17,11 +17,10 @@ grep -q '^  push:$' "$release_workflow"
 grep -q 'Production approval rehearsal (no deploy)' "$release_workflow"
 grep -q 'environment: production' "$release_workflow"
 grep -q 'PRODUCTION_APPROVAL_REHEARSAL_ENABLED' "$release_workflow"
-
-if grep -q 'release production' "$release_workflow"; then
-    echo 'Phase 3 release workflow must not deploy production.' >&2
-    exit 1
-fi
+grep -q 'Deploy production atomically' "$release_workflow"
+grep -q "vars.ATOMIC_PRODUCTION_ENABLED == 'true'" "$release_workflow"
+grep -q 'release production' "$release_workflow"
+grep -q 'Source: staging-verified immutable artifact' "$release_workflow"
 
 grep -q '^  workflow_dispatch:$' "$legacy_workflow"
 

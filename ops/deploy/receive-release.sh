@@ -21,10 +21,16 @@ readonly archive_name="help-bloomery-${commit_sha}.tar.gz"
 readonly archive_path="${incoming_path}/${archive_name}"
 readonly checksum_path="${archive_path}.sha256"
 readonly health_url_path="${deployment_root}/${environment_name}/shared/health-url"
+readonly production_gate_path="${deployment_root}/production/shared/atomic-release-enabled"
 
 if [[ ! -d "$incoming_path" ]]; then
     echo 'Incoming release directory does not exist.' >&2
     exit 66
+fi
+
+if [[ "$environment_name" == 'production' && ! -f "$production_gate_path" ]]; then
+    echo 'Atomic production releases are not enabled on this server.' >&2
+    exit 69
 fi
 
 temporary_archive="$(mktemp "${incoming_path}/.${archive_name}.XXXXXX")"

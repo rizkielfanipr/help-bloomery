@@ -57,6 +57,30 @@ continues to use the legacy deployment command throughout Phase 2.
 
 Never set the corresponding production gate or change the production Nginx root during Phase 2.
 
+## Phase 4 production activation order
+
+The production workflow is disabled unless the repository variable
+`ATOMIC_PRODUCTION_ENABLED=true` is present. The server independently rejects production uploads
+until `/var/www/bloomery/production/shared/atomic-release-enabled` exists. Both gates must remain
+disabled while production still uses the legacy document root.
+
+1. Keep `ATOMIC_PRODUCTION_ENABLED` unset and remove or disable
+   `PRODUCTION_APPROVAL_REHEARSAL_ENABLED` after the Phase 3 evidence is recorded.
+2. Create the production release layout and copy the active production `.env` and storage into
+   `shared` without modifying the legacy application.
+3. Create an initial release representing the currently active production commit and verify it
+   through a local-only Nginx preflight endpoint.
+4. Back up the production Nginx configuration, change its root to `production/current/public`, run
+   `nginx -t`, reload, and verify `/up` plus the required smoke checks.
+5. Create the server marker `shared/atomic-release-enabled` only after the cutover is healthy.
+6. Set `ATOMIC_PRODUCTION_ENABLED=true`. The next approved production job will stream the same
+   artifact that already passed staging.
+7. Retain the legacy production directory and Nginx backup until at least three atomic production
+   releases and one rollback rehearsal are successful.
+
+If cutover verification fails, restore the previous Nginx root immediately. Do not roll back a
+database migration automatically.
+
 ## Local verification
 
 ```bash

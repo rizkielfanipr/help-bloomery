@@ -1179,6 +1179,11 @@ production tidak berubah, fallback lama hanya manual, dan restore backup berhasi
 
 ### Phase 4 — Cutover production
 
+**Persiapan kode:** workflow production atomik tersedia tetapi default-nya nonaktif. GitHub hanya
+menjalankan job ini jika repository variable `ATOMIC_PRODUCTION_ENABLED=true`. VPS juga menolak
+upload production sebelum marker `production/shared/atomic-release-enabled` dibuat setelah cutover
+manual dinyatakan sehat. Dua gate independen ini mencegah aktivasi production secara tidak sengaja.
+
 Lakukan pada waktu traffic rendah:
 
 1. Pastikan backup terbaru tersedia.

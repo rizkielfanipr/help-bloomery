@@ -130,7 +130,7 @@ jobs:
   production-approval-rehearsal:
     name: Production approval rehearsal (no deploy)
     needs: deploy-staging
-    if: vars.PRODUCTION_APPROVAL_REHEARSAL_ENABLED == 'true'
+    if: vars.PRODUCTION_APPROVAL_REHEARSAL_ENABLED == 'true' && vars.ATOMIC_PRODUCTION_ENABLED != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: production
@@ -159,4 +159,68 @@ jobs:
             echo '- Staging result: healthy'
             echo '- Production deployment: disabled in Phase 3'
             echo '- No SSH credentials were used by this job'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-production:
+    name: Deploy production atomically
+    needs: deploy-staging
+    if: vars.ATOMIC_PRODUCTION_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    steps:
+      - name: Download the staging-verified artifact
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: release-${{ github.sha }}
+          path: dist
+
+      - name: Verify promoted artifact checksum
+        working-directory: dist
+        run: sha256sum --check "help-bloomery-${GITHUB_SHA}.tar.gz.sha256"
+
+      - name: Configure SSH
+        env:
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: Check VPS connectivity
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: nc -vz -w 10 "$VPS_HOST" 22
+
+      - name: Stream verified release to production
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          archive_path="dist/help-bloomery-${GITHUB_SHA}.tar.gz"
+          archive_checksum="$(sha256sum "$archive_path" | awk '{print $1}')"
+
+          ssh \
+            -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" \
+            "release production $GITHUB_RUN_NUMBER $GITHUB_SHA $archive_checksum" \
+            < "$archive_path"
+
+      - name: Write production release summary
+        run: |
+          {
+            echo '## Atomic production release'
+            echo
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Run: \`$GITHUB_RUN_NUMBER\`"
+            echo '- Environment: `production`'
+            echo '- Source: staging-verified immutable artifact'
+            echo '- Result: artifact verified, activated, and health-checked'
           } >> "$GITHUB_STEP_SUMMARY"

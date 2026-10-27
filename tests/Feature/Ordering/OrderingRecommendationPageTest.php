@@ -3,11 +3,14 @@
 use App\Actions\Ordering\ExportOrderingRecommendationsXlsxAction;
 use App\Filament\Helpdesk\Pages\OrderingRecommendationPage;
 use App\Models\Branch;
+use App\Models\Brand;
 use App\Models\OrderingDailyMetric;
 use App\Models\OrderingForecastItem;
 use App\Models\OrderingForecastRun;
 use App\Models\OrderingSyncRun;
 use App\Models\User;
+use App\Services\Ordering\OrderingReasonCodes;
+use App\Services\Ordering\OrderingRecommendationQuery;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -30,7 +33,7 @@ beforeEach(function () {
     $this->alphaRun = OrderingForecastRun::factory()->create(['branch_id' => $this->alpha->id, 'completeness' => ['pairs' => [['company_code' => 'BLSS', 'usage_valid_days' => 56, 'usage_missing_days' => 0, 'failed_runs' => 0]], 'warnings' => ['stock_location_unconfirmed']]]);
     $this->betaRun = OrderingForecastRun::factory()->create(['branch_id' => $this->beta->id]);
     $this->alphaItem = OrderingForecastItem::factory()->create(['ordering_forecast_run_id' => $this->alphaRun->id, 'product_code' => '000123', 'product_name' => 'Croissant Dough', 'priority_score' => 0.9]);
-    $this->alphaBlocked = OrderingForecastItem::factory()->blocked('stock_location_unconfirmed')->create(['ordering_forecast_run_id' => $this->alphaRun->id, 'product_name' => 'Kopi Susu Base', 'uom' => 'GR', 'explanation' => 'Tidak dapat dihitung: Lokasi stok Store belum dikonfirmasi.']);
+    $this->alphaBlocked = OrderingForecastItem::factory()->blocked('stock_location_unconfirmed')->create(['ordering_forecast_run_id' => $this->alphaRun->id, 'product_name' => 'Kopi Susu Base', 'uom' => 'GR', 'explanation' => 'Tidak dapat dihitung: Lokasi stok branch belum dipilih.']);
     $this->betaItem = OrderingForecastItem::factory()->create(['ordering_forecast_run_id' => $this->betaRun->id, 'product_name' => 'Beta Only Product']);
 
     $this->viewer = User::factory()->create(['is_active' => true, 'branch_id' => $this->alpha->id]);
@@ -81,6 +84,39 @@ it('shows only the branches a limited user may access, even when the branch filt
         ->assertNotFound();
 });
 
+it('uses searchable brand and branch selectors with removable selections', function () {
+    $patisserie = Brand::factory()->create(['name' => 'Patisserie Filter']);
+    $kitchen = Brand::factory()->create(['name' => 'Kitchen Filter']);
+    $this->alpha->update(['brand_id' => $patisserie->id]);
+    $this->beta->update(['brand_id' => $kitchen->id]);
+    $this->actingAs($this->analyst);
+
+    $page = Livewire::test(OrderingRecommendationPage::class)
+        ->assertSeeHtml('id="ordering-brand-search"')
+        ->assertSeeHtml('id="ordering-branch-search"')
+        ->call('toggleBrandId', $patisserie->id)
+        ->assertSet('brandIds', [$patisserie->id])
+        ->assertSet('branchIds', []);
+
+    expect($page->viewData('branchOptions')->modelKeys())->toBe([$this->alpha->id]);
+
+    $page->call('toggleBranchId', $this->alpha->id)
+        ->assertSet('branchIds', [$this->alpha->id])
+        ->assertSee('Branch Alpha')
+        ->call('toggleBranchId', $this->alpha->id)
+        ->assertSet('branchIds', [])
+        ->call('toggleBrandId', $patisserie->id)
+        ->assertSet('brandIds', []);
+});
+
+it('does not allow the branch selector action to add an inaccessible branch', function () {
+    $this->actingAs($this->viewer);
+
+    Livewire::test(OrderingRecommendationPage::class)
+        ->call('toggleBranchId', $this->beta->id)
+        ->assertSet('branchIds', [$this->alpha->id]);
+});
+
 it('keeps every branch separate for an all-branch user with an overview and per-branch ranking', function () {
     $this->actingAs($this->analyst);
 
@@ -93,22 +129,81 @@ it('keeps every branch separate for an all-branch user with an overview and per-
         ->assertSet('activeBranchId', $this->alpha->id)
         ->call('selectBranch', $this->beta->id)
         ->assertSet('activeBranchId', $this->beta->id)
-        ->assertSee('Ranking — Branch Beta');
+        ->assertSee('Produk Teratas: Branch Beta');
 });
 
 it('counts KPIs per product without summing quantities across UOMs and labels blocked rows', function () {
     $this->actingAs($this->viewer);
 
+    $kpis = app(OrderingRecommendationQuery::class)->kpis([$this->alphaRun->id], []);
     $page = Livewire::test(OrderingRecommendationPage::class);
     // Both rows trend up (the blocked one still has a demand trend); quantities are never totalled.
-    expect($page->viewData('kpis'))->toBe(['products' => 2, 'need_order' => 1, 'stockout' => 1, 'trend_up' => 2, 'high_waste' => 0, 'incomplete' => 1]);
+    expect($kpis)->toBe(['products' => 2, 'need_order' => 1, 'stockout' => 1, 'trend_up' => 2, 'high_waste' => 0, 'incomplete' => 1]);
     $page->assertSee('Tidak dapat dihitung')
-        ->assertSee('Lokasi stok Store belum dikonfirmasi')
-        ->assertSee('Stale — sinkronisasi terakhir sudah lama')
+        ->assertSee('Data perlu diperbarui')
+        ->assertSee('Data terakhir diambil dari ESB lebih dari 48 jam yang lalu')
+        ->assertSee('Perlu diperhatikan')
+        ->assertSee('Lokasi stok untuk branch ini belum dipilih di Ordering Recommendation Settings. Karena itu jumlah yang perlu dipesan belum bisa dihitung.')
+        ->assertDontSee('Stale')
+        ->assertDontSee('Branch dianalisis')
+        ->assertDontSee('UOM grafik')
         ->assertDontSeeHtml('total_quantity');
 });
 
+it('shows ranking as an actionable table with its forecast period and order deadline', function () {
+    $this->alphaRun->update([
+        'forecast_from' => '2026-10-20',
+        'forecast_to' => '2026-10-26',
+    ]);
+    $this->alphaItem->update([
+        'available_stock' => 5,
+        'predicted_stockout_date' => '2026-10-23',
+    ]);
+    $this->actingAs($this->viewer);
+
+    Livewire::test(OrderingRecommendationPage::class)
+        ->assertSee('10 produk teratas berdasarkan Prioritas Order untuk')
+        ->assertSee('20 Oct 2026 sampai 26 Oct 2026')
+        ->assertSee('Prediksi Ordering Produk')
+        ->assertSeeHtml('fi-pagination-overview')
+        ->assertSee('Tren')
+        ->assertSee('Waste')
+        ->assertSee('Coverage')
+        ->assertSeeHtml('data-testid="ordering-recommendation-products-table"')
+        ->assertSee('Stok Aman Hingga')
+        ->assertSee('Order Sebelum')
+        ->assertSee('22 Oct 2026')
+        ->assertSee('Batas 23 Oct 2026')
+        ->set('rankingType', 'top_demand')
+        ->assertSee('10 produk teratas berdasarkan Top Demand untuk');
+});
+
+it('labels an empty stock as out of stock and its order as urgent', function () {
+    $this->alphaItem->update(['available_stock' => 0]);
+    $this->actingAs($this->viewer);
+
+    Livewire::test(OrderingRecommendationPage::class)
+        ->assertSee('Stok Habis')
+        ->assertSee('Order Segera')
+        ->assertDontSee('Sudah tidak aman');
+});
+
 it('filters on submit, resets pagination, and explains the formula in the detail', function () {
+    $this->alphaItem->update([
+        'weekday_baseline' => [
+            1 => [
+                'value' => 8.5,
+                'fallback' => false,
+                'samples' => [
+                    ['date' => '2026-10-19', 'usage' => 9, 'weight' => 1],
+                    ['date' => '2026-10-12', 'usage' => 8, 'weight' => 0.85],
+                ],
+            ],
+        ],
+        'daily_breakdown' => [
+            ['date' => '2026-10-22', 'forecast' => 8.5, 'cumulative' => 8.5, 'projected_stock' => -2.5],
+        ],
+    ]);
     $this->actingAs($this->viewer);
 
     Livewire::test(OrderingRecommendationPage::class)
@@ -122,6 +217,17 @@ it('filters on submit, resets pagination, and explains the formula in the detail
         ->call('applyFilters')
         ->call('openDetail', $this->alphaItem->id)
         ->assertSet('detailItemId', $this->alphaItem->id)
+        ->assertSeeHtml('data-testid="ordering-recommendation-detail-content"')
+        ->assertSeeHtml('fi-modal-has-sticky-header')
+        ->assertSeeHtml('fi-width-7xl')
+        ->assertSeeHtml('max-height: calc(100dvh - 2rem); overflow-y: auto; overscroll-behavior: contain;')
+        ->assertSee('Identitas dan Periode')
+        ->assertSee('Baseline per Hari')
+        ->assertSee('Komponen Perhitungan')
+        ->assertSee('Hasil Rekomendasi')
+        ->assertSee('Model dan Kualitas Prediksi')
+        ->assertSee('Proyeksi Harian')
+        ->assertSee('19/10')
         ->assertSee('Gross = forecast + expected waste + buffer')
         ->assertSee('Inbound belum diperhitungkan')
         ->assertSee('000123');
@@ -206,4 +312,14 @@ it('keeps the render query count independent of the number of products (no N+1)'
     $large = $count();
 
     expect($large)->toBe($small)->and($small)->toBeLessThan(40);
+});
+
+it('explains data completeness and branch notes in plain sentences', function () {
+    expect(OrderingReasonCodes::note('category_unconfirmed'))
+        ->toBe('Daftar kategori produk yang dipesan Store belum ditentukan. Karena itu semua produk ikut dihitung dan tingkat keyakinan rekomendasi paling tinggi Low.')
+        ->and(OrderingReasonCodes::note('stock_stale'))->toBe('Data stok sudah terlalu lama tidak diperbarui.')
+        ->and(OrderingRecommendationQuery::stateText('fresh'))->toBe([
+            'label' => 'Data lengkap',
+            'description' => 'Data penjualan dan stok dari ESB sudah lengkap dan diperbarui dalam 48 jam terakhir.',
+        ]);
 });

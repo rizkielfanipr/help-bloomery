@@ -5,7 +5,8 @@
 | Field | Nilai |
 | --- | --- |
 | Tanggal baseline | 26 Oktober 2026 |
-| Status | Phase 1, Phase 2, dan Phase 3 selesai; Phase 4 belum dimulai |
+| Pembaruan terakhir | 27 Oktober 2026 |
+| Status | Phase 1 sampai Phase 4 selesai; Phase 5 dalam masa observasi |
 | Aplikasi | Help Bloomery |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Stack | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Pest 4, Node.js 22, Vite 8 |
@@ -33,6 +34,10 @@
 | Phase 2 — Atomic staging | Selesai | Exit criteria tiga deployment dan satu simulasi rollback tercapai |
 | Uji restore backup | Selesai | Backup production 26 Oktober 2026 berhasil direstore terisolasi: 191 tabel, 338 migration, dan seluruh `mysqlcheck` OK |
 | Phase 3 — Promotion pipeline | Selesai | Release #6 membuktikan jalur reject; Release #7 membuktikan jalur approve dan checksum tanpa deployment production |
+| Bootstrap atomic production | Selesai | Initial release `9-eedb7d04`, shared `.env`/storage, preflight lokal, serta rollback runtime tervalidasi |
+| Cutover production | Selesai | Nginx, Supervisor, dan scheduler memakai `/var/www/bloomery/production/current` |
+| Atomic production pipeline | Selesai | Release #10 mempromosikan artifact staging ke production; monitoring mencatat `succeeded`, migration `ran`, dan health `healthy` |
+| Phase 4 — Atomic production | Selesai | Public health/login HTTP 200, queue worker aktif, Redis sehat, dan disk 14% setelah release #10 |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1058,6 +1063,24 @@ Target dari `docs/application-stability-scalability-prd.md` tetap berlaku:
 
 Artifact release bukan backup database dan bukan backup attachment R2.
 
+### 20.1 Retensi binary log production
+
+Pada 27 Oktober 2026, 617 binary log menggunakan 63,19 GB dan membuat filesystem mencapai 98%.
+Tidak ada replica aktif. Setelah backup terbaru diverifikasi dan satu backup berhasil diuji restore,
+log lama dipurge melalui MySQL, database restore sementara dihapus, dan penggunaan disk turun menjadi
+13–14%.
+
+Binary logging tetap aktif untuk point-in-time recovery. Konfigurasi persisten production adalah:
+
+```text
+binlog_expire_logs_auto_purge=ON
+binlog_expire_logs_seconds=86400
+```
+
+Artinya jendela binary log lokal ditargetkan 24 jam. Jangan menghapus `binlog.*` langsung dari
+filesystem; gunakan `PURGE BINARY LOGS`. Pertumbuhan disk dan tabel dengan aktivitas write tertinggi
+harus terus dipantau karena retensi tidak memperbaiki sumber write yang abnormal.
+
 ---
 
 ## 21. GitHub Ruleset `main`
@@ -1179,10 +1202,9 @@ production tidak berubah, fallback lama hanya manual, dan restore backup berhasi
 
 ### Phase 4 — Cutover production
 
-**Persiapan kode:** workflow production atomik tersedia tetapi default-nya nonaktif. GitHub hanya
-menjalankan job ini jika repository variable `ATOMIC_PRODUCTION_ENABLED=true`. VPS juga menolak
-upload production sebelum marker `production/shared/atomic-release-enabled` dibuat setelah cutover
-manual dinyatakan sehat. Dua gate independen ini mencegah aktivasi production secara tidak sengaja.
+**Status 27 Oktober 2026:** selesai. Workflow production atomik tersedia melalui repository variable
+`ATOMIC_PRODUCTION_ENABLED=true`. VPS juga memerlukan marker
+`production/shared/atomic-release-enabled`; dua gate independen mencegah aktivasi tidak sengaja.
 
 Lakukan pada waktu traffic rendah:
 
@@ -1195,6 +1217,20 @@ Lakukan pada waktu traffic rendah:
 7. Jalankan health dan smoke check.
 8. Approve satu release baru melalui pipeline.
 9. Pantau error, queue, scheduler, login, dan route utama.
+
+Initial release `9-eedb7d04` dibuat dari artifact yang sudah sehat di staging. Release tersebut diuji
+melalui Nginx lokal `127.0.0.1:18080`: manifest cocok, `/up` HTTP 200, login HTTP 200, dan tidak ada
+error PHP-FPM. Konfigurasi Nginx, Supervisor, serta cron dibackup dan rollback script diuji sebelum
+cutover.
+
+Setelah cutover, Nginx memakai `production/current/public`, queue worker dan scheduler memakai
+`production/current`, sedangkan `.env` dan storage berasal dari shared directory. Local preflight
+listener kemudian dinonaktifkan. Release #10 berhasil melalui approval GitHub Environment dan
+mengaktifkan `10-eedb7d04`. System Monitoring mencatat provider `github_actions`, status `succeeded`,
+stage `completed`, migration `ran`, dan health `healthy`. Disk tetap 14% dan binary log hanya 0,04 GB.
+
+**Exit criteria:** tercapai. Build-once promotion, approval production, atomic activation, runtime
+worker/scheduler, health check, deployment monitoring, dan rollback cutover telah diverifikasi.
 
 **Rollback cutover:** kembalikan Nginx root ke path lama dan reload Nginx. Jangan menghapus deployment lama pada hari cutover.
 
@@ -1272,33 +1308,33 @@ Pipeline baru dinyatakan selesai jika seluruh kondisi berikut terpenuhi:
 
 ### Artifact
 
-- [ ] Satu commit menghasilkan satu artifact dan checksum.
-- [ ] Artifact tidak memuat `.env`, `.git`, `node_modules`, log, atau runtime storage.
-- [ ] Staging dan production menggunakan checksum yang sama.
-- [ ] Manifest release cocok dengan GitHub SHA dan run ID.
+- [x] Satu commit menghasilkan satu artifact dan checksum.
+- [x] Artifact tidak memuat `.env`, `.git`, `node_modules`, log, atau runtime storage.
+- [x] Staging dan production menggunakan checksum yang sama.
+- [x] Manifest release cocok dengan GitHub SHA dan run ID.
 
 ### Server
 
-- [ ] Nginx menggunakan `current/public` dan `$realpath_root`.
-- [ ] `.env` dan storage berada di shared directory.
-- [ ] Symlink activation atomik.
-- [ ] Deployment overlap ditolak oleh `flock`.
-- [ ] Queue worker restart secara graceful.
-- [ ] Scheduler tetap aktif setelah symlink berpindah.
-- [ ] Permission tidak menggunakan `777`.
+- [x] Nginx menggunakan `current/public` dan `$realpath_root`.
+- [x] `.env` dan storage berada di shared directory.
+- [x] Symlink activation atomik.
+- [x] Deployment overlap ditolak oleh `flock`.
+- [x] Queue worker restart secara graceful.
+- [x] Scheduler tetap aktif setelah symlink berpindah.
+- [x] Permission tidak menggunakan `777`.
 
 ### Verifikasi dan pemulihan
 
-- [ ] `/up` lulus setelah deployment.
-- [ ] Redis, database, queue, dan scheduler terpantau.
-- [ ] Deployment tercatat di System Monitoring.
-- [ ] Simulasi rollback aplikasi berhasil.
+- [x] `/up` lulus setelah deployment.
+- [x] Redis, database, queue, dan scheduler terpantau.
+- [x] Deployment tercatat di System Monitoring.
+- [x] Simulasi rollback staging dan rollback konfigurasi cutover berhasil.
 - [ ] Tim memahami bahwa migration tidak otomatis di-rollback.
 - [x] Backup production berhasil direstore dan diperiksa pada database sementara yang terisolasi.
 
 ### Performa
 
-- [ ] CI Pull Request konsisten ≤ 10 menit atau memiliki rencana optimasi berbasis data.
+- [x] CI Pull Request konsisten ≤ 10 menit atau memiliki rencana optimasi berbasis data.
 - [ ] Deployment aplikasi normal ≤ 3 menit di luar waktu approval.
 - [ ] Rollback aplikasi ≤ 5 menit.
 

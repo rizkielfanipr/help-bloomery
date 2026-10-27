@@ -2,8 +2,11 @@
 
 use App\Enums\MaterialPricingStatus;
 use App\Enums\MaterialReviewStatus;
+use App\Filament\Helpdesk\Resources\MaterialPricelists\MaterialPricelistResource;
 use App\Filament\Helpdesk\Resources\MaterialPricelists\Pages\ListMaterialPricelists;
+use App\Filament\Helpdesk\Resources\MaterialReviews\MaterialReviewResource;
 use App\Filament\Helpdesk\Resources\MaterialReviews\Pages\ListMaterialReviews;
+use App\Filament\Helpdesk\Resources\ReviewSourcings\ReviewSourcingResource;
 use App\Models\RndMaterialPricingRequest;
 use App\Models\RndProductEsbMaterial;
 use App\Models\User;
@@ -14,6 +17,35 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+});
+
+it('renders every material workflow queue in the custom sidebar for its responsible role', function () {
+    $it = User::factory()->create(['is_active' => true]);
+    $it->assignRole('IT_STAFF');
+
+    $this->actingAs($it)
+        ->get(MaterialReviewResource::getUrl('index'))
+        ->assertSuccessful()
+        ->assertSee('Review Data')
+        ->assertSee(MaterialReviewResource::getUrl('index'), false);
+
+    $rnd = User::factory()->create(['is_active' => true]);
+    $rnd->assignRole('RND_STAFF');
+
+    $this->actingAs($rnd)
+        ->get(ReviewSourcingResource::getUrl('index'))
+        ->assertSuccessful()
+        ->assertSee('Review Sourcing')
+        ->assertSee(ReviewSourcingResource::getUrl('index'), false);
+
+    $finance = User::factory()->create(['is_active' => true]);
+    $finance->assignRole('FINANCE_STAFF');
+
+    $this->actingAs($finance)
+        ->get(MaterialPricelistResource::getUrl('index'))
+        ->assertSuccessful()
+        ->assertSee('Product Pricelist')
+        ->assertSee(MaterialPricelistResource::getUrl('index'), false);
 });
 
 it('renders the material review filters inline in the column headers', function () {

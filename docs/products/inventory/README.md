@@ -50,6 +50,20 @@ Daftar produk ESB dengan pengaturan lokal per produk: standar masa kedaluwarsa (
 
 Inventory menerima material marketing yang sudah dipesan Purchasing. Alurnya ada di [Purchasing](../purchasing/README.md#material-marketing).
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{StockCards,GoodsReceipts,Locations,LocationTypes}/`, `app/Filament/Helpdesk/Pages/{StockCardSettingsPage,ProductListPage}.php` |
+| Employee App | `app/Filament/Casual/Pages/{StockCardPage,StockCardEntryPage,StockCardCalendarPage,StockCardHistoryPage,GoodsReceiptPage}.php` |
+| Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,EsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService}.php`, `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
+| Policy | `app/Policies/StockCardPolicy.php` |
+| Enum | `app/Enums/StockCardStatus.php` |
+| Model | `app/Models/{StockCard,GoodsReceipt,Location,ProductSetting}*.php` |
+| Test | `tests/Feature/{StockCard,GoodsReceipt,Receiving,Location,ProductList}*Test.php`, `tests/Unit/{GoodsReceiptServiceTest,InboundGoodsReceiptQcServiceTest}.php` |
+
 ## Data
 
 `StockCard` dan item-nya, `GoodsReceipt`, `GoodsReceiptItem`, `GoodsReceiptExpiry`, `Location`, `LocationType`, `ProductSetting`. Lihat [Data Model](../../architecture/data-model.md#inventory).

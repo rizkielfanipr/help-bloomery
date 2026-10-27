@@ -58,6 +58,20 @@ Antrean harga resmi Finance untuk Master Bahan dan WIP yang sudah lolos sourcing
 | `sales-reports:migrate-legacy-finance-status` | Preview, konversi, atau restore laporan `pending_finance` lama |
 | `branch-shifts:clear` | One-off: hapus pengaturan shift basket size cabang (dengan backup dan `--restore`) |
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{SalesReports,SalesReportCompliments,SalesReportVoids,ComplimentTypes,MaterialPricelists}/`, `app/Filament/Helpdesk/Pages/{SalesReportSettingsPage,SalesReportScoresPage,BasketSizePage}.php` |
+| Employee App | `app/Filament/Casual/Pages/{SalesReportPage,SalesReportShiftPage,SalesReportCalendarPage,SalesReportHistoryPage}.php` |
+| Logika | `app/Actions/SalesReport/`, `app/Actions/CalculateBasketSizeAction.php`, `app/Services/SalesReport/`, `app/Services/{SalesReportReconciliationService,SalesReportScoreCalculator,BasketSizeFinalizer}.php`, `app/Http/Controllers/SalesReportEvidenceController.php` |
+| Enum | `app/Enums/{SalesReportStatus,SalesReportDataSource}.php` |
+| Model | `app/Models/{SalesReport,BasketSize,ComplimentType}*.php` |
+| Command | `app/Console/Commands/{SalesReport,AuditSalesReport,MigrateLegacySalesReport,BasketSize,ClearBranchSalesShifts}*.php` |
+| Test | `tests/Feature/{SalesReport,BasketSize,AuditSalesReport,MigrateLegacySalesReport}*Test.php` |
+
 ## Data
 
 `SalesReport`, `SalesReportShiftSubmission`, `SalesReportEntry`, `SalesReportEmployee`, `SalesReportCompliment`, `SalesReportVoid`, `SalesReportEsbTransaction`, `SalesReportReconciliation`, `SalesReportApproval`, `SalesReportSettings`, `ComplimentType`, `BasketSizeRecord`, `BasketSizeEmployeeRecord`. Lihat [Data Model](../../architecture/data-model.md#finance).

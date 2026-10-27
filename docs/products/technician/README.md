@@ -40,6 +40,20 @@ Setiap siklus perbaikan tersimpan di `service_request_repairs` (nomor siklus, te
 - Teknisi memulai maintenance bulan berjalan per cabang di Employee App, mengisi checklist (draft), lalu submit.
 - **Rekap Maintenance** di back office menampilkan status per cabang, tahun, dan bulan.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{ServiceRequests,Assets,TechnicianMaintenanceChecklists}/`, `app/Filament/Helpdesk/Resources/TechnicianMonthlyMaintenanceResource.php`, `app/Filament/Helpdesk/Pages/TechnicianSettingsPage.php`, `app/Filament/Helpdesk/Navigation/HelpdeskNavigation.php` |
+| Employee App | `app/Filament/Casual/Pages/{TechnicianRequestPage,TechnicianRequestHistoryPage,TechnicianHistoryPage,TechnicianMaintenancePage,TechnicianMaintenanceDetailPage,TechnicianProfilePage}.php`, `app/Filament/Casual/Resources/ServiceRequests/`, `app/Filament/Technician/` |
+| Logika | `app/Services/{ServiceRequestWorkflow,AssetServiceRequestAssigner,QrCodeGenerator}.php`, `app/Http/Controllers/{AssetScanController,AssetIssueReportController}.php` |
+| Enum | `app/Enums/ServiceRequestStatus.php` |
+| Model | `app/Models/{ServiceRequest,Asset,Technician}*.php` |
+| Command | `app/Console/Commands/AutoCompleteWarrantyCommand.php` |
+| Test | `tests/Feature/{ServiceRequest,Asset,TechnicianMaintenance}*Test.php` |
+
 ## Data
 
 `ServiceRequest`, `ServiceRequestRepair`, `Asset`, `TechnicianSettings`, `TechnicianMonthlyMaintenance` dan checklist-nya. Lihat [Data Model](../../architecture/data-model.md#technician).

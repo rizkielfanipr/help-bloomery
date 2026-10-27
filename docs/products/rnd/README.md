@@ -107,6 +107,20 @@ Master prefix untuk penamaan Master Bahan di halaman produk project: kode, label
 | `rnd:backfill-internal-memo-brands` | Isi brand memo lama dari branch lama; dry-run kecuali `--apply` |
 | `esb:create-units`, `esb:rename-products`, `esb:replace-product-units`, `esb:replace-bom-units`, `esb:set-recipe-unit`, `esb:normalize-mille-crepe-whole-menus` | Utilitas one-off perubahan massal di ESB berdasarkan file Excel; setiap perubahan diverifikasi |
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{Projects,RndProjectTaskTemplates,RndInternalMemos,ReviewSourcings,PrefixCategories,PrefixNames}/`, `app/Filament/Helpdesk/Pages/{ViewProjectProductPage,BomAdjustmentPage,EditBomAdjustmentPage,BillOfMaterialPage,CreateBomRecipePage,WipShelfLifePage,ProductPriceIndexPage,ProductPriceIndexDetailPage}.php`, `app/Filament/Helpdesk/Concerns/` |
+| Logika | `app/Actions/Rnd/`, `app/Services/Rnd/`, `app/Services/{RndProjectMaterialForecastService,ProductPriceIndexService,ProductPriceSnapshotService,PurchaseOrderPriceSyncService,WipPriceIndexService,SyncRndEsbMaterialFromRemote}.php`, `app/Jobs/Rnd/`, `app/Livewire/` |
+| Policy | `app/Policies/Rnd*.php` |
+| Enum | `app/Enums/{Rnd,Material}*.php` |
+| Model | `app/Models/{Rnd,MaterialSourcing,Prefix,ProductPrice}*.php` |
+| Command | `app/Console/Commands/{AuditRndMaterialLegacy,AuditWipShelfLife,BackfillInternalMemoBrands,SendRndProjectTaskReminders,SyncRndEsbMaterials,SyncProductPriceIndex}Command.php`, `app/Console/Commands/Esb*.php` |
+| Test | `tests/Feature/{Rnd,ProjectTask,Bom,MaterialSourcing,ProductPriceIndex,ShelfLife}*Test.php`, `tests/Feature/MaterialWorkflow/`, `tests/Unit/{InternalMemo,RndInternalMemo}*Test.php` |
+
 ## Data
 
 Model `Rnd*`, `MaterialSourcing`, `MaterialSourcingApproval`, `PrefixCategory`, `PrefixName`, `ProductPriceSnapshot`, `ProductPriceSyncRun`. Lihat [Data Model](../../architecture/data-model.md#research--development).

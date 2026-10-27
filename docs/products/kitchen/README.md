@@ -17,6 +17,19 @@ Jadwal produksi kitchen berbasis katalog BOM Assembly. Kondisi per 27 Oktober 20
 - Status: `scheduled`, `cancelled`.
 - Setiap aksi diotorisasi ulang di server (Policy + branch access), dan Kitchen tidak memiliki approval atau publish.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Pages/KitchenProductionSchedulePage.php` |
+| Logika | `app/Actions/Kitchen/`, `app/Services/Kitchen/` |
+| Policy | `app/Policies/KitchenProductionSchedulePolicy.php` |
+| Enum | `app/Enums/KitchenProductionScheduleStatus.php` |
+| Model | `app/Models/Kitchen*.php` |
+| Test | `tests/Feature/Kitchen*Test.php` |
+
 ## Data
 
 `KitchenProductionSchedule`, `KitchenProductionScheduleItem`; katalog dari `RndBomCatalog`. Lihat [Data Model](../../architecture/data-model.md#kitchen).

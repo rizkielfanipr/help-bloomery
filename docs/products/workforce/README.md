@@ -45,6 +45,18 @@ Master posisi: nama, **fee per hari**, **rate lembur per jam**, deskripsi, dan s
 - Staff mengajukan lembur dari halaman Clock (tanggal kerja, durasi, alasan) dan dapat membatalkannya dari riwayat.
 - Back office **Lembur Casual** menampilkan rekap lembur dengan fee lembur hasil perhitungan rate posisi. Menu ini hanya untuk melihat data.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/Casual*/`, `app/Filament/Helpdesk/Widgets/CasualPositionStatsWidget.php` |
+| Employee App | `app/Filament/Casual/Pages/{ClockPage,AttendancePage,PositionsPage,ReportPage,ProfilePage}.php`, `app/Filament/Casual/Pages/Auth/Register.php` |
+| Controller/Export | `app/Http/Controllers/Helpdesk/Casual*Controller.php`, `app/Filament/Exports/Casual*Exporter.php` |
+| Model | `app/Models/Casual*.php` |
+| Test | `tests/Feature/{PositionWarRegistrationTest,CasualLoginRedirectTest}.php` |
+
 ## Data
 
 `User` (casual), `CasualPosition`, `CasualPositionOpening`, `CasualPositionRegistration`, `CasualClockRecord`, `CasualOvertimeRequest`. Lihat [Data Model](../../architecture/data-model.md#workforce-casual-staff).

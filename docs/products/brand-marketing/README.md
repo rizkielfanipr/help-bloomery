@@ -27,6 +27,18 @@ Upload material marketing pada produk Project R&D memakai permission `upload mar
 1. Cabang mengajukan dari tile **Konten**: judul, jenis, platform, keterangan, dan lampiran.
 2. Status: `submitted → in_progress → approval → completed/rejected`, dengan riwayat status. Export Excel tersedia.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{DesignRequests,DesignCategories,ContentRequests}/` |
+| Employee App | `app/Filament/Casual/Pages/{DesignRequestPage,DesignRequestHistoryPage,ContentRequestPage,ContentRequestHistoryPage}.php` |
+| Enum | `app/Enums/{DesignRequestStatus,ContentRequestStatus}.php` |
+| Model | `app/Models/{DesignRequest,DesignCategory,ContentRequest}*.php` |
+| Test | `tests/Feature/ContentRequestTest.php` |
+
 ## Data
 
 `DesignRequest`, `DesignRequestStatusHistory`, `DesignCategory`, `ContentRequest`, `ContentRequestStatusHistory`. Lihat [Data Model](../../architecture/data-model.md#brand-marketing).

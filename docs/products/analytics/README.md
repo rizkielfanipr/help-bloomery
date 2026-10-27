@@ -37,6 +37,20 @@ Pemakaian bahan harian per cabang (Daily Sales Material Usage ESB, satuan stok) 
 - **Ordering Settings**: mode lokasi stok per kode ESB cabang (`unconfigured`, `selected`, `all`) beserta discovery lokasi dari ESB.
 - `ordering:backfill` menjalankan backfill riwayat (dry-run atau dispatch).
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Pages/{SalesInformationPage,PromotionInformationPage,StockInformationPage,OrderingRecommendationPage,OrderingRecommendationSettingsPage,EsbSalesPage}.php` |
+| Logika | `app/Services/Ordering/`, `app/Jobs/Ordering/`, `app/Actions/Ordering/`, `app/Services/{EsbService,EsbPromotionService}.php` |
+| Enum | `app/Enums/Ordering*.php` |
+| Model | `app/Models/Ordering*.php` |
+| Command | `app/Console/Commands/Ordering*.php` |
+| Config | `config/ordering_recommendation.php` |
+| Test | `tests/Feature/Ordering/`, `tests/Unit/Ordering/`, `tests/Feature/SalesInformationComparisonTest.php` |
+
 ## Data
 
 `OrderingSyncRun`, `OrderingDailyMetric`, `OrderingForecastRun`, `OrderingForecastItem`; lokasi stok di `BranchEsbCode`. Halaman Sales/Promotion/Stock Information tidak menyimpan data. Lihat [Data Model](../../architecture/data-model.md#analytics).

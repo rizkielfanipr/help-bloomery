@@ -38,6 +38,19 @@ Antrean Purchasing untuk Master Bahan: menambah kandidat supplier (nama, merek, 
 
 Status: `not_started`, `ordered`, `received`.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{PurchaseRequests,VendorComplianceIncidents,MaterialSourcings,MarketingMaterialFulfillments}/` |
+| Employee App | `app/Filament/Casual/Pages/{PurchaseRequestPage,PurchaseRequestHistoryPage}.php` |
+| Policy | `app/Policies/VendorComplianceIncidentPolicy.php` |
+| Enum | `app/Enums/{PurchaseRequestStatus,PurchaseType,MarketingMaterialFulfillmentStatus}.php` |
+| Model | `app/Models/{PurchaseRequest,PurchasingRequest,VendorCompliance,MarketingMaterialFulfillment}*.php` |
+| Test | `tests/Feature/{PurchaseRequest,MarketingMaterialFulfillment,MaterialSourcing}*Test.php` |
+
 ## Data
 
 `PurchaseRequest`, `PurchaseRequestStatusHistory`, `VendorComplianceIncident`, `MarketingMaterialFulfillment`, `RndProjectMarketingMaterial`, `MaterialSourcing`. Lihat [Data Model](../../architecture/data-model.md#purchasing).

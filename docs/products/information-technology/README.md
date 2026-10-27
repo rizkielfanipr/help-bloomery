@@ -36,6 +36,20 @@ Status: `submitted`, `in_review`, `approved`, `rejected`, `in_progress`, `warran
 
 Inbox IT untuk review Master Bahan/WIP dari R&D sebelum dibuat atau ditautkan di ESB: claim, koreksi data teknis, kembalikan ke R&D, tautkan ke produk ESB existing, approve push, dan rekonsiliasi hasil ESB yang tidak pasti. Detail alurnya ada di [Research & Development](../rnd/README.md#master-bahan-dan-sourcing).
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{ErpRepairRequests,ErpModules,ItRequestTypes,BulkProductSubmissions,MaterialReviews}/`, `app/Filament/Helpdesk/Pages/{BulkDataPage,BulkDataPromotionPage}.php`, `app/Filament/Helpdesk/Widgets/ErpRequestSlaStatsWidget.php` |
+| Employee App | `app/Filament/Casual/Pages/{ErpRequestPage,ErpRequestHistoryPage}.php` |
+| Logika | `app/Actions/{UpdateErpRequestStatusAction,ClaimErpRequestWarrantyAction,SubmitBulkProductAction}.php`, `app/Services/{ErpRequestSlaService,ItBusinessHoursService}.php` |
+| Enum | `app/Enums/ItRequestStatus.php` |
+| Model | `app/Models/{ErpRepairRequest,ErpModule,ItRequest,BulkProduct}*.php` |
+| Command | `app/Console/Commands/{CompleteErpRequestWarranties,BackfillErpRequestSla}.php` |
+| Test | `tests/Feature/{ErpRequest,ItRequest,BulkProduct}*Test.php` |
+
 ## Data
 
 `ErpRepairRequest`, `ItRequestActivity`, `ErpModule`, `ItRequestType`, `BulkProductSubmission`, `BulkProductSubmissionItem`. Lihat [Data Model](../../architecture/data-model.md#information-technology).

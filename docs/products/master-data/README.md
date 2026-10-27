@@ -40,6 +40,17 @@ Nama, kode, urutan, dan status aktif region, dipakai untuk harga regional dan pr
 
 Template pesan per modul (dengan placeholder) dan PIC tujuan. Template dipakai `WhatsappCtaBuilder` untuk membuat tautan WhatsApp setelah pengajuan di Employee App, misalnya Permintaan ERP, Req. Teknisi, Purchasing, dan Konten. Aplikasi tidak mengirim pesan WhatsApp lewat API.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{Brands,Branches,Employees,SalesRegions}/`, `app/Filament/Helpdesk/Pages/WhatsappSettingsPage.php` |
+| Logika | `app/Services/{EsbBranchSyncService,WhatsappCtaBuilder}.php` |
+| Model | `app/Models/{Brand,Branch,BranchEsbCode,BranchSalesShift,Employee,SalesRegion,WhatsappNotificationSetting}.php` |
+| Test | `tests/Feature/{Branch,EsbBranch}*Test.php` |
+
 ## Data
 
 `Brand`, `Branch`, `BranchEsbCode`, `BranchSalesShift`, `Employee`, `SalesRegion`, `WhatsappNotificationSetting`, `AppSetting`. Lihat [Data Model](../../architecture/data-model.md#platform--master-data).

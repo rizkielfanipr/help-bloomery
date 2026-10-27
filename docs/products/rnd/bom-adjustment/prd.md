@@ -6,7 +6,7 @@
 | --- | --- |
 | Modul | Research & Development |
 | Fitur | BOM Adjustment |
-| Status | Rancangan untuk implementasi bertahap |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Rancangan untuk implementasi bertahap |
 | Prioritas | P0 untuk audit log, P1 untuk submenu dan editor |
 | Target pengguna | Tim R&D dan pengguna berizin Bill of Material |
 | Referensi kode | `docs/standards/code-remediation.md` |

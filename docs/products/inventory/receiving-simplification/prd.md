@@ -2,7 +2,7 @@
 
 ## 1. Status dokumen
 
-- **Status:** Planning
+- **Status:** Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Planning
 - **Modul:** Employee App → Receiving
 - **Halaman utama:** `/goods-receipt-page`
 - **Prioritas:** Tinggi

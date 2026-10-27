@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/operations/monitoring/prd.md §16: links between an incident and monitoring records (alert,
+ * docs/products/system-monitoring/prd.md §16: links between an incident and monitoring records (alert,
  * error, transaction, deployment). `linkable_type` is a short allow-listed key, not a class name,
  * and there is intentionally no polymorphic foreign key so pruning detail rows never cascades
  * into incident history.

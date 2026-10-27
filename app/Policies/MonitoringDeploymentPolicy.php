@@ -7,7 +7,7 @@ use App\Models\User;
 
 /**
  * Deployment Monitor is read-only: no deploy, redeploy, or rollback from the UI
- * (docs/operations/monitoring/prd.md §14).
+ * (docs/products/system-monitoring/prd.md §14).
  */
 class MonitoringDeploymentPolicy
 {

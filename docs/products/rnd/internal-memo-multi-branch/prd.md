@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Baseline | 1 Oktober 2026 |
-| Status | Siap untuk review; belum mengotorisasi deployment |
+| Status | Sebagian digantikan: ketentuan Branch Tujuan dan company per Branch oleh `docs/products/rnd/internal-memo-brand/prd.md`. Status awal: Siap untuk review; belum mengotorisasi deployment |
 | Modul | Research & Development |
 | Menu | `R&D → Memo Internal` |
 | Tujuan | Membuat satu Memo Internal untuk satu atau beberapa branch dengan sumber Company Code dan Branch Code dari Master Branch |

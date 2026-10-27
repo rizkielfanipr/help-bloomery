@@ -6,7 +6,7 @@
 | --- | --- |
 | Dokumen | Analytics: Ordering Recommendation per Branch |
 | Baseline audit | 21 Oktober 2026 |
-| Status | Rancangan untuk review; belum mengotorisasi implementasi, migration production, commit, push, atau deployment |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Rancangan untuk review; belum mengotorisasi implementasi, migration production, commit, push, atau deployment |
 | Modul | `Analytics → Ordering Recommendation` |
 | Sifat fitur MVP | View-only decision-support dashboard |
 | Pengguna utama | Operational, Kitchen, Store Management, dan user lain sesuai permission/branch scope |

@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Baseline | 30 September 2026 |
-| Status | Siap digunakan sebagai acuan implementasi |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Siap digunakan sebagai acuan implementasi |
 | Modul | Research & Development |
 | Menu | `R&D → Memo Internal` |
 | Company Code | Tetap `BLSS` dan tidak ditampilkan sebagai pilihan |

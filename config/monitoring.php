@@ -8,7 +8,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /*
 |--------------------------------------------------------------------------
-| System Monitoring (docs/operations/monitoring/prd.md)
+| System Monitoring (docs/products/system-monitoring/prd.md)
 |--------------------------------------------------------------------------
 |
 | Every value below is a conservative default. Thresholds, intervals, alert channels, maintenance

@@ -6,7 +6,7 @@
 | --- | --- |
 | Dokumen | Revisi Workflow, Compliment, dan Void Sales Report |
 | Baseline audit | 21 Oktober 2026 |
-| Status | Rancangan untuk review; belum mengotorisasi implementasi, migrasi production, commit, push, atau deployment |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Rancangan untuk review; belum mengotorisasi implementasi, migrasi production, commit, push, atau deployment |
 | Modul | `Sales Report` pada aplikasi store dan panel Helpdesk/Back Office |
 | Stack existing | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Alpine.js 3, Tailwind CSS 4, Pest 4 |
 | Acuan arsitektur | [`docs/standards/code-remediation.md`](../../../standards/code-remediation.md) |

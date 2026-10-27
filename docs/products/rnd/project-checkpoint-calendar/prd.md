@@ -7,7 +7,7 @@
 | Baseline | 6 Oktober 2026 |
 | Modul | Research & Development |
 | Fitur | Kalender per Project, Template Checkpoint, Tambah Task, dan Copy Task |
-| Status | Rancangan untuk review; belum mengotorisasi implementasi, migration production, deployment, atau permission sync |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Rancangan untuk review; belum mengotorisasi implementasi, migration production, deployment, atau permission sync |
 | Prioritas | P1 |
 | Stack existing | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Alpine.js 3, Tailwind CSS 4, Pest 4 |
 | Referensi arsitektur | `docs/standards/code-remediation.md` |

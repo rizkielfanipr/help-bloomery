@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Latest local heartbeat of the scheduler or queue worker (docs/operations/monitoring/prd.md §12).
+ * Latest local heartbeat of the scheduler or queue worker (docs/products/system-monitoring/prd.md §12).
  */
 class MonitoringHeartbeat extends Model
 {

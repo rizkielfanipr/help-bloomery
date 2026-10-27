@@ -1,88 +1,61 @@
 # Setup & Instalasi
 
+Panduan menjalankan Help Bloomery secara lokal. Deployment staging/production dijelaskan di [Release Pipeline](operations/ci-cd/release-pipeline.md).
+
 ## Persyaratan
 
 | Kebutuhan | Versi |
 |-----------|-------|
 | PHP | 8.4 |
 | MySQL | 8.0+ |
-| Node.js | 20+ |
+| Node.js | 22 (dipakai CI) |
 | Composer | 2.x |
+| Redis | Opsional; default `.env.example` memakai driver `database` |
+
+Di macOS, proyek ini dijalankan dengan Laravel Herd di `https://help-bloomery.test`; tidak perlu `php artisan serve`.
 
 ## Instalasi
 
 ```bash
-# 1. Clone repo dan install dependensi
 composer install
 npm install
 
-# 2. Salin file environment
 cp .env.example .env
 php artisan key:generate
 
-# 3. Konfigurasi database di .env lalu jalankan migrasi
+# Atur koneksi database di .env, lalu:
 php artisan migrate --seed
 
-# 4. Build asset frontend
 npm run build
-
-# 5. Buat symbolic link storage
-php artisan storage:link
 ```
 
-## Variabel Environment Penting
+`php artisan migrate --seed` menjalankan `DatabaseSeeder`: role dan permission, akun contoh (lihat `AllUsersSeeder`), dan data demo untuk beberapa modul. Seeder demo hanya untuk lingkungan lokal; jangan dijalankan di staging atau production.
 
-### Aplikasi
+Login memakai **username**, bukan email.
 
-```env
-APP_NAME="Help Bloomery"
-APP_ENV=local
-APP_URL=http://help-bloomery.test
-```
+## Variabel environment
 
-### Database
+`.env.example` hanya memuat sebagian variabel. Variabel lain dibaca dari `config/*.php` dengan nilai default yang aman. Jangan menyimpan nilai asli credential di repository.
 
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=help_bloomery
-DB_USERNAME=root
-DB_PASSWORD=
-```
+| Kelompok | Variabel | Keterangan |
+|---|---|---|
+| Aplikasi | `APP_URL`, `APP_DOMAIN` | `APP_DOMAIN` membuat Employee App melayani root domain tersebut |
+| Domain panel | `DRIVER_DOMAIN`, `TECHNICIAN_DOMAIN` | Opsional; tanpa nilai, panel memakai path `/driver` dan `/technician` |
+| Database | `DB_*` | MySQL |
+| Queue, cache, session | `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_DRIVER`, `REDIS_*` | Lihat [Redis untuk Production](operations/production/redis.md) |
+| File | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_URL` | Disk `b2` (Cloudflare R2) |
+| | `RND_PROJECT_TASK_ATTACHMENT_DISK`, `RND_MATERIAL_SAMPLE_DISK`, `SALES_REPORT_EVIDENCE_DISK` | Disk per jenis lampiran (default `b2`) |
+| ESB | `ESB_BASE_URL`, `ESB_TOKEN_{COMCODE}` | ESB corev1 (sales, stock); token statis per comcode, tanpa prefix `Bearer` |
+| | `ESB_CORE_BASE_URL`, `ESB_CORE_USERNAME`/`PASSWORD`, `ESB_CORE_{COMCODE}_USERNAME`/`PASSWORD`, `ESB_CORE_TIMEOUT`, `ESB_CORE_CONNECT_TIMEOUT`, `ESB_CORE_TOKEN_TTL` | ESB Core (Master Product, BOM, PO/GR, Item Journal) |
+| | `ESB_MASTER_PRODUCT_BASE_URL`, `ESB_MASTER_PRODUCT_TOKEN` | Master Product |
+| | `ESB_PRICELIST_MODE` | `manual` (satu-satunya mode yang didukung saat ini) |
+| Telegram | `TELEGRAM_NOTIFICATIONS_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_IT_REVIEW_CHAT_ID`, `TELEGRAM_PURCHASING_CHAT_ID`, `TELEGRAM_QUEUE` | Nonaktif secara default |
+| Monitoring | `MONITORING_*` | Environment, error recording, alert email, SSL check, secret callback deployment — lihat `config/monitoring.php` |
+| Ordering | `ORDERING_*` | Jam sinkron, kategori, lokasi stok, tipe transaksi — lihat `config/ordering_recommendation.php` |
 
-### Domain Panel (Opsional)
+Mapping cabang ke ESB (branch code, branch ID, comcode, label) diatur di menu **Master → Branch**, bukan di `.env`.
 
-Setiap panel dapat dikonfigurasi dengan domain/subdomain terpisah:
-
-```env
-CASUAL_DOMAIN=casual.help-bloomery.test
-DRIVER_DOMAIN=driver.help-bloomery.test
-TECHNICIAN_DOMAIN=technician.help-bloomery.test
-```
-
-Jika tidak diset, semua panel diakses melalui `APP_URL` dengan path masing-masing.
-
-### Storage
-
-```env
-FILESYSTEM_DISK=public
-```
-
-### Token ESB per Comcode
-
-Token ESB disimpan per comcode melalui environment server. Jangan menyimpan token
-asli di repository.
-
-```env
-ESB_TOKEN_BLSS=
-```
-
-Branch yang memakai token tersebut harus memiliki `ESB Comcode` bernilai `BLSS`
-dan `ESB Branch Code` sesuai kode cabang resmi dari ESB. Isi token mentah tanpa
-prefix `Bearer`; aplikasi menambahkan prefix tersebut saat mengirim request.
-
-Setelah menambah atau mengganti token di server, muat ulang konfigurasi:
+Setelah mengubah `.env` di server:
 
 ```bash
 php artisan optimize:clear
@@ -93,58 +66,38 @@ php artisan queue:restart
 ## Development
 
 ```bash
-# Jalankan semua service sekaligus (server + queue + vite)
+# Server, queue listener, log (Pail), dan Vite sekaligus
 composer run dev
-
-# Atau manual:
-php artisan serve
-php artisan queue:listen
-npm run dev
 ```
+
+Di Herd, cukup jalankan queue dan Vite: `php artisan queue:listen` dan `npm run dev`.
 
 ## Testing
 
 ```bash
-# Jalankan semua test
-php artisan test --compact
-
-# Filter test tertentu
-php artisan test --compact --filter=CasualClockTest
+php artisan test --compact                       # Unit + Feature
+php artisan test --compact --testsuite=Unit
+php artisan test --compact --filter=NamaTest
+bash ops/ci/feature-shard.sh                     # Feature per batch seperti CI (SHARD_INDEX, SHARD_TOTAL)
+bash ops/ci/check-doc-links.sh                   # Validasi link dokumentasi
 ```
 
-## Scheduled Commands
+Seluruh suite Feature sebaiknya dijalankan per batch seperti CI; menjalankan semuanya dalam satu proses dapat kehabisan memori.
 
-Tambahkan cron berikut ke server production:
+## Scheduler dan queue
 
 ```
 * * * * * cd /path-to-project && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-### Daftar Scheduled Task
+Jalankan juga queue worker (`php artisan queue:work`). Daftar scheduled task ada di [Arsitektur — Otomatisasi](architecture/overview.md#otomatisasi-scheduler). Status scheduler dan queue dapat dipantau di menu System Monitoring.
 
-| Command | Jadwal | Fungsi |
-|---------|--------|--------|
-| `AutoCompleteWarrantyCommand` (`service-requests:complete-warranty`) | Harian | Auto-complete service request yang masa garansinya telah berakhir |
-| `BriefingAutoRejectCommand` (`briefing:auto-reject`) | Tiap menit | Auto-reject poin briefing yang belum di-approve Supervisor melewati jendela waktu di menu Pengaturan Briefing (default 3 hari), dan poin yang tidak diisi sebelum deadline task |
-| `BriefingComputeScoresCommand` (`briefing:compute-scores`) | Tanggal 1 tiap bulan, 02:00 | Hitung ulang skor briefing bulanan |
+## Permission
 
-## Seeder & User Default
-
-Setelah `php artisan migrate --seed`:
-
-| Role | Email | Password |
-|------|-------|----------|
-| Super Admin | Lihat DatabaseSeeder | (lihat seeder) |
-
-Untuk membuat super admin secara manual:
+Setelah menambah permission di `config/permissions.php`, jalankan:
 
 ```bash
-php artisan tinker --execute '
-$user = App\Models\User::create([
-    "name" => "Super Admin",
-    "email" => "admin@bloomery.test",
-    "password" => bcrypt("password"),
-]);
-$user->assignRole("super_admin");
-'
+php artisan permissions:sync
 ```
+
+Deploy menjalankan perintah ini otomatis. Lihat [RBAC](architecture/rbac.md).

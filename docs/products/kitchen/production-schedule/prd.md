@@ -6,7 +6,7 @@
 | --- | --- |
 | Modul | Kitchen |
 | Fitur | Jadwal Produksi |
-| Status | Revisi requirement sederhana — sumber requirement terbaru |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Revisi requirement sederhana — sumber requirement terbaru |
 | Prioritas | P1 |
 | Target pengguna | Tim Kitchen dan pengguna berizin |
 | Acuan arsitektur | `docs/standards/code-remediation.md` |

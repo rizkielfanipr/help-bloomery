@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Baseline | 1 Oktober 2026 |
-| Status | Rancangan siap implementasi |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Rancangan siap implementasi |
 | Modul | Operational |
 | Aplikasi user | Tile `Form Komplain` |
 | Back office | `Operational → Customer Complaints` |

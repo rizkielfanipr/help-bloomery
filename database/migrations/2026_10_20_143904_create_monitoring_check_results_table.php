@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/operations/monitoring/prd.md §18.2: one sanitized row per executed check. Pruned after the
+ * docs/products/system-monitoring/prd.md §18.2: one sanitized row per executed check. Pruned after the
  * configured detail retention; daily aggregates are kept separately.
  */
 return new class extends Migration

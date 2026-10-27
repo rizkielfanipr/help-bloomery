@@ -1,30 +1,19 @@
 # Operations
 
-Prosedur pipeline, server, dan observability. Arsitektur aplikasi berada di [architecture](../architecture/README.md).
+Prosedur pipeline dan server. Arsitektur aplikasi ada di [architecture](../architecture/README.md); pemantauan dari dalam aplikasi ada di modul [System Monitoring](../products/system-monitoring/README.md).
 
 ## CI/CD
 
 | Dokumen | Status tertulis | Catatan |
 |---|---|---|
-| [Release Pipeline](ci-cd/release-pipeline.md) | Phase 1 sampai Phase 4 selesai; Phase 5 dalam masa observasi | Dokumen canonical CI/CD dan deployment atomik. Dirujuk oleh `ops/deploy/README.md`. |
-| [Current State Audit](ci-cd/reports/current-state-audit.md) | Phase 1 dan Phase 2 selesai; atomic staging aktif, production masih memakai deployment lama | Audit baseline 26 Oktober 2026; catatan historis. |
+| [Release Pipeline](ci-cd/release-pipeline.md) | Phase 1 sampai Phase 4 selesai; Phase 5 dalam masa observasi | Dokumen canonical CI, release atomik staging/production, rollback. Dirujuk oleh `ops/deploy/README.md`. |
+| [Current State Audit](ci-cd/reports/current-state-audit.md) | Audit baseline 26 Oktober 2026 | Catatan historis; dirujuk Release Pipeline sebagai bukti audit. |
 
 ## Production
 
 | Dokumen | Status tertulis | Catatan |
 |---|---|---|
-| [Redis untuk Production](production/redis.md) | — | needs-review: tidak memiliki status tertulis. |
-| [PRD Stabilitas, Performa, dan Skalabilitas](production/stability-scalability-prd.md) | Rancangan untuk review; belum mengotorisasi implementasi atau deployment | Infrastruktur, DNS, SSL, hosting, backup, dan migrasi server. Dirujuk oleh Code Remediation. |
+| [Redis untuk Production](production/redis.md) | — | Konfigurasi Redis dan verifikasi dengan `php artisan app:check-redis`. |
+| [PRD Stabilitas, Performa, dan Skalabilitas](production/stability-scalability-prd.md) | Rancangan untuk review | Infrastruktur, DNS, SSL, hosting, backup, dan migrasi server. Dirujuk oleh Code Remediation. |
 
-## Monitoring
-
-| Dokumen | Status tertulis | Catatan |
-|---|---|---|
-| [PRD System Monitoring](monitoring/prd.md) | Rancangan untuk review; belum mengotorisasi implementasi, migration production, atau deployment | needs-review: menu System Monitoring sudah ada di aplikasi, sehingga status tertulis perlu dikonfirmasi. |
-| [Prompt Implementasi System Monitoring](monitoring/implementation-prompt.md) | — | Prompt implementasi. |
-
-## Belum tersedia
-
-- `deployment/` dan `backup-restore/`: belum ada dokumen terpisah; prosedur deployment saat ini berada di Release Pipeline.
-
-Path lama: `docs/ci-cd-release-pipeline.md`, `docs/ci-cd-current-state-audit.md`, `docs/production-redis.md`, `docs/application-stability-scalability-prd.md`, `docs/system-monitoring-prd.md`, `docs/system-monitoring-implementation-prompt.md`.
+Prosedur deployment dan rollback saat ini berada di Release Pipeline. Folder `deployment/` dan `backup-restore/` dibuat saat ada dokumen terpisah.

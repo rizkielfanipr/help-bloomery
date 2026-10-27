@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Triage state of one error fingerprint (docs/operations/monitoring/prd.md §13.3).
+ * Triage state of one error fingerprint (docs/products/system-monitoring/prd.md §13.3).
  */
 enum MonitoringErrorStatus: string implements HasColor, HasLabel
 {

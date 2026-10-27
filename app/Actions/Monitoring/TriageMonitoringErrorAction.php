@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Error triage (docs/operations/monitoring/prd.md §13.3). Ignored requires a reason; the actor and
+ * Error triage (docs/products/system-monitoring/prd.md §13.3). Ignored requires a reason; the actor and
  * time are recorded. Resolving or ignoring closes the error's active alert.
  */
 class TriageMonitoringErrorAction

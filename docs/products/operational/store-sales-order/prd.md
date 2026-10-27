@@ -5,7 +5,7 @@
 | Field | Nilai |
 | --- | --- |
 | Baseline | 2 Oktober 2026 |
-| Status | Rancangan siap direview; belum mengotorisasi implementasi atau deployment |
+| Status | Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Rancangan siap direview; belum mengotorisasi implementasi atau deployment |
 | Modul | Operational |
 | Aplikasi user | Tile opsional `Store Sales Order` untuk admin store |
 | Back office | `Operational → Store Sales Orders` |

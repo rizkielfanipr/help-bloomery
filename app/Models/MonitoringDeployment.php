@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Read-only deployment metadata (docs/operations/monitoring/prd.md §14). The dashboard never deploys
+ * Read-only deployment metadata (docs/products/system-monitoring/prd.md §14). The dashboard never deploys
  * or rolls back.
  */
 class MonitoringDeployment extends Model

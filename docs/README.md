@@ -1,32 +1,42 @@
 # Help Bloomery — Documentation
 
-Portal dokumentasi sistem internal Bloomery Patisserie. Setiap kebutuhan informasi mempunyai satu dokumen canonical; aturan lengkapnya ada di [Standar Dokumentasi](standards/documentation-standard.md).
+Portal dokumentasi sistem internal Bloomery Patisserie. Dokumentasi modul dan arsitektur ditulis dari kode yang berjalan (diperbarui 27 Oktober 2026). Aturan penulisan ada di [Standar Dokumentasi](standards/documentation-standard.md).
 
 ## Quick start
 
 | Saya ingin… | Buka |
 |---|---|
 | Menjalankan aplikasi secara lokal | [Setup & Instalasi](setup.md) |
-| Memahami arsitektur aplikasi | [Architecture](architecture/README.md) |
-| Membaca requirement sebuah fitur | [Products](products/README.md) |
+| Memahami cara kerja sebuah modul | [Dokumentasi Modul](products/README.md) |
+| Mencari menu, tile, atau permission | [Panels](architecture/panels.md) dan [RBAC](architecture/rbac.md) |
+| Memahami arsitektur dan scheduler | [Overview](architecture/overview.md) |
+| Mencari tabel sebuah model | [Data Model](architecture/data-model.md) |
 | Mengikuti standar kode atau UI | [Standards](standards/README.md) |
-| Memahami CI/CD, deployment, dan production | [Operations](operations/README.md) |
+| Memahami CI/CD dan production | [Operations](operations/README.md) |
 | Menulis dokumentasi fitur baru | [Templates](templates/README.md) |
 
-## Membuat dokumentasi fitur baru
+## Modul
 
-```bash
-cp -R docs/templates/feature docs/products/{domain}/{feature}
-```
-
-Setelah menyalin template:
-
-1. Ganti nama file `*-template.md` menjadi nama standar (`prd.md`, `implementation-plan.md`, dan seterusnya).
-2. Ganti seluruh placeholder `{...}`.
-3. Hapus file template yang tidak diperlukan.
-4. Isi metadata front matter.
-5. Tambahkan fitur ke README domain.
-6. Pastikan seluruh link valid: `bash ops/ci/check-doc-links.sh`.
+| Modul | Cakupan |
+|---|---|
+| [Workforce](products/workforce/README.md) | Casual staff, lowongan, absensi, lembur |
+| [Daily Briefing](products/daily-briefing/README.md) | Poin briefing, review, nilai |
+| [Driver](products/driver/README.md) | Perjalanan, BBM, uang makan |
+| [Technician](products/technician/README.md) | Service request, garansi, asset QR, maintenance |
+| [Information Technology](products/information-technology/README.md) | Permintaan ERP, Bulk Data, Review Data |
+| [System Monitoring](products/system-monitoring/README.md) | Health, transaksi ESB, error, incident |
+| [Operational](products/operational/README.md) | SOP Store, Customer Complaints, Store Sales Orders |
+| [Research & Development](products/rnd/README.md) | Project, BOM, Master Bahan, Shelf Life, Memo Internal, task |
+| [Kitchen](products/kitchen/README.md) | Jadwal Produksi |
+| [Purchasing](products/purchasing/README.md) | Permintaan Pembelian, Vendor Compliance, Sourcing, Material Marketing |
+| [Quality Control](products/quality-control/README.md) | Audit QC, Item Journal |
+| [Inventory](products/inventory/README.md) | Stock Card, Receiving, Lokasi, Product List |
+| [Finance](products/finance/README.md) | Sales Report, Scores, Basket Size, Product Pricelist |
+| [Sales & Growth](products/sales-growth/README.md) | Sales Projection |
+| [Analytics](products/analytics/README.md) | Sales/Promotion/Stock Information, Ordering Recommendation |
+| [Brand Marketing](products/brand-marketing/README.md) | Permintaan Design dan Konten |
+| [Access Management](products/access-management/README.md) | Pengguna, Role & Permission |
+| [Master Data](products/master-data/README.md) | Brand, Branch, Employee, WhatsApp |
 
 ## Struktur
 
@@ -34,13 +44,12 @@ Setelah menyalin template:
 docs/
 ├── README.md          Portal ini
 ├── setup.md           Setup & instalasi lokal
-├── templates/         Template PRD, plan, prompt, report, rollout, ADR
+├── architecture/      Overview, panels, RBAC, data model, integrasi ESB
+├── products/          Dokumentasi per modul + PRD fitur
 ├── standards/         Standar kode, UI, struktur codebase, dokumentasi
-├── architecture/      Overview, data model, panel, RBAC, integrasi
-├── products/          Dokumentasi fitur per domain
-├── operations/        CI/CD, production, monitoring
-├── reports/           Audit dan laporan lintas modul
-└── modules/           Dokumen modul lama — belum diklasifikasikan
+├── operations/        CI/CD dan production
+├── reports/           Laporan lintas modul yang masih dirujuk
+└── templates/         Template PRD, plan, prompt, report, rollout, ADR
 ```
 
 ## Standards
@@ -52,78 +61,31 @@ docs/
 | [Codebase Refactoring](standards/codebase-refactoring.md) | Struktur target codebase |
 | [Documentation Standard](standards/documentation-standard.md) | Struktur, penamaan, metadata, lifecycle dokumen |
 
-## Architecture
-
-| Dokumen | Isi |
-|---|---|
-| [Overview](architecture/overview.md) | Multi-panel, struktur folder, alur request |
-| [Data Model](architecture/data-model.md) | Model, relasi, tabel |
-| [Panels](architecture/panels.md) | Panel Filament dan routing |
-| [RBAC](architecture/rbac.md) | Role dan permission |
-| [ESB Integration](architecture/integrations/esb.md) | Roadmap konsolidasi integrasi ESB |
-
-## Domain produk
-
-| Domain | Fitur |
-|---|---|
-| [Analytics](products/analytics/README.md) | Ordering Recommendation |
-| [Daily Briefing](products/daily-briefing/README.md) | Remediation, Scoring & UI |
-| [Finance](products/finance/README.md) | Sales Report — Compliment & Void |
-| [Inventory](products/inventory/README.md) | Receiving Simplification |
-| [Kitchen](products/kitchen/README.md) | Jadwal Produksi |
-| [Operational](products/operational/README.md) | Customer Complaints, Store Sales Order |
-| [Research & Development](products/rnd/README.md) | BOM Adjustment, Internal Memo, Material Sourcing, Project Calendar, Project Types, WIP Shelf Life |
-
 ## Operations
 
 | Dokumen | Isi |
 |---|---|
 | [Release Pipeline](operations/ci-cd/release-pipeline.md) | CI, release atomik staging/production, rollback |
 | [Redis untuk Production](operations/production/redis.md) | Konfigurasi Redis production |
-| [Stabilitas & Skalabilitas](operations/production/stability-scalability-prd.md) | Infrastruktur, backup, dan migrasi server |
-| [System Monitoring](operations/monitoring/prd.md) | PRD modul monitoring |
+| [Stabilitas & Skalabilitas](operations/production/stability-scalability-prd.md) | Infrastruktur, backup, migrasi server |
 
-## Status dokumen
+## Membuat dokumentasi fitur baru
 
-Dokumen baru memakai status `draft`, `in-review`, `approved`, `in-development`, `implemented`, `deprecated`, atau `archived` di front matter. Dokumen lama belum memiliki metadata; README domain mengutip status tertulisnya dan menandai `needs-review` bila status itu tidak ada, tidak jelas, atau tidak sesuai kondisi kode.
+```bash
+cp -R docs/templates/feature docs/products/{domain}/{feature}
+```
+
+1. Ganti nama file `*-template.md` menjadi nama standar (`prd.md`, `implementation-plan.md`, dan seterusnya).
+2. Ganti seluruh placeholder `{...}` dan isi metadata front matter.
+3. Hapus file template yang tidak diperlukan.
+4. Perbarui README domain: menu, permission, alur, dan tautan PRD.
+5. Jalankan `bash ops/ci/check-doc-links.sh`.
+
+Setelah fitur selesai, perbarui README domain agar tetap sesuai kode, lalu hapus prompt implementasi yang sudah tidak dipakai.
 
 ## Aturan kontribusi
 
-- Simpan dokumen di lokasi sesuai [Standar Dokumentasi](standards/documentation-standard.md); jangan menambah file di root `docs/`.
+- Simpan dokumen sesuai [Standar Dokumentasi](standards/documentation-standard.md); jangan menambah file di root `docs/`.
 - Pindahkan file dengan `git mv` dan perbarui seluruh rujukan dalam PR yang sama.
-- Jangan menyalin isi dokumen lain; tautkan.
+- Perubahan perilaku modul wajib memperbarui README domain terkait dalam PR yang sama.
 - Jangan menyimpan secret, isi `.env`, payload production, atau data pribadi.
-- Jalankan `bash ops/ci/check-doc-links.sh` sebelum membuka PR.
-
-## Dokumen yang belum diklasifikasikan
-
-| Dokumen | Alasan |
-|---|---|
-| [Modul: Casual Staff](modules/casual.md) | Deskripsi modul lama; domain dan apakah masih akurat belum dipastikan |
-| [Modul: Driver & Trip](modules/driver.md) | Sama seperti di atas |
-| [Modul: Helpdesk](modules/helpdesk.md) | Sama seperti di atas |
-| [Modul: Technician](modules/technician.md) | Sama seperti di atas |
-
-## Ringkasan aplikasi
-
-**Help Bloomery** adalah platform intranet multi-panel yang mengelola:
-
-- **Casual Staff** — Registrasi, clock-in/out dengan GPS & selfie, export absensi ke Excel
-- **Driver** — Manajemen perjalanan, check-in waypoint, laporan BBM
-- **Helpdesk** — Tiket request berbasis form template dinamis
-- **Technician** — Service request perangkat dengan alur multi-siklus
-- **Management** — User, role, departemen, dan pengaturan sistem
-
-## Tech stack
-
-| Layer | Teknologi |
-|-------|-----------|
-| Framework | Laravel 13, PHP 8.4 |
-| Admin Panel | Filament 5 |
-| Real-time UI | Livewire 4 |
-| Frontend | Tailwind CSS 4, Alpine.js 3 |
-| Database | MySQL |
-| RBAC | Spatie Laravel Permission 7 |
-| Activity Log | Spatie Activity Log 5 |
-| PDF | DomPDF 3 |
-| Testing | Pest 4 |

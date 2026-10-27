@@ -262,7 +262,7 @@ return [
 
     'Analytics' => [
         'Sales Information' => ['view sales information'],
-        'Ordering Recommendation' => ['view ordering recommendations', 'export ordering recommendations'],
+        'Ordering Recommendation' => ['view ordering recommendations', 'export ordering recommendations', 'manage ordering recommendation settings'],
         'Promotion Information' => ['view promotion information'],
         'Stock Information' => ['view stock information'],
     ],

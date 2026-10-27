@@ -2,6 +2,7 @@
 
 use App\Enums\OrderingConfidence;
 use App\Enums\OrderingSource;
+use App\Enums\OrderingStockLocationMode;
 use App\Enums\OrderingSyncStatus;
 use App\Jobs\Ordering\GenerateOrderingForecastJob;
 use App\Jobs\Ordering\SyncOrderingSourceJob;
@@ -12,8 +13,10 @@ use App\Models\OrderingSyncRun;
 use App\Services\Ordering\OrderingDailyUsageSource;
 use App\Services\Ordering\OrderingForecastGenerator;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -114,6 +117,20 @@ it('keeps waste and POS Sales apart from demand and takes the latest balance per
         ->and($metric->category_name)->toBe('Barang WIP');
 });
 
+it('counts only Waste and Process Waste item journals as waste', function () {
+    $row = ['branchCode' => 'BPL', 'productCode' => '0001', 'productName' => 'Croissant Dough', 'UOM' => 'PCS', 'transactionType' => 'Item Journal', 'qtyIn' => 0, 'qtyBalance' => 10, 'location' => 'Store', 'documentDate' => '2026-10-18'];
+    fakeStock([
+        $row + ['documentCode' => 'IU202610180001-Waste', 'qtyOut' => 2],
+        $row + ['documentCode' => 'IU202610180002-Process Waste', 'qtyOut' => 3.5],
+        $row + ['documentCode' => 'IU202610180003-WIP Usage', 'qtyOut' => 100],
+        $row + ['documentCode' => 'IU202610180004-Kalibrasi', 'qtyOut' => 50],
+    ]);
+
+    SyncOrderingSourceJob::dispatchSync('stock_movement', $this->pair->id, '2026-10-18');
+
+    expect((float) OrderingDailyMetric::query()->sole()->waste_quantity)->toBe(5.5);
+});
+
 it('leaves available stock unavailable while the Store stock location is not confirmed', function () {
     config()->set('ordering_recommendation.stock_location_scope', null);
     fakeStock([['branchCode' => 'BPL', 'productCode' => '0001', 'UOM' => 'PCS', 'transactionType' => 'POS Sales', 'qtyOut' => 1, 'qtyBalance' => 5, 'location' => 'Store', 'documentDate' => '2026-10-18']]);
@@ -121,6 +138,43 @@ it('leaves available stock unavailable while the Store stock location is not con
     SyncOrderingSourceJob::dispatchSync('stock_movement', $this->pair->id, '2026-10-18');
 
     expect(OrderingDailyMetric::query()->sole()->ending_stock)->toBeNull();
+});
+
+it('uses the locations selected for the branch mapping instead of the legacy global scope', function () {
+    config()->set('ordering_recommendation.stock_location_scope', ['Gudang']);
+    $this->pair->update([
+        'ordering_stock_location_mode' => OrderingStockLocationMode::Selected,
+        'ordering_stock_locations' => [['key' => '11', 'name' => 'Store']],
+    ]);
+    $row = ['branchCode' => 'BPL', 'productCode' => '0001', 'productName' => 'Croissant Dough', 'UOM' => 'PCS', 'transactionType' => 'Goods Receipt', 'qtyIn' => 0, 'qtyOut' => 0, 'documentDate' => '2026-10-18'];
+    fakeStock([
+        $row + ['qtyBalance' => 7, 'locationID' => 11, 'location' => 'Store', 'createdDate' => '2026-10-18 21:00:00'],
+        $row + ['qtyBalance' => 50, 'locationID' => 22, 'location' => 'Gudang', 'createdDate' => '2026-10-18 22:00:00'],
+    ]);
+
+    SyncOrderingSourceJob::dispatchSync('stock_movement', $this->pair->id, '2026-10-18');
+
+    expect((float) OrderingDailyMetric::query()->sole()->ending_stock)->toBe(7.0)
+        ->and($this->pair->refresh()->orderingStockLocationScope())->toBe(['11', 'Store']);
+});
+
+it('includes branch stock location settings in the immutable forecast configuration', function () {
+    $generator = app(OrderingForecastGenerator::class);
+    $before = $generator->configuration($this->branch);
+    $this->pair->update([
+        'ordering_stock_location_mode' => OrderingStockLocationMode::Selected,
+        'ordering_stock_locations' => [['key' => '11', 'name' => 'Store']],
+    ]);
+
+    $after = $generator->configuration($this->branch);
+
+    expect($after)->not->toBe($before)
+        ->and(collect($after['branch_stock_locations'])->firstWhere('pair_id', $this->pair->id))
+        ->toMatchArray([
+            'mode' => 'selected',
+            'locations' => [['key' => '11', 'name' => 'Store']],
+            'effective_scope' => ['11', 'Store'],
+        ]);
 });
 
 it('records a permanent failure without retrying and keeps earlier good metrics', function () {
@@ -199,6 +253,53 @@ it('generates one recommendation per company pair, excludes failed days instead 
         ->and($store->reason_codes)->toContain('category_unconfirmed')
         ->and((float) $items->firstWhere('company_code', 'BLSK')->forecast_demand)->toBe(28.0)
         ->and(collect($run->completeness['pairs'])->firstWhere('company_code', 'BLSS')['usage_missing_days'])->toBe(2);
+});
+
+it('loads forecast metrics in bounded product batches', function () {
+    foreach ([OrderingSource::DailyUsage, OrderingSource::StockMovement] as $source) {
+        OrderingSyncRun::factory()->create([
+            'source' => $source,
+            'branch_id' => $this->branch->id,
+            'company_code' => 'BLSS',
+            'esb_branch_code' => 'BPL',
+            'period_from' => '2026-10-18',
+            'period_to' => '2026-10-18',
+        ]);
+    }
+
+    foreach (range(1, 51) as $number) {
+        OrderingDailyMetric::factory()->create([
+            'branch_id' => $this->branch->id,
+            'company_code' => 'BLSS',
+            'esb_branch_code' => 'BPL',
+            'metric_date' => '2026-10-18',
+            'product_code' => sprintf('PRODUCT-%03d', $number),
+            'sales_driven_usage' => 1,
+        ]);
+    }
+
+    $metricBatchQueries = 0;
+    DB::listen(function (QueryExecuted $query) use (&$metricBatchQueries): void {
+        $sql = mb_strtolower($query->sql);
+        if (str_starts_with(ltrim($sql), 'select')
+            && str_contains($sql, 'ordering_daily_metrics')
+            && str_contains($sql, ' in (')) {
+            $metricBatchQueries++;
+        }
+    });
+
+    $run = app(OrderingForecastGenerator::class)->generate($this->branch, '2026-10-18', 7);
+
+    expect($run->status)->toBe(OrderingSyncStatus::Completed)
+        ->and($run->items_count)->toBe(51)
+        ->and($metricBatchQueries)->toBe(2);
+});
+
+it('keeps a forecast job retryable when an overlap lock releases it', function () {
+    $job = new GenerateOrderingForecastJob($this->branch->id, '2026-10-18', 7);
+
+    expect($job->tries)->toBe(0)
+        ->and($job->retryUntil()->getTimestamp())->toBeGreaterThan(now()->getTimestamp());
 });
 
 it('blocks a product whose stock exists only in another UOM and keeps old runs immutable', function () {

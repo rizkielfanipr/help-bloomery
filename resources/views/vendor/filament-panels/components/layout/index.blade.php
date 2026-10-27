@@ -224,6 +224,7 @@
             'items' => [
                 ['label' => 'Sales Information', 'icon' => 'bar-chart-3', 'perm' => 'view sales information', 'href' => $r('filament.helpdesk.pages.sales-information-page'), 'active' => $active($r('filament.helpdesk.pages.sales-information-page'))],
                 ['label' => 'Ordering Recommendation', 'icon' => 'shopping-cart', 'perm' => 'view ordering recommendations', 'href' => $r(\App\Filament\Helpdesk\Pages\OrderingRecommendationPage::getRouteName()), 'active' => $active($r(\App\Filament\Helpdesk\Pages\OrderingRecommendationPage::getRouteName()))],
+                ['label' => 'Ordering Settings', 'icon' => 'settings', 'perm' => 'manage ordering recommendation settings', 'href' => $r(\App\Filament\Helpdesk\Pages\OrderingRecommendationSettingsPage::getRouteName()), 'active' => $active($r(\App\Filament\Helpdesk\Pages\OrderingRecommendationSettingsPage::getRouteName()))],
                 ['label' => 'Promotion Information', 'icon' => 'tag', 'perm' => 'view promotion information', 'href' => $r('filament.helpdesk.pages.promotion-information-page'), 'active' => $active($r('filament.helpdesk.pages.promotion-information-page'))],
                 ['label' => 'Stock Information', 'icon' => 'clipboard-list', 'perm' => 'view stock information', 'href' => $r('filament.helpdesk.pages.stock-information-page'), 'active' => $active($r('filament.helpdesk.pages.stock-information-page'))],
             ],

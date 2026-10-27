@@ -11,9 +11,27 @@ Every new feature or behaviour change follows four stages in order: **Plan → B
 
 Reply to the user in Bahasa Indonesia. Commit messages and PR titles follow the repository convention (English, `feat:` / `fix:` / `docs:` / `ci:` / `test:` / `ui:` prefixes).
 
+## Documentation is the contract
+
+- `docs/products/{domain}/README.md` describes how the module behaves **now**; a feature `prd.md` is the specification the code must implement. Code follows these documents: do not introduce behaviour, permissions, statuses, or menus that the PRD/README does not describe — update the document first (Stage 1), then the code.
+- If the code and the documentation disagree, do not silently pick one. Tell the user what differs, then fix the code or the document in the same branch so they match again.
+- Every PR that changes behaviour updates the module README in the same PR (CI checks links and the code map; reviewers check the content).
+
+## Loading context without exploring the whole codebase
+
+Exploring old code is the most expensive part of a session. Build context in this order and stop as soon as it is enough:
+
+1. `docs/products/{domain}/README.md` — menus, permissions, workflow, statuses, rules, and the **Peta kode** table.
+2. Only the files in **Peta kode** that the task touches. Use `rg` inside those paths, not across the repository.
+3. `docs/architecture/data-model.md` or the Boost `database-schema` tool for tables — not migrations.
+4. `docs/architecture/panels.md` / `rbac.md` for navigation and permissions; `config/permissions.php` for exact names.
+5. Repository-wide search only when the steps above leave a concrete gap. When that happens, add what was missing to the module's **Peta kode** (or README) in the same branch so the next session does not search again.
+
+Read standards (`docs/standards/*`) and long PRDs by section (`§`), not end to end.
+
 ## Stage 1 — Plan (documentation first)
 
-1. Identify the domain from the Back Office menu group (see `docs/architecture/panels.md`) and read `docs/products/{domain}/README.md`, which describes how the module works today.
+1. Identify the domain from the Back Office menu group (see `docs/architecture/panels.md`) and read `docs/products/{domain}/README.md`, which describes how the module works today, following the context order above.
 2. Look for an existing feature folder in `docs/products/{domain}/`.
    - **Exists** → update its `prd.md` instead of creating a second document. Add new requirements, mark changed ones, and record the change in the PRD's status table. Never keep two canonical documents for one need.
    - **New** → `cp -R docs/templates/feature docs/products/{domain}/{feature}`, rename `prd-template.md` → `prd.md` (and `implementation-plan`/`implementation-prompt`/`rollout` only when needed), delete unused template files, fill every placeholder and the front matter (`status: draft`).
@@ -47,9 +65,9 @@ git switch -c {type}/{short-kebab-slug}  # feature/, fix/, docs/, ci/, refactor/
 1. **Verify**
    - Targeted tests: `php artisan test --compact {files}`.
    - Wide changes: run the Feature suite in CI batches (`SHARD_INDEX=n SHARD_TOTAL=4 bash ops/ci/feature-shard.sh` for n = 1..4) — a single full run can exhaust memory.
-   - `vendor/bin/pint --dirty --format agent`, `bash ops/ci/check-doc-links.sh`, `git diff --check`.
+   - `vendor/bin/pint --dirty --format agent`, `bash ops/ci/check-doc-links.sh`, `bash ops/ci/check-code-map.sh`, `git diff --check`.
 2. **Update documentation in the same branch**
-   - `docs/products/{domain}/README.md`: menus/tiles and permissions, workflow and statuses, rules, schedules, data, related PRD status. This README must match the code after the PR.
+   - `docs/products/{domain}/README.md`: menus/tiles and permissions, workflow and statuses, rules, schedules, data, related PRD status, and **Peta kode** (add new folders/files; remove ones that no longer exist). This README must match the code after the PR.
    - PRD: `status: implemented` and `updated_at` when the feature is complete in this PR.
    - Report: create `docs/products/{domain}/{feature}/reports/implementation-report.md` from `docs/templates/feature/implementation-report-template.md` when the work had phases, deviations, data migrations, or decisions worth keeping. Skip it for small changes.
    - `docs/architecture/*` when panels, RBAC, scheduler, integrations, or models changed (regenerate `data-model.md`; do not hand-edit parts of it).

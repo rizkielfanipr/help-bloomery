@@ -22,6 +22,18 @@ Pengelolaan pengguna, role, permission, dan akses cabang. Konsep RBAC lengkap ad
 - Daftar role menampilkan jumlah permission dan jumlah pengguna.
 - Permission baru dibuat otomatis saat deploy (`php artisan permissions:sync`), tetapi tidak otomatis diberikan ke role selain `SUPERADMIN`. Berikan melalui menu ini.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Resources/`, `app/Filament/Forms/Components/PermissionsMatrix.php` |
+| Logika | `app/Services/{PermissionRegistry,PermissionSynchronizer}.php`, `app/Console/Commands/SyncPermissionsCommand.php`, `app/Filament/Helpdesk/Concerns/HasPermissions.php` |
+| Config | `config/permissions.php`, `database/seeders/RolesAndPermissionsSeeder.php` |
+| Model | `app/Models/User.php` |
+| Test | `tests/Feature/{RbacResourceTest,RolePermissionsMatrixTest}.php` |
+
 ## Data
 
 `User`, tabel Spatie (`roles`, `permissions`, pivot), dan pivot akses cabang. Lihat [Data Model](../../architecture/data-model.md#platform--master-data).

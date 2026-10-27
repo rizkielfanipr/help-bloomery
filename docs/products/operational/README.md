@@ -39,6 +39,20 @@ SOP store, komplain pelanggan, dan sales order khusus dari store. Kondisi per 27
 - Status operasional: `draft`, `submitted`, `in_preparation`, `ready`, `delivered`, `cancelled` (pembatalan wajib alasan). Transisi diatur oleh `StoreSalesOrderStatus::canTransitionTo()`.
 - Mapping ESB branch memakai sumber yang sama dengan Stock Card dan Memo Internal (`Branch::activeStockCardEsbCode()`).
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{StoreSops,StoreSopCategories,CustomerComplaints,StoreSalesOrders}/` |
+| Employee App | `app/Filament/Casual/Pages/{StoreSopsPage,CustomerComplaintPage,CustomerComplaintHistoryPage,StoreSalesOrderPage}.php` |
+| Logika | `app/Actions/CustomerComplaint/`, `app/Actions/StoreSalesOrder/`, `app/Services/{StoreSopPublisher,EsbProductSalesService}.php` |
+| Policy | `app/Policies/{CustomerComplaintPolicy,StoreSalesOrderPolicy}.php` |
+| Enum | `app/Enums/{CustomerComplaint,StoreSalesOrder}*.php` |
+| Model | `app/Models/{StoreSop,CustomerComplaint,StoreSalesOrder}*.php` |
+| Test | `tests/Feature/{StoreSop,CustomerComplaint,StoreSalesOrder}*Test.php` |
+
 ## Data
 
 `StoreSop`, `StoreSopCategory`, `StoreSopAssignment`, `CustomerComplaint`, `StoreSalesOrder` beserta item dan aktivitas. Lihat [Data Model](../../architecture/data-model.md#operational).

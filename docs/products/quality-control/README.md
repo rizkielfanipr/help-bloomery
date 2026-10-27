@@ -28,6 +28,18 @@ Audit QC store berbasis checklist dan Item Journal yang dikirim ke ESB. Pemeriks
 - Submit membuat Item Journal di ESB Core (`EsbItemJournalService::create`) lalu mengunggah lampiran. Lampiran yang gagal dapat dicoba ulang atau dihapus.
 - Back office menampilkan journal milik user, atau semua journal untuk `view all quality control item journals`.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/QualityControl*/` |
+| Employee App | `app/Filament/Casual/Pages/{QualityControlAudits,QualityControlAuditDetail,QualityControlAuditHistory,ItemJournalPage}.php` |
+| Logika | `app/Services/EsbItemJournalService.php` |
+| Model | `app/Models/QualityControl*.php` |
+| Test | `tests/Feature/QualityControl*Test.php` |
+
 ## Data
 
 `QualityControlAudit`, `QualityControlAuditItem`, `QualityControlChecklistItem`, `QualityControlItemJournal`, `QualityControlItemJournalDetail`, `QualityControlItemJournalAttachment`. Lihat [Data Model](../../architecture/data-model.md#quality-control).

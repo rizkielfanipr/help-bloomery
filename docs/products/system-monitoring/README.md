@@ -39,6 +39,21 @@ Alert dideduplikasi per sumber. Notifikasi hanya dikirim saat status berubah, da
 | `monitoring:prune` | 03:15 — retensi; incident tidak pernah dihapus |
 | `monitoring:record-deployment` | Mencatat metadata deployment |
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Pages/Monitoring/`, `app/Filament/Helpdesk/Resources/Monitoring*/` |
+| Logika | `app/Actions/Monitoring/`, `app/Services/Monitoring/`, `app/Jobs/Monitoring/`, `app/Providers/MonitoringServiceProvider.php`, `app/Http/Controllers/Monitoring*.php` |
+| Policy | `app/Policies/Monitoring*.php` |
+| Enum | `app/Enums/Monitoring*.php` |
+| Model | `app/Models/Monitoring*.php` |
+| Command | `app/Console/Commands/Monitoring/` |
+| Config | `config/monitoring.php` |
+| Test | `tests/Feature/Monitoring/`, `tests/Unit/Monitoring/` |
+
 ## Data
 
 Tabel `monitoring_*` (service, check result, heartbeat, transaction, error, alert, incident beserta event dan link, deployment, scheduled task run, daily aggregate, setting). Lihat [Data Model](../../architecture/data-model.md#system-monitoring).

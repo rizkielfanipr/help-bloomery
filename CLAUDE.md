@@ -13,6 +13,15 @@ Every new feature, behaviour change, or remediation follows **Plan → Branch �
 - The user has authorised creating docs, branches, commits, pushes, and Pull Requests as part of this flow. Merging, approving deployments, and production changes stay with the user.
 - Reply to the user in Bahasa Indonesia. Documentation rules: `docs/standards/documentation-standard.md`.
 
+## Documentation is the contract
+
+- `docs/products/{domain}/README.md` describes how each module behaves now; a feature `prd.md` is the specification the code must implement. Code follows these documents — update the document first, then the code.
+- If code and documentation disagree, tell the user and fix one of them in the same branch. Every behaviour change updates the module README in the same PR.
+
+## Load context from the docs, not by exploring
+
+To save tokens, build context in this order and stop when it is enough: (1) `docs/products/{domain}/README.md` including its **Peta kode** table, (2) only the mapped files the task touches, searching with `rg` inside those paths, (3) `docs/architecture/data-model.md` or the Boost `database-schema` tool instead of migrations, (4) `docs/architecture/panels.md` and `rbac.md`. Search the whole repository only for a concrete gap, then add what was missing to the module's Peta kode in the same branch. Read standards and long PRDs by section (`§`), not end to end.
+
 <laravel-boost-guidelines>
 === foundation rules ===
 

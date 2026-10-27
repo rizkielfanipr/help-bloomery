@@ -42,11 +42,19 @@ Domain produk mengikuti grup menu Back Office: `access-management`, `analytics`,
 2. Alur kerja dan status.
 3. Aturan bisnis penting yang dijaga server.
 4. Otomatisasi: command dan jadwal.
-5. Data: model utama dengan tautan ke [Data Model](../architecture/data-model.md).
-6. Dokumen terkait: PRD dan statusnya.
-7. Role bawaan.
+5. **Peta kode**: tabel lapisan → path atau glob dari root repository (Back Office, Employee App, logika, policy, enum, model, command, test). Ini adalah titik awal bagi developer dan agent AI, sehingga tidak perlu menelusuri seluruh codebase.
+6. Data: model utama dengan tautan ke [Data Model](../architecture/data-model.md).
+7. Dokumen terkait: PRD dan statusnya.
+8. Role bawaan.
 
 PRD menyimpan requirement saat fitur dirancang. Bila implementasi berbeda dari PRD, README domain yang mengikuti kode, dan perbedaannya dicatat di README tersebut.
+
+### Dokumentasi sebagai kontrak
+
+- PRD adalah spesifikasi yang wajib diikuti kode; README modul adalah deskripsi perilaku yang wajib selalu cocok dengan kode.
+- Perilaku, permission, status, atau menu baru dituliskan di PRD/README lebih dulu, baru kemudian di kode.
+- Bila kode dan dokumen berbeda, perbedaan itu dilaporkan dan diselaraskan di branch yang sama.
+- CI menjalankan `bash ops/ci/check-doc-links.sh` (link dan path `docs/`) dan `bash ops/ci/check-code-map.sh` (setiap path di Peta kode masih ada). Kesesuaian isi diperiksa saat review PR.
 
 ## 2. Jenis dokumen
 
@@ -191,7 +199,8 @@ Lihat [docs/templates/README.md](../templates/README.md) untuk daftar template.
 - [ ] Heading standar template tidak dihapus; bagian yang tidak relevan ditulis `Not applicable — {alasan}`.
 - [ ] Rujukan ke standar dan dokumen terkait memakai link yang valid.
 - [ ] README fitur dan README domain diperbarui.
-- [ ] `bash ops/ci/check-doc-links.sh` lulus.
+- [ ] Peta kode README modul memuat folder/file yang ditambah atau dihapus.
+- [ ] `bash ops/ci/check-doc-links.sh` dan `bash ops/ci/check-code-map.sh` lulus.
 - [ ] Tidak ada secret, token, isi `.env`, payload production, atau data pribadi.
 
 ## 15. Data sensitif

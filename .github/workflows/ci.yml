@@ -71,6 +71,13 @@ jobs:
           bash ops/ci/workflow-contracts.sh
           bash ops/deploy/tests/contracts-test.sh
 
+      - name: Validate documentation
+        run: |
+          bash ops/ci/tests/check-doc-links-test.sh
+          bash ops/ci/tests/check-code-map-test.sh
+          bash ops/ci/check-doc-links.sh
+          bash ops/ci/check-code-map.sh
+
       - name: Install PHP dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 

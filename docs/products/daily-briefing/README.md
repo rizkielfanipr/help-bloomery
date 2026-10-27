@@ -48,6 +48,21 @@ Status review: `pending`, `supervisor_review`, `approved`, `rejected`.
 | `briefing:audit-invalid-records`, `briefing:cleanup-invalid-records` | Audit read-only; cleanup hanya dry-run |
 | `briefing:approve-existing` | One-off: approve submission branch tertentu |
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/Briefing*/`, `app/Filament/Helpdesk/Pages/Briefing*.php` |
+| Employee App | `app/Filament/Casual/Pages/{DailyBriefingPage,BriefingHistoryPage,BriefingScorePage}.php` |
+| Logika | `app/Actions/Briefing/`, `app/Services/Briefing*.php` |
+| Policy | `app/Policies/BriefingItemPolicy.php` |
+| Enum | `app/Enums/Briefing*.php` |
+| Model | `app/Models/Briefing*.php` |
+| Command | `app/Console/Commands/Briefing*.php` |
+| Test | `tests/Feature/{Briefing,DailyBriefing}*Test.php` |
+
 ## Data
 
 `BriefingTask`, `BriefingRecord`, `BriefingItem`, `BriefingScore`, `BriefingSettings`, `BriefingBranchSetting`, `BriefingPeriodWeight`. Lihat [Data Model](../../architecture/data-model.md#daily-briefing).

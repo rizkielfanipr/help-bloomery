@@ -45,6 +45,19 @@ Back office **Perjalanan** menampilkan semua perjalanan (driver, rute, tanggal, 
 
 Satu halaman (`DriverTripSettings`) untuk: modal BBM, wajib nota BBM, cut-off laporan, uang makan default, sumber dan kualitas foto check-in, wajib foto/GPS/radius, radius default, stempel foto, akurasi GPS maksimal, izin check-in ulang, dan wajib urut titik.
 
+## Peta kode
+
+Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.
+
+| Lapisan | Lokasi |
+|---|---|
+| Back Office | `app/Filament/Helpdesk/Resources/{Trips,TripRoutes,Vehicles,FuelTypes}/`, `app/Filament/Helpdesk/Pages/{DriverMealAllowancePage,DriverTripSettingsPage}.php` |
+| Employee App | `app/Filament/Casual/Pages/{TripDashboard,StartTrip,ActiveTrip,FuelFillup,TripDetail,TripHistory,DriverProfilePage}.php`, `app/Filament/Driver/Pages/` |
+| Logika | `app/Services/DriverMealAllowanceService.php`, `app/Http/Controllers/Driver/TripReportController.php` |
+| Enum | `app/Enums/TripStatus.php` |
+| Model | `app/Models/{Trip,Vehicle,FuelType,Driver}*.php` |
+| Test | `tests/Feature/{TripFlowTest,DriverMealAllowanceWorkflowTest}.php` |
+
 ## Data
 
 `Trip`, `TripRoute`, titik dan check-in perjalanan, `Vehicle`, `FuelType`, `DriverTripSettings`, `DriverMealAllowancePeriod`, `DriverMealAllowanceSummary`, `DriverMealAllowanceTripItem`. Lihat [Data Model](../../architecture/data-model.md#driver).

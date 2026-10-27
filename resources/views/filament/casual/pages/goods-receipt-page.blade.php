@@ -39,7 +39,7 @@
                         <button wire:click="loadPurchaseOrders" wire:loading.attr="disabled" wire:target="loadPurchaseOrders" type="button" class="flex shrink-0 items-center gap-1.5 rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:opacity-50 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/60">
                         <svg wire:loading.remove wire:target="loadPurchaseOrders" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $this->iconPath('sync') }}"/></svg>
                         <svg wire:loading wire:target="loadPurchaseOrders" class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3"/><path class="opacity-75" fill="currentColor" d="M12 3a9 9 0 00-9 9h3a6 6 0 016-6V3z"/></svg>
-                            <span wire:loading.remove wire:target="loadPurchaseOrders">Sync ESB</span>
+                            <span wire:loading.remove wire:target="loadPurchaseOrders">Tarik dari ESB</span>
                             <span wire:loading wire:target="loadPurchaseOrders">Sync...</span>
                         </button>
                     </div>

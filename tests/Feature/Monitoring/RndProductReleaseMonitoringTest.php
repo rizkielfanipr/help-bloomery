@@ -1,5 +1,10 @@
 <?php
 
+use App\Actions\Rnd\Material\ApproveMaterialForEsbAction;
+use App\Actions\Rnd\Material\ClaimMaterialReviewAction;
+use App\Actions\Rnd\Material\LinkMaterialToExistingEsbProductAction;
+use App\Actions\Rnd\Material\SyncMaterialToEsbAction;
+use App\Enums\MaterialEsbSyncStatus;
 use App\Enums\MonitoringTransactionStatus;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Models\MonitoringTransaction;
@@ -13,6 +18,7 @@ use Filament\Facades\Filament;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -47,12 +53,25 @@ function emptyProductList(): array
     return ['status' => 'ok', 'result' => ['page' => 1, 'limit' => 100, 'count' => 0, 'data' => [], 'prev' => null, 'next' => null]];
 }
 
+/**
+ * R&D submits from the product page; IT claims and approves the push (the only path that mutates ESB).
+ */
 function syncMaterial(RndProductEsbMaterial $material): void
 {
     Livewire::test(ViewProjectProductPage::class, [
         'project' => $material->product->rnd_project_id,
         'product' => $material->rnd_project_product_id,
-    ])->call('syncEsbMaterial', $material->id);
+    ])->call('submitEsbMaterialForReview', $material->id);
+
+    app(ClaimMaterialReviewAction::class)->execute($material->refresh(), auth()->user());
+    app(ApproveMaterialForEsbAction::class)->execute($material->refresh(), auth()->user());
+}
+
+function monitoredDetail(int $productId): array
+{
+    return ['status' => 'ok', 'result' => ['productID' => $productId, 'productDetails' => [
+        ['productDetailID' => 9001, 'uomID' => 5, 'sku' => 'BBMK-MON-GR', 'flagActive' => true],
+    ]]];
 }
 
 it('records a created Master Product with its local material and Product ID without extra requests', function () {
@@ -60,7 +79,7 @@ it('records a created Master Product with its local material and Product ID with
         'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
         'https://core-esb.test/product/list*' => Http::response(emptyProductList()),
         'https://core-esb.test/product' => Http::response(['status' => 'ok', 'result' => ['productID' => 8123, 'isTemp' => false]]),
-        'https://core-esb.test/product/8123' => Http::response(['status' => 'ok', 'result' => ['productID' => 8123, 'productDetails' => []]]),
+        'https://core-esb.test/product/8123' => Http::response(monitoredDetail(8123)),
     ]);
 
     syncMaterial($this->material);
@@ -75,7 +94,8 @@ it('records a created Master Product with its local material and Product ID with
         ->and($parent->local_model_type)->toBe($this->material->getMorphClass())
         ->and($parent->local_model_id)->toBe($this->material->id)
         ->and($parent->external_reference)->toBe('8123')
-        ->and($parent->idempotency_key)->toBe("rnd-material:{$this->material->id}:create")
+        ->and($parent->source_action)->toBe('approved_esb_create')
+        ->and($parent->idempotency_key)->toBe("material:{$this->material->id}:v1")
         ->and($parent->attempts()->sole()->operation_type)->toBe('create_product');
 });
 
@@ -87,9 +107,11 @@ it('records a timed out Master Product create as unknown and never resends it', 
     ]);
 
     syncMaterial($this->material);
-    syncMaterial($this->material->refresh());
+    expect(fn () => app(SyncMaterialToEsbAction::class)->execute($this->material->refresh(), auth()->user()))
+        ->toThrow(ValidationException::class);
 
-    expect($this->material->refresh()->status)->toBe('unknown');
+    expect($this->material->refresh()->status)->toBe('unknown')
+        ->and($this->material->esb_sync_status)->toBe(MaterialEsbSyncStatus::NeedsReconciliation);
     expect(Http::recorded(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/product')))->toHaveCount(1);
 
     $parent = MonitoringTransaction::query()->parents()->sole();
@@ -115,13 +137,15 @@ it('records an explicit Master Product rejection as failed', function () {
 it('records nothing when an existing ESB product is only linked', function () {
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
-        'https://core-esb.test/product/list*' => Http::response(['status' => 'ok', 'result' => [
-            'page' => 1, 'limit' => 100, 'count' => 1, 'prev' => null, 'next' => null,
-            'data' => [['productID' => 77, 'productName' => 'Tepung Monitoring', 'productDetails' => []]],
-        ]]),
+        'https://core-esb.test/product/77' => Http::response(monitoredDetail(77)),
     ]);
 
-    syncMaterial($this->material);
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->product->rnd_project_id,
+        'product' => $this->product->id,
+    ])->call('submitEsbMaterialForReview', $this->material->id);
+    app(ClaimMaterialReviewAction::class)->execute($this->material->refresh(), auth()->user());
+    app(LinkMaterialToExistingEsbProductAction::class)->execute($this->material->refresh(), auth()->user(), 77);
 
     expect($this->material->refresh()->status)->toBe('synced')
         ->and(MonitoringTransaction::query()->count())->toBe(0);

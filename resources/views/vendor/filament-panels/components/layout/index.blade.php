@@ -39,12 +39,12 @@
     if (preg_match('/service-request|technician-settings|technician-monthly-maintenance|technician-maintenance-checklist|(^|\/)assets(\/|$)/', $path))  { $initialOpen[] = 'technician'; }
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'whatsapp-settings')) { $initialOpen[] = 'master'; }
-    if (str_contains($path, 'sales-report') || str_contains($path, 'basket-size') || str_contains($path, 'compliment-type')) { $initialOpen[] = 'finance'; }
+    if (str_contains($path, 'sales-report') || str_contains($path, 'basket-size') || str_contains($path, 'compliment-type') || str_contains($path, 'pricelist-bahan')) { $initialOpen[] = 'finance'; }
     if (str_contains($path, 'stock-card') || str_contains($path, 'goods-receipts') || str_contains($path, 'location') || str_contains($path, 'product-list-page') || str_contains($path, 'marketing-material-fulfillments/diterima')) { $initialOpen[] = 'inventory'; }
     if (str_contains($path, 'sales-information') || str_contains($path, 'ordering-recommendation') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
-    if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions')) { $initialOpen[] = 'it'; }
-    if (str_contains($path, 'bill-of-material') || str_contains($path, 'bom-adjustments') || str_contains($path, 'shelf-life') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names') || str_contains($path, 'rnd-internal-memos') || str_contains($path, 'rnd-project-task-templates')) { $initialOpen[] = 'rnd'; }
+    if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions') || str_contains($path, 'material-reviews')) { $initialOpen[] = 'it'; }
+    if (str_contains($path, 'bill-of-material') || str_contains($path, 'bom-adjustments') || str_contains($path, 'shelf-life') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names') || str_contains($path, 'rnd-internal-memos') || str_contains($path, 'rnd-project-task-templates') || str_contains($path, 'review-sourcing')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'store-sops') || str_contains($path, 'store-sop-categories') || str_contains($path, 'customer-complaints') || str_contains($path, 'store-sales-orders')) { $initialOpen[] = 'operational'; }
     if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || str_contains($path, 'vendor-compliance') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
@@ -107,6 +107,7 @@
                 ['label' => 'Permintaan ERP', 'icon' => 'server',      'perm' => 'view erp requests', 'href' => $r('filament.helpdesk.resources.erp-repair-requests.index'), 'active' => $active($r('filament.helpdesk.resources.erp-repair-requests.index'))],
                 ['label' => 'Modul ERP',      'icon' => 'layout-grid', 'perm' => 'view erp modules',  'href' => $r('filament.helpdesk.resources.erp-modules.index'),         'active' => $active($r('filament.helpdesk.resources.erp-modules.index'))],
                 ['label' => 'Request Types',  'icon' => 'tags',        'perm' => 'view it request types', 'href' => $r('filament.helpdesk.resources.it-request-types.index'),  'active' => $active($r('filament.helpdesk.resources.it-request-types.index'))],
+                ['label' => 'Review Data', 'icon' => 'clipboard-check', 'perm' => 'review rnd materials as it', 'href' => $r(\App\Filament\Helpdesk\Resources\MaterialReviews\MaterialReviewResource::getRouteBaseName().'.index'), 'active' => $active($r(\App\Filament\Helpdesk\Resources\MaterialReviews\MaterialReviewResource::getRouteBaseName().'.index'))],
                 ['label' => 'Bulk Data', 'icon' => 'cloud-upload', 'perm' => 'view bulk product submissions', 'href' => $r('filament.helpdesk.pages.bulk-data'), 'active' => $active($r('filament.helpdesk.pages.bulk-data')) || $active($r('filament.helpdesk.resources.bulk-data.product.index')) || $active($r('filament.helpdesk.pages.bulk-data.promotion'))],
             ],
         ],
@@ -142,6 +143,7 @@
             'icon'  => 'flask-conical',
             'items' => [
                 ['label' => 'Project', 'icon' => 'folder-kanban', 'perm' => 'view rnd projects', 'href' => $r('filament.helpdesk.resources.rnd-projects.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-projects.index'))],
+                ['label' => 'Review Sourcing', 'icon' => 'clipboard-check', 'perm' => ['receive material samples', 'review material samples as rnd', 'reopen material sample approval', 'review material sourcing as rnd'], 'href' => $r(\App\Filament\Helpdesk\Resources\ReviewSourcings\ReviewSourcingResource::getRouteBaseName().'.index'), 'active' => $active($r(\App\Filament\Helpdesk\Resources\ReviewSourcings\ReviewSourcingResource::getRouteBaseName().'.index'))],
                 ['label' => 'Template Checkpoint', 'icon' => 'list-checks', 'perm' => 'view rnd project task templates', 'href' => $r('filament.helpdesk.resources.rnd-project-task-templates.index'), 'active' => $active($r('filament.helpdesk.resources.rnd-project-task-templates.index'))],
                 ['label' => 'Recipe Adjustment', 'icon' => 'clipboard-list', 'perm' => 'view bill of materials', 'href' => $r('filament.helpdesk.pages.bom-adjustments'), 'active' => $active($r('filament.helpdesk.pages.bom-adjustments'))],
                 ['label' => 'Shelf Life', 'icon' => 'timer', 'perm' => 'view wip shelf life', 'href' => $r('filament.helpdesk.pages.shelf-life'), 'active' => $active($r('filament.helpdesk.pages.shelf-life'))],
@@ -203,6 +205,7 @@
                 ['label' => 'Sales Report Scores', 'icon' => 'clipboard-check', 'perm' => 'view sales report scores', 'href' => $r('filament.helpdesk.pages.sales-report-scores-page'), 'active' => $active($r('filament.helpdesk.pages.sales-report-scores-page'))],
                 ['label' => 'Sales Report',      'icon' => 'bar-chart-2', 'perm' => 'view sales reports',   'href' => $r('filament.helpdesk.resources.sales-reports.index'),   'active' => $active($r('filament.helpdesk.resources.sales-reports.index'))],
                 ['label' => 'Compliment Types', 'icon' => 'tag', 'perm' => 'view compliment types', 'href' => $r('filament.helpdesk.resources.compliment-types.index'), 'active' => $active($r('filament.helpdesk.resources.compliment-types.index'))],
+                ['label' => 'Product Pricelist', 'icon' => 'badge-dollar-sign', 'perm' => 'view material pricelist', 'href' => $r(\App\Filament\Helpdesk\Resources\MaterialPricelists\MaterialPricelistResource::getRouteBaseName().'.index'), 'active' => $active($r(\App\Filament\Helpdesk\Resources\MaterialPricelists\MaterialPricelistResource::getRouteBaseName().'.index'))],
                 ['label' => 'Basket Size', 'icon' => 'shopping-basket', 'perm' => 'view basket sizes', 'href' => $r('filament.helpdesk.pages.basket-size-page'), 'active' => $active($r('filament.helpdesk.pages.basket-size-page'))],
             ],
         ],
@@ -221,6 +224,7 @@
             'items' => [
                 ['label' => 'Sales Information', 'icon' => 'bar-chart-3', 'perm' => 'view sales information', 'href' => $r('filament.helpdesk.pages.sales-information-page'), 'active' => $active($r('filament.helpdesk.pages.sales-information-page'))],
                 ['label' => 'Ordering Recommendation', 'icon' => 'shopping-cart', 'perm' => 'view ordering recommendations', 'href' => $r(\App\Filament\Helpdesk\Pages\OrderingRecommendationPage::getRouteName()), 'active' => $active($r(\App\Filament\Helpdesk\Pages\OrderingRecommendationPage::getRouteName()))],
+                ['label' => 'Ordering Settings', 'icon' => 'settings', 'perm' => 'manage ordering recommendation settings', 'href' => $r(\App\Filament\Helpdesk\Pages\OrderingRecommendationSettingsPage::getRouteName()), 'active' => $active($r(\App\Filament\Helpdesk\Pages\OrderingRecommendationSettingsPage::getRouteName()))],
                 ['label' => 'Promotion Information', 'icon' => 'tag', 'perm' => 'view promotion information', 'href' => $r('filament.helpdesk.pages.promotion-information-page'), 'active' => $active($r('filament.helpdesk.pages.promotion-information-page'))],
                 ['label' => 'Stock Information', 'icon' => 'clipboard-list', 'perm' => 'view stock information', 'href' => $r('filament.helpdesk.pages.stock-information-page'), 'active' => $active($r('filament.helpdesk.pages.stock-information-page'))],
             ],
@@ -273,7 +277,7 @@
             return null;
         }
         $items = array_values(array_filter($group['items'], fn ($item) =>
-            ! isset($item['perm']) || $user?->hasRole('SUPERADMIN') || $user?->can($item['perm'])
+            ! isset($item['perm']) || $user?->hasRole('SUPERADMIN') || (is_array($item['perm']) ? $user?->canAny($item['perm']) : $user?->can($item['perm']))
         ));
         if (empty($items)) {
             return null;

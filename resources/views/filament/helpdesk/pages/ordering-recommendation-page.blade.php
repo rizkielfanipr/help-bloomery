@@ -10,12 +10,19 @@
         'blocked' => 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300',
     ];
     $stateTone = [
-        'fresh' => ['border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200', 'Fresh — data lengkap'],
-        'stale' => ['border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200', 'Stale — sinkronisasi terakhir sudah lama'],
-        'partial' => ['border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200', 'Partial — sebagian hari/source tidak lengkap'],
-        'failed' => ['border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200', 'Failed — data demand tidak tersedia'],
+        'fresh' => 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200',
+        'stale' => 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200',
+        'partial' => 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200',
+        'failed' => 'border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200',
     ];
-    $rankingTabs = ['priority' => 'Prioritas Order', 'top_demand' => 'Top Demand', 'trend_up' => 'Trend Naik', 'trend_down' => 'Trend Turun', 'waste' => 'Waste', 'stockout' => 'Stockout Risk'];
+    $rankingTabs = [
+        'priority' => ['label' => 'Prioritas Order', 'icon' => 'heroicon-o-shopping-cart'],
+        'top_demand' => ['label' => 'Top Demand', 'icon' => 'heroicon-o-chart-bar'],
+        'trend_up' => ['label' => 'Trend Naik', 'icon' => 'heroicon-o-arrow-trending-up'],
+        'trend_down' => ['label' => 'Trend Turun', 'icon' => 'heroicon-o-arrow-trending-down'],
+        'waste' => ['label' => 'Waste', 'icon' => 'heroicon-o-trash'],
+        'stockout' => ['label' => 'Stockout Risk', 'icon' => 'heroicon-o-exclamation-triangle'],
+    ];
 @endphp
 
 <div class="space-y-6">
@@ -120,47 +127,33 @@
         <section class="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center dark:border-gray-700 dark:bg-gray-900">
             <x-heroicon-o-inbox class="mx-auto h-8 w-8 text-gray-300" />
             <p class="mt-3 text-sm font-semibold text-gray-700 dark:text-gray-200">Belum ada snapshot forecast</p>
-            <p class="mx-auto mt-1 max-w-md text-xs text-gray-500 dark:text-gray-400">Branch terpilih belum memiliki forecast {{ $applied['horizon'] ?? $horizon }} hari yang selesai dibuat. Data disinkronkan otomatis oleh scheduler; ubah filter atau tunggu sinkronisasi berikutnya.</p>
+            <p class="mx-auto mt-1 max-w-lg text-xs text-gray-500 dark:text-gray-400">Branch terpilih belum memiliki forecast {{ $applied['horizon'] ?? $horizon }} hari yang selesai dibuat. Setelah lokasi stok disimpan, backfill 8 minggu berjalan melalui queue dan waktunya bergantung pada respons ESB. Pastikan queue worker aktif, lalu muat ulang halaman ini setelah proses selesai.</p>
         </section>
     @else
         {{-- Freshness / completeness --}}
         @if($sourceState)
-            @php [$tone, $stateLabel] = $stateTone[$sourceState['state']]; @endphp
-            <section aria-label="Kelengkapan data" class="rounded-2xl border px-4 py-3 text-sm {{ $tone }}">
-                <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-                    <span class="font-semibold">{{ $activeRun->branch?->name }} · {{ $stateLabel }}</span>
-                    <span>Sinkron terakhir: {{ $sourceState['last_synced_at'] ? \Carbon\CarbonImmutable::parse($sourceState['last_synced_at'])->timezone(config('app.timezone'))->isoFormat('D MMM Y, HH:mm') : '—' }}</span>
-                    <span>Forecast dibuat: {{ $activeRun->generated_at?->timezone(config('app.timezone'))->isoFormat('D MMM Y, HH:mm') }}</span>
-                    <span>Histori: {{ $activeRun->history_from->isoFormat('D MMM') }} – {{ $activeRun->history_to->isoFormat('D MMM Y') }}</span>
-                    <span>Algoritma {{ $activeRun->algorithm_version }}</span>
-                </div>
+            @php $stateText = \App\Services\Ordering\OrderingRecommendationQuery::stateText($sourceState['state']); @endphp
+            <section aria-label="Kelengkapan data" class="rounded-2xl border px-4 py-3 text-sm {{ $stateTone[$sourceState['state']] }}">
+                <p class="font-semibold">{{ $activeRun->branch?->name }}: {{ $stateText['label'] }}</p>
+                <p class="mt-0.5">{{ $stateText['description'] }}</p>
+                <dl class="mt-2 grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2 xl:grid-cols-4">
+                    <div><dt class="inline opacity-80">Data ESB terakhir diambil:</dt> <dd class="inline font-medium">{{ $sourceState['last_synced_at'] ? \Carbon\CarbonImmutable::parse($sourceState['last_synced_at'])->timezone(config('app.timezone'))->isoFormat('D MMM Y, HH:mm') : 'belum pernah' }}</dd></div>
+                    <div><dt class="inline opacity-80">Rekomendasi dihitung:</dt> <dd class="inline font-medium">{{ $activeRun->generated_at?->timezone(config('app.timezone'))->isoFormat('D MMM Y, HH:mm') }}</dd></div>
+                    <div><dt class="inline opacity-80">Periode data:</dt> <dd class="inline font-medium">{{ $activeRun->history_from->isoFormat('D MMM Y') }} sampai {{ $activeRun->history_to->isoFormat('D MMM Y') }}</dd></div>
+                    <div><dt class="inline opacity-80">Versi perhitungan:</dt> <dd class="inline font-medium">{{ $activeRun->algorithm_version }}</dd></div>
+                </dl>
                 @if($sourceState['warnings'] !== [])
-                    <ul class="mt-2 flex flex-wrap gap-2 text-xs">
-                        @foreach($sourceState['warnings'] as $warning)
-                            <li class="inline-flex items-center gap-1 rounded-md border border-current/20 px-2 py-0.5"><x-heroicon-o-exclamation-triangle class="h-3.5 w-3.5" /> {{ \App\Services\Ordering\OrderingReasonCodes::label($warning) }}</li>
-                        @endforeach
-                    </ul>
+                    <div class="mt-3 border-t border-current/20 pt-2">
+                        <p class="text-xs font-semibold">Perlu diperhatikan</p>
+                        <ul role="list" class="mt-1 space-y-1 text-xs">
+                            @foreach($sourceState['warnings'] as $warning)
+                                <li class="flex items-start gap-1.5"><x-heroicon-o-exclamation-triangle class="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span>{{ \App\Services\Ordering\OrderingReasonCodes::note($warning) }}</span></li>
+                            @endforeach
+                        </ul>
+                    </div>
                 @endif
             </section>
         @endif
-
-        {{-- KPI --}}
-        <section aria-label="Ringkasan" class="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-            @foreach([
-                ['Branch dianalisis', $runs->count(), 'heroicon-o-building-storefront'],
-                ['Produk dianalisis', $kpis['products'], 'heroicon-o-cube'],
-                ['Perlu order', $kpis['need_order'], 'heroicon-o-shopping-cart'],
-                ['Risiko stockout', $kpis['stockout'], 'heroicon-o-exclamation-triangle'],
-                ['Trend naik', $kpis['trend_up'], 'heroicon-o-arrow-trending-up'],
-                ['Waste tinggi', $kpis['high_waste'], 'heroicon-o-trash'],
-                ['Data tidak lengkap', $kpis['incomplete'], 'heroicon-o-question-mark-circle'],
-            ] as [$label, $value, $icon])
-                <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                    <div class="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400"><x-dynamic-component :component="$icon" class="h-4 w-4 shrink-0" /> <span class="break-words">{{ $label }}</span></div>
-                    <p class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{{ number_format($value) }}</p>
-                </div>
-            @endforeach
-        </section>
 
         {{-- Branch overview --}}
         @if($overview !== [])
@@ -168,11 +161,10 @@
                 <h2 id="ordering-overview-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Ringkasan per Branch</h2>
                 <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     @foreach($overview as $row)
-                        @php [$tone, $stateLabel] = $stateTone[$row['source_state']['state']]; @endphp
                         <article @class(['rounded-xl border bg-white p-4 dark:bg-gray-900', 'border-blue-400 dark:border-blue-600' => $row['branch_id'] === $activeRun->branch_id, 'border-gray-200 dark:border-gray-700' => $row['branch_id'] !== $activeRun->branch_id])>
                             <div class="flex items-start justify-between gap-2">
                                 <h3 class="break-words text-sm font-semibold text-gray-900 dark:text-white">{{ $row['branch'] }}</h3>
-                                <span class="shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $tone }}">{{ ucfirst($row['source_state']['state']) }}</span>
+                                <span class="shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $stateTone[$row['source_state']['state']] }}">{{ \App\Services\Ordering\OrderingRecommendationQuery::stateText($row['source_state']['state'])['label'] }}</span>
                             </div>
                             <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
                                 <div><dt class="text-gray-500">Perlu order</dt><dd class="font-semibold text-gray-900 dark:text-white">{{ $row['kpis']['need_order'] }} SKU</dd></div>
@@ -188,124 +180,192 @@
             </section>
         @endif
 
-        {{-- Charts (active branch, one UOM at a time) --}}
-        @if($activeRun && $demandChart)
-            <section aria-labelledby="ordering-charts-heading" class="space-y-3">
-                <div class="flex flex-wrap items-end justify-between gap-3">
-                    <h2 id="ordering-charts-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Grafik — {{ $activeRun->branch?->name }}</h2>
-                    @if(count($demandChart['uoms']) > 1)
-                        <div class="w-40"><label for="ordering-uom" class="{{ $labelClass }}">UOM grafik</label>
-                            <select id="ordering-uom" wire:model.live="chartUom" class="{{ $fieldClass }}">@foreach($demandChart['uoms'] as $uom)<option value="{{ $uom }}" @selected($uom === $demandChart['uom'])>{{ $uom }}</option>@endforeach</select>
-                        </div>
-                    @endif
-                </div>
-                <div class="grid gap-4 xl:grid-cols-2">
-                    @foreach([
-                        ['demand', 'Actual Demand vs Forecast ('.($demandChart['uom'] ?? '-').')', ['type' => 'line', 'labels' => $demandChart['labels'], 'datasets' => [['label' => 'Actual ('.($demandChart['uom'] ?? '').')', 'data' => $demandChart['actual'], 'borderColor' => '#2563eb', 'backgroundColor' => '#2563eb'], ['label' => 'Forecast ('.($demandChart['uom'] ?? '').')', 'data' => $demandChart['forecast'], 'borderColor' => '#f59e0b', 'backgroundColor' => '#f59e0b', 'borderDash' => [6, 4]]]]],
-                        ['coverage', 'Stock Coverage (jumlah produk)', ['type' => 'bar', 'labels' => array_keys($coverageChart), 'datasets' => [['label' => 'Produk', 'data' => array_values($coverageChart), 'backgroundColor' => '#60a5fa']]]],
-                        ['trend', 'Top Trend Naik (%)', ['type' => 'bar', 'indexAxis' => 'y', 'labels' => $trendChart->map(fn ($item) => $item->product_name.' · '.$item->uom)->all(), 'datasets' => [['label' => 'Trend (%)', 'data' => $trendChart->map(fn ($item) => $item->trendPercent())->all(), 'backgroundColor' => '#10b981']]]],
-                        ['waste', 'Top Waste Rate (%)', ['type' => 'bar', 'indexAxis' => 'y', 'labels' => $wasteChart->map(fn ($item) => $item->product_name.' · '.$item->uom)->all(), 'datasets' => [['label' => 'Waste rate (%)', 'data' => $wasteChart->map(fn ($item) => round((float) $item->waste_rate_capped * 100, 2))->all(), 'backgroundColor' => '#ef4444']]]],
-                    ] as [$key, $chartTitle, $config])
-                        <figure wire:key="ordering-chart-{{ $key }}-{{ md5(json_encode($config)) }}" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                            <figcaption class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $chartTitle }}</figcaption>
-                            @if($config['labels'] === [])
-                                <p class="py-10 text-center text-xs text-gray-400">Tidak ada data untuk grafik ini.</p>
-                            @else
-                                <div class="relative h-64"
-                                     x-data="{ chart: null }"
-                                     x-init="$nextTick(() => { if (! window.Chart) return; const c = @js($config); chart = new Chart($refs.canvas, { type: c.type, data: { labels: c.labels, datasets: c.datasets }, options: { indexAxis: c.indexAxis ?? 'x', responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } } }); })"
-                                     x-on:remove="chart?.destroy()">
-                                    <canvas x-ref="canvas" role="img" aria-label="{{ $chartTitle }}"></canvas>
-                                </div>
-                            @endif
-                        </figure>
-                    @endforeach
-                </div>
-            </section>
-        @endif
-
         {{-- Ranking per branch --}}
         <section aria-labelledby="ordering-ranking-heading" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-            <div class="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <h2 id="ordering-ranking-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Ranking — {{ $activeRun->branch?->name }}</h2>
+            <div class="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                <div>
+                    <h2 id="ordering-ranking-heading" class="text-base font-bold text-gray-900 dark:text-white">Produk Teratas: {{ $activeRun->branch?->name }}</h2>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {{ config('ordering_recommendation.ranking_limit') }} produk teratas berdasarkan {{ $rankingTabs[$rankingType]['label'] }} untuk
+                        <strong class="font-semibold text-gray-700 dark:text-gray-200">{{ $activeRun->forecast_from->isoFormat('D MMM Y') }} sampai {{ $activeRun->forecast_to->isoFormat('D MMM Y') }}</strong>.
+                        Batas waktu order dihitung dari perkiraan tanggal stok habis. Waktu pengiriman dari supplier dan barang yang sedang dalam perjalanan belum ikut dihitung.
+                    </p>
+                </div>
                 @if($runs->count() > 1)
                     <div class="w-56"><label for="ordering-active-branch" class="{{ $labelClass }}">Branch</label>
                         <select id="ordering-active-branch" wire:change="selectBranch($event.target.value)" class="{{ $fieldClass }}">@foreach($runs as $run)<option value="{{ $run->branch_id }}" @selected($run->branch_id === $activeRun->branch_id)>{{ $run->branch?->name }}</option>@endforeach</select>
                     </div>
                 @endif
             </div>
-            <div role="tablist" aria-label="Jenis ranking" class="flex gap-1 overflow-x-auto border-b border-gray-200 px-2 dark:border-gray-700">
-                @foreach($rankingTabs as $type => $tabLabel)
-                    <button type="button" role="tab" aria-selected="{{ $rankingType === $type ? 'true' : 'false' }}" wire:click="$set('rankingType', '{{ $type }}')" @class(['shrink-0 border-b-2 px-3 py-2.5 text-xs font-semibold', 'border-blue-600 text-blue-600 dark:text-blue-400' => $rankingType === $type, 'border-transparent text-gray-500 hover:text-gray-700' => $rankingType !== $type])>{{ $tabLabel }}</button>
+            <div role="tablist" aria-label="Jenis ranking" class="flex gap-2 overflow-x-auto border-b border-gray-200 px-5 py-3 dark:border-gray-700">
+                @foreach($rankingTabs as $type => $tab)
+                    <button type="button" role="tab" aria-selected="{{ $rankingType === $type ? 'true' : 'false' }}" wire:click="$set('rankingType', '{{ $type }}')" @class([
+                        'inline-flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition',
+                        'bg-blue-600 text-white' => $rankingType === $type,
+                        'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $rankingType !== $type,
+                    ])>
+                        <x-dynamic-component :component="$tab['icon']" class="h-4 w-4" aria-hidden="true" />
+                        {{ $tab['label'] }}
+                    </button>
                 @endforeach
             </div>
-            <ol class="divide-y divide-gray-100 dark:divide-gray-800">
-                @forelse($ranking as $item)
-                    <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
-                        <span class="min-w-0 break-words"><span class="mr-2 font-mono text-xs text-gray-400">{{ $loop->iteration }}.</span><span class="font-semibold text-gray-800 dark:text-gray-200">{{ $item->product_name ?? $item->product_code }}</span> <span class="text-xs text-gray-500">{{ $item->product_code }} · {{ $item->uom }} · {{ $item->company_code }}</span></span>
-                        <span class="text-xs text-gray-600 dark:text-gray-300">
-                            @switch($rankingType)
-                                @case('top_demand') Rata-rata {{ $fmt($item->average_daily_demand) }} {{ $item->uom }}/hari @break
-                                @case('trend_up') @case('trend_down') {{ $item->trend_label->getLabel() }} {{ $fmt($item->trendPercent(), 1) }}% @break
-                                @case('waste') Waste {{ $fmt((float) $item->waste_rate_capped * 100, 1) }}% ({{ $fmt($item->historical_waste) }} {{ $item->uom }}) @break
-                                @case('stockout') Habis {{ $item->predicted_stockout_date?->isoFormat('D MMM') }} · coverage {{ $fmt($item->coverage_days, 1) }} hari @break
-                                @default Order {{ $fmt($item->final_recommendation) }} {{ $item->uom }} · {{ $item->explanation }}
-                            @endswitch
-                        </span>
-                    </li>
-                @empty
-                    <li class="px-4 py-8 text-center text-xs text-gray-400">Tidak ada produk untuk ranking ini pada branch aktif.</li>
-                @endforelse
-            </ol>
-        </section>
-
-        {{-- Recommendation table --}}
-        <section aria-labelledby="ordering-table-heading" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-            <div class="border-b border-gray-200 px-4 py-3 dark:border-gray-700"><h2 id="ordering-table-heading" class="text-sm font-semibold text-gray-900 dark:text-white">Recommendation per Produk</h2><p class="mt-0.5 text-xs text-gray-500">Setiap baris adalah satu branch, company, produk, dan UOM. Quantity tidak dijumlahkan lintas branch atau UOM.</p></div>
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[1100px] text-sm">
+                <table class="w-full min-w-[1050px] text-sm">
                     <thead class="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-800/60">
                         <tr>
-                            <th scope="col" class="px-3 py-2">Branch</th>
-                            <th scope="col" class="px-3 py-2"><button type="button" wire:click="sortBy('product')" class="font-semibold uppercase">Produk</button></th>
-                            <th scope="col" class="px-3 py-2">UOM</th>
-                            <th scope="col" class="px-3 py-2 text-right"><button type="button" wire:click="sortBy('trend')" class="font-semibold uppercase">Tren</button></th>
-                            <th scope="col" class="px-3 py-2 text-right"><button type="button" wire:click="sortBy('waste')" class="font-semibold uppercase">Waste</button></th>
-                            <th scope="col" class="px-3 py-2 text-right">Stok</th>
-                            <th scope="col" class="px-3 py-2 text-right"><button type="button" wire:click="sortBy('coverage')" class="font-semibold uppercase">Coverage</button></th>
-                            <th scope="col" class="px-3 py-2 text-right"><button type="button" wire:click="sortBy('forecast')" class="font-semibold uppercase">Forecast</button></th>
-                            <th scope="col" class="px-3 py-2 text-right"><button type="button" wire:click="sortBy('recommendation')" class="font-semibold uppercase">Rekomendasi</button></th>
-                            <th scope="col" class="px-3 py-2">Confidence</th>
-                            <th scope="col" class="px-3 py-2"><span class="sr-only">Aksi</span></th>
+                            <th scope="col" class="w-12 px-3 py-3 text-center">#</th>
+                            <th scope="col" class="px-3 py-3">Produk</th>
+                            <th scope="col" class="px-3 py-3 text-right">Kebutuhan {{ $activeRun->horizon_days }} Hari</th>
+                            <th scope="col" class="px-3 py-3 text-right">Tren & Waste</th>
+                            <th scope="col" class="px-3 py-3 text-right">Stok & Coverage</th>
+                            <th scope="col" class="px-3 py-3">Stok Aman Hingga</th>
+                            <th scope="col" class="px-3 py-3">Order Sebelum</th>
+                            <th scope="col" class="px-3 py-3 text-right">Rekomendasi</th>
+                            <th scope="col" class="w-16 px-3 py-3"><span class="sr-only">Aksi</span></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                        @forelse($items as $item)
-                            <tr wire:key="ordering-item-{{ $item->id }}" class="align-top">
-                                <td class="px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{{ $item->branch?->name }}<br><span class="text-gray-400">{{ $item->company_code }}</span></td>
-                                <td class="px-3 py-2"><p class="break-words font-semibold text-gray-800 dark:text-gray-200">{{ $item->product_name ?? '—' }}</p><p class="font-mono text-xs text-gray-500">{{ $item->product_code }}</p><p class="text-xs text-gray-400">{{ $item->category_name ?? 'Tanpa kategori' }}</p></td>
-                                <td class="px-3 py-2 text-xs">{{ $item->uom }}</td>
-                                <td class="px-3 py-2 text-right text-xs">{{ $item->trendPercent() !== null ? ($item->trendPercent() > 0 ? '+' : '').$fmt($item->trendPercent(), 1).'%' : '' }}<br><span class="text-gray-500">{{ $item->trend_label->getLabel() }}</span></td>
-                                <td class="px-3 py-2 text-right text-xs">{{ $item->waste_rate_capped !== null ? $fmt((float) $item->waste_rate_capped * 100, 1).'%' : 'Tidak tersedia' }}</td>
-                                <td class="px-3 py-2 text-right text-xs">@if($item->available_stock === null)<span class="text-gray-500">Tidak tersedia</span>@else{{ $fmt($item->available_stock) }}@if((float) $item->available_stock < 0)<br><span class="text-red-600">Stok negatif</span>@endif @endif</td>
-                                <td class="px-3 py-2 text-right text-xs">{{ $item->coverage_days !== null ? $fmt($item->coverage_days, 1).' hari' : ($item->confidence === \App\Enums\OrderingConfidence::Blocked ? '—' : 'Tidak ada demand') }}@if($item->predicted_stockout_date)<br><span class="text-amber-700 dark:text-amber-300">Habis {{ $item->predicted_stockout_date->isoFormat('D MMM') }}</span>@endif</td>
-                                <td class="px-3 py-2 text-right text-xs">{{ $fmt($item->forecast_demand) }}</td>
-                                <td class="px-3 py-2 text-right font-semibold">{{ $item->final_recommendation !== null ? $fmt($item->final_recommendation) : 'Tidak dapat dihitung' }}</td>
-                                <td class="px-3 py-2"><span class="inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $confidenceTone[$item->confidence->value] }}">{{ $item->confidence->getLabel() }}</span></td>
-                                <td class="px-3 py-2 text-right"><button type="button" wire:click="openDetail({{ $item->id }})" class="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:border-gray-700" aria-label="Lihat detail {{ $item->product_name ?? $item->product_code }}"><x-heroicon-o-eye class="h-4 w-4" /> Detail</button></td>
+                        @forelse($ranking as $item)
+                            @php
+                                $hasStock = $item->available_stock !== null;
+                                $stockIsUnsafe = $hasStock && (float) $item->available_stock <= 0;
+                                $stockoutDate = $item->predicted_stockout_date;
+                                $safeUntilDate = $stockoutDate?->copy()->subDay();
+                                $orderDeadline = $stockoutDate ?? $activeRun->forecast_from;
+                                $needsOrder = $item->final_recommendation !== null && (float) $item->final_recommendation > 0;
+                                $urgent = $needsOrder && ($stockIsUnsafe || $orderDeadline->lte($activeRun->forecast_from));
+                            @endphp
+                            <tr wire:key="ordering-ranking-{{ $rankingType }}-{{ $item->id }}" class="align-top">
+                                <td class="px-3 py-3 text-center font-mono text-xs font-semibold text-gray-400">{{ $loop->iteration }}</td>
+                                <td class="px-3 py-3">
+                                    <p class="max-w-xs break-words font-semibold text-gray-900 dark:text-white">{{ $item->product_name ?? $item->product_code }}</p>
+                                    <p class="mt-1 font-mono text-xs text-gray-500">{{ $item->product_code }} · {{ $item->uom }} · {{ $item->company_code }}</p>
+                                </td>
+                                <td class="px-3 py-3 text-right">
+                                    <p class="font-semibold text-gray-900 dark:text-white">{{ $fmt($item->forecast_demand) }} {{ $item->uom }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">Rata-rata {{ $fmt($item->average_daily_demand) }}/hari</p>
+                                </td>
+                                <td class="px-3 py-3 text-right text-xs">
+                                    <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $item->trendPercent() !== null ? ($item->trendPercent() > 0 ? '+' : '').$fmt($item->trendPercent(), 1).'%' : '—' }}</p>
+                                    <p class="mt-1 text-gray-500">Waste {{ $item->waste_rate_capped !== null ? $fmt((float) $item->waste_rate_capped * 100, 1).'%' : '—' }}</p>
+                                </td>
+                                <td class="px-3 py-3 text-right text-xs">
+                                    <p @class(['font-semibold', 'text-red-600 dark:text-red-400' => $stockIsUnsafe, 'text-gray-800 dark:text-gray-200' => ! $stockIsUnsafe])>{{ $hasStock ? $fmt($item->available_stock).' '.$item->uom : 'Tidak tersedia' }}</p>
+                                    <p class="mt-1 text-gray-500">{{ $item->coverage_days !== null ? $fmt($item->coverage_days, 1).' hari' : 'Coverage —' }}</p>
+                                </td>
+                                <td class="px-3 py-3 text-xs">
+                                    @if($stockIsUnsafe)
+                                        <span class="inline-flex rounded-md bg-red-50 px-2 py-1 font-semibold text-red-700 dark:bg-red-950/30 dark:text-red-300">Stok Habis</span>
+                                    @elseif($safeUntilDate)
+                                        <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $safeUntilDate->isoFormat('D MMM Y') }}</p>
+                                        <p class="mt-1 text-gray-500">Habis {{ $stockoutDate->isoFormat('D MMM Y') }}</p>
+                                    @else
+                                        <p class="font-semibold text-emerald-700 dark:text-emerald-300">≥ {{ $activeRun->forecast_to->isoFormat('D MMM Y') }}</p>
+                                        <p class="mt-1 text-gray-500">Tidak diprediksi habis</p>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-3 text-xs">
+                                    @if($needsOrder)
+                                        <p @class(['font-semibold', 'text-red-600 dark:text-red-400' => $urgent, 'text-gray-800 dark:text-gray-200' => ! $urgent])>{{ $urgent ? 'Order Segera' : $orderDeadline->isoFormat('D MMM Y') }}</p>
+                                        <p class="mt-1 text-gray-500">Batas {{ $orderDeadline->isoFormat('D MMM Y') }}</p>
+                                    @else
+                                        <p class="font-semibold text-gray-500">Belum perlu order</p>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-3 text-right">
+                                    <p class="font-bold text-blue-700 dark:text-blue-300">{{ $item->final_recommendation !== null ? $fmt($item->final_recommendation).' '.$item->uom : 'Tidak dapat dihitung' }}</p>
+                                    <span class="mt-1 inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $confidenceTone[$item->confidence->value] }}">{{ $item->confidence->getLabel() }}</span>
+                                </td>
+                                <td class="px-3 py-3 text-right">
+                                    <button type="button" wire:click="openDetail({{ $item->id }})" class="inline-flex rounded-lg border border-gray-200 p-2 text-blue-600 hover:bg-blue-50 dark:border-gray-700 dark:text-blue-400 dark:hover:bg-blue-950/30" aria-label="Lihat detail {{ $item->product_name ?? $item->product_code }}"><x-heroicon-o-eye class="h-4 w-4" /></button>
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="11" class="px-4 py-10 text-center text-xs text-gray-400">Tidak ada produk yang cocok dengan filter. Ubah filter lalu tekan Tampilkan Analisis.</td></tr>
+                            <tr><td colspan="9" class="px-4 py-10 text-center text-xs text-gray-400">Tidak ada produk untuk {{ mb_strtolower($rankingTabs[$rankingType]['label']) }} pada branch dan periode ini.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="border-t border-gray-200 px-4 py-3 dark:border-gray-700">{{ $items->links() }}</div>
+        </section>
+
+        {{-- Recommendation table --}}
+        <section aria-labelledby="ordering-table-heading" class="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-wrap items-end justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                <div>
+                    <h2 id="ordering-table-heading" class="text-base font-bold text-gray-900 dark:text-white">Prediksi Ordering Produk</h2>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Setiap baris berisi satu produk untuk satu branch dalam satu satuan. Jumlah dari branch atau satuan yang berbeda tidak digabungkan.</p>
+                </div>
+                <span class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">{{ $items->total() }} produk</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table data-testid="ordering-recommendation-products-table" class="w-full min-w-[1050px] text-sm">
+                    <thead class="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-800/60">
+                        <tr>
+                            <th scope="col" class="px-3 py-3">Branch</th>
+                            <th scope="col" class="px-3 py-3"><button type="button" wire:click="sortBy('product')" class="font-semibold uppercase hover:text-blue-600">Produk</button></th>
+                            <th scope="col" class="px-3 py-3">UOM</th>
+                            <th scope="col" class="px-3 py-3 text-right"><button type="button" wire:click="sortBy('trend')" class="font-semibold uppercase hover:text-blue-600">Tren</button> <span aria-hidden="true">&</span> <button type="button" wire:click="sortBy('waste')" class="font-semibold uppercase hover:text-blue-600">Waste</button></th>
+                            <th scope="col" class="px-3 py-3 text-right">Stok & <button type="button" wire:click="sortBy('coverage')" class="font-semibold uppercase hover:text-blue-600">Coverage</button></th>
+                            <th scope="col" class="px-3 py-3 text-right"><button type="button" wire:click="sortBy('forecast')" class="font-semibold uppercase hover:text-blue-600">Forecast</button></th>
+                            <th scope="col" class="px-3 py-3 text-right"><button type="button" wire:click="sortBy('recommendation')" class="font-semibold uppercase hover:text-blue-600">Rekomendasi</button></th>
+                            <th scope="col" class="w-16 px-3 py-3"><span class="sr-only">Aksi</span></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @forelse($items as $item)
+                            @php
+                                $hasStock = $item->available_stock !== null;
+                                $stockIsUnsafe = $hasStock && (float) $item->available_stock <= 0;
+                            @endphp
+                            <tr wire:key="ordering-item-{{ $item->id }}" class="align-top transition hover:bg-gray-50/70 dark:hover:bg-gray-800/40">
+                                <td class="px-3 py-3 text-xs">
+                                    <p class="max-w-48 break-words font-semibold text-gray-800 dark:text-gray-200">{{ $item->branch?->name }}</p>
+                                    <p class="mt-1 font-mono text-gray-500">{{ $item->company_code }} · {{ $item->esb_branch_code }}</p>
+                                </td>
+                                <td class="px-3 py-3">
+                                    <p class="max-w-xs break-words font-semibold text-gray-900 dark:text-white">{{ $item->product_name ?? $item->product_code }}</p>
+                                    <p class="mt-1 font-mono text-xs text-gray-500">{{ $item->product_code }}</p>
+                                    <p class="mt-1 text-xs text-gray-400">{{ $item->category_name ?? 'Tanpa kategori' }}</p>
+                                </td>
+                                <td class="px-3 py-3"><span class="inline-flex rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">{{ $item->uom }}</span></td>
+                                <td class="px-3 py-3 text-right text-xs">
+                                    <p class="font-semibold text-gray-800 dark:text-gray-200">{{ $item->trendPercent() !== null ? ($item->trendPercent() > 0 ? '+' : '').$fmt($item->trendPercent(), 1).'%' : '—' }} · {{ $item->trend_label->getLabel() }}</p>
+                                    <p class="mt-1 text-gray-500">Waste {{ $item->waste_rate_capped !== null ? $fmt((float) $item->waste_rate_capped * 100, 1).'%' : 'tidak tersedia' }}</p>
+                                </td>
+                                <td class="px-3 py-3 text-right text-xs">
+                                    <p @class(['font-semibold', 'text-red-600 dark:text-red-400' => $stockIsUnsafe, 'text-gray-800 dark:text-gray-200' => ! $stockIsUnsafe])>{{ $hasStock ? $fmt($item->available_stock).' '.$item->uom : 'Tidak tersedia' }}</p>
+                                    <p class="mt-1 text-gray-500">{{ $item->coverage_days !== null ? $fmt($item->coverage_days, 1).' hari' : ($item->confidence === \App\Enums\OrderingConfidence::Blocked ? 'Coverage —' : 'Tidak ada demand') }}</p>
+                                    @if($item->predicted_stockout_date)<p class="mt-1 font-medium text-amber-700 dark:text-amber-300">Habis {{ $item->predicted_stockout_date->isoFormat('D MMM Y') }}</p>@endif
+                                </td>
+                                <td class="px-3 py-3 text-right">
+                                    <p class="font-semibold text-gray-900 dark:text-white">{{ $fmt($item->forecast_demand) }} {{ $item->uom }}</p>
+                                    <p class="mt-1 text-xs text-gray-500">{{ $activeRun->horizon_days }} hari</p>
+                                </td>
+                                <td class="px-3 py-3 text-right">
+                                    <p class="font-bold text-blue-700 dark:text-blue-300">{{ $item->final_recommendation !== null ? $fmt($item->final_recommendation).' '.$item->uom : 'Tidak dapat dihitung' }}</p>
+                                    <span class="mt-1 inline-flex rounded-md border px-2 py-0.5 text-[11px] font-semibold {{ $confidenceTone[$item->confidence->value] }}">{{ $item->confidence->getLabel() }}</span>
+                                </td>
+                                <td class="px-3 py-3 text-right"><button type="button" wire:click="openDetail({{ $item->id }})" class="inline-flex rounded-lg border border-gray-200 p-2 text-blue-600 transition hover:bg-blue-50 dark:border-gray-700 dark:text-blue-400 dark:hover:bg-blue-950/30" aria-label="Lihat detail {{ $item->product_name ?? $item->product_code }}"><x-heroicon-o-eye class="h-4 w-4" /></button></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="8" class="px-4 py-10 text-center text-xs text-gray-400">Tidak ada produk yang cocok dengan filter. Ubah filter lalu tekan Tampilkan Analisis.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div class="border-t border-gray-200 px-5 py-4 dark:border-gray-700"><x-filament::pagination :paginator="$items" /></div>
         </section>
     @endif
 
     {{-- Detail --}}
-    <x-filament::modal id="ordering-recommendation-detail" width="4xl" :close-by-clicking-away="true" x-on:modal-closed.window="if ($event.detail.id === 'ordering-recommendation-detail') $wire.closeDetail()">
+    <x-filament::modal
+        id="ordering-recommendation-detail"
+        width="7xl"
+        sticky-header
+        :close-by-clicking-away="true"
+        :extra-modal-window-attribute-bag="new \Illuminate\View\ComponentAttributeBag(['style' => 'max-height: calc(100dvh - 2rem); overflow-y: auto; overscroll-behavior: contain;'])"
+        x-on:modal-closed.window="if ($event.detail.id === 'ordering-recommendation-detail') $wire.closeDetail()"
+    >
         <x-slot name="heading">Detail Recommendation</x-slot>
         @if($detail)
             @include('filament.helpdesk.pages.partials.ordering-recommendation-detail', ['item' => $detail, 'fmt' => $fmt])
@@ -313,7 +373,4 @@
     </x-filament::modal>
 </div>
 
-@once
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-@endonce
 </x-filament-panels::page>

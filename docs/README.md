@@ -11,6 +11,7 @@ Sistem internal Bloomery Patisserie untuk manajemen SDM, operasional, dan helpde
 | [Panel Filament](panels.md) | Lima panel admin, role akses, routing |
 | [Model & Database](models.md) | Semua model, relasi, struktur tabel |
 | [RBAC — Role & Permission](rbac.md) | Daftar role, permission, dan aturan akses |
+| [Status Code Remediation](code-remediation-status.md) | Checkpoint proses dan subproses remediation dari awal hingga selesai |
 | [Modul: Casual Staff](modules/casual.md) | Registrasi, absensi, shift, posisi casual |
 | [Modul: Driver & Trip](modules/driver.md) | Manajemen perjalanan, waypoint, BBM |
 | [Modul: Helpdesk](modules/helpdesk.md) | Tiket, form template dinamis, request |

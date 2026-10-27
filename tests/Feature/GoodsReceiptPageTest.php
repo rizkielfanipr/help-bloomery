@@ -124,7 +124,7 @@ test('employee app loads purchase orders that ESB allows to receive', function (
         ->assertSeeHtml('aria-label="Cari Purchase Order"')
         ->assertSee('Daftar Purchase Order')
         ->assertSee('Data Authorized dan Receiving dari ESB')
-        ->assertSee('Sync ESB')
+        ->assertSee('Tarik dari ESB')
         ->assertSee('Menyinkronkan Data ESB...')
         ->assertSee('Menampilkan 1–10 dari 11 PO')
         ->assertSeeHtml('aria-label="Halaman Sebelumnya"')

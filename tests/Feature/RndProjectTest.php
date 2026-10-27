@@ -1,6 +1,9 @@
 <?php
 
+use App\Actions\Rnd\Material\ApproveMaterialForEsbAction;
+use App\Actions\Rnd\Material\ClaimMaterialReviewAction;
 use App\Enums\MarketingMaterialFulfillmentStatus;
+use App\Enums\MaterialReviewStatus;
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
@@ -1330,15 +1333,20 @@ it('stores a new material draft and creates its Master Product in ESB', function
         ->call('saveEsbMaterial')
         ->assertHasNoErrors()
         ->assertSee('Matcha Powder Premium')
-        ->assertSee('Kirim data ke ESB');
+        ->assertSeeHtml('aria-label="Kirim untuk Review IT"');
 
     $material = $product->esbMaterials()->firstOrFail();
     expect($material->status)->toBe('draft')
+        ->and($material->review_status)->toBe(MaterialReviewStatus::Draft)
         ->and($material->sku)->toBe('BBMK-MATCHA-01-GR');
     expect($material->units()->count())->toBe(2)
         ->and($material->units()->where('is_base', true)->value('is_sales'))->toBeTrue();
 
-    $page->call('syncEsbMaterial', $material->id)->assertHasNoErrors();
+    // docs/material-sourcing-lifecycle-prd.md: R&D only submits; IT approves before any ESB push.
+    $page->call('submitEsbMaterialForReview', $material->id)->assertHasNoErrors();
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'POST' && $request->url() === 'https://services.esb.co.id/core/product');
+    app(ClaimMaterialReviewAction::class)->execute($material->refresh(), auth()->user());
+    app(ApproveMaterialForEsbAction::class)->execute($material->refresh(), auth()->user());
 
     $material->refresh();
     expect($material->status)->toBe('synced')

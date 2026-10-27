@@ -39,7 +39,7 @@
                 <div><label class="mb-1 block text-xs font-semibold text-gray-500">Dari tanggal</label><input wire:model="syncFrom" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"></div>
                 <div><label class="mb-1 block text-xs font-semibold text-gray-500">Sampai tanggal</label><input wire:model="syncTo" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800"></div>
                 <button type="button" wire:click="sync" wire:loading.attr="disabled" wire:target="sync" class="self-end rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
-                    <span wire:loading.remove wire:target="sync">Sync ESB</span><span wire:loading wire:target="sync">Menyinkronkan...</span>
+                    <span wire:loading.remove wire:target="sync">Tarik dari ESB</span><span wire:loading wire:target="sync">Menyinkronkan...</span>
                 </button>
             </div>
             <div wire:loading.flex wire:target="sync" class="mt-4 items-center gap-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs font-semibold text-blue-700">
@@ -82,7 +82,7 @@
                                 <td class="px-4 py-3 text-center font-bold">{{ $row->po_count }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="9" class="px-5 py-16 text-center text-gray-500"><x-heroicon-o-chart-bar-square class="mx-auto mb-3 h-10 w-10 text-gray-300" />Belum ada data. Jalankan Sync ESB terlebih dahulu.</td></tr>
+                            <tr><td colspan="9" class="px-5 py-16 text-center text-gray-500"><x-heroicon-o-chart-bar-square class="mx-auto mb-3 h-10 w-10 text-gray-300" />Belum ada data. Jalankan Tarik dari ESB terlebih dahulu.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

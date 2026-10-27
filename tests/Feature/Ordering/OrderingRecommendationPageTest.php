@@ -3,6 +3,7 @@
 use App\Actions\Ordering\ExportOrderingRecommendationsXlsxAction;
 use App\Filament\Helpdesk\Pages\OrderingRecommendationPage;
 use App\Models\Branch;
+use App\Models\Brand;
 use App\Models\OrderingDailyMetric;
 use App\Models\OrderingForecastItem;
 use App\Models\OrderingForecastRun;
@@ -79,6 +80,39 @@ it('shows only the branches a limited user may access, even when the branch filt
         ->assertDontSee('Beta Only Product')
         ->call('openDetail', $this->betaItem->id)
         ->assertNotFound();
+});
+
+it('uses searchable brand and branch selectors with removable selections', function () {
+    $patisserie = Brand::factory()->create(['name' => 'Patisserie Filter']);
+    $kitchen = Brand::factory()->create(['name' => 'Kitchen Filter']);
+    $this->alpha->update(['brand_id' => $patisserie->id]);
+    $this->beta->update(['brand_id' => $kitchen->id]);
+    $this->actingAs($this->analyst);
+
+    $page = Livewire::test(OrderingRecommendationPage::class)
+        ->assertSeeHtml('id="ordering-brand-search"')
+        ->assertSeeHtml('id="ordering-branch-search"')
+        ->call('toggleBrandId', $patisserie->id)
+        ->assertSet('brandIds', [$patisserie->id])
+        ->assertSet('branchIds', []);
+
+    expect($page->viewData('branchOptions')->modelKeys())->toBe([$this->alpha->id]);
+
+    $page->call('toggleBranchId', $this->alpha->id)
+        ->assertSet('branchIds', [$this->alpha->id])
+        ->assertSee('Branch Alpha')
+        ->call('toggleBranchId', $this->alpha->id)
+        ->assertSet('branchIds', [])
+        ->call('toggleBrandId', $patisserie->id)
+        ->assertSet('brandIds', []);
+});
+
+it('does not allow the branch selector action to add an inaccessible branch', function () {
+    $this->actingAs($this->viewer);
+
+    Livewire::test(OrderingRecommendationPage::class)
+        ->call('toggleBranchId', $this->beta->id)
+        ->assertSet('branchIds', [$this->alpha->id]);
 });
 
 it('keeps every branch separate for an all-branch user with an overview and per-branch ranking', function () {

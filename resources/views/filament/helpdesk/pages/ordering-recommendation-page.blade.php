@@ -24,23 +24,81 @@
         <h2 id="ordering-filter-heading" class="sr-only">Filter analisis</h2>
         <form wire:submit="applyFilters" class="space-y-4">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div>
-                    <span class="{{ $labelClass }}">Brand</span>
-                    <div class="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
-                        @forelse($brands as $brand)
-                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" wire:model.live="brandIds" value="{{ $brand->id }}" class="rounded border-gray-300 text-blue-600"> <span class="break-words">{{ $brand->name }}</span></label>
+                {{-- Searchable multi-select follows the Sales Information filter pattern. --}}
+                <div x-data="{ open: false, search: '' }" class="relative" @click.outside="open = false; search = ''">
+                    <label for="ordering-brand-search" class="{{ $labelClass }}">Brand</label>
+                    <div
+                        @click="open = true; $nextTick(() => $refs.searchBrand.focus())"
+                        class="flex min-h-[42px] cursor-text flex-wrap items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 dark:border-gray-700 dark:bg-gray-900"
+                    >
+                        @foreach($brands->whereIn('id', $brandIds) as $brand)
+                            <span class="inline-flex items-center gap-1 rounded bg-primary-100 px-1.5 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-300">
+                                {{ $brand->name }}
+                                <button type="button" wire:click.stop="toggleBrandId({{ $brand->id }})" aria-label="Hapus Brand {{ $brand->name }}" class="leading-none hover:text-red-500">×</button>
+                            </span>
+                        @endforeach
+                        <input
+                            id="ordering-brand-search"
+                            x-ref="searchBrand"
+                            x-model="search"
+                            @focus="open = true"
+                            placeholder="{{ count($brandIds) ? '' : 'Semua Brand' }}"
+                            autocomplete="off"
+                            class="min-w-[80px] flex-1 border-none bg-transparent p-0 text-sm text-gray-800 placeholder-gray-400 outline-none ring-0 focus:ring-0 dark:text-gray-100"
+                        >
+                    </div>
+                    <div x-show="open" x-cloak x-transition class="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                        @forelse($brands->whereNotIn('id', $brandIds) as $brand)
+                            <button
+                                type="button"
+                                x-show="search === '' || @js(mb_strtolower($brand->name)).includes(search.toLowerCase())"
+                                wire:click="toggleBrandId({{ $brand->id }})"
+                                class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                            >
+                                {{ $brand->name }}
+                            </button>
                         @empty
-                            <p class="text-xs text-gray-400">Tidak ada brand.</p>
+                            <p class="px-3 py-2 text-xs text-gray-400">Semua Brand sudah dipilih.</p>
                         @endforelse
                     </div>
                 </div>
-                <div>
-                    <span class="{{ $labelClass }}">Branch</span>
-                    <div class="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-700">
-                        @forelse($branchOptions as $branch)
-                            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" wire:model="branchIds" value="{{ $branch->id }}" class="rounded border-gray-300 text-blue-600"> <span class="break-words">{{ $branch->name }}</span></label>
+
+                <div x-data="{ open: false, search: '' }" class="relative" @click.outside="open = false; search = ''">
+                    <label for="ordering-branch-search" class="{{ $labelClass }}">Branch</label>
+                    <div
+                        @click="open = true; $nextTick(() => $refs.searchBranch.focus())"
+                        class="flex min-h-[42px] cursor-text flex-wrap items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 dark:border-gray-700 dark:bg-gray-900"
+                    >
+                        @foreach($branchOptions->whereIn('id', $branchIds) as $branch)
+                            <span class="inline-flex items-center gap-1 rounded bg-primary-100 px-1.5 py-0.5 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-300">
+                                {{ $branch->name }}
+                                <button type="button" wire:click.stop="toggleBranchId({{ $branch->id }})" aria-label="Hapus Branch {{ $branch->name }}" class="leading-none hover:text-red-500">×</button>
+                            </span>
+                        @endforeach
+                        <input
+                            id="ordering-branch-search"
+                            x-ref="searchBranch"
+                            x-model="search"
+                            @focus="open = true"
+                            placeholder="{{ count($branchIds) ? '' : 'Semua Branch' }}"
+                            autocomplete="off"
+                            class="min-w-[80px] flex-1 border-none bg-transparent p-0 text-sm text-gray-800 placeholder-gray-400 outline-none ring-0 focus:ring-0 dark:text-gray-100"
+                        >
+                    </div>
+                    <div x-show="open" x-cloak x-transition class="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                        @forelse($branchOptions->whereNotIn('id', $branchIds) as $branch)
+                            <button
+                                type="button"
+                                x-show="search === '' || @js(mb_strtolower($branch->name)).includes(search.toLowerCase())"
+                                wire:click="toggleBranchId({{ $branch->id }})"
+                                class="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-primary-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                            >
+                                {{ $branch->name }}
+                            </button>
                         @empty
-                            <p class="text-xs text-gray-400">Tidak ada branch yang dapat Anda akses.</p>
+                            <p class="px-3 py-2 text-xs text-gray-400">
+                                {{ $branchOptions->isEmpty() ? 'Tidak ada Branch yang dapat Anda akses.' : 'Semua Branch sudah dipilih.' }}
+                            </p>
                         @endforelse
                     </div>
                 </div>

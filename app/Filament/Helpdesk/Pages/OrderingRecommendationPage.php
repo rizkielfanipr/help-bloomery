@@ -94,6 +94,48 @@ class OrderingRecommendationPage extends Page
         $this->branchIds = [];
     }
 
+    public function toggleBrandId(int $brandId): void
+    {
+        if (! Brand::query()->whereKey($brandId)->exists()) {
+            return;
+        }
+
+        if (in_array($brandId, $this->brandIds, true)) {
+            $this->brandIds = array_values(array_filter(
+                $this->brandIds,
+                fn (int $selectedBrandId): bool => $selectedBrandId !== $brandId,
+            ));
+        } else {
+            $this->brandIds[] = $brandId;
+        }
+
+        $this->updatedBrandIds();
+    }
+
+    public function toggleBranchId(int $branchId): void
+    {
+        $canSelectBranch = $this->query()
+            ->accessibleBranches(auth()->user())
+            ->when($this->brandIds !== [], fn ($query) => $query->whereIn('brand_id', $this->brandIds))
+            ->whereKey($branchId)
+            ->exists();
+
+        if (! $canSelectBranch) {
+            return;
+        }
+
+        if (in_array($branchId, $this->branchIds, true)) {
+            $this->branchIds = array_values(array_filter(
+                $this->branchIds,
+                fn (int $selectedBranchId): bool => $selectedBranchId !== $branchId,
+            ));
+
+            return;
+        }
+
+        $this->branchIds[] = $branchId;
+    }
+
     public function applyFilters(): void
     {
         $this->validate([

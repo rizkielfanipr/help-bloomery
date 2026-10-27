@@ -5,7 +5,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * docs/store-sales-order-prd.md §10.3, §10.5, Phase 0 decision #6: a centralized enum rather than
+ * docs/products/operational/store-sales-order/prd.md §10.3, §10.5, Phase 0 decision #6: a centralized enum rather than
  * a master data table, per the PRD's explicit "Pilihan disimpan sebagai enum/config terpusat".
  */
 enum StoreSalesOrderProductType: string implements HasLabel

@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
- * Read model of Ordering Recommendation (docs/ordering-recommendation-prd.md §20, §22). Every
+ * Read model of Ordering Recommendation (docs/products/analytics/ordering-recommendation/prd.md §20, §22). Every
  * read starts from the branches the user may access; branch IDs coming from the browser are only
  * ever intersected with that scope. Results come from the latest completed forecast run per
  * branch and horizon. Quantities are never summed across UOMs.

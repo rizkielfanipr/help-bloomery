@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Sync status of one `rnd_bom_catalogs` snapshot row (docs/rnd-bom-adjustment-prd.md §8).
+ * Sync status of one `rnd_bom_catalogs` snapshot row (docs/products/rnd/bom-adjustment/prd.md §8).
  */
 enum RndBomCatalogSyncStatus: string implements HasColor, HasLabel
 {

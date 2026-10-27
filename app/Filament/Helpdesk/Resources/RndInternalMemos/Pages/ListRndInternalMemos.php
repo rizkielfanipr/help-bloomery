@@ -43,7 +43,7 @@ class ListRndInternalMemos extends ListRecords
     public ?int $brandId = null;
 
     /**
-     * docs/rnd-internal-memo-simplification-prd.md §12.1, docs/rnd-internal-memo-brand-prd.md
+     * docs/products/rnd/internal-memo-simplification/prd.md §12.1, docs/products/rnd/internal-memo-brand/prd.md
      * §12.3: no status filter or workflow cards; search covers name, number, and Brand snapshot,
      * filtered by period and Brand. There is no company or Branch filter.
      */
@@ -79,7 +79,7 @@ class ListRndInternalMemos extends ListRecords
     }
 
     /**
-     * Master Brand options, alphabetical (docs/rnd-internal-memo-brand-prd.md §12.1). Every Brand
+     * Master Brand options, alphabetical (docs/products/rnd/internal-memo-brand/prd.md §12.1). Every Brand
      * is selectable: Brand is metadata and grants no access.
      *
      * @return Collection<int, Brand>
@@ -115,8 +115,8 @@ class ListRndInternalMemos extends ListRecords
     }
 
     /**
-     * docs/rnd-internal-memo-simplification-prd.md §7.1: the simplified form collects Nama Memo,
-     * Bulan Memo, Nomor Memo, Brand (docs/rnd-internal-memo-brand-prd.md §11.1), dan Catatan. Nomor Memo is required — either generated via
+     * docs/products/rnd/internal-memo-simplification/prd.md §7.1: the simplified form collects Nama Memo,
+     * Bulan Memo, Nomor Memo, Brand (docs/products/rnd/internal-memo-brand/prd.md §11.1), dan Catatan. Nomor Memo is required — either generated via
      * generateMemoNumberField() or typed in manually. memo_date/recipient/sender/subject stay
      * NOT NULL at the database level (kept as-is per PRD §10.1 — no schema change for columns not
      * driving the simplified UI), so they get inert defaults here instead of being collected from

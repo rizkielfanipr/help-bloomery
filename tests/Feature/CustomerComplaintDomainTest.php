@@ -68,7 +68,7 @@ it('generates sequential, date-prefixed complaint numbers', function () {
  * for: a generated number that collides with a row committed by a "concurrent" request, by
  * stubbing the generator to hand back an already-taken number once before recovering. It proves
  * CreateCustomerComplaintAction's catch-and-retry path (not a bare count+1) is what keeps the
- * submission from failing outright, per docs/customer-complaints-prd.md §13.
+ * submission from failing outright, per docs/products/operational/customer-complaints/prd.md §13.
  */
 it('retries instead of failing when the generated complaint number collides with an existing one', function () {
     $branch = Branch::factory()->create();

@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/kitchen-production-schedule-prd.md §11.2: one BOM Assembly per schedule with its planned
+ * docs/products/kitchen/production-schedule/prd.md §11.2: one BOM Assembly per schedule with its planned
  * output quantity and a lightweight identity snapshot. Schedules are never deleted on the MVP, so
  * items restrict deletion of their header; a removed catalog row only clears the reference.
  */

@@ -4,7 +4,7 @@ namespace App\Enums;
 
 use Filament\Support\Contracts\HasLabel;
 
-/** docs/customer-complaints-prd.md §8.1. */
+/** docs/products/operational/customer-complaints/prd.md §8.1. */
 enum CustomerComplaintSource: string implements HasLabel
 {
     case InStore = 'in_store';

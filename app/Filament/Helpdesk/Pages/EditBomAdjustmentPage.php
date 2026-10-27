@@ -26,7 +26,7 @@ use UnitEnum;
 
 /**
  * Edits one BOM Assembly/Menu directly (no Project required) through the same centralized
- * mutation Action as the Project inline editor (docs/rnd-bom-adjustment-prd.md §11-§13).
+ * mutation Action as the Project inline editor (docs/products/rnd/bom-adjustment/prd.md §11-§13).
  */
 class EditBomAdjustmentPage extends Page
 {

@@ -12,7 +12,7 @@ use Throwable;
 
 /**
  * Captures scheduled task run history from the scheduler's own events
- * (docs/system-monitoring-prd.md §12.2). Command output is never stored.
+ * (docs/operations/monitoring/prd.md §12.2). Command output is never stored.
  */
 class ScheduledTaskRecorder
 {

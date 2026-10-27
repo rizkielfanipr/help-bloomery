@@ -5,7 +5,7 @@ namespace App\Filament\Helpdesk\Pages;
 use Filament\Pages\Page;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §15/Phase 7. BriefingScoreResource (the old `/briefing-
+ * docs/products/daily-briefing/scoring-ui/prd.md §15/Phase 7. BriefingScoreResource (the old `/briefing-
  * scores` table) has been deleted — its table had no columns configured and was fully superseded
  * by BriefingScoreWorkspacePage. This keeps the URL alive as a redirect only, for anyone with the
  * old link bookmarked.

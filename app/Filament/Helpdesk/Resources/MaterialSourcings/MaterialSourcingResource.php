@@ -164,7 +164,7 @@ class MaterialSourcingResource extends Resource
     /**
      * Rows that belong to the sourcing queues: no plain WIP (it never needs sourcing, §10.2) and
      * Master Bahan workflow rows only once the verified ESB sync created their Sourcing Request
-     * (docs/material-sourcing-lifecycle-prd.md §15.2).
+     * (docs/products/rnd/material-sourcing-lifecycle/prd.md §15.2).
      */
     public static function scopeSourcingQueue(Builder $query): Builder
     {

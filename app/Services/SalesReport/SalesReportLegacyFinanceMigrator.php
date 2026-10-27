@@ -13,7 +13,7 @@ use RuntimeException;
 
 /**
  * Converts legacy `PendingFinance` Sales Reports now that Finance approval no longer exists
- * (docs/sales-report-compliment-void-remediation-prd.md §18.4, §19.3).
+ * (docs/products/finance/sales-report-compliment-void-remediation/prd.md §18.4, §19.3).
  *
  * Only reports with proof of a valid Supervisor approval — a `supervisor/approved` audit row and
  * a Supervisor review time — become `Completed`; everything else is reported as an exception and

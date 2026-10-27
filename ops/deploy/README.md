@@ -1,7 +1,7 @@
 # Atomic release deployment
 
 These scripts implement the release contract documented in
-`docs/ci-cd-release-pipeline.md`.
+`docs/operations/ci-cd/release-pipeline.md`.
 
 ## Files
 

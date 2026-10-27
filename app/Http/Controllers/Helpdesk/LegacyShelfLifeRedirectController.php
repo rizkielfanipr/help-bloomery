@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Compatibility redirect for the retired `Master Shelf Life Menu` Resource URLs
- * (docs/rnd-wip-shelf-life-prd.md §20.3). Sends bookmarks to the WIP Shelf Life menu filtered on
+ * (docs/products/rnd/wip-shelf-life/prd.md §20.3). Sends bookmarks to the WIP Shelf Life menu filtered on
  * missing Shelf Life; that page enforces its own authorization. No Menu ID is ever carried over as
  * a WIP identity.
  *

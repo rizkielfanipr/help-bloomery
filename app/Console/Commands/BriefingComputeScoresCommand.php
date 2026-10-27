@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §10/Phase 5 (and docs/daily-briefing-remediation-prd.md
+ * docs/products/daily-briefing/scoring-ui/prd.md §10/Phase 5 (and docs/products/daily-briefing/remediation/prd.md
  * §14). A thin orchestrator — resolve scope, delegate to RecomputeBriefingScoresAction (the same
  * action the workspace's "Hitung Ulang" button uses), log the run. The formula itself lives only
  * in BriefingScoreCalculator, so this command and the UI can never disagree.

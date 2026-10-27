@@ -7,7 +7,7 @@ use App\Models\User;
 use function Pest\Laravel\actingAs;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §17/§16/Phase 10-11. No test previously existed for
+ * docs/products/daily-briefing/scoring-ui/prd.md §17/§16/Phase 10-11. No test previously existed for
  * either export endpoint.
  */
 it('rejects the admin score Excel export for a branch_id outside the requester\'s access', function () {

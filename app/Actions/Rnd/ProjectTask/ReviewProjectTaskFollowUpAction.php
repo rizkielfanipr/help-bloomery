@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * Reviewer decision on one Submitted assignment (docs/rnd-project-task-calendar-prd.md §13).
+ * Reviewer decision on one Submitted assignment (docs/products/rnd/project-task-calendar/prd.md §13).
  * A revision request requires a note; approving does not. Either decision re-syncs the Task's own
  * status via `ProjectTaskStatusService`, and re-activates the PIC's obligation on revision
  * (business rule #8). Ownership/permission is the caller's responsibility

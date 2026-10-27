@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * Finance → Product Pricelist (docs/material-sourcing-lifecycle-prd.md §17): the official pricing
+ * Finance → Product Pricelist (docs/products/rnd/material-sourcing-lifecycle/prd.md §17): the official pricing
  * workflow queue. It is not Product Price Index (historical price analytics). Only Pricing
  * Requests created by the eligibility service appear here, so unapproved materials never do.
  */

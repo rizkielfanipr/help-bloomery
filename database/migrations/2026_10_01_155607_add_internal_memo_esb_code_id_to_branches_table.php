@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * docs/rnd-internal-memo-multi-branch-prd.md §8, Phase 0 decision #1-2: there is no generic
+     * docs/products/rnd/internal-memo-multi-branch/prd.md §8, Phase 0 decision #1-2: there is no generic
      * "primary ESB mapping" concept on `branch_esb_codes` (no is_primary/priority column), and
      * Stock Card's `stock_card_esb_code_id` is explicitly scoped to that feature only (per its own
      * UI copy: "Hanya mapping ini yang digunakan oleh Stock Card"). R&D Internal Memo needs its own

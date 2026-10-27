@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * docs/store-sales-order-prd.md §13, §16. Every action is gated by StoreSalesOrderPolicy
+ * docs/products/operational/store-sales-order/prd.md §13, §16. Every action is gated by StoreSalesOrderPolicy
  * (auto-discovered for the StoreSalesOrder model), never by role name. Orders are only ever
  * created from the Casual app's Store Sales Order tile (StoreSalesOrderPage), so this Resource has
  * no create route — edit, status change, and Refresh from ESB are header actions on the View page.

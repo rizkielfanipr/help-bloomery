@@ -107,11 +107,11 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view erp modules',
                 'view it request types', 'create it request types', 'edit it request types',
                 'view bulk product submissions', 'create bulk product submissions', 'edit bulk product submissions',
-                // System Monitoring (docs/system-monitoring-prd.md §7): IT gets technical views,
+                // System Monitoring (docs/operations/monitoring/prd.md §7): IT gets technical views,
                 // incident handling, and reconciliation, but not settings or exports.
                 'view system monitoring', 'view monitoring technical details', 'view monitoring sanitized payloads',
                 'manage monitoring incidents', 'acknowledge monitoring alerts', 'reconcile esb transactions',
-                // Master Bahan IT review gate (docs/material-sourcing-lifecycle-prd.md §9).
+                // Master Bahan IT review gate (docs/products/rnd/material-sourcing-lifecycle/prd.md §9).
                 'review rnd materials as it', 'edit rnd material technical data', 'approve rnd material esb push',
                 'reconcile rnd material esb', 'retry material notifications', 'view material workflow audit',
             ]);

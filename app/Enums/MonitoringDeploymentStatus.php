@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Deployment state reported through the deployment ingestion contract (docs/system-monitoring-prd.md §14).
+ * Deployment state reported through the deployment ingestion contract (docs/operations/monitoring/prd.md §14).
  */
 enum MonitoringDeploymentStatus: string implements HasColor, HasLabel
 {

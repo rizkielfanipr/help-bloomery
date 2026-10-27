@@ -10,7 +10,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 /**
- * docs/daily-briefing-remediation-prd.md §17.1 (Phase 12). Read-only. Reports how many rejected
+ * docs/products/daily-briefing/remediation/prd.md §17.1 (Phase 12). Read-only. Reports how many rejected
  * briefing_items fall into each BriefingCleanupClassifier bucket, broken down by branch, task,
  * and period, so a human can review before any cleanup is considered. Never mutates data.
  */

@@ -10,7 +10,7 @@ use Filament\Pages\Page;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §15/Phase 7. Superseded by the Override Branch section
+ * docs/products/daily-briefing/scoring-ui/prd.md §15/Phase 7. Superseded by the Override Branch section
  * on BriefingSettingsPage, which saves through the same SaveBriefingPeriodWeightAction. The
  * route and class stay registered for compatibility — only the sidebar entry is hidden.
  */

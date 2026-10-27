@@ -65,7 +65,7 @@ it('still requires the matching permission for a user with access_all_branches',
     $complaint = CustomerComplaint::factory()->create();
 
     // access_all_branches only widens branch scope; it never substitutes for a permission
-    // (docs/customer-complaints-prd.md §12 "User dengan access_all_branches tetap membutuhkan
+    // (docs/products/operational/customer-complaints/prd.md §12 "User dengan access_all_branches tetap membutuhkan
     // permission yang sesuai").
     expect($manager->can('view', $complaint))->toBeFalse();
 

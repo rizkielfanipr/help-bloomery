@@ -5,7 +5,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * `rnd_project_tasks.task_type` — fixed category list (docs/rnd-project-task-calendar-prd.md §9).
+ * `rnd_project_tasks.task_type` — fixed category list (docs/products/rnd/project-task-calendar/prd.md §9).
  * Dynamic/custom categories are not part of this version.
  */
 enum RndProjectTaskCategory: string implements HasLabel

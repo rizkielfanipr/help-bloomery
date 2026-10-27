@@ -11,7 +11,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Queue\Queueable;
 
 /**
- * Sends one deadline-proximity reminder for one assignment (docs/rnd-project-task-calendar-prd.md
+ * Sends one deadline-proximity reminder for one assignment (docs/products/rnd/project-task-calendar/prd.md
  * §16). Idempotent by design: the `rnd_task_reminder_unique` DB constraint (not an app-level
  * `firstOrCreate` lookup, which would race against Eloquent's `date` cast storing the time as
  * `00:00:00` rather than truncating it — this differs between SQLite, which stores it verbatim,

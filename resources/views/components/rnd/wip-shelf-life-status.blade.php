@@ -1,6 +1,6 @@
 @props(['status'])
 
-{{-- WIP Shelf Life data status (docs/rnd-wip-shelf-life-prd.md §16.1): always text + icon, never colour alone. --}}
+{{-- WIP Shelf Life data status (docs/products/rnd/wip-shelf-life/prd.md §16.1): always text + icon, never colour alone. --}}
 @php
     $icon = match ($status) {
         \App\Enums\RndWipShelfLifeStatus::Complete => 'heroicon-m-check-circle',

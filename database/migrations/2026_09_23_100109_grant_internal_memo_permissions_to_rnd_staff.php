@@ -35,7 +35,7 @@ return new class extends Migration
 
     /**
      * These permissions were only created by the seeder, so environments that never re-seeded
-     * lack them. RND_STAFF gets the R&D Operator subset (docs/rnd-internal-memo-prd.md §5.1);
+     * lack them. RND_STAFF gets the R&D Operator subset (docs/products/rnd/internal-memo/prd.md §5.1);
      * finalize/archive/revision/generate PDF stay unassigned by default because the PRD defines
      * no hardcoded reviewer/manager role — an administrator grants those via Role & Permission.
      */

@@ -286,7 +286,7 @@ it('caches the Assembly search so the same WIP appearing twice is only looked up
 });
 
 it('stops recursing and reports a blocker once the Assembly depth limit is reached', function () {
-    // docs/rnd-internal-memo-simplification-prd.md §9.3: "batas kedalaman aman tercapai" — a
+    // docs/products/rnd/internal-memo-simplification/prd.md §9.3: "batas kedalaman aman tercapai" — a
     // chain of 11 distinct WIPs (never repeating a bomID, so the circular-reference guard never
     // fires) must still stop once MAX_ASSEMBLY_DEPTH (10) is reached.
     $fakes = [

@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasLabel;
 
 /**
  * Trend of a product within its branch. `NewlySold` replaces an infinite growth percentage when
- * the comparison window had no demand (docs/ordering-recommendation-prd.md §13.4, §15.3).
+ * the comparison window had no demand (docs/products/analytics/ordering-recommendation/prd.md §13.4, §15.3).
  */
 enum OrderingTrendLabel: string implements HasLabel
 {

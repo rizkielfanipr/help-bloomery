@@ -19,7 +19,7 @@ use Throwable;
 
 /**
  * Builds one immutable forecast run for a branch from the local snapshot only — no ESB call
- * (docs/ordering-recommendation-prd.md §13, §21). The run is keyed by branch, cutoff, horizon,
+ * (docs/products/analytics/ordering-recommendation/prd.md §13, §21). The run is keyed by branch, cutoff, horizon,
  * algorithm version, and configuration hash: a rerun with the same inputs returns the existing
  * run, and a run becomes Completed only after all of its items are stored.
  *

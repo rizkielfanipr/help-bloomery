@@ -8,7 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
- * docs/daily-briefing-remediation-prd.md §20 (Phase 6). The only path that transitions a
+ * docs/products/daily-briefing/remediation/prd.md §20 (Phase 6). The only path that transitions a
  * submission's review status. Authorization is re-checked here (via BriefingItemPolicy) even
  * though callers also gate the action's visibility, so a cross-branch mutation is rejected
  * server-side regardless of how the action is invoked.

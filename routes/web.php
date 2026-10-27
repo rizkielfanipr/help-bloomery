@@ -91,13 +91,13 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/helpdesk/exports/briefing-scores', BriefingScoreExportController::class)
         ->name('helpdesk.exports.briefing-scores');
 
-    // Retired Shelf Life Menu export: answers 410 Gone (docs/rnd-wip-shelf-life-prd.md §20.4).
+    // Retired Shelf Life Menu export: answers 410 Gone (docs/products/rnd/wip-shelf-life/prd.md §20.4).
     // TEMPORARY — remove once the `legacy shelf life export used` log shows no traffic.
     Route::get('/helpdesk/exports/shelf-life', ShelfLifeExportController::class)
         ->name('helpdesk.exports.shelf-life');
 
     // Retired `Master Shelf Life Menu` Resource URLs redirect to the WIP Shelf Life menu, which now
-    // owns `/shelf-life` (docs/rnd-wip-shelf-life-prd.md §20.3). TEMPORARY — remove once the
+    // owns `/shelf-life` (docs/products/rnd/wip-shelf-life/prd.md §20.3). TEMPORARY — remove once the
     // `legacy shelf life route used` log shows no traffic and a reference audit is clean.
     Route::get('/rnd-product-shelf-lives/{path?}', LegacyShelfLifeRedirectController::class)
         ->where('path', '.*')

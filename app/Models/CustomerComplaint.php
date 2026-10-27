@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-/** docs/customer-complaints-prd.md §14.1. */
+/** docs/products/operational/customer-complaints/prd.md §14.1. */
 class CustomerComplaint extends Model
 {
     /** @use HasFactory<CustomerComplaintFactory> */

@@ -10,7 +10,7 @@ use Livewire\Attributes\Locked;
 
 /**
  * Modal state and presentation validation for the WIP Shelf Life form, shared by BOM Adjustment
- * and the Project Product page (docs/rnd-wip-shelf-life-prd.md §16.3, §17). Hosts decide which
+ * and the Project Product page (docs/products/rnd/wip-shelf-life/prd.md §16.3, §17). Hosts decide which
  * WIP may be targeted and call the create/update Actions; this trait never writes anything.
  */
 trait ManagesWipShelfLifeForm

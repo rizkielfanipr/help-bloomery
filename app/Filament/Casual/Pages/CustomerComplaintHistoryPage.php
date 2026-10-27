@@ -8,7 +8,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 
 /**
- * docs/customer-complaints-prd.md §9, reached from the Form Komplain bottom nav (user request:
+ * docs/products/operational/customer-complaints/prd.md §9, reached from the Form Komplain bottom nav (user request:
  * a dedicated Riwayat tab rather than the "last 5 on the same page" list the PRD originally
  * described — the user's explicit instruction here supersedes that line of the PRD). Mirrors
  * ErpRequestHistoryPage's shape: full history of the signed-in user's own complaints, newest

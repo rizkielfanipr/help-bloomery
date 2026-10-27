@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * One ESB read attempt per source, branch, company pair, and date
- * (docs/ordering-recommendation-prd.md §11.1). The idempotency key makes a rerun reuse its row.
+ * (docs/products/analytics/ordering-recommendation/prd.md §11.1). The idempotency key makes a rerun reuse its row.
  */
 return new class extends Migration
 {

@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 class BriefingTasksSeeder extends Seeder
 {
     /**
-     * docs/daily-briefing-remediation-prd.md §16.2/§16.3 (Phase 11). The "Toko Utama"/"Cabang
+     * docs/products/daily-briefing/remediation/prd.md §16.2/§16.3 (Phase 11). The "Toko Utama"/"Cabang
      * Selatan" rows below only make sense as branch-specific overrides. Previously, when no
      * branch with that exact name existed (true in every environment that doesn't happen to have
      * a branch literally named "Toko Utama"), the branch_id lookup silently fell through to null
@@ -118,7 +118,7 @@ class BriefingTasksSeeder extends Seeder
             update: ['branch_id', 'label', 'group', 'group_label', 'period', 'include_in_score', 'submission_type', 'note_type', 'is_active', 'sort_order', 'deadline_enabled', 'deadline_day', 'deadline_time'],
         );
 
-        // Not a conflicting mass-override (docs/daily-briefing-remediation-prd.md §16.2 only asks
+        // Not a conflicting mass-override (docs/products/daily-briefing/remediation/prd.md §16.2 only asks
         // to remove one if it fights real per-task configuration): BriefingTask::booted()'s
         // `saving` hook and the 2026_07_29_000001 migration already make "every weekly point
         // deadlines Monday-week's-Sunday 23:59, every monthly point deadlines end-of-month 23:59"

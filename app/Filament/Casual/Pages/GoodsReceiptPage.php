@@ -43,7 +43,7 @@ class GoodsReceiptPage extends Page
     public ?array $purchaseOrder = null;
 
     /**
-     * docs/receiving-simplification-prd.md §4.4/§12: the Company Code the open PO was fetched
+     * docs/products/inventory/receiving-simplification/prd.md §4.4/§12: the Company Code the open PO was fetched
      * under — set once in selectPurchaseOrder() and reused for every later call (locations,
      * re-verification, submit) so a single PO never silently changes its source context.
      */
@@ -55,7 +55,7 @@ class GoodsReceiptPage extends Page
 
     public array $items = [];
 
-    /** docs/receiving-simplification-prd.md §5.4: index of the item whose exception detail is open. */
+    /** docs/products/inventory/receiving-simplification/prd.md §5.4: index of the item whose exception detail is open. */
     public ?int $activeItemIndex = null;
 
     public string $itemSearch = '';
@@ -67,7 +67,7 @@ class GoodsReceiptPage extends Page
 
     public string $locationId = '';
 
-    /** docs/receiving-simplification-prd.md §5.2: one document, not separate delivery/invoice fields. */
+    /** docs/products/inventory/receiving-simplification/prd.md §5.2: one document, not separate delivery/invoice fields. */
     public string $documentType = 'delivery_note';
 
     public string $documentNumber = '';
@@ -82,10 +82,10 @@ class GoodsReceiptPage extends Page
 
     public string $documentNotes = '';
 
-    /** @var array<int, TemporaryUploadedFile> docs/receiving-simplification-prd.md §5.3 "Foto Dokumen". */
+    /** @var array<int, TemporaryUploadedFile> docs/products/inventory/receiving-simplification/prd.md §5.3 "Foto Dokumen". */
     public array $documentPhotos = [];
 
-    /** @var array<int, TemporaryUploadedFile> docs/receiving-simplification-prd.md §5.3 "Foto Barang". */
+    /** @var array<int, TemporaryUploadedFile> docs/products/inventory/receiving-simplification/prd.md §5.3 "Foto Barang". */
     public array $goodsPhotos = [];
 
     public string $additionalInfo = '';
@@ -238,12 +238,12 @@ class GoodsReceiptPage extends Page
                     'productID' => (int) ($detail['productID'] ?? 0), 'productDetailID' => (int) ($detail['productDetailID'] ?? 0),
                     'productCode' => (string) ($detail['productCode'] ?? ''), 'productName' => (string) ($detail['productName'] ?? 'Produk'),
                     'uomID' => $detail['uomID'] ?? null, 'uomName' => (string) ($detail['uomName'] ?? ''),
-                    // docs/receiving-simplification-prd.md §4/§7: 'ok' is the normal/fast path —
+                    // docs/products/inventory/receiving-simplification/prd.md §4/§7: 'ok' is the normal/fast path —
                     // visual/cold-chain/shelf-life/sampling sub-fields already default to values
                     // InboundGoodsReceiptQcService treats as pass/not_applicable, so this toggle
                     // only controls which part of the UI is shown, not the QC math itself.
                     'condition' => 'ok',
-                    // docs/receiving-simplification-prd.md §9: a quick, row-level ED independent of
+                    // docs/products/inventory/receiving-simplification/prd.md §9: a quick, row-level ED independent of
                     // the detailed per-batch shelf-life workflow below — available regardless of
                     // condition, matching the PRD's own example table showing ED on a Sesuai row.
                     'expiryDate' => '',
@@ -326,7 +326,7 @@ class GoodsReceiptPage extends Page
     }
 
     /**
-     * docs/receiving-simplification-prd.md §7: switching back to "Sesuai" clears any exception
+     * docs/products/inventory/receiving-simplification/prd.md §7: switching back to "Sesuai" clears any exception
      * data entered while "Bermasalah" was selected, so a stale Hold/Rejected/rejection reason
      * never survives a condition change the user no longer intends.
      */
@@ -442,7 +442,7 @@ class GoodsReceiptPage extends Page
         $selected = collect($this->items)->filter(fn (array $item): bool => $item['selected'] && (float) $item['physicalQty'] > 0)
             // Server-side defense in depth: "Sesuai" always means the full qty is Accepted and
             // the exception fields are blank, regardless of whatever the client last held for
-            // them (docs/receiving-simplification-prd.md §6-7).
+            // them (docs/products/inventory/receiving-simplification/prd.md §6-7).
             ->map(fn (array $item): array => $item['condition'] === 'ok' ? array_replace($item, [
                 'acceptedQty' => $item['physicalQty'], 'holdQty' => 0, 'rejectedQty' => 0,
                 'colorResult' => 'pass', 'textureResult' => 'pass', 'packagingResult' => 'pass', 'contaminationResult' => 'pass',
@@ -591,7 +591,7 @@ class GoodsReceiptPage extends Page
     {
         return ['goodsReceiptDate' => $this->goodsReceiptDate, 'locationID' => (int) $this->locationId, 'deliveryNum' => $this->documentNumber,
             'additionalInfo' => $this->additionalInfo, 'selectedAssetID' => '',
-            // docs/receiving-simplification-prd.md §11/§17 Phase 1: computed automatically in
+            // docs/products/inventory/receiving-simplification/prd.md §11/§17 Phase 1: computed automatically in
             // Phase 5 once outstanding-qty-across-the-whole-PO logic exists; false is the safe
             // interim (never auto-closes, matching today's default before the UI checkbox existed).
             'autoClosePO' => false,
@@ -619,7 +619,7 @@ class GoodsReceiptPage extends Page
             'document_type' => $this->documentType, 'document_number' => $this->documentNumber, 'document_date' => $this->documentDate,
             'document_photos' => $documentPhotos, 'goods_photos' => $goodsPhotos,
             // Legacy columns stay populated so reports/exports reading them directly keep working
-            // during the transition (docs/receiving-simplification-prd.md §15).
+            // during the transition (docs/products/inventory/receiving-simplification/prd.md §15).
             'delivery_number' => $this->documentType === 'delivery_note' ? $this->documentNumber : null,
             'delivery_date' => $this->documentType === 'delivery_note' ? $this->documentDate : null,
             'invoice_status' => $this->documentType === 'invoice' ? 'received' : 'not_received',
@@ -653,7 +653,7 @@ class GoodsReceiptPage extends Page
                 'quarantine_location' => $item['quarantineLocation'], 'rejection_category' => $item['rejectionCategory'], 'rejection_reason' => $item['rejectionReason'],
                 'evidence_photos' => $item['storedEvidencePhotos'], 'notes' => $item['notes'], 'qc_inspected_by' => auth()->id(), 'qc_inspected_at' => now(),
             ]);
-            // docs/receiving-simplification-prd.md §9/§15 "Pertahankan hasil QC rinci di
+            // docs/products/inventory/receiving-simplification/prd.md §9/§15 "Pertahankan hasil QC rinci di
             // database": a quick row-level ED entered without going through the full
             // Bermasalah/batch workflow still needs to survive the save, so it becomes a single
             // implicit expiry record covering the whole accepted qty — only when the item has no

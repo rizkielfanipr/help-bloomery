@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * docs/customer-complaints-prd.md §10, §12. Every action is gated by CustomerComplaintPolicy
+ * docs/products/operational/customer-complaints/prd.md §10, §12. Every action is gated by CustomerComplaintPolicy
  * (auto-discovered for the CustomerComplaint model), never by role name. Complaints are only ever
  * created from the Casual app's Form Komplain (CustomerComplaintPage), so this Resource has no
  * create/edit route. The back-office resource is intentionally read-only and acts as a recap.

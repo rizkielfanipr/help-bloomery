@@ -7,7 +7,7 @@ use App\Models\RndInternalMemoMaterial;
 use App\Services\Rnd\InternalMemo\InternalMemoItemIdentity;
 
 /**
- * docs/rnd-internal-memo-simplification-prd.md §7.4, §10.4: Minimum Order is "per item dalam
+ * docs/products/rnd/internal-memo-simplification/prd.md §7.4, §10.4: Minimum Order is "per item dalam
  * Memo" — when the same item is reached through more than one Menu or BOM path within one Memo,
  * every Material row sharing that stable identity is updated together so the consolidated
  * Ringkasan Item Akhir row always reflects one value, never a per-path split. It never touches

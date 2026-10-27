@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One generated PDF file per revision (docs/rnd-internal-memo-prd.md §12.4, §16). A revision
+ * One generated PDF file per revision (docs/products/rnd/internal-memo/prd.md §12.4, §16). A revision
  * never overwrites a previous file.
  */
 class RndInternalMemoDocument extends Model

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 
 /**
- * Cancels a Task and every still-active assignment under it (docs/rnd-project-task-calendar-prd.md
+ * Cancels a Task and every still-active assignment under it (docs/products/rnd/project-task-calendar/prd.md
  * §10, business rule #16). Cancelling stops reminders without deleting any history — no rows are
  * removed, only their status changes.
  */

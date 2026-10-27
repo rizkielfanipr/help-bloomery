@@ -5,7 +5,7 @@ namespace App\Services;
 use Carbon\CarbonInterface;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §10/§11. Immutable output of BriefingScoreCalculator.
+ * docs/products/daily-briefing/scoring-ui/prd.md §10/§11. Immutable output of BriefingScoreCalculator.
  * `toArray()` matches the PRD's result contract exactly; `toBreakdownArray()` is what gets
  * persisted into `briefing_scores.breakdown` so a historical snapshot is fully self-describing
  * (method version, passing score, weights, approved/expected, computed timestamp) without

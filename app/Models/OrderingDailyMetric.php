@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Daily fact per branch, company pair, product code, and UOM (docs/ordering-recommendation-prd.md §11.2).
+ * Daily fact per branch, company pair, product code, and UOM (docs/products/analytics/ordering-recommendation/prd.md §11.2).
  */
 class OrderingDailyMetric extends Model
 {

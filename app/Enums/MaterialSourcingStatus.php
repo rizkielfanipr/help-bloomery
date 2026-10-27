@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Sourcing/sample state of a material (docs/material-sourcing-lifecycle-prd.md §11.3).
+ * Sourcing/sample state of a material (docs/products/rnd/material-sourcing-lifecycle/prd.md §11.3).
  *
  * The first five cases belong to the legacy single-step supplier review (R&D → Finance) used by
  * records created before the Master Bahan workflow and by standalone sourcing; they stay readable

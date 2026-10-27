@@ -27,7 +27,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * IT → Review Data inbox (docs/material-sourcing-lifecycle-prd.md §22.2). Lists only
+ * IT → Review Data inbox (docs/products/rnd/material-sourcing-lifecycle/prd.md §22.2). Lists only
  * workflow materials; the default view shows submissions waiting for IT and ESB results that
  * need reconciliation. Payload/history is loaded on the detail page only.
  */

@@ -14,7 +14,7 @@ use Throwable;
  * Serves private Task attachments (instruction and follow-up result files) from the Task attachment
  * disk (`RndProjectTask::attachmentDisk()`, `b2` by default),
  * mirroring `RndBomInstructionImageController`'s authorization + strict path pattern instead of
- * ERP Request's unauthenticated inline presigned URL (docs/rnd-project-task-calendar-prd.md §20 —
+ * ERP Request's unauthenticated inline presigned URL (docs/products/rnd/project-task-calendar/prd.md §20 —
  * see Phase 0 audit: the ERP pattern does not enforce per-file authorization).
  */
 class RndProjectTaskAttachmentController extends Controller

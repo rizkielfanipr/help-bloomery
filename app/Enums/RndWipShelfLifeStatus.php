@@ -7,7 +7,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Data status of a WIP's Shelf Life master (docs/rnd-wip-shelf-life-prd.md §16.1, §17.3). Shared by
+ * Data status of a WIP's Shelf Life master (docs/products/rnd/wip-shelf-life/prd.md §16.1, §17.3). Shared by
  * BOM Adjustment, the Project WIP section, and the Ready/Released gate so all three agree.
  */
 enum RndWipShelfLifeStatus: string implements HasColor, HasLabel

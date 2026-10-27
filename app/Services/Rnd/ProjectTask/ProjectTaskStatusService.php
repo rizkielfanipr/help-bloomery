@@ -8,7 +8,7 @@ use App\Models\RndProjectTask;
 
 /**
  * Recomputes a Task's own status from its active (non-Cancelled) assignments
- * (docs/rnd-project-task-calendar-prd.md §10, business rule #14-15). Never touches a Task that
+ * (docs/products/rnd/project-task-calendar/prd.md §10, business rule #14-15). Never touches a Task that
  * already reached a terminal status (Completed/Cancelled) — Cancelled only happens through
  * `CancelProjectTaskAction`, and a Completed Task does not reopen automatically.
  */

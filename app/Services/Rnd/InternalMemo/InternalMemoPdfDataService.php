@@ -5,7 +5,7 @@ namespace App\Services\Rnd\InternalMemo;
 use App\Models\RndInternalMemo;
 
 /**
- * docs/rnd-internal-memo-prd.md §16. Builds the PDF's view data purely from what is already
+ * docs/products/rnd/internal-memo/prd.md §16. Builds the PDF's view data purely from what is already
  * persisted on a Finalized memo (Menu and Material rows, which are themselves the snapshot);
  * this never calls ESB, matching the requirement that PDF generation makes no ESB calls.
  */

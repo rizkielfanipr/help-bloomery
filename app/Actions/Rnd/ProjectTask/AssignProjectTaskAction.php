@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * Adds or replaces a PIC assignment on an existing Task (docs/rnd-project-task-calendar-prd.md
+ * Adds or replaces a PIC assignment on an existing Task (docs/products/rnd/project-task-calendar/prd.md
  * §6, §11). Authorization is the caller's responsibility (`RndProjectTaskPolicy::assign`).
  */
 class AssignProjectTaskAction

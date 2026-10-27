@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/rnd-internal-memo-brand-prd.md §13.2, §26.2. Active-Memo uniqueness moves from
+ * docs/products/rnd/internal-memo-brand/prd.md §13.2, §26.2. Active-Memo uniqueness moves from
  * (company_code, period, revision) to (brand_id, period, revision) so different Brands can share a
  * period. `period_month_if_active` keeps the existing soft-delete semantics (NULL once deleted).
  * Legacy rows with `brand_id = NULL` never collide; the application still requires a Brand.

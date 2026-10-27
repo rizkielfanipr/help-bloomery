@@ -10,7 +10,7 @@ use Throwable;
 
 /**
  * Daily Sales Material Usage for one company pair and day — the primary demand source
- * (docs/ordering-recommendation-prd.md §9.2). Rows are kept per company pair: the existing
+ * (docs/products/analytics/ordering-recommendation/prd.md §9.2). Rows are kept per company pair: the existing
  * multi-pair helper merges companies by Product Code and is deliberately not used here.
  *
  * Contract (EsbService): one unpaginated response per branch/date with productCode, productName,

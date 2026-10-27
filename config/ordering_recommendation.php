@@ -6,7 +6,7 @@ $list = static fn (?string $value): ?array => $value === null || trim($value) ==
 
 /*
 |--------------------------------------------------------------------------
-| Analytics → Ordering Recommendation (docs/ordering-recommendation-prd.md)
+| Analytics → Ordering Recommendation (docs/products/analytics/ordering-recommendation/prd.md)
 |--------------------------------------------------------------------------
 |
 | Every value that shapes a recommendation lives here and is copied into each forecast run's

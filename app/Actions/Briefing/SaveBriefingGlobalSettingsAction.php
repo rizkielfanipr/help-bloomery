@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §12.1/§16 (Phase 4). The only path that saves the global
+ * docs/products/daily-briefing/scoring-ui/prd.md §12.1/§16 (Phase 4). The only path that saves the global
  * Daily Briefing scoring/auto-reject settings — shared by BriefingSettingsPage and anything else
  * that needs to change them, so authorization and validation never drift between callers.
  */

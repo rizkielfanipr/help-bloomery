@@ -7,7 +7,7 @@ use Filament\Support\Contracts\HasLabel;
 
 /**
  * Where a Sales Number or Payment Method on a Compliment/Void came from
- * (docs/sales-report-compliment-void-remediation-prd.md §9.2, §10.3). Only `EsbSnapshot` is
+ * (docs/products/finance/sales-report-compliment-void-remediation/prd.md §9.2, §10.3). Only `EsbSnapshot` is
  * verified against the ESB transactions of the same report, branch, date, and shift.
  */
 enum SalesReportDataSource: string implements HasColor, HasLabel

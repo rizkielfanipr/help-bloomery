@@ -7,10 +7,10 @@ Sistem internal Bloomery Patisserie untuk manajemen SDM, operasional, dan helpde
 | Dokumen | Deskripsi |
 |---------|-----------|
 | [Setup & Instalasi](docs/setup.md) | Persyaratan, instalasi, variabel environment |
-| [Arsitektur Sistem](docs/architecture.md) | Tech stack, struktur folder, alur request |
-| [Panel Filament](docs/panels.md) | Lima panel admin, role akses, routing |
-| [Model & Database](docs/models.md) | Semua model, relasi, struktur tabel |
-| [RBAC — Role & Permission](docs/rbac.md) | Daftar role, permission, dan aturan akses |
+| [Arsitektur Sistem](docs/architecture/overview.md) | Tech stack, struktur folder, alur request |
+| [Panel Filament](docs/architecture/panels.md) | Lima panel admin, role akses, routing |
+| [Model & Database](docs/architecture/data-model.md) | Semua model, relasi, struktur tabel |
+| [RBAC — Role & Permission](docs/architecture/rbac.md) | Daftar role, permission, dan aturan akses |
 | [Modul: Casual Staff](docs/modules/casual.md) | Registrasi, absensi, shift, posisi casual |
 | [Modul: Driver & Trip](docs/modules/driver.md) | Manajemen perjalanan, waypoint, BBM |
 | [Modul: Helpdesk](docs/modules/helpdesk.md) | Tiket, form template dinamis, request |

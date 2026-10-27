@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Finance rejection of a `Completed` report (docs/sales-report-compliment-void-remediation-prd.md
+ * Finance rejection of a `Completed` report (docs/products/finance/sales-report-compliment-void-remediation/prd.md
  * §7.4). Final in this scope: the date scores 0 through the existing calculator. Corrections,
  * settlement/MDR, Compliment, Void, and attachments are left untouched.
  */

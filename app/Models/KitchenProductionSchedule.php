@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One Kitchen production plan for one Branch on one local production date
- * (docs/kitchen-production-schedule-prd.md §11.1). Status changes only through the
+ * (docs/products/kitchen/production-schedule/prd.md §11.1). Status changes only through the
  * Kitchen Actions, which lock the row. There is no global Branch scope:
  * callers apply `scopeVisibleTo()` explicitly.
  */

@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/rnd-internal-memo-brand-prd.md §13.5. One sync state per Company Code (always BLSS for Memo
+ * docs/products/rnd/internal-memo-brand/prd.md §13.5. One sync state per Company Code (always BLSS for Memo
  * Internal), replacing the per Memo–Branch status columns. Never keyed by Brand.
  * `technical_branch_code` records which ESB branch the last successful sync used, because the
  * Master Menu endpoint needs one; the picker reads the local snapshot of that branch.

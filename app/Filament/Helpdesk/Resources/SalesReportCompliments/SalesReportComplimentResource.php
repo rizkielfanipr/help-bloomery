@@ -20,7 +20,7 @@ use Illuminate\Contracts\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Sales Report → Compliment (docs/sales-report-compliment-void-remediation-prd.md §11): every
+ * Sales Report → Compliment (docs/products/finance/sales-report-compliment-void-remediation/prd.md §11): every
  * Compliment in the user's branch scope, server-side filters and pagination, and an export of
  * exactly the filtered rows.
  */

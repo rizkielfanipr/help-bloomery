@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Sales Number snapshot for Compliment (docs/sales-report-compliment-void-remediation-prd.md §9.5).
+ * Sales Number snapshot for Compliment (docs/products/finance/sales-report-compliment-void-remediation/prd.md §9.5).
  * Additive and nullable: existing rows keep `null` (shown as legacy) and receive no backfill.
  * No unique constraint until it is confirmed whether one Sales Number may carry several
  * Compliment types (§25).

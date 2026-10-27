@@ -10,7 +10,7 @@ use Throwable;
 /**
  * Stock Movement for one company pair and day through the existing EsbStockMovementService
  * (pagination, branch guard, company client), normalized for the daily metric builder
- * (docs/ordering-recommendation-prd.md §9.3). Categories come from the same company's Master
+ * (docs/products/analytics/ordering-recommendation/prd.md §9.3). Categories come from the same company's Master
  * Product list; a category failure never blocks the stock read.
  */
 class OrderingStockMovementSource

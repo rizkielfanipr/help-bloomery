@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * docs/daily-briefing-remediation-prd.md §8. Explicit branch participation: a branch only
+     * docs/products/daily-briefing/remediation/prd.md §8. Explicit branch participation: a branch only
      * takes part in Daily Briefing when it has an enabled row here covering the date being
      * evaluated. No row is seeded by this migration — the participant branch list and start dates
      * are a business decision made through the Settings page after deploy, not inferred from

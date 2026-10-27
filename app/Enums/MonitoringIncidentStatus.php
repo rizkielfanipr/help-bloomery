@@ -7,7 +7,7 @@ use Filament\Support\Contracts\HasLabel;
 
 /**
  * Incident workflow Open → Acknowledged → Investigating → Monitoring → Resolved, with reopen
- * (docs/system-monitoring-prd.md §16).
+ * (docs/operations/monitoring/prd.md §16).
  */
 enum MonitoringIncidentStatus: string implements HasColor, HasLabel
 {

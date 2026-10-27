@@ -15,7 +15,7 @@ use Throwable;
 
 /**
  * Refreshes a single Menu's BOM/Assembly structure from ESB
- * (docs/rnd-internal-memo-simplification-prd.md §7.5, §9.4, §13, Phase 2). Minimum Order values
+ * (docs/products/rnd/internal-memo-simplification/prd.md §7.5, §9.4, §13, Phase 2). Minimum Order values
  * and manually selected Purchasing UOMs are preserved across the refresh by stable item identity
  * (InternalMemoItemIdentity) even though
  * InternalMemoBomResolver::resolve() fully replaces the Menu's Material rows on every call —

@@ -42,7 +42,7 @@ class PermissionSynchronizer
         'edit payment methods',
         'delete payment methods',
         'edit design whatsapp settings',
-        // Retired with the Menu-level Shelf Life (docs/rnd-wip-shelf-life-prd.md §15.3): WIP Shelf
+        // Retired with the Menu-level Shelf Life (docs/products/rnd/wip-shelf-life/prd.md §15.3): WIP Shelf
         // Life is governed by `view/edit bill of materials` and `edit rnd projects`.
         'view shelf life',
         'edit shelf life',

@@ -8,7 +8,7 @@ use Carbon\CarbonImmutable;
 
 /**
  * Deterministic forecast and recommendation for one branch-product-UOM
- * (docs/ordering-recommendation-prd.md §13). Pure PHP: no Filament, Livewire, HTTP, or database,
+ * (docs/products/analytics/ordering-recommendation/prd.md §13). Pure PHP: no Filament, Livewire, HTTP, or database,
  * so the same input and configuration always produce the same output.
  *
  * History contains only valid observation days — a day whose demand source failed or was not

@@ -20,7 +20,7 @@ use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
 
 /**
- * docs/daily-briefing-remediation-prd.md §4/§6/§10.1 (contract change from the pre-remediation
+ * docs/products/daily-briefing/remediation/prd.md §4/§6/§10.1 (contract change from the pre-remediation
  * behavior these tests used to lock in): only an active STORE_STAFF user whose branch is an
  * explicit, enabled Daily Briefing participant may submit. The page used to accept any
  * CASUAL_STAFF regardless of branch — participantStoreStaff() is the new minimum fixture every

@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * docs/rnd-internal-memo-prd.md §7.3, §10.1. Forecast Quantity is local data, kept separate from
+ * docs/products/rnd/internal-memo/prd.md §7.3, §10.1. Forecast Quantity is local data, kept separate from
  * the BOM sync so editing it never triggers a new ESB call.
  */
 class UpdateInternalMemoMenuForecastAction

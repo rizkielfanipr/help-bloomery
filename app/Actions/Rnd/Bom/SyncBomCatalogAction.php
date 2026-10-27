@@ -15,11 +15,11 @@ use Throwable;
 /**
  * Pulls every ESB BOM page, keeps only Assembly rows in the local `rnd_bom_catalogs` snapshot,
  * and records an `external_esb` change log when a BOM's detail drifted without a matching local
- * mutation (docs/rnd-bom-adjustment-prd.md §9, §16).
+ * mutation (docs/products/rnd/bom-adjustment/prd.md §9, §16).
  *
  * "Active" / "Inactive" is derived from which `flagActive` browse pass returned the BOM, not
  * from a response field — the ESB detail payload does not reliably expose an active flag
- * (docs/rnd-bom-adjustment-prd.md §19 item 7 is an unproven contract), while the browse filter
+ * (docs/products/rnd/bom-adjustment/prd.md §19 item 7 is an unproven contract), while the browse filter
  * parameter is already a proven, tested mechanism (EsbBillOfMaterialServiceTest).
  *
  * Every eligible BOM's full detail is fetched on every run (not only when browse metadata

@@ -8,7 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
 /**
- * Sent to the PIC when their result is approved (docs/rnd-project-task-calendar-prd.md §16).
+ * Sent to the PIC when their result is approved (docs/products/rnd/project-task-calendar/prd.md §16).
  */
 class ProjectTaskApprovedNotification extends Notification implements ShouldQueue
 {

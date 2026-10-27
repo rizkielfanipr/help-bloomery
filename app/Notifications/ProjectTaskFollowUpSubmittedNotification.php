@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Sent to eligible reviewers when a PIC submits a result for review
- * (docs/rnd-project-task-calendar-prd.md §16).
+ * (docs/products/rnd/project-task-calendar/prd.md §16).
  */
 class ProjectTaskFollowUpSubmittedNotification extends Notification implements ShouldQueue
 {

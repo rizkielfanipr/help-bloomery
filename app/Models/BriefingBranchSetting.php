@@ -47,7 +47,7 @@ class BriefingBranchSetting extends Model
     }
 
     /**
-     * docs/daily-briefing-remediation-prd.md §8.2: a branch is an active participant on date $date
+     * docs/products/daily-briefing/remediation/prd.md §8.2: a branch is an active participant on date $date
      * when an enabled row covers it.
      */
     public function coversDate(CarbonInterface $date): bool

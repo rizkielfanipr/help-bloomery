@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
- * "Copy Task" (docs/rnd-project-checkpoint-calendar-prd.md §14, §17.1): creates a brand-new Task
+ * "Copy Task" (docs/products/rnd/project-checkpoint-calendar/prd.md §14, §17.1): creates a brand-new Task
  * from the descriptive blueprint of an existing one. Only an allowlist is copied — category,
  * description, and priority, with the title and dates confirmed by the user. Status, assignments,
  * follow-ups, reviews, reminders, completion data, and attachments are never carried over; the new

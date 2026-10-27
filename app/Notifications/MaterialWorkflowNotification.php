@@ -7,7 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
 /**
- * In-app notification for one Master Bahan workflow step (docs/material-sourcing-lifecycle-prd.md
+ * In-app notification for one Master Bahan workflow step (docs/products/rnd/material-sourcing-lifecycle/prd.md
  * §24). It points to the work queue; it never replaces it and carries no supplier contact,
  * price, attachment, or ESB payload.
  */

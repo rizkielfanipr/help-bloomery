@@ -6,7 +6,7 @@ use App\Models\StoreSalesOrder;
 use App\Models\User;
 
 /**
- * docs/store-sales-order-prd.md §16. Branch scope mirrors the same mechanism every other
+ * docs/products/operational/store-sales-order/prd.md §16. Branch scope mirrors the same mechanism every other
  * branch-scoped Policy in this app uses (canAccessBranch/canAccessAllBranches). The submitter can
  * always see their own record regardless of branch access, since they are the one who created it.
  */

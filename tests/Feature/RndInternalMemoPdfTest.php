@@ -78,7 +78,7 @@ it('keeps a previous document instead of overwriting it on a second generation',
 });
 
 it('generates a PDF document for a Finalized memo', function () {
-    // docs/rnd-internal-memo-simplification-prd.md Phase 4: the simplified workspace
+    // docs/products/rnd/internal-memo-simplification/prd.md Phase 4: the simplified workspace
     // (ViewRndInternalMemo) no longer has a Generate PDF button — PDF generation is exercised
     // directly through the Action/Job it used to dispatch.
     $memo = finalizedInternalMemoForPdf();

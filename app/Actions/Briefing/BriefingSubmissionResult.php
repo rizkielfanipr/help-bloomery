@@ -5,7 +5,7 @@ namespace App\Actions\Briefing;
 use App\Models\BriefingItem;
 
 /**
- * docs/daily-briefing-remediation-prd.md §20 (Phase 5): a result the UI can translate directly
+ * docs/products/daily-briefing/remediation/prd.md §20 (Phase 5): a result the UI can translate directly
  * into a notification, instead of the action throwing for expected business outcomes.
  */
 final readonly class BriefingSubmissionResult

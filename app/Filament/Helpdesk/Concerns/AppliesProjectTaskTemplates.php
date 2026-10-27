@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 
 /**
- * "Gunakan Template" wizard on the Project calendar (docs/rnd-project-checkpoint-calendar-prd.md
+ * "Gunakan Template" wizard on the Project calendar (docs/products/rnd/project-checkpoint-calendar/prd.md
  * §10.2, §21.4) — one modal with three steps:
  *
  * 1. Pilih Template.

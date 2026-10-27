@@ -13,7 +13,7 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/rnd-internal-memo-simplification-prd.md Phase 4/5: the simplified workspace
+ * docs/products/rnd/internal-memo-simplification/prd.md Phase 4/5: the simplified workspace
  * (ViewRndInternalMemo) no longer exposes finalize/revision/archive/PDF controls — "UI sederhana
  * tidak menampilkan ... finalisasi, revisi". These Actions and their RndInternalMemoPolicy gates
  * still exist for the transition period (§5.2), so this file now exercises them directly instead

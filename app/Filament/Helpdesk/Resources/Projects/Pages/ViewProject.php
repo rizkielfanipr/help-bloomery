@@ -722,7 +722,7 @@ class ViewProject extends ViewRecord
                 $planningIsInvalid = true;
             }
             // Shelf Life is checked per WIP of the Product, never on the Menu itself
-            // (docs/rnd-wip-shelf-life-prd.md §9.4, §18).
+            // (docs/products/rnd/wip-shelf-life/prd.md §9.4, §18).
             $wipShelfLifeBlockers = $existingProduct
                 ? app(ProjectProductShelfLifeReadiness::class)->blockers($existingProduct)
                 : [];

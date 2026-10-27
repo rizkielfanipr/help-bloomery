@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Observed ESB mutation: a parent row per user action and one child row per HTTP mutation attempt
- * (docs/system-monitoring-prd.md §11). The domain record referenced by `local_model_type` +
+ * (docs/operations/monitoring/prd.md §11). The domain record referenced by `local_model_type` +
  * `local_model_id` stays the source of truth.
  */
 class MonitoringTransaction extends Model

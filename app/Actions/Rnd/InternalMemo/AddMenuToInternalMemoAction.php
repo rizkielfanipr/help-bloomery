@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * docs/rnd-internal-memo-simplification-prd.md §7.2, docs/rnd-internal-memo-brand-prd.md §11.3,
+ * docs/products/rnd/internal-memo-simplification/prd.md §7.2, docs/products/rnd/internal-memo-brand/prd.md §11.3,
  * §15.3. The caller only names a Menu ID; the Menu row is re-read server-side from the global BLSS
  * catalog snapshot, so nothing from the picker (company, branch, BOM ID, name) is trusted. The new
  * row always uses Company Code BLSS and no Menu–Branch row is written. "Menu dapat ditambahkan
@@ -52,7 +52,7 @@ class AddMenuToInternalMemoAction
             throw $this->duplicateMenu();
         }
 
-        // Shelf Life is no longer kept per Menu (docs/rnd-wip-shelf-life-prd.md §19.1): new Menus
+        // Shelf Life is no longer kept per Menu (docs/products/rnd/wip-shelf-life/prd.md §19.1): new Menus
         // start without it and the retired Menu master is not consulted.
         try {
             $menuRecord = $memo->menus()->create([

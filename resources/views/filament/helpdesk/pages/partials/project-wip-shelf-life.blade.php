@@ -1,5 +1,5 @@
 {{--
-    Shelf Life WIP of this Product (docs/rnd-wip-shelf-life-prd.md §17). Read-only for everyone who
+    Shelf Life WIP of this Product (docs/products/rnd/wip-shelf-life/prd.md §17). Read-only for everyone who
     can view the Project; only users allowed to create a missing master see "Isi Shelf Life".
     Data comes from ManagesProjectWipShelfLife::wipShelfLifeRows() — no query or ESB call here.
 --}}

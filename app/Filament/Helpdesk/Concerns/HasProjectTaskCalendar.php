@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Carbon;
 
 /**
- * Merged Kalender mode for the Project index (docs/rnd-project-task-calendar-prd.md §14, Phase 2).
+ * Merged Kalender mode for the Project index (docs/products/rnd/project-task-calendar/prd.md §14, Phase 2).
  * Mirrors the existing release-calendar month-grid mechanics in `ListProjects::calendar()`, and
  * additionally overlays each week with that same month's project release dates (`taskCalendar()`'s
  * `projects` segments), so a single toggle shows both release dates and Task deadlines. The task
@@ -166,7 +166,7 @@ trait HasProjectTaskCalendar
     }
 
     /**
-     * "Tugas Saya" sidebar next to the merged Kalender (docs/rnd-project-task-calendar-prd.md §15)
+     * "Tugas Saya" sidebar next to the merged Kalender (docs/products/rnd/project-task-calendar/prd.md §15)
      * — the current user's own non-Cancelled assignments, ordered overdue first, then deadline
      * today, then Urgent/High priority, then nearest deadline. Mirrors the Dashboard's "Tugas yang
      * Perlu Ditindaklanjuti" ordering but also surfaces Submitted assignments awaiting review.

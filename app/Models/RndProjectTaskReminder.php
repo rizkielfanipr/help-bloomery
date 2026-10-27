@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Dedup log for one deadline-proximity reminder send (docs/rnd-project-task-calendar-prd.md §8.6,
+ * Dedup log for one deadline-proximity reminder send (docs/products/rnd/project-task-calendar/prd.md §8.6,
  * §16). The `rnd_task_reminder_unique` constraint on assignment_id+reminder_type+reminder_date is
  * the source of truth for idempotency when the scheduler/Job reruns.
  */

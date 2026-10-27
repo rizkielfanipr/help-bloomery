@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Sent to every active PIC when a Task's deadline changes via `UpdateProjectTaskAction`
- * (docs/rnd-project-task-calendar-prd.md §16).
+ * (docs/products/rnd/project-task-calendar/prd.md §16).
  */
 class ProjectTaskDeadlineChangedNotification extends Notification implements ShouldQueue
 {

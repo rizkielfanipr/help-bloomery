@@ -6,7 +6,7 @@ use App\Models\Branch;
 use App\Models\BranchEsbCode;
 
 /**
- * Shared by Create and Refresh (docs/store-sales-order-prd.md §9.2, §14): the exact same fields are
+ * Shared by Create and Refresh (docs/products/operational/store-sales-order/prd.md §9.2, §14): the exact same fields are
  * written whether a record is first created or later refreshed from ESB, so the two Actions never
  * drift on which columns count as "ESB snapshot".
  */

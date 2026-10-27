@@ -69,7 +69,7 @@ it('does not resend an R&D material whose previous ESB result is unknown', funct
 });
 
 it('links an exact existing ESB product instead of creating a duplicate', function () {
-    // docs/material-sourcing-lifecycle-prd.md §13.2: a name match alone no longer links. IT links
+    // docs/products/rnd/material-sourcing-lifecycle/prd.md §13.2: a name match alone no longer links. IT links
     // by Product ID after every unit maps to an active Product Detail; nothing is created.
     Http::fake([
         'https://services.esb.co.id/core/auth/login' => Http::response([

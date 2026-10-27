@@ -5,7 +5,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Shelf Life unit of the WIP master (docs/rnd-wip-shelf-life-prd.md §12.4). Legacy values written
+ * Shelf Life unit of the WIP master (docs/products/rnd/wip-shelf-life/prd.md §12.4). Legacy values written
  * by the old Menu master (`jam/hari/minggu/bulan`) are only ever read through `fromLegacy()`, never
  * written again.
  */

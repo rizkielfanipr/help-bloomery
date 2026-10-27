@@ -5,7 +5,7 @@ namespace App\Services;
 use RuntimeException;
 
 /**
- * ESB Core Product Sales lookup for Store Sales Order (docs/store-sales-order-prd.md §9).
+ * ESB Core Product Sales lookup for Store Sales Order (docs/products/operational/store-sales-order/prd.md §9).
  * Read-only: no create/update/cancel/delete method exists or will be added here — this feature
  * never mutates ESB (§5.2, Quality gate #7).
  *

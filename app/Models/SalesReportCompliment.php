@@ -48,7 +48,7 @@ class SalesReportCompliment extends Model
 
     /**
      * Rows saved before the Sales Number requirement have no source; they are presented as legacy
-     * instead of being backfilled (docs/sales-report-compliment-void-remediation-prd.md §18.2).
+     * instead of being backfilled (docs/products/finance/sales-report-compliment-void-remediation/prd.md §18.2).
      */
     public function effectiveSalesNumberSource(): SalesReportDataSource
     {

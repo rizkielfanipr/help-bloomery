@@ -20,7 +20,7 @@ use OpenSpout\Writer\XLSX\Writer;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Server-side Ordering Recommendation workbook (docs/ordering-recommendation-prd.md §19): the same
+ * Server-side Ordering Recommendation workbook (docs/products/analytics/ordering-recommendation/prd.md §19): the same
  * scoped query contract, filters, and forecast runs as the page, streamed chunk by chunk into
  * Summary, Recommendations, Daily History, and Data Quality sheets. Codes stay strings (leading
  * zeros survive), text never starts a formula, and no token or raw payload is written.

@@ -10,7 +10,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §18.2/Phase 12. Always read-only: there is no mutating
+ * docs/products/daily-briefing/scoring-ui/prd.md §18.2/Phase 12. Always read-only: there is no mutating
  * code path here at all, so this cannot write to `briefing_scores` no matter how it is invoked.
  * Compares each branch's currently-stored score (whatever method computed it) against what
  * BriefingScoreCalculator (method_version 2) would produce for the same period, so the delta

@@ -10,7 +10,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Deadline-proximity reminder dispatched by `SendProjectTaskReminderJob`
- * (docs/rnd-project-task-calendar-prd.md §16).
+ * (docs/products/rnd/project-task-calendar/prd.md §16).
  */
 class ProjectTaskReminderNotification extends Notification implements ShouldQueue
 {

@@ -5,7 +5,7 @@ use App\Models\BriefingTask;
 use Database\Seeders\BriefingTasksSeeder;
 
 /**
- * docs/daily-briefing-remediation-prd.md §16.2/§16.3/§25.5 (Phase 11). Contract change: the
+ * docs/products/daily-briefing/remediation/prd.md §16.2/§16.3/§25.5 (Phase 11). Contract change: the
  * seeder used to resolve "Toko Utama"/"Cabang Selatan" branch_id by exact name and silently fall
  * through to null when no such branch existed, upserting every one of those rows as an extra
  * *global* task (the `_2`/`_2_2`-suffixed duplicates visible in the current briefing_tasks data).

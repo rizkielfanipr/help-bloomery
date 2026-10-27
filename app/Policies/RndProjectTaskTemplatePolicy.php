@@ -6,7 +6,7 @@ use App\Models\RndProjectTaskTemplate;
 use App\Models\User;
 
 /**
- * Template management (docs/rnd-project-checkpoint-calendar-prd.md §8.2). Managing a template does
+ * Template management (docs/products/rnd/project-checkpoint-calendar/prd.md §8.2). Managing a template does
  * not grant creating Tasks — applying one is authorized separately by
  * `RndProjectTaskPolicy::applyTemplate()`.
  */

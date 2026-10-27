@@ -6,7 +6,7 @@ use App\Models\RndBomChangeLog;
 use Illuminate\Support\Collection;
 
 /**
- * Pure diff calculator between two normalized BOM detail snapshots (docs/rnd-bom-adjustment-prd.md
+ * Pure diff calculator between two normalized BOM detail snapshots (docs/products/rnd/bom-adjustment/prd.md
  * §12, §20). Callers pass already-normalized arrays shaped like an ESB BOM detail response
  * (`productDetailID`, `productName`, `productCode`, `uomName`, `is_active`, `bomDetails`) —
  * this class never fetches data or knows about ESB field-naming quirks.

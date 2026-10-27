@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Immutable forecast run per branch, cutoff, horizon, algorithm version, and configuration hash
- * (docs/ordering-recommendation-prd.md §11.3, §21). A new run never overwrites an older one.
+ * (docs/products/analytics/ordering-recommendation/prd.md §11.3, §21). A new run never overwrites an older one.
  */
 return new class extends Migration
 {

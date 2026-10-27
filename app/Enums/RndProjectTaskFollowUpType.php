@@ -5,7 +5,7 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * `rnd_project_task_follow_ups.follow_up_type` (docs/rnd-project-task-calendar-prd.md §12).
+ * `rnd_project_task_follow_ups.follow_up_type` (docs/products/rnd/project-task-calendar/prd.md §12).
  * Progress entries never change assignment status; only a Submission does
  * (business rule #12).
  */

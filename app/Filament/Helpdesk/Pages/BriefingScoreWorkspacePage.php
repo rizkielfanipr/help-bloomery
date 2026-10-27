@@ -14,12 +14,12 @@ use Livewire\Attributes\Url;
 use UnitEnum;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §13/Phase 5/8. Follows the Basket Size workspace pattern
+ * docs/products/daily-briefing/scoring-ui/prd.md §13/Phase 5/8. Follows the Basket Size workspace pattern
  * (resources/views/filament/helpdesk/pages/basket-size-page.blade.php): header, filter, summary,
  * ranking, detail modal, and a batched "Hitung Ulang" action — all reading the same
  * BriefingScoreCalculator snapshot through RecomputeBriefingScoresAction. Replaces
  * BriefingScoreResource as the primary Nilai Briefing experience; the resource/route stays
- * registered for compatibility (docs/daily-briefing-remediation-prd.md §15) until its navigation
+ * registered for compatibility (docs/products/daily-briefing/remediation/prd.md §15) until its navigation
  * is hidden in a later step.
  */
 class BriefingScoreWorkspacePage extends Page

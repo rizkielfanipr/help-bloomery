@@ -7,7 +7,7 @@ use Filament\Support\Contracts\HasLabel;
 
 /**
  * Per-Menu BOM sync status stored on `rnd_internal_memo_menus.sync_status`
- * (docs/rnd-internal-memo-prd.md §12.2, §7.4).
+ * (docs/products/rnd/internal-memo/prd.md §12.2, §7.4).
  */
 enum RndInternalMemoMenuSyncStatus: string implements HasColor, HasLabel
 {

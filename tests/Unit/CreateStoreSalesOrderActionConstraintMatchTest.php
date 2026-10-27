@@ -7,7 +7,7 @@ use Tests\TestCase;
 uses(TestCase::class);
 
 /**
- * docs/store-sales-order-prd.md §14 "Submit berulang tidak boleh membuat dua record": the DB-level
+ * docs/products/operational/store-sales-order/prd.md §14 "Submit berulang tidak boleh membuat dua record": the DB-level
  * unique constraint is the final guard behind CreateStoreSalesOrderAction's own pre-check, for the
  * race window between the two. True multi-connection concurrency can't be exercised against a
  * single-process, in-memory SQLite test database (any row inserted mid-flight via a model event

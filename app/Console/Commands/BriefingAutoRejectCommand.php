@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * docs/daily-briefing-remediation-prd.md §11.3/§11.4 (Phase 7). Auto-rejects only real
+ * docs/products/daily-briefing/remediation/prd.md §11.3/§11.4 (Phase 7). Auto-rejects only real
  * submissions stuck waiting for review past the SLA window. It must never create a
  * briefing_records/briefing_items row to represent a deadline that passed with nothing submitted
  * — "missing" is a derived read, computed by BriefingStatusService, not a stored row.

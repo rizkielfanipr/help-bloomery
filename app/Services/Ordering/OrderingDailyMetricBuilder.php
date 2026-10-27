@@ -9,7 +9,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
 /**
- * Writes normalized source rows into the daily facts (docs/ordering-recommendation-prd.md §11.2,
+ * Writes normalized source rows into the daily facts (docs/products/analytics/ordering-recommendation/prd.md §11.2,
  * §12). Upserts on the natural identity (branch, company pair, date, product code, UOM) so the
  * same input always yields the same rows. Only a complete read is applied: products a complete
  * read no longer returns are reset to 0 for that day, never left with an older value.

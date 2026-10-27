@@ -8,7 +8,7 @@ use App\Models\RndProductEsbShelfLife;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * Defaults to a WIP master (company + Product Detail ID, docs/rnd-wip-shelf-life-prd.md §9.1).
+ * Defaults to a WIP master (company + Product Detail ID, docs/products/rnd/wip-shelf-life/prd.md §9.1).
  * Use `legacyMenu()` for rows shaped like the retired Menu master.
  *
  * @extends Factory<RndProductEsbShelfLife>

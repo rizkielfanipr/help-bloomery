@@ -8,10 +8,10 @@ use Spatie\Permission\PermissionRegistrar;
 return new class extends Migration
 {
     /**
-     * docs/daily-briefing-scoring-ui-prd.md §16 (Phase 11). The Employee App's Nilai Briefing
+     * docs/products/daily-briefing/scoring-ui/prd.md §16 (Phase 11). The Employee App's Nilai Briefing
      * page previously had no canAccess() check at all; gating it (and the PDF, which already
      * required this permission) behind `view briefing scores` would otherwise lock out the
-     * STORE_STAFF users it exists for — docs/daily-briefing-remediation-prd.md §18 already
+     * STORE_STAFF users it exists for — docs/products/daily-briefing/remediation/prd.md §18 already
      * recommended "STORE_STAFF dapat melihat score PDF: Ya, hanya branch sendiri".
      */
     public function up(): void

@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use UnitEnum;
 
 /**
- * Analytics → Ordering Recommendation (docs/ordering-recommendation-prd.md §17–18). View-only:
+ * Analytics → Ordering Recommendation (docs/products/analytics/ordering-recommendation/prd.md §17–18). View-only:
  * it reads the latest completed local forecast runs through OrderingRecommendationQuery and never
  * calls ESB. Public state holds filters, the active branch, and the opened detail ID only; every
  * branch ID from the browser is intersected with the user's branch scope on each request.

@@ -92,7 +92,7 @@ it('uses the configured auto-reject reason template with the day count filled in
 it(
     'never creates a record or item for a task that missed its deadline with no submission (contract change: '
     .'missing is derived by BriefingStatusService, not a synthetic rejected row — '
-    .'docs/daily-briefing-remediation-prd.md §11.4)',
+    .'docs/products/daily-briefing/remediation/prd.md §11.4)',
     function () {
         BriefingTask::create([
             'key' => 'test_missed_deadline_no_submission',

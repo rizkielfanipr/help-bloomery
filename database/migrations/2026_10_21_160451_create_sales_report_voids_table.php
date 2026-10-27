@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Void records of a Sales Report shift (docs/sales-report-compliment-void-remediation-prd.md
+ * Void records of a Sales Report shift (docs/products/finance/sales-report-compliment-void-remediation/prd.md
  * §10.6). A separate domain from Compliment; nothing is backfilled from older data.
  */
 return new class extends Migration

@@ -79,7 +79,7 @@ return [
     ],
 
     /*
-    | Master Pricelist (docs/material-sourcing-lifecycle-prd.md §18). No write/read Pricelist
+    | Master Pricelist (docs/products/rnd/material-sourcing-lifecycle/prd.md §18). No write/read Pricelist
     | endpoint contract is available in this repository, so only the controlled manual mode is
     | supported: Finance enters the price in ESB and confirms it here with a reference.
     */

@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * @deprecated Multi-branch flow (docs/rnd-internal-memo-multi-branch-prd.md). No active page calls
- * it since the Brand flow (docs/rnd-internal-memo-brand-prd.md §15.2); kept only until the separate
+ * @deprecated Multi-branch flow (docs/products/rnd/internal-memo-multi-branch/prd.md). No active page calls
+ * it since the Brand flow (docs/products/rnd/internal-memo-brand/prd.md §15.2); kept only until the separate
  * cleanup phase removes the legacy Branch tables. Use UpdateInternalMemoBrandAction.
  */
 class UpdateInternalMemoBranchesAction

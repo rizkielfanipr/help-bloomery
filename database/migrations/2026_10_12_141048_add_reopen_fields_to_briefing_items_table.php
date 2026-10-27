@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * docs/daily-briefing-remediation-prd.md §11.2/§14 (Phase 6). A rejected submission cannot be
+     * docs/products/daily-briefing/remediation/prd.md §11.2/§14 (Phase 6). A rejected submission cannot be
      * edited after its deadline (BriefingSubmissionAction) unless a reviewer reopens it: reopening
      * records who, when, and why, and grants exactly one further edit before the reopen grant is
      * consumed again.

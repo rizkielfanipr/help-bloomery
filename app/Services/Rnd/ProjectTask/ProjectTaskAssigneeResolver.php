@@ -8,7 +8,7 @@ use Spatie\Permission\Models\Permission;
 
 /**
  * Resolves which users are eligible to be a Task's PIC for a given Branch
- * (docs/rnd-project-task-calendar-prd.md §6). Eligibility is: active, can access the Branch, holds
+ * (docs/products/rnd/project-task-calendar/prd.md §6). Eligibility is: active, can access the Branch, holds
  * `respond rnd project tasks` (otherwise they could never follow the Task up), and not a blanket
  * all-branch/SUPERADMIN user (business rules #6, #8) — those users may still view and manage
  * Tasks, but are never offered as a PIC candidate.

@@ -6,7 +6,7 @@ use App\Models\RndProductEsbMaterial;
 use App\Models\User;
 
 /**
- * Master Bahan workflow abilities (docs/material-sourcing-lifecycle-prd.md §20). Every Action
+ * Master Bahan workflow abilities (docs/products/rnd/material-sourcing-lifecycle/prd.md §20). Every Action
  * checks these server-side; button visibility is only a convenience.
  */
 class RndProductEsbMaterialPolicy

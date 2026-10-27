@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /** docs/store-sales-order-prd.md §15.3. Append-only through normal workflow. */
+    /** docs/products/operational/store-sales-order/prd.md §15.3. Append-only through normal workflow. */
     public function up(): void
     {
         Schema::create('store_sales_order_activities', function (Blueprint $table): void {

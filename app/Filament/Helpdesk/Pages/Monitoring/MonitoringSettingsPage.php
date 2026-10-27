@@ -23,7 +23,7 @@ use Illuminate\Validation\ValidationException;
 use UnitEnum;
 
 /**
- * Monitoring Settings (docs/system-monitoring-prd.md §17, §19). Every value is validated against
+ * Monitoring Settings (docs/operations/monitoring/prd.md §17, §19). Every value is validated against
  * `config('monitoring.limits')`; secrets (deployment secret, credentials, recipients' channels)
  * are never editable or displayed here.
  */

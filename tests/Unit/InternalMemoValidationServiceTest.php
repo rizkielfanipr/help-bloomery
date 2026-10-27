@@ -49,7 +49,7 @@ it('blocks on a missing Forecast Quantity', function () {
     expect($result['blockers'])->toContain('Forecast Quantity Menu "Croissant Butter" belum diisi atau tidak valid.');
 });
 
-it('no longer blocks on a missing Menu Shelf Life (docs/rnd-wip-shelf-life-prd.md §19.1)', function () {
+it('no longer blocks on a missing Menu Shelf Life (docs/products/rnd/wip-shelf-life/prd.md §19.1)', function () {
     $memo = RndInternalMemo::factory()->create();
     readyMenu($memo, ['shelf_life_value' => null, 'shelf_life_unit' => null]);
 

@@ -6,7 +6,7 @@ use App\Models\RndProjectTaskAssignment;
 use App\Models\User;
 
 /**
- * Permission strings match docs/rnd-project-task-calendar-prd.md §7. `respond()` enforces
+ * Permission strings match docs/products/rnd/project-task-calendar/prd.md §7. `respond()` enforces
  * ownership (business rule #10: a user may never respond to another user's assignment) even for
  * users who otherwise hold the `respond rnd project tasks` permission.
  */

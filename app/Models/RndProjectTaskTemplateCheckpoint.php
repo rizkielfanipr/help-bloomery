@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * One checkpoint of a Template — becomes exactly one `RndProjectTask` when applied
- * (docs/rnd-project-checkpoint-calendar-prd.md §16.2). It holds no dates: the assign date and
+ * (docs/products/rnd/project-checkpoint-calendar/prd.md §16.2). It holds no dates: the assign date and
  * deadline are set per Project when the template is applied. It may suggest default Branches and
  * PICs, which are re-validated on apply, but never stores runtime state (§12.8).
  */

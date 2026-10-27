@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Workflow status of one `rnd_project_tasks` record (docs/rnd-project-task-calendar-prd.md §9-10).
+ * Workflow status of one `rnd_project_tasks` record (docs/products/rnd/project-task-calendar/prd.md §9-10).
  * `Overdue` is a derived condition based on due_date, not a case here.
  */
 enum RndProjectTaskStatus: string implements HasColor, HasLabel
@@ -33,7 +33,7 @@ enum RndProjectTaskStatus: string implements HasColor, HasLabel
     }
 
     /**
-     * Status palette of docs/ui-consistency-prd.md §7 — amber waits for review, red was returned
+     * Status palette of docs/standards/ui-consistency.md §7 — amber waits for review, red was returned
      * for revision; never purple.
      */
     public function getColor(): string
@@ -50,7 +50,7 @@ enum RndProjectTaskStatus: string implements HasColor, HasLabel
     }
 
     /**
-     * Terminal statuses never transition further (docs/rnd-project-task-calendar-prd.md §10).
+     * Terminal statuses never transition further (docs/products/rnd/project-task-calendar/prd.md §10).
      */
     public function isTerminal(): bool
     {

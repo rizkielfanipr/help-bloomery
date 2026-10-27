@@ -13,7 +13,7 @@ use App\Services\Rnd\ShelfLife\WipShelfLifeResolver;
 use Filament\Notifications\Notification;
 
 /**
- * "Shelf Life WIP" section of the Project Product page (docs/rnd-wip-shelf-life-prd.md §10.2,
+ * "Shelf Life WIP" section of the Project Product page (docs/products/rnd/wip-shelf-life/prd.md §10.2,
  * §10.3, §17). Reads masters for the WIP found by the page's existing mapping and lets an
  * authorized user fill a missing master — never edit an existing one, never store a Project
  * override. Kept out of `ViewProjectProductPage` so the page stays thin.

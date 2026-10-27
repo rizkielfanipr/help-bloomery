@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One BOM Assembly on a production schedule (docs/kitchen-production-schedule-prd.md §11.2).
+ * One BOM Assembly on a production schedule (docs/products/kitchen/production-schedule/prd.md §11.2).
  * `planned_quantity` is output in the BOM's result UOM and is handled as a decimal string, never a
  * float. Its lightweight identity snapshot is refreshed from the local catalog on every save.
  */

@@ -83,7 +83,7 @@ it('bundles sales region access into Project and removes payment grouping permis
         ->and(Permission::where('name', 'view payment method groups')->exists())->toBeFalse();
 });
 
-it('retires the Menu Shelf Life permissions through the synchronizer (docs/rnd-wip-shelf-life-prd.md §15.3)', function () {
+it('retires the Menu Shelf Life permissions through the synchronizer (docs/products/rnd/wip-shelf-life/prd.md §15.3)', function () {
     $groups = app(PermissionRegistry::class)->groups();
     $configured = collect($groups)->flatten();
 

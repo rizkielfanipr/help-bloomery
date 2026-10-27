@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * Local read model / snapshot of one ESB Bill of Material Assembly, used by the BOM Adjustment
  * index so pagination and search stay database-driven instead of re-fetching the whole ESB
- * catalog on every render (docs/rnd-bom-adjustment-prd.md §8).
+ * catalog on every render (docs/products/rnd/bom-adjustment/prd.md §8).
  */
 class RndBomCatalog extends Model
 {
@@ -51,7 +51,7 @@ class RndBomCatalog extends Model
     }
 
     /**
-     * Search by BOM code/name or result product code/name (docs/rnd-bom-adjustment-prd.md §10).
+     * Search by BOM code/name or result product code/name (docs/products/rnd/bom-adjustment/prd.md §10).
      */
     public function scopeSearch(Builder $query, ?string $term): Builder
     {

@@ -11,7 +11,7 @@ use App\Models\User;
 use Carbon\Carbon;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §18.2/Phase 12: always read-only.
+ * docs/products/daily-briefing/scoring-ui/prd.md §18.2/Phase 12: always read-only.
  */
 it('requires --year and --month', function () {
     $this->artisan('briefing:compare-scores')->assertFailed();

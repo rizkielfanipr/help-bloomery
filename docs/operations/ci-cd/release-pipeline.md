@@ -5,8 +5,8 @@
 | Field | Nilai |
 | --- | --- |
 | Tanggal baseline | 26 Oktober 2026 |
-| Pembaruan terakhir | 27 Oktober 2026 |
-| Status | Phase 1 sampai Phase 4 selesai; Phase 5 dalam masa observasi |
+| Pembaruan terakhir | 28 Oktober 2026 |
+| Status | Phase 1 sampai Phase 4 selesai; Phase 5 finalisasi enforcement (release dan runtime tervalidasi, cleanup transisi ditahan) |
 | Aplikasi | Help Bloomery |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Stack | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Pest 4, Node.js 22, Vite 8 |
@@ -38,6 +38,8 @@
 | Cutover production | Selesai | Nginx, Supervisor, dan scheduler memakai `/var/www/bloomery/production/current` |
 | Atomic production pipeline | Selesai | Release #10 mempromosikan artifact staging ke production; monitoring mencatat `succeeded`, migration `ran`, dan health `healthy` |
 | Phase 4 — Atomic production | Selesai | Public health/login HTTP 200, queue worker aktif, Redis sehat, dan disk 14% setelah release #10 |
+| Rollback atomic production | Selesai | Rehearsal `11-395ab5c3` → `10-eedb7d04` → `11-395ab5c3`; final health dan worker sehat |
+| Phase 5 — Enforcement | Finalisasi | Release #11–#19 dan runtime sehat; Ruleset tervalidasi; branch `staging` diamankan sebagai `archive/staging-pre-trunk-20261028`; workflow fallback lama dinonaktifkan pada branch penutupan Phase 5 |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1235,6 +1237,80 @@ worker/scheduler, health check, deployment monitoring, dan rollback cutover tela
 **Rollback cutover:** kembalikan Nginx root ke path lama dan reload Nginx. Jangan menghapus deployment lama pada hari cutover.
 
 ### Phase 5 — Enforcement
+
+**Status 27 Oktober 2026 pukul 09.06 WIB:** masa observasi. Production telah menyelesaikan dua
+release atomik (`10-eedb7d04` dan `11-395ab5c3`). Rehearsal rollback production dari release #11 ke
+#10 lalu kembali ke #11 berhasil; queue worker berpindah mengikuti symlink dan public health tetap
+sehat. System Monitoring mencatat `rollback-rehearsal-20261027` dengan status `succeeded`, stage
+`rollback_rehearsal`, dan health `healthy`.
+
+Checkpoint berikutnya dilakukan setelah sekitar 24 jam, yaitu 28 Oktober 2026 sekitar 09.10 WIB.
+Sebelum enforcement, verifikasi:
+
+- disk tetap di bawah 35%;
+- binary log stabil sekitar 8–12 GB atau lebih rendah dan automatic purge 24 jam bekerja;
+- backup harian terbaru lolos `gzip -t`;
+- Nginx, queue worker, scheduler, Redis, dan `/up` tetap sehat;
+- minimal satu atomic production release normal tambahan sukses sehingga totalnya minimal tiga.
+
+Gunakan pemeriksaan berikut pada checkpoint:
+
+```bash
+date
+df -h /
+
+sudo mysql -NBe "SHOW BINARY LOGS;" \
+  | awk '{ count += 1; bytes += $2 } END { printf "binlog_files=%d binlog_size_gb=%.2f\n", count, bytes / 1024 / 1024 / 1024 }'
+
+latest_backup="$(
+  sudo find /var/backups/bloomery/mysql \
+    -maxdepth 1 \
+    -type f \
+    -name 'bloomery_office_prod_*.sql.gz' \
+    -printf '%T@ %p\n' \
+  | sort -nr \
+  | head -1 \
+  | cut -d' ' -f2-
+)"
+
+printf 'Latest backup: %s\n' "$latest_backup"
+sudo gzip -t "$latest_backup" && echo 'Latest backup valid'
+sudo supervisorctl status
+curl -fsS 'https://office.bloomery.co.id/up' >/dev/null && echo 'Production healthy'
+```
+
+Selama checkpoint belum lulus, jangan hapus `/var/www/bloomery-office-production`, workflow fallback,
+backup konfigurasi Nginx/Supervisor/cron, rollback script, ataupun retained release #10 dan #11.
+
+**Checkpoint 28 Oktober 2026 pukul 11.25 WIB:** syarat jumlah release dan runtime utama telah
+tercapai. GitHub Actions menampilkan Release #11 sampai #19 selesai sukses. Production aktif pada
+`/var/www/bloomery/production/releases/19-3fae3119`; manifest cocok dengan commit `3fae3119`, run ID
+`40623472521`, dan run number 19. Public `/up` sehat, marker atomic aktif, queue worker berjalan dari
+`production/current`, scheduler juga menunjuk `production/current`, dan disk berada pada 21%.
+
+Verifikasi privileged kemudian dijalankan oleh operator pada 28 Oktober 2026. MySQL menunjukkan
+`binlog_expire_logs_auto_purge=ON` dengan retensi 86.400 detik; terdapat 50 binary log dengan total
+4,97 GB. Backup terbaru
+`bloomery_office_prod_2026-10-28_03-30-01.sql.gz` lulus `gzip -t`. Disk tetap 21%, Supervisor
+menunjukkan production worker `RUNNING`, dan public health tetap sehat.
+
+Status enforcement:
+
+- [x] Minimal tiga atomic production release baru sukses; aktual Release #11–#19.
+- [x] Workflow CI tidak mempunyai jalur `[skip full tests]`.
+- [x] Release normal memakai artifact immutable, staging otomatis, dan approval production.
+- [x] Production health, atomic marker, queue worker, scheduler, dan kapasitas disk sehat.
+- [x] Legacy deployment tidak berjalan otomatis; workflow hanya dapat dipanggil manual dengan alasan.
+- [x] Backup terbaru valid dan binary-log automatic purge 24 jam aktif; total binlog 4,97 GB.
+- [x] Ruleset `Protect main` aktif untuk default branch; PR dan required status check menjadi jalur normal, sedangkan admin hanya boleh bypass melalui Pull Request.
+- [x] Delapan commit unik `staging` diamankan pada `archive/staging-pre-trunk-20261028` dengan SHA yang sama (`6193bb25`).
+- [x] Workflow legacy `.github/workflows/deploy.yml` dihapus dari workflow aktif; kontrak CI mencegahnya ditambahkan kembali.
+- [ ] Arsipkan cabang command lama pada forced-command gateway VPS setelah workflow penutupan ini masuk `main`.
+- [ ] Hapus remote branch `staging` hanya setelah PR penutupan ini merge dan GitHub Environment tidak mereferensikan branch tersebut.
+
+Phase 5 adalah fase implementasi terakhir. Pipeline utama sudah operasional; dua item yang belum
+dicentang merupakan tindakan pasca-merge karena menyentuh forced-command VPS dan remote branch.
+Jangan menyatakan keseluruhan Phase 5 `Selesai` sampai keduanya diverifikasi.
 
 - Verifikasi Ruleset `main` tetap aktif dan tidak memiliki bypass reguler.
 - Hapus `[skip full tests]` dari workflow lama.

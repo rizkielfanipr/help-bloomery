@@ -301,9 +301,27 @@ it('shows a state for each sync situation', function (Closure $arrange, string $
     'failed with snapshot' => [function ($test) {
         EsbProductionOrder::factory()->forMapping($test->mapping)->create(['production_order_date' => '2026-10-08']);
         EsbProductionOrderSyncRun::factory()->forMapping($test->mapping)->create(['list_completed_at' => now()->subDay()]);
-        EsbProductionOrderSyncRun::factory()->forMapping($test->mapping)->failed()->create();
+        EsbProductionOrderSyncRun::factory()->forMapping($test->mapping)->failed()->create([
+            'error_code' => '403',
+            'error_summary' => 'Credential ESB tidak mempunyai akses Production Order [BLSS].',
+        ]);
     }, 'Sinkronisasi terakhir gagal. Menampilkan data terakhir yang tersimpan.'],
 ]);
+
+it('shows a sanitized failure reason without exposing credentials', function () {
+    EsbProductionOrderSyncRun::factory()->forMapping($this->mapping)->failed()->create([
+        'error_code' => '403',
+        'error_summary' => 'Credential ditolak token=super-secret-token https://services.esb.co.id/core/production/production-order?access_token=unsafe',
+        'finished_at' => now()->setTime(14, 4),
+    ]);
+
+    Livewire::test(KitchenProductionSchedulePage::class)
+        ->assertSee('Credential ditolak token=[REDACTED] https://services.esb.co.id/core/production/production-order')
+        ->assertSee('(kode 403)')
+        ->assertSee(now()->setTime(14, 4)->locale('id')->translatedFormat('d M Y H:i'))
+        ->assertDontSee('super-secret-token')
+        ->assertDontSee('access_token=unsafe');
+});
 
 it('reports the last successful sync time and no warning when fresh', function () {
     EsbProductionOrderSyncRun::factory()->forMapping($this->mapping)->create(['list_completed_at' => now()->subMinutes(20)]);

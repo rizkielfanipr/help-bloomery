@@ -185,7 +185,11 @@ class KitchenProductionSchedulePage extends Page
     }
 
     /**
-     * @return array{groups: array<string, list<string>>, lastSyncedAt: ?CarbonInterface}|null
+     * @return array{
+     *     groups: array<string, list<string>>,
+     *     issues: array<string, list<array{branch: string, message: string, errorCode: ?string, finishedAt: ?CarbonInterface}>>,
+     *     lastSyncedAt: ?CarbonInterface
+     * }|null
      */
     #[Computed]
     public function syncSummary(): ?array

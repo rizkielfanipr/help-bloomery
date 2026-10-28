@@ -92,6 +92,22 @@
                         <p class="rounded-lg border px-3 py-2 {{ $toneClass[$tone] }}" role="status">
                             {{ $message }}
                             <span class="block text-xs opacity-80 sm:inline">{{ count($names) === 1 ? $names[0] : count($names).' cabang: '.implode(', ', array_slice($names, 0, 5)).(count($names) > 5 ? ', …' : '') }}</span>
+                            @if(! empty($syncSummary['issues'][$state]))
+                                <span class="mt-1 block space-y-0.5 text-xs">
+                                    @foreach(array_slice($syncSummary['issues'][$state], 0, 5) as $issue)
+                                        <span class="block">
+                                            <span class="font-semibold">{{ $issue['branch'] }}:</span>
+                                            {{ $issue['message'] }}
+                                            @if($issue['errorCode'])
+                                                <span class="opacity-80">(kode {{ $issue['errorCode'] }})</span>
+                                            @endif
+                                            @if($issue['finishedAt'])
+                                                <span class="opacity-80">· {{ $issue['finishedAt']->timezone(config('app.timezone'))->locale('id')->translatedFormat('d M Y H:i') }}</span>
+                                            @endif
+                                        </span>
+                                    @endforeach
+                                </span>
+                            @endif
                         </p>
                     @endif
                 @endforeach

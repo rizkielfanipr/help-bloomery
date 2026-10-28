@@ -8,6 +8,7 @@ use App\Models\BranchEsbCode;
 use App\Models\EsbProductionOrder;
 use App\Models\EsbProductionOrderSyncRun;
 use App\Models\User;
+use App\Services\Monitoring\MonitoringSanitizer;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,7 +40,10 @@ class ProductionOrderCalendarQuery
 
     public const STATE_FAILED = 'failed';
 
-    public function __construct(private readonly ProductionOrderSyncPlanner $planner) {}
+    public function __construct(
+        private readonly ProductionOrderSyncPlanner $planner,
+        private readonly MonitoringSanitizer $sanitizer,
+    ) {}
 
     /**
      * Monday on/before the 1st through the Sunday on/after month-end — every date the grid shows.
@@ -116,7 +120,11 @@ class ProductionOrderCalendarQuery
      * Sync state per Kitchen Branch in scope (docs/products/kitchen/production-schedule/prd.md §34.4), grouped
      * by state for the banner, plus the oldest "last synced" time among synced mappings.
      *
-     * @return array{groups: array<string, list<string>>, lastSyncedAt: ?CarbonInterface}
+     * @return array{
+     *     groups: array<string, list<string>>,
+     *     issues: array<string, list<array{branch: string, message: string, errorCode: ?string, finishedAt: ?CarbonInterface}>>,
+     *     lastSyncedAt: ?CarbonInterface
+     * }
      */
     public function syncSummary(User $user, ?int $branchId = null): array
     {
@@ -133,7 +141,7 @@ class ProductionOrderCalendarQuery
             ->get(['id', 'name']);
 
         if ($branches->isEmpty()) {
-            return ['groups' => [], 'lastSyncedAt' => null];
+            return ['groups' => [], 'issues' => [], 'lastSyncedAt' => null];
         }
 
         $mappings = BranchEsbCode::query()->whereIn('branch_id', $branches->modelKeys())->get();
@@ -149,6 +157,7 @@ class ProductionOrderCalendarQuery
 
         $staleBefore = now()->subMinutes((int) config('kitchen.production_orders.stale_after_minutes', 180));
         $groups = [];
+        $issues = [];
 
         foreach ($branches as $branch) {
             $branchMappings = $mappings->where('branch_id', $branch->id);
@@ -165,10 +174,32 @@ class ProductionOrderCalendarQuery
             };
 
             $groups[$state][] = $branch->name;
+
+            if (in_array($state, [self::STATE_FAILED, self::STATE_PARTIAL], true)) {
+                $relevantStatus = $state === self::STATE_FAILED
+                    ? EsbProductionOrderSyncStatus::Failed
+                    : EsbProductionOrderSyncStatus::Partial;
+                $run = $branchEligible
+                    ->map(fn (BranchEsbCode $mapping): ?EsbProductionOrderSyncRun => $latestRuns->get($mapping->id))
+                    ->filter(fn (?EsbProductionOrderSyncRun $candidate): bool => $candidate?->status === $relevantStatus)
+                    ->sortByDesc('id')
+                    ->first();
+
+                $issues[$state][] = [
+                    'branch' => $branch->name,
+                    'message' => $this->sanitizer->message($run?->error_summary)
+                        ?? ($state === self::STATE_FAILED
+                            ? 'ESB menolak atau gagal memproses permintaan sinkronisasi.'
+                            : 'Sebagian detail Production Order gagal diambil dari ESB.'),
+                    'errorCode' => filled($run?->error_code) ? (string) $run->error_code : null,
+                    'finishedAt' => $run?->finished_at,
+                ];
+            }
         }
 
         return [
             'groups' => $groups,
+            'issues' => $issues,
             'lastSyncedAt' => $lastCompleted->isEmpty() ? null : $lastCompleted->min(),
         ];
     }
@@ -191,7 +222,7 @@ class ProductionOrderCalendarQuery
 
         return EsbProductionOrderSyncRun::query()
             ->whereKey($ids)
-            ->get(['id', 'branch_esb_code_id', 'status'])
+            ->get(['id', 'branch_esb_code_id', 'status', 'error_code', 'error_summary', 'finished_at'])
             ->keyBy('branch_esb_code_id');
     }
 

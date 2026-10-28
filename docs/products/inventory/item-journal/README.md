@@ -19,6 +19,7 @@ Item Journal akan menjadi fitur Inventory yang berdiri sendiri. Employee App men
 |---|---|---|
 | [PRD](prd.md) | draft | Sumber requirement canonical |
 | [Implementation plan](implementation-plan.md) | draft | Urutan teknis dan quality gate |
+| [Implementation prompt](implementation-prompt.md) | draft | Instruksi implementasi end-to-end untuk agent/developer |
 
 ## Keputusan
 

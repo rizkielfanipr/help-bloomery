@@ -39,7 +39,7 @@
 | Atomic production pipeline | Selesai | Release #10 mempromosikan artifact staging ke production; monitoring mencatat `succeeded`, migration `ran`, dan health `healthy` |
 | Phase 4 — Atomic production | Selesai | Public health/login HTTP 200, queue worker aktif, Redis sehat, dan disk 14% setelah release #10 |
 | Rollback atomic production | Selesai | Rehearsal `11-395ab5c3` → `10-eedb7d04` → `11-395ab5c3`; final health dan worker sehat |
-| Phase 5 — Enforcement | Finalisasi | Release #11–#19 sukses; production aktif pada `19-3fae3119`, health sehat, queue/scheduler memakai `production/current`, atomic gate aktif, dan disk 21%. Verifikasi privileged backup/binlog serta cleanup transisi masih ditahan |
+| Phase 5 — Enforcement | Finalisasi | Release #11–#19 sukses; production aktif pada `19-3fae3119`, health sehat, queue/scheduler memakai `production/current`, atomic gate aktif, disk 21%, backup valid, dan binary-log purge sehat. Cleanup transisi masih ditahan |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1288,10 +1288,11 @@ tercapai. GitHub Actions menampilkan Release #11 sampai #19 selesai sukses. Prod
 `40623472521`, dan run number 19. Public `/up` sehat, marker atomic aktif, queue worker berjalan dari
 `production/current`, scheduler juga menunjuk `production/current`, dan disk berada pada 21%.
 
-Pemeriksaan `sudo` untuk backup terbaru dan binary log pada checkpoint ini belum dapat dijalankan
-secara non-interaktif karena VPS meminta password. Bukti terakhir sebelum checkpoint menunjukkan
-backup valid serta automatic binary-log purge aktif, tetapi hasil tersebut tidak dianggap sebagai
-verifikasi baru tanggal 28 Oktober. Karena itu cleanup transisi yang destruktif tetap ditahan.
+Verifikasi privileged kemudian dijalankan oleh operator pada 28 Oktober 2026. MySQL menunjukkan
+`binlog_expire_logs_auto_purge=ON` dengan retensi 86.400 detik; terdapat 50 binary log dengan total
+4,97 GB. Backup terbaru
+`bloomery_office_prod_2026-10-28_03-30-01.sql.gz` lulus `gzip -t`. Disk tetap 21%, Supervisor
+menunjukkan production worker `RUNNING`, dan public health tetap sehat.
 
 Status enforcement:
 
@@ -1300,7 +1301,7 @@ Status enforcement:
 - [x] Release normal memakai artifact immutable, staging otomatis, dan approval production.
 - [x] Production health, atomic marker, queue worker, scheduler, dan kapasitas disk sehat.
 - [x] Legacy deployment tidak berjalan otomatis; workflow hanya dapat dipanggil manual dengan alasan.
-- [ ] Verifikasi ulang backup terbaru dan binary-log retention dengan akses `sudo`.
+- [x] Backup terbaru valid dan binary-log automatic purge 24 jam aktif; total binlog 4,97 GB.
 - [ ] Verifikasi Ruleset `main` tidak mempunyai bypass reguler melalui GitHub Settings.
 - [ ] Putuskan masa retensi fallback sebelum mengarsipkan command VPS dan workflow legacy.
 - [ ] Audit seluruh referensi `staging` sebelum menghapus remote branch `staging`.

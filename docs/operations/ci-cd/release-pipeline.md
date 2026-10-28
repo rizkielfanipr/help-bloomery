@@ -39,7 +39,7 @@
 | Atomic production pipeline | Selesai | Release #10 mempromosikan artifact staging ke production; monitoring mencatat `succeeded`, migration `ran`, dan health `healthy` |
 | Phase 4 — Atomic production | Selesai | Public health/login HTTP 200, queue worker aktif, Redis sehat, dan disk 14% setelah release #10 |
 | Rollback atomic production | Selesai | Rehearsal `11-395ab5c3` → `10-eedb7d04` → `11-395ab5c3`; final health dan worker sehat |
-| Phase 5 — Enforcement | Finalisasi | Release #11–#19 sukses; production aktif pada `19-3fae3119`, health sehat, queue/scheduler memakai `production/current`, atomic gate aktif, disk 21%, backup valid, dan binary-log purge sehat. Cleanup transisi masih ditahan |
+| Phase 5 — Enforcement | Finalisasi | Release #11–#19 dan runtime sehat; Ruleset tervalidasi; branch `staging` diamankan sebagai `archive/staging-pre-trunk-20261028`; workflow fallback lama dinonaktifkan pada branch penutupan Phase 5 |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1302,13 +1302,15 @@ Status enforcement:
 - [x] Production health, atomic marker, queue worker, scheduler, dan kapasitas disk sehat.
 - [x] Legacy deployment tidak berjalan otomatis; workflow hanya dapat dipanggil manual dengan alasan.
 - [x] Backup terbaru valid dan binary-log automatic purge 24 jam aktif; total binlog 4,97 GB.
-- [ ] Verifikasi Ruleset `main` tidak mempunyai bypass reguler melalui GitHub Settings.
-- [ ] Putuskan masa retensi fallback sebelum mengarsipkan command VPS dan workflow legacy.
-- [ ] Audit seluruh referensi `staging` sebelum menghapus remote branch `staging`.
+- [x] Ruleset `Protect main` aktif untuk default branch; PR dan required status check menjadi jalur normal, sedangkan admin hanya boleh bypass melalui Pull Request.
+- [x] Delapan commit unik `staging` diamankan pada `archive/staging-pre-trunk-20261028` dengan SHA yang sama (`6193bb25`).
+- [x] Workflow legacy `.github/workflows/deploy.yml` dihapus dari workflow aktif; kontrak CI mencegahnya ditambahkan kembali.
+- [ ] Arsipkan cabang command lama pada forced-command gateway VPS setelah workflow penutupan ini masuk `main`.
+- [ ] Hapus remote branch `staging` hanya setelah PR penutupan ini merge dan GitHub Environment tidak mereferensikan branch tersebut.
 
-Phase 5 adalah fase implementasi terakhir. Pipeline utama sudah operasional; empat item yang belum
-dicentang merupakan gate finalisasi dan cleanup transisi. Jangan menyatakan keseluruhan Phase 5
-`Selesai` atau menghapus fallback/branch sampai seluruh gate tersebut memiliki bukti.
+Phase 5 adalah fase implementasi terakhir. Pipeline utama sudah operasional; dua item yang belum
+dicentang merupakan tindakan pasca-merge karena menyentuh forced-command VPS dan remote branch.
+Jangan menyatakan keseluruhan Phase 5 `Selesai` sampai keduanya diverifikasi.
 
 - Verifikasi Ruleset `main` tetap aktif dan tidak memiliki bypass reguler.
 - Hapus `[skip full tests]` dari workflow lama.

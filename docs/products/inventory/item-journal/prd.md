@@ -1,8 +1,8 @@
 ---
 document_id: INVENTORY-ITEM-JOURNAL-PRD
 title: PRD — Item Journal Inventory
-status: draft
-version: 1.0
+status: implemented
+version: 1.1
 owner: Inventory
 technical_owner: Information Technology
 created_at: 2026-10-28
@@ -26,7 +26,7 @@ supersedes: null
 |---|---|
 | Domain | Inventory |
 | Fitur | Item Journal |
-| Status | draft |
+| Status | implemented (UAT perangkat menunggu staging) |
 | Prioritas | P1 |
 | Target pengguna | Staff store, Inventory, dan administrator yang diberi permission |
 | Modul terdampak | Employee App, Back Office Inventory, Back Office Quality Control, ESB Core |
@@ -185,7 +185,7 @@ Tidak ada perubahan schema pada phase ini.
 2. Policy tetap wajib untuk `viewAny`, `view`, `create`, `submit`, dan `deleteAttachments`.
 3. Permission tile tidak otomatis memberi hak submit; permission aksi tetap terpisah.
 4. Query riwayat store tetap membatasi jurnal milik user kecuali memiliki permission view-all.
-5. Evaluasi branch scope untuk view-all dilakukan saat implementasi; bila diubah, record dengan `branch_id = null` harus mempunyai perilaku kompatibel yang diuji dan didokumentasikan.
+5. Evaluasi branch scope untuk view-all dilakukan saat implementasi; bila diubah, record dengan `branch_id = null` harus mempunyai perilaku kompatibel yang diuji dan didokumentasikan. **Hasil (v1.1):** submit selalu menyimpan `branch_id = null`, sehingga scope tidak diubah: tanpa view-all user hanya melihat journal miliknya, dan `view all quality control item journals` membuka journal semua cabang. Perilaku ini diuji dan didokumentasikan; pembatasan per cabang memerlukan amendment terpisah.
 6. Validasi menggunakan MIME server-side, ukuran maksimal, dan batas jumlah file; ekstensi atau atribut HTML tidak dianggap cukup.
 7. Nama file tidak digunakan sebagai path penyimpanan.
 8. Request/response payload sensitif tidak ditampilkan kepada user tanpa permission teknis yang sesuai.
@@ -290,6 +290,8 @@ Tidak ada perubahan schema pada phase ini.
 
 Tidak ada keputusan yang menghalangi dimulainya implementasi. Assignment final permission untuk role production tetap harus dikonfirmasi pada UAT karena role production dikelola melalui UI dan tidak boleh ditimpa seeder.
 
+Keputusan implementasi (28 Oktober 2026): halaman mensyaratkan `access employee app item journal` dan `view quality control item journals`, dan tile hanya tampil bila keduanya ada; seeder `INVENTORY_STAFF` hanya mendapat `view quality control item journals` (tanpa view-all); seeder `QUALITY_CONTROL` mendapat permission tile untuk menjaga akses existing. Detail di [laporan implementasi](reports/implementation-report.md).
+
 ## 27. Implementation phases
 
 | Phase | Scope | Output |
@@ -302,10 +304,10 @@ Tidak ada keputusan yang menghalangi dimulainya implementasi. Assignment final p
 
 ## 28. Definition of Done
 
-- [ ] Seluruh acceptance criteria terpenuhi.
-- [ ] Test terdampak ditambahkan dan lulus.
-- [ ] Authorization diuji untuk role yang berhak dan tidak berhak.
-- [ ] Data lama dan attachment lama terbukti kompatibel.
-- [ ] Tidak ada migration data yang tidak diperlukan.
-- [ ] README Inventory, Quality Control, Panels, dan RBAC diperbarui sesuai kode final.
-- [ ] UAT mobile camera dan Back Office Inventory selesai.
+- [x] Seluruh acceptance criteria terpenuhi.
+- [x] Test terdampak ditambahkan dan lulus.
+- [x] Authorization diuji untuk role yang berhak dan tidak berhak.
+- [x] Data lama dan attachment lama terbukti kompatibel.
+- [x] Tidak ada migration data yang tidak diperlukan.
+- [x] README Inventory, Quality Control, Panels, dan RBAC diperbarui sesuai kode final.
+- [ ] UAT mobile camera dan Back Office Inventory selesai (staging).

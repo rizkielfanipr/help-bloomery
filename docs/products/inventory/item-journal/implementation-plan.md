@@ -1,7 +1,7 @@
 ---
 document_id: INVENTORY-ITEM-JOURNAL-PLAN
 title: Implementation Plan — Item Journal Inventory
-status: draft
+status: implemented
 version: 1.0
 owner: Inventory
 technical_owner: Information Technology
@@ -168,19 +168,19 @@ php artisan test --compact \
 
 ## 15. Quality gates
 
-- [ ] `vendor/bin/pint --dirty --format agent`
-- [ ] Test targeted lulus
-- [ ] `bash ops/ci/check-doc-links.sh`
-- [ ] `bash ops/ci/check-code-map.sh`
-- [ ] `git diff --check`
+- [x] `vendor/bin/pint --dirty --format agent`
+- [x] Test targeted lulus
+- [x] `bash ops/ci/check-doc-links.sh`
+- [x] `bash ops/ci/check-code-map.sh`
+- [x] `git diff --check`
 - [ ] CI Pull Request hijau
 - [ ] Review authorization dan data safety
 - [ ] UAT camera Android/iOS dan Back Office Inventory
 
 ## 16. Definition of Done
 
-- [ ] Semua phase selesai sesuai PRD.
-- [ ] Data lama dan link monitoring tervalidasi.
-- [ ] README Inventory, Quality Control, Panels, dan RBAC cocok dengan kode final.
-- [ ] PRD berstatus `implemented` dan implementation report dibuat.
-- [ ] Deployment note mencantumkan permission production yang harus diberikan.
+- [x] Semua phase selesai sesuai PRD.
+- [x] Data lama dan link monitoring tervalidasi.
+- [x] README Inventory, Quality Control, Panels, dan RBAC cocok dengan kode final.
+- [x] PRD berstatus `implemented` dan implementation report dibuat.
+- [x] Deployment note mencantumkan permission production yang harus diberikan.

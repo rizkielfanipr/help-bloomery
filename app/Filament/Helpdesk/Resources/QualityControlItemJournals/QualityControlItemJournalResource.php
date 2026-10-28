@@ -21,9 +21,13 @@ class QualityControlItemJournalResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Quality Control';
+    /**
+     * Owned by Inventory (docs/products/inventory/item-journal/prd.md FR-8). The class, route names,
+     * and model keep their legacy Quality Control names so deep links and monitoring stay valid.
+     */
+    protected static string|\UnitEnum|null $navigationGroup = 'Inventory';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $navigationLabel = 'Item Journal';
 

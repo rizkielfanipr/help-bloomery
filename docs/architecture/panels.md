@@ -30,8 +30,8 @@ Sidebar Back Office tidak memakai navigation API Filament. Struktur menunya ditu
 | Research & Development | Project, Template Checkpoint, Recipe Adjustment, Shelf Life, Product Price Index, Prefix Category, Prefix Name, Memo Internal, Review Sourcing | `view rnd projects`, `view rnd project task templates`, `view bill of materials`, `view wip shelf life`, `view product price index`, `view prefix categories`, `view prefix names`, `view any rnd internal memo`, `review material samples as rnd` | [Research & Development](../products/rnd/README.md) |
 | Kitchen | Jadwal Produksi | `view kitchen production schedules` | [Kitchen](../products/kitchen/README.md) |
 | Purchasing | Vendor Compliance, Permintaan Pembelian, Sourcing Bahan, Material Marketing (Perlu Dipesan) | `view vendor compliance incidents`, `view purchase requests`, `view material sourcings`, `view marketing material fulfillments` | [Purchasing](../products/purchasing/README.md) |
-| Quality Control | Audit QC, Checklist QC, Item Journal | `view quality control audits`, `view quality control checklists`, `view quality control item journals` | [Quality Control](../products/quality-control/README.md) |
-| Inventory | Stock Card, Receiving, Stock Card Settings, Lokasi, Tipe Lokasi, Product List, Material Marketing (Perlu Diterima) | `view stock cards`, `view goods receipts`, `view stock card settings`, `view locations`, `view location types`, `view product list`, `view marketing material fulfillments` | [Inventory](../products/inventory/README.md) |
+| Quality Control | Audit QC, Checklist QC | `view quality control audits`, `view quality control checklists` | [Quality Control](../products/quality-control/README.md) |
+| Inventory | Stock Card, Receiving, Item Journal, Stock Card Settings, Lokasi, Tipe Lokasi, Product List, Material Marketing (Perlu Diterima) | `view stock cards`, `view goods receipts`, `view quality control item journals`, `view stock card settings`, `view locations`, `view location types`, `view product list`, `view marketing material fulfillments` | [Inventory](../products/inventory/README.md) |
 | Finance | Sales Report Settings, Sales Report Scores, Sales Report, Compliment Types, Basket Size, Product Pricelist | `edit sales report settings`, `view sales report scores`, `view sales reports`, `view compliment types`, `view basket sizes`, `view material pricelist` | [Finance](../products/finance/README.md) |
 | Sales & Growth | Sales Projection | `view sales projections` | [Sales & Growth](../products/sales-growth/README.md) |
 | Analytics | Sales Information, Ordering Recommendation, Ordering Settings, Promotion Information, Stock Information | `view sales information`, `view ordering recommendations`, `manage ordering recommendation settings`, `view promotion information`, `view stock information` | [Analytics](../products/analytics/README.md) |
@@ -60,16 +60,17 @@ Launcher Employee App (`app/Filament/Casual/Pages/LauncherPage.php`) menampilkan
 | Sales Report | `access employee app sales report` | Laporan sales per shift | [Finance](../products/finance/README.md) |
 | Stock Card | `access employee app stock card` | Stock card harian | [Inventory](../products/inventory/README.md) |
 | Receiving | `access employee app goods receipt` | Penerimaan barang dari PO | [Inventory](../products/inventory/README.md) |
+| Item Journal | `access employee app item journal` (tile tampil hanya bila user juga punya `view quality control item journals`) | Penyesuaian stok ESB dengan foto bukti | [Inventory](../products/inventory/README.md#item-journal) |
 | Purchasing | `access employee app purchasing` | Permintaan pembelian | [Purchasing](../products/purchasing/README.md) |
 | Desain | `access employee app design` | Permintaan desain | [Brand Marketing](../products/brand-marketing/README.md) |
 | Konten | `access employee app content` | Permintaan konten | [Brand Marketing](../products/brand-marketing/README.md) |
 | ERP | `access employee app erp` | Permintaan ERP ke IT | [Information Technology](../products/information-technology/README.md) |
 | Complain | `create customer complaints` | Form komplain pelanggan | [Operational](../products/operational/README.md) |
 | Store Sales Order | `create store sales orders` | Sales order event/pesanan khusus | [Operational](../products/operational/README.md) |
-| Quality Control | `access employee app quality control` | Audit QC store | [Quality Control](../products/quality-control/README.md) |
+| Quality Control | `access employee app quality control` | Audit QC store (bottom navigation hanya **Audit**) | [Quality Control](../products/quality-control/README.md) |
 | SOP Store | `access employee app store sop` | Membaca dan konfirmasi SOP | [Operational](../products/operational/README.md) |
 
-Halaman Employee App lain yang tidak berupa tile: Profil, Notifikasi, riwayat per fitur, dan halaman Item Journal QC.
+Halaman Employee App lain yang tidak berupa tile: Profil, Notifikasi, dan riwayat per fitur.
 
 ## Halaman publik
 

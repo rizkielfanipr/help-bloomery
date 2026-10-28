@@ -18,18 +18,4 @@
         @endif
     </a>
 
-    {{-- Item Journal --}}
-    @can('view quality control item journals')
-        <a href="{{ \App\Filament\Casual\Pages\ItemJournalPage::getUrl(panel: 'casual') }}"
-           class="flex flex-1 flex-col items-center gap-1 py-3">
-            @if($active === 'item-journal')
-                <x-heroicon-s-arrows-right-left class="h-6 w-6 text-blue-600" />
-                <span class="text-xs font-semibold text-blue-600">Item Journal</span>
-            @else
-                <x-heroicon-o-arrows-right-left class="h-6 w-6 text-gray-400" />
-                <span class="text-xs text-gray-400">Item Journal</span>
-            @endif
-        </a>
-    @endcan
-
 </div>

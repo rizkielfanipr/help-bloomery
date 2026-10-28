@@ -35,6 +35,7 @@ return [
             'BLO14' => ['username' => env('ESB_CORE_BLO14_USERNAME'), 'password' => env('ESB_CORE_BLO14_PASSWORD')],
             'BLO16' => ['username' => env('ESB_CORE_BLO16_USERNAME'), 'password' => env('ESB_CORE_BLO16_PASSWORD')],
             'BLO18' => ['username' => env('ESB_CORE_BLO18_USERNAME'), 'password' => env('ESB_CORE_BLO18_PASSWORD')],
+            'BLHJ' => ['username' => env('ESB_CORE_BLHJ_USERNAME'), 'password' => env('ESB_CORE_BLHJ_PASSWORD')],
         ],
         'uoms' => [
             2 => 'PCS',

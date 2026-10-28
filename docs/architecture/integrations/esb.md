@@ -133,6 +133,15 @@ Kontrak berikut dipertahankan:
 - filter Company Code, Branch Code, unit, periode, dan batas 100 data;
 - aggregation saldo, tipe transaksi, serta error operasional existing.
 
+#### Kitchen Production Order (read-only)
+
+- Sumber mapping adalah Master Branch (K20): setiap mapping aktif dan lengkap pada Branch ber-Brand Kitchen disinkronkan; saat ini Kitchen Jateng `BLSS/KTJ`, Kitchen Surabaya `BLO13/HOF`, Kitchen Jakarta `BLHJ/TCHL`. Company `BLHJ` ditambahkan ke `config('esb.core.companies')` (`ESB_CORE_BLHJ_*`).
+- Credential: akun per-company BLSS mendapat `403` pada modul Production, sedangkan akun global (`EsbGlobalCoreClient`) terbukti company BLSS (daftar `GET /branch` identik). Company dalam `KITCHEN_PRODUCTION_ORDER_GLOBAL_CREDENTIAL_COMPANIES` memakai akun global; company lain memakai `EsbCoreClient`.
+- `EsbProductionOrderService` meng-inject `EsbCoreClient` dan `EsbGlobalCoreClient`, dan hanya memanggil `GET /production/production-order` serta `GET /production/production-order/{productionOrderNum}` dengan credential Company Code dari `branch_esb_codes.esb_comcode` dan `branchID` dari `esb_branch_id`.
+- Error diklasifikasikan di service domain (`EsbProductionOrderErrorKind`: retryable, authentication, validation, configuration, malformed) karena `EsbCoreClient` belum mempunyai taxonomy (Phase E). Retry dilakukan oleh job queue, hanya untuk timeout/429/5xx.
+- Data disimpan sebagai snapshot lokal (`esb_production_orders`, `esb_production_order_details`, `esb_production_order_sync_runs`); kalender tidak memanggil ESB. Kontrak response terverifikasi terhadap BLSS pada 27 Oktober 2026.
+- Detail: [Kitchen](../../products/kitchen/README.md#jadwal-produksi) dan [PRD Jadwal Produksi §25–§37](../../products/kitchen/production-schedule/prd.md).
+
 ### 4.6 Commit terkait
 
 | Commit | Perubahan |

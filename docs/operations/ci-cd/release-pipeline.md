@@ -6,7 +6,7 @@
 | --- | --- |
 | Tanggal baseline | 26 Oktober 2026 |
 | Pembaruan terakhir | 28 Oktober 2026 |
-| Status | Phase 1 sampai Phase 4 selesai; Phase 5 finalisasi enforcement (release dan runtime tervalidasi, cleanup transisi ditahan) |
+| Status | Phase 1 sampai Phase 5 selesai; pipeline CI/CD atomik menjadi jalur release resmi |
 | Aplikasi | Help Bloomery |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Stack | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Pest 4, Node.js 22, Vite 8 |
@@ -39,7 +39,7 @@
 | Atomic production pipeline | Selesai | Release #10 mempromosikan artifact staging ke production; monitoring mencatat `succeeded`, migration `ran`, dan health `healthy` |
 | Phase 4 — Atomic production | Selesai | Public health/login HTTP 200, queue worker aktif, Redis sehat, dan disk 14% setelah release #10 |
 | Rollback atomic production | Selesai | Rehearsal `11-395ab5c3` → `10-eedb7d04` → `11-395ab5c3`; final health dan worker sehat |
-| Phase 5 — Enforcement | Finalisasi | Release #11–#19 dan runtime sehat; Ruleset tervalidasi; branch `staging` diamankan sebagai `archive/staging-pre-trunk-20261028`; workflow fallback lama dinonaktifkan pada branch penutupan Phase 5 |
+| Phase 5 — Enforcement | Selesai | Release #20 sehat; Ruleset tervalidasi; histori `staging` diarsipkan; workflow dan command legacy dinonaktifkan; remote branch `staging` dihapus |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1305,19 +1305,21 @@ Status enforcement:
 - [x] Ruleset `Protect main` aktif untuk default branch; PR dan required status check menjadi jalur normal, sedangkan admin hanya boleh bypass melalui Pull Request.
 - [x] Delapan commit unik `staging` diamankan pada `archive/staging-pre-trunk-20261028` dengan SHA yang sama (`6193bb25`).
 - [x] Workflow legacy `.github/workflows/deploy.yml` dihapus dari workflow aktif; kontrak CI mencegahnya ditambahkan kembali.
-- [ ] Arsipkan cabang command lama pada forced-command gateway VPS setelah workflow penutupan ini masuk `main`.
-- [ ] Hapus remote branch `staging` hanya setelah PR penutupan ini merge dan GitHub Environment tidak mereferensikan branch tersebut.
+- [x] Forced-command gateway lama diarsipkan sebagai `/home/deploy/bin/bloomery-github-deploy.legacy-archived-20261028`; gateway aktif hanya menerima command atomic `release ...` dan menolak `deploy production`/`deploy staging`.
+- [x] Remote branch `staging` dihapus setelah arsip `archive/staging-pre-trunk-20261028` diverifikasi pada SHA yang sama.
+- [x] Release #20 mengaktifkan commit `b356e774` pada production; public health, queue worker, dan disk 21% tetap sehat setelah penutupan workflow legacy.
 
-Phase 5 adalah fase implementasi terakhir. Pipeline utama sudah operasional; dua item yang belum
-dicentang merupakan tindakan pasca-merge karena menyentuh forced-command VPS dan remote branch.
-Jangan menyatakan keseluruhan Phase 5 `Selesai` sampai keduanya diverifikasi.
+Phase 5 adalah fase implementasi terakhir dan dinyatakan **Selesai** pada 28 Oktober 2026. Jalur
+release resmi adalah Pull Request ke `main`, CI Required, build artifact immutable, deploy staging
+atomik, approval production, lalu deploy production atomik. Histori branch lama tetap dapat
+dipulihkan dari branch arsip; gateway legacy juga mempunyai salinan pemulihan privat di VPS.
 
-- Verifikasi Ruleset `main` tetap aktif dan tidak memiliki bypass reguler.
-- Hapus `[skip full tests]` dari workflow lama.
-- Hentikan direct push reguler.
-- Nonaktifkan workflow deploy lama setelah minimal tiga release production baru sukses.
-- Arsipkan command VPS lama.
-- Hapus branch `staging` hanya setelah seluruh referensi dan environment policy diperiksa.
+- [x] Verifikasi Ruleset `main` tetap aktif dan tidak memiliki bypass reguler.
+- [x] Hapus `[skip full tests]` dan workflow deploy lama.
+- [x] Hentikan direct push reguler.
+- [x] Nonaktifkan workflow deploy lama setelah lebih dari tiga release production baru sukses.
+- [x] Arsipkan command VPS lama.
+- [x] Hapus branch `staging` setelah seluruh referensi dan histori unik diamankan.
 
 ---
 

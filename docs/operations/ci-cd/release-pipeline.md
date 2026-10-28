@@ -5,8 +5,8 @@
 | Field | Nilai |
 | --- | --- |
 | Tanggal baseline | 26 Oktober 2026 |
-| Pembaruan terakhir | 27 Oktober 2026 |
-| Status | Phase 1 sampai Phase 4 selesai; Phase 5 observasi 24 jam dan release 2/3 |
+| Pembaruan terakhir | 28 Oktober 2026 |
+| Status | Phase 1 sampai Phase 4 selesai; Phase 5 finalisasi enforcement (release dan runtime tervalidasi, cleanup transisi ditahan) |
 | Aplikasi | Help Bloomery |
 | Repository | `rizkielfanipr/help-bloomery` |
 | Stack | Laravel 13, PHP 8.4, Filament 5, Livewire 4, Pest 4, Node.js 22, Vite 8 |
@@ -39,7 +39,7 @@
 | Atomic production pipeline | Selesai | Release #10 mempromosikan artifact staging ke production; monitoring mencatat `succeeded`, migration `ran`, dan health `healthy` |
 | Phase 4 — Atomic production | Selesai | Public health/login HTTP 200, queue worker aktif, Redis sehat, dan disk 14% setelah release #10 |
 | Rollback atomic production | Selesai | Rehearsal `11-395ab5c3` → `10-eedb7d04` → `11-395ab5c3`; final health dan worker sehat |
-| Phase 5 — Observation | Berjalan | Dua atomic production release sukses; checkpoint 24 jam dijadwalkan 28 Oktober 2026 sekitar 09.10 WIB |
+| Phase 5 — Enforcement | Finalisasi | Release #11–#19 sukses; production aktif pada `19-3fae3119`, health sehat, queue/scheduler memakai `production/current`, atomic gate aktif, dan disk 21%. Verifikasi privileged backup/binlog serta cleanup transisi masih ditahan |
 
 Dokumen ini menjadi sumber acuan untuk membangun ulang CI/CD Help Bloomery dari sisi repository, GitHub, server, deployment, monitoring, rollback, dan operasi harian.
 
@@ -1281,6 +1281,33 @@ curl -fsS 'https://office.bloomery.co.id/up' >/dev/null && echo 'Production heal
 
 Selama checkpoint belum lulus, jangan hapus `/var/www/bloomery-office-production`, workflow fallback,
 backup konfigurasi Nginx/Supervisor/cron, rollback script, ataupun retained release #10 dan #11.
+
+**Checkpoint 28 Oktober 2026 pukul 11.25 WIB:** syarat jumlah release dan runtime utama telah
+tercapai. GitHub Actions menampilkan Release #11 sampai #19 selesai sukses. Production aktif pada
+`/var/www/bloomery/production/releases/19-3fae3119`; manifest cocok dengan commit `3fae3119`, run ID
+`40623472521`, dan run number 19. Public `/up` sehat, marker atomic aktif, queue worker berjalan dari
+`production/current`, scheduler juga menunjuk `production/current`, dan disk berada pada 21%.
+
+Pemeriksaan `sudo` untuk backup terbaru dan binary log pada checkpoint ini belum dapat dijalankan
+secara non-interaktif karena VPS meminta password. Bukti terakhir sebelum checkpoint menunjukkan
+backup valid serta automatic binary-log purge aktif, tetapi hasil tersebut tidak dianggap sebagai
+verifikasi baru tanggal 28 Oktober. Karena itu cleanup transisi yang destruktif tetap ditahan.
+
+Status enforcement:
+
+- [x] Minimal tiga atomic production release baru sukses; aktual Release #11–#19.
+- [x] Workflow CI tidak mempunyai jalur `[skip full tests]`.
+- [x] Release normal memakai artifact immutable, staging otomatis, dan approval production.
+- [x] Production health, atomic marker, queue worker, scheduler, dan kapasitas disk sehat.
+- [x] Legacy deployment tidak berjalan otomatis; workflow hanya dapat dipanggil manual dengan alasan.
+- [ ] Verifikasi ulang backup terbaru dan binary-log retention dengan akses `sudo`.
+- [ ] Verifikasi Ruleset `main` tidak mempunyai bypass reguler melalui GitHub Settings.
+- [ ] Putuskan masa retensi fallback sebelum mengarsipkan command VPS dan workflow legacy.
+- [ ] Audit seluruh referensi `staging` sebelum menghapus remote branch `staging`.
+
+Phase 5 adalah fase implementasi terakhir. Pipeline utama sudah operasional; empat item yang belum
+dicentang merupakan gate finalisasi dan cleanup transisi. Jangan menyatakan keseluruhan Phase 5
+`Selesai` atau menghapus fallback/branch sampai seluruh gate tersebut memiliki bukti.
 
 - Verifikasi Ruleset `main` tetap aktif dan tidak memiliki bypass reguler.
 - Hapus `[skip full tests]` dari workflow lama.

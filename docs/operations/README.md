@@ -6,7 +6,7 @@ Prosedur pipeline dan server. Arsitektur aplikasi ada di [architecture](../archi
 
 | Dokumen | Status tertulis | Catatan |
 |---|---|---|
-| [Release Pipeline](ci-cd/release-pipeline.md) | Phase 1 sampai Phase 4 selesai; Phase 5 dalam masa observasi | Dokumen canonical CI, release atomik staging/production, rollback. Dirujuk oleh `ops/deploy/README.md`. |
+| [Release Pipeline](ci-cd/release-pipeline.md) | Phase 1 sampai Phase 4 selesai; Phase 5 finalisasi enforcement | Pipeline utama operasional sampai Release #19; cleanup transisi menunggu verifikasi privileged backup/binlog, Ruleset, fallback, dan referensi branch `staging`. |
 | [Current State Audit](ci-cd/reports/current-state-audit.md) | Audit baseline 26 Oktober 2026 | Catatan historis; dirujuk Release Pipeline sebagai bukti audit. |
 
 ## Production

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\EsbProductionOrderSyncRun;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -29,3 +30,11 @@ Schedule::command('monitoring:prune')->dailyAt('03:15')->withoutOverlapping(60);
 // Ordering Recommendation: dispatch the previous day's snapshot after the data is final
 // (docs/products/analytics/ordering-recommendation/prd.md §12.2). The time comes from config.
 Schedule::command('ordering:sync')->dailyAt((string) config('ordering_recommendation.sync_time'))->withoutOverlapping(60)->onOneServer();
+// Kitchen Production Order ESB (docs/products/kitchen/production-schedule/prd.md §30.6, K3, K12): hourly
+// incremental window only, gated by a toggle that stays off until the rollout; never a backfill.
+Schedule::command('kitchen:sync-production-orders')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->when(fn (): bool => (bool) config('kitchen.production_orders.sync_enabled'));
+Schedule::command('model:prune', ['--model' => [EsbProductionOrderSyncRun::class]])->dailyAt('03:40')->withoutOverlapping(30);

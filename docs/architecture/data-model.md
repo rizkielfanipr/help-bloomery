@@ -1,6 +1,6 @@
 # Data Model
 
-Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (162 model). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
+Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (163 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
 
 Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type eksplisit (`metode→Model (Tipe)`).
 
@@ -166,8 +166,9 @@ Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type ekspli
 
 | Model | Tabel | Relasi |
 |---|---|---|
-| `KitchenProductionSchedule` | `kitchen_production_schedules` | branch→Branch (BelongsTo), items→KitchenProductionScheduleItem (HasMany), creator→User (BelongsTo), updater→User (BelongsTo), canceller→User (BelongsTo) |
-| `KitchenProductionScheduleItem` | `kitchen_production_schedule_items` | schedule→KitchenProductionSchedule (BelongsTo), catalog→RndBomCatalog (BelongsTo) |
+| `EsbProductionOrder` | `esb_production_orders` | branch→Branch (BelongsTo), mapping→BranchEsbCode (BelongsTo), details→EsbProductionOrderDetail (HasMany) |
+| `EsbProductionOrderDetail` | `esb_production_order_details` | order→EsbProductionOrder (BelongsTo) |
+| `EsbProductionOrderSyncRun` | `esb_production_order_sync_runs` | mapping→BranchEsbCode (BelongsTo), branch→Branch (BelongsTo) |
 
 ## Purchasing
 

@@ -42,6 +42,11 @@ class PermissionSynchronizer
         'edit payment methods',
         'delete payment methods',
         'edit design whatsapp settings',
+        // Retired with the local Kitchen production plan (docs/products/kitchen/production-schedule/prd.md §38, K19):
+        // Jadwal Produksi is a read-only ESB Production Order calendar.
+        'create kitchen production schedules',
+        'update kitchen production schedules',
+        'cancel kitchen production schedules',
         // Retired with the Menu-level Shelf Life (docs/products/rnd/wip-shelf-life/prd.md §15.3): WIP Shelf
         // Life is governed by `view/edit bill of materials` and `edit rnd projects`.
         'view shelf life',

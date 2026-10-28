@@ -20,12 +20,12 @@ use Throwable;
 /**
  * Single centralized entry point for every BOM Assembly/Menu mutation — used by both the BOM
  * Adjustment editor and the Project inline editor so validation, concurrency check, mutation
- * safety, snapshot, and logging never diverge between callers (docs/rnd-bom-adjustment-prd.md
+ * safety, snapshot, and logging never diverge between callers (docs/products/rnd/bom-adjustment/prd.md
  * §2, §13).
  *
  * Authorization is the caller's responsibility (Page-level `edit bill of materials` /
  * `edit rnd projects` checks) — this Action assumes it has already been granted, matching the
- * layering in docs/code-remediation-prd.md §6 ("Action: satu use case, transaction boundary").
+ * layering in docs/standards/code-remediation.md §6 ("Action: satu use case, transaction boundary").
  */
 class UpdateEsbBillOfMaterialAction
 {

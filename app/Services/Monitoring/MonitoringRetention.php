@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Retention (docs/system-monitoring-prd.md §19). Processes rows in id chunks, is idempotent, and
+ * Retention (docs/products/system-monitoring/prd.md §19). Processes rows in id chunks, is idempotent, and
  * never deletes incidents, incident timelines, or records linked to an incident. Payload expiry
  * clears sanitized summaries but keeps the transaction, its status, and its attempts.
  */

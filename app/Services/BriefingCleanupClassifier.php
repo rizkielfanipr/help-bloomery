@@ -7,7 +7,7 @@ use App\Models\BriefingItem;
 use Illuminate\Support\Collection;
 
 /**
- * docs/daily-briefing-remediation-prd.md §17.2/§17.3 (Phase 12). Classifies existing rejected
+ * docs/products/daily-briefing/remediation/prd.md §17.2/§17.3 (Phase 12). Classifies existing rejected
  * items into three buckets so cleanup never touches a real submission. This never mutates
  * anything — both `briefing:audit-invalid-records` and `briefing:cleanup-invalid-records
  * --dry-run` only read through this classifier.

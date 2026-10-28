@@ -47,7 +47,7 @@ class BriefingItem extends Model
     }
 
     /**
-     * docs/daily-briefing-remediation-prd.md §12.3: a system (review-SLA/deadline) rejection has
+     * docs/products/daily-briefing/remediation/prd.md §12.3: a system (review-SLA/deadline) rejection has
      * no reviewer, unlike a manual rejection which always records one.
      */
     public function isSystemRejected(): bool

@@ -9,7 +9,7 @@ use Throwable;
 
 /**
  * Lists the WIP items of a Project Product from the existing WIP mapping, without a second BOM
- * traversal (docs/rnd-wip-shelf-life-prd.md §9.7, §13): WIP components of each Main BOM (direct)
+ * traversal (docs/products/rnd/wip-shelf-life/prd.md §9.7, §13): WIP components of each Main BOM (direct)
  * plus WIP components inside the recipes that mapping found (nested). Items are de-duplicated by
  * Product Detail ID; items without one are kept separately as "identity incomplete".
  *

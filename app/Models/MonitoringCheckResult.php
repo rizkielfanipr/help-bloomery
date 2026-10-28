@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One sanitized health check execution (docs/system-monitoring-prd.md §18.2).
+ * One sanitized health check execution (docs/products/system-monitoring/prd.md §18.2).
  */
 class MonitoringCheckResult extends Model
 {

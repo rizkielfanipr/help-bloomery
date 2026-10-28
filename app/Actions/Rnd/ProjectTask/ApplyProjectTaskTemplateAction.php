@@ -16,7 +16,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * "Gunakan Template" (docs/rnd-project-checkpoint-calendar-prd.md §10.2, §17.1, §18): turns the
+ * "Gunakan Template" (docs/products/rnd/project-checkpoint-calendar/prd.md §10.2, §17.1, §18): turns the
  * selected checkpoints of an active template into independent Task snapshots on one Project.
  *
  * - The user sets each checkpoint's assign date, deadline, and Branch/PIC pairs while applying

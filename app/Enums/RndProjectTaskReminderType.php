@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasLabel;
 
 /**
  * `rnd_project_task_reminders.reminder_type` — deadline-proximity reminders that need the
- * `assignment_id + reminder_type + reminder_date` dedup key (docs/rnd-project-task-calendar-prd.md
+ * `assignment_id + reminder_type + reminder_date` dedup key (docs/products/rnd/project-task-calendar/prd.md
  * §16). Event-triggered notifications (new assignment, PIC changed, revision requested, follow-up
  * submitted, approved, cancelled) are sent directly from Actions and do not use this enum or the
  * reminders table, since they are one-off and need no daily dedup.

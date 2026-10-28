@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/kitchen-production-schedule-prd.md §11.1: one production schedule header per Branch per
+ * docs/products/kitchen/production-schedule/prd.md §11.1: one production schedule header per Branch per
  * local production date. History is retained: a Branch cannot be deleted while it has schedules,
  * and a deleted user only clears the actor reference.
  */

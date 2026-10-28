@@ -11,7 +11,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §13/§18.3/Phase 13. Dry-run by default; mutation only
+ * docs/products/daily-briefing/scoring-ui/prd.md §13/§18.3/Phase 13. Dry-run by default; mutation only
  * behind --confirm; every overwritten row is snapshotted first; --restore reverts from it.
  */
 beforeEach(function () {

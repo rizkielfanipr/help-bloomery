@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * docs/rnd-internal-memo-prd.md §12.3, simplified on explicit user instruction: no waste,
+ * docs/products/rnd/internal-memo/prd.md §12.3, simplified on explicit user instruction: no waste,
  * tolerance, or gross quantity columns — only the material and its quantity. `net_quantity`
  * is the resolved requirement for the memo's forecast (quantity_per_menu multiplied through
  * every Assembly level it passed through), mirroring the existing production algorithm in
@@ -66,7 +66,7 @@ class RndInternalMemoMaterial extends Model
 
     /**
      * True once a genuine Purchase UOM has been proven for this item
-     * (docs/rnd-internal-memo-simplification-prd.md §8.1) — a null value means the ESB Product
+     * (docs/products/rnd/internal-memo-simplification/prd.md §8.1) — a null value means the ESB Product
      * contract did not provide one, not that it has never been fetched.
      */
     public function hasPurchaseUom(): bool

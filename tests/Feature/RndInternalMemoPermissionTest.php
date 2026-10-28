@@ -24,7 +24,7 @@ it('lets only users with the matching permission view, create, and list memos', 
 });
 
 it('allows updating a memo regardless of its legacy workflow status', function () {
-    // docs/rnd-internal-memo-simplification-prd.md §6/§7.5: "Menu dapat ditambah dan dihapus
+    // docs/products/rnd/internal-memo-simplification/prd.md §6/§7.5: "Menu dapat ditambah dan dihapus
     // kapan saja" — the simplified UI has no finalize/lock concept, so `update` is permission-only.
     $user = User::factory()->create(['is_active' => true]);
     $user->givePermissionTo('update rnd internal memo');
@@ -90,7 +90,7 @@ it('only allows archiving a Finalized memo and restoring an Archived one', funct
 });
 
 it('allows soft deleting a memo in any legacy workflow status given the permission', function () {
-    // docs/rnd-internal-memo-simplification-prd.md §6/§7.5: delete is permission-only now — the
+    // docs/products/rnd/internal-memo-simplification/prd.md §6/§7.5: delete is permission-only now — the
     // simplified UI has no control left (Archive, Create Revision) that could unlock a Memo
     // stuck in Syncing/Finalized/Archived, so gating delete on status would strand it forever.
     $user = User::factory()->create(['is_active' => true]);

@@ -1,0 +1,8 @@
+# Documentation paths that are referenced on purpose but are not files in this repository.
+# One path per line; see ops/ci/check-doc-links.sh.
+
+# Spatie Laravel Permission's published migration points to the package documentation.
+docs/prerequisites.md
+
+# Planned by docs/standards/ui-consistency.md for its documentation phase; not written yet.
+docs/ui-guidelines.md

@@ -5,7 +5,7 @@ namespace App\Actions\CustomerComplaint;
 use App\Models\CustomerComplaint;
 
 /**
- * docs/customer-complaints-prd.md §13: `CMP-YYYYMMDD-NNNN`, atomic and safe under concurrent
+ * docs/products/operational/customer-complaints/prd.md §13: `CMP-YYYYMMDD-NNNN`, atomic and safe under concurrent
  * submits. Must be called from inside an existing `DB::transaction()` (see
  * CreateCustomerComplaintAction) so the row lock below is held until the caller's INSERT
  * completes — a bare `count + 1` without a lock would let two concurrent requests compute the

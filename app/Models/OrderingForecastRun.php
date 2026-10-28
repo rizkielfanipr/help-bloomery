@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Immutable forecast run of one branch (docs/ordering-recommendation-prd.md §11.3).
+ * Immutable forecast run of one branch (docs/products/analytics/ordering-recommendation/prd.md §11.3).
  */
 class OrderingForecastRun extends Model
 {

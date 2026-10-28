@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §11 and §18.3: a parent row per user action and one child row per
+ * docs/products/system-monitoring/prd.md §11 and §18.3: a parent row per user action and one child row per
  * HTTP mutation attempt. Domain tables stay authoritative; this table only observes. The local
  * record is referenced through `local_model_type` + `local_model_id` without a foreign key so
  * retention never depends on domain tables.

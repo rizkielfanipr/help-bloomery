@@ -189,7 +189,7 @@
             @if($inlineEditing)
                 <div class="flex justify-end gap-2 border-t border-gray-200 px-3 py-3 dark:border-gray-700">
                     <button type="button" wire:click="cancelBomComponentEdit({{ $inlineBomId }})" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-bold text-gray-700 dark:border-gray-600 dark:text-gray-200">Batal</button>
-                    <button type="button" wire:click="updateInlineBom({{ $inlineBomId }})" wire:loading.attr="disabled" wire:target="updateInlineBom({{ $inlineBomId }})" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">Simpan ke ESB</button>
+                    <button type="button" wire:click="updateInlineBom({{ $inlineBomId }})" wire:loading.attr="disabled" wire:target="updateInlineBom({{ $inlineBomId }})" class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50">Simpan Perubahan ke ESB</button>
                 </div>
             @endif
         </div>

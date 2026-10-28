@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /** docs/store-sales-order-prd.md §15.1. */
+    /** docs/products/operational/store-sales-order/prd.md §15.1. */
     public function up(): void
     {
         Schema::create('store_sales_orders', function (Blueprint $table): void {
@@ -49,7 +49,7 @@ return new class extends Migration
             // Soft-delete-safe uniqueness via a generated column (MySQL has no partial unique
             // index): collapses to NULL once deleted_at is set, and MySQL/SQLite both treat NULL
             // as always-distinct, so a soft-deleted record never blocks a new one for the same
-            // number (docs/store-sales-order-prd.md §14 "unik untuk record aktif").
+            // number (docs/products/operational/store-sales-order/prd.md §14 "unik untuk record aktif").
             $table->string('product_sales_number_if_active', 100)
                 ->nullable()
                 ->virtualAs('CASE WHEN deleted_at IS NULL THEN product_sales_number ELSE NULL END');

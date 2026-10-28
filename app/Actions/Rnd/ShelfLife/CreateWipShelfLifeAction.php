@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Creates a missing WIP Shelf Life master from the Shelf Life menu or a Project
- * (docs/rnd-wip-shelf-life-prd.md §14.1). It never overwrites: an existing master (active or
+ * (docs/products/rnd/wip-shelf-life/prd.md §14.1). It never overwrites: an existing master (active or
  * inactive) raises `WipShelfLifeAlreadyExistsException`; a soft-deleted row for the same identity
  * is restored and refilled instead of duplicated. Local only — nothing is sent to ESB.
  *

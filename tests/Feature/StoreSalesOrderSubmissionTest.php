@@ -154,7 +154,7 @@ it('submits a store sales order with a Submitted status after a valid lookup', f
 });
 
 it('clears a successful lookup when the branch changes afterward, blocking submit until it is redone', function () {
-    // docs/store-sales-order-prd.md §10.1 "Mengganti Branch atau nomor SL akan membersihkan hasil
+    // docs/products/operational/store-sales-order/prd.md §10.1 "Mengganti Branch atau nomor SL akan membersihkan hasil
     // lookup sebelumnya" — covered here at the Livewire layer. The Action's own independent
     // re-validation of branch access (§16 "branch divalidasi ulang di server", which matters
     // because a tampered request could skip this component's updatedBranchId() hook entirely) is
@@ -181,7 +181,7 @@ it('clears a successful lookup when the branch changes afterward, blocking submi
 it('rejects submit when the Action\'s own branch re-check fails, even though the lookup already succeeded', function () {
     // A record already exists under the same ESB identity (company + numeric ESB branch ID) via a
     // *different* local Branch — duplicate detection keys on that ESB identity, not local branch_id
-    // (docs/store-sales-order-prd.md §14), so submitting through $this->branch (which the lookup
+    // (docs/products/operational/store-sales-order/prd.md §14), so submitting through $this->branch (which the lookup
     // step genuinely succeeds for) still gets rejected: CreateStoreSalesOrderAction finds the
     // existing record and $this->user has no permission or submitter relationship to view it. This
     // proves the Action's server-side check runs independently of the Page's own state, without

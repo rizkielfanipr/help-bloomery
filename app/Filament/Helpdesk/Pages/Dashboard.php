@@ -60,7 +60,7 @@ class Dashboard extends BaseDashboard
     }
 
     /**
-     * First-visit-per-session reminder modal (docs/rnd-project-task-calendar-prd.md §15) — shown
+     * First-visit-per-session reminder modal (docs/products/rnd/project-task-calendar/prd.md §15) — shown
      * at most once per PHP session while the user has active Task assignments, then reappears on
      * their next session. There is no prior "once per session" mechanism anywhere in this app
      * (confirmed during the Phase 0 audit), so this is a new, minimal pattern built directly on
@@ -77,7 +77,7 @@ class Dashboard extends BaseDashboard
     }
 
     /**
-     * "Tugas yang Perlu Ditindaklanjuti" (docs/rnd-project-task-calendar-prd.md §15) — only the
+     * "Tugas yang Perlu Ditindaklanjuti" (docs/products/rnd/project-task-calendar/prd.md §15) — only the
      * current user's own active (non-terminal) assignments, ordered overdue first, then deadline
      * today, then Urgent/High priority, then nearest deadline.
      */

@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §13 and §18.4: one row per deterministic error fingerprint;
+ * docs/products/system-monitoring/prd.md §13 and §18.4: one row per deterministic error fingerprint;
  * repeated occurrences only increment the counter and last-seen timestamp.
  */
 return new class extends Migration

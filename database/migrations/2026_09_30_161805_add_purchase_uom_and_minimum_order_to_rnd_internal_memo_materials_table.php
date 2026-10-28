@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Phase 1 of docs/rnd-internal-memo-simplification-prd.md §10.3. Additive-only: the Phase 0
+     * Phase 1 of docs/products/rnd/internal-memo-simplification/prd.md §10.3. Additive-only: the Phase 0
      * audit proved no ESB Product contract field represents "Purchase UOM" (only `unit`,
      * `baseUnit`, and `conversionFactor` exist on a product detail), so `purchase_uom_id`/
      * `purchase_uom_name` stay nullable and are only ever populated once that contract is proven

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One deterministic error fingerprint with occurrence counters and triage state
- * (docs/system-monitoring-prd.md §13).
+ * (docs/products/system-monitoring/prd.md §13).
  */
 class MonitoringError extends Model
 {

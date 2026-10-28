@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
- * Private evidence of Compliment and Void (docs/sales-report-compliment-void-remediation-prd.md
+ * Private evidence of Compliment and Void (docs/products/finance/sales-report-compliment-void-remediation/prd.md
  * §9.4, §10.5): new uploads are images only, stored on the private disk, and only ever opened
  * through a short temporary URL created after authorization. Legacy Compliment PDFs stay
  * readable; they are just no longer accepted for new submissions.

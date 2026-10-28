@@ -8,7 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
- * docs/store-sales-order-prd.md §14 "Refresh dari ESB": only overwrites the ESB snapshot columns
+ * docs/products/operational/store-sales-order/prd.md §14 "Refresh dari ESB": only overwrites the ESB snapshot columns
  * and `last_verified_at`. Operational information, Kebutuhan Produk, attachment, and operational
  * status are never touched. If the lookup throws (timeout, connection failure, not found), the
  * exception propagates and the old snapshot is left exactly as it was — this Action performs no

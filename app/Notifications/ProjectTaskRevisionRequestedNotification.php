@@ -8,7 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
 /**
- * Sent to the PIC when a reviewer requests revision (docs/rnd-project-task-calendar-prd.md §16).
+ * Sent to the PIC when a reviewer requests revision (docs/products/rnd/project-task-calendar/prd.md §16).
  */
 class ProjectTaskRevisionRequestedNotification extends Notification implements ShouldQueue
 {

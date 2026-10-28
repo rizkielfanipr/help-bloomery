@@ -26,7 +26,7 @@ class BriefingScoreExportController
         $branchId = $request->integer('branch_id') ?: null;
         $format = $request->input('format', 'excel');
 
-        // docs/daily-briefing-remediation-prd.md §15.3: an explicit branch_id is re-validated
+        // docs/products/daily-briefing/remediation/prd.md §15.3: an explicit branch_id is re-validated
         // against the viewer's own access; omitting it falls back to every accessible branch
         // rather than every branch in the database.
         if ($branchId !== null) {
@@ -88,7 +88,7 @@ class BriefingScoreExportController
         $writer->addRow(Row::fromValues(['Export: '.now()->isoFormat('D MMMM Y HH:mm'), '', '', '', '', ''], $styleInfo));
         $writer->addRow(Row::fromValues(['', '', '', '', '', '']));
 
-        // docs/daily-briefing-scoring-ui-prd.md §17: branch, period, final score, status,
+        // docs/products/daily-briefing/scoring-ui/prd.md §17: branch, period, final score, status,
         // provisional/final, per-period score, method version, and computed timestamp — the same
         // breakdown snapshot the UI and PDF read, so the numbers never disagree.
         $writer->addRow(Row::fromValues(

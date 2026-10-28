@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Daily fact per branch, company pair, product, and UOM (docs/ordering-recommendation-prd.md
+ * Daily fact per branch, company pair, product, and UOM (docs/products/analytics/ordering-recommendation/prd.md
  * §11.2). The natural identity is the unique key so every rebuild is an idempotent upsert; the
  * product name is a snapshot only, never part of the identity. Quantities stay null when their
  * source has not been read successfully.

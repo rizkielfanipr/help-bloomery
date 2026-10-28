@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * Error Monitor (docs/system-monitoring-prd.md §13). Stack frames are only shown on the detail
+ * Error Monitor (docs/products/system-monitoring/prd.md §13). Stack frames are only shown on the detail
  * page to users with technical access.
  */
 class MonitoringErrorResource extends Resource

@@ -6,7 +6,7 @@ $list = static fn (?string $value): ?array => $value === null || trim($value) ==
 
 /*
 |--------------------------------------------------------------------------
-| Analytics → Ordering Recommendation (docs/ordering-recommendation-prd.md)
+| Analytics → Ordering Recommendation (docs/products/analytics/ordering-recommendation/prd.md)
 |--------------------------------------------------------------------------
 |
 | Every value that shapes a recommendation lives here and is copied into each forecast run's
@@ -15,8 +15,9 @@ $list = static fn (?string $value): ?array => $value === null || trim($value) ==
 | Phase 0 decisions that are not confirmed yet stay `null` on purpose:
 | - `eligible_categories` null: no orderable allowlist yet → every product is analysed, flagged
 |   `category_unconfirmed`, and its confidence is capped at Low;
-| - `stock_location_scope` null: no agreed Store stock location → available stock is not
-|   available and the recommendation is Blocked (demand, trend, and waste are still shown);
+| - `stock_location_scope` is a legacy rollout fallback. Each active Branch–Company–ESB Branch
+|   mapping can override it from Ordering Recommendation Settings. An unconfigured mapping with
+|   no fallback keeps stock unavailable and the recommendation Blocked;
 | - `goods_in_transaction_types` empty: Goods Receipt/Delivery direction for a Store is not
 |   proven, so goods-in stays null.
 | Confirmed inbound has no source yet and is always stored as null (never 0).
@@ -68,12 +69,14 @@ return [
 
     'eligible_categories' => $list(env('ORDERING_ELIGIBLE_CATEGORIES')),
 
+    // Legacy fallback only. Per-mapping web settings take precedence.
     // null = not agreed; 'all' = latest balance of every location summed; otherwise a list of names.
     'stock_location_scope' => env('ORDERING_STOCK_LOCATION_SCOPE') === 'all'
         ? 'all'
         : $list(env('ORDERING_STOCK_LOCATIONS')),
 
     'waste_transaction_types' => $list(env('ORDERING_WASTE_TYPES', 'Waste')) ?? [],
+    'waste_item_journal_labels' => $list(env('ORDERING_WASTE_ITEM_JOURNAL_LABELS', 'Waste,Process Waste')) ?? [],
     'pos_sales_transaction_types' => $list(env('ORDERING_POS_SALES_TYPES', 'POS Sales')) ?? [],
     'goods_in_transaction_types' => $list(env('ORDERING_GOODS_IN_TYPES')) ?? [],
 

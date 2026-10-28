@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 use RuntimeException;
 
 /**
- * docs/sales-report-compliment-void-remediation-prd.md §18.4. Dry-run by default; `--execute`
+ * docs/products/finance/sales-report-compliment-void-remediation/prd.md §18.4. Dry-run by default; `--execute`
  * converts legacy `PendingFinance` reports with a valid Supervisor approval to `Completed`
  * after writing a snapshot, and `--restore=<snapshot>` undoes one execution without touching
  * reports that changed afterwards.

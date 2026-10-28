@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §17 and §19: validated overrides of non-secret monitoring
+ * docs/products/system-monitoring/prd.md §17 and §19: validated overrides of non-secret monitoring
  * configuration (alert channels, maintenance window, heartbeat thresholds, retention).
  */
 return new class extends Migration

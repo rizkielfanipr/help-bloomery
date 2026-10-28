@@ -1,8 +1,11 @@
 <?php
 
 use App\Actions\Rnd\CreateStandaloneMaterialSourcingAction;
+use App\Actions\Rnd\Material\ReviewLegacyMaterialSourcingAction;
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
+use App\Filament\Helpdesk\Resources\ReviewSourcings\Pages\ListReviewSourcings;
+use App\Filament\Helpdesk\Resources\ReviewSourcings\ReviewSourcingResource;
 use App\Livewire\MaterialSourcingSupplierCard;
 use App\Models\MaterialSourcingApproval;
 use App\Models\RndProductEsbMaterial;
@@ -217,7 +220,7 @@ it('shows complete supplier information inside the rnd approval modal', function
         ->toContain('notes')
         ->not->toContain('Pilih Supplier Terbaik');
 
-    Livewire::test(ListMaterialSourcings::class)
+    Livewire::test(ListReviewSourcings::class)
         ->assertTableActionExists('approve_rnd', function ($action): bool {
             return str_contains((string) ($action->getExtraModalWindowAttributes()['class'] ?? ''), 'material-sourcing-modal');
         }, $this->material);
@@ -264,7 +267,7 @@ it('lets rnd select the winning supplier and approve, moving the material to fin
 
     $this->actingAs($this->rnd);
 
-    Livewire::test(ListMaterialSourcings::class)
+    Livewire::test(ListReviewSourcings::class)
         ->callTableAction('approve_rnd', $this->material, data: [
             'sourcing_selected_id' => $winner->id,
             'rnd_note' => 'Harga paling kompetitif',
@@ -277,6 +280,32 @@ it('lets rnd select the winning supplier and approve, moving the material to fin
         ->and($this->material->sourcing_selected_id)->toBe($winner->id)
         ->and($this->material->rnd_reviewed_by)->toBe($this->rnd->id)
         ->and(MaterialSourcingApproval::where('stage', 'rnd')->where('action', 'approved')->exists())->toBeTrue();
+});
+
+it('refuses a supplier candidate belonging to another material during rnd approval', function () {
+    $this->material->update(['sourcing_status' => MaterialSourcingStatus::PendingRndReview]);
+    $otherMaterial = RndProductEsbMaterial::create([
+        'rnd_project_product_id' => $this->material->rnd_project_product_id,
+        'category_id' => 1,
+        'sub_category_id' => 1,
+        'uom_id' => 1,
+        'uom_name' => 'KG',
+        'product_code' => 'MAT-FOREIGN',
+        'product_name' => 'Bahan Lain',
+        'sku' => 'SKU-MAT-FOREIGN',
+        'status' => 'draft',
+    ]);
+    $foreignCandidate = $otherMaterial->sourcings()->create(supplierRow('Supplier Asing', 9000));
+
+    expect(fn () => app(ReviewLegacyMaterialSourcingAction::class)->execute(
+        $this->material,
+        $this->rnd,
+        'approve',
+        $foreignCandidate->id,
+        null,
+    ))->toThrow(ValidationException::class)
+        ->and($this->material->refresh()->sourcing_status)->toBe(MaterialSourcingStatus::PendingRndReview)
+        ->and($this->material->sourcing_selected_id)->toBeNull();
 });
 
 it('lets finance approve the rnd-selected supplier, completing the sourcing', function () {
@@ -329,7 +358,7 @@ it('lets rnd reject a submission back to purchasing, who can resubmit', function
 
     $this->actingAs($this->rnd);
 
-    Livewire::test(ListMaterialSourcings::class)
+    Livewire::test(ListReviewSourcings::class)
         ->callTableAction('reject_rnd', $this->material, data: ['rnd_note' => 'Perlu supplier lain'])
         ->assertHasNoTableActionErrors();
 
@@ -421,9 +450,12 @@ it('blocks review actions for users without the matching approval permission', f
 
     $this->actingAs($this->finance);
 
+    // R&D supplier approval lives only in Review Sourcing, which Finance cannot open.
+    expect(ReviewSourcingResource::canViewAny())->toBeFalse();
+    $this->get(ReviewSourcingResource::getUrl('index'))->assertForbidden();
     Livewire::test(ListMaterialSourcings::class)
-        ->assertTableActionHidden('approve_rnd', $this->material)
-        ->assertTableActionHidden('reject_rnd', $this->material);
+        ->assertTableActionDoesNotExist('approve_rnd')
+        ->assertTableActionDoesNotExist('reject_rnd');
 });
 
 it('keeps the submitted supplier data visible after the sourcing moves past purchasing', function () {
@@ -654,7 +686,7 @@ describe('standalone sourcing (without a Project)', function () {
         $winner = $standalone->sourcings->sole();
 
         $this->actingAs($this->rnd);
-        Livewire::test(ListMaterialSourcings::class)
+        Livewire::test(ListReviewSourcings::class)
             ->callTableAction('approve_rnd', $standalone, data: ['sourcing_selected_id' => $winner->id, 'rnd_note' => 'Sample sesuai'])
             ->assertHasNoTableActionErrors();
 

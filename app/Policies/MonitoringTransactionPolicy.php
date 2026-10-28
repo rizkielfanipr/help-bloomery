@@ -7,7 +7,7 @@ use App\Models\MonitoringTransaction;
 use App\Models\User;
 
 /**
- * ESB Transaction Monitor access (docs/system-monitoring-prd.md §7, §20). Payload summaries need
+ * ESB Transaction Monitor access (docs/products/system-monitoring/prd.md §7, §20). Payload summaries need
  * their own permission; Management never receives them.
  */
 class MonitoringTransactionPolicy

@@ -100,6 +100,8 @@ return [
 
     'rnd_project_task_attachment_disk' => env('RND_PROJECT_TASK_ATTACHMENT_DISK', 'b2'),
 
+    'rnd_material_sample_disk' => env('RND_MATERIAL_SAMPLE_DISK', 'b2'),
+
     'sales_report_evidence_disk' => env('SALES_REPORT_EVIDENCE_DISK', 'b2'),
 
     'links' => [

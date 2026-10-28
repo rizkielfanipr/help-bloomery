@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §12: latest local heartbeat per process (scheduler, queue worker).
+ * docs/products/system-monitoring/prd.md §12: latest local heartbeat per process (scheduler, queue worker).
  */
 return new class extends Migration
 {

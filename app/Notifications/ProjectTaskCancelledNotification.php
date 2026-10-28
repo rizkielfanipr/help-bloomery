@@ -9,7 +9,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Sent to every PIC who had an active assignment when the Task was cancelled
- * (docs/rnd-project-task-calendar-prd.md §16).
+ * (docs/products/rnd/project-task-calendar/prd.md §16).
  */
 class ProjectTaskCancelledNotification extends Notification implements ShouldQueue
 {

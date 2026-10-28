@@ -4,7 +4,7 @@ namespace App\Services\Rnd\Bom;
 
 /**
  * Builds the ESB `PUT /product/bom/{id}` payload from the freshly re-fetched detail plus the
- * edited component draft (docs/rnd-bom-adjustment-prd.md §13 invariant: "Field API yang tidak
+ * edited component draft (docs/products/rnd/bom-adjustment/prd.md §13 invariant: "Field API yang tidak
  * diedit tetap dipertahankan dari response terbaru"). Extracted from the Project inline editor
  * so BOM Adjustment and Project send byte-identical payloads through the same builder.
  */

@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Daily rollup used by Overview trends (docs/system-monitoring-prd.md §19). `date` is kept as a
+ * Daily rollup used by Overview trends (docs/products/system-monitoring/prd.md §19). `date` is kept as a
  * plain Y-m-d string so re-aggregating a day matches the existing row on every driver.
  */
 class MonitoringDailyAggregate extends Model

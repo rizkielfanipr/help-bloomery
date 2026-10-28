@@ -14,7 +14,7 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §14/Phase 6/§21 (contract change: this page is now a
+ * docs/products/daily-briefing/scoring-ui/prd.md §14/Phase 6/§21 (contract change: this page is now a
  * hand-built Blade form bound with plain `wire:model`, matching Sales Report Settings, instead of
  * a Filament Schema form — so these tests use plain Livewire `->set()`/`->assertSet()` rather
  * than the Filament-specific `->fillForm()`/`->assertHasNoFormErrors()` helpers).

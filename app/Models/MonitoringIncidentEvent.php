@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
 /**
- * Append-only incident timeline entry (docs/system-monitoring-prd.md §18.5). Updating or deleting
+ * Append-only incident timeline entry (docs/products/system-monitoring/prd.md §18.5). Updating or deleting
  * an existing event is refused at model level.
  */
 class MonitoringIncidentEvent extends Model

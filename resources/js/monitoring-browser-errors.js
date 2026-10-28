@@ -1,5 +1,5 @@
 /**
- * Opt-in browser error collection for System Monitoring (docs/system-monitoring-prd.md §13.2).
+ * Opt-in browser error collection for System Monitoring (docs/products/system-monitoring/prd.md §13.2).
  * Only active when the server renders <meta name="monitoring-browser-errors">. Sends the error
  * message, page path, script file name, and line — never DOM, form input, cookies, or storage.
  */

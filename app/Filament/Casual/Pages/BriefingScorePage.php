@@ -11,7 +11,7 @@ use Livewire\Attributes\Computed;
 class BriefingScorePage extends Page
 {
     /**
-     * docs/daily-briefing-scoring-ui-prd.md §16 (Phase 11): the page and the PDF
+     * docs/products/daily-briefing/scoring-ui/prd.md §16 (Phase 11): the page and the PDF
      * (BriefingScorePdfController) must require the same permission — this page previously had
      * no canAccess() check at all.
      */

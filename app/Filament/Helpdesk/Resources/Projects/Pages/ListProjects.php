@@ -27,7 +27,7 @@ class ListProjects extends ListRecords
 
     /**
      * Lets the dashboard's "Tugas yang Perlu Ditindaklanjuti" cards deep-link straight into a
-     * Task's detail modal (docs/rnd-project-task-calendar-prd.md §15).
+     * Task's detail modal (docs/products/rnd/project-task-calendar/prd.md §15).
      */
     #[Url]
     public ?int $openTask = null;

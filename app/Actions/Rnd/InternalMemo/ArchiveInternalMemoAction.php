@@ -8,7 +8,7 @@ use App\Models\User;
 use RuntimeException;
 
 /**
- * docs/rnd-internal-memo-prd.md §6. Toggles Finalized ↔ Archived; RndInternalMemoPolicy::archive
+ * docs/products/rnd/internal-memo/prd.md §6. Toggles Finalized ↔ Archived; RndInternalMemoPolicy::archive
  * already restricts the caller to exactly those two starting statuses.
  */
 class ArchiveInternalMemoAction

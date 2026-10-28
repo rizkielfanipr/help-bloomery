@@ -39,7 +39,7 @@ class SubmitBulkProductAction
 
     /**
      * Only an explicit `failed` target is retried; `unknown` and `succeeded` targets are never
-     * sent again (docs/system-monitoring-prd.md §11.6).
+     * sent again (docs/products/system-monitoring/prd.md §11.6).
      */
     public function retry(BulkProductSubmissionItem $item): void
     {

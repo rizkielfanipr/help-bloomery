@@ -8,7 +8,7 @@ use App\Models\BranchEsbCode;
 /**
  * Resolves a Branch's ESB mapping for Store Sales Order using the same single source Stock Card
  * and R&D Internal Memo already share (`Branch::activeStockCardEsbCode()`, unified in commit
- * `8b982a1`) — docs/store-sales-order-prd.md §8.2 explicitly asks to follow whichever resolver is
+ * `8b982a1`) — docs/products/operational/store-sales-order/prd.md §8.2 explicitly asks to follow whichever resolver is
  * current in the repository rather than add a new per-feature mapping field. This class only adds
  * the completeness/credential checks specific to Store Sales Order (numeric ESB Branch ID and an
  * ESB Core login credential, since this feature calls ESB Core directly — not the static Master

@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Resolves a `needs_reconciliation` change log by re-fetching the BOM's current ESB state and
- * comparing it against what was requested at mutation time (docs/rnd-bom-adjustment-prd.md §14).
+ * comparing it against what was requested at mutation time (docs/products/rnd/bom-adjustment/prd.md §14).
  * If ESB's current state matches the requested snapshot, the timeout/connection failure clearly
  * did not prevent the mutation from applying, so the record is promoted to `success`; otherwise
  * it is marked `failed`. The mutation itself is never retried — reconciliation only observes.

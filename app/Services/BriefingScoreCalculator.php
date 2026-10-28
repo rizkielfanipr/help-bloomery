@@ -12,7 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §7–§10 (Phase 2, method_version 2). The single source of
+ * docs/products/daily-briefing/scoring-ui/prd.md §7–§10 (Phase 2, method_version 2). The single source of
  * Daily Briefing scores — used by the compute/compare commands, the admin workspace, PDF/Excel,
  * and the Employee Score page. No Filament/Livewire dependency; deterministic; never mutates
  * anything (persistence is the caller's job).
@@ -70,7 +70,7 @@ class BriefingScoreCalculator
         }
 
         // The `orWhere` branch is a documented legacy fallback for records predating the
-        // `branch_id` auto-set in BriefingRecord::booted() (docs/daily-briefing-remediation-prd.md
+        // `branch_id` auto-set in BriefingRecord::booted() (docs/products/daily-briefing/remediation/prd.md
         // §10.3) — kept until a backfill is validated, so historical scores don't silently drop
         // contributions from before that column was populated.
         $records = BriefingRecord::query()

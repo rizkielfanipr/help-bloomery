@@ -87,7 +87,7 @@ class ListBriefingTasks extends Page
 
     /**
      * Quick stats for the page header card, matching BriefingScoreWorkspacePage's visual
-     * pattern (docs/daily-briefing-scoring-ui-prd.md §13.1).
+     * pattern (docs/products/daily-briefing/scoring-ui/prd.md §13.1).
      *
      * @return array{total: int, active: int, global: int, branchSpecific: int}
      */

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Link from an incident to a monitoring record. `linkable_type` is one of TYPES (a short key,
  * not a class name); there is no polymorphic foreign key so pruning detail rows never touches
- * incident history (docs/system-monitoring-prd.md §16).
+ * incident history (docs/products/system-monitoring/prd.md §16).
  */
 class MonitoringIncidentLink extends Model
 {

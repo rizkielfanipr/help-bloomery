@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Deduplicated alert: at most one Active alert per dedup key (docs/system-monitoring-prd.md §17).
+ * Deduplicated alert: at most one Active alert per dedup key (docs/products/system-monitoring/prd.md §17).
  */
 class MonitoringAlert extends Model
 {

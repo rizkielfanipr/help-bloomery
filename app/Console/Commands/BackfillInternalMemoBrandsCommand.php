@@ -11,7 +11,7 @@ use Throwable;
 
 /**
  * Backfills `brand_id` + `brand_name_snapshot` on legacy Memos from their legacy Branch rows
- * (docs/rnd-internal-memo-brand-prd.md §16). Dry-run by default; `--apply` writes.
+ * (docs/products/rnd/internal-memo-brand/prd.md §16). Dry-run by default; `--apply` writes.
  *
  * A Memo is resolved only when its legacy Branches carry exactly one distinct non-null Brand —
  * never the first, the majority, or the lowest ID. Memos that already have a Brand keep it (only an

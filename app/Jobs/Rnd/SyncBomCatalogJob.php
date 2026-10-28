@@ -7,7 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
 /**
- * Refreshes the local BOM Assembly catalog from ESB (docs/rnd-bom-adjustment-prd.md §9). The
+ * Refreshes the local BOM Assembly catalog from ESB (docs/products/rnd/bom-adjustment/prd.md §9). The
  * Action itself holds a `Cache::lock` so a second dispatch while one run is already in progress
  * exits immediately instead of running a duplicate pass.
  *

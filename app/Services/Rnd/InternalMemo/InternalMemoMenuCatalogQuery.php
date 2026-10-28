@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Reads the one global BLSS Master Menu snapshot shared by every Memo
- * (docs/rnd-internal-memo-brand-prd.md §14.3, §15.4). No Brand, Branch, or company filter exists:
+ * (docs/products/rnd/internal-memo-brand/prd.md §14.3, §15.4). No Brand, Branch, or company filter exists:
  * the context is fixed server-side by InternalMemoCatalogContext. Before the first successful sync
  * there is no snapshot yet, so nothing is selectable.
  */

@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * Template Checkpoint management (docs/rnd-project-checkpoint-calendar-prd.md §21.6). Every
+ * Template Checkpoint management (docs/products/rnd/project-checkpoint-calendar/prd.md §21.6). Every
  * check is delegated to `RndProjectTaskTemplatePolicy`: `view rnd project task templates` lists
  * templates, `manage rnd project task templates` creates/edits/deactivates them, and a template
  * that was ever applied can only be deactivated, never deleted.

@@ -35,4 +35,21 @@ return [
         ],
     ],
 
+    /*
+    | Telegram notifications for the Master Bahan IT review (docs/products/rnd/material-sourcing-lifecycle/prd.md
+    | §14). Disabled until a bot token and chat IDs are configured on the server; chat IDs are
+    | referenced by destination key, never stored in the database.
+    */
+    'telegram' => [
+        'enabled' => (bool) env('TELEGRAM_NOTIFICATIONS_ENABLED', false),
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'base_url' => env('TELEGRAM_API_BASE_URL', 'https://api.telegram.org'),
+        'timeout' => (int) env('TELEGRAM_TIMEOUT', 10),
+        'queue' => env('TELEGRAM_QUEUE'),
+        'chats' => [
+            'it_review' => env('TELEGRAM_IT_REVIEW_CHAT_ID'),
+            'purchasing' => env('TELEGRAM_PURCHASING_CHAT_ID'),
+        ],
+    ],
+
 ];

@@ -35,6 +35,7 @@ return [
             'BLO14' => ['username' => env('ESB_CORE_BLO14_USERNAME'), 'password' => env('ESB_CORE_BLO14_PASSWORD')],
             'BLO16' => ['username' => env('ESB_CORE_BLO16_USERNAME'), 'password' => env('ESB_CORE_BLO16_PASSWORD')],
             'BLO18' => ['username' => env('ESB_CORE_BLO18_USERNAME'), 'password' => env('ESB_CORE_BLO18_PASSWORD')],
+            'BLHJ' => ['username' => env('ESB_CORE_BLHJ_USERNAME'), 'password' => env('ESB_CORE_BLHJ_PASSWORD')],
         ],
         'uoms' => [
             2 => 'PCS',
@@ -76,5 +77,14 @@ return [
         'BLMN' => env('ESB_TOKEN_BLMN', ''),
         'BLAR' => env('ESB_TOKEN_BLAR', ''),
         'BLSS' => env('ESB_TOKEN_BLSS', ''),
+    ],
+
+    /*
+    | Master Pricelist (docs/products/rnd/material-sourcing-lifecycle/prd.md §18). No write/read Pricelist
+    | endpoint contract is available in this repository, so only the controlled manual mode is
+    | supported: Finance enters the price in ESB and confirms it here with a reference.
+    */
+    'pricelist' => [
+        'mode' => env('ESB_PRICELIST_MODE', 'manual'),
     ],
 ];

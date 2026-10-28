@@ -14,7 +14,7 @@ use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Throwable;
 
 /**
- * Backend (and opt-in browser) error fingerprinting (docs/system-monitoring-prd.md §13).
+ * Backend (and opt-in browser) error fingerprinting (docs/products/system-monitoring/prd.md §13).
  *
  * Called from the exception handler's report callback, so it never changes how an exception is
  * rendered. Identical errors update one row; writes for a fingerprint are throttled and the

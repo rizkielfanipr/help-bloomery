@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
- * docs/rnd-internal-memo-prd.md §7.6, §16. Renders straight from the Finalized snapshot already
+ * docs/products/rnd/internal-memo/prd.md §7.6, §16. Renders straight from the Finalized snapshot already
  * on disk-in-the-database (Menu/Material rows) — no ESB call. Every generation writes a new file
  * under this revision; nothing is ever overwritten, so an older document keeps working even
  * after a newer one is generated for the same revision.

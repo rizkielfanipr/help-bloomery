@@ -7,7 +7,7 @@ use RuntimeException;
 
 /**
  * A WIP Shelf Life master already exists for this identity — creation never overwrites it
- * (docs/rnd-wip-shelf-life-prd.md §14.1, §25). Carries the existing record so the caller can
+ * (docs/products/rnd/wip-shelf-life/prd.md §14.1, §25). Carries the existing record so the caller can
  * refresh and show its value instead.
  */
 class WipShelfLifeAlreadyExistsException extends RuntimeException

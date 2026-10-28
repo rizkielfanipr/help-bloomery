@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Server-side Brand checks shared by create, edit Brand, and revision
- * (docs/rnd-internal-memo-brand-prd.md §8.1, §8.4, §19). The Brand must exist in Master Brand, and
+ * (docs/products/rnd/internal-memo-brand/prd.md §8.1, §8.4, §19). The Brand must exist in Master Brand, and
  * one Brand may have only one active Memo per period and revision. The database unique index is
  * the final guard against races; this gives the user a clear message first.
  */

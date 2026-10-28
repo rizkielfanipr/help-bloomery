@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 /**
- * docs/rnd-internal-memo-multi-branch-prd.md Phase 1 ("Safety net") — these lock the EXACT
+ * docs/products/rnd/internal-memo-multi-branch/prd.md Phase 1 ("Safety net") — these lock the EXACT
  * current (single-Company-Code BLSS) contracts Phase 2-6 are about to change, so any accidental
  * drift during the refactor fails loudly here instead of silently. Each test's docblock states
  * which Phase is expected to deliberately break it, and what the new behavior should be —
@@ -48,7 +48,7 @@ it('characterizes InternalMemoBomResolver::resolve() as taking only a Menu, with
 });
 
 it('characterizes the catalog HTTP service as taking a Company Code and the technical Branch Code', function () {
-    // docs/rnd-internal-memo-brand-prd.md §14.2: the ESB Master Menu endpoint still needs a
+    // docs/products/rnd/internal-memo-brand/prd.md §14.2: the ESB Master Menu endpoint still needs a
     // branchCode; the caller (the global sync job) always passes BLSS + the configured value.
     $method = new ReflectionMethod(InternalMemoMenuCatalogService::class, 'allForContext');
     $parameterNames = array_map(fn (ReflectionParameter $p): string => $p->getName(), $method->getParameters());
@@ -76,7 +76,7 @@ it('characterizes the exact ESB request count for adding a Menu with a resolvabl
 });
 
 it('characterizes RndInternalMemoPolicy::view() as permission-only, regardless of Brand', function () {
-    // docs/rnd-internal-memo-brand-prd.md §9.2 removed the multi-branch access gate again: any two
+    // docs/products/rnd/internal-memo-brand/prd.md §9.2 removed the multi-branch access gate again: any two
     // Memos — each with its own Brand — are equally visible to any user holding the permission.
     $viewer = User::factory()->create(['is_active' => true]);
     $viewer->givePermissionTo('view rnd internal memo');

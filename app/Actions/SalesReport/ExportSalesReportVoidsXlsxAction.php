@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Void export for comparison with the ESB report
- * (docs/sales-report-compliment-void-remediation-prd.md §12.2): one row per Void, from the
+ * (docs/products/finance/sales-report-compliment-void-remediation/prd.md §12.2): one row per Void, from the
  * already filtered and branch-scoped query of the report page. Evidence columns state
  * availability only; no temporary URL is exported.
  */

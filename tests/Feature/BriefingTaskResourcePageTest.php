@@ -12,7 +12,7 @@ use function Pest\Laravel\actingAs;
 
 /**
  * Smoke test for the Kelola Poin page's new header/summary chrome
- * (docs/daily-briefing-scoring-ui-prd.md §13.1 visual pattern applied to BriefingTaskResource).
+ * (docs/products/daily-briefing/scoring-ui/prd.md §13.1 visual pattern applied to BriefingTaskResource).
  */
 beforeEach(function () {
     Filament::setCurrentPanel(Filament::getPanel('helpdesk'));

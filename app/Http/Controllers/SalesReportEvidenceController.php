@@ -12,7 +12,7 @@ use Throwable;
 
 /**
  * Streams private Compliment and Void evidence after record authorization
- * (docs/sales-report-compliment-void-remediation-prd.md §16): no public or permanent URL is
+ * (docs/products/finance/sales-report-compliment-void-remediation/prd.md §16): no public or permanent URL is
  * ever handed out, and the path is never exposed to the browser.
  */
 class SalesReportEvidenceController extends Controller

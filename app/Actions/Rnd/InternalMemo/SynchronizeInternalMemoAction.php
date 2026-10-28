@@ -12,7 +12,7 @@ use App\Services\Rnd\InternalMemo\InternalMemoForecastCalculator;
 use Throwable;
 
 /**
- * docs/rnd-internal-memo-prd.md §7.4, §17. Resolves the BOM of every Menu on the memo one at a
+ * docs/products/rnd/internal-memo/prd.md §7.4, §17. Resolves the BOM of every Menu on the memo one at a
  * time; one Menu's failure does not stop the others. The caller is responsible for the Draft/
  * NeedsAttention/Ready permission guard (RndInternalMemoPolicy::sync) and for setting the memo
  * to Syncing before dispatching, so the UI can block a second submission immediately.

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * One recommendation per branch, company pair, product, and UOM (docs/ordering-recommendation-prd.md §11.4).
+ * One recommendation per branch, company pair, product, and UOM (docs/products/analytics/ordering-recommendation/prd.md §11.4).
  */
 class OrderingForecastItem extends Model
 {

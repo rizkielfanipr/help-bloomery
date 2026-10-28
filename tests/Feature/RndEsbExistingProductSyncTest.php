@@ -1,6 +1,12 @@
 <?php
 
+use App\Actions\Rnd\Material\ApproveMaterialForEsbAction;
+use App\Actions\Rnd\Material\ClaimMaterialReviewAction;
+use App\Actions\Rnd\Material\LinkMaterialToExistingEsbProductAction;
+use App\Actions\Rnd\Material\SubmitMaterialForItReviewAction;
+use App\Enums\MaterialReviewStatus;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
+use App\Models\RndProductEsbMaterial;
 use App\Models\RndProject;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -54,7 +60,7 @@ it('does not resend an R&D material whose previous ESB result is unknown', funct
     Livewire::test(ViewProjectProductPage::class, [
         'project' => $this->product->rnd_project_id,
         'product' => $this->product->id,
-    ])->assertSee('Perlu Rekonsiliasi')
+    ])->assertSee('Needs Reconciliation')
         ->call('syncEsbMaterial', $material->id)
         ->assertHasNoErrors();
 
@@ -63,28 +69,24 @@ it('does not resend an R&D material whose previous ESB result is unknown', funct
 });
 
 it('links an exact existing ESB product instead of creating a duplicate', function () {
+    // docs/products/rnd/material-sourcing-lifecycle/prd.md §13.2: a name match alone no longer links. IT links
+    // by Product ID after every unit maps to an active Product Detail; nothing is created.
     Http::fake([
         'https://services.esb.co.id/core/auth/login' => Http::response([
             'status' => 'ok',
             'result' => ['accessToken' => 'access-token-test'],
         ]),
-        'https://services.esb.co.id/core/product/list*' => Http::response([
+        'https://services.esb.co.id/core/product/8123' => Http::response([
             'status' => 'ok',
             'result' => [
-                'page' => 1,
-                'limit' => 100,
-                'count' => 1,
-                'data' => [[
-                    'productID' => 8123,
-                    'productName' => 'Tepung Tapioka',
-                    'productDetails' => [[
-                        'productDetailID' => 9123,
-                        'uomID' => 5,
-                        'sku' => 'BBMK-TAPIOKA-GR',
-                    ]],
+                'productID' => 8123,
+                'productName' => 'Tepung Tapioka',
+                'productDetails' => [[
+                    'productDetailID' => 9123,
+                    'uomID' => 5,
+                    'sku' => 'BBMK-TAPIOKA-GR',
+                    'flagActive' => true,
                 ]],
-                'prev' => null,
-                'next' => null,
             ],
         ]),
     ]);
@@ -120,6 +122,10 @@ it('links an exact existing ESB product instead of creating a duplicate', functi
         'project' => $this->product->rnd_project_id,
         'product' => $this->product->id,
     ])->call('syncEsbMaterial', $material->id)->assertHasNoErrors();
+    expect($material->refresh()->review_status)->toBe(MaterialReviewStatus::WaitingItReview);
+
+    app(ClaimMaterialReviewAction::class)->execute($material, auth()->user());
+    app(LinkMaterialToExistingEsbProductAction::class)->execute($material->refresh(), auth()->user(), 8123);
 
     $material->refresh();
     expect($material->status)->toBe('synced')
@@ -142,7 +148,7 @@ it('updates ESB when an already linked material is edited', function () {
         ]),
         'https://services.esb.co.id/core/product/8123' => Http::response([
             'status' => 'ok',
-            'result' => ['productID' => 8123],
+            'result' => ['productID' => 8123, 'productDetails' => [['productDetailID' => 9123, 'uomID' => 5, 'sku' => 'BBMK-TAPIOKA-GR', 'flagActive' => true]]],
         ]),
     ]);
 
@@ -189,6 +195,9 @@ it('updates ESB when an already linked material is edited', function () {
         ->assertHasNoErrors();
 
     expect($material->fresh()->product_name)->toBe('Tepung Tapioka Premium');
+    // The edit is saved locally only; ESB changes after IT approves the new version.
+    Http::assertNotSent(fn ($request): bool => $request->method() === 'PUT');
+    approveMaterialChange($material);
     Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
         && $request->url() === 'https://services.esb.co.id/core/product/8123'
         && $request['productName'] === 'Tepung Tapioka Premium'
@@ -259,8 +268,16 @@ it('reconciles a missing local Product Detail ID before updating ESB', function 
         ->set('esbMaterialNotes', 'Perubahan aman')
         ->call('saveEsbMaterial')
         ->assertHasNoErrors();
+    approveMaterialChange($material);
 
     expect($material->units()->sole()->esb_product_detail_id)->toBe(9123);
     Http::assertSent(fn ($request): bool => $request->method() === 'PUT'
         && data_get($request->data(), 'productDetails.0.productDetailID') === 9123);
 });
+
+function approveMaterialChange(RndProductEsbMaterial $material): void
+{
+    app(SubmitMaterialForItReviewAction::class)->execute($material->refresh(), auth()->user());
+    app(ClaimMaterialReviewAction::class)->execute($material->refresh(), auth()->user());
+    app(ApproveMaterialForEsbAction::class)->execute($material->refresh(), auth()->user());
+}

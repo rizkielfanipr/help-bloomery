@@ -7,7 +7,7 @@ use App\Models\User;
 use App\Services\BriefingCleanupClassifier;
 
 /**
- * docs/daily-briefing-remediation-prd.md §17 (Phase 12). Both commands are dry-run/read-only
+ * docs/products/daily-briefing/remediation/prd.md §17 (Phase 12). Both commands are dry-run/read-only
  * only in this release — there is no mutating code path at all yet.
  */
 function makeRejectedItem(array $overrides = []): BriefingItem

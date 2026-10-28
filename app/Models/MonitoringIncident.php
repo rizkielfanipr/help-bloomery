@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Latest state of one incident; every change is written to the append-only timeline in
- * MonitoringIncidentEvent (docs/system-monitoring-prd.md §16). An incident never changes the
+ * MonitoringIncidentEvent (docs/products/system-monitoring/prd.md §16). An incident never changes the
  * status of a business transaction.
  */
 class MonitoringIncident extends Model

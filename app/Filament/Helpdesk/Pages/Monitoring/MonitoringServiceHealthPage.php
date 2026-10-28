@@ -14,7 +14,7 @@ use Livewire\Attributes\Computed;
 use UnitEnum;
 
 /**
- * Service Health (docs/system-monitoring-prd.md §10): stored snapshots only; checks run in the
+ * Service Health (docs/products/system-monitoring/prd.md §10): stored snapshots only; checks run in the
  * scheduler, never from this page.
  */
 class MonitoringServiceHealthPage extends Page

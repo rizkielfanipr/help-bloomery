@@ -7,7 +7,7 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Starter Template Checkpoint (docs/rnd-project-checkpoint-calendar-prd.md §26.5).
+ * Starter Template Checkpoint (docs/products/rnd/project-checkpoint-calendar/prd.md §26.5).
  * Idempotent: a template that already exists by name is left untouched, so re-running the seeder
  * never overwrites checkpoints the R&D team has edited.
  */

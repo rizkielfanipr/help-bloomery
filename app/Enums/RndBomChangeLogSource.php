@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Where a `rnd_bom_change_logs` record originated from (docs/rnd-bom-adjustment-prd.md §15, §16).
+ * Where a `rnd_bom_change_logs` record originated from (docs/products/rnd/bom-adjustment/prd.md §15, §16).
  */
 enum RndBomChangeLogSource: string implements HasColor, HasLabel
 {

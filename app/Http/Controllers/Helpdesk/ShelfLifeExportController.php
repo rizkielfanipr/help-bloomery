@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Retired Shelf Life Product/Menu export (docs/rnd-wip-shelf-life-prd.md §20.4). Shelf Life is now
+ * Retired Shelf Life Product/Menu export (docs/products/rnd/wip-shelf-life/prd.md §20.4). Shelf Life is now
  * kept per WIP and no WIP export format has been defined, so the old URL answers 410 Gone instead
  * of redirecting to a page with a different meaning.
  *

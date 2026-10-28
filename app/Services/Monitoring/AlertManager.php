@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Notification;
 use Throwable;
 
 /**
- * Deduplicated alerting (docs/system-monitoring-prd.md §17): one active alert per environment +
+ * Deduplicated alerting (docs/products/system-monitoring/prd.md §17): one active alert per environment +
  * source key, notifications only on state change (open, escalation, recovery) and reminders for
  * unacknowledged alerts. Maintenance windows suppress new alerts but not recording.
  */

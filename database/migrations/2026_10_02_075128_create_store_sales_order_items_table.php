@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /** docs/store-sales-order-prd.md §15.2. Local operational notes, not an official ESB line item (§9.3). */
+    /** docs/products/operational/store-sales-order/prd.md §15.2. Local operational notes, not an official ESB line item (§9.3). */
     public function up(): void
     {
         Schema::create('store_sales_order_items', function (Blueprint $table): void {

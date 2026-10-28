@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * docs/rnd-internal-memo-multi-branch-prd.md §9.2 ("Tambahkan company_code pada snapshot Menu
+     * docs/products/rnd/internal-memo-multi-branch/prd.md §9.2 ("Tambahkan company_code pada snapshot Menu
      * jika belum tersedia") + §7.3-7.4: a Menu is merged/identified by `company_code + menuID`, and
      * BOM/Product resolution must use the Company Code the Menu actually came from, independent of
      * whichever branch context the catalog happened to be fetched through.

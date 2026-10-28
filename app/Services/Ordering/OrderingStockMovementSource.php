@@ -10,7 +10,7 @@ use Throwable;
 /**
  * Stock Movement for one company pair and day through the existing EsbStockMovementService
  * (pagination, branch guard, company client), normalized for the daily metric builder
- * (docs/ordering-recommendation-prd.md §9.3). Categories come from the same company's Master
+ * (docs/products/analytics/ordering-recommendation/prd.md §9.3). Categories come from the same company's Master
  * Product list; a category failure never blocks the stock read.
  */
 class OrderingStockMovementSource
@@ -48,6 +48,7 @@ class OrderingStockMovementSource
                 'category_name' => filled($categories[$code] ?? null) ? trim((string) $categories[$code]) : null,
                 'uom' => $uom,
                 'transaction_type' => trim((string) ($row['transactionType'] ?? '')),
+                'document_code' => trim((string) ($row['documentCode'] ?? '')),
                 'qty_in' => (float) ($row['qtyIn'] ?? 0),
                 'qty_out' => (float) ($row['qtyOut'] ?? 0),
                 'qty_balance' => is_numeric($row['qtyBalance'] ?? null) ? (float) $row['qtyBalance'] : null,

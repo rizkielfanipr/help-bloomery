@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Audit boundary of one "Gunakan Template" batch (docs/rnd-project-checkpoint-calendar-prd.md
+ * Audit boundary of one "Gunakan Template" batch (docs/products/rnd/project-checkpoint-calendar/prd.md
  * §16.3). `idempotency_key` is unique so a retried or double-submitted apply never creates a
  * second batch; `template_name` and `checkpoint_snapshot` keep the history readable even after
  * the template is edited or removed.

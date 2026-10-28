@@ -23,7 +23,7 @@ use Throwable;
 
 /**
  * Transaction detail: identity, attempt timeline, sanitized summaries (permission-gated),
- * linked domain record, and the reconciliation decision (docs/system-monitoring-prd.md §11.3-§11.6).
+ * linked domain record, and the reconciliation decision (docs/products/system-monitoring/prd.md §11.3-§11.6).
  */
 class ViewMonitoringTransaction extends ViewRecord
 {

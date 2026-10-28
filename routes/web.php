@@ -19,6 +19,7 @@ use App\Http\Controllers\Helpdesk\RndBomInstructionImageController;
 use App\Http\Controllers\Helpdesk\RndInternalMemoPdfController;
 use App\Http\Controllers\Helpdesk\RndInternalMemoProductExportController;
 use App\Http\Controllers\Helpdesk\RndInternalMemoReleaseExportController;
+use App\Http\Controllers\Helpdesk\RndMaterialSampleAttachmentController;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Http\Controllers\Helpdesk\RndProductEsbMaterialExportController;
 use App\Http\Controllers\Helpdesk\RndProjectBomPdfController;
@@ -90,13 +91,13 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/helpdesk/exports/briefing-scores', BriefingScoreExportController::class)
         ->name('helpdesk.exports.briefing-scores');
 
-    // Retired Shelf Life Menu export: answers 410 Gone (docs/rnd-wip-shelf-life-prd.md §20.4).
+    // Retired Shelf Life Menu export: answers 410 Gone (docs/products/rnd/wip-shelf-life/prd.md §20.4).
     // TEMPORARY — remove once the `legacy shelf life export used` log shows no traffic.
     Route::get('/helpdesk/exports/shelf-life', ShelfLifeExportController::class)
         ->name('helpdesk.exports.shelf-life');
 
     // Retired `Master Shelf Life Menu` Resource URLs redirect to the WIP Shelf Life menu, which now
-    // owns `/shelf-life` (docs/rnd-wip-shelf-life-prd.md §20.3). TEMPORARY — remove once the
+    // owns `/shelf-life` (docs/products/rnd/wip-shelf-life/prd.md §20.3). TEMPORARY — remove once the
     // `legacy shelf life route used` log shows no traffic and a reference audit is clean.
     Route::get('/rnd-product-shelf-lives/{path?}', LegacyShelfLifeRedirectController::class)
         ->where('path', '.*')
@@ -156,6 +157,8 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/sales-report-evidence/voids/{void}/{kind}', [SalesReportEvidenceController::class, 'void'])
         ->whereIn('kind', ['original', 'voided'])
         ->name('sales-report-evidence.void');
+    Route::get('/rnd-material-sample-attachments/{attachment}', [RndMaterialSampleAttachmentController::class, 'show'])
+        ->name('helpdesk.rnd-material-sample-attachments.show');
     Route::get('/rnd-project-task-attachments/{path}', [RndProjectTaskAttachmentController::class, 'show'])
         ->where('path', '.*')
         ->name('helpdesk.rnd-project-tasks.attachments.show');

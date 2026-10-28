@@ -129,13 +129,13 @@ function runRecalculation($page)
 
 /*
 |--------------------------------------------------------------------------
-| R&D Internal Memo BOM fixtures (docs/rnd-internal-memo-prd.md Phase 0 contract report)
+| R&D Internal Memo BOM fixtures (docs/products/rnd/internal-memo/prd.md Phase 0 contract report)
 |--------------------------------------------------------------------------
 */
 
 /**
  * Marks the global Memo Internal BLSS catalog as synced from $branchCode, so the Menu picker and
- * Add Menu read the local snapshot rows of that branch (docs/rnd-internal-memo-brand-prd.md §14).
+ * Add Menu read the local snapshot rows of that branch (docs/products/rnd/internal-memo-brand/prd.md §14).
  */
 function markInternalMemoCatalogSynced(string $branchCode = 'BLS', ?DateTimeInterface $syncedAt = null): RndInternalMemoCatalogSync
 {
@@ -146,7 +146,7 @@ function markInternalMemoCatalogSynced(string $branchCode = 'BLS', ?DateTimeInte
 }
 
 /**
- * Phase 0 (docs/rnd-internal-memo-prd.md §19) — Contract validation.
+ * Phase 0 (docs/products/rnd/internal-memo/prd.md §19) — Contract validation.
  *
  * No live ESB Master Menu / ESB Core BOM response was available to sample directly from
  * this environment. These fixtures are reconstructed only from fields already read or
@@ -233,4 +233,106 @@ function internalMemoAssemblyBomDetailFixture(array $overrides = []): array
         'productDetailID' => 15003,
         'productCode' => 'BW1356',
     ], $overrides));
+}
+
+/*
+|--------------------------------------------------------------------------
+| Kitchen Production Order ESB fixtures (docs/products/kitchen/production-schedule/prd.md §27.2)
+|--------------------------------------------------------------------------
+|
+| Structure (field names and types) verified against a live BLSS response on 27 Oct 2026; every
+| value below is fictional. The list row has the header fields plus canEdit/canDelete; the
+| detail adds actors, {creator,editor,authorizer}.fullName, and `productionOrderDetails` with
+| nested `productionOrderMaterials`. Dates are ISO-8601 with an offset.
+*/
+
+function esbProductionOrderRow(array $overrides = []): array
+{
+    return array_replace([
+        'productionOrderNum' => 'PO-0001',
+        'productionOrderDate' => '2026-10-14T00:00:00+07:00',
+        'branchID' => 501,
+        'branchName' => 'Kitchen Contoh',
+        'bomTypeID' => 1,
+        'bomTypeName' => 'Assembly',
+        'additionalInfo' => 'Produksi pagi',
+        'statusID' => 2,
+        'statusName' => 'Authorized',
+        'canEdit' => false,
+        'canDelete' => false,
+    ], $overrides);
+}
+
+function esbProductionOrderListResponse(array $rows, int $page = 1, ?int $count = null, ?string $next = null): array
+{
+    return ['status' => 'ok', 'result' => [
+        'page' => $page,
+        'limit' => 100,
+        'count' => $count ?? count($rows),
+        'data' => $rows,
+        'prev' => $page > 1 ? 'prev' : null,
+        'next' => $next,
+    ]];
+}
+
+function esbProductionOrderMaterialRow(array $overrides = []): array
+{
+    return array_replace([
+        'ID' => 70001,
+        'productionOrderNum' => 'PO-0001',
+        'productionOrderDetailID' => 9001,
+        'productDetailID' => 16001,
+        'productName' => 'Tepung Contoh',
+        'productCode' => 'RAW-0001',
+        'uomName' => 'KG',
+        'stockQty' => 100.5,
+        'uomQty' => 1,
+        'bomQty' => 2.9,
+        'qtyBomDetail' => 2.9,
+        'totalQty' => '7.2500',
+        'weightFactor' => 1,
+        'printGroup' => null,
+        'settingDetail' => null,
+        'subtitutionManufacturings' => [],
+    ], $overrides);
+}
+
+function esbProductionOrderDetailRow(array $overrides = []): array
+{
+    return array_replace([
+        'ID' => 9001,
+        'productionOrderNum' => 'PO-0001',
+        'bomID' => 7301,
+        'bomName' => 'Adonan Roti Contoh',
+        'productDetailID' => 15003,
+        'productID' => 9003,
+        'productName' => 'Adonan Roti Contoh',
+        'productCode' => 'WIP-0001',
+        'uomName' => 'Resep@500GR',
+        'qty' => 500,
+        'productionOrderQty' => '12.5000',
+        'stockQty' => -1.25,
+        'notes' => '',
+        'flagFinished' => 0,
+        'productionOrderMaterials' => [
+            esbProductionOrderMaterialRow(),
+            esbProductionOrderMaterialRow(['ID' => 70002, 'productCode' => 'RAW-0002', 'productName' => 'Gula Contoh', 'totalQty' => 1.5]),
+        ],
+    ], $overrides);
+}
+
+function esbProductionOrderDetailResponse(array $header = [], ?array $details = null): array
+{
+    return ['status' => 'ok', 'result' => esbProductionOrderRow($header) + [
+        'createdBy' => 'pengguna.contoh',
+        'createdDate' => '2026-10-13T08:00:00+07:00',
+        'editedBy' => '',
+        'editedDate' => '',
+        'authorizedBy' => 'supervisor.contoh',
+        'authorizedDate' => '2026-10-13T09:00:00+07:00',
+        'productionOrderDetails' => $details ?? [esbProductionOrderDetailRow()],
+        'creator' => ['username' => 'pengguna.contoh', 'fullName' => 'Pengguna Contoh'],
+        'editor' => ['username' => '', 'fullName' => ''],
+        'authorizer' => ['username' => 'supervisor.contoh', 'fullName' => 'Supervisor Contoh'],
+    ]];
 }

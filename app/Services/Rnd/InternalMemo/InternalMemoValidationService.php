@@ -6,7 +6,7 @@ use App\Enums\RndInternalMemoMenuSyncStatus;
 use App\Models\RndInternalMemo;
 
 /**
- * docs/rnd-internal-memo-prd.md §15. Two catalog items are deliberately not implemented, both
+ * docs/products/rnd/internal-memo/prd.md §15. Two catalog items are deliberately not implemented, both
  * documented in the Phase 0 audit and the user's explicit simplification instruction:
  * - "Output yield wajib kosong atau nol" — the app never reads or computes an output yield
  *   at all (unproven field, dropped), so there is nothing to validate.

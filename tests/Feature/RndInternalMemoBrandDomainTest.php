@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/rnd-internal-memo-brand-prd.md §8, §13, §15, §16, §23.2–§23.6: Brand is metadata on the
+ * docs/products/rnd/internal-memo-brand/prd.md §8, §13, §15, §16, §23.2–§23.6: Brand is metadata on the
  * Memo, every new write is BLSS, and nothing in the active flow writes legacy Branch rows.
  */
 beforeEach(function () {

@@ -8,7 +8,7 @@ use App\Services\EsbProductSalesService;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/store-sales-order-prd.md §9, §10.1. Resolves the Branch's ESB mapping, then performs the
+ * docs/products/operational/store-sales-order/prd.md §9, §10.1. Resolves the Branch's ESB mapping, then performs the
  * exact-match ESB Core lookup. Both the Create and Refresh flows share this (never do the raw HTTP
  * call themselves), so the "never trust the first row" guarantee lives in exactly one place
  * (EsbProductSalesService).

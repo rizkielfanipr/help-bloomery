@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
- * Bulk lookup of WIP Shelf Life masters by Product Detail ID (docs/rnd-wip-shelf-life-prd.md
+ * Bulk lookup of WIP Shelf Life masters by Product Detail ID (docs/products/rnd/wip-shelf-life/prd.md
  * §13.3): IDs are de-duplicated, one query is run per call, results are keyed by Product Detail ID
  * and isolated to one company. Never calls ESB; legacy Menu-only rows never match.
  *

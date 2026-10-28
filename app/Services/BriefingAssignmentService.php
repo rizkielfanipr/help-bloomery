@@ -11,7 +11,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * docs/daily-briefing-remediation-prd.md §9. Single source of truth for Daily Briefing
+ * docs/products/daily-briefing/remediation/prd.md §9. Single source of truth for Daily Briefing
  * participation and task assignment, used by the submission page, scheduler, calendars,
  * monitoring, scoring, and report/export so every consumer evaluates the same user/task/period/date
  * input to the same result. Framework-agnostic: no Filament/Livewire dependency.

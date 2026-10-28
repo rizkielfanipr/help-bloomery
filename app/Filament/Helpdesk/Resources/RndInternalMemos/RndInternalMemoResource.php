@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * docs/rnd-internal-memo-prd.md. Every action here is gated by RndInternalMemoPolicy
+ * docs/products/rnd/internal-memo/prd.md. Every action here is gated by RndInternalMemoPolicy
  * (auto-discovered by Laravel for the RndInternalMemo model), never by role name.
  */
 class RndInternalMemoResource extends Resource

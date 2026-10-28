@@ -12,7 +12,7 @@ use Throwable;
 /**
  * Serves private Customer Complaint attachments, mirroring
  * RndProjectTaskAttachmentController's authorization + strict path pattern
- * (docs/customer-complaints-prd.md §15, §20.3) rather than ERP Request's unauthenticated inline
+ * (docs/products/operational/customer-complaints/prd.md §15, §20.3) rather than ERP Request's unauthenticated inline
  * URL. The path itself does not embed a complaint id (it is only `customer-complaints/{branchId}/
  * {filename}`), so the complaint is instead resolved by finding which record actually has this
  * exact path registered on it — a path that is not registered to any complaint 404s before

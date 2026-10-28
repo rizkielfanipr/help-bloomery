@@ -70,7 +70,7 @@ it('still requires the matching permission for a user with access_all_branches',
     $order = StoreSalesOrder::factory()->create();
 
     // access_all_branches only widens branch scope; it never substitutes for a permission
-    // (docs/store-sales-order-prd.md §16 "access_all_branches tetap membutuhkan permission fitur").
+    // (docs/products/operational/store-sales-order/prd.md §16 "access_all_branches tetap membutuhkan permission fitur").
     expect($manager->can('view', $order))->toBeFalse();
 
     $manager->givePermissionTo(['view any store sales orders', 'view store sales orders']);

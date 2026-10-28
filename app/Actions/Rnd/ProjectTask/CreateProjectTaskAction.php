@@ -14,14 +14,14 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Creates a Task and shares it in one step (docs/rnd-project-task-calendar-prd.md §11, §10.2):
+ * Creates a Task and shares it in one step (docs/products/rnd/project-task-calendar/prd.md §11, §10.2):
  * the Tambah Tugas form already collects Branch and PIC per Branch up front, so a Task created
  * through it always satisfies the "Draft hanya dapat dibagikan jika..." completeness rule and
  * goes straight to Assigned with one `RndProjectTaskAssignment` row per (Branch, PIC) pair. A
  * Branch may have more than one PIC (§11: "minimal satu pengguna aktif per Branch").
  *
  * This is also the shared creation core of "Gunakan Template" and "Copy Task"
- * (docs/rnd-project-checkpoint-calendar-prd.md §17.2): assignment notifications are deferred with
+ * (docs/products/rnd/project-checkpoint-calendar/prd.md §17.2): assignment notifications are deferred with
  * `DB::afterCommit()`, so a caller's outer transaction only notifies PICs once it commits and a
  * rolled-back batch notifies nobody.
  *

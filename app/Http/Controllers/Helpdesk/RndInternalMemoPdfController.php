@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * docs/rnd-internal-memo-prd.md §7.6, §16. The only way to reach a generated PDF; the file
+ * docs/products/rnd/internal-memo/prd.md §7.6, §16. The only way to reach a generated PDF; the file
  * itself lives on a private disk, never a publicly reachable path.
  */
 class RndInternalMemoPdfController extends Controller

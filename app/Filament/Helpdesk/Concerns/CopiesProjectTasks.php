@@ -10,7 +10,7 @@ use Filament\Notifications\Notification;
 use Livewire\Attributes\Locked;
 
 /**
- * "Copy Task" modal (docs/rnd-project-checkpoint-calendar-prd.md §10.3, §21.5), opened from the
+ * "Copy Task" modal (docs/products/rnd/project-checkpoint-calendar/prd.md §10.3, §21.5), opened from the
  * Task detail on both calendars. The copy stays in the source Project on the MVP; the user
  * confirms the title, new dates, and Branch/PIC. Persistence and the field allowlist live in
  * `CopyProjectTaskAction`. Requires `InteractsWithProjectTasks` on the host.

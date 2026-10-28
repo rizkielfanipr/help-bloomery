@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §13.6/Phase 9. The only path that persists a
+ * docs/products/daily-briefing/scoring-ui/prd.md §13.6/Phase 9. The only path that persists a
  * BriefingScoreCalculator result — used by briefing:compute-scores and the workspace's "Hitung
  * Ulang" action, so the UI never has to assemble a command string or duplicate the
  * compute-then-save sequence. One branch's transaction failing never touches another branch's

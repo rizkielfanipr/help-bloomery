@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 /**
- * Wires System Monitoring (docs/system-monitoring-prd.md §22) into the existing application
+ * Wires System Monitoring (docs/products/system-monitoring/prd.md §22) into the existing application
  * without changing any business flow.
  */
 class MonitoringServiceProvider extends ServiceProvider

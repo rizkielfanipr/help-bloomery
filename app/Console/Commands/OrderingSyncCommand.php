@@ -10,7 +10,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 /**
- * Daily Ordering Recommendation sync (docs/ordering-recommendation-prd.md §12.2): dispatches the
+ * Daily Ordering Recommendation sync (docs/products/analytics/ordering-recommendation/prd.md §12.2): dispatches the
  * previous day's Daily Usage and Stock Movement snapshot per branch and company pair, then the
  * 7- and 14-day forecasts. Only dispatches; every fetch runs in its own queued job.
  */

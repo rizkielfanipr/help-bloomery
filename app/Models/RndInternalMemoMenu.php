@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * docs/rnd-internal-memo-prd.md §12.2. One row per ESB Menu added to a memo. `esb_bom_id`
+ * docs/products/rnd/internal-memo/prd.md §12.2. One row per ESB Menu added to a memo. `esb_bom_id`
  * mirrors the Menu's own `bomID`; a Menu with `bomID = 0` cannot be added at all
  * (§9.4 / §15.1), so this column is never 0 for a persisted row.
  */
@@ -76,7 +76,7 @@ class RndInternalMemoMenu extends Model
     }
 
     /**
-     * docs/rnd-internal-memo-multi-branch-prd.md §7.3, §9.2 — branches this merged Menu is
+     * docs/products/rnd/internal-memo-multi-branch/prd.md §7.3, §9.2 — branches this merged Menu is
      * available from. A Menu merged across branches still has exactly one row here per source
      * Company Code (§7.3 "Menu digabung dengan identitas company_code + menuID").
      */

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 /**
- * docs/rnd-internal-memo-simplification-prd.md §14.2: "Query count tidak bertambah linear karena
+ * docs/products/rnd/internal-memo-simplification/prd.md §14.2: "Query count tidak bertambah linear karena
  * N+1 pada daftar Menu/item." These compare a small and a large Memo's query count on render;
  * a real N+1 would scale with the number of Menus/Materials, a batched eager load would not.
  * Query logging is disabled while the fixture data itself is being created, so only the page's

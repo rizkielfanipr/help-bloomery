@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
- * Read model of Ordering Recommendation (docs/ordering-recommendation-prd.md §20, §22). Every
+ * Read model of Ordering Recommendation (docs/products/analytics/ordering-recommendation/prd.md §20, §22). Every
  * read starts from the branches the user may access; branch IDs coming from the browser are only
  * ever intersected with that scope. Results come from the latest completed forecast run per
  * branch and horizon. Quantities are never summed across UOMs.
@@ -250,6 +250,23 @@ class OrderingRecommendationQuery
             '7–14 hari' => (int) $row->days_7_14, '≥ 14 hari' => (int) $row->over_14,
             'Tidak ada demand' => (int) $row->no_demand, 'Blocked' => (int) $row->blocked,
         ];
+    }
+
+    /**
+     * Plain label and explanation of a source state for every user, shared by the page and the export.
+     *
+     * @return array{label: string, description: string}
+     */
+    public static function stateText(string $state): array
+    {
+        $hours = (int) config('ordering_recommendation.stock_stale_hours');
+
+        return match ($state) {
+            'fresh' => ['label' => 'Data lengkap', 'description' => "Data penjualan dan stok dari ESB sudah lengkap dan diperbarui dalam {$hours} jam terakhir."],
+            'partial' => ['label' => 'Data belum lengkap', 'description' => 'Ada hari yang datanya belum berhasil diambil dari ESB, jadi rekomendasi bisa kurang akurat.'],
+            'stale' => ['label' => 'Data perlu diperbarui', 'description' => "Data terakhir diambil dari ESB lebih dari {$hours} jam yang lalu, jadi rekomendasi mungkin tidak sesuai kondisi saat ini."],
+            default => ['label' => 'Data penjualan tidak tersedia', 'description' => 'Data pemakaian bahan dari ESB belum tersedia, jadi rekomendasi belum bisa dihitung.'],
+        };
     }
 
     /**

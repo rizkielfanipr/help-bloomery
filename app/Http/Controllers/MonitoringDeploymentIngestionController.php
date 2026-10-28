@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Signed deployment callback (docs/system-monitoring-prd.md §14). Disabled (404) until
+ * Signed deployment callback (docs/products/system-monitoring/prd.md §14). Disabled (404) until
  * MONITORING_DEPLOYMENT_SECRET is configured on the server.
  *
  * Signature: hex HMAC-SHA256 of "{timestamp}.{nonce}.{raw body}" with the shared secret, sent as

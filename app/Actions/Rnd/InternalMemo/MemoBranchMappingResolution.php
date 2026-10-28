@@ -7,7 +7,7 @@ use App\Models\BranchEsbCode;
 
 /**
  * Result of resolving one Branch's ESB mapping for R&D Internal Memo
- * (docs/rnd-internal-memo-multi-branch-prd.md §7.2, §8). `blockedReason` is the exact, specific,
+ * (docs/products/rnd/internal-memo-multi-branch/prd.md §7.2, §8). `blockedReason` is the exact, specific,
  * credential-free message the PRD requires ("Mapping ESB belum lengkap", "Static token BLO15
  * belum tersedia", etc.) to show next to a disabled Branch in the picker.
  */

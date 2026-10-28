@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * WIP Shelf Life identity (docs/rnd-wip-shelf-life-prd.md §12.2, §21.5): one row per
+ * WIP Shelf Life identity (docs/products/rnd/wip-shelf-life/prd.md §12.2, §21.5): one row per
  * `company_code + esb_product_detail_id`. Legacy Menu-only rows keep a NULL Product Detail ID and
  * are not affected (NULLs never collide in a unique index). The index covers soft-deleted rows too,
  * so creating an identity that was deleted restores the old row instead of inserting a new one.

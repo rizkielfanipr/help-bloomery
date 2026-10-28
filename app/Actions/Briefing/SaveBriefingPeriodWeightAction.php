@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §12.2/§12.3/§16 (Phase 4). The only path that saves the
+ * docs/products/daily-briefing/scoring-ui/prd.md §12.2/§12.3/§16 (Phase 4). The only path that saves the
  * default period weight row (branch_id null) or a branch override — shared by the legacy
  * BriefingPeriodWeightsPage and the new Settings page's Override Branch section. `execute(null,
  * ...)` always targets the default row; branch access is re-checked here even though callers
@@ -58,7 +58,7 @@ class SaveBriefingPeriodWeightAction
 
     /**
      * `edit briefing period weights` is currently only held by HRD_STAFF/SUPERADMIN as a global
-     * HR-configuration permission, not a per-branch one — docs/daily-briefing-scoring-ui-prd.md
+     * HR-configuration permission, not a per-branch one — docs/products/daily-briefing/scoring-ui/prd.md
      * §16 only requires branch-scoping it "jika supervisor boleh mengatur bobot branch", which
      * is not the case today. Narrowing this to accessibleBranchIds() without that explicit
      * decision would silently take away capability the existing holders rely on.

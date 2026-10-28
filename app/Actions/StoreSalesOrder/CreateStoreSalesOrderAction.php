@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/store-sales-order-prd.md §10, §14, §15.3. Branch is re-validated server-side (§16
+ * docs/products/operational/store-sales-order/prd.md §10, §14, §15.3. Branch is re-validated server-side (§16
  * "branch divalidasi ulang di server"). If the number is already stored for this
  * company+branch, the user is redirected to the existing record instead of creating a duplicate
  * (§14 "user diarahkan ke record yang ada jika mempunyai akses") — a second, DB-level unique

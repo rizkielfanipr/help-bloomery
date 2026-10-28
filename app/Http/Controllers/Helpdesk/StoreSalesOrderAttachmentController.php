@@ -12,7 +12,7 @@ use Throwable;
 /**
  * Serves private Store Sales Order attachments, mirroring
  * CustomerComplaintAttachmentController's authorization + strict path pattern
- * (docs/store-sales-order-prd.md §10.4, §20.4) rather than ERP Request's unauthenticated inline
+ * (docs/products/operational/store-sales-order/prd.md §10.4, §20.4) rather than ERP Request's unauthenticated inline
  * URL. The path itself does not embed an order id (it is only
  * `store-sales-orders/{branchId}/{filename}`), so the order is instead resolved by finding which
  * record actually has this exact path registered on it — a path that is not registered to any

@@ -4,6 +4,7 @@ namespace App\Jobs\Ordering;
 
 use App\Models\Branch;
 use App\Services\Ordering\OrderingForecastGenerator;
+use DateTimeInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,14 +14,14 @@ use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 /**
  * Generates one forecast run per branch, cutoff, and horizon from the local snapshot
- * (docs/ordering-recommendation-prd.md §13). Reruns are idempotent; a failure leaves the latest
+ * (docs/products/analytics/ordering-recommendation/prd.md §13). Reruns are idempotent; a failure leaves the latest
  * completed run in place.
  */
 class GenerateOrderingForecastJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
 
-    public int $tries = 2;
+    public int $tries = 0;
 
     public int $timeout = 80;
 
@@ -39,6 +40,11 @@ class GenerateOrderingForecastJob implements ShouldBeUnique, ShouldQueue
     public function uniqueId(): string
     {
         return "ordering-forecast:{$this->branchId}:{$this->cutoff}:{$this->horizon}";
+    }
+
+    public function retryUntil(): DateTimeInterface
+    {
+        return now()->addHours(2);
     }
 
     /** @return list<object> */

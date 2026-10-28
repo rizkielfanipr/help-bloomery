@@ -2,6 +2,8 @@
 
 namespace App\Filament\Helpdesk\Resources\MaterialSourcings;
 
+use App\Actions\Rnd\Material\AddMaterialSupplierCandidatesAction;
+use App\Actions\Rnd\Material\ReviewLegacyMaterialSourcingFinanceAction;
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
@@ -13,7 +15,6 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\ViewField;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Component;
@@ -25,7 +26,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use UnitEnum;
 
 class MaterialSourcingResource extends Resource
@@ -54,124 +55,15 @@ class MaterialSourcingResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->where(function (Builder $query): void {
-                $query->whereNull('category_name')
-                    ->orWhere('category_name', '!=', 'Barang WIP')
-                    ->orWhere('sourcing_origin', RndProductEsbMaterial::SOURCING_ORIGIN_STANDALONE);
-            }))
-            ->columns([
-                TextColumn::make('product.project.name')
-                    ->label('PROJECT')
-                    ->default('Mandiri')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('product.name')
-                    ->label('PRODUK')
-                    ->default('Tanpa Project')
-                    ->searchable()
-                    ->sortable(),
-
-                TextColumn::make('product_name')
-                    ->label('BAHAN')
-                    ->searchable()
-                    ->wrap(),
-
-                TextColumn::make('product_code')
-                    ->label('KODE')
-                    ->state(fn (RndProductEsbMaterial $record): string => $record->isStandalone()
-                        ? ($record->esb_product_code ?: $record->product_code)
-                        : $record->product_code)
-                    ->badge()
-                    ->color('gray'),
-
-                TextColumn::make('sourcing_status')
-                    ->label('STATUS SOURCING')
-                    ->badge()
-                    ->sortable(),
-
-                TextColumn::make('sourcings_count')
-                    ->label('SUPPLIER'),
-
-                TextColumn::make('updated_at')
-                    ->label('DIPERBARUI')
-                    ->date('d M Y')
-                    ->sortable(),
-            ])
-            ->filters([
-                Filter::make('project_name')
-                    ->label('PROJECT')
-                    ->form([TextInput::make('value')->label('Project')])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when(filled($data['value'] ?? null), function (Builder $query) use ($data): Builder {
-                            $term = trim((string) $data['value']);
-
-                            return $query->where(fn (Builder $query) => $query
-                                ->whereHas('product.project', fn (Builder $query) => $query->where('name', 'like', '%'.$term.'%'))
-                                ->when(str_contains('mandiri', mb_strtolower($term)), fn (Builder $query) => $query
-                                    ->orWhere('sourcing_origin', RndProductEsbMaterial::SOURCING_ORIGIN_STANDALONE)));
-                        })),
-
-                Filter::make('product_name_filter')
-                    ->label('PRODUK')
-                    ->form([TextInput::make('value')->label('Produk')])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
-                            ->whereHas('product', fn (Builder $query) => $query
-                                ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
-
-                Filter::make('material_name')
-                    ->label('BAHAN')
-                    ->form([TextInput::make('value')->label('Bahan')])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
-                            ->where('product_name', 'like', '%'.trim((string) $data['value']).'%'))),
-
-                Filter::make('product_code_filter')
-                    ->label('KODE')
-                    ->form([TextInput::make('value')->label('Kode')])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
-                            ->where(fn (Builder $query) => $query
-                                ->where('product_code', 'like', '%'.trim((string) $data['value']).'%')
-                                ->orWhere('esb_product_code', 'like', '%'.trim((string) $data['value']).'%')))),
-
-                SelectFilter::make('sourcing_status')
-                    ->label('STATUS SOURCING')
-                    ->options(MaterialSourcingStatus::class),
-
-                Filter::make('updated_at')
-                    ->label('DIPERBARUI')
-                    ->form([
-                        DatePicker::make('from')->label('Dari Tanggal'),
-                        DatePicker::make('until')->label('Sampai Tanggal'),
-                    ])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('updated_at', '>=', $date))
-                        ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('updated_at', '<=', $date))),
-            ], layout: FiltersLayout::AboveContent)
+            ->modifyQueryUsing(fn (Builder $query): Builder => self::scopeSourcingQueue($query))
+            ->columns(self::queueColumns())
+            ->filters(self::queueFilters(), layout: FiltersLayout::AboveContent)
             ->deferFilters(false)
             ->defaultSort('updated_at', 'desc')
             ->defaultPaginationPageOption(10)
             ->paginationPageOptions([10, 25, 50, 100])
             ->recordActions([
-                Action::make('view_sourcing')
-                    ->label('Lihat Supplier')
-                    ->icon('heroicon-o-eye')
-                    ->tooltip('Lihat Supplier')
-                    ->color('info')
-                    ->iconButton()
-                    ->modalWidth(Width::ThreeExtraLarge)
-                    ->stickyModalHeader()
-                    ->stickyModalFooter()
-                    ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
-                    ->modalHeading(fn (RndProductEsbMaterial $record): string => 'Detail Supplier — '.$record->product_name)
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Tutup')
-                    ->visible(fn (RndProductEsbMaterial $record): bool => $record->sourcings_count > 0)
-                    ->modalContent(fn (RndProductEsbMaterial $record) => view('filament.helpdesk.material-sourcings.view-sourcing', [
-                        'record' => $record->load(['sourcings', 'selectedSourcing', 'rndReviewer', 'financeReviewer']),
-                    ])),
+                MaterialSourcingActions::viewSourcing(),
 
                 Action::make('manage_sourcing')
                     ->label(fn (RndProductEsbMaterial $record): string => $record->sourcings_count > 0 ? 'Tambah Supplier' : 'Kelola Sourcing')
@@ -185,7 +77,8 @@ class MaterialSourcingResource extends Resource
                     ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
                     ->modalHeading(fn (RndProductEsbMaterial $record): string => ($record->sourcings_count > 0 ? 'Tambah Supplier — ' : 'Kelola Supplier — ').$record->product_name)
                     ->modalSubmitActionLabel('Kirim ke RnD')
-                    ->visible(fn (): bool => auth()->user()?->can('submit material sourcing') ?? false)
+                    ->visible(fn (RndProductEsbMaterial $record): bool => (auth()->user()?->can('submit material sourcing') ?? false)
+                        && (! $record->isInWorkflow() || in_array($record->sourcing_status, [MaterialSourcingStatus::WaitingPurchasing, MaterialSourcingStatus::SourcingInProgress, MaterialSourcingStatus::ResampleRequested], true)))
                     ->fillForm(fn (): array => ['sourcings' => [[]]])
                     ->form([
                         Repeater::make('sourcings')
@@ -198,103 +91,20 @@ class MaterialSourcingResource extends Resource
                             ->columnSpanFull(),
                     ])
                     ->action(function (RndProductEsbMaterial $record, array $data): void {
-                        DB::transaction(function () use ($record, $data): void {
-                            foreach ($data['sourcings'] as $row) {
-                                $record->sourcings()->create([
-                                    ...$row,
-                                    'submitted_by' => auth()->id(),
-                                ]);
-                            }
+                        try {
+                            app(AddMaterialSupplierCandidatesAction::class)->execute($record, auth()->user(), array_values($data['sourcings']));
+                        } catch (ValidationException $exception) {
+                            Notification::make()->title('Supplier tidak dapat ditambahkan')->body(collect($exception->errors())->flatten()->implode(' '))->danger()->send();
 
-                            $record->update([
-                                'sourcing_status' => MaterialSourcingStatus::PendingRndReview,
-                                'sourcing_selected_id' => null,
-                                'rnd_reviewed_by' => null,
-                                'rnd_reviewed_at' => null,
-                                'rnd_note' => null,
-                                'finance_reviewed_by' => null,
-                                'finance_reviewed_at' => null,
-                                'finance_note' => null,
-                            ]);
-                        });
+                            return;
+                        }
 
-                        Notification::make()->title('Sourcing dikirim untuk review RnD')->success()->send();
+                        Notification::make()->title($record->isInWorkflow() ? 'Kandidat supplier disimpan' : 'Sourcing dikirim untuk review RnD')->success()->send();
                     }),
 
-                Action::make('approve_rnd')
-                    ->label('Setujui (RnD)')
-                    ->icon('heroicon-o-check-circle')
-                    ->tooltip('Setujui (RnD)')
-                    ->color('success')
-                    ->iconButton()
-                    ->modalWidth(Width::ThreeExtraLarge)
-                    ->stickyModalHeader()
-                    ->stickyModalFooter()
-                    ->extraModalWindowAttributes(['class' => 'material-sourcing-modal'])
-                    ->modalHeading(fn (RndProductEsbMaterial $record): string => 'Setujui Supplier Pilihan RnD — '.$record->product_name)
-                    ->modalSubmitActionLabel('Setujui & Kirim ke Finance')
-                    ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('review material sourcing as rnd')
-                        && $record->sourcing_status === MaterialSourcingStatus::PendingRndReview)
-                    ->form([
-                        ViewField::make('sourcing_selected_id')
-                            ->view('filament.helpdesk.material-sourcings.supplier-selection-cards')
-                            ->hiddenLabel()
-                            ->required(),
-                        Textarea::make('rnd_note')->label('Catatan'),
-                    ])
-                    ->action(function (RndProductEsbMaterial $record, array $data): void {
-                        DB::transaction(function () use ($record, $data): void {
-                            $record->update([
-                                'sourcing_selected_id' => $data['sourcing_selected_id'],
-                                'rnd_reviewed_by' => auth()->id(),
-                                'rnd_reviewed_at' => now(),
-                                'rnd_note' => $data['rnd_note'] ?? null,
-                                'sourcing_status' => MaterialSourcingStatus::PendingFinanceReview,
-                            ]);
-
-                            $record->sourcingApprovals()->create([
-                                'stage' => 'rnd',
-                                'action' => 'approved',
-                                'actor_id' => auth()->id(),
-                                'notes' => $data['rnd_note'] ?? null,
-                            ]);
-                        });
-
-                        Notification::make()->title('Sourcing disetujui, menunggu review Finance')->success()->send();
-                    }),
-
-                Action::make('reject_rnd')
-                    ->label('Tolak (RnD)')
-                    ->icon('heroicon-o-x-circle')
-                    ->tooltip('Tolak (RnD)')
-                    ->color('danger')
-                    ->iconButton()
-                    ->modalHeading('Tolak Pengajuan Supplier')
-                    ->modalSubmitActionLabel('Tolak & Kembalikan')
-                    ->visible(fn (RndProductEsbMaterial $record): bool => auth()->user()?->can('review material sourcing as rnd')
-                        && $record->sourcing_status === MaterialSourcingStatus::PendingRndReview)
-                    ->form([
-                        Textarea::make('rnd_note')->label('Alasan Penolakan')->required()->minLength(5),
-                    ])
-                    ->action(function (RndProductEsbMaterial $record, array $data): void {
-                        DB::transaction(function () use ($record, $data): void {
-                            $record->update([
-                                'rnd_reviewed_by' => auth()->id(),
-                                'rnd_reviewed_at' => now(),
-                                'rnd_note' => $data['rnd_note'],
-                                'sourcing_status' => MaterialSourcingStatus::Rejected,
-                            ]);
-
-                            $record->sourcingApprovals()->create([
-                                'stage' => 'rnd',
-                                'action' => 'rejected',
-                                'actor_id' => auth()->id(),
-                                'notes' => $data['rnd_note'],
-                            ]);
-                        });
-
-                        Notification::make()->title('Sourcing ditolak, dikembalikan ke Purchasing')->warning()->send();
-                    }),
+                // R&D receipt, evaluation, and legacy supplier approval live in Review Sourcing (R&D menu).
+                MaterialSourcingActions::handOverSample(),
+                MaterialSourcingActions::sampleHistory(),
 
                 Action::make('approve_finance')
                     ->label('Setujui (Finance)')
@@ -313,21 +123,13 @@ class MaterialSourcingResource extends Resource
                         Textarea::make('finance_note')->label('Catatan'),
                     ])
                     ->action(function (RndProductEsbMaterial $record, array $data): void {
-                        DB::transaction(function () use ($record, $data): void {
-                            $record->update([
-                                'finance_reviewed_by' => auth()->id(),
-                                'finance_reviewed_at' => now(),
-                                'finance_note' => $data['finance_note'] ?? null,
-                                'sourcing_status' => MaterialSourcingStatus::Approved,
-                            ]);
+                        try {
+                            app(ReviewLegacyMaterialSourcingFinanceAction::class)->execute($record, auth()->user(), 'approve', $data['finance_note'] ?? null);
+                        } catch (ValidationException $exception) {
+                            Notification::make()->title('Sourcing tidak dapat diproses')->body(collect($exception->errors())->flatten()->implode(' '))->danger()->send();
 
-                            $record->sourcingApprovals()->create([
-                                'stage' => 'finance',
-                                'action' => 'approved',
-                                'actor_id' => auth()->id(),
-                                'notes' => $data['finance_note'] ?? null,
-                            ]);
-                        });
+                            return;
+                        }
 
                         Notification::make()->title('Sourcing disetujui Finance')->success()->send();
                     }),
@@ -346,25 +148,142 @@ class MaterialSourcingResource extends Resource
                         Textarea::make('finance_note')->label('Alasan Penolakan')->required()->minLength(5),
                     ])
                     ->action(function (RndProductEsbMaterial $record, array $data): void {
-                        DB::transaction(function () use ($record, $data): void {
-                            $record->update([
-                                'finance_reviewed_by' => auth()->id(),
-                                'finance_reviewed_at' => now(),
-                                'finance_note' => $data['finance_note'],
-                                'sourcing_status' => MaterialSourcingStatus::PendingRndReview,
-                            ]);
+                        try {
+                            app(ReviewLegacyMaterialSourcingFinanceAction::class)->execute($record, auth()->user(), 'reject', $data['finance_note']);
+                        } catch (ValidationException $exception) {
+                            Notification::make()->title('Sourcing tidak dapat diproses')->body(collect($exception->errors())->flatten()->implode(' '))->danger()->send();
 
-                            $record->sourcingApprovals()->create([
-                                'stage' => 'finance',
-                                'action' => 'rejected',
-                                'actor_id' => auth()->id(),
-                                'notes' => $data['finance_note'],
-                            ]);
-                        });
+                            return;
+                        }
 
                         Notification::make()->title('Sourcing dikembalikan ke RnD')->warning()->send();
                     }),
             ]);
+    }
+
+    /**
+     * Rows that belong to the sourcing queues: no plain WIP (it never needs sourcing, §10.2) and
+     * Master Bahan workflow rows only once the verified ESB sync created their Sourcing Request
+     * (docs/products/rnd/material-sourcing-lifecycle/prd.md §15.2).
+     */
+    public static function scopeSourcingQueue(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->whereNull('category_name')
+                ->orWhere('category_name', '!=', 'Barang WIP')
+                ->orWhere('sourcing_origin', RndProductEsbMaterial::SOURCING_ORIGIN_STANDALONE);
+        })->where(fn (Builder $query) => $query
+            ->whereNull('review_status')
+            ->orWhereNotNull('sourcing_requested_at'));
+    }
+
+    /**
+     * Columns shared with Review Sourcing; their names drive the inline header filters.
+     *
+     * @return list<TextColumn>
+     */
+    public static function queueColumns(): array
+    {
+        return [
+            TextColumn::make('product.project.name')
+                ->label('PROJECT')
+                ->default('Mandiri')
+                ->searchable()
+                ->sortable(),
+
+            TextColumn::make('product.name')
+                ->label('PRODUK')
+                ->default('Tanpa Project')
+                ->searchable()
+                ->sortable(),
+
+            TextColumn::make('product_name')
+                ->label('BAHAN')
+                ->searchable()
+                ->wrap(),
+
+            TextColumn::make('product_code')
+                ->label('KODE')
+                ->state(fn (RndProductEsbMaterial $record): string => $record->isStandalone()
+                    ? ($record->esb_product_code ?: $record->product_code)
+                    : $record->product_code)
+                ->badge()
+                ->color('gray'),
+
+            TextColumn::make('sourcing_status')
+                ->label('STATUS SOURCING')
+                ->badge()
+                ->sortable(),
+
+            TextColumn::make('sourcings_count')
+                ->label('SUPPLIER'),
+
+            TextColumn::make('updated_at')
+                ->label('DIPERBARUI')
+                ->date('d M Y')
+                ->sortable(),
+        ];
+    }
+
+    /**
+     * Filters shared with Review Sourcing, rendered inline in the column headers.
+     *
+     * @return list<Filter|SelectFilter>
+     */
+    public static function queueFilters(): array
+    {
+        return [
+            Filter::make('project_name')
+                ->label('PROJECT')
+                ->form([TextInput::make('value')->label('Project')])
+                ->query(fn (Builder $query, array $data): Builder => $query
+                    ->when(filled($data['value'] ?? null), function (Builder $query) use ($data): Builder {
+                        $term = trim((string) $data['value']);
+
+                        return $query->where(fn (Builder $query) => $query
+                            ->whereHas('product.project', fn (Builder $query) => $query->where('name', 'like', '%'.$term.'%'))
+                            ->when(str_contains('mandiri', mb_strtolower($term)), fn (Builder $query) => $query
+                                ->orWhere('sourcing_origin', RndProductEsbMaterial::SOURCING_ORIGIN_STANDALONE)));
+                    })),
+
+            Filter::make('product_name_filter')
+                ->label('PRODUK')
+                ->form([TextInput::make('value')->label('Produk')])
+                ->query(fn (Builder $query, array $data): Builder => $query
+                    ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                        ->whereHas('product', fn (Builder $query) => $query
+                            ->where('name', 'like', '%'.trim((string) $data['value']).'%')))),
+
+            Filter::make('material_name')
+                ->label('BAHAN')
+                ->form([TextInput::make('value')->label('Bahan')])
+                ->query(fn (Builder $query, array $data): Builder => $query
+                    ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                        ->where('product_name', 'like', '%'.trim((string) $data['value']).'%'))),
+
+            Filter::make('product_code_filter')
+                ->label('KODE')
+                ->form([TextInput::make('value')->label('Kode')])
+                ->query(fn (Builder $query, array $data): Builder => $query
+                    ->when(filled($data['value'] ?? null), fn (Builder $query): Builder => $query
+                        ->where(fn (Builder $query) => $query
+                            ->where('product_code', 'like', '%'.trim((string) $data['value']).'%')
+                            ->orWhere('esb_product_code', 'like', '%'.trim((string) $data['value']).'%')))),
+
+            SelectFilter::make('sourcing_status')
+                ->label('STATUS SOURCING')
+                ->options(MaterialSourcingStatus::class),
+
+            Filter::make('updated_at')
+                ->label('DIPERBARUI')
+                ->form([
+                    DatePicker::make('from')->label('Dari Tanggal'),
+                    DatePicker::make('until')->label('Sampai Tanggal'),
+                ])
+                ->query(fn (Builder $query, array $data): Builder => $query
+                    ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('updated_at', '>=', $date))
+                    ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('updated_at', '<=', $date))),
+        ];
     }
 
     public static function getEloquentQuery(): Builder
@@ -380,7 +299,7 @@ class MaterialSourcingResource extends Resource
         return [
             TextInput::make('supplier_name')->label('Nama Supplier')->required()->maxLength(255),
             TextInput::make('brand')->label('Merk')->maxLength(255),
-            TextInput::make('price')->label('Harga')->numeric()->required(),
+            TextInput::make('price')->label('Harga')->numeric()->required()->gt(0),
             TextInput::make('moq')->label('MOQ')->placeholder('mis. 100 kg'),
             TextInput::make('lead_time_days')->label('Lead Time (hari)')->numeric()->integer(),
             TextInput::make('contact_name')->label('Nama Kontak'),

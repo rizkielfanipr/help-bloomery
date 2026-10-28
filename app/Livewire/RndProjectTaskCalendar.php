@@ -16,7 +16,7 @@ use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
- * "Kalender & Task" section of the Project detail page (docs/rnd-project-checkpoint-calendar-prd.md
+ * "Kalender & Task" section of the Project detail page (docs/products/rnd/project-checkpoint-calendar/prd.md
  * §7.1, §11, §17.4) — the operational workspace for one Project's Tasks. A dedicated child
  * component so `ViewProject` stays thin: it owns the month state and range query, and reuses the
  * shared Task workflow (`InteractsWithProjectTasks`) and the apply-template wizard with the Project

@@ -12,7 +12,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 
 /**
- * docs/daily-briefing-remediation-prd.md §17.3 (Phase 12). Only a dry-run is implemented in this
+ * docs/products/daily-briefing/remediation/prd.md §17.3 (Phase 12). Only a dry-run is implemented in this
  * release — there is deliberately no mutating code path at all yet, so this command cannot
  * delete or change anything no matter how it is invoked. A mutating mode (and its own approval,
  * sampling, and rollback-artifact step) is a separate, explicitly-authorized follow-up per the
@@ -28,7 +28,7 @@ class BriefingCleanupInvalidRecordsCommand extends Command
             $this->error(
                 'Mutation mode is not implemented. Run with --dry-run. Deleting/changing cleanup '
                 .'candidates requires a separate, explicitly-approved follow-up (see '
-                .'docs/daily-briefing-remediation-prd.md §17.3).'
+                .'docs/products/daily-briefing/remediation/prd.md §17.3).'
             );
 
             return Command::FAILURE;

@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §17: deduplicated alerts. `active_dedup_key` equals `dedup_key`
+ * docs/products/system-monitoring/prd.md §17: deduplicated alerts. `active_dedup_key` equals `dedup_key`
  * while the alert is active and is cleared on recovery, so the unique index guarantees at most
  * one active alert per environment + service/check/fingerprint key.
  */

@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 /**
- * Incident Center (docs/system-monitoring-prd.md §16). Management can read; changes go through
+ * Incident Center (docs/products/system-monitoring/prd.md §16). Management can read; changes go through
  * the incident Actions, which authorize and write the append-only timeline.
  */
 class MonitoringIncidentResource extends Resource

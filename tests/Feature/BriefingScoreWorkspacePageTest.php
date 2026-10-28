@@ -16,7 +16,7 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §13/§16/§21 (Phase 8/14).
+ * docs/products/daily-briefing/scoring-ui/prd.md §13/§16/§21 (Phase 8/14).
  */
 function scoreFor(Branch $branch, int $year, int $month, float $score, array $overrides = []): BriefingScore
 {

@@ -6,9 +6,10 @@ use App\Models\BranchEsbCode;
 use App\Models\OrderingDailyMetric;
 use App\Models\OrderingSyncRun;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 
 /**
- * Writes normalized source rows into the daily facts (docs/ordering-recommendation-prd.md §11.2,
+ * Writes normalized source rows into the daily facts (docs/products/analytics/ordering-recommendation/prd.md §11.2,
  * §12). Upserts on the natural identity (branch, company pair, date, product code, UOM) so the
  * same input always yields the same rows. Only a complete read is applied: products a complete
  * read no longer returns are reset to 0 for that day, never left with an older value.
@@ -43,8 +44,9 @@ class OrderingDailyMetricBuilder
     public function applyStock(OrderingSyncRun $run, BranchEsbCode $pair, string $date, array $rows): int
     {
         $config = config('ordering_recommendation');
-        $scope = $config['stock_location_scope'];
+        $scope = $pair->orderingStockLocationScope();
         $wasteTypes = $this->lower($config['waste_transaction_types']);
+        $wasteItemJournalLabels = $this->lower($config['waste_item_journal_labels']);
         $posTypes = $this->lower($config['pos_sales_transaction_types']);
         $goodsInTypes = $this->lower($config['goods_in_transaction_types']);
 
@@ -59,7 +61,7 @@ class OrderingDailyMetricBuilder
             if (in_array($type, $posTypes, true)) {
                 $products[$key]['pos'] += $row['qty_out'];
             }
-            if (in_array($type, $wasteTypes, true)) {
+            if (in_array($type, $wasteTypes, true) || $this->isWasteItemJournal($row, $type, $wasteItemJournalLabels)) {
                 $products[$key]['waste'] += $row['qty_out'];
             }
             if (in_array($type, $goodsInTypes, true)) {
@@ -183,5 +185,20 @@ class OrderingDailyMetricBuilder
     private function lower(array $values): array
     {
         return array_map(fn (string $value): string => mb_strtolower(trim($value)), $values);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  list<string>  $wasteLabels
+     */
+    private function isWasteItemJournal(array $row, string $transactionType, array $wasteLabels): bool
+    {
+        if ($transactionType !== 'item journal' || $wasteLabels === []) {
+            return false;
+        }
+
+        $journalLabel = mb_strtolower(trim(Str::afterLast((string) ($row['document_code'] ?? ''), '-')));
+
+        return in_array($journalLabel, $wasteLabels, true);
     }
 }

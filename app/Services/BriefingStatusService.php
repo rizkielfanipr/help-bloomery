@@ -12,7 +12,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * docs/daily-briefing-remediation-prd.md §11/§13/§14/§15 (Phase 7). The single definition of
+ * docs/products/daily-briefing/remediation/prd.md §11/§13/§14/§15 (Phase 7). The single definition of
  * submission status shared by the scheduler, both calendars, scoring, and reports, so the same
  * branch/period/date always evaluates to the same status everywhere. `missing`, `not_due`, and
  * `not_applicable` are always derived from assignment + deadline + absence of a submission — never

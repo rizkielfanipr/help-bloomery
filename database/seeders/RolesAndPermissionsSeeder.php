@@ -107,10 +107,13 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view erp modules',
                 'view it request types', 'create it request types', 'edit it request types',
                 'view bulk product submissions', 'create bulk product submissions', 'edit bulk product submissions',
-                // System Monitoring (docs/system-monitoring-prd.md §7): IT gets technical views,
+                // System Monitoring (docs/products/system-monitoring/prd.md §7): IT gets technical views,
                 // incident handling, and reconciliation, but not settings or exports.
                 'view system monitoring', 'view monitoring technical details', 'view monitoring sanitized payloads',
                 'manage monitoring incidents', 'acknowledge monitoring alerts', 'reconcile esb transactions',
+                // Master Bahan IT review gate (docs/products/rnd/material-sourcing-lifecycle/prd.md §9).
+                'review rnd materials as it', 'edit rnd material technical data', 'approve rnd material esb push',
+                'reconcile rnd material esb', 'retry material notifications', 'view material workflow audit',
             ]);
 
         Role::firstOrCreate(['name' => 'RND_STAFF', 'guard_name' => 'web'])
@@ -122,6 +125,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view rnd projects', 'create rnd projects', 'edit rnd projects', 'delete rnd projects',
                 'view product price index', 'sync product price index',
                 'view material sourcings', 'review material sourcing as rnd',
+                'submit rnd material review', 'receive material samples', 'review material samples as rnd',
                 'view any rnd internal memo', 'view rnd internal memo', 'create rnd internal memo',
                 'update rnd internal memo', 'sync rnd internal memo', 'download rnd internal memo pdf',
                 'delete rnd internal memo',
@@ -140,7 +144,7 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access backoffice',
                 'view purchase requests', 'create purchase requests', 'edit purchase requests',
-                'view material sourcings', 'submit material sourcing',
+                'view material sourcings', 'submit material sourcing', 'hand over material samples',
                 'view marketing material fulfillments', 'process marketing material as purchasing',
                 'view vendor compliance incidents', 'edit vendor compliance incidents',
             ]);
@@ -185,6 +189,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view basket sizes', 'recalculate basket sizes', 'export basket sizes',
                 'view stock cards', 'review stock cards as finance',
                 'view material sourcings', 'review material sourcing as finance',
+                'view material pricelist', 'manage material pricelist',
             ]);
 
         Role::firstOrCreate(['name' => 'QUALITY_CONTROL', 'guard_name' => 'web'])

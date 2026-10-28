@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/store-sales-order-prd.md §11, §16. Transition legality is delegated to
+ * docs/products/operational/store-sales-order/prd.md §11, §16. Transition legality is delegated to
  * StoreSalesOrderStatus::canTransitionTo() so the state machine has exactly one definition.
  * Cancelled requires a reason; every other transition clears any leftover reason.
  */

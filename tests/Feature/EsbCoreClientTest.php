@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 it('declares credential configuration for every ESB company code', function () {
-    $companies = ['BLSS', 'BLO6', 'BLO7', 'BLO10', 'BLO15', 'BLMN', 'BLAR', 'BLO3', 'BLO11', 'BLO12', 'BLO13', 'BLO14', 'BLO16', 'BLO18'];
+    $companies = ['BLSS', 'BLO6', 'BLO7', 'BLO10', 'BLO15', 'BLMN', 'BLAR', 'BLO3', 'BLO11', 'BLO12', 'BLO13', 'BLO14', 'BLO16', 'BLO18', 'BLHJ'];
 
     foreach ($companies as $company) {
         expect(config('esb.core.companies'))

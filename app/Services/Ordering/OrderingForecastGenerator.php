@@ -19,7 +19,7 @@ use Throwable;
 
 /**
  * Builds one immutable forecast run for a branch from the local snapshot only — no ESB call
- * (docs/ordering-recommendation-prd.md §13, §21). The run is keyed by branch, cutoff, horizon,
+ * (docs/products/analytics/ordering-recommendation/prd.md §13, §21). The run is keyed by branch, cutoff, horizon,
  * algorithm version, and configuration hash: a rerun with the same inputs returns the existing
  * run, and a run becomes Completed only after all of its items are stored.
  *
@@ -29,6 +29,8 @@ use Throwable;
  */
 class OrderingForecastGenerator
 {
+    private const PRODUCT_BATCH_SIZE = 50;
+
     public function __construct(
         private readonly OrderingForecastCalculator $calculator,
         private readonly OrderingBacktestService $backtest,
@@ -36,7 +38,7 @@ class OrderingForecastGenerator
 
     public function generate(Branch $branch, string $cutoffDate, int $horizon): OrderingForecastRun
     {
-        $config = $this->configuration();
+        $config = $this->configuration($branch);
         $hash = hash('sha256', json_encode($config, JSON_THROW_ON_ERROR));
         $cutoff = CarbonImmutable::parse($cutoffDate)->startOfDay();
         $key = implode(':', [$branch->id, $cutoff->toDateString(), $horizon, $config['algorithm_version'], $hash]);
@@ -101,9 +103,28 @@ class OrderingForecastGenerator
      *
      * @return array<string, mixed>
      */
-    public function configuration(): array
+    public function configuration(?Branch $branch = null): array
     {
-        return collect(config('ordering_recommendation'))->except(['sync_time', 'queue', 'ranking_limit', 'chart_limit'])->all();
+        $config = collect(config('ordering_recommendation'))->except(['sync_time', 'queue', 'ranking_limit', 'chart_limit'])->all();
+
+        if ($branch !== null) {
+            $config['branch_stock_locations'] = $branch->esbCodes()
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get()
+                ->map(fn (BranchEsbCode $pair): array => [
+                    'pair_id' => $pair->id,
+                    'company_code' => $pair->esb_comcode,
+                    'esb_branch_code' => $pair->esb_branch_code,
+                    'mode' => $pair->ordering_stock_location_mode?->value ?? 'unconfigured',
+                    'locations' => $pair->ordering_stock_locations ?? [],
+                    'effective_scope' => $pair->orderingStockLocationScope(),
+                ])
+                ->values()
+                ->all();
+        }
+
+        return $config;
     }
 
     /**
@@ -118,12 +139,6 @@ class OrderingForecastGenerator
             ->whereDate('period_from', '>=', $historyFrom->toDateString())
             ->whereDate('period_from', '<=', $cutoff->toDateString())
             ->get(['source', 'company_code', 'esb_branch_code', 'period_from', 'status', 'finished_at']);
-        $metrics = OrderingDailyMetric::query()
-            ->where('branch_id', $branch->id)
-            ->whereDate('metric_date', '>=', $historyFrom->toDateString())
-            ->whereDate('metric_date', '<=', $cutoff->toDateString())
-            ->get(['company_code', 'esb_branch_code', 'metric_date', 'product_code', 'product_detail_id', 'product_name', 'category_name', 'uom', 'sales_driven_usage', 'waste_quantity', 'ending_stock', 'stock_observed_at']);
-
         $windowDays = $config['history_weeks'] * 7;
         $eligible = $config['eligible_categories'] === null ? null : array_map('mb_strtolower', $config['eligible_categories']);
         $items = [];
@@ -131,17 +146,14 @@ class OrderingForecastGenerator
         if ($eligible === null) {
             $completeness['warnings'][] = 'category_unconfirmed';
         }
-        if ($config['stock_location_scope'] === null) {
-            $completeness['warnings'][] = 'stock_location_unconfirmed';
-        }
-
         foreach ($pairs as $pair) {
+            if ($pair->orderingStockLocationScope() === null) {
+                $completeness['warnings'][] = 'stock_location_unconfirmed';
+            }
             $pairRuns = $runs->filter(fn (OrderingSyncRun $run): bool => $run->company_code === $pair->esb_comcode && $run->esb_branch_code === $pair->esb_branch_code);
             $usageDays = $this->completedDays($pairRuns, OrderingSource::DailyUsage);
             $stockDays = $this->completedDays($pairRuns, OrderingSource::StockMovement);
             $stockFreshAs = $pairRuns->where('source', OrderingSource::StockMovement)->where('status', OrderingSyncStatus::Completed)->max('finished_at');
-            $pairMetrics = $metrics->filter(fn (OrderingDailyMetric $metric): bool => $metric->company_code === $pair->esb_comcode && $metric->esb_branch_code === $pair->esb_branch_code);
-
             $completeness['pairs'][] = [
                 'company_code' => $pair->esb_comcode,
                 'esb_branch_code' => $pair->esb_branch_code,
@@ -152,10 +164,33 @@ class OrderingForecastGenerator
                 'failed_runs' => $pairRuns->where('status', OrderingSyncStatus::Failed)->count(),
             ];
 
-            foreach ($pairMetrics->groupBy(fn (OrderingDailyMetric $metric): string => $metric->product_code.'|'.$metric->uom) as $rows) {
-                $item = $this->buildItem($branch, $pair, $rows, $pairMetrics, $usageDays, $stockDays, $stockFreshAs?->format('Y-m-d H:i:s'), $cutoff, $horizon, $config, $eligible, $windowDays);
-                if ($item !== null) {
-                    $items[] = $item;
+            $demandProductCodes = OrderingDailyMetric::query()
+                ->where('branch_id', $branch->id)
+                ->where('company_code', $pair->esb_comcode)
+                ->where('esb_branch_code', $pair->esb_branch_code)
+                ->whereDate('metric_date', '>=', $historyFrom->toDateString())
+                ->whereDate('metric_date', '<=', $cutoff->toDateString())
+                ->where('sales_driven_usage', '>', 0)
+                ->select('product_code')
+                ->distinct()
+                ->orderBy('product_code')
+                ->pluck('product_code');
+
+            foreach ($demandProductCodes->chunk(self::PRODUCT_BATCH_SIZE) as $productCodes) {
+                $batchMetrics = OrderingDailyMetric::query()
+                    ->where('branch_id', $branch->id)
+                    ->where('company_code', $pair->esb_comcode)
+                    ->where('esb_branch_code', $pair->esb_branch_code)
+                    ->whereDate('metric_date', '>=', $historyFrom->toDateString())
+                    ->whereDate('metric_date', '<=', $cutoff->toDateString())
+                    ->whereIn('product_code', $productCodes)
+                    ->get(['company_code', 'esb_branch_code', 'metric_date', 'product_code', 'product_detail_id', 'product_name', 'category_name', 'uom', 'sales_driven_usage', 'waste_quantity', 'ending_stock', 'stock_observed_at']);
+
+                foreach ($batchMetrics->groupBy(fn (OrderingDailyMetric $metric): string => $metric->product_code.'|'.$metric->uom) as $rows) {
+                    $item = $this->buildItem($branch, $pair, $rows, $batchMetrics, $usageDays, $stockDays, $stockFreshAs?->format('Y-m-d H:i:s'), $cutoff, $horizon, $config, $eligible, $windowDays);
+                    if ($item !== null) {
+                        $items[] = $item;
+                    }
                 }
             }
         }
@@ -204,7 +239,7 @@ class OrderingForecastGenerator
         }
 
         $stock = ['quantity' => null, 'observed_at' => null, 'fresh_as_of' => $stockFreshAs, 'unavailable_reason' => null];
-        if ($config['stock_location_scope'] === null) {
+        if ($pair->orderingStockLocationScope() === null) {
             $stock['unavailable_reason'] = 'stock_location_unconfirmed';
         } else {
             $latest = $rows->filter(fn (OrderingDailyMetric $metric): bool => $metric->ending_stock !== null)->sortByDesc('metric_date')->first();

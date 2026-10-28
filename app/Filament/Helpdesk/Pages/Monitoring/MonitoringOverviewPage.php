@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Gate;
 use UnitEnum;
 
 /**
- * System Monitoring Overview (docs/system-monitoring-prd.md §9, §21.1). Reads the cached local
+ * System Monitoring Overview (docs/products/system-monitoring/prd.md §9, §21.1). Reads the cached local
  * snapshot only; it never calls ESB or other external systems while rendering.
  */
 class MonitoringOverviewPage extends Page

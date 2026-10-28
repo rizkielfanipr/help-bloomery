@@ -6,7 +6,7 @@ use App\Models\MonitoringIncident;
 use App\Models\User;
 
 /**
- * Incident Center access (docs/system-monitoring-prd.md §16). Management can read incidents;
+ * Incident Center access (docs/products/system-monitoring/prd.md §16). Management can read incidents;
  * only `manage monitoring incidents` can create or change them.
  */
 class MonitoringIncidentPolicy

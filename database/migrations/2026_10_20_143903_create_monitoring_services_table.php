@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §18.1: one row per monitored service per environment holding its
+ * docs/products/system-monitoring/prd.md §18.1: one row per monitored service per environment holding its
  * editable check configuration and the latest evaluated state (snapshot read by the dashboard).
  */
 return new class extends Migration

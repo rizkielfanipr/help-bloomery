@@ -4,7 +4,7 @@ namespace App\Enums;
 
 use Filament\Support\Contracts\HasLabel;
 
-/** docs/store-sales-order-prd.md §10.2. */
+/** docs/products/operational/store-sales-order/prd.md §10.2. */
 enum StoreSalesOrderEventType: string implements HasLabel
 {
     case Birthday = 'birthday';

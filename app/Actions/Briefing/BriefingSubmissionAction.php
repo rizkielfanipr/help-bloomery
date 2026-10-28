@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
- * docs/daily-briefing-remediation-prd.md §20 (Phase 5). The only path that creates/updates a
+ * docs/products/daily-briefing/remediation/prd.md §20 (Phase 5). The only path that creates/updates a
  * briefing submission: validates participation, assignment, deadline, and submission-type rules
  * server-side (a Livewire task key is untrusted input), then persists under the single canonical
  * record for the branch/period/date (§4: unit kewajiban = per branch).

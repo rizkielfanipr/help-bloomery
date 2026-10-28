@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Health state of one monitored service (docs/system-monitoring-prd.md §9.1).
+ * Health state of one monitored service (docs/products/system-monitoring/prd.md §9.1).
  */
 enum MonitoringServiceStatus: string implements HasColor, HasLabel
 {

@@ -12,7 +12,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 /**
- * Ordering Recommendation backfill (docs/ordering-recommendation-prd.md §12.4). Dry-run by
+ * Ordering Recommendation backfill (docs/products/analytics/ordering-recommendation/prd.md §12.4). Dry-run by
  * default: it only lists the units and their checkpoint status and writes nothing. `--execute`
  * dispatches the units that are not completed yet (resume), one chain per branch spaced by
  * `--delay` seconds, and never deletes a valid snapshot.

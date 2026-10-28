@@ -145,7 +145,7 @@ it('uses a branch-specific period weight override instead of the global default'
 
 it(
     'excludes a task with include_in_score=false from the breakdown and the score entirely '
-    .'(contract change from docs/daily-briefing-scoring-ui-prd.md §10 — method_version 1 included '
+    .'(contract change from docs/products/daily-briefing/scoring-ui/prd.md §10 — method_version 1 included '
     .'every active task in the breakdown and its rate regardless of include_in_score)',
     function () {
         $branch = Branch::factory()->create(['is_active' => true]);
@@ -272,7 +272,7 @@ it('does nothing for a branch with no scoreable tasks', function () {
 });
 
 it('does not compute a score for a branch that is not an enabled Daily Briefing participant (contract change: '
-    .'docs/daily-briefing-remediation-prd.md §14.1/§27 — a non-participant branch never gets a new score)',
+    .'docs/products/daily-briefing/remediation/prd.md §14.1/§27 — a non-participant branch never gets a new score)',
     function () {
         $branch = Branch::factory()->create(['is_active' => true]);
         $user = User::factory()->create(['branch_id' => $branch->id, 'is_active' => true]);
@@ -286,7 +286,7 @@ it('does not compute a score for a branch that is not an enabled Daily Briefing 
         expect(BriefingScore::where('branch_id', $branch->id)->exists())->toBeFalse();
     });
 
-it('only counts days on/after the branch\'s own participation started_at as expected (docs/daily-briefing-remediation-prd.md §14.1)', function () {
+it('only counts days on/after the branch\'s own participation started_at as expected (docs/products/daily-briefing/remediation/prd.md §14.1)', function () {
     // The current month only counts up to today, so the clock is fixed inside the seeded month.
     $this->travelTo(Carbon::create(2026, 10, 20, 12));
     $branch = Branch::factory()->create(['is_active' => true]);

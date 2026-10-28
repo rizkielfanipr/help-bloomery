@@ -7,7 +7,7 @@ use App\Models\RndProjectTaskAssignment;
 use RuntimeException;
 
 /**
- * The PIC's "Mulai Mengerjakan" action (docs/rnd-project-task-calendar-prd.md §12). Ownership is
+ * The PIC's "Mulai Mengerjakan" action (docs/products/rnd/project-task-calendar/prd.md §12). Ownership is
  * the caller's responsibility (`RndProjectTaskAssignmentPolicy::respond`).
  */
 class StartProjectTaskAssignmentAction

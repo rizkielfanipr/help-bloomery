@@ -14,7 +14,7 @@ use RuntimeException;
 /**
  * Resolves one Menu's BOM through ESB Core using the Menu Company Code into flat
  * App\Models\RndInternalMemoMaterial rows, recursing into WIP/Assembly components until base
- * materials and packaging are reached (docs/rnd-internal-memo-prd.md §7.4, §9).
+ * materials and packaging are reached (docs/products/rnd/internal-memo/prd.md §7.4, §9).
  *
  * `quantity_per_menu` on every row is propagated through every Assembly level for exactly one
  * unit of the Menu. WIP requirements are divided by the active output-unit conversion when ESB
@@ -23,7 +23,7 @@ use RuntimeException;
 class InternalMemoBomResolver
 {
     /**
-     * docs/rnd-internal-memo-simplification-prd.md §9.3: "batas kedalaman aman tercapai" stops
+     * docs/products/rnd/internal-memo-simplification/prd.md §9.3: "batas kedalaman aman tercapai" stops
      * traversal. The Phase 0 audit found no existing precedent for this guard — only the
      * circular-BOM-ID check existed — so this is new protection against a pathological or
      * misconfigured BOM chain that never repeats a bomID but never terminates either.
@@ -62,7 +62,7 @@ class InternalMemoBomResolver
 
         // Fetch before mutating anything: if ESB is unreachable, the exception propagates here
         // and the Menu's last valid Material snapshot is never touched
-        // (docs/rnd-internal-memo-simplification-prd.md §13, "kegagalan refresh tidak boleh
+        // (docs/products/rnd/internal-memo-simplification/prd.md §13, "kegagalan refresh tidak boleh
         // menghapus snapshot valid terakhir").
         $bomDetail = $this->fetchBom($menu->esb_bom_id);
         $blockers = [];

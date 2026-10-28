@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 
 /**
  * Read-only dry-run report over `rnd_esb_product_shelf_lives` before the WIP identity unique
- * constraint is relied on (docs/rnd-wip-shelf-life-prd.md §21.2). It never modifies data —
+ * constraint is relied on (docs/products/rnd/wip-shelf-life/prd.md §21.2). It never modifies data —
  * ambiguous rows are only reported so they can be resolved by an approved, separate step.
  */
 class WipShelfLifeIdentityAudit

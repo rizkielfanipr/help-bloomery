@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-/** docs/store-sales-order-prd.md §15.1. */
+/** docs/products/operational/store-sales-order/prd.md §15.1. */
 class StoreSalesOrder extends Model
 {
     /** @use HasFactory<StoreSalesOrderFactory> */

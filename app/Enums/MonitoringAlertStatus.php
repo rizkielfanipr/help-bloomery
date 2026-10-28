@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * One deduplicated alert is Active until its source recovers (docs/system-monitoring-prd.md §17).
+ * One deduplicated alert is Active until its source recovers (docs/products/system-monitoring/prd.md §17).
  */
 enum MonitoringAlertStatus: string implements HasColor, HasLabel
 {

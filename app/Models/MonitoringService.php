@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * One monitored service with its editable check configuration and latest evaluated state
- * (docs/system-monitoring-prd.md §10, §18.1).
+ * (docs/products/system-monitoring/prd.md §10, §18.1).
  */
 class MonitoringService extends Model
 {

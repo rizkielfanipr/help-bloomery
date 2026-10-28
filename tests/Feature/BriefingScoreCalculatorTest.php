@@ -13,7 +13,7 @@ use App\Services\BriefingScoreResult;
 use Carbon\Carbon;
 
 /**
- * docs/daily-briefing-scoring-ui-prd.md §7-§10/§21 (Phase 2/14). Calculator is tested directly,
+ * docs/products/daily-briefing/scoring-ui/prd.md §7-§10/§21 (Phase 2/14). Calculator is tested directly,
  * independent of the compute-scores command/UI.
  */
 function scoreParticipantBranch(array $settingOverrides = []): Branch

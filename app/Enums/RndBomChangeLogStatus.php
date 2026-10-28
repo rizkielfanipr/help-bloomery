@@ -6,7 +6,7 @@ use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
 /**
- * Mutation attempt status of one `rnd_bom_change_logs` record (docs/rnd-bom-adjustment-prd.md §14).
+ * Mutation attempt status of one `rnd_bom_change_logs` record (docs/products/rnd/bom-adjustment/prd.md §14).
  */
 enum RndBomChangeLogStatus: string implements HasColor, HasLabel
 {
@@ -37,7 +37,7 @@ enum RndBomChangeLogStatus: string implements HasColor, HasLabel
 
     /**
      * A result is uncertain (timeout/connection failure) and must not be retried automatically
-     * until reconciliation confirms the true outcome (docs/rnd-bom-adjustment-prd.md §14).
+     * until reconciliation confirms the true outcome (docs/products/rnd/bom-adjustment/prd.md §14).
      */
     public function isUncertain(): bool
     {

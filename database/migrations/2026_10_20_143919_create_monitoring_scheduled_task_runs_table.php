@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/system-monitoring-prd.md §12.2: run history of scheduled tasks captured from the
+ * docs/products/system-monitoring/prd.md §12.2: run history of scheduled tasks captured from the
  * scheduler's own events. Output is never stored.
  */
 return new class extends Migration

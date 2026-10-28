@@ -32,7 +32,7 @@ class RndInternalMemoMaterialFactory extends Factory
         ];
     }
 
-    /** Purchase UOM proven for this item (docs/rnd-internal-memo-simplification-prd.md §8.1). */
+    /** Purchase UOM proven for this item (docs/products/rnd/internal-memo-simplification/prd.md §8.1). */
     public function withPurchaseUom(?string $name = 'GR', ?int $id = 5): static
     {
         return $this->state(fn (): array => [

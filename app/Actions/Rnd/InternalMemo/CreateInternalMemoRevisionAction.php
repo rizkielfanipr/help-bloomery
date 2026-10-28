@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * docs/rnd-internal-memo-prd.md §6, §7.5. A revision copies the prior Finalized memo's metadata
+ * docs/products/rnd/internal-memo/prd.md §6, §7.5. A revision copies the prior Finalized memo's metadata
  * and Menu list (including Forecast Quantity and Shelf Life, which are local corrections the
  * user is likely revising for) as a Draft starting point. Materials are not copied — each Menu's
  * `sync_status` is reset to `pending` so the new revision must sync fresh BOM data from ESB
@@ -22,7 +22,7 @@ use RuntimeException;
  * `memo_number` must stay globally unique (§12.1), so it cannot simply be reused from the prior
  * revision; the caller supplies a new one.
  *
- * docs/rnd-internal-memo-brand-prd.md §12.8: the revision keeps the source Brand and its snapshot,
+ * docs/products/rnd/internal-memo-brand/prd.md §12.8: the revision keeps the source Brand and its snapshot,
  * is written with Company Code BLSS (Menus included), and creates no Branch rows. A legacy Memo
  * without a Brand must get one before it can be revised.
  */

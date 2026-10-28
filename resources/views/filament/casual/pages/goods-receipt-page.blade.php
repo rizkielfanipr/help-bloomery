@@ -350,7 +350,7 @@
                                 @if ($item['shelfLifeRequired'])
                                 <label class="mt-3 block {{ $label }}">Minimum sisa shelf life %<input wire:model.live.debounce.300ms="items.{{ $index }}.minimumShelfLifePercentage" type="number" class="{{ $field }}"></label>
                                 @foreach ($item['batches'] as $batchIndex => $batch)
-                                    {{-- docs/receiving-simplification-prd.md §9 "Untuk satu batch, form cukup berisi: Nomor
+                                    {{-- docs/products/inventory/receiving-simplification/prd.md §9 "Untuk satu batch, form cukup berisi: Nomor
                                          Batch, Tanggal ED, Qty Batch" — Tanggal Produksi and the Accepted/Hold/Rejected split
                                          live behind "Detail Batch", collapsed by default. --}}
                                     <div class="mt-3 grid gap-3 rounded-xl bg-gray-50 p-3 dark:bg-gray-800" x-data="{ detailOpen: false }">

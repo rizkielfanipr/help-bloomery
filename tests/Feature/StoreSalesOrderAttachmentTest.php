@@ -120,7 +120,7 @@ it('deletes already-uploaded files when the Action rejects the submission, inste
 
     // A record already exists for the same ESB identity (company + numeric ESB branch ID) under a
     // *different* local Branch the submitter has no view access to — duplicate detection matches
-    // on that ESB identity, not the local branch_id (docs/store-sales-order-prd.md §14), so this
+    // on that ESB identity, not the local branch_id (docs/products/operational/store-sales-order/prd.md §14), so this
     // rejection happens inside CreateStoreSalesOrderAction itself, after the Page has already
     // stored the file, without needing to defeat the lookup-clearing side effect of changing
     // `branchId` mid-flow (which clearLookup() would otherwise trigger).

@@ -21,7 +21,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Refreshes the one global Memo Internal Master Menu snapshot (docs/rnd-internal-memo-brand-prd.md
+ * Refreshes the one global Memo Internal Master Menu snapshot (docs/products/rnd/internal-memo-brand/prd.md
  * §11.4, §14.4): Company Code BLSS and a branch discovered from ESB's BLSS branch list
  * (InternalMemoCatalogContext::candidateBranchCodes) — never a Brand or a Memo Branch. Upserts are idempotent, rows ESB no longer returns are removed only after a complete
  * non-empty fetch, and any failure keeps the last-known-good snapshot.

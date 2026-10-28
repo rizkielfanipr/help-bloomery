@@ -10,7 +10,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Changes a Memo's Brand (docs/rnd-internal-memo-brand-prd.md §8.5, §15.2). Metadata only: it
+ * Changes a Memo's Brand (docs/products/rnd/internal-memo-brand/prd.md §8.5, §15.2). Metadata only: it
  * writes `brand_id`, `brand_name_snapshot`, and `updated_by` — never Menus, items, Minimum Orders,
  * attachments, BOM snapshots, or Branch rows — and never talks to ESB or queues a sync.
  */

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * docs/store-sales-order-prd.md §15.3. Append-only through normal use cases: every write goes
+ * docs/products/operational/store-sales-order/prd.md §15.3. Append-only through normal use cases: every write goes
  * through an Action alongside the StoreSalesOrder change it documents, in the same transaction.
  */
 class StoreSalesOrderActivity extends Model

@@ -67,7 +67,7 @@ beforeEach(function () {
 });
 
 it('creates a Draft memo with the chosen Brand and Company Code BLSS set server-side', function () {
-    // docs/rnd-internal-memo-brand-prd.md §11.1: the user picks one Brand; Company Code is never
+    // docs/products/rnd/internal-memo-brand/prd.md §11.1: the user picks one Brand; Company Code is never
     // entered and is always BLSS; no Memo–Branch row is written.
     $page = Livewire::test(ListRndInternalMemos::class)
         ->set('memoNumber', '001/RND/IX/2026')
@@ -192,7 +192,7 @@ it('allows creating a new memo for a period whose previous memo was deleted', fu
 });
 
 it('adds a Menu with bomID > 0 through the picker, stores a snapshot, and resolves its BOM immediately', function () {
-    // docs/rnd-internal-memo-simplification-prd.md §7.2: BOM/Assembly resolution now runs
+    // docs/products/rnd/internal-memo-simplification/prd.md §7.2: BOM/Assembly resolution now runs
     // synchronously right when the Menu is added, replacing the old separate Draft -> Syncing step.
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Draft]);
     Http::fake([
@@ -248,7 +248,7 @@ it('refuses adding the same Menu twice to one memo', function () {
 });
 
 it('allows adding a Menu regardless of the memo legacy workflow status', function () {
-    // docs/rnd-internal-memo-simplification-prd.md §7.5: "Menu dapat ditambah dan dihapus kapan
+    // docs/products/rnd/internal-memo-simplification/prd.md §7.5: "Menu dapat ditambah dan dihapus kapan
     // saja" — the old Draft-only gate belonged to the finalize/lock workflow this PRD removes.
     $memo = RndInternalMemo::factory()->create(['status' => RndInternalMemoStatus::Ready]);
     Http::fake(['https://esb.test/core/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']])]);
@@ -396,7 +396,7 @@ it('hides the Pilih Menu and Buat Memo actions from a user who can only view', f
 });
 
 /**
- * docs/rnd-internal-memo-simplification-prd.md Phase 4/5: the simplified workspace
+ * docs/products/rnd/internal-memo-simplification/prd.md Phase 4/5: the simplified workspace
  * (ViewRndInternalMemo) no longer has a Sync BOM / Forecast / Shelf Life UI — BOM resolution now
  * runs synchronously from addMenu/refreshMenu (see RefreshInternalMemoMenuActionTest.php and
  * InternalMemoBomResolverTest.php for that coverage). SynchronizeInternalMemoAction and the

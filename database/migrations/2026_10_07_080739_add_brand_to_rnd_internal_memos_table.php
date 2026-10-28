@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * docs/rnd-internal-memo-brand-prd.md §13.1. Additive only: `brand_id` stays nullable at the
+ * docs/products/rnd/internal-memo-brand/prd.md §13.1. Additive only: `brand_id` stays nullable at the
  * database level so legacy Memos without a deterministic Brand keep loading; new create/edit
  * flows require it in the application. `nullOnDelete` plus the name snapshot keep history readable
  * after a Master Brand is removed. Backfill is a separate command (rnd:backfill-internal-memo-brands).

@@ -16,7 +16,7 @@ use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
 
 /**
- * docs/daily-briefing-remediation-prd.md §10.2/§10.3/§12.2/§25.1 (Phase 1/4 safety net).
+ * docs/products/daily-briefing/remediation/prd.md §10.2/§10.3/§12.2/§25.1 (Phase 1/4 safety net).
  * Monitoring Poin, review actions, and exports must stay scoped to accessibleBranchIds() unless
  * the actor canAccessAllBranches() — and that scope must come from briefing_records.branch_id
  * (the snapshot), never from the submitter's current users.branch_id.

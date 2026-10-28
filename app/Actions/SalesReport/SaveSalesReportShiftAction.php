@@ -23,7 +23,7 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Submits one Sales Report shift (docs/sales-report-compliment-void-remediation-prd.md §17):
+ * Submits one Sales Report shift (docs/products/finance/sales-report-compliment-void-remediation/prd.md §17):
  * sales entries, staff, Compliment, Void, and the ESB transaction snapshot are written in one
  * locked transaction; the report moves `Draft → PendingSupervisor` once every shift is in.
  *

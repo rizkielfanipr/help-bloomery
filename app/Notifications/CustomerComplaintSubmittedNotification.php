@@ -7,7 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-/** docs/customer-complaints-prd.md §16: a new complaint notifies the relevant Operational role for its branch. */
+/** docs/products/operational/customer-complaints/prd.md §16: a new complaint notifies the relevant Operational role for its branch. */
 class CustomerComplaintSubmittedNotification extends Notification implements ShouldQueue
 {
     use Queueable;

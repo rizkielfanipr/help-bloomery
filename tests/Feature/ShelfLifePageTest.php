@@ -10,7 +10,7 @@ use Filament\Facades\Filament;
 
 /**
  * The old "Shelf Life" URL now serves the WIP Shelf Life menu; the Menu export stays retired
- * (docs/rnd-wip-shelf-life-prd.md §18, §20).
+ * (docs/products/rnd/wip-shelf-life/prd.md §18, §20).
  */
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);

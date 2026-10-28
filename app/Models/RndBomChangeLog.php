@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * Audit trail of one BOM mutation attempt — before/requested/after snapshots, diff, actor, and
- * reconciliation outcome (docs/rnd-bom-adjustment-prd.md §15). Records are never deleted when
+ * reconciliation outcome (docs/products/rnd/bom-adjustment/prd.md §15). Records are never deleted when
  * the underlying BOM becomes inactive.
  */
 class RndBomChangeLog extends Model

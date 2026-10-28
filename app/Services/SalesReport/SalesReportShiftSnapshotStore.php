@@ -7,7 +7,7 @@ use App\Models\User;
 /**
  * Keeps the ESB transactions and payment methods fetched for a shift on the server (the user's
  * session) instead of in public Livewire state, so they are neither sent to the browser nor
- * trusted from it (docs/sales-report-compliment-void-remediation-prd.md §9.2, prompt rule 19).
+ * trusted from it (docs/products/finance/sales-report-compliment-void-remediation/prd.md §9.2, prompt rule 19).
  * Verified Sales Numbers and Payment Methods are resolved against this snapshot only.
  */
 class SalesReportShiftSnapshotStore

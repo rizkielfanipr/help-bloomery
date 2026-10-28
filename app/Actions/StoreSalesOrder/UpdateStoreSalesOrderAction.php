@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * docs/store-sales-order-prd.md §10.2, §10.3, §13.3, §16 ("update store sales orders" governs
+ * docs/products/operational/store-sales-order/prd.md §10.2, §10.3, §13.3, §16 ("update store sales orders" governs
  * operational information and Kebutuhan Produk only — never the ESB snapshot or operational
  * status). Items are replaced wholesale inside the same transaction since a full edit always
  * resends the full list (matching how the user-facing form repeater works, §10.3 "menambah atau

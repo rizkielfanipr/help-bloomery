@@ -6,7 +6,7 @@ use App\Models\MonitoringHeartbeat;
 use Throwable;
 
 /**
- * Local heartbeats written by the scheduler and the queue worker (docs/system-monitoring-prd.md §12).
+ * Local heartbeats written by the scheduler and the queue worker (docs/products/system-monitoring/prd.md §12).
  */
 class MonitoringHeartbeats
 {

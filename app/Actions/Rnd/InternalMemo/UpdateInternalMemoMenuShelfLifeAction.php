@@ -7,7 +7,7 @@ use App\Models\RndInternalMemoMenu;
 use RuntimeException;
 
 /**
- * docs/rnd-internal-memo-prd.md §7.3, §11. Shelf Life edited here is local to this Memo/Menu; it
+ * docs/products/rnd/internal-memo/prd.md §7.3, §11. Shelf Life edited here is local to this Memo/Menu; it
  * never writes back to the `rnd_esb_product_shelf_lives` master.
  */
 class UpdateInternalMemoMenuShelfLifeAction

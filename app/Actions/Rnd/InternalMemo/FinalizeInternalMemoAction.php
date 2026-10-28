@@ -9,7 +9,7 @@ use App\Services\Rnd\InternalMemo\InternalMemoValidationService;
 use RuntimeException;
 
 /**
- * docs/rnd-internal-memo-prd.md §7.5, §15. Finalizing locks the Memo's already-persisted Menu/
+ * docs/products/rnd/internal-memo/prd.md §7.5, §15. Finalizing locks the Memo's already-persisted Menu/
  * Material rows in place (nothing is copied into a separate snapshot column — those rows *are*
  * the snapshot); a `snapshot_hash` is recorded purely so a later read can detect tampering or
  * drift. The memo becomes read-only the moment its status leaves Ready, enforced by every other

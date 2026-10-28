@@ -10,7 +10,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * Read model shared by the global Kalender (`HasProjectTaskCalendar`) and the per-Project calendar
- * (`App\Livewire\RndProjectTaskCalendar`) — docs/rnd-project-checkpoint-calendar-prd.md §17.3.
+ * (`App\Livewire\RndProjectTaskCalendar`) — docs/products/rnd/project-checkpoint-calendar/prd.md §17.3.
  * The visible range and the Branch scope are always applied in SQL; filters only narrow it and
  * never widen authorization (§11.9). It holds no UI state and renders no markup.
  */

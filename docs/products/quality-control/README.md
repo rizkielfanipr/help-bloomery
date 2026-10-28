@@ -47,3 +47,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 ## Role bawaan
 
 `QUALITY_CONTROL` melakukan audit dan Item Journal. `QUALITY_CONTROL_SUPERVISOR` melihat semua audit dan journal serta mengelola Checklist QC.
+
+## Perubahan terencana
+
+Item Journal masih berada pada Quality Control sesuai kondisi kode saat ini. Rencana pemindahan user-facing ke Inventory, tile Employee App mandiri, dan input attachment camera-first didokumentasikan pada [PRD Item Journal Inventory](../inventory/item-journal/prd.md).

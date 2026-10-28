@@ -73,6 +73,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | Dokumen | Status |
 |---|---|
 | [PRD Receiving Simplification](receiving-simplification/prd.md) | Implemented — batch, Detail Batch, aksi massal, multi-company |
+| [PRD Item Journal Inventory](item-journal/prd.md) | Draft — tile mandiri, camera-first, dan pemindahan menu Back Office ke Inventory |
 
 Dataset: [development-todo.csv](development-todo.csv).
 

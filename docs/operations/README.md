@@ -6,7 +6,7 @@ Prosedur pipeline dan server. Arsitektur aplikasi ada di [architecture](../archi
 
 | Dokumen | Status tertulis | Catatan |
 |---|---|---|
-| [Release Pipeline](ci-cd/release-pipeline.md) | Phase 1 sampai Phase 4 selesai; Phase 5 finalisasi enforcement | Runtime dan Ruleset sehat; histori `staging` sudah diarsipkan dan legacy workflow dinonaktifkan pada branch penutupan. Tersisa cleanup VPS dan remote branch pasca-merge. |
+| [Release Pipeline](ci-cd/release-pipeline.md) | Phase 1 sampai Phase 5 selesai | Pipeline atomik menjadi jalur resmi; Release #20 sehat, legacy workflow/command dinonaktifkan, dan histori `staging` tersimpan pada branch arsip. |
 | [Current State Audit](ci-cd/reports/current-state-audit.md) | Audit baseline 26 Oktober 2026 | Catatan historis; dirujuk Release Pipeline sebagai bukti audit. |
 
 ## Production

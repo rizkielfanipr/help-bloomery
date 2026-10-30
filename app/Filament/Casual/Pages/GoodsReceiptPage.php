@@ -2,8 +2,8 @@
 
 namespace App\Filament\Casual\Pages;
 
-use App\Models\BranchEsbCode;
 use App\Models\GoodsReceipt;
+use App\Models\User;
 use App\Services\EsbBranchMappingResolver;
 use App\Services\EsbGoodsReceiptService;
 use App\Services\InboundGoodsReceiptQcService;
@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 use Throwable;
@@ -40,6 +41,11 @@ class GoodsReceiptPage extends Page
 
     public int $purchaseOrderPage = 1;
 
+    /**
+     * docs/products/inventory/receiving-central-blss/prd.md §9: the PO, its Company Code, and the
+     * locations of its ESB branch are server-fetched context, locked against client tampering.
+     */
+    #[Locked]
     public ?array $purchaseOrder = null;
 
     /**
@@ -47,10 +53,12 @@ class GoodsReceiptPage extends Page
      * under — set once in selectPurchaseOrder() and reused for every later call (locations,
      * re-verification, submit) so a single PO never silently changes its source context.
      */
+    #[Locked]
     public string $sourceCompanyCode = '';
 
     public string $submissionKey = '';
 
+    #[Locked]
     public array $locations = [];
 
     public array $items = [];
@@ -418,27 +426,30 @@ class GoodsReceiptPage extends Page
         $this->validate($this->rules());
         $purchaseNumber = (string) data_get($this->purchaseOrder, 'purchaseNum');
         abort_if($purchaseNumber === '', 422, 'Purchase Order belum dipilih.');
-        abort_if(blank($this->sourceCompanyCode), 422, 'Company Code sumber Purchase Order tidak tersedia.');
+        abort_unless($this->sourceCompanyCode === self::COMPANY_CODE, 403, 'Company Code Receiving tidak dapat diakses.');
         $latest = app(EsbGoodsReceiptService::class)->purchaseOrder($this->sourceCompanyCode, $purchaseNumber);
         abort_unless(in_array((int) data_get($latest, 'statusID'), $this->receivableStatusIds(), true), 422, 'Status PO sudah berubah.');
-        $mapping = app(EsbBranchMappingResolver::class)->resolve(
-            $this->sourceCompanyCode,
-            (int) data_get($latest, 'branchID'),
-            data_get($latest, 'branchCode'),
-        );
-        if (! $mapping) {
-            $message = 'Branch PO belum dimapping. Hubungkan branch ESB PO ini ke branch lokal sebelum memproses penerimaan.';
+        // docs/products/inventory/receiving-central-blss/prd.md §7: the loaded locations belong to the
+        // branch the PO had when it was opened, so a changed destination is never redirected silently.
+        if ((int) data_get($latest, 'branchID') !== (int) data_get($this->purchaseOrder, 'branchID')) {
+            $message = 'Cabang tujuan PO sudah berubah di ESB. Muat ulang PO lalu pilih ulang lokasi sebelum memproses penerimaan.';
             $this->loadError = $message;
             $this->addError('purchaseOrder', $message);
             Notification::make()
                 ->danger()
-                ->title('Branch PO belum dimapping')
+                ->title('Konteks PO berubah')
                 ->body($message)
                 ->persistent()
                 ->send();
 
             return;
         }
+        // The local branch is optional metadata: Receiving permission covers every BLSS branch.
+        $localBranchId = app(EsbBranchMappingResolver::class)->lookup(
+            $this->sourceCompanyCode,
+            (int) data_get($latest, 'branchID'),
+            data_get($latest, 'branchCode'),
+        )?->branch_id;
         $selected = collect($this->items)->filter(fn (array $item): bool => $item['selected'] && (float) $item['physicalQty'] > 0)
             // Server-side defense in depth: "Sesuai" always means the full qty is Accepted and
             // the exception fields are blank, regardless of whatever the client last held for
@@ -470,7 +481,7 @@ class GoodsReceiptPage extends Page
                 return $item;
             });
             $payload = $this->payload($assessed);
-            $receipt = DB::transaction(fn (): GoodsReceipt => $this->persist($purchaseNumber, $location, $payload, $assessed, $documentPhotos, $goodsPhotos, $mapping, $qc));
+            $receipt = DB::transaction(fn (): GoodsReceipt => $this->persist($purchaseNumber, $location, $payload, $assessed, $documentPhotos, $goodsPhotos, $localBranchId, $qc));
         } catch (Throwable $exception) {
             Storage::disk('b2')->delete($paths);
             throw $exception;
@@ -491,7 +502,7 @@ class GoodsReceiptPage extends Page
         $recorder = app(EsbTransactionRecorder::class);
         $monitoringContext = [
             'company_code' => $this->sourceCompanyCode,
-            'branch_id' => $mapping->branch_id,
+            'branch_id' => $localBranchId,
             'local_model' => $receipt,
             'external_reference' => $purchaseNumber,
             'idempotency_key' => 'goods-receipt:'.$receipt->submission_key,
@@ -603,7 +614,7 @@ class GoodsReceiptPage extends Page
             ])->values()->all()];
     }
 
-    private function persist(string $po, array $location, array $payload, $items, array $documentPhotos, array $goodsPhotos, BranchEsbCode $branchMapping, InboundGoodsReceiptQcService $qc): GoodsReceipt
+    private function persist(string $po, array $location, array $payload, $items, array $documentPhotos, array $goodsPhotos, ?int $localBranchId, InboundGoodsReceiptQcService $qc): GoodsReceipt
     {
         $accepted = (float) $items->sum('acceptedQty');
         $hold = (float) $items->sum('holdQty');
@@ -613,7 +624,7 @@ class GoodsReceiptPage extends Page
         $payloadHash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
         $receipt = GoodsReceipt::query()->createOrFirst(['submission_key' => $this->submissionKey], [
             'company_code' => $this->sourceCompanyCode, 'reference_number' => $po, 'purchase_date' => data_get($this->purchaseOrder, 'purchaseDate'), 'goods_receipt_date' => $this->goodsReceiptDate,
-            'esb_branch_id' => $esbBranchId, 'local_branch_id' => $branchMapping->branch_id, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
+            'esb_branch_id' => $esbBranchId, 'local_branch_id' => $localBranchId, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
             'supplier_id' => data_get($this->purchaseOrder, 'supplierID'), 'supplier_name' => data_get($this->purchaseOrder, 'supplierName'),
             'location_id' => $location['locationID'], 'location_name' => $location['locationName'],
             'document_type' => $this->documentType, 'document_number' => $this->documentNumber, 'document_date' => $this->documentDate,

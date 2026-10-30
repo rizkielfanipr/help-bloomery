@@ -1,5 +1,7 @@
 # PRD — Penyederhanaan Receiving dan QC Inbound
 
+> Amendment 30 Oktober 2026: requirement mapping/akses branch dan rencana multi-company pada dokumen ini tidak menjadi acuan untuk model Receiving Inventory Pusat. Remediasi canonical berada di [Receiving Terpusat BLSS](../receiving-central-blss/prd.md). Penyederhanaan UI/QC yang sudah diimplementasikan tetap berlaku; kode remediasi tersedia di branch `fix/receiving-central-blss` dan menunggu rollout.
+
 ## 1. Status dokumen
 
 - **Status:** Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Planning
@@ -518,4 +520,3 @@ Rollback harus mempertahankan kolom legacy dan data Goods Receipt existing. Kolo
 4. Apa numeric Branch ID SPN untuk Branch Sarana?
 5. Apakah metadata produk ESB menyediakan kategori cold chain, kewajiban ED, dan sampling?
 6. Jika metadata tidak tersedia, apakah pengaturan tersebut dikelola melalui master lokal?
-

@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Helpdesk\Resources\GoodsReceipts\GoodsReceiptResource;
 use App\Models\GoodsReceipt;
 use App\Models\User;
 use App\Models\VendorComplianceIncident;
@@ -19,6 +20,17 @@ it('requires the employee Receiving permission to access and submit goods receip
 
     expect($user->can('accessEmployeeApp', GoodsReceipt::class))->toBeTrue()
         ->and($user->can('submit', GoodsReceipt::class))->toBeTrue();
+});
+
+it('does not open Back Office Receiving for a user with only the Employee App Receiving permission', function () {
+    $receiver = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $receiver->givePermissionTo('access employee app goods receipt');
+    $this->actingAs($receiver);
+    $receipt = GoodsReceipt::factory()->create(['local_branch_id' => null]);
+
+    expect($receiver->can('submit', GoodsReceipt::class))->toBeTrue()
+        ->and(GoodsReceiptResource::canViewAny())->toBeFalse()
+        ->and(GoodsReceiptResource::canView($receipt))->toBeFalse();
 });
 
 it('keeps the back office Receiving resource read only', function () {

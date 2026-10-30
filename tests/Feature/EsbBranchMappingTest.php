@@ -2,6 +2,7 @@
 
 use App\Filament\Helpdesk\Resources\GoodsReceipts\GoodsReceiptResource;
 use App\Models\Branch;
+use App\Models\BranchEsbCode;
 use App\Models\GoodsReceipt;
 use App\Models\User;
 use App\Services\EsbBranchMappingResolver;
@@ -40,6 +41,67 @@ it('does not match the same numeric branch ID from another company code', functi
     ]);
 
     expect(app(EsbBranchMappingResolver::class)->resolve('BLSS', 373))->toBeNull();
+});
+
+it('looks up an exact active mapping before a branch code match without changing either', function () {
+    $exact = Branch::factory()->create()->esbCodes()->create([
+        'esb_branch_id' => 373, 'esb_branch_code' => 'OLD', 'esb_comcode' => 'BLSS', 'is_active' => true,
+    ]);
+    Branch::factory()->create()->esbCodes()->create([
+        'esb_branch_id' => 374, 'esb_branch_code' => 'BLA', 'esb_comcode' => 'BLSS', 'is_active' => true,
+    ]);
+    $before = BranchEsbCode::query()->orderBy('id')->get()->map->getAttributes()->all();
+
+    $found = app(EsbBranchMappingResolver::class)->lookup('BLSS', 373, 'BLA');
+
+    expect($found?->is($exact))->toBeTrue()
+        ->and(BranchEsbCode::query()->orderBy('id')->get()->map->getAttributes()->all())->toBe($before);
+});
+
+it('looks up a single active branch code match without learning its ESB branch ID', function () {
+    $mapping = Branch::factory()->create()->esbCodes()->create([
+        'esb_branch_id' => null, 'esb_branch_code' => 'BLA', 'esb_comcode' => 'BLSS', 'is_active' => true,
+    ]);
+
+    $found = app(EsbBranchMappingResolver::class)->lookup('BLSS', 373, 'BLA');
+
+    expect($found?->is($mapping))->toBeTrue()
+        ->and($mapping->fresh()->esb_branch_id)->toBeNull();
+});
+
+it('treats inactive, other company, missing, and ambiguous mappings as unavailable metadata', function () {
+    Branch::factory()->create()->esbCodes()->create([
+        'esb_branch_id' => 373, 'esb_branch_code' => 'INA', 'esb_comcode' => 'BLSS', 'is_active' => false,
+    ]);
+    Branch::factory()->create()->esbCodes()->create([
+        'esb_branch_id' => 373, 'esb_branch_code' => 'SPN', 'esb_comcode' => 'SPN', 'is_active' => true,
+    ]);
+    Branch::factory()->create()->esbCodes()->create([
+        'esb_branch_id' => 380, 'esb_branch_code' => 'DUP', 'esb_comcode' => 'BLSS', 'is_active' => true,
+    ]);
+    Branch::factory()->create()->esbCodes()->create([
+        'esb_branch_id' => 381, 'esb_branch_code' => 'DUP', 'esb_comcode' => 'BLSS', 'is_active' => true,
+    ]);
+    $before = BranchEsbCode::query()->orderBy('id')->get()->map->getAttributes()->all();
+    $resolver = app(EsbBranchMappingResolver::class);
+
+    expect($resolver->lookup('BLSS', 373))->toBeNull()
+        ->and($resolver->lookup('BLSS', 373, 'INA'))->toBeNull()
+        ->and($resolver->lookup('BLSS', 999, 'MISSING'))->toBeNull()
+        ->and($resolver->lookup('BLSS', 999, 'DUP'))->toBeNull()
+        ->and($resolver->lookup('BLSS', 999, ''))->toBeNull()
+        ->and(BranchEsbCode::query()->orderBy('id')->get()->map->getAttributes()->all())->toBe($before);
+});
+
+it('keeps unmapped central Receiving records out of a limited viewer scope', function () {
+    $branch = Branch::factory()->create();
+    $viewer = User::factory()->create(['branch_id' => $branch->id, 'access_all_branches' => false, 'is_active' => true]);
+    $viewer->givePermissionTo('view goods receipts');
+    $this->actingAs($viewer);
+    $unmapped = GoodsReceipt::factory()->create(['company_code' => 'BLSS', 'esb_branch_id' => 999, 'local_branch_id' => null]);
+
+    expect(GoodsReceiptResource::getEloquentQuery()->pluck('id')->all())->not->toContain($unmapped->id)
+        ->and($viewer->can('view', $unmapped))->toBeFalse();
 });
 
 it('scopes Receiving records with local branch IDs rather than ESB branch IDs', function () {

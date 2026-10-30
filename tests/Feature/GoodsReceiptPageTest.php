@@ -9,13 +9,17 @@ use App\Models\GoodsReceiptExpiry;
 use App\Models\GoodsReceiptItem;
 use App\Models\User;
 use App\Services\EsbGoodsReceiptService;
+use App\Services\Monitoring\EsbTransactionRecorder;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
+use Mockery\MockInterface;
 
 beforeEach(function () {
     $branch = Branch::factory()->create(['name' => 'Receiving Test Branch']);
@@ -303,51 +307,355 @@ test('tile permission can submit receiving for every mapped branch without branc
         ->and($receipt->status)->toBe(GoodsReceipt::STATUS_SUCCEEDED);
 });
 
-test('receiving explains an unmapped purchase order branch instead of returning forbidden', function () {
-    $this->seed(RolesAndPermissionsSeeder::class);
-    Filament::setCurrentPanel(Filament::getPanel('casual'));
-    BranchEsbCode::query()->where('esb_comcode', 'BLSS')->where('esb_branch_id', 10)->delete();
-    $user = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
-    $user->givePermissionTo('access employee app goods receipt');
-    $this->actingAs($user);
-
-    $order = [
-        'purchaseNum' => 'PO-UNMAPPED-BRANCH',
+/**
+ * docs/products/inventory/receiving-central-blss/prd.md §7: a valid BLSS purchase order from a
+ * branch ESB that has no local mapping is received by Inventory Pusat with a null local branch.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function centralReceivingOrder(string $purchaseNumber, int $esbBranchId, string $esbBranchCode, array $overrides = []): array
+{
+    return array_replace([
+        'purchaseNum' => $purchaseNumber,
         'statusID' => EsbGoodsReceiptService::PURCHASE_ORDER_STATUS_AUTHORIZED,
-        'branchID' => 999,
-        'branchCode' => 'UNMAPPED',
+        'branchID' => $esbBranchId,
+        'branchCode' => $esbBranchCode,
+        'branchName' => "ESB {$esbBranchCode}",
+        'supplierID' => 77,
+        'supplierName' => 'Supplier Pusat',
+        'purchaseDate' => '2026-10-28',
         'purchaseDetails' => [[
-            'ID' => 11,
-            'productID' => 12,
-            'productDetailID' => 13,
-            'productCode' => 'BB001',
-            'productName' => 'Bahan Test',
-            'uomID' => 1,
-            'uomName' => 'GR',
-            'qty' => 2,
+            'ID' => 11, 'productID' => 12, 'productDetailID' => 13, 'productCode' => 'BB001',
+            'productName' => 'Bahan Test', 'uomID' => 1, 'uomName' => 'GR', 'qty' => 2,
         ]],
-    ];
+    ], $overrides);
+}
+
+/** A Receiving user whose own branch and branch access are unrelated to every purchase order. */
+function actingAsCentralReceivingUser(): User
+{
+    test()->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('casual'));
+    $user = User::factory()->create([
+        'is_active' => true,
+        'access_all_branches' => false,
+        'branch_id' => Branch::factory()->create(['name' => 'Inventory Pusat'])->id,
+    ]);
+    $user->givePermissionTo('access employee app goods receipt');
+    test()->actingAs($user);
+
+    return $user;
+}
+
+/** @param  array<string, mixed>  ...$orders */
+function mockCentralReceivingService(array ...$orders): MockInterface
+{
     $service = Mockery::mock(EsbGoodsReceiptService::class);
     $service->shouldReceive('purchaseOrders')->andReturn([]);
-    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-UNMAPPED-BRANCH')->twice()->andReturn($order);
-    $service->shouldReceive('locations')->with('BLSS', 999)->once()->andReturn([
-        ['locationID' => 9, 'locationName' => 'Warehouse'],
-    ]);
+    foreach ($orders as $order) {
+        $service->shouldReceive('purchaseOrder')->with('BLSS', $order['purchaseNum'])->andReturn($order);
+        $service->shouldReceive('locations')->with('BLSS', $order['branchID'])->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    }
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    return $service;
+}
+
+function openCentralReceivingForm(string $purchaseNumber): Testable
+{
+    return Livewire::test(GoodsReceiptPage::class)
+        ->call('selectPurchaseOrder', $purchaseNumber, 'BLSS')
+        ->set('documentType', 'delivery_note')
+        ->set('documentNumber', "DO-{$purchaseNumber}")
+        ->set('documentDate', now()->toDateString());
+}
+
+/** @return list<array<string, mixed>> */
+function branchMappingSnapshot(): array
+{
+    return BranchEsbCode::query()->orderBy('id')->get()->map->getAttributes()->all();
+}
+
+test('receiving saves an unmapped BLSS purchase order with a null local branch and monitoring context', function () {
+    $user = actingAsCentralReceivingUser();
+    $mappingsBefore = branchMappingSnapshot();
+    $service = mockCentralReceivingService(centralReceivingOrder('PO-UNMAPPED', 999, 'UNMAPPED'));
+    $service->shouldReceive('create')->once()->with('BLSS', 'PO-UNMAPPED', Mockery::on(
+        fn (array $payload): bool => $payload['locationID'] === 9 && $payload['goodsReceiptDetail'][0]['qty'] === 2.0,
+    ))->andReturn(['result' => ['goodsReceiptNum' => 'GR-UNMAPPED'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
+    $monitoringContexts = [];
+    $recorder = Mockery::mock(EsbTransactionRecorder::class);
+    $recorder->shouldReceive('transaction')->once()->with('goods_receipt', 'submit', 'create_goods_receipt', Mockery::type(Closure::class), Mockery::type('array'))
+        ->andReturnUsing(function (string $module, string $action, string $operation, Closure $callback, array $context) use (&$monitoringContexts): mixed {
+            $monitoringContexts[] = $context;
+
+            return $callback();
+        });
+    app()->instance(EsbTransactionRecorder::class, $recorder);
+
+    openCentralReceivingForm('PO-UNMAPPED')
+        ->call('submit')
+        ->assertHasNoErrors()
+        ->assertSet('loadError', null)
+        ->assertSet('purchaseOrder', null)
+        ->assertNotified('Penerimaan berhasil');
+
+    $receipt = GoodsReceipt::query()->where('reference_number', 'PO-UNMAPPED')->sole();
+    expect($receipt->status)->toBe(GoodsReceipt::STATUS_SUCCEEDED)
+        ->and($receipt->esb_goods_receipt_number)->toBe('GR-UNMAPPED')
+        ->and($receipt->local_branch_id)->toBeNull()
+        ->and($receipt->company_code)->toBe('BLSS')
+        ->and($receipt->esb_branch_id)->toBe(999)
+        ->and($receipt->branch_name)->toBe('ESB UNMAPPED')
+        ->and($receipt->location_id)->toBe(9)
+        ->and($receipt->location_name)->toBe('Warehouse')
+        ->and($receipt->supplier_id)->toBe(77)
+        ->and($receipt->supplier_name)->toBe('Supplier Pusat')
+        ->and($receipt->submitted_by)->toBe($user->id)
+        ->and($receipt->submitted_at)->not->toBeNull()
+        ->and(branchMappingSnapshot())->toBe($mappingsBefore)
+        ->and($monitoringContexts)->toHaveCount(1)
+        ->and($monitoringContexts[0]['branch_id'])->toBeNull()
+        ->and($monitoringContexts[0]['company_code'])->toBe('BLSS')
+        ->and($monitoringContexts[0]['external_reference'])->toBe('PO-UNMAPPED')
+        ->and($monitoringContexts[0]['idempotency_key'])->toBe('goods-receipt:'.$receipt->submission_key)
+        ->and($monitoringContexts[0]['local_model']->is($receipt))->toBeTrue();
+});
+
+test('one receiving user processes purchase orders from two unmapped BLSS branches', function () {
+    actingAsCentralReceivingUser();
+    $service = mockCentralReceivingService(
+        centralReceivingOrder('PO-BRANCH-A', 401, 'BRA'),
+        centralReceivingOrder('PO-BRANCH-B', 402, 'BRB'),
+    );
+    $service->shouldReceive('create')->twice()->andReturn(['result' => ['goodsReceiptNum' => null], 'response' => ['code' => 'OK', 'message' => 'OK']]);
+
+    $component = openCentralReceivingForm('PO-BRANCH-A')->call('submit')->assertHasNoErrors();
+    $component->call('selectPurchaseOrder', 'PO-BRANCH-B', 'BLSS')
+        ->set('documentNumber', 'DO-PO-BRANCH-B')
+        ->set('documentDate', now()->toDateString())
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $receipts = GoodsReceipt::query()->whereIn('reference_number', ['PO-BRANCH-A', 'PO-BRANCH-B'])->orderBy('reference_number')->get();
+    expect($receipts->pluck('esb_branch_id')->all())->toBe([401, 402])
+        ->and($receipts->pluck('local_branch_id')->all())->toBe([null, null])
+        ->and($receipts->pluck('status')->unique()->all())->toBe([GoodsReceipt::STATUS_SUCCEEDED])
+        ->and($receipts->pluck('submission_key')->unique())->toHaveCount(2);
+});
+
+test('optional branch mapping metadata never blocks receiving or changes the mapping', function (Closure $arrange) {
+    actingAsCentralReceivingUser();
+    $expectedLocalBranchId = $arrange();
+    $mappingsBefore = branchMappingSnapshot();
+    $service = mockCentralReceivingService(centralReceivingOrder('PO-MAPPING', 30, 'CTR'));
+    $service->shouldReceive('create')->once()->andReturn(['result' => ['goodsReceiptNum' => 'GR-MAPPING'], 'response' => ['code' => 'OK', 'message' => 'OK']]);
+
+    openCentralReceivingForm('PO-MAPPING')->call('submit')->assertHasNoErrors();
+
+    $receipt = GoodsReceipt::query()->where('reference_number', 'PO-MAPPING')->sole();
+    expect($receipt->status)->toBe(GoodsReceipt::STATUS_SUCCEEDED)
+        ->and($receipt->esb_branch_id)->toBe(30)
+        ->and($receipt->local_branch_id)->toBe($expectedLocalBranchId)
+        ->and(branchMappingSnapshot())->toBe($mappingsBefore);
+})->with([
+    'no mapping' => [fn (): ?int => null],
+    'inactive exact mapping' => [function (): ?int {
+        Branch::factory()->create()->esbCodes()->create(['esb_branch_id' => 30, 'esb_branch_code' => 'CTR', 'esb_comcode' => 'BLSS', 'is_active' => false]);
+
+        return null;
+    }],
+    'exact mapping of another company' => [function (): ?int {
+        Branch::factory()->create()->esbCodes()->create(['esb_branch_id' => 30, 'esb_branch_code' => 'CTR', 'esb_comcode' => 'SPN', 'is_active' => true]);
+
+        return null;
+    }],
+    'ambiguous branch code' => [function (): ?int {
+        Branch::factory()->create()->esbCodes()->create(['esb_branch_id' => 31, 'esb_branch_code' => 'CTR', 'esb_comcode' => 'BLSS', 'is_active' => true]);
+        Branch::factory()->create()->esbCodes()->create(['esb_branch_id' => 32, 'esb_branch_code' => 'CTR', 'esb_comcode' => 'BLSS', 'is_active' => true]);
+
+        return null;
+    }],
+    'single branch code match with another ESB branch ID' => [function (): ?int {
+        $branch = Branch::factory()->create();
+        $branch->esbCodes()->create(['esb_branch_id' => 31, 'esb_branch_code' => 'CTR', 'esb_comcode' => 'BLSS', 'is_active' => true]);
+
+        return $branch->id;
+    }],
+    'exact active mapping' => [function (): ?int {
+        $branch = Branch::factory()->create();
+        $branch->esbCodes()->create(['esb_branch_id' => 30, 'esb_branch_code' => 'OLD', 'esb_comcode' => 'BLSS', 'is_active' => true]);
+
+        return $branch->id;
+    }],
+]);
+
+test('receiving rejects a purchase order whose ESB branch changed after it was opened', function () {
+    actingAsCentralReceivingUser();
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-MOVED')->twice()->andReturn(
+        centralReceivingOrder('PO-MOVED', 50, 'OLD'),
+        centralReceivingOrder('PO-MOVED', 51, 'NEW'),
+    );
+    $service->shouldReceive('locations')->with('BLSS', 50)->once()->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldNotReceive('locations')->with('BLSS', 51);
     $service->shouldNotReceive('create');
     app()->instance(EsbGoodsReceiptService::class, $service);
 
-    $message = 'Branch PO belum dimapping. Hubungkan branch ESB PO ini ke branch lokal sebelum memproses penerimaan.';
+    $message = 'Cabang tujuan PO sudah berubah di ESB. Muat ulang PO lalu pilih ulang lokasi sebelum memproses penerimaan.';
 
-    Livewire::test(GoodsReceiptPage::class)
-        ->call('selectPurchaseOrder', 'PO-UNMAPPED-BRANCH', 'BLSS')
-        ->set('documentType', 'delivery_note')
-        ->set('documentNumber', 'DO-UNMAPPED-BRANCH')
-        ->set('documentDate', now()->toDateString())
+    openCentralReceivingForm('PO-MOVED')
         ->call('submit')
         ->assertHasErrors(['purchaseOrder'])
-        ->assertSet('loadError', $message);
+        ->assertSet('loadError', $message)
+        ->assertNotified('Konteks PO berubah');
 
-    expect(GoodsReceipt::query()->where('reference_number', 'PO-UNMAPPED-BRANCH')->exists())->toBeFalse();
+    expect(GoodsReceipt::query()->where('reference_number', 'PO-MOVED')->exists())->toBeFalse();
+});
+
+test('receiving rejects a purchase order that is no longer receivable before creating the goods receipt', function () {
+    actingAsCentralReceivingUser();
+    $service = Mockery::mock(EsbGoodsReceiptService::class);
+    $service->shouldReceive('purchaseOrders')->andReturn([]);
+    $service->shouldReceive('purchaseOrder')->with('BLSS', 'PO-CLOSED')->twice()->andReturn(
+        centralReceivingOrder('PO-CLOSED', 60, 'CLS'),
+        centralReceivingOrder('PO-CLOSED', 60, 'CLS', ['statusID' => 5]),
+    );
+    $service->shouldReceive('locations')->with('BLSS', 60)->andReturn([['locationID' => 9, 'locationName' => 'Warehouse']]);
+    $service->shouldNotReceive('create');
+    app()->instance(EsbGoodsReceiptService::class, $service);
+
+    openCentralReceivingForm('PO-CLOSED')->call('submit')->assertStatus(422);
+
+    expect(GoodsReceipt::query()->where('reference_number', 'PO-CLOSED')->exists())->toBeFalse();
+});
+
+test('receiving keeps the purchase order source context locked against client tampering', function (string $property, mixed $value) {
+    actingAsCentralReceivingUser();
+    mockCentralReceivingService(centralReceivingOrder('PO-LOCKED', 70, 'LCK'))->shouldNotReceive('create');
+
+    $component = openCentralReceivingForm('PO-LOCKED');
+
+    expect(fn () => $component->set($property, $value))->toThrow(CannotUpdateLockedPropertyException::class)
+        ->and(GoodsReceipt::query()->where('reference_number', 'PO-LOCKED')->exists())->toBeFalse();
+})->with([
+    'company code' => ['sourceCompanyCode', 'SPN'],
+    'purchase order branch' => ['purchaseOrder.branchID', 71],
+    'location list' => ['locations', [['locationID' => 99, 'locationName' => 'Gudang Lain']]],
+]);
+
+test('receiving rejects a location outside the purchase order branch and invalid quantities before creating the goods receipt', function () {
+    actingAsCentralReceivingUser();
+    mockCentralReceivingService(centralReceivingOrder('PO-INVALID', 80, 'INV'))->shouldNotReceive('create');
+
+    openCentralReceivingForm('PO-INVALID')
+        ->set('locationId', '99')
+        ->call('submit')
+        ->assertStatus(422);
+
+    openCentralReceivingForm('PO-INVALID')
+        ->set('items.0.physicalQty', 5)
+        ->call('submit')
+        ->assertHasErrors(['items.0.acceptedQty']);
+
+    expect(GoodsReceipt::query()->where('reference_number', 'PO-INVALID')->exists())->toBeFalse();
+});
+
+test('a rejected-only unmapped receipt keeps QC, Vendor Compliance, and the Purchasing notification without creating a goods receipt', function () {
+    actingAsCentralReceivingUser();
+    Storage::fake('b2');
+    $purchasing = User::factory()->create(['is_active' => true]);
+    $purchasing->assignRole('PURCHASING_STAFF');
+    mockCentralReceivingService(centralReceivingOrder('PO-REJECTED', 90, 'REJ'))->shouldNotReceive('create');
+
+    openCentralReceivingForm('PO-REJECTED')
+        ->call('openItemDetail', 0)
+        ->set('items.0.acceptedQty', 0)
+        ->set('items.0.rejectedQty', 2)
+        ->set('items.0.packagingResult', 'fail')
+        ->set('items.0.quarantineLocation', 'Rak Karantina')
+        ->set('items.0.rejectionCategory', 'packaging')
+        ->set('items.0.rejectionReason', 'Kemasan sobek')
+        ->set('items.0.evidencePhotos', [UploadedFile::fake()->image('kemasan.jpg')])
+        ->call('submit')
+        ->assertHasNoErrors()
+        ->assertNotified('QC tersimpan');
+
+    $receipt = GoodsReceipt::query()->where('reference_number', 'PO-REJECTED')->sole();
+    $incident = $receipt->vendorComplianceIncidents()->sole();
+    expect($receipt->status)->toBe(GoodsReceipt::STATUS_QC_REJECTED)
+        ->and($receipt->local_branch_id)->toBeNull()
+        ->and($receipt->request_payload['goodsReceiptDetail'])->toBe([])
+        ->and($receipt->items()->sole()->rejected_qty)->toEqual(2)
+        ->and($incident->supplier_name)->toBe('Supplier Pusat')
+        ->and($incident->category)->toBe('packaging')
+        ->and($purchasing->notifications()->count())->toBe(1);
+    Storage::disk('b2')->assertExists($incident->evidence_photos[0]);
+});
+
+test('a hold-only unmapped receipt keeps QC on hold without a Vendor Compliance incident or goods receipt', function () {
+    actingAsCentralReceivingUser();
+    Storage::fake('b2');
+    mockCentralReceivingService(centralReceivingOrder('PO-HOLD', 91, 'HLD'))->shouldNotReceive('create');
+
+    openCentralReceivingForm('PO-HOLD')
+        ->call('openItemDetail', 0)
+        ->set('items.0.acceptedQty', 0)
+        ->set('items.0.holdQty', 2)
+        ->set('items.0.samplingRequired', true)
+        ->set('items.0.samplingResult', 'pending')
+        ->set('items.0.quarantineLocation', 'Rak Karantina')
+        ->set('items.0.rejectionCategory', 'sampling')
+        ->set('items.0.rejectionReason', 'Menunggu hasil lab')
+        ->set('items.0.evidencePhotos', [UploadedFile::fake()->image('sampling.jpg')])
+        ->call('submit')
+        ->assertHasNoErrors();
+
+    $receipt = GoodsReceipt::query()->where('reference_number', 'PO-HOLD')->sole();
+    expect($receipt->status)->toBe(GoodsReceipt::STATUS_QC_HOLD)
+        ->and($receipt->local_branch_id)->toBeNull()
+        ->and($receipt->vendorComplianceIncidents()->exists())->toBeFalse();
+});
+
+test('a partial unmapped receipt sends only Accepted qty, fails once on ESB rejection, and never duplicates on resubmit', function () {
+    actingAsCentralReceivingUser();
+    Storage::fake('b2');
+    $service = mockCentralReceivingService(centralReceivingOrder('PO-PARTIAL', 92, 'PRT'));
+    $service->shouldReceive('create')->once()->with('BLSS', 'PO-PARTIAL', Mockery::on(
+        fn (array $payload): bool => count($payload['goodsReceiptDetail']) === 1 && $payload['goodsReceiptDetail'][0]['qty'] === 1.0,
+    ))->andThrow(new RuntimeException('ESB menolak Goods Receipt'));
+
+    $fillPartialRejection = fn (Testable $component, string $photo): Testable => $component
+        ->call('openItemDetail', 0)
+        ->set('items.0.acceptedQty', 1)
+        ->set('items.0.rejectedQty', 1)
+        ->set('items.0.quarantineLocation', 'Rak Karantina')
+        ->set('items.0.rejectionCategory', 'quantity')
+        ->set('items.0.rejectionReason', 'Satu unit penyok')
+        ->set('items.0.evidencePhotos', [UploadedFile::fake()->image($photo)]);
+
+    $first = $fillPartialRejection(openCentralReceivingForm('PO-PARTIAL'), 'penyok.jpg')
+        ->call('submit')
+        ->assertHasNoErrors()
+        ->assertNotified('Penerimaan gagal dikirim');
+    $storedFiles = Storage::disk('b2')->allFiles();
+
+    // A second tab replaying the same submission key stores nothing new and never calls ESB again.
+    $fillPartialRejection(openCentralReceivingForm('PO-PARTIAL'), 'penyok-tab-lain.jpg')
+        ->set('submissionKey', $first->get('submissionKey'))
+        ->call('submit')
+        ->assertNotified('Penerimaan sudah sedang diproses');
+
+    $receipt = GoodsReceipt::query()->where('reference_number', 'PO-PARTIAL')->sole();
+    expect($receipt->status)->toBe(GoodsReceipt::STATUS_FAILED)
+        ->and($receipt->sync_error)->toBe('ESB menolak Goods Receipt')
+        ->and($receipt->local_branch_id)->toBeNull()
+        ->and($receipt->items()->sole()->accepted_qty)->toEqual(1)
+        ->and($receipt->vendorComplianceIncidents()->count())->toBe(1)
+        ->and($storedFiles)->toHaveCount(1)
+        ->and(Storage::disk('b2')->allFiles())->toBe($storedFiles);
 });
 
 test('all branch access without the receiving tile permission remains forbidden', function () {

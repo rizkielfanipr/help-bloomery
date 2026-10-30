@@ -8,9 +8,8 @@ use App\Services\Monitoring\RecordsEsbMutations;
 
 /**
  * docs/products/inventory/receiving-simplification/prd.md §12: every operation now takes the Company Code as an
- * explicit, caller-supplied context (resolved by the caller from the selected PO's own mapping —
- * see EsbBranchMappingResolver) rather than a single constant, so Receiving is no longer limited
- * to BLSS.
+ * explicit, caller-supplied context rather than a single constant. The Employee App Receiving
+ * caller is still locked to BLSS (docs/products/inventory/receiving-central-blss/prd.md §9).
  */
 class EsbGoodsReceiptService
 {

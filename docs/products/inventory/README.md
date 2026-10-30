@@ -31,12 +31,14 @@ Status: `draft`, `pending_supervisor`, `pending_finance`, `completed`.
 
 ## Receiving
 
-1. Staff membuka tile **Receiving**, mencari Purchase Order ESB yang statusnya masih bisa diterima, lalu memilihnya. Company code ditentukan dari mapping PO itu sendiri (`EsbBranchMappingResolver`), jadi Receiving tidak terbatas pada satu company.
+1. Staff membuka tile **Receiving**, mencari Purchase Order ESB yang statusnya masih bisa diterima, lalu memilihnya. Kode saat ini mengambil PO khusus company `BLSS`. Permission Receiving membuka penerimaan lintas cabang, tetapi submit masih mensyaratkan mapping aktif cabang PO ESB ke cabang lokal (`EsbBranchMappingResolver`). Prasyarat mapping ini akan diperbaiki sesuai rencana PRD §22; belum diimplementasikan.
 2. Untuk setiap item, staff mengisi jumlah diterima (atau memakai **Isi dari outstanding** / **Tandai semua OK**) dan kondisi. Item dapat dibagi menjadi beberapa batch (**Tambah batch**). **Detail Batch** berisi tanggal produksi dan kedaluwarsa.
 3. QC inbound dinilai otomatis (`InboundGoodsReceiptQcService`): dokumen, sisa umur simpan, cold chain, sampling, dan disposisi (diterima/hold/ditolak). Foto dokumen, barang, dan bukti item dilampirkan.
 4. Submit membuat Goods Receipt di ESB (`EsbGoodsReceiptService::create`) dan menyimpan hasilnya secara lokal. Item yang ditolak membuat **insiden Vendor Compliance** dengan poin demerit (lihat [Purchasing](../purchasing/README.md#vendor-compliance)).
 
 Back office **Receiving** menampilkan nomor PO, nomor GR, tanggal, supplier, cabang, lokasi, pengirim, dan waktu.
+
+Rencana perbaikan: [PRD §22](receiving-simplification/prd.md#22-remediasi-receiving-inventory-pusat--blss), [implementation plan](receiving-simplification/implementation-plan.md), dan [prompt implementasi](receiving-simplification/implementation-prompt.md). Tahap ini hanya dokumentasi.
 
 ## Item Journal
 
@@ -87,7 +89,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 
 | Dokumen | Status |
 |---|---|
-| [PRD Receiving Simplification](receiving-simplification/prd.md) | Implemented — batch, Detail Batch, aksi massal, multi-company |
+| [PRD Receiving Simplification](receiving-simplification/prd.md) | UI batch/Detail Batch dan aksi massal tersedia; §22 in-review — remediasi Receiving terpusat BLSS tanpa mapping lokal |
 | [PRD Item Journal Inventory](item-journal/prd.md) | Implemented — tile mandiri, foto camera-first image-only, dan menu Back Office di Inventory |
 
 Dataset: [development-todo.csv](development-todo.csv).

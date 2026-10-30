@@ -1,5 +1,7 @@
 # PRD — Penyederhanaan Receiving dan QC Inbound
 
+> Pembaruan 30 Oktober 2026: spesifikasi remediasi Receiving terpusat khusus BLSS berada pada §22. Bagian lama yang mensyaratkan mapping/akses branch dan perluasan company adalah konteks historis; untuk scope perbaikan ini §22 menjadi acuan. Penyederhanaan UI yang sudah ada tetap berlaku. Remediasi belum diimplementasikan.
+
 ## 1. Status dokumen
 
 - **Status:** Implemented (diverifikasi terhadap kode 27 Oktober 2026). Status awal: Planning
@@ -519,3 +521,113 @@ Rollback harus mempertahankan kolom legacy dan data Goods Receipt existing. Kolo
 5. Apakah metadata produk ESB menyediakan kategori cold chain, kewajiban ED, dan sampling?
 6. Jika metadata tidak tersedia, apakah pengaturan tersebut dikelola melalui master lokal?
 
+
+
+## 22. Remediasi Receiving Inventory Pusat — BLSS
+
+### 22.1 Identitas dan status
+
+| Atribut | Nilai |
+|---|---|
+| Domain | Inventory → Employee App Receiving |
+| Status | in-review — dokumentasi rencana, belum implementasi |
+| Keputusan pengguna | Inventory Pusat menerima seluruh PO BLSS yang receivable berdasarkan permission Receiving; tanpa konfigurasi branch lokal |
+| Baseline kode | main d750709a, audit 30 Oktober 2026; bukan audit database production |
+| Audit acuan | Bukti kode dan test pada §22.3 |
+
+§22 menggantikan persyaratan mapping/akses branch pada §2 butir 7–8, §3.1–3.2, §5.1, §12, §13, Phase 0/4 pada §17, dan acceptance criteria terkait akses/company pada §18 **hanya untuk remediasi ini**. Requirement UI/QC lainnya tetap berlaku. Ekspansi SPN/multi-company ditunda. Dokumen canonical tetap PRD ini.
+
+### 22.2 Ringkasan
+
+Simpan GR terhenti dengan pesan “Branch PO belum dimapping” meskipun pengguna sudah memiliki permission Receiving. Model operasional saat ini terpusat: Inventory Pusat harus dapat memproses PO dari seluruh branch ESB BLSS. Cabang tujuan ESB tetap mengikuti PO; cabang lokal bukan prasyarat transaksi.
+
+### 22.3 Baseline dan bukti
+
+| ID | Temuan | Severity | Bukti | Dampak |
+|---|---|---|---|---|
+| R-1 | Submit mewajibkan mapping aktif | Tinggi | `app/Filament/Casual/Pages/GoodsReceiptPage.php`, method `submit()`; test `receiving explains an unmapped purchase order branch instead of returning forbidden` di `tests/Feature/GoodsReceiptPageTest.php` | PO terlihat dan form dapat diisi, tetapi GR tidak diproses |
+| R-2 | Mapping masih wajib pada persist dan monitoring | Tinggi | `persist(... BranchEsbCode $branchMapping ...)`, `local_branch_id => $branchMapping->branch_id`, context monitoring `$mapping->branch_id` | Menghapus notifikasi saja menimbulkan error null |
+| R-3 | Dokumentasi multi-company tidak sesuai batas kode aktual | Sedang | `GoodsReceiptPage::COMPANY_CODE`, `loadPurchaseOrders()` dan `selectPurchaseOrder()`; README Inventory | Risiko implementasi membuka company lain di luar scope |
+| R-4 | Back Office memiliki policy/scope terpisah | Sedang | `app/Policies/GoodsReceiptPolicy.php`, `GoodsReceiptResource::getEloquentQuery()` | Receipt tanpa mapping belum tentu terlihat oleh viewer terbatas branch; perlu batas akses eksplisit |
+
+Schema existing sudah menyediakan `goods_receipts.local_branch_id` nullable. Resolver bersama dapat memperbarui ESB branch ID melalui fallback branch code; jangan mengubah perilaku resolver global demi satu modul.
+
+### 22.4 Goals dan non-goals
+
+- Goals: Receiving BLSS tanpa mapping branch lokal; data GR/QC/ESB/monitoring tetap lengkap dan aman.
+- Non-goals: SPN/company lain, permission baru, desain ulang form, perubahan Master Branch, mapping otomatis massal, penggantian destination ESB menjadi branch user/pusat, perluasan akses Back Office, perubahan QC atau schema tanpa bukti kebutuhan.
+
+### 22.5 Perilaku yang wajib dipertahankan
+
+Permission `access employee app goods receipt` tetap wajib melalui policy; `access_all_branches` bukan penggantinya. Status PO Authorized/Receiving diperiksa lagi dari ESB sebelum transaksi. Qty, lokasi PO, dokumen, ED/batch, upload, Accepted/Hold/Rejected, payload ESB, idempotency submission key, penanganan failed/unknown, dan Vendor Compliance tetap mengikuti kontrak existing.
+
+### 22.6 Target perilaku dan acceptance criteria
+
+| ID | Target | Acceptance criteria |
+|---|---|---|
+| AC-1 / R-1 | Semua cabang BLSS boleh diterima | User aktif dengan permission Receiving, tanpa akses cabang terkait dan tanpa mapping, dapat menyimpan QC dan membuat GR valid |
+| AC-2 / R-1 | Mapping opsional | Mapping kosong, nonaktif, atau hanya company lain tidak menghalangi; tidak membuat/mengaktifkan mapping sebagai efek samping |
+| AC-3 / R-2 | Simpan identitas ESB asli | Simpan company BLSS, nomor PO, ESB branch ID/nama, lokasi, supplier, pengirim dan timestamp; tanpa mapping `local_branch_id = null`, bukan branch user atau branch pusat buatan |
+| AC-4 / R-2 | Kompatibilitas mapping existing | Bila resolver menemukan mapping aktif yang cocok, isi local_branch_id seperti sebelumnya; kegagalan infrastruktur/database bukan dianggap “mapping tidak ada” |
+| AC-5 / R-2 | Monitoring menerima null | Transaksi goods_receipt tetap dicatat dengan company, referensi PO, local model, idempotency key; branch lokal null tidak menghasilkan exception |
+| AC-6 / R-3 | BLSS saja, guard server-side | Daftar, detail, lokasi dan submit tetap BLSS; manipulasi sourceCompanyCode atau company non-BLSS ditolak sebelum create, tanpa panggilan write ESB |
+| AC-7 | Tidak melemahkan validasi transaksi | PO tidak receivable, lokasi invalid, qty berlebih, QC tidak valid dan user tanpa permission tetap ditolak |
+| AC-8 | Seluruh disposisi dapat disimpan | Full Accepted, partial, Hold-only dan Rejected-only bekerja tanpa mapping; create ESB hanya bila ada Accepted; demerit Vendor Compliance tetap terbentuk sesuai aturan |
+| AC-9 | Aman terhadap submit ulang | Submission key yang sama tidak membuat receipt/GR/incident ganda; failed/unknown tidak di-retry write secara buta |
+| AC-10 / R-4 | Scope Back Office tetap | Permission Receiving tidak otomatis memberi `view goods receipts` atau akses semua record; viewer all-branch tetap dapat melihat receipt tanpa mapping, viewer terbatas tetap mengikuti policy existing |
+
+Branch dan lokasi harus berasal dari detail PO ESB yang dipercaya, bukan nilai branch lokal atau input bebas. Pada implementasi, verifikasi ulang konteks PO terbaru dan lokasi milik cabang tersebut; perubahan konteks PO selama pengisian harus ditolak dengan pesan muat ulang, bukan diam-diam dialihkan.
+
+### 22.7 Data existing dan migrasi
+
+Tidak direncanakan migration/backfill karena local_branch_id sudah nullable. Receipt lama dan mapping existing dipertahankan. Jangan membuat branch lokal dummy. Tidak ada perubahan data production pada tahap dokumentasi. Bila audit schema aktual berbeda, laporkan sebagai blocker sebelum menambah migration. Receipt yang gagal hanya karena guard mapping belum dibuat oleh alur tersebut; jangan berasumsi semua kasus lapangan belum memiliki GR ESB tanpa rekonsiliasi.
+
+### 22.8 Authorization dan security
+
+Batas akses perubahan ini adalah Employee App Receiving. Permission yang sama mengizinkan submit seluruh cabang BLSS, bukan semua company. Scope Back Office dan modul lain tetap. Jangan mengubah `EsbBranchMappingResolver` global menjadi bypass authorization. Bila Inventory Pusat juga memerlukan akses riwayat menyeluruh, gunakan permission Back Office dan akses all-branch existing melalui konfigurasi terpisah yang disetujui; tidak otomatis dalam remediasi.
+
+### 22.9 Testing strategy
+
+Baseline: GoodsReceiptPageTest, ReceivingAuthorizationTest, EsbGoodsReceiptServiceTest dan unit QC terkait. Ubah test guard unmapped menjadi test sukses tanpa mapping; tambahkan matriks AC-1 sampai AC-10. Semua ESB/storage/notification menggunakan fake atau mock sesuai kebutuhan; jangan mengirim GR nyata. Pisahkan mock read detail/lokasi dari create dan pastikan invalid request tidak memanggil create. Uji monitoring dengan local branch null serta Back Office list/detail untuk viewer all-branch dan terbatas.
+
+### 22.10 Phase remediasi
+
+| Phase | Temuan | Output | Prasyarat |
+|---|---|---|---|
+| 0 | R-1–R-4 | Baseline dan audit nullable/context/dependency | Review rencana dan izin implementasi |
+| 1 | R-1–R-2 | Mapping opsional, guard BLSS, persist dan monitoring aman | Test regresi mereproduksi kasus |
+| 2 | R-2/R-4 | Verifikasi QC/Vendor Compliance, scope Back Office dan idempotency | Phase 1 lulus |
+| 3 | R-3 | Dokumentasi aktual, laporan implementasi, PR dan UAT | Semua quality gate lulus |
+
+### 22.11 Rollout dan rollback
+
+Deploy mengikuti pipeline repository setelah PR dan CI disetujui. Tidak ada env/permission/mapping baru untuk fitur ini. UAT staging memakai PO BLSS uji dari cabang tanpa mapping dan user Receiving tanpa akses cabang; verifikasi GR, QC, demerit, monitoring dan akses laporan. Production hanya atas persetujuan pengguna, termasuk transaksi GR nyata. Pantau failed/unknown dan receipt dengan local_branch_id null. Rollback kode tidak menghapus receipt/GR/incident; versi lama kembali menolak PO tanpa mapping, tetapi record null harus tetap dapat dibaca. Jangan mengulang submit PO dengan outcome unknown tanpa rekonsiliasi.
+
+### 22.12 Risiko
+
+| Risiko | Mitigasi |
+|---|---|
+| Dereference null tersisa | Audit seluruh pemakaian mapping dan test cabang tanpa mapping |
+| Company dimanipulasi di Livewire | Guard BLSS pada select dan submit; test negatif |
+| Cabang/lokasi PO berubah setelah dipilih | Verifikasi latest context; minta reload bila berubah |
+| Viewer tidak menemukan receipt null | Pertahankan batas akses dan uji viewer all-branch; jelaskan konfigurasi terpisah |
+| GR ganda | Pertahankan idempotency dan penanganan unknown; tanpa write retry buta |
+| Scope melebar ke resolver global | Perubahan minimal lokal Receiving; regresi konsumen existing bila resolver disentuh |
+
+### 22.13 Open decisions
+
+Tidak ada keputusan bisnis yang memblokir penulisan rencana: BLSS saja dan tanpa mapping sudah diputuskan pengguna. Implementasi aplikasi, merge, deployment dan transaksi ESB belum diotorisasi oleh permintaan dokumentasi ini. Status in-review menunggu instruksi implementasi.
+
+### 22.14 Definition of Done
+
+- [ ] Seluruh AC-1 sampai AC-10 terbukti oleh test.
+- [ ] Test baseline dan quality gate terkait lulus.
+- [ ] Tidak ada mapping, permission, dependency atau company baru.
+- [ ] README Inventory sesuai implementasi aktual; PRD tidak mengklaim deployment sebelum bukti.
+- [ ] Laporan implementasi mencatat phase, hasil uji, deviasi, rollback dan UAT yang belum dilakukan.
+- [ ] Prompt implementasi dihapus setelah tidak diperlukan sesuai standar dokumentasi.
+
+### 22.15 Dokumen pelaksanaan
+
+- [Implementation plan](implementation-plan.md)
+- [Implementation prompt](implementation-prompt.md)

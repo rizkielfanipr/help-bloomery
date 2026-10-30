@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Casual\Pages\ItemJournalPage;
 use App\Filament\Casual\Pages\LauncherPage;
 use App\Models\Branch;
 use App\Models\BriefingBranchSetting;
@@ -78,6 +79,31 @@ it('shows Quality Control tile for QUALITY_CONTROL', function () {
         ->assertSee('Quality Control');
 });
 
+it('shows the standalone Item Journal tile to STORE_STAFF without Quality Control access', function () {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->assignRole('STORE_STAFF');
+
+    actingAs($user);
+
+    $tiles = collect(Livewire::test(LauncherPage::class)->instance()->tiles());
+    expect($tiles->pluck('label'))->toContain('Item Journal')
+        ->not->toContain('Quality Control')
+        ->and($tiles->firstWhere('label', 'Item Journal')['href'])->toBe(ItemJournalPage::getUrl(panel: 'casual'));
+});
+
+it('only shows the Item Journal tile with the tile permission and journal view access', function (array $permissions, bool $visible) {
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo($permissions);
+
+    actingAs($user);
+
+    expect(collect(Livewire::test(LauncherPage::class)->instance()->tiles())->pluck('label')->contains('Item Journal'))->toBe($visible);
+})->with([
+    'tile and view' => [['access employee app item journal', 'view quality control item journals'], true],
+    'tile only' => [['access employee app item journal'], false],
+    'journal actions without tile' => [['access employee app quality control', 'view quality control item journals', 'create quality control item journals', 'submit quality control item journals'], false],
+]);
+
 it('hides role-specific tiles from users without that role', function () {
     $user = User::factory()->create(['is_active' => true]);
     $user->assignRole('CASUAL_STAFF');
@@ -139,5 +165,6 @@ it('shows all available tiles for SUPERADMIN', function () {
         ->assertSee('Driver')
         ->assertSee('Teknisi')
         ->assertSee('Receiving')
+        ->assertSee('Item Journal')
         ->assertDontSee('Penerimaan Barang');
 });

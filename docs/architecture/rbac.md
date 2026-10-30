@@ -15,12 +15,12 @@ Untuk menambah permission: tambahkan di `config/permissions.php` (atau `permissi
 | Domain | Fitur |
 |---|---|
 | Akses Back Office | Back Office |
-| Akses Employee App | Absensi, Driver, Teknisi, Request Teknisi, Briefing, Submit Daily Briefing, Sales Report, Stock Card, Penerimaan Barang, Purchasing, Desain, Konten, ERP, Quality Control, SOP Store, Customer Complaints, Store Sales Order |
+| Akses Employee App | Absensi, Driver, Teknisi, Request Teknisi, Briefing, Submit Daily Briefing, Sales Report, Stock Card, Penerimaan Barang, Item Journal, Purchasing, Desain, Konten, ERP, Quality Control, SOP Store, Customer Complaints, Store Sales Order |
 | Human Resources | Casual Staff, Posisi Casual, Lowongan Posisi, Absensi Casual, Daily Briefing, Monitoring Poin, Review Monitoring Poin, Nilai Briefing, Pengaturan Briefing, Bobot Penilaian Briefing |
 | Driver | Uang Makan Driver, Perjalanan, Rute Perjalanan, Kendaraan |
 | Teknisi | Service Request, Asset QR, Maintenance Bulanan |
-| Inventory | Stock Card Settings, Stock Card, Penerimaan, Product List, Proses Material Marketing |
-| Quality Control | Item Journal (Audit QC dan Checklist QC dari resource) |
+| Inventory | Stock Card Settings, Stock Card, Penerimaan, Product List, Proses Material Marketing, Item Journal (nama permission legacy `… quality control item journal…`) |
+| Quality Control | Audit QC dan Checklist QC (dari `permissionDefinition()` resource) |
 | Finance | Sales Report Settings, Sales Report Scores, Sales Report, Compliment Types, Basket Size, Sourcing Bahan, Product Pricelist |
 | Purchasing | Vendor Compliance, Permintaan Pembelian, Sourcing Bahan, Proses Material Marketing |
 | Brand Marketing | Permintaan Design, Kategori Design, Permintaan Konten, Marketing Material |
@@ -45,7 +45,7 @@ Role dan permission awal dibuat oleh `database/seeders/RolesAndPermissionsSeeder
 | `SUPERADMIN` | Semua permission; melewati setiap gate (`Gate::before`) dan akses semua branch |
 | `HRD_STAFF` | Back office HR: Casual Staff, absensi, Daily Briefing, dan tile Employee App terkait |
 | `CASUAL_STAFF` | Employee App Absensi, lihat absensi dan lembur sendiri |
-| `STORE_STAFF` | Employee App store: Briefing, Sales Report, Stock Card, Purchasing, Desain, Konten, ERP, Req. Teknisi, Complain, Store Sales Order |
+| `STORE_STAFF` | Employee App store: Briefing, Sales Report, Stock Card, Item Journal (journal sendiri), Purchasing, Desain, Konten, ERP, Req. Teknisi, Complain, Store Sales Order |
 | `SUPERVISOR_STORE` | Review Briefing, Sales Report, dan Stock Card sebagai supervisor; Customer Complaints, Store Sales Orders, Employee, shift cabang, Basket Size, SOP Store |
 | `DRIVER` | Employee App Driver; lihat perjalanan, rute, kendaraan, jenis BBM |
 | `TECHNICIAN` | Employee App Teknisi; Service Request, Maintenance Bulanan, Asset QR |
@@ -53,9 +53,9 @@ Role dan permission awal dibuat oleh `database/seeders/RolesAndPermissionsSeeder
 | `RND_STAFF` | BOM, Project, Product Price Index, Memo Internal, Recipe Adjustment, Shelf Life, Material Forecast, Task Calendar, Review Sourcing |
 | `PURCHASING_STAFF` | Permintaan Pembelian, Sourcing Bahan, serah sampel, Material Marketing, Vendor Compliance |
 | `DESIGN_STAFF` | Lihat Project dan Shelf Life, unggah material marketing |
-| `INVENTORY_STAFF` | Employee App Receiving, lihat Goods Receipt, terima Material Marketing |
+| `INVENTORY_STAFF` | Employee App Receiving, lihat Goods Receipt, terima Material Marketing, Back Office Item Journal (tanpa view-all) |
 | `FINANCE_STAFF` | Review Sales Report sebagai Finance, settlement, Compliment Types, Basket Size, Stock Card Finance, Product Pricelist |
-| `QUALITY_CONTROL` | Employee App Quality Control, audit QC, Item Journal |
+| `QUALITY_CONTROL` | Employee App Quality Control, audit QC, tile dan aksi Item Journal |
 | `QUALITY_CONTROL_SUPERVISOR` | Audit QC, Item Journal semua user, Checklist QC |
 
 Permission yang sengaja tidak diberikan ke role mana pun oleh seeder, misalnya `reopen material sample approval`, harus diberikan manual sesuai kebijakan.
@@ -71,7 +71,7 @@ Data operasional dibatasi per branch.
 | `User::canAccessBranch($id)` / `canAccessAllBranches()` / `accessibleBranchIds()` | Dipakai Policy dan query setiap modul berbasis branch |
 | `SUPERADMIN` | Selalu dianggap mengakses semua branch |
 
-Beberapa modul memiliki permission tambahan untuk memperluas scope tanpa memberi akses semua branch, misalnya `view all branch rnd project tasks`, `view all branch kitchen production schedules`, dan `view all quality control item journals`.
+Beberapa modul memiliki permission tambahan untuk memperluas scope tanpa memberi akses semua branch, misalnya `view all branch rnd project tasks`, `view all branch kitchen production schedules`, dan `view all quality control item journals`. Item Journal tidak menyimpan branch lokal, sehingga `view all quality control item journals` membuka journal semua cabang.
 
 ## Akses panel
 

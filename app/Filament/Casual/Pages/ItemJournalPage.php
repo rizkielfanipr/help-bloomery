@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -25,6 +26,12 @@ use Throwable;
 class ItemJournalPage extends Page
 {
     use WithFileUploads;
+
+    private const ATTACHMENT_LIMIT = 5;
+
+    private const ATTACHMENT_MAX_KILOBYTES = 5120;
+
+    private const ATTACHMENT_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 
     protected static bool $shouldRegisterNavigation = false;
 
@@ -76,13 +83,27 @@ class ItemJournalPage extends Page
 
     public array $attachments = [];
 
+    /** Photo just taken from the camera input; appended to $attachments once it passes validation. */
+    public $photoUpload = null;
+
+    /** @var array<int, mixed> Replacement photo per preview ("Ambil Ulang"), keyed by attachment index. */
+    public array $retakeUploads = [];
+
     public ?string $loadError = null;
 
     public ?string $stockLoadWarning = null;
 
+    /**
+     * The tile permission opens the page; the policy still decides what the user may see and do
+     * (docs/products/inventory/item-journal/prd.md §16). QC access is not required.
+     */
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('viewAny', QualityControlItemJournal::class) ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && $user->can('access employee app item journal')
+            && $user->can('viewAny', QualityControlItemJournal::class);
     }
 
     public function mount(): void
@@ -127,7 +148,7 @@ class ItemJournalPage extends Page
     {
         abort_unless(auth()->user()?->can('create', QualityControlItemJournal::class), 403);
         $this->resetValidation();
-        $this->reset(['companyCode', 'branchId', 'locationId', 'additionalInfo', 'esbBranches', 'locations', 'purposes', 'productOptions', 'selectedProducts', 'items', 'attachments', 'loadError', 'stockLoadWarning', 'productSearch', 'productCodeSearch', 'productPickerOpen', 'productPickerItemIndex', 'productPage', 'productTotal', 'productHasNext']);
+        $this->reset(['companyCode', 'branchId', 'locationId', 'additionalInfo', 'esbBranches', 'locations', 'purposes', 'productOptions', 'selectedProducts', 'items', 'attachments', 'photoUpload', 'retakeUploads', 'loadError', 'stockLoadWarning', 'productSearch', 'productCodeSearch', 'productPickerOpen', 'productPickerItemIndex', 'productPage', 'productTotal', 'productHasNext']);
         $this->submissionKey = (string) Str::uuid();
         $this->journalDate = today()->toDateString();
         $this->items = [$this->blankItem()];
@@ -302,6 +323,91 @@ class ItemJournalPage extends Page
     public function removeAttachment(int $index): void
     {
         array_splice($this->attachments, $index, 1);
+        $this->retakeUploads = [];
+    }
+
+    /**
+     * New attachments are photos only (prd.md §11.5, FR-9/FR-10). The browser `accept`/`capture`
+     * attributes are hints; this server-side check on the file content is the actual rule.
+     * Historical PDF attachments are never re-validated, so retry and delete keep working.
+     */
+    public function updatedPhotoUpload(): void
+    {
+        if (count($this->attachments) >= self::ATTACHMENT_LIMIT) {
+            $this->reset('photoUpload');
+            $this->addError('photoUpload', 'Maksimal '.self::ATTACHMENT_LIMIT.' foto per Item Journal.');
+
+            return;
+        }
+
+        if ($this->rejectInvalidPhoto($this->photoUpload)) {
+            $this->reset('photoUpload');
+
+            return;
+        }
+
+        $this->attachments[] = $this->photoUpload;
+        $this->reset('photoUpload');
+    }
+
+    public function updatedRetakeUploads(mixed $value, string $key): void
+    {
+        $index = (int) $key;
+        $photo = $this->retakeUploads[$index] ?? null;
+        $this->retakeUploads = [];
+
+        if (! array_key_exists($index, $this->attachments) || $this->rejectInvalidPhoto($photo)) {
+            return;
+        }
+
+        $this->attachments[$index] = $photo;
+    }
+
+    public function attachmentPreviewUrl(int $index): ?string
+    {
+        try {
+            return $this->attachments[$index]?->temporaryUrl();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function rejectInvalidPhoto(mixed $photo): bool
+    {
+        $validator = Validator::make(['photo' => $photo], ['photo' => ['required', ...self::photoRules()]], self::photoMessages('photo'));
+        if ($validator->fails()) {
+            $this->addError('photoUpload', $validator->errors()->first('photo'));
+
+            return true;
+        }
+
+        $this->resetErrorBag('photoUpload');
+
+        return false;
+    }
+
+    /**
+     * `dimensions` decodes the actual bytes: MIME detection falls back to the file extension when
+     * the content is inconclusive (e.g. plain text renamed to .jpg).
+     *
+     * @return list<string>
+     */
+    private static function photoRules(): array
+    {
+        return ['file', 'mimes:jpg,jpeg,png,webp', 'mimetypes:'.implode(',', self::ATTACHMENT_MIMES), 'dimensions:min_width=1,min_height=1', 'max:'.self::ATTACHMENT_MAX_KILOBYTES];
+    }
+
+    /** @return array<string, string> */
+    private static function photoMessages(string $attribute): array
+    {
+        return [
+            "$attribute.required" => 'Foto tidak terbaca. Silakan ambil ulang.',
+            "$attribute.file" => 'Foto tidak terbaca. Silakan ambil ulang.',
+            "$attribute.mimes" => 'File harus berupa foto JPG, PNG, atau WebP.',
+            "$attribute.mimetypes" => 'File harus berupa foto JPG, PNG, atau WebP.',
+            "$attribute.dimensions" => 'File harus berupa foto JPG, PNG, atau WebP.',
+            "$attribute.max" => 'Ukuran foto maksimal 5 MB.',
+        ];
     }
 
     public function submit(): void
@@ -318,8 +424,11 @@ class ItemJournalPage extends Page
             'items.*.purposeID' => ['required', 'integer', Rule::in($purposeIds)],
             'items.*.adjustmentMode' => ['required', Rule::in(['increase', 'decrease'])],
             'items.*.qty' => ['required', 'numeric', 'gt:0'],
-            'items.*.hpp' => ['nullable', 'numeric', 'min:0'], 'attachments' => ['array', 'max:5'],
-            'attachments.*' => ['file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+            'items.*.hpp' => ['nullable', 'numeric', 'min:0'], 'attachments' => ['array', 'max:'.self::ATTACHMENT_LIMIT],
+            'attachments.*' => self::photoRules(),
+        ], [
+            'attachments.max' => 'Maksimal '.self::ATTACHMENT_LIMIT.' foto per Item Journal.',
+            ...self::photoMessages('attachments.*'),
         ]);
         $service = app(EsbItemJournalService::class);
         $esbBranch = collect($this->esbBranches)->firstWhere('branchID', (int) $validated['branchId']);

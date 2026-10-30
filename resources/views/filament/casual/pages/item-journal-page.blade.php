@@ -8,10 +8,10 @@
             <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20"><x-heroicon-o-arrows-right-left class="h-5 w-5" /></div>
             <span class="text-base font-semibold">Item Journal</span>
         </div>
-        <p class="text-blue-200">Quality Control</p>
+        <p class="text-blue-200">Inventory</p>
         <p class="text-xl font-semibold">Penyesuaian Stok ESB</p>
     </header>
-    <main class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 px-5 pb-28 pt-6 dark:bg-gray-950">
+    <main class="flex-1 overflow-y-auto rounded-t-3xl bg-gray-50 px-5 pb-10 pt-6 dark:bg-gray-950">
         <div class="space-y-5">
         @can('create quality control item journals')<button type="button" wire:click="openForm" class="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98]"><x-heroicon-o-plus class="h-5 w-5" /> Buat Item Journal</button>@endcan
         <section class="overflow-hidden rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
@@ -36,7 +36,7 @@
                     <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-white"><x-heroicon-o-arrows-right-left class="h-5 w-5" /></div>
                     <span class="text-base font-semibold text-white">Buat Item Journal</span>
                 </div>
-                <p class="text-blue-200">Quality Control · Non-Template</p>
+                <p class="text-blue-200">Inventory · Non-Template</p>
                 <p class="text-xl font-semibold text-white">Penyesuaian Stok ESB</p>
             </div>
 
@@ -100,17 +100,87 @@
                         <button type="button" wire:click="addItem" class="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-blue-600"><x-heroicon-o-plus class="h-4 w-4" /> Tambah Produk</button>
                     </div>
 
-                    <div><label class="{{ $labelClass }}">Informasi Tambahan <span class="ml-1 font-normal text-slate-400">(opsional · maks. 1.000 karakter)</span></label><textarea wire:model="additionalInfo" maxlength="1000" rows="4" class="{{ $fieldClass }} resize-none leading-relaxed" placeholder="Jelaskan alasan penyesuaian stok atau hasil pemeriksaan QC..."></textarea>@error('additionalInfo')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror</div>
+                    <div><label class="{{ $labelClass }}">Informasi Tambahan <span class="ml-1 font-normal text-slate-400">(opsional · maks. 1.000 karakter)</span></label><textarea wire:model="additionalInfo" maxlength="1000" rows="4" class="{{ $fieldClass }} resize-none leading-relaxed" placeholder="Jelaskan alasan penyesuaian stok..."></textarea>@error('additionalInfo')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror</div>
 
-                    <div x-data="{ uploading: false, progress: 0 }" x-on:livewire-upload-start="uploading = true" x-on:livewire-upload-finish="uploading = false" x-on:livewire-upload-error="uploading = false" x-on:livewire-upload-progress="progress = $event.detail.progress">
-                        <label class="{{ $labelClass }}">Attachment <span class="ml-1 font-normal text-slate-400">(opsional · maks. 5 file)</span></label>
-                        @if(count($attachments))<div class="mb-2 space-y-2">@foreach($attachments as $index => $file)<div class="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-700"><div class="flex min-w-0 items-center gap-2"><x-heroicon-o-paper-clip class="h-4 w-4 shrink-0 text-blue-400" /><span class="truncate text-xs text-slate-600 dark:text-slate-300">{{ $file->getClientOriginalName() }}</span></div><button type="button" wire:click="removeAttachment({{ $index }})" class="shrink-0 text-red-400"><x-heroicon-o-x-mark class="h-4 w-4" /></button></div>@endforeach</div>@endif
-                        <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-4 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20"><x-heroicon-o-arrow-up-tray class="h-5 w-5 text-gray-400" /><span class="text-sm text-gray-400">Tambah Foto / PDF</span><input type="file" wire:model="attachments" multiple accept=".jpg,.jpeg,.png,.webp,.pdf" class="hidden"></label>
-                        <div x-show="uploading" class="mt-2"><div class="h-1.5 overflow-hidden rounded-full bg-gray-100"><div class="h-full bg-blue-500" :style="`width: ${progress}%`"></div></div><p class="mt-1 text-xs text-blue-500" x-text="`Mengunggah ${progress}%`"></p></div>
-                        <p class="mt-1.5 text-xs text-slate-400">JPG, PNG, WebP, atau PDF · maksimal 5 MB per file.</p>@error('attachments.*')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                    {{-- Camera-first photo attachments (docs/products/inventory/item-journal/prd.md §17). `capture` only asks the
+                         browser to open the rear camera; some browsers still offer the gallery, so the copy never promises
+                         camera-only. Device/permission checks are hints from native browser APIs; validation is server-side. --}}
+                    <div
+                        x-data="{
+                            uploading: false,
+                            progress: 0,
+                            camera: 'unknown',
+                            permission: 'unknown',
+                            async init() {
+                                try {
+                                    const devices = await navigator.mediaDevices.enumerateDevices();
+                                    this.camera = devices.some((device) => device.kind === 'videoinput') ? 'available' : 'unavailable';
+                                } catch (error) {
+                                    this.camera = 'unknown';
+                                }
+                                try {
+                                    const status = await navigator.permissions.query({ name: 'camera' });
+                                    this.permission = status.state;
+                                    status.onchange = () => { this.permission = status.state; };
+                                } catch (error) {
+                                    this.permission = 'unknown';
+                                }
+                            },
+                        }"
+                        x-on:livewire-upload-start="uploading = true; progress = 0"
+                        x-on:livewire-upload-finish="uploading = false"
+                        x-on:livewire-upload-error="uploading = false"
+                        x-on:livewire-upload-cancel="uploading = false"
+                        x-on:livewire-upload-progress="progress = $event.detail.progress"
+                        data-photo-attachments
+                    >
+                        <label class="{{ $labelClass }}">Foto Bukti <span class="ml-1 font-normal text-slate-400">(opsional · maks. 5 foto)</span></label>
+
+                        @if(count($attachments))
+                            <div class="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                @foreach($attachments as $index => $file)
+                                    @php $previewUrl = $this->attachmentPreviewUrl($index); @endphp
+                                    <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700" wire:key="photo-{{ $index }}-{{ $file->getFilename() }}">
+                                        @if($previewUrl)
+                                            <img src="{{ $previewUrl }}" alt="Foto {{ $index + 1 }}" class="aspect-square w-full bg-gray-100 object-cover dark:bg-gray-800">
+                                        @else
+                                            <div class="flex aspect-square w-full items-center justify-center bg-gray-100 dark:bg-gray-800"><x-heroicon-o-photo class="h-8 w-8 text-gray-300" /></div>
+                                        @endif
+                                        <div class="grid grid-cols-2 divide-x divide-gray-200 border-t border-gray-200 text-xs font-semibold dark:divide-gray-700 dark:border-gray-700">
+                                            <label class="flex cursor-pointer items-center justify-center gap-1 py-2 text-blue-600 dark:text-blue-400">
+                                                <x-heroicon-o-arrow-path class="h-3.5 w-3.5" /> Ambil Ulang
+                                                <input type="file" wire:model="retakeUploads.{{ $index }}" accept="image/*" capture="environment" class="hidden">
+                                            </label>
+                                            <button type="button" wire:click="removeAttachment({{ $index }})" class="flex items-center justify-center gap-1 py-2 text-red-500"><x-heroicon-o-trash class="h-3.5 w-3.5" /> Hapus</button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        @if(count($attachments) < 5)
+                            <label class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 py-4 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20" x-bind:class="uploading && 'pointer-events-none opacity-60'">
+                                <x-heroicon-o-camera class="h-5 w-5 text-blue-500" />
+                                <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">Ambil Foto</span>
+                                <input type="file" wire:model="photoUpload" accept="image/*" capture="environment" class="hidden">
+                            </label>
+                        @else
+                            <p class="rounded-xl border border-gray-200 px-4 py-3 text-center text-xs text-slate-500 dark:border-gray-700 dark:text-slate-400">Batas 5 foto tercapai. Hapus foto untuk mengambil foto lain.</p>
+                        @endif
+
+                        <div x-show="uploading" x-cloak class="mt-2" role="status"><div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800"><div class="h-full bg-blue-500" :style="`width: ${progress}%`"></div></div><p class="mt-1 text-xs text-blue-500" x-text="`Mengunggah foto ${progress}%`"></p></div>
+
+                        <p x-show="permission === 'denied'" x-cloak class="mt-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">Izin kamera ditolak. Aktifkan izin kamera untuk situs ini di pengaturan browser, lalu tekan Ambil Foto lagi.</p>
+                        <p x-show="permission !== 'denied' && camera === 'unavailable'" x-cloak class="mt-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">Kamera tidak terdeteksi di perangkat ini. Pengambilan foto memerlukan perangkat berkamera; foto bukti tetap opsional.</p>
+                        <p x-show="permission === 'prompt' && camera !== 'unavailable'" x-cloak class="mt-2 text-xs text-slate-500 dark:text-slate-400">Browser akan meminta izin kamera saat Anda menekan Ambil Foto.</p>
+
+                        <p class="mt-1.5 text-xs text-slate-400">Kamera belakang dibuka bila perangkat mendukung; sebagian browser tetap menawarkan galeri. Foto JPG, PNG, atau WebP · maksimal 5 MB per foto.</p>
+                        @error('photoUpload')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        @error('attachments')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
+                        @error('attachments.*')<p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
-                <div class="mt-5 space-y-3"><button type="submit" wire:loading.attr="disabled" wire:target="submit,attachments" class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60"><span wire:loading.remove wire:target="submit">Kirim Item Journal ke ESB</span><span wire:loading wire:target="submit">Memproses...</span></button><button type="button" wire:click="closeForm" class="w-full py-2 text-sm font-semibold text-slate-500">Batal</button></div>
+                <div class="mt-5 space-y-3"><button type="submit" wire:loading.attr="disabled" wire:target="submit,photoUpload,retakeUploads" class="w-full rounded-2xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition active:scale-95 disabled:opacity-60"><span wire:loading.remove wire:target="submit">Kirim Item Journal ke ESB</span><span wire:loading wire:target="submit">Memproses...</span></button><button type="button" wire:click="closeForm" class="w-full py-2 text-sm font-semibold text-slate-500">Batal</button></div>
             </form>
         </div>
 
@@ -163,5 +233,4 @@
             </div>
         @endif
     @endif
-    <x-quality-control.bottom-nav active="item-journal" />
 </div>

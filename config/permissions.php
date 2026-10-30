@@ -18,6 +18,9 @@ return [
         'Sales Report' => ['access employee app sales report'],
         'Stock Card' => ['access employee app stock card'],
         'Penerimaan Barang' => ['access employee app goods receipt'],
+        // Tile and page gate only (docs/products/inventory/item-journal/prd.md §16): create/submit/
+        // delete attachment stay on the Item Journal action permissions in the Inventory group.
+        'Item Journal' => ['access employee app item journal'],
         'Purchasing' => ['access employee app purchasing'],
         'Desain' => ['access employee app design'],
         'Konten' => ['access employee app content'],
@@ -77,9 +80,8 @@ return [
         'Penerimaan' => ['view goods receipts'],
         'Product List' => ['view product list', 'edit product list'],
         'Proses Material Marketing' => ['process marketing material as inventory'],
-    ],
-
-    'Quality Control' => [
+        // Legacy permission names are kept for compatibility (docs/products/inventory/item-journal/prd.md §20);
+        // only the grouping moved from Quality Control to Inventory.
         'Item Journal' => ['view quality control item journals', 'view all quality control item journals', 'create quality control item journals', 'submit quality control item journals', 'delete quality control item journal attachments'],
     ],
 

@@ -83,6 +83,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view erp requests', 'create erp requests',
                 'create customer complaints',
                 'create store sales orders',
+                // Item Journal (docs/products/inventory/item-journal/prd.md FR-5): own journals only, no view-all.
+                'access employee app item journal',
+                'view quality control item journals', 'create quality control item journals', 'submit quality control item journals', 'delete quality control item journal attachments',
             ]);
 
         Role::firstOrCreate(['name' => 'DRIVER', 'guard_name' => 'web'])
@@ -161,6 +164,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'access backoffice', 'access employee app goods receipt',
                 'view goods receipts',
                 'view marketing material fulfillments', 'process marketing material as inventory',
+                // Back Office Item Journal only. `view all quality control item journals` is not a
+                // default: it opens every journal because journals carry no local Branch
+                // (docs/products/inventory/item-journal/prd.md §16.5); grant it per role through the UI.
+                'view quality control item journals',
             ]);
 
         Role::firstOrCreate(['name' => 'SUPERVISOR_STORE', 'guard_name' => 'web'])
@@ -196,6 +203,8 @@ class RolesAndPermissionsSeeder extends Seeder
             ->syncPermissions([
                 'access employee app quality control',
                 'view quality control audits', 'create quality control audits', 'edit quality control audits',
+                // Keeps the existing QC Item Journal access now that the page has its own tile.
+                'access employee app item journal',
                 'view quality control item journals', 'create quality control item journals', 'submit quality control item journals', 'delete quality control item journal attachments',
             ]);
 

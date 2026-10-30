@@ -40,14 +40,14 @@
     if (preg_match('/\busers?\b|\broles?\b/', $path)) { $initialOpen[] = 'management'; }
     if (str_contains($path, 'branches') || str_contains($path, 'brands') || str_contains($path, 'whatsapp-settings')) { $initialOpen[] = 'master'; }
     if (str_contains($path, 'sales-report') || str_contains($path, 'basket-size') || str_contains($path, 'compliment-type') || str_contains($path, 'pricelist-bahan')) { $initialOpen[] = 'finance'; }
-    if (str_contains($path, 'stock-card') || str_contains($path, 'goods-receipts') || str_contains($path, 'location') || str_contains($path, 'product-list-page') || str_contains($path, 'marketing-material-fulfillments/diterima')) { $initialOpen[] = 'inventory'; }
+    if (str_contains($path, 'stock-card') || str_contains($path, 'goods-receipts') || str_contains($path, 'quality-control-item-journals') || str_contains($path, 'location') || str_contains($path, 'product-list-page') || str_contains($path, 'marketing-material-fulfillments/diterima')) { $initialOpen[] = 'inventory'; }
     if (str_contains($path, 'sales-information') || str_contains($path, 'ordering-recommendation') || str_contains($path, 'promotion-information') || str_contains($path, 'stock-information')) { $initialOpen[] = 'analytics'; }
     if (str_contains($path, 'design-request') || str_contains($path, 'design-categor') || str_contains($path, 'content-request')) { $initialOpen[] = 'brand-marketing'; }
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions') || str_contains($path, 'material-reviews')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'bom-adjustments') || str_contains($path, 'shelf-life') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names') || str_contains($path, 'rnd-internal-memos') || str_contains($path, 'rnd-project-task-templates') || str_contains($path, 'review-sourcing')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'store-sops') || str_contains($path, 'store-sop-categories') || str_contains($path, 'customer-complaints') || str_contains($path, 'store-sales-orders')) { $initialOpen[] = 'operational'; }
     if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || str_contains($path, 'vendor-compliance') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
-    if (str_contains($path, 'quality-control')) { $initialOpen[] = 'quality_control'; }
+    if (str_contains($path, 'quality-control') && ! str_contains($path, 'quality-control-item-journals')) { $initialOpen[] = 'quality_control'; }
     if (str_contains($path, 'system-monitoring')) { $initialOpen[] = 'system_monitoring'; }
     if (str_contains($path, 'sales-projection')) { $initialOpen[] = 'sales_growth'; }
     $initialOpen = array_slice(array_values(array_unique($initialOpen)), 0, 1);
@@ -179,7 +179,6 @@
             'items' => [
                 ['label' => 'Audit QC',   'icon' => 'clipboard-check', 'perm' => 'view quality control audits',     'href' => $r('filament.helpdesk.resources.quality-control-audits.index'),          'active' => $active($r('filament.helpdesk.resources.quality-control-audits.index'))],
                 ['label' => 'Checklist QC', 'icon' => 'list-checks',   'perm' => 'view quality control checklists', 'href' => $r('filament.helpdesk.resources.quality-control-checklist-items.index'), 'active' => $active($r('filament.helpdesk.resources.quality-control-checklist-items.index'))],
-                ['label' => 'Item Journal', 'icon' => 'arrow-left-right', 'perm' => 'view quality control item journals', 'href' => $r('filament.helpdesk.resources.quality-control-item-journals.index'), 'active' => $active($r('filament.helpdesk.resources.quality-control-item-journals.index'))],
             ],
         ],
         [
@@ -189,6 +188,7 @@
             'items' => [
                 ['label' => 'Stock Card', 'icon' => 'clipboard-list', 'perm' => 'view stock cards', 'href' => $r('filament.helpdesk.resources.stock-cards.index'), 'active' => $active($r('filament.helpdesk.resources.stock-cards.index'))],
                 ['label' => 'Receiving', 'icon' => 'package-check', 'perm' => 'view goods receipts', 'href' => $r('filament.helpdesk.resources.goods-receipts.index'), 'active' => $active($r('filament.helpdesk.resources.goods-receipts.index'))],
+                ['label' => 'Item Journal', 'icon' => 'arrow-left-right', 'perm' => 'view quality control item journals', 'href' => $r('filament.helpdesk.resources.quality-control-item-journals.index'), 'active' => $active($r('filament.helpdesk.resources.quality-control-item-journals.index'))],
                 ['label' => 'Stock Card Settings', 'icon' => 'settings-2', 'perm' => 'view stock card settings', 'href' => $r('filament.helpdesk.pages.stock-card-settings-page'), 'active' => $active($r('filament.helpdesk.pages.stock-card-settings-page'))],
                 ['label' => 'Lokasi', 'icon' => 'map', 'perm' => 'view locations', 'href' => $r('filament.helpdesk.resources.locations.index'), 'active' => $active($r('filament.helpdesk.resources.locations.index'))],
                 ['label' => 'Tipe Lokasi', 'icon' => 'tag', 'perm' => 'view location types', 'href' => $r('filament.helpdesk.resources.location-types.index'), 'active' => $active($r('filament.helpdesk.resources.location-types.index'))],

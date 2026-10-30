@@ -1,6 +1,6 @@
 # PRD — Penyederhanaan Receiving dan QC Inbound
 
-> Amendment 30 Oktober 2026: requirement mapping/akses branch dan rencana multi-company pada dokumen ini tidak menjadi acuan untuk model Receiving Inventory Pusat. Remediasi canonical berada di [Receiving Terpusat BLSS](../receiving-central-blss/prd.md). Penyederhanaan UI/QC yang sudah diimplementasikan tetap berlaku; remediasi baru belum diimplementasikan.
+> Amendment 30 Oktober 2026: requirement mapping/akses branch dan rencana multi-company pada dokumen ini tidak menjadi acuan untuk model Receiving Inventory Pusat. Remediasi canonical berada di [Receiving Terpusat BLSS](../receiving-central-blss/prd.md). Penyederhanaan UI/QC yang sudah diimplementasikan tetap berlaku; kode remediasi tersedia di branch `fix/receiving-central-blss` dan menunggu rollout.
 
 ## 1. Status dokumen
 

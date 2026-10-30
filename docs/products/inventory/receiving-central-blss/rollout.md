@@ -1,7 +1,7 @@
 ---
 document_id: INVENTORY-RECEIVING-CENTRAL-BLSS-ROLLOUT
 title: Rollout Runbook — Receiving Terpusat BLSS Tanpa Mapping Branch Lokal
-status: draft
+status: in-review
 version: 1.0
 owner: Inventory
 technical_owner: Information Technology

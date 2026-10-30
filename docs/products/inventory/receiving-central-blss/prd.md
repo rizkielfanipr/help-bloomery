@@ -1,8 +1,8 @@
 ---
 document_id: INVENTORY-RECEIVING-CENTRAL-BLSS-REMEDIATION-PRD
 title: PRD Remediasi — Receiving Terpusat BLSS Tanpa Mapping Branch Lokal
-status: draft
-version: 1.0
+status: in-development
+version: 1.1
 owner: Inventory
 technical_owner: Information Technology
 created_at: 2026-10-30
@@ -10,6 +10,7 @@ updated_at: 2026-10-30
 target_release: TBD
 related_documents:
   - docs/products/inventory/receiving-central-blss/reports/audit-report.md
+  - docs/products/inventory/receiving-central-blss/reports/implementation-report.md
   - docs/products/inventory/receiving-central-blss/implementation-plan.md
   - docs/products/inventory/receiving-central-blss/rollout.md
   - docs/products/inventory/receiving-simplification/prd.md
@@ -27,7 +28,7 @@ supersedes: null
 |---|---|
 | Domain | Inventory |
 | Scope | Employee App → Receiving, company `BLSS` |
-| Status | draft |
+| Status | in-development — kode selesai di branch `fix/receiving-central-blss`; menunggu review PR, UAT staging, dan rollout production |
 | Audit acuan | `docs/products/inventory/receiving-central-blss/reports/audit-report.md` |
 | Keputusan bisnis | Inventory Pusat dapat menerima semua PO BLSS yang receivable berdasarkan permission Receiving |
 
@@ -150,15 +151,15 @@ Rollback mengembalikan kode ke versi sebelumnya, sehingga PO unmapped kembali di
 
 ## 14. Open decisions
 
-Tidak ada keputusan bisnis terbuka yang memblokir planning. Pengguna telah menetapkan Inventory Pusat, seluruh branch BLSS, dan mapping lokal tidak wajib. Keputusan teknis lookup read-only dipilih untuk menjaga metadata existing tanpa mutasi konfigurasi. Implementasi baru dimulai setelah instruksi pengguna berikutnya.
+Tidak ada keputusan bisnis terbuka. Pengguna telah menetapkan Inventory Pusat, seluruh branch BLSS, dan mapping lokal tidak wajib. Keputusan teknis implementasi (nama `lookup()`, penguncian context PO dengan `#[Locked]`, dan penolakan bila cabang PO berubah) tercatat di [laporan implementasi](reports/implementation-report.md) §3.
 
 ## 15. Definition of Done
 
-- [ ] Setiap R-1 sampai R-6 memiliki test regresi.
-- [ ] Characterization baseline dan test tambahan lulus.
+- [x] Setiap R-1 sampai R-6 memiliki test regresi.
+- [x] Characterization baseline dan test tambahan lulus.
 - [ ] Receiving PO BLSS unmapped berhasil di staging dengan data uji yang disetujui.
-- [ ] Tidak ada migration, env, permission, dependency, queue, atau scheduler baru.
-- [ ] Tidak ada perubahan mapping sebagai efek samping submit.
-- [ ] Monitoring, QC, Vendor Compliance, idempotency, dan Back Office scope terverifikasi.
-- [ ] README Inventory sesuai perilaku final dan implementation report tersedia.
+- [x] Tidak ada migration, env, permission, dependency, queue, atau scheduler baru.
+- [x] Tidak ada perubahan mapping sebagai efek samping submit.
+- [x] Monitoring, QC, Vendor Compliance, idempotency, dan Back Office scope terverifikasi (test lokal).
+- [x] README Inventory sesuai perilaku final dan implementation report tersedia.
 - [ ] CI Pull Request hijau; merge dan production deployment menunggu keputusan pengguna.

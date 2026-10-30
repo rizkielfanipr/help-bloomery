@@ -31,14 +31,14 @@ Status: `draft`, `pending_supervisor`, `pending_finance`, `completed`.
 
 ## Receiving
 
-1. Staff membuka tile **Receiving**, mencari Purchase Order ESB yang statusnya masih bisa diterima, lalu memilihnya. Kode saat ini mengambil PO khusus company `BLSS`. Permission Receiving membuka penerimaan lintas cabang, tetapi submit masih mensyaratkan mapping aktif cabang PO ESB ke cabang lokal (`EsbBranchMappingResolver`). Prasyarat mapping ini akan diperbaiki sesuai rencana PRD §22; belum diimplementasikan.
+1. Staff membuka tile **Receiving**, mencari Purchase Order ESB yang statusnya masih bisa diterima, lalu memilihnya. Kode saat ini mengambil PO khusus company `BLSS`. Permission Receiving membuka penerimaan lintas cabang, tetapi submit masih mensyaratkan mapping aktif cabang PO ESB ke cabang lokal (`EsbBranchMappingResolver`). Prasyarat mapping ini akan diperbaiki melalui paket remediasi Receiving Terpusat BLSS; belum diimplementasikan.
 2. Untuk setiap item, staff mengisi jumlah diterima (atau memakai **Isi dari outstanding** / **Tandai semua OK**) dan kondisi. Item dapat dibagi menjadi beberapa batch (**Tambah batch**). **Detail Batch** berisi tanggal produksi dan kedaluwarsa.
 3. QC inbound dinilai otomatis (`InboundGoodsReceiptQcService`): dokumen, sisa umur simpan, cold chain, sampling, dan disposisi (diterima/hold/ditolak). Foto dokumen, barang, dan bukti item dilampirkan.
 4. Submit membuat Goods Receipt di ESB (`EsbGoodsReceiptService::create`) dan menyimpan hasilnya secara lokal. Item yang ditolak membuat **insiden Vendor Compliance** dengan poin demerit (lihat [Purchasing](../purchasing/README.md#vendor-compliance)).
 
 Back office **Receiving** menampilkan nomor PO, nomor GR, tanggal, supplier, cabang, lokasi, pengirim, dan waktu.
 
-Rencana perbaikan: [PRD §22](receiving-simplification/prd.md#22-remediasi-receiving-inventory-pusat--blss), [implementation plan](receiving-simplification/implementation-plan.md), dan [prompt implementasi](receiving-simplification/implementation-prompt.md). Tahap ini hanya dokumentasi.
+Rencana perbaikan lengkap: [Receiving Terpusat BLSS](receiving-central-blss/README.md), [PRD remediasi](receiving-central-blss/prd.md), [implementation plan](receiving-central-blss/implementation-plan.md), [prompt implementasi](receiving-central-blss/implementation-prompt.md), dan [rollout runbook](receiving-central-blss/rollout.md). Tahap ini hanya dokumentasi.
 
 ## Item Journal
 
@@ -75,8 +75,8 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 |---|---|
 | Back Office | `app/Filament/Helpdesk/Resources/{StockCards,GoodsReceipts,QualityControlItemJournals,Locations,LocationTypes}/`, `app/Filament/Helpdesk/Pages/{StockCardSettingsPage,ProductListPage}.php` |
 | Employee App | `app/Filament/Casual/Pages/{StockCardPage,StockCardEntryPage,StockCardCalendarPage,StockCardHistoryPage,GoodsReceiptPage,ItemJournalPage}.php` |
-| Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,EsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService,EsbItemJournalService}.php`, `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
-| Policy | `app/Policies/{StockCardPolicy,QualityControlItemJournalPolicy}.php` |
+| Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,EsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService,EsbItemJournalService}.php`, `app/Services/Monitoring/EsbTransactionRecorder.php`, `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
+| Policy | `app/Policies/{StockCardPolicy,GoodsReceiptPolicy,QualityControlItemJournalPolicy}.php` |
 | Enum | `app/Enums/StockCardStatus.php` |
 | Model | `app/Models/{StockCard,GoodsReceipt,QualityControlItemJournal,Location,ProductSetting}*.php` |
 | Test | `tests/Feature/{StockCard,GoodsReceipt,Receiving,QualityControlItemJournal,Location,ProductList}*Test.php`, `tests/Unit/{GoodsReceiptServiceTest,InboundGoodsReceiptQcServiceTest}.php` |
@@ -89,7 +89,8 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 
 | Dokumen | Status |
 |---|---|
-| [PRD Receiving Simplification](receiving-simplification/prd.md) | UI batch/Detail Batch dan aksi massal tersedia; §22 in-review — remediasi Receiving terpusat BLSS tanpa mapping lokal |
+| [PRD Receiving Simplification](receiving-simplification/prd.md) | Implemented — UI batch/Detail Batch dan aksi massal; requirement branch/multi-company lama diamendemen |
+| [Receiving Terpusat BLSS](receiving-central-blss/README.md) | Draft — paket remediasi lengkap tanpa mapping branch lokal; belum ada perubahan kode |
 | [PRD Item Journal Inventory](item-journal/prd.md) | Implemented — tile mandiri, foto camera-first image-only, dan menu Back Office di Inventory |
 
 Dataset: [development-todo.csv](development-todo.csv).

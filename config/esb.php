@@ -87,4 +87,12 @@ return [
     'pricelist' => [
         'mode' => env('ESB_PRICELIST_MODE', 'manual'),
     ],
+
+    /*
+    | Local Receiving sandbox (docs/products/inventory/receiving-central-blss/README.md "Uji lokal").
+    | Only honoured when APP_ENV=local: Receiving reads dummy Purchase Orders from
+    | SandboxEsbGoodsReceiptService, never sends a Goods Receipt to ESB, and stores Receiving
+    | photos on a local disk instead of the shared bucket.
+    */
+    'receiving_sandbox' => (bool) env('ESB_RECEIVING_SANDBOX', false),
 ];

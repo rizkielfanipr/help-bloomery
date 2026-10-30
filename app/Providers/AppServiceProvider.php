@@ -24,6 +24,8 @@ use App\Models\User;
 use App\Observers\AssetObserver;
 use App\Observers\LocationObserver;
 use App\Observers\ProductSettingObserver;
+use App\Services\EsbGoodsReceiptService;
+use App\Services\SandboxEsbGoodsReceiptService;
 use App\Services\TableFilterOptions;
 use Filament\Support\Facades\FilamentView;
 use Filament\Tables\View\TablesRenderHook;
@@ -33,7 +35,30 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public function register(): void {}
+    public function register(): void
+    {
+        $this->registerLocalReceivingSandbox();
+    }
+
+    /**
+     * Local-only Receiving sandbox (config esb.receiving_sandbox): dummy ESB Purchase Orders and a
+     * local photo disk, so testing Receiving never creates a real Goods Receipt or bucket object.
+     */
+    private function registerLocalReceivingSandbox(): void
+    {
+        if (! $this->app->environment('local') || ! config('esb.receiving_sandbox')) {
+            return;
+        }
+
+        $this->app->bind(EsbGoodsReceiptService::class, SandboxEsbGoodsReceiptService::class);
+        config(['filesystems.disks.b2' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/receiving-sandbox'),
+            'url' => rtrim((string) config('app.url'), '/').'/receiving-sandbox-files',
+            'serve' => true,
+            'throw' => false,
+        ]]);
+    }
 
     public function boot(TableFilterOptions $filterOptions): void
     {

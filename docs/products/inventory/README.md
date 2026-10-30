@@ -40,7 +40,7 @@ Status: `draft`, `pending_supervisor`, `pending_finance`, `completed`.
 
 Back office **Receiving** bersifat read-only dan menampilkan nomor PO, nomor GR, tanggal, supplier, cabang, lokasi, pengirim, dan waktu. Aksesnya memakai `view goods receipts`, terpisah dari permission Employee App. Viewer `access_all_branches` melihat semua receipt termasuk yang `local_branch_id` kosong; viewer terbatas hanya melihat receipt cabang lokalnya atau yang cabang ESB-nya dimapping aktif ke cabangnya.
 
-Remediasi: [Receiving Terpusat BLSS](receiving-central-blss/README.md) — [PRD](receiving-central-blss/prd.md), [laporan implementasi](receiving-central-blss/reports/implementation-report.md), dan [rollout runbook](receiving-central-blss/rollout.md).
+Uji lokal tanpa ESB: [sandbox Receiving](receiving-central-blss/README.md#uji-lokal-sandbox). Remediasi: [Receiving Terpusat BLSS](receiving-central-blss/README.md) — [PRD](receiving-central-blss/prd.md), [laporan implementasi](receiving-central-blss/reports/implementation-report.md), dan [rollout runbook](receiving-central-blss/rollout.md).
 
 ## Item Journal
 
@@ -77,7 +77,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 |---|---|
 | Back Office | `app/Filament/Helpdesk/Resources/{StockCards,GoodsReceipts,QualityControlItemJournals,Locations,LocationTypes}/`, `app/Filament/Helpdesk/Pages/{StockCardSettingsPage,ProductListPage}.php` |
 | Employee App | `app/Filament/Casual/Pages/{StockCardPage,StockCardEntryPage,StockCardCalendarPage,StockCardHistoryPage,GoodsReceiptPage,ItemJournalPage}.php` |
-| Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,EsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService,EsbItemJournalService}.php`, `app/Services/Monitoring/EsbTransactionRecorder.php`, `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
+| Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,EsbGoodsReceiptService,SandboxEsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService,EsbItemJournalService}.php`, `app/Services/Monitoring/EsbTransactionRecorder.php`, `database/seeders/ReceivingSandboxSeeder.php` (sandbox lokal), `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
 | Policy | `app/Policies/{StockCardPolicy,GoodsReceiptPolicy,QualityControlItemJournalPolicy}.php` |
 | Enum | `app/Enums/StockCardStatus.php` |
 | Model | `app/Models/{StockCard,GoodsReceipt,QualityControlItemJournal,Location,ProductSetting}*.php` |

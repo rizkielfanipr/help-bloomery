@@ -1,6 +1,6 @@
 # Purchasing
 
-Permintaan pembelian dari store, insiden kepatuhan vendor dari penerimaan barang, sourcing bahan, dan pemesanan material marketing. Kondisi per 27 Oktober 2026.
+Permintaan pembelian dari store, insiden kepatuhan vendor dari penerimaan barang, sourcing bahan, dan pemesanan material marketing. Kondisi per 2 November 2026.
 
 ## Lokasi
 
@@ -10,6 +10,7 @@ Permintaan pembelian dari store, insiden kepatuhan vendor dari penerimaan barang
 | | Permintaan Pembelian | `view purchase requests` (+ create/edit/delete) |
 | | Sourcing Bahan | `view material sourcings`, `submit material sourcing`, `hand over material samples` |
 | | Material Marketing (Perlu Dipesan) | `view marketing material fulfillments`, `process marketing material as purchasing` |
+| | PO Susulan | `view non po purchase order requests`; aksi: `process non po purchase order requests`; batal: `cancel non po purchase order requests` |
 | Employee App | Tile **Purchasing** | `access employee app purchasing` |
 
 ## Permintaan Pembelian
@@ -40,7 +41,15 @@ Status: `not_started`, `ordered`, `received`.
 
 ## PO Susulan
 
-Planning: [Penerimaan Tanpa PO / PO Susulan](../inventory/non-po-receiving/README.md). Submenu **PO Susulan** akan menjadi antrean Purchasing untuk penerimaan yang sudah dicatat Inventory tanpa PO. Purchasing membuat PO manual di ESB, memasukkan nomor PO, lalu aplikasi memverifikasi Product Detail ID, UOM, branch, status, dan outstanding qty sebelum memproses Goods Receipt. Belum ada perubahan kode aplikasi pada planning ini.
+Antrean **Permintaan PO Susulan dari Receiving** untuk barang yang sudah dicatat Inventory [tanpa PO](../inventory/README.md#receiving-tanpa-po). Badge menghitung `awaiting_purchasing`, `po_in_progress`, `revision_requested`, `gr_failed`, dan `gr_unknown`; draft tidak tampil. Spesifikasi: [PRD](../inventory/non-po-receiving/prd.md).
+
+1. **Mulai Proses PO** mengubah status ke `po_in_progress` dan mencatat PIC. PO dibuat manual di ESB; aplikasi tidak membuat PO.
+2. **Minta Perbaikan** (alasan wajib) mengembalikan record ke Inventory selama PO belum tertaut. **Batalkan Proses** (alasan wajib) memerlukan permission tersendiri.
+3. **Cek PO** membaca PO terbaru dan menampilkan matriks lokal vs PO tanpa mengubah data. Mengetik nomor PO tidak memicu mutasi.
+4. **Verifikasi PO & Proses GR** selalu mengambil ulang PO di server. Yang memblokir: company bukan `BLSS`, status bukan Authorized/Receiving, cabang berbeda, item Accepted tanpa baris PO dengan Product Detail ID + UOM yang sama, Accepted melebihi outstanding, atau PO sudah tertaut ke penerimaan lain. Outstanding = qty PO dikurangi Accepted GR lokal pada PO itu, termasuk GR `processing` dan `unknown`. Item tanpa Accepted tidak memerlukan baris PO.
+5. Supplier yang berbeda hanya peringatan dan wajib dikonfirmasi. Supplier PO menjadi data resmi; teks Inventory tetap tersimpan.
+6. Setelah lulus, status berjalan `po_linked` → `gr_processing`, lalu `completed`, `gr_failed` (ESB menolak), atau `gr_unknown` (koneksi terputus). Hanya qty Accepted yang dikirim. Rejected pada penerimaan campuran membuat Vendor Compliance Incident dengan supplier PO. Klik ganda tidak membuat GR kedua, dan mutasi tercatat di System Monitoring dengan aksi `submit_non_po`.
+7. **Rekonsiliasi GR** untuk `gr_failed`/`gr_unknown` tidak pernah berjalan otomatis: tautkan nomor GR yang ditemukan di ESB, atau kirim ulang payload yang sama setelah PO diperiksa ulang, dengan catatan wajib. Pembatalan dari kedua status ini menandai GR lokal gagal dan melepas PO, jadi hanya dilakukan setelah GR dipastikan tidak ada di ESB.
 
 ## Peta kode
 
@@ -48,12 +57,13 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 
 | Lapisan | Lokasi |
 |---|---|
-| Back Office | `app/Filament/Helpdesk/Resources/{PurchaseRequests,VendorComplianceIncidents,MaterialSourcings,MarketingMaterialFulfillments}/` |
+| Back Office | `app/Filament/Helpdesk/Resources/{PurchaseRequests,VendorComplianceIncidents,MaterialSourcings,MarketingMaterialFulfillments,NonPoReceipts}/`, `resources/views/filament/helpdesk/non-po-receipts/` |
+| Action | `app/Actions/Purchasing/NonPoReceipt/` |
 | Employee App | `app/Filament/Casual/Pages/{PurchaseRequestPage,PurchaseRequestHistoryPage}.php` |
-| Policy | `app/Policies/VendorComplianceIncidentPolicy.php` |
-| Enum | `app/Enums/{PurchaseRequestStatus,PurchaseType,MarketingMaterialFulfillmentStatus}.php` |
-| Model | `app/Models/{PurchaseRequest,PurchasingRequest,VendorCompliance,MarketingMaterialFulfillment}*.php` |
-| Test | `tests/Feature/{PurchaseRequest,MarketingMaterialFulfillment,MaterialSourcing}*Test.php` |
+| Policy | `app/Policies/{VendorComplianceIncidentPolicy,NonPoReceiptPolicy}.php` |
+| Enum | `app/Enums/{PurchaseRequestStatus,PurchaseType,MarketingMaterialFulfillmentStatus,NonPoReceiptStatus}.php` |
+| Model | `app/Models/{PurchaseRequest,PurchasingRequest,VendorCompliance,MarketingMaterialFulfillment,NonPoReceipt}*.php` |
+| Test | `tests/Feature/{PurchaseRequest,MarketingMaterialFulfillment,MaterialSourcing,NonPoReceipt}*Test.php` |
 
 ## Data
 
@@ -61,4 +71,4 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 
 ## Role bawaan
 
-`PURCHASING_STAFF` mengelola semua menu di atas. `STORE_STAFF` mengajukan permintaan pembelian.
+`PURCHASING_STAFF` mengelola semua menu di atas; `cancel non po purchase order requests` tidak termasuk bawaan dan diberikan lewat Role & Permission. `STORE_STAFF` mengajukan permintaan pembelian.

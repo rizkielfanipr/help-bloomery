@@ -48,7 +48,7 @@ class MonitoringLocalRecordLinker
 
         try {
             return match (true) {
-                $record instanceof GoodsReceipt => ['label' => 'Penerimaan PO '.$record->reference_number, 'url' => GoodsReceiptResource::canView($record) ? GoodsReceiptResource::getUrl('view', ['record' => $record]) : null, 'missing' => false],
+                $record instanceof GoodsReceipt => ['label' => 'Penerimaan PO '.$record->reference_number.($record->nonPoReceipt ? ' (PO Susulan '.$record->nonPoReceipt->receipt_number.')' : ''), 'url' => GoodsReceiptResource::canView($record) ? GoodsReceiptResource::getUrl('view', ['record' => $record]) : null, 'missing' => false],
                 $record instanceof QualityControlItemJournal => ['label' => 'Item Journal '.($record->item_journal_number ?: '#'.$record->id), 'url' => QualityControlItemJournalResource::canView($record) ? QualityControlItemJournalResource::getUrl('view', ['record' => $record]) : null, 'missing' => false],
                 $record instanceof BulkProductSubmission => ['label' => 'Bulk Product '.($record->product_name ?: '#'.$record->id), 'url' => BulkProductSubmissionResource::canView($record) ? BulkProductSubmissionResource::getUrl('view', ['record' => $record]) : null, 'missing' => false],
                 $record instanceof RndBomChangeLog => ['label' => 'Change Log BOM '.($record->bom_code ?: '#'.$record->esb_bom_id), 'url' => EditBomAdjustmentPage::canAccess() ? EditBomAdjustmentPage::getUrl(['bomId' => $record->esb_bom_id]) : null, 'missing' => false],

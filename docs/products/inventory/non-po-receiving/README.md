@@ -3,7 +3,7 @@
 | Atribut | Nilai |
 |---|---|
 | Domain | Inventory dan Purchasing |
-| Status | draft |
+| Status | in-development |
 | Owner | Inventory |
 | Technical owner | Information Technology |
 | Modul terdampak | Employee App Receiving, Back Office Purchasing, Goods Receipt ESB |
@@ -17,10 +17,9 @@ Workflow exception untuk mencatat barang yang sudah datang tanpa Purchase Order.
 
 | Dokumen | Status | Keterangan |
 |---|---|---|
-| [PRD](prd.md) | draft | Sumber requirement canonical |
-| [Implementation plan](implementation-plan.md) | draft | Urutan teknis dan quality gate |
-| [Implementation prompt](implementation-prompt.md) | draft | Instruksi siap pakai untuk agent implementasi |
-| [Rollout runbook](rollout.md) | draft | Migration, UAT, rollback, dan monitoring |
+| [PRD](prd.md) | in-development | Sumber requirement canonical |
+| [Implementation plan](implementation-plan.md) | in-development | Urutan teknis dan quality gate |
+| [Rollout runbook](rollout.md) | in-development | Migration, UAT, rollback, dan monitoring |
 
 ## Keputusan
 
@@ -38,10 +37,11 @@ Workflow exception untuk mencatat barang yang sudah datang tanpa Purchase Order.
 
 | Laporan | Tanggal |
 |---|---|
-| Belum ada — implementasi belum dimulai | — |
+| [Laporan implementasi](reports/implementation-report.md) | 2026-11-02 |
 
 ## Riwayat status
 
 | Tanggal | Status | Catatan |
 |---|---|---|
 | 2026-11-02 | draft | Planning dibuat berdasarkan audit Receiving dan Purchasing existing |
+| 2026-11-02 | in-development | Kode selesai di PR; menunggu review, CI, dan UAT staging |

@@ -1,8 +1,8 @@
 ---
 document_id: INVENTORY-NON-PO-RECEIVING-PRD
 title: PRD — Penerimaan Tanpa PO dan PO Susulan
-status: draft
-version: 1.0
+status: in-development
+version: 1.1
 owner: Inventory
 technical_owner: Information Technology
 created_at: 2026-11-02
@@ -22,7 +22,7 @@ supersedes: null
 
 # PRD — Penerimaan Tanpa PO dan PO Susulan
 
-> Dokumen ini adalah kontrak fitur exception workflow. Implementasi belum dimulai selama status dokumen masih `draft`.
+> Dokumen ini adalah kontrak fitur exception workflow. Versi 1.1 mencatat hasil verifikasi kontrak Tahap 0 pada §29.
 
 ## 1. Identitas dan status
 
@@ -30,7 +30,7 @@ supersedes: null
 |---|---|
 | Domain | Inventory dan Purchasing |
 | Fitur | Penerimaan Tanpa PO / PO Susulan |
-| Status | draft |
+| Status | in-development |
 | Prioritas | P1 |
 | Target pengguna | Inventory Pusat dan Purchasing Staff |
 | Modul terdampak | Employee App Receiving, Back Office Purchasing, Back Office Receiving, System Monitoring |
@@ -173,12 +173,12 @@ Audit repository per 2 November 2026 menemukan:
 | `draft` | Inventory mengisi | `awaiting_purchasing`, `qc_hold`, `qc_rejected`, `cancelled` | Inventory |
 | `awaiting_purchasing` | Menunggu PO | `po_in_progress`, `revision_requested`, `cancelled` | Purchasing |
 | `po_in_progress` | PO dibuat manual | `po_linked`, `revision_requested`, `cancelled` | Purchasing |
-| `revision_requested` | Perlu perbaikan Inventory | `awaiting_purchasing`, `cancelled` | Inventory |
-| `po_linked` | PO sudah verified/snapshotted | `gr_processing` | Sistem/Purchasing |
+| `revision_requested` | Perlu perbaikan Inventory | `awaiting_purchasing`, `qc_hold`, `qc_rejected`, `cancelled` | Inventory |
+| `po_linked` | PO sudah verified/snapshotted | `gr_processing`, `po_in_progress` (PO berubah saat diperiksa ulang) | Sistem/Purchasing |
 | `gr_processing` | Mutation GR diproses | `completed`, `gr_failed`, `gr_unknown` | Sistem |
-| `gr_failed` | ESB menolak definitif | Manual resolution | Authorized role |
-| `gr_unknown` | Hasil koneksi tidak pasti | Reconciliation | Authorized role |
-| `qc_hold` | Tidak ada Accepted qty | `awaiting_purchasing`, `qc_rejected`, `cancelled` | Inventory/QC |
+| `gr_failed` | ESB menolak definitif | `gr_processing` (kirim ulang eksplisit), `completed` (tautkan GR), `cancelled` | Authorized role |
+| `gr_unknown` | Hasil koneksi tidak pasti | `completed` (GR ditemukan), `gr_processing` (GR tidak ada, kirim ulang eksplisit), `cancelled` | Authorized role |
+| `qc_hold` | Tidak ada Accepted qty | `qc_hold`, `awaiting_purchasing`, `qc_rejected`, `cancelled` | Inventory/QC |
 | `qc_rejected` | Seluruh barang ditolak/return | Terminal | Inventory/QC |
 | `completed` | GR berhasil/partial sesuai Accepted | Terminal | Sistem |
 | `cancelled` | Proses dihentikan dengan alasan | Terminal | Authorized role |
@@ -201,11 +201,12 @@ Item relation, batch number, qty, manufactured date, expiry date.
 
 From/to status, actor, notes/reason, timestamp.
 
-Constraint: internal number unique, submission key unique, linked PO unique saat terisi, Goods Receipt link unique, dan product-detail/UOM unique per receipt.
+Constraint: internal number unique, submission key unique, linked PO unique saat terisi, Goods Receipt link unique, dan product-detail/UOM unique per receipt. Hasil QC item yang hanya dibaca kembali (Quality Check, cold chain, shelf life, sampling, karantina, alasan) disimpan sebagai snapshot JSON `qc_data`; bentuk kolom final ada di `goods_receipt_items` setelah GR dibuat.
 
 ## 15. Integration contract
 
-- Branch/location dan Master Product memakai read service/pattern existing.
+- Branch/location dan Master Product memakai read service/pattern existing. Submit membaca ulang ketiganya dari ESB (read-only) sebelum transaction; draft dan submit tidak melakukan mutation ESB.
+- Master Product hanya menyediakan `productDetailID` dan nama `unit`, tanpa `uomID`, sehingga kecocokan UOM memakai nama unit ternormalisasi terhadap `uomName` PO; `uom_id` diisi dari PO saat mapping (§29).
 - PO diverifikasi melalui `EsbGoodsReceiptService::purchaseOrder()` atau shared reader.
 - Tidak ada create PO API; Purchasing membuat PO manual.
 - GR memakai `EsbGoodsReceiptService::create()` melalui shared Action.
@@ -338,3 +339,16 @@ Tidak ada blocker dokumentasi. Default MVP: hold sampai GR; PO manual; satu rece
 - [ ] Product picker/PO matching lulus UAT.
 - [ ] README Inventory/Purchasing, architecture, data model, dan report diperbarui.
 - [ ] Rollout/rollback staging terverifikasi.
+
+## 29. Amendemen hasil verifikasi kontrak (Tahap 0)
+
+| Temuan | Keputusan | Alasan |
+|---|---|---|
+| Master Product (`mapProductDetail`) hanya memberi `productDetailID` dan nama `unit`; `uomID` hanya ada pada detail PO | Identitas lokal memakai Product Detail ID + nama unit ternormalisasi (trim, case-insensitive). Saat verifikasi, Product Detail ID wajib sama dan nama unit wajib cocok dengan `uomName` PO; `uom_id` disimpan dari PO | Tidak ada ID UOM yang bisa dibandingkan sebelum PO ada |
+| List Master Product tidak mengekspos flag purchase/inventory yang dapat diverifikasi | Picker memakai data aktif pola BOM (`ManagesEsbProductPicker`) tanpa filter tambahan; produk yang tidak dapat dibeli otomatis gagal exact match karena tidak mungkin ada di PO | Menghindari filter berdasarkan field yang kontraknya belum terbukti |
+| Detail PO hanya memuat `qty`, tanpa qty diterima | Outstanding = `qty` PO dikurangi Accepted GR lokal pada PO yang sama (pola Receiving normal). Verifikasi non-PO juga menghitung GR `processing`/`unknown` agar konservatif | Over-receipt lebih berbahaya daripada penolakan sementara |
+| PO yang berubah setelah `po_linked` membuat record buntu pada lifecycle awal | Pemeriksaan ulang yang gagal mengembalikan `po_linked` ke `po_in_progress` dan melepas tautan PO, tercatat di history | Tanpa jalur kembali, record tidak dapat diselesaikan |
+| §13 hanya menyebut "manual resolution/reconciliation" | Aksi **Rekonsiliasi GR**: tautkan nomor GR yang sudah ada, kirim ulang eksplisit dengan alasan, atau batalkan. Monitoring direkonsiliasi pada transaksi yang sama | FR-14 dan rollout §9 mensyaratkan jalur eksplisit yang diaudit |
+| Revisi dapat menemukan seluruh barang ternyata Hold/Rejected | `revision_requested` boleh menuju `qc_hold`/`qc_rejected` | Mengikuti aturan bisnis 18 |
+| All-Rejected tidak mempunyai GR dan supplier authoritative | Tidak membuat Vendor Compliance Incident; bukti QC tetap lokal. Mixed Accepted/Rejected membuat incident saat GR dibuat dengan supplier PO | Incident existing wajib tertaut ke item GR |
+| Sumber GR dapat diturunkan dari tautan `non_po_receipts.goods_receipt_id` | Tidak menambah kolom pada `goods_receipts`; GR tanpa tautan berarti `PO Normal` | §20 menyebut kolom source hanya bila diperlukan |

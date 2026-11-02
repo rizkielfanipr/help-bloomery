@@ -96,6 +96,50 @@ class InboundGoodsReceiptQcService
         ];
     }
 
+    /**
+     * Item-level QC rules shared by Receiving with PO and Tanpa PO, keyed by the item field the
+     * message belongs to. An item without an outstanding qty has no PO to compare against yet.
+     *
+     * @param  array<string, mixed>  $item  An item already merged with assessItem().
+     * @return array<string, string>
+     */
+    public function itemViolations(array $item, bool $documentsPass): array
+    {
+        $errors = [];
+        $physical = (float) $item['physicalQty'];
+        $accepted = (float) $item['acceptedQty'];
+        $hold = (float) $item['holdQty'];
+        $rejected = (float) $item['rejectedQty'];
+        if (abs($accepted + $hold + $rejected - $physical) > 0.0001) {
+            $errors['physicalQty'] = 'Accepted + Hold + Rejected harus sama dengan qty fisik.';
+        }
+        if (($item['outstandingQty'] ?? null) !== null && $accepted > (float) $item['outstandingQty']) {
+            $errors['acceptedQty'] = 'Qty Accepted melebihi sisa PO.';
+        }
+        if ($accepted > 0 && (! $documentsPass || ! $item['canAccept'])) {
+            $errors['acceptedQty'] = 'Qty tidak dapat Accepted karena pemeriksaan QC gagal atau pending.';
+        }
+        if (($hold > 0 || $rejected > 0) && (blank($item['quarantineLocation']) || blank($item['rejectionCategory']) || blank($item['rejectionReason']) || empty($item['evidencePhotos']))) {
+            $errors['rejectionReason'] = 'Lokasi karantina, kategori, alasan, dan foto wajib untuk Hold/Rejected.';
+        }
+        if (($item['temperatureCategory'] ?? 'ambient') !== 'ambient' && (! is_numeric($item['actualTemperature']) || ! is_numeric($item['minTemperature']) || ! is_numeric($item['maxTemperature']))) {
+            $errors['actualTemperature'] = 'Suhu aktual dan rentang cold chain wajib diisi.';
+        }
+        if (! empty($item['shelfLifeRequired'])) {
+            if ($item['batches'] === []) {
+                $errors['batches'] = 'Minimal satu batch wajib diisi.';
+            } else {
+                foreach (['quantity' => $physical, 'acceptedQty' => $accepted, 'holdQty' => $hold, 'rejectedQty' => $rejected] as $field => $expected) {
+                    if (abs((float) collect($item['batches'])->sum($field) - $expected) > 0.0001) {
+                        $errors['batches'] = 'Total pembagian qty batch harus sama dengan qty item.';
+                    }
+                }
+            }
+        }
+
+        return $errors;
+    }
+
     public function disposition(float $accepted, float $hold, float $rejected): string
     {
         if ($accepted > 0 && ($hold > 0 || $rejected > 0)) {

@@ -150,6 +150,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view material sourcings', 'submit material sourcing', 'hand over material samples',
                 'view marketing material fulfillments', 'process marketing material as purchasing',
                 'view vendor compliance incidents', 'edit vendor compliance incidents',
+                // `cancel non po purchase order requests` is granted per role through the UI (rollout.md §4).
+                'view non po purchase order requests', 'process non po purchase order requests',
             ]);
 
         Role::firstOrCreate(['name' => 'DESIGN_STAFF', 'guard_name' => 'web'])
@@ -162,7 +164,7 @@ class RolesAndPermissionsSeeder extends Seeder
         Role::firstOrCreate(['name' => 'INVENTORY_STAFF', 'guard_name' => 'web'])
             ->syncPermissions([
                 'access backoffice', 'access employee app goods receipt',
-                'view goods receipts',
+                'view goods receipts', 'create non po receipts', 'submit non po receipts',
                 'view marketing material fulfillments', 'process marketing material as inventory',
                 // Back Office Item Journal only. `view all quality control item journals` is not a
                 // default: it opens every journal because journals carry no local Branch

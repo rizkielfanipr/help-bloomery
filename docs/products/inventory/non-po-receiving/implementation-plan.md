@@ -1,7 +1,7 @@
 ---
 document_id: INVENTORY-NON-PO-RECEIVING-PLAN
 title: Implementation Plan — Penerimaan Tanpa PO dan PO Susulan
-status: draft
+status: in-development
 version: 1.0
 owner: Inventory
 technical_owner: Information Technology
@@ -40,9 +40,9 @@ Acuan requirement: `docs/products/inventory/non-po-receiving/prd.md`.
 | Model | `app/Models/NonPoReceipt*.php` | Header, item, batch, history |
 | Migration/factory | `database/{migrations,factories}/` | Schema additive dan fixtures |
 | Inventory Action | `app/Actions/Inventory/Receiving/` | Save draft, submit, shared GR |
-| Purchasing Action | `app/Actions/Purchasing/NonPoReceipt/` | Process/revision/verify/cancel |
+| Purchasing Action | `app/Actions/Purchasing/NonPoReceipt/` | Process/revision/verify/cancel/reconcile |
 | Policy | `app/Policies/NonPoReceiptPolicy.php` | Baru |
-| Employee App | `app/Filament/Casual/Pages/GoodsReceiptPage.php` dan view | Mode Tanpa PO/history |
+| Employee App | `app/Filament/Casual/Pages/{GoodsReceiptPage,NonPoReceiptPage}.php` dan view | Mode Tanpa PO/history pada halaman terpisah |
 | Purchasing Resource | `app/Filament/Helpdesk/Resources/NonPoReceipts/` | Submenu PO Susulan |
 | Receiving Resource | `app/Filament/Helpdesk/Resources/GoodsReceipts/` | Badge/link source |
 | Permission | `config/permissions.php` dan role sync convention | Permission baru |

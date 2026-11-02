@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class GoodsReceipt extends Model
 {
@@ -70,5 +71,16 @@ class GoodsReceipt extends Model
     public function vendorComplianceIncidents(): HasMany
     {
         return $this->hasMany(VendorComplianceIncident::class);
+    }
+
+    public function nonPoReceipt(): HasOne
+    {
+        return $this->hasOne(NonPoReceipt::class);
+    }
+
+    /** A receipt with no PO Susulan link came from Receiving with PO, including every older row. */
+    public function sourceLabel(): string
+    {
+        return $this->nonPoReceipt === null ? 'PO Normal' : 'PO Susulan';
     }
 }

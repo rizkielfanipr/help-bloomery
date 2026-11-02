@@ -1,7 +1,7 @@
 ---
 document_id: INVENTORY-NON-PO-RECEIVING-ROLLOUT
 title: Rollout Runbook — Penerimaan Tanpa PO dan PO Susulan
-status: draft
+status: in-development
 version: 1.0
 owner: Inventory
 technical_owner: Information Technology
@@ -36,7 +36,7 @@ Menjalankan migration additive, permission sync, UAT Inventory/Purchasing, dan o
 | Permission | Permission non-PO baru; sync dan role assignment |
 | Environment | Tidak ada variabel baru |
 | Queue/scheduler | Tidak ada pada MVP |
-| External | GET PO dan POST GR existing; tidak ada create PO API |
+| External | GET PO, cabang, lokasi, Master Product, dan POST GR existing; tidak ada create PO API |
 | Storage | Private photos/documents non-PO |
 
 ## 4. Pre-deploy checks

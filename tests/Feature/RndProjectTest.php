@@ -186,8 +186,14 @@ it('archives and restores a project without deleting its local data or attachmen
 
     $page
         ->assertDontSee('Pulihkan Project')
+        ->call('showInactiveProjects')
+        ->set('inactiveProjectStatus', 'archived')
+        ->assertSee('Project to Delete')
+        ->assertSee('Pulihkan Project')
         ->call('restoreProject', $project->id)
         ->assertHasNoErrors()
+        ->assertDontSee('Project to Delete')
+        ->call('showProjectList')
         ->assertSee('Project to Delete');
 
     $this->assertNotSoftDeleted($project);
@@ -954,6 +960,187 @@ it('escapes project names on the list and wraps long values without a card grid'
         ->assertSeeHtml('[overflow-wrap:anywhere]')
         ->assertDontSeeHtml('md:grid-cols-2 2xl:grid-cols-3')
         ->assertDontSeeHtml('min-h-72');
+});
+
+it('lists only inactive projects on the Nonaktif tab with their status', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $period = ['start_date' => '2026-09-01', 'end_date' => '2026-09-30'];
+    RndProject::factory()->create(['name' => 'Still Active'] + $period);
+    RndProject::factory()->create(['name' => 'Starts Tomorrow', 'start_date' => '2026-09-16', 'end_date' => '2026-09-30']);
+    RndProject::factory()->create(['name' => 'Ended Yesterday', 'start_date' => '2026-09-01', 'end_date' => '2026-09-14']);
+    RndProject::factory()->create(['name' => 'Archived During Period'] + $period)->delete();
+
+    $page = Livewire::test(ListProjects::class)
+        ->assertDontSee('Semua Nonaktif')
+        ->assertDontSee('Starts Tomorrow')
+        ->call('showInactiveProjects')
+        ->assertSet('projectView', 'inactive')
+        ->assertSee('Semua Nonaktif')
+        ->assertSee('Starts Tomorrow')
+        ->assertSee('Ended Yesterday')
+        ->assertSee('Archived During Period')
+        ->assertDontSee('Still Active');
+
+    $statuses = $page->instance()->inactiveProjects()->getCollection()
+        ->mapWithKeys(fn (RndProject $project): array => [$project->name => $page->instance()->projectLifecycleStatus($project)]);
+
+    expect($statuses->all())->toEqualCanonicalizing([
+        'Starts Tomorrow' => 'Upcoming',
+        'Ended Yesterday' => 'Completed',
+        'Archived During Period' => 'Archived',
+    ]);
+});
+
+it('filters the Nonaktif tab by status, type, and search without exposing active projects', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $period = ['start_date' => '2026-09-01', 'end_date' => '2026-09-30'];
+    RndProject::factory()->create(['name' => 'Croissant Active'] + $period);
+    RndProject::factory()->create(['name' => 'Croissant Upcoming', 'start_date' => '2026-10-01', 'end_date' => '2026-10-31']);
+    RndProject::factory()->premix()->create(['name' => 'Croissant Completed Premix', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+    RndProject::factory()->create(['name' => 'Croissant Completed', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+    RndProject::factory()->create(['name' => 'Croissant Archived Past', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31'])->delete();
+
+    $page = Livewire::test(ListProjects::class)->call('showInactiveProjects')->set('projectSearch', 'croissant');
+    $names = fn (): array => $page->instance()->inactiveProjects()->getCollection()->pluck('name')->sort()->values()->all();
+
+    expect($names())->toBe(['Croissant Archived Past', 'Croissant Completed', 'Croissant Completed Premix', 'Croissant Upcoming']);
+
+    $page->set('inactiveProjectStatus', 'upcoming');
+    expect($names())->toBe(['Croissant Upcoming']);
+
+    $page->set('inactiveProjectStatus', 'completed');
+    expect($names())->toBe(['Croissant Completed', 'Croissant Completed Premix']);
+
+    $page->set('projectTypeFilter', RndProjectType::Premix->value);
+    expect($names())->toBe(['Croissant Completed Premix']);
+
+    $page->set('projectTypeFilter', '')->set('inactiveProjectStatus', 'archived');
+    expect($names())->toBe(['Croissant Archived Past']);
+
+    $page->set('inactiveProjectStatus', 'active');
+    expect($names())->not->toContain('Croissant Active');
+});
+
+it('offers archived projects only a restore action and keeps their detail page closed', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $archived = RndProject::factory()->create(['name' => 'Archived Row', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+    $archived->delete();
+    RndProject::factory()->create(['name' => 'Completed Row', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+
+    Livewire::test(ListProjects::class)
+        ->call('showInactiveProjects')
+        ->assertSeeHtml('aria-label="Pulihkan Project Archived Row"')
+        ->assertDontSeeHtml('aria-label="Buka Project Archived Row"')
+        ->assertDontSeeHtml('aria-label="Edit Project Archived Row"')
+        ->assertDontSeeHtml('aria-label="Arsipkan Project Archived Row"')
+        ->assertSeeHtml('aria-label="Buka Project Completed Row"')
+        ->assertSeeHtml('aria-label="Edit Project Completed Row"')
+        ->assertSeeHtml('aria-label="Arsipkan Project Completed Row"')
+        ->assertDontSeeHtml('aria-label="Pulihkan Project Completed Row"');
+
+    $this->get(ProjectResource::getUrl('view', ['record' => $archived->id]))->assertNotFound();
+});
+
+it('restores an archived project without changing its period and keeps a past one on the Nonaktif tab', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $project = RndProject::factory()->create(['name' => 'Past Archived', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+    $project->delete();
+
+    Livewire::test(ListProjects::class)
+        ->call('showInactiveProjects')
+        ->call('restoreProject', $project->id)
+        ->assertHasNoErrors()
+        ->assertSee('Past Archived')
+        ->assertDontSeeHtml('aria-label="Pulihkan Project Past Archived"')
+        ->assertSeeHtml('aria-label="Buka Project Past Archived"')
+        ->call('showProjectList')
+        ->assertDontSee('Past Archived');
+
+    expect($project->fresh())
+        ->trashed()->toBeFalse()
+        ->end_date->toDateString()->toBe('2026-08-31');
+});
+
+it('hides the restore action and rejects the request for users without edit permission', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $project = RndProject::factory()->create(['name' => 'Protected Archive', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+    $project->delete();
+
+    $viewer = User::factory()->create(['is_active' => true]);
+    $viewer->givePermissionTo(['access backoffice', 'view rnd projects']);
+    $this->actingAs($viewer);
+
+    Livewire::test(ListProjects::class)
+        ->call('showInactiveProjects')
+        ->assertSee('Protected Archive')
+        ->assertDontSeeHtml('aria-label="Pulihkan Project Protected Archive"')
+        ->call('restoreProject', $project->id)
+        ->assertForbidden();
+
+    expect($project->fresh()->trashed())->toBeTrue();
+});
+
+it('paginates the Nonaktif tab and recovers when the last page empties', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $projects = RndProject::factory()->count(21)->create(['start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+    $projects->each->delete();
+
+    $page = Livewire::test(ListProjects::class)
+        ->call('showInactiveProjects')
+        ->assertSee('Halaman 1 / 2')
+        ->call('nextInactiveProjectsPage')
+        ->assertSet('inactiveProjectsPage', 2)
+        ->assertSee('Halaman 2 / 2')
+        ->call('nextInactiveProjectsPage')
+        ->assertSet('inactiveProjectsPage', 2);
+
+    $lastProject = $page->instance()->inactiveProjects()->getCollection()->sole();
+
+    $page->call('restoreProject', $lastProject->id)
+        ->set('inactiveProjectStatus', 'archived')
+        ->assertSet('inactiveProjectsPage', 1)
+        ->call('goToInactiveProjectsPage', 99)
+        ->assertSet('inactiveProjectsPage', 1);
+});
+
+it('moves back to an available page when restoring empties the current page of a status filter', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    RndProject::factory()->count(21)->create(['start_date' => '2026-08-01', 'end_date' => '2026-08-31'])->each->delete();
+
+    $page = Livewire::test(ListProjects::class)
+        ->call('showInactiveProjects')
+        ->set('inactiveProjectStatus', 'archived')
+        ->call('goToInactiveProjectsPage', 2);
+
+    $page->call('restoreProject', $page->instance()->inactiveProjects()->getCollection()->sole()->id)
+        ->assertSet('inactiveProjectsPage', 1)
+        ->assertSee('Halaman 1 / 1');
+});
+
+it('separates the empty states of the Nonaktif tab and resets its filters', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $page = Livewire::test(ListProjects::class)
+        ->call('showInactiveProjects')
+        ->assertSee('Belum ada project nonaktif.')
+        ->assertDontSee('Reset Filter');
+
+    RndProject::factory()->create(['name' => 'Done Project', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+
+    $page->set('inactiveProjectStatus', 'archived')
+        ->assertSee('Project nonaktif tidak ditemukan.')
+        ->assertDontSee('Belum ada project nonaktif.')
+        ->assertDontSee('Done Project')
+        ->call('resetProjectFilters')
+        ->assertSet('inactiveProjectStatus', '')
+        ->assertSee('Done Project');
 });
 
 it('creates a project', function () {

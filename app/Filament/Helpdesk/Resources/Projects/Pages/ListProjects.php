@@ -3,6 +3,7 @@
 namespace App\Filament\Helpdesk\Resources\Projects\Pages;
 
 use App\Actions\ArchiveRndProjectAction;
+use App\Actions\RestoreRndProjectAction;
 use App\Actions\Rnd\Project\CreateRndProjectAction;
 use App\Actions\Rnd\Project\UpdateRndProjectAction;
 use App\Enums\RndProjectType;
@@ -12,6 +13,7 @@ use App\Models\Branch;
 use App\Models\RndProject;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -23,6 +25,8 @@ class ListProjects extends ListRecords
     use HasProjectTaskCalendar;
 
     protected static string $resource = ProjectResource::class;
+
+    private const int INACTIVE_PROJECTS_PER_PAGE = 20;
 
     protected string $view = 'filament.helpdesk.rnd-projects.index';
 
@@ -36,6 +40,10 @@ class ListProjects extends ListRecords
     public string $projectSearch = '';
 
     public string $projectTypeFilter = '';
+
+    public string $inactiveProjectStatus = '';
+
+    public int $inactiveProjectsPage = 1;
 
     public string $projectView = 'list';
 
@@ -106,14 +114,96 @@ class ListProjects extends ListRecords
         return $this->filteredProjectsQuery()->get();
     }
 
+    /**
+     * Source of the Nonaktif tab: Upcoming, Completed, and Archived Projects
+     * (docs/products/rnd/project-inactive-list/prd.md §11).
+     */
+    public function inactiveProjects(): LengthAwarePaginator
+    {
+        $projects = $this->inactiveProjectsQuery()
+            ->withCount(['products', 'premixAssemblies', 'partnershipMenus'])
+            ->latest('updated_at')
+            ->paginate(self::INACTIVE_PROJECTS_PER_PAGE, ['*'], 'page', $this->inactiveProjectsPage);
+
+        if ($projects->isEmpty() && $this->inactiveProjectsPage > 1) {
+            $this->inactiveProjectsPage = max(1, $projects->lastPage());
+
+            return $this->inactiveProjects();
+        }
+
+        return $projects;
+    }
+
+    public function projectLifecycleStatus(RndProject $project): string
+    {
+        return match (true) {
+            $project->trashed() => 'Archived',
+            today()->lt($project->start_date) => 'Upcoming',
+            today()->gt($project->end_date) => 'Completed',
+            default => 'Active',
+        };
+    }
+
     public function hasActiveProjectFilters(): bool
     {
         return $this->projectSearch !== '' || $this->projectTypeFilter !== '';
     }
 
+    public function hasInactiveProjectFilters(): bool
+    {
+        return $this->hasActiveProjectFilters() || $this->inactiveProjectStatus !== '';
+    }
+
     public function resetProjectFilters(): void
     {
-        $this->reset(['projectSearch', 'projectTypeFilter']);
+        $this->reset(['projectSearch', 'projectTypeFilter', 'inactiveProjectStatus', 'inactiveProjectsPage']);
+    }
+
+    public function updatedProjectSearch(): void
+    {
+        $this->inactiveProjectsPage = 1;
+    }
+
+    public function updatedProjectTypeFilter(): void
+    {
+        $this->inactiveProjectsPage = 1;
+    }
+
+    public function updatedInactiveProjectStatus(): void
+    {
+        $this->inactiveProjectsPage = 1;
+    }
+
+    public function previousInactiveProjectsPage(): void
+    {
+        $this->inactiveProjectsPage = max(1, $this->inactiveProjectsPage - 1);
+    }
+
+    public function nextInactiveProjectsPage(): void
+    {
+        $this->goToInactiveProjectsPage($this->inactiveProjectsPage + 1);
+    }
+
+    public function goToInactiveProjectsPage(int $page): void
+    {
+        $lastPage = max(1, (int) ceil($this->inactiveProjectsQuery()->count() / self::INACTIVE_PROJECTS_PER_PAGE));
+
+        $this->inactiveProjectsPage = max(1, min($page, $lastPage));
+    }
+
+    private function inactiveProjectsQuery(): Builder
+    {
+        $query = $this->filteredProjectsQuery();
+
+        return match ($this->inactiveProjectStatus) {
+            'upcoming' => $query->whereDate('start_date', '>', today()),
+            'completed' => $query->whereDate('end_date', '<', today()),
+            'archived' => $query->onlyTrashed(),
+            default => $query->withTrashed()->where(fn (Builder $query) => $query
+                ->whereNotNull('deleted_at')
+                ->orWhereDate('start_date', '>', today())
+                ->orWhereDate('end_date', '<', today())),
+        };
     }
 
     private function filteredProjectsQuery(): Builder
@@ -173,6 +263,12 @@ class ListProjects extends ListRecords
     public function showProjectList(): void
     {
         $this->projectView = 'list';
+    }
+
+    public function showInactiveProjects(): void
+    {
+        $this->projectView = 'inactive';
+        $this->inactiveProjectsPage = 1;
     }
 
     public function showProjectCalendar(): void
@@ -261,12 +357,12 @@ class ListProjects extends ListRecords
             ->send();
     }
 
-    public function restoreProject(int $projectId): void
+    public function restoreProject(int $projectId, RestoreRndProjectAction $restoreProject): void
     {
         $project = RndProject::onlyTrashed()->findOrFail($projectId);
         abort_unless(ProjectResource::canRestore($project), 403);
 
-        $project->restore();
+        $restoreProject->execute($project);
 
         Notification::make()->title('Project berhasil dipulihkan')->success()->send();
     }

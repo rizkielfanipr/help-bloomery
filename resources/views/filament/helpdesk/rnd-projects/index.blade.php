@@ -20,7 +20,7 @@
             </div>
             <div class="flex items-center gap-2 border-t border-gray-200 bg-gray-50/60 px-5 py-3 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800/30 dark:text-gray-400 sm:px-6">
                 <x-heroicon-o-information-circle class="h-4 w-4 shrink-0 text-blue-500" />
-                <span>Daftar menampilkan project yang sedang aktif. Pilih project untuk mengelola produk, dokumen CCP, kebutuhan bahan, dan tahapan pengembangan.</span>
+                <span>Daftar menampilkan project yang sedang aktif; project lain dan arsip tersedia di tab Nonaktif. Pilih project untuk mengelola produk, dokumen CCP, kebutuhan bahan, dan tahapan pengembangan.</span>
             </div>
         </section>
 
@@ -113,34 +113,56 @@
         @endif
 
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_190px_auto]">
+            <div @class([
+                'grid grid-cols-1 gap-3 lg:grid-cols-2',
+                'xl:grid-cols-[minmax(0,1fr)_190px_auto]' => $projectView !== 'inactive',
+                'xl:grid-cols-[minmax(0,1fr)_170px_170px_auto]' => $projectView === 'inactive',
+            ])>
                 <div class="relative">
                     <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
                     <input wire:model.live.debounce.300ms="projectSearch" type="search" placeholder="Cari nama atau deskripsi project..." aria-label="Cari nama atau deskripsi project"
                            class="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800">
                 </div>
+                @if($projectView === 'inactive')
+                    <select wire:model.live="inactiveProjectStatus" aria-label="Filter status project nonaktif" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800">
+                        <option value="">Semua Nonaktif</option>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="completed">Completed</option>
+                        <option value="archived">Diarsipkan</option>
+                    </select>
+                @endif
                 <select wire:model.live="projectTypeFilter" aria-label="Filter tipe project" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800">
                     <option value="">Semua Tipe</option>
                     @foreach(\App\Enums\RndProjectType::cases() as $type)
                         <option value="{{ $type->value }}">{{ $type->label() }}</option>
                     @endforeach
                 </select>
-                <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1 dark:border-gray-600 dark:bg-gray-800">
-                    <button type="button" wire:click="showProjectList" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'list' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
-                        <x-heroicon-o-list-bullet class="h-4 w-4" /> Daftar
+                <div @class([
+                    'flex min-w-0 rounded-lg border border-gray-300 bg-gray-50 p-1 dark:border-gray-600 dark:bg-gray-800',
+                    'lg:col-span-2 xl:col-span-1' => $projectView !== 'inactive',
+                ])>
+                    <button type="button" wire:click="showProjectList" class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-semibold transition sm:gap-2 sm:px-3 {{ $projectView === 'list' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
+                        <x-heroicon-o-list-bullet class="hidden h-4 w-4 sm:block" /> Daftar
+                    </button>
+                    <button type="button" wire:click="showInactiveProjects" class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-semibold transition sm:gap-2 sm:px-3 {{ $projectView === 'inactive' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
+                        <x-heroicon-o-archive-box class="hidden h-4 w-4 sm:block" /> Nonaktif
                     </button>
                     @can('view rnd project tasks')
-                        <button type="button" wire:click="showProjectTasks" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'tasks' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
-                            <x-heroicon-o-calendar-days class="h-4 w-4" /> Kalender
+                        <button type="button" wire:click="showProjectTasks" class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-semibold transition sm:gap-2 sm:px-3 {{ $projectView === 'tasks' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
+                            <x-heroicon-o-calendar-days class="hidden h-4 w-4 sm:block" /> Kalender
                         </button>
                     @else
-                        <button type="button" wire:click="showProjectCalendar" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'calendar' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
-                            <x-heroicon-o-calendar-days class="h-4 w-4" /> Kalender
+                        <button type="button" wire:click="showProjectCalendar" class="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-semibold transition sm:gap-2 sm:px-3 {{ $projectView === 'calendar' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
+                            <x-heroicon-o-calendar-days class="hidden h-4 w-4 sm:block" /> Kalender
                         </button>
                     @endcan
                 </div>
             </div>
         </section>
+
+        @php
+            $projectRowGrid = 'xl:grid-cols-[minmax(0,1fr)_7.5rem_6.5rem_6.5rem_6rem_7.75rem]';
+        @endphp
 
         @if($projectView === 'tasks')
             @include('filament.helpdesk.rnd-projects.partials.task-calendar')
@@ -211,6 +233,45 @@
                     </div>
                 </div>
             </section>
+        @elseif($projectView === 'inactive')
+            @php
+                $inactiveProjects = $this->inactiveProjects();
+            @endphp
+            @if($inactiveProjects->isEmpty())
+                <section class="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-16 text-center dark:border-gray-700 dark:bg-gray-900">
+                    @if($this->hasInactiveProjectFilters())
+                        <x-heroicon-o-magnifying-glass class="mx-auto h-12 w-12 text-gray-300" />
+                        <h3 class="mt-3 font-bold text-gray-800 dark:text-gray-100">Project nonaktif tidak ditemukan.</h3>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Ubah kata kunci, status, atau tipe, atau reset filter untuk melihat seluruh project nonaktif.</p>
+                        <button type="button" wire:click="resetProjectFilters" wire:loading.attr="disabled" wire:target="resetProjectFilters" class="mt-4 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">
+                            <x-heroicon-o-arrow-path class="h-4 w-4" /> Reset Filter
+                        </button>
+                    @else
+                        <x-heroicon-o-archive-box class="mx-auto h-12 w-12 text-gray-300" />
+                        <h3 class="mt-3 font-bold text-gray-800 dark:text-gray-100">Belum ada project nonaktif.</h3>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Project yang belum dimulai, sudah selesai, atau diarsipkan akan muncul di sini.</p>
+                    @endif
+                </section>
+            @else
+                <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" aria-label="Daftar project nonaktif">
+                    <div aria-hidden="true" class="hidden gap-3 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 xl:grid {{ $projectRowGrid }}">
+                        <span>Project</span>
+                        <span>Tipe</span>
+                        <span>Periode</span>
+                        <span>Isi</span>
+                        <span>Status</span>
+                        <span class="text-right">Aksi</span>
+                    </div>
+                    <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @foreach($inactiveProjects as $project)
+                            @include('filament.helpdesk.rnd-projects.partials.project-list-row', ['project' => $project, 'showStatus' => true])
+                        @endforeach
+                    </ul>
+                    <div class="border-t border-gray-200 px-4 py-3 dark:border-gray-700 xl:px-5">
+                        <x-rnd.numbered-pagination :paginator="$inactiveProjects" previous-method="previousInactiveProjectsPage" next-method="nextInactiveProjectsPage" go-to-method="goToInactiveProjectsPage" label="project" />
+                    </div>
+                </section>
+            @endif
         @else
             @php
                 $projects = $this->activeProjects();
@@ -237,7 +298,7 @@
                 </section>
             @else
                 <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" aria-label="Daftar project aktif">
-                    <div aria-hidden="true" class="hidden gap-3 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 xl:grid xl:grid-cols-[minmax(0,1fr)_7.5rem_6.5rem_6.5rem_6rem_7.75rem]">
+                    <div aria-hidden="true" class="hidden gap-3 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 xl:grid {{ $projectRowGrid }}">
                         <span>Project</span>
                         <span>Tipe</span>
                         <span>Periode</span>
@@ -247,60 +308,7 @@
                     </div>
                     <ul class="divide-y divide-gray-200 dark:divide-gray-700">
                         @foreach($projects as $project)
-                            @php
-                                $duration = max(1, $project->start_date->diffInDays($project->end_date) + 1);
-                                $elapsed = min($duration, max(0, $project->start_date->diffInDays(today(), false) + 1));
-                                $progress = min(100, (int) round(($elapsed / $duration) * 100));
-                                $viewUrl = \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project]);
-                            @endphp
-                            <li wire:key="active-project-{{ $project->id }}" class="grid gap-3 p-4 transition hover:bg-gray-50 dark:hover:bg-gray-800/40 xl:grid-cols-[minmax(0,1fr)_7.5rem_6.5rem_6.5rem_6rem_7.75rem] xl:items-center xl:px-5 xl:py-3">
-                                <div class="min-w-0">
-                                    <a href="{{ $viewUrl }}" class="text-sm font-bold text-gray-900 [overflow-wrap:anywhere] hover:text-blue-700 dark:text-white dark:hover:text-blue-300">{{ $project->name }}</a>
-                                    @if(filled($project->description))
-                                        <p class="mt-0.5 line-clamp-2 text-xs leading-5 text-gray-500 [overflow-wrap:anywhere] dark:text-gray-400">{{ $project->description }}</p>
-                                    @endif
-                                </div>
-                                <div class="min-w-0">
-                                    <span class="inline-flex w-fit rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{{ $project->project_type->label() }}</span>
-                                </div>
-                                <div class="grid grid-cols-2 gap-3 xl:contents">
-                                    <div class="min-w-0">
-                                        <p class="text-xs text-gray-400 xl:hidden">Periode</p>
-                                        <p class="text-xs font-medium text-gray-700 dark:text-gray-200">
-                                            <span class="whitespace-nowrap">{{ $project->start_date->format('d M Y') }}</span> – <span class="whitespace-nowrap">{{ $project->end_date->format('d M Y') }}</span>
-                                        </p>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="text-xs text-gray-400">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => 'BOM Assembly', \App\Enums\RndProjectType::Partnership => 'Menu Partnership', default => 'Product Release' } }}</p>
-                                        <p class="text-sm font-bold text-gray-900 dark:text-white">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => $project->premix_assemblies_count, \App\Enums\RndProjectType::Partnership => $project->partnership_menus_count, default => $project->products_count } }}</p>
-                                    </div>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="mb-1 flex items-center justify-between gap-2 text-xs xl:justify-end">
-                                        <span class="text-gray-400 xl:hidden">Progress</span>
-                                        <span class="font-bold text-blue-600 dark:text-blue-400">{{ $progress }}%</span>
-                                    </div>
-                                    <div aria-hidden="true" class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                                        <div class="h-full rounded-full bg-blue-500" style="width: {{ $progress }}%"></div>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-2 xl:justify-end">
-                                    <a href="{{ $viewUrl }}" aria-label="Buka Project {{ $project->name }}" title="Buka Project" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700 xl:flex-none xl:p-2">
-                                        <span class="xl:hidden">Buka Project</span>
-                                        <x-heroicon-o-arrow-right class="h-4 w-4" />
-                                    </a>
-                                    @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project))
-                                        <button type="button" wire:click="openEditProjectModal({{ $project->id }})" wire:loading.attr="disabled" wire:target="openEditProjectModal({{ $project->id }})" aria-label="Edit Project {{ $project->name }}" title="Edit Project" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
-                                            <x-heroicon-o-pencil-square class="h-4 w-4" />
-                                        </button>
-                                    @endif
-                                    @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canDelete($project))
-                                        <button type="button" x-on:click="window.BloomeryConfirm.show({ title: 'Arsipkan Project?', text: @js('Project '.$project->name.' akan disembunyikan dari daftar aktif. Seluruh Menu, BOM, dan attachment tetap tersimpan.'), confirmText: 'Arsipkan Project' }).then((confirmed) => { if (confirmed) $wire.archiveProject({{ $project->id }}) })" wire:loading.attr="disabled" wire:target="archiveProject({{ $project->id }})" aria-label="Arsipkan Project {{ $project->name }}" title="Arsipkan Project" class="rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30">
-                                            <x-heroicon-o-archive-box class="h-4 w-4" />
-                                        </button>
-                                    @endif
-                                </div>
-                            </li>
+                            @include('filament.helpdesk.rnd-projects.partials.project-list-row', ['project' => $project, 'showStatus' => false])
                         @endforeach
                     </ul>
                 </section>

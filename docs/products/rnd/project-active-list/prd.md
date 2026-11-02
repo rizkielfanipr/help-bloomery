@@ -272,7 +272,7 @@ Rollback dilakukan dengan revert commit/PR UI dan query. Tidak ada rollback data
 
 ## 26. Open decisions
 
-Tidak ada keputusan yang memblokir dokumentasi. Keputusan kalender Task dipertahankan dan daftar utama hanya menampilkan Project aktif telah dikonfirmasi pada 2 November 2026. Kebutuhan UI pengelolaan arsip terpisah menjadi pekerjaan lanjutan bila diminta. Hasil implementasi: [laporan](reports/implementation-report.md).
+Tidak ada keputusan yang memblokir dokumentasi. Keputusan kalender Task dipertahankan dan daftar utama hanya menampilkan Project aktif telah dikonfirmasi pada 2 November 2026. UI pengelolaan arsip dan Project nonaktif dikerjakan pada [PRD Daftar Project Nonaktif](../project-inactive-list/prd.md). Hasil implementasi: [laporan](reports/implementation-report.md).
 
 ## 27. Implementation phases
 

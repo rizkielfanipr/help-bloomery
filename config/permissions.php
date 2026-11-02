@@ -78,6 +78,7 @@ return [
         'Stock Card Settings' => ['view stock card settings', 'edit stock card settings'],
         'Stock Card' => ['view stock cards', 'create stock cards', 'edit stock cards', 'delete stock cards', 'review stock cards as supervisor', 'review stock cards as finance'],
         'Penerimaan' => ['view goods receipts'],
+        'Penerimaan Tanpa PO' => ['create non po receipts', 'submit non po receipts'],
         'Product List' => ['view product list', 'edit product list'],
         'Proses Material Marketing' => ['process marketing material as inventory'],
         // Legacy permission names are kept for compatibility (docs/products/inventory/item-journal/prd.md §20);
@@ -104,6 +105,7 @@ return [
         'Permintaan Pembelian' => ['view purchase requests', 'create purchase requests', 'edit purchase requests', 'delete purchase requests'],
         'Sourcing Bahan' => ['view material sourcings', 'submit material sourcing', 'hand over material samples'],
         'Proses Material Marketing' => ['view marketing material fulfillments', 'process marketing material as purchasing'],
+        'PO Susulan' => ['view non po purchase order requests', 'process non po purchase order requests', 'cancel non po purchase order requests'],
     ],
 
     'Brand Marketing' => [

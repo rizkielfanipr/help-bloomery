@@ -1,6 +1,6 @@
 # Data Model
 
-Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (163 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
+Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (167 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0; bagian Inventory ditambah empat model `NonPoReceipt*` dengan cara yang sama pada 2 November 2026). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
 
 Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type eksplisit (`metode→Model (Tipe)`).
 
@@ -198,9 +198,13 @@ Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type ekspli
 
 | Model | Tabel | Relasi |
 |---|---|---|
-| `GoodsReceipt` | `goods_receipts` | submittedBy→User (BelongsTo), localBranch→Branch (BelongsTo), items→GoodsReceiptItem (HasMany), vendorComplianceIncidents→VendorComplianceIncident (HasMany) |
+| `GoodsReceipt` | `goods_receipts` | submittedBy→User (BelongsTo), localBranch→Branch (BelongsTo), items→GoodsReceiptItem (HasMany), vendorComplianceIncidents→VendorComplianceIncident (HasMany), nonPoReceipt→NonPoReceipt (HasOne) |
 | `GoodsReceiptExpiry` | `goods_receipt_expiries` | item→GoodsReceiptItem (BelongsTo) |
 | `GoodsReceiptItem` | `goods_receipt_items` | goodsReceipt→GoodsReceipt (BelongsTo), expiries→GoodsReceiptExpiry (HasMany), vendorComplianceIncident→VendorComplianceIncident (HasOne) |
+| `NonPoReceipt` | `non_po_receipts` | items→NonPoReceiptItem (HasMany), statusHistories→NonPoReceiptStatusHistory (HasMany), goodsReceipt→GoodsReceipt (BelongsTo), localBranch→Branch (BelongsTo), createdBy→User (BelongsTo), submittedBy→User (BelongsTo), processedBy→User (BelongsTo), poLinkedBy→User (BelongsTo), supplierMismatchConfirmedBy→User (BelongsTo) |
+| `NonPoReceiptBatch` | `non_po_receipt_batches` | item→NonPoReceiptItem (BelongsTo) |
+| `NonPoReceiptItem` | `non_po_receipt_items` | nonPoReceipt→NonPoReceipt (BelongsTo), batches→NonPoReceiptBatch (HasMany), qcInspectedBy→User (BelongsTo) |
+| `NonPoReceiptStatusHistory` | `non_po_receipt_status_histories` | nonPoReceipt→NonPoReceipt (BelongsTo), actor→User (BelongsTo) |
 | `Location` | `locations` | branch→Branch (BelongsTo), parent→self (BelongsTo), children→self (HasMany) |
 | `LocationType` | `location_types` | — |
 | `ProductSetting` | `product_settings` | locations→Location (BelongsToMany) |

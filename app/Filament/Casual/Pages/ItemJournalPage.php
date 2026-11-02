@@ -2,10 +2,9 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Filament\Casual\Concerns\ManagesEsbStockProductPicker;
 use App\Models\QualityControlItemJournal;
 use App\Services\EsbItemJournalService;
-use App\Services\EsbService;
-use App\Services\EsbStockMovementService;
 use App\Services\Monitoring\EsbTransactionRecorder;
 use App\Services\Monitoring\EsbTransactionScope;
 use Closure;
@@ -25,6 +24,7 @@ use Throwable;
 
 class ItemJournalPage extends Page
 {
+    use ManagesEsbStockProductPicker;
     use WithFileUploads;
 
     private const ATTACHMENT_LIMIT = 5;
@@ -53,29 +53,13 @@ class ItemJournalPage extends Page
 
     public string $additionalInfo = '';
 
-    public string $productSearch = '';
-
-    public string $productCodeSearch = '';
-
-    public bool $productPickerOpen = false;
-
     public ?int $productPickerItemIndex = null;
-
-    public int $productPage = 1;
-
-    public int $productTotal = 0;
-
-    public int $productPerPage = 10;
-
-    public bool $productHasNext = false;
 
     public array $locations = [];
 
     public array $esbBranches = [];
 
     public array $purposes = [];
-
-    public array $productOptions = [];
 
     public array $selectedProducts = [];
 
@@ -90,8 +74,6 @@ class ItemJournalPage extends Page
     public array $retakeUploads = [];
 
     public ?string $loadError = null;
-
-    public ?string $stockLoadWarning = null;
 
     /**
      * The tile permission opens the page; the policy still decides what the user may see and do
@@ -235,63 +217,6 @@ class ItemJournalPage extends Page
     {
         $this->productPickerOpen = false;
         $this->productPickerItemIndex = null;
-    }
-
-    public function loadProducts(bool $resetPage = false): void
-    {
-        if ($resetPage) {
-            $this->productPage = 1;
-        }
-
-        try {
-            abort_if($this->companyCode === '', 422, 'Pilih ESB Comcode terlebih dahulu.');
-            $list = app(EsbItemJournalService::class)->products($this->companyCode, [
-                'page' => $this->productPage,
-                'limit' => 20,
-                'productName' => trim($this->productSearch),
-                'productCode' => trim($this->productCodeSearch),
-            ]);
-            $productOptions = app(EsbService::class)->getActiveProductDetailsByCodes(
-                array_column($list['data'], 'productCode'),
-            );
-            $this->productOptions = $this->withAvailableStocks($productOptions);
-            $this->productPage = $list['page'];
-            $this->productTotal = $list['count'];
-            $this->productPerPage = $list['limit'];
-            $this->productHasNext = filled($list['next'])
-                || ($this->productPage * $this->productPerPage < $this->productTotal);
-            $this->loadError = null;
-        } catch (Throwable $exception) {
-            report($exception);
-            $this->loadError = $exception->getMessage();
-            $this->productOptions = [];
-        }
-    }
-
-    public function updatedProductSearch(): void
-    {
-        $this->loadProducts(true);
-    }
-
-    public function updatedProductCodeSearch(): void
-    {
-        $this->loadProducts(true);
-    }
-
-    public function previousProductPage(): void
-    {
-        if ($this->productPage > 1) {
-            $this->productPage--;
-            $this->loadProducts();
-        }
-    }
-
-    public function nextProductPage(): void
-    {
-        if ($this->productHasNext) {
-            $this->productPage++;
-            $this->loadProducts();
-        }
     }
 
     public function selectProduct(int $productDetailId): void
@@ -566,62 +491,20 @@ class ItemJournalPage extends Page
         return $journal;
     }
 
+    private function pickerCompanyCode(): string
+    {
+        return $this->companyCode;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function pickerBranches(): array
+    {
+        return $this->esbBranches;
+    }
+
     private function blankItem(): array
     {
         return ['productDetailID' => '', 'productCode' => null, 'productName' => null, 'unit' => null, 'availableStock' => null, 'availableStockUnit' => null, 'purposeID' => '', 'adjustmentMode' => 'decrease', 'qty' => '', 'hpp' => '0'];
-    }
-
-    /** @param array<int, array<string, mixed>> $products
-     * @return array<int, array<string, mixed>>
-     */
-    private function withAvailableStocks(array $products): array
-    {
-        if ($this->branchId === '' || $this->locationId === '') {
-            return collect($products)->map(fn (array $product): array => array_merge($product, [
-                'availableStock' => null,
-                'availableStockUnit' => null,
-            ]))->all();
-        }
-
-        $branch = collect($this->esbBranches)->first(
-            fn (array $candidate): bool => (string) ($candidate['branchID'] ?? '') === (string) $this->branchId,
-        );
-        $location = collect($this->locations)->first(
-            fn (array $candidate): bool => (string) ($candidate['locationID'] ?? '') === (string) $this->locationId,
-        );
-        if (! is_array($branch) || ! is_array($location)) {
-            return $products;
-        }
-
-        try {
-            $result = app(EsbStockMovementService::class)->availableBalancesForItemJournal(
-                $this->companyCode,
-                (string) ($branch['branchCode'] ?? ''),
-                (int) $location['locationID'],
-                (string) ($location['locationName'] ?? ''),
-            );
-            $balances = $result['balances'];
-            $this->stockLoadWarning = null;
-
-            return collect($products)->map(function (array $product) use ($balances): array {
-                $key = strtoupper(trim((string) ($product['productCode'] ?? '')))
-                    .'|'.strtoupper(trim((string) ($product['unit'] ?? '')));
-                $balance = $balances[$key] ?? null;
-
-                return array_merge($product, [
-                    'availableStock' => $balance['quantity'] ?? null,
-                    'availableStockUnit' => $balance['unit'] ?? null,
-                ]);
-            })->all();
-        } catch (Throwable $exception) {
-            report($exception);
-            $this->stockLoadWarning = 'Stok saat ini tidak dapat dimuat dari ESB. Pemilihan produk tetap dapat dilanjutkan.';
-
-            return collect($products)->map(fn (array $product): array => array_merge($product, [
-                'availableStock' => null,
-                'availableStockUnit' => null,
-            ]))->all();
-        }
     }
 
     private function clearAvailableStocks(): void

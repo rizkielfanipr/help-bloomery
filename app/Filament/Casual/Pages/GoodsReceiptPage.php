@@ -2,19 +2,18 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Actions\Inventory\Receiving\CreateGoodsReceiptAction;
+use App\Filament\Casual\Concerns\ManagesReceivingItems;
 use App\Models\GoodsReceipt;
 use App\Models\User;
 use App\Services\EsbBranchMappingResolver;
 use App\Services\EsbGoodsReceiptService;
 use App\Services\InboundGoodsReceiptQcService;
-use App\Services\Monitoring\EsbTransactionRecorder;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -25,6 +24,7 @@ use Throwable;
 
 class GoodsReceiptPage extends Page
 {
+    use ManagesReceivingItems;
     use WithFileUploads;
 
     private const COMPANY_CODE = 'BLSS';
@@ -272,17 +272,6 @@ class GoodsReceiptPage extends Page
         }
     }
 
-    public function addBatch(int $item): void
-    {
-        $this->items[$item]['batches'][] = ['batchNumber' => '', 'manufacturedDate' => '', 'expiredDate' => '', 'quantity' => 0, 'acceptedQty' => 0, 'holdQty' => 0, 'rejectedQty' => 0];
-    }
-
-    public function removeBatch(int $item, int $batch): void
-    {
-        unset($this->items[$item]['batches'][$batch]);
-        $this->items[$item]['batches'] = array_values($this->items[$item]['batches']);
-    }
-
     public function removeDocumentPhoto(int $index): void
     {
         array_splice($this->documentPhotos, $index, 1);
@@ -293,12 +282,6 @@ class GoodsReceiptPage extends Page
     {
         array_splice($this->goodsPhotos, $index, 1);
         $this->goodsPhotos = array_values($this->goodsPhotos);
-    }
-
-    public function removeItemEvidencePhoto(int $itemIndex, int $photoIndex): void
-    {
-        array_splice($this->items[$itemIndex]['evidencePhotos'], $photoIndex, 1);
-        $this->items[$itemIndex]['evidencePhotos'] = array_values($this->items[$itemIndex]['evidencePhotos']);
     }
 
     /** @return list<int> indexes into $items matching the current search/filter, for the summary list. */
@@ -318,41 +301,6 @@ class GoodsReceiptPage extends Page
                 default => true,
             };
         })->keys()->all();
-    }
-
-    public function openItemDetail(int $index): void
-    {
-        $this->items[$index]['condition'] = 'problem';
-        $this->activeItemIndex = $index;
-        $this->dispatch('open-modal', 'item-detail');
-    }
-
-    public function closeItemDetail(): void
-    {
-        $this->activeItemIndex = null;
-        $this->dispatch('close-modal', 'item-detail');
-    }
-
-    /**
-     * docs/products/inventory/receiving-simplification/prd.md §7: switching back to "Sesuai" clears any exception
-     * data entered while "Bermasalah" was selected, so a stale Hold/Rejected/rejection reason
-     * never survives a condition change the user no longer intends.
-     */
-    public function setItemCondition(int $index, string $condition): void
-    {
-        $this->items[$index]['condition'] = $condition;
-
-        if ($condition === 'ok') {
-            $this->items[$index] = array_replace($this->items[$index], [
-                'acceptedQty' => $this->items[$index]['physicalQty'], 'holdQty' => 0, 'rejectedQty' => 0,
-                'colorResult' => 'pass', 'textureResult' => 'pass', 'packagingResult' => 'pass', 'contaminationResult' => 'pass',
-                'temperatureCategory' => 'ambient', 'actualTemperature' => null, 'minTemperature' => null, 'maxTemperature' => null,
-                'shelfLifeRequired' => false, 'batches' => [],
-                'samplingRequired' => false, 'samplingMethod' => '', 'samplingResult' => 'pass', 'samplingNotes' => '',
-                'quarantineLocation' => '', 'rejectionCategory' => '', 'rejectionReason' => '', 'evidencePhotos' => [],
-            ]);
-            $this->closeItemDetail();
-        }
     }
 
     public function selectAllItems(): void
@@ -391,30 +339,6 @@ class GoodsReceiptPage extends Page
         }
     }
 
-    /** @return array<string, mixed> */
-    public function itemQcPreview(int $itemIndex): array
-    {
-        return app(InboundGoodsReceiptQcService::class)->assessItem(
-            $this->items[$itemIndex] ?? [],
-            $this->goodsReceiptDate ?: now()->toDateString(),
-        );
-    }
-
-    /** @return array{days: int, label: string, color: string}|null */
-    public function itemExpiryStatus(int $itemIndex): ?array
-    {
-        $expiryDate = $this->items[$itemIndex]['expiryDate'] ?? '';
-
-        if (blank($expiryDate)) {
-            return null;
-        }
-
-        return app(InboundGoodsReceiptQcService::class)->expiryStatus(
-            $expiryDate,
-            $this->goodsReceiptDate ?: now()->toDateString(),
-        );
-    }
-
     public function backToList(): void
     {
         $this->reset('purchaseOrder', 'sourceCompanyCode', 'locations', 'items', 'locationId', 'documentNumber', 'documentDate', 'documentNotes', 'documentPhotos', 'goodsPhotos', 'additionalInfo', 'activeItemIndex', 'itemSearch', 'itemFilter');
@@ -451,16 +375,7 @@ class GoodsReceiptPage extends Page
             data_get($latest, 'branchCode'),
         )?->branch_id;
         $selected = collect($this->items)->filter(fn (array $item): bool => $item['selected'] && (float) $item['physicalQty'] > 0)
-            // Server-side defense in depth: "Sesuai" always means the full qty is Accepted and
-            // the exception fields are blank, regardless of whatever the client last held for
-            // them (docs/products/inventory/receiving-simplification/prd.md §6-7).
-            ->map(fn (array $item): array => $item['condition'] === 'ok' ? array_replace($item, [
-                'acceptedQty' => $item['physicalQty'], 'holdQty' => 0, 'rejectedQty' => 0,
-                'colorResult' => 'pass', 'textureResult' => 'pass', 'packagingResult' => 'pass', 'contaminationResult' => 'pass',
-                'temperatureCategory' => 'ambient', 'shelfLifeRequired' => false, 'batches' => [],
-                'samplingRequired' => false, 'samplingResult' => 'pass',
-                'quarantineLocation' => '', 'rejectionCategory' => '', 'rejectionReason' => '', 'evidencePhotos' => [],
-            ]) : $item);
+            ->map(fn (array $item): array => $this->normalizeOkItem($item));
         if ($selected->isEmpty()) {
             $this->addError('items', 'Pilih minimal satu barang dengan qty fisik lebih dari 0.');
 
@@ -480,8 +395,16 @@ class GoodsReceiptPage extends Page
 
                 return $item;
             });
-            $payload = $this->payload($assessed);
-            $receipt = DB::transaction(fn (): GoodsReceipt => $this->persist($purchaseNumber, $location, $payload, $assessed, $documentPhotos, $goodsPhotos, $localBranchId, $qc));
+            $receipt = app(CreateGoodsReceiptAction::class)->record([
+                'submissionKey' => $this->submissionKey, 'companyCode' => $this->sourceCompanyCode, 'purchaseNumber' => $purchaseNumber,
+                'purchaseDate' => data_get($this->purchaseOrder, 'purchaseDate'), 'goodsReceiptDate' => $this->goodsReceiptDate,
+                'esbBranchId' => (int) data_get($this->purchaseOrder, 'branchID'), 'localBranchId' => $localBranchId, 'branchName' => data_get($this->purchaseOrder, 'branchName'),
+                'supplierId' => data_get($this->purchaseOrder, 'supplierID'), 'supplierName' => data_get($this->purchaseOrder, 'supplierName'), 'location' => $location,
+                'documentType' => $this->documentType, 'documentNumber' => $this->documentNumber, 'documentDate' => $this->documentDate,
+                'documentPhotos' => $documentPhotos, 'goodsPhotos' => $goodsPhotos,
+                'poDocumentMatch' => $this->poDocumentMatch, 'documentMatch' => $this->documentMatch, 'priceMatch' => $this->priceMatch,
+                'documentNotes' => $this->documentNotes, 'additionalInfo' => $this->additionalInfo,
+            ], $assessed, (int) auth()->id());
         } catch (Throwable $exception) {
             Storage::disk('b2')->delete($paths);
             throw $exception;
@@ -493,33 +416,19 @@ class GoodsReceiptPage extends Page
             return;
         }
         $this->notifyPurchasing($receipt);
-        if ($payload['goodsReceiptDetail'] === []) {
+        if ($receipt->request_payload['goodsReceiptDetail'] === []) {
             Notification::make()->warning()->title('QC tersimpan')->body('Tidak ada qty Accepted yang dikirim ke ESB.')->send();
             $this->backToList();
 
             return;
         }
-        $recorder = app(EsbTransactionRecorder::class);
-        $monitoringContext = [
-            'company_code' => $this->sourceCompanyCode,
-            'branch_id' => $localBranchId,
-            'local_model' => $receipt,
-            'external_reference' => $purchaseNumber,
-            'idempotency_key' => 'goods-receipt:'.$receipt->submission_key,
-        ];
-        try {
-            $response = $recorder->transaction('goods_receipt', 'submit', 'create_goods_receipt', fn () => app(EsbGoodsReceiptService::class)->create($this->sourceCompanyCode, $purchaseNumber, $payload), $monitoringContext);
-            $partial = $assessed->contains(fn (array $item): bool => (float) $item['holdQty'] > 0 || (float) $item['rejectedQty'] > 0);
-            $receipt->update(['status' => $partial ? GoodsReceipt::STATUS_PARTIAL_SUCCEEDED : GoodsReceipt::STATUS_SUCCEEDED,
-                'esb_goods_receipt_number' => data_get($response, 'result.goodsReceiptNum'), 'esb_code' => data_get($response, 'response.code'),
-                'esb_message' => data_get($response, 'response.message'), 'response_payload' => $response['response'], 'synced_at' => now()]);
-            Notification::make()->success()->title('Penerimaan berhasil')->body('Nomor GR: '.data_get($response, 'result.goodsReceiptNum', '-'))->send();
+        app(CreateGoodsReceiptAction::class)->send($receipt);
+        if (in_array($receipt->status, [GoodsReceipt::STATUS_SUCCEEDED, GoodsReceipt::STATUS_PARTIAL_SUCCEEDED], true)) {
+            Notification::make()->success()->title('Penerimaan berhasil')->body('Nomor GR: '.($receipt->esb_goods_receipt_number ?? '-'))->send();
             $this->backToList();
             $this->loadPurchaseOrders();
-        } catch (Throwable $exception) {
-            report($exception);
-            $receipt->update(['status' => $this->isConnectionFailure($exception) ? GoodsReceipt::STATUS_UNKNOWN : GoodsReceipt::STATUS_FAILED, 'sync_error' => $exception->getMessage()]);
-            Notification::make()->danger()->title('Penerimaan gagal dikirim')->body($exception->getMessage())->persistent()->send();
+        } else {
+            Notification::make()->danger()->title('Penerimaan gagal dikirim')->body((string) $receipt->sync_error)->persistent()->send();
         }
     }
 
@@ -534,23 +443,7 @@ class GoodsReceiptPage extends Page
             'documentPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'goodsPhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'additionalInfo' => ['nullable', 'string', 'max:2000'], 'items' => ['required', 'array'], 'items.*.selected' => ['boolean'],
-            'items.*.physicalQty' => ['nullable', 'numeric', 'min:0'], 'items.*.acceptedQty' => ['nullable', 'numeric', 'min:0'],
-            'items.*.holdQty' => ['nullable', 'numeric', 'min:0'], 'items.*.rejectedQty' => ['nullable', 'numeric', 'min:0'],
-            'items.*.measurementMethod' => ['required', 'in:count,weigh,measure'], 'items.*.tolerancePercentage' => ['required', 'numeric', 'min:0', 'max:100'],
-            'items.*.colorResult' => ['required', 'in:pass,fail,not_applicable'], 'items.*.textureResult' => ['required', 'in:pass,fail,not_applicable'],
-            'items.*.packagingResult' => ['required', 'in:pass,fail,not_applicable'], 'items.*.contaminationResult' => ['required', 'in:pass,fail,not_applicable'],
-            'items.*.temperatureCategory' => ['required', 'in:ambient,chilled,frozen'], 'items.*.actualTemperature' => ['nullable', 'numeric'],
-            'items.*.minTemperature' => ['nullable', 'numeric'], 'items.*.maxTemperature' => ['nullable', 'numeric'],
-            'items.*.minimumShelfLifePercentage' => ['required', 'numeric', 'min:0', 'max:100'], 'items.*.samplingMethod' => ['nullable', 'string', 'max:255'],
-            'items.*.samplingResult' => ['required', 'in:pass,fail,pending'], 'items.*.samplingNotes' => ['nullable', 'string', 'max:1000'],
-            'items.*.quarantineLocation' => ['nullable', 'string', 'max:255'], 'items.*.rejectionCategory' => ['nullable', 'in:document,quantity,quality,packaging,cold_chain,shelf_life,sampling,other'],
-            'items.*.rejectionReason' => ['nullable', 'string', 'max:2000'], 'items.*.evidencePhotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'items.*.notes' => ['nullable', 'string', 'max:1000'], 'items.*.expiryDate' => ['nullable', 'date'],
-            'items.*.batches' => ['array'],
-            'items.*.batches.*.batchNumber' => ['nullable', 'string', 'max:255'], 'items.*.batches.*.manufacturedDate' => ['nullable', 'date'],
-            'items.*.batches.*.expiredDate' => ['nullable', 'date'], 'items.*.batches.*.quantity' => ['nullable', 'numeric', 'min:0'],
-            'items.*.batches.*.acceptedQty' => ['nullable', 'numeric', 'min:0'], 'items.*.batches.*.holdQty' => ['nullable', 'numeric', 'min:0'],
-            'items.*.batches.*.rejectedQty' => ['nullable', 'numeric', 'min:0'],
+            ...$this->itemRules(),
         ];
     }
 
@@ -562,148 +455,13 @@ class GoodsReceiptPage extends Page
             $errors['documentPhotos'] = 'Foto bukti wajib saat dokumen tidak sesuai.';
         }
         foreach ($items as $index => $item) {
-            $physical = (float) $item['physicalQty'];
-            $accepted = (float) $item['acceptedQty'];
-            $hold = (float) $item['holdQty'];
-            $rejected = (float) $item['rejectedQty'];
-            if (abs($accepted + $hold + $rejected - $physical) > 0.0001) {
-                $errors["items.{$index}.physicalQty"] = 'Accepted + Hold + Rejected harus sama dengan qty fisik.';
-            }
-            if ($accepted > (float) $item['outstandingQty']) {
-                $errors["items.{$index}.acceptedQty"] = 'Qty Accepted melebihi sisa PO.';
-            }
-            if ($accepted > 0 && (! $documentsPass || ! $item['canAccept'])) {
-                $errors["items.{$index}.acceptedQty"] = 'Qty tidak dapat Accepted karena pemeriksaan QC gagal atau pending.';
-            }
-            if (($hold > 0 || $rejected > 0) && (blank($item['quarantineLocation']) || blank($item['rejectionCategory']) || blank($item['rejectionReason']) || empty($item['evidencePhotos']))) {
-                $errors["items.{$index}.rejectionReason"] = 'Lokasi karantina, kategori, alasan, dan foto wajib untuk Hold/Rejected.';
-            }
-            if (($item['temperatureCategory'] ?? 'ambient') !== 'ambient' && (! is_numeric($item['actualTemperature']) || ! is_numeric($item['minTemperature']) || ! is_numeric($item['maxTemperature']))) {
-                $errors["items.{$index}.actualTemperature"] = 'Suhu aktual dan rentang cold chain wajib diisi.';
-            }
-            if (! empty($item['shelfLifeRequired'])) {
-                if ($item['batches'] === []) {
-                    $errors["items.{$index}.batches"] = 'Minimal satu batch wajib diisi.';
-                } else {
-                    foreach (['quantity' => $physical, 'acceptedQty' => $accepted, 'holdQty' => $hold, 'rejectedQty' => $rejected] as $field => $expected) {
-                        if (abs((float) collect($item['batches'])->sum($field) - $expected) > 0.0001) {
-                            $errors["items.{$index}.batches"] = 'Total pembagian qty batch harus sama dengan qty item.';
-                        }
-                    }
-                }
+            foreach ($qc->itemViolations($item, $documentsPass) as $field => $message) {
+                $errors["items.{$index}.{$field}"] = $message;
             }
         }
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
-    }
-
-    private function payload($items): array
-    {
-        return ['goodsReceiptDate' => $this->goodsReceiptDate, 'locationID' => (int) $this->locationId, 'deliveryNum' => $this->documentNumber,
-            'additionalInfo' => $this->additionalInfo, 'selectedAssetID' => '',
-            // docs/products/inventory/receiving-simplification/prd.md §11/§17 Phase 1: computed automatically in
-            // Phase 5 once outstanding-qty-across-the-whole-PO logic exists; false is the safe
-            // interim (never auto-closes, matching today's default before the UI checkbox existed).
-            'autoClosePO' => false,
-            'goodsReceiptDetail' => $items->filter(fn (array $item): bool => (float) $item['acceptedQty'] > 0)->map(fn (array $item): array => [
-                'productID' => $item['productID'], 'productDetailID' => $item['productDetailID'], 'qty' => (float) $item['acceptedQty'],
-                'deviationVal' => (float) $item['deviationVal'], 'notes' => $item['notes'],
-                'expiredDates' => collect($item['batches'])->filter(fn (array $batch): bool => (float) $batch['acceptedQty'] > 0)
-                    ->map(fn (array $batch): array => ['expiredDate' => $batch['expiredDate'], 'qty' => (float) $batch['acceptedQty']])->values()->all(),
-            ])->values()->all()];
-    }
-
-    private function persist(string $po, array $location, array $payload, $items, array $documentPhotos, array $goodsPhotos, ?int $localBranchId, InboundGoodsReceiptQcService $qc): GoodsReceipt
-    {
-        $accepted = (float) $items->sum('acceptedQty');
-        $hold = (float) $items->sum('holdQty');
-        $rejected = (float) $items->sum('rejectedQty');
-        $esbBranchId = (int) data_get($this->purchaseOrder, 'branchID');
-
-        $payloadHash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
-        $receipt = GoodsReceipt::query()->createOrFirst(['submission_key' => $this->submissionKey], [
-            'company_code' => $this->sourceCompanyCode, 'reference_number' => $po, 'purchase_date' => data_get($this->purchaseOrder, 'purchaseDate'), 'goods_receipt_date' => $this->goodsReceiptDate,
-            'esb_branch_id' => $esbBranchId, 'local_branch_id' => $localBranchId, 'branch_name' => data_get($this->purchaseOrder, 'branchName'),
-            'supplier_id' => data_get($this->purchaseOrder, 'supplierID'), 'supplier_name' => data_get($this->purchaseOrder, 'supplierName'),
-            'location_id' => $location['locationID'], 'location_name' => $location['locationName'],
-            'document_type' => $this->documentType, 'document_number' => $this->documentNumber, 'document_date' => $this->documentDate,
-            'document_photos' => $documentPhotos, 'goods_photos' => $goodsPhotos,
-            // Legacy columns stay populated so reports/exports reading them directly keep working
-            // during the transition (docs/products/inventory/receiving-simplification/prd.md §15).
-            'delivery_number' => $this->documentType === 'delivery_note' ? $this->documentNumber : null,
-            'delivery_date' => $this->documentType === 'delivery_note' ? $this->documentDate : null,
-            'invoice_status' => $this->documentType === 'invoice' ? 'received' : 'not_received',
-            'invoice_number' => $this->documentType === 'invoice' ? $this->documentNumber : null,
-            'invoice_date' => $this->documentType === 'invoice' ? $this->documentDate : null,
-            'po_document_match' => $this->poDocumentMatch, 'delivery_document_match' => $this->documentMatch,
-            'invoice_document_match' => $this->documentMatch, 'price_match' => $this->priceMatch, 'document_notes' => $this->documentNotes,
-            'document_evidence_photos' => array_merge($documentPhotos, $goodsPhotos), 'qc_outcome' => $qc->disposition($accepted, $hold, $rejected), 'qc_completed_at' => now(),
-            'additional_info' => $this->additionalInfo, 'auto_close_po' => false,
-            'status' => $accepted > 0 ? GoodsReceipt::STATUS_PROCESSING : ($rejected > 0 && $hold <= 0 ? GoodsReceipt::STATUS_QC_REJECTED : GoodsReceipt::STATUS_QC_HOLD),
-            'payload_hash' => $payloadHash, 'attempted_at' => now(),
-            'submitted_by' => auth()->id(), 'submitted_at' => now(), 'request_payload' => $payload,
-        ]);
-        if (! $receipt->wasRecentlyCreated) {
-            return $receipt;
-        }
-        foreach ($items as $item) {
-            $record = $receipt->items()->create([
-                'purchase_detail_id' => $item['purchaseDetailID'], 'product_id' => $item['productID'], 'product_detail_id' => $item['productDetailID'],
-                'product_code' => $item['productCode'], 'product_name' => $item['productName'], 'uom_id' => $item['uomID'], 'uom_name' => $item['uomName'],
-                'ordered_qty' => $item['orderedQty'], 'outstanding_qty' => $item['outstandingQty'], 'received_qty' => $item['acceptedQty'],
-                'physical_qty' => $item['physicalQty'], 'accepted_qty' => $item['acceptedQty'], 'hold_qty' => $item['holdQty'], 'rejected_qty' => $item['rejectedQty'],
-                'deviation_value' => $item['deviationVal'], 'measurement_method' => $item['measurementMethod'], 'variance_percentage' => $item['variancePercentage'],
-                'tolerance_percentage' => $item['tolerancePercentage'], 'quantity_check_result' => $item['quantityResult'], 'color_check_result' => $item['colorResult'],
-                'texture_check_result' => $item['textureResult'], 'packaging_check_result' => $item['packagingResult'], 'contamination_check_result' => $item['contaminationResult'],
-                'temperature_category' => $item['temperatureCategory'], 'actual_temperature' => $item['actualTemperature'], 'min_temperature' => $item['minTemperature'],
-                'max_temperature' => $item['maxTemperature'], 'cold_chain_result' => $item['coldChainResult'], 'shelf_life_required' => $item['shelfLifeRequired'],
-                'minimum_shelf_life_percentage' => $item['minimumShelfLifePercentage'], 'shelf_life_result' => $item['shelfLifeResult'], 'sampling_required' => $item['samplingRequired'],
-                'sampling_method' => $item['samplingMethod'], 'sampling_result' => $item['samplingResult'], 'sampling_notes' => $item['samplingNotes'],
-                'disposition' => $qc->disposition((float) $item['acceptedQty'], (float) $item['holdQty'], (float) $item['rejectedQty']),
-                'quarantine_location' => $item['quarantineLocation'], 'rejection_category' => $item['rejectionCategory'], 'rejection_reason' => $item['rejectionReason'],
-                'evidence_photos' => $item['storedEvidencePhotos'], 'notes' => $item['notes'], 'qc_inspected_by' => auth()->id(), 'qc_inspected_at' => now(),
-            ]);
-            // docs/products/inventory/receiving-simplification/prd.md §9/§15 "Pertahankan hasil QC rinci di
-            // database": a quick row-level ED entered without going through the full
-            // Bermasalah/batch workflow still needs to survive the save, so it becomes a single
-            // implicit expiry record covering the whole accepted qty — only when the item has no
-            // explicit batches of its own, so it never duplicates data the detailed workflow
-            // already captured.
-            $batches = $item['batches'] !== [] ? $item['batches'] : (filled($item['expiryDate']) ? [[
-                'batchNumber' => null, 'manufacturedDate' => null, 'expiredDate' => $item['expiryDate'],
-                'quantity' => $item['physicalQty'], 'acceptedQty' => $item['acceptedQty'], 'holdQty' => $item['holdQty'], 'rejectedQty' => $item['rejectedQty'],
-                'shelfLifePercentage' => null,
-            ]] : []);
-            foreach ($batches as $batch) {
-                $record->expiries()->create(['batch_number' => $batch['batchNumber'] ?: null, 'manufactured_date' => $batch['manufacturedDate'] ?: null,
-                    'expired_date' => $batch['expiredDate'], 'quantity' => $batch['quantity'], 'accepted_quantity' => $batch['acceptedQty'], 'hold_quantity' => $batch['holdQty'],
-                    'rejected_quantity' => $batch['rejectedQty'], 'shelf_life_remaining_percentage' => $batch['shelfLifePercentage'],
-                    'qc_result' => $batch['shelfLifePercentage'] !== null && $batch['shelfLifePercentage'] >= (float) $item['minimumShelfLifePercentage'] ? 'pass' : 'fail']);
-            }
-            if ((float) $item['rejectedQty'] > 0) {
-                $points = $qc->demeritPoints($item['rejectionCategory']);
-                $record->vendorComplianceIncident()->create(['goods_receipt_id' => $receipt->id, 'supplier_id' => $receipt->supplier_id, 'supplier_name' => $receipt->supplier_name,
-                    'category' => $item['rejectionCategory'], 'severity' => $points >= 20 ? 'high' : ($points >= 10 ? 'medium' : 'low'), 'demerit_points' => $points,
-                    'affected_quantity' => $item['rejectedQty'], 'status' => 'open', 'description' => $item['rejectionReason'],
-                    'evidence_photos' => $item['storedEvidencePhotos'], 'reported_by' => auth()->id(), 'occurred_at' => now()]);
-            }
-        }
-
-        return $receipt;
-    }
-
-    private function isConnectionFailure(Throwable $exception): bool
-    {
-        do {
-            if ($exception instanceof ConnectionException) {
-                return true;
-            }
-
-            $exception = $exception->getPrevious();
-        } while ($exception instanceof Throwable);
-
-        return false;
     }
 
     private function storePhotos(array $photos, string $directory, array &$paths): array

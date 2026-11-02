@@ -46,7 +46,7 @@
     if (str_contains($path, 'erp-repair-request') || str_contains($path, 'erp-module') || str_contains($path, 'it-request-types') || str_contains($path, 'bulk-data') || str_contains($path, 'bulk-product-submissions') || str_contains($path, 'material-reviews')) { $initialOpen[] = 'it'; }
     if (str_contains($path, 'bill-of-material') || str_contains($path, 'bom-adjustments') || str_contains($path, 'shelf-life') || str_contains($path, 'rnd-projects') || str_contains($path, 'product-price-index') || str_contains($path, 'prefix-categories') || str_contains($path, 'prefix-names') || str_contains($path, 'rnd-internal-memos') || str_contains($path, 'rnd-project-task-templates') || str_contains($path, 'review-sourcing')) { $initialOpen[] = 'rnd'; }
     if (str_contains($path, 'store-sops') || str_contains($path, 'store-sop-categories') || str_contains($path, 'customer-complaints') || str_contains($path, 'store-sales-orders')) { $initialOpen[] = 'operational'; }
-    if (str_contains($path, 'purchase-request') || str_contains($path, 'material-sourcing') || str_contains($path, 'vendor-compliance') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
+    if (str_contains($path, 'purchase-request') || str_contains($path, 'non-po-receipts') || str_contains($path, 'material-sourcing') || str_contains($path, 'vendor-compliance') || (str_contains($path, 'marketing-material-fulfillments') && ! str_contains($path, 'marketing-material-fulfillments/diterima'))) { $initialOpen[] = 'purchasing'; }
     if (str_contains($path, 'quality-control') && ! str_contains($path, 'quality-control-item-journals')) { $initialOpen[] = 'quality_control'; }
     if (str_contains($path, 'system-monitoring')) { $initialOpen[] = 'system_monitoring'; }
     if (str_contains($path, 'sales-projection')) { $initialOpen[] = 'sales_growth'; }
@@ -168,6 +168,7 @@
             'items' => [
                 ['label' => 'Vendor Compliance', 'icon' => 'shield-check', 'perm' => 'view vendor compliance incidents', 'href' => $r('filament.helpdesk.resources.vendor-compliance-incidents.index'), 'active' => $active($r('filament.helpdesk.resources.vendor-compliance-incidents.index'))],
                 ['label' => 'Permintaan Pembelian', 'icon' => 'shopping-bag', 'perm' => 'view purchase requests', 'href' => $r('filament.helpdesk.resources.purchase-requests.index'), 'active' => $active($r('filament.helpdesk.resources.purchase-requests.index'))],
+                ['label' => 'PO Susulan', 'icon' => 'clipboard-list', 'perm' => 'view non po purchase order requests', 'href' => $r('filament.helpdesk.resources.non-po-receipts.index'), 'active' => $active($r('filament.helpdesk.resources.non-po-receipts.index')), 'badge' => fn (): ?string => \App\Filament\Helpdesk\Resources\NonPoReceipts\NonPoReceiptResource::getNavigationBadge()],
                 ['label' => 'Sourcing Bahan', 'icon' => 'truck', 'perm' => 'view material sourcings', 'href' => $r('filament.helpdesk.resources.material-sourcings.index'), 'active' => $active($r('filament.helpdesk.resources.material-sourcings.index'))],
                 ['label' => 'Material Marketing (Perlu Dipesan)', 'icon' => 'package', 'perm' => 'view marketing material fulfillments', 'href' => $r('filament.helpdesk.resources.marketing-material-fulfillments.index'), 'active' => $activeExact($r('filament.helpdesk.resources.marketing-material-fulfillments.index'))],
             ],
@@ -441,6 +442,9 @@
                         >
                             <i data-lucide="{{ $item['icon'] }}" class="h-3.5 w-3.5 shrink-0 opacity-70"></i>
                             <span x-html="highlight(@js($item['label']))"></span>
+                            @if (isset($item['badge']) && ($navBadge = $item['badge']()))
+                                <span class="ml-auto rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">{{ $navBadge }}</span>
+                            @endif
                         </a>
                     @endforeach
                 </div>

@@ -5,6 +5,7 @@ namespace App\Filament\Helpdesk\Resources\GoodsReceipts;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\GoodsReceipts\Pages\ListGoodsReceipts;
 use App\Filament\Helpdesk\Resources\GoodsReceipts\Pages\ViewGoodsReceipt;
+use App\Filament\Helpdesk\Resources\NonPoReceipts\NonPoReceiptResource;
 use App\Models\GoodsReceipt;
 use BackedEnum;
 use Filament\Actions\ViewAction;
@@ -103,6 +104,11 @@ class GoodsReceiptResource extends Resource
             ->components([
                 TextEntry::make('reference_number')->label('Nomor PO'),
                 TextEntry::make('esb_goods_receipt_number')->label('Nomor GR')->placeholder('-'),
+                TextEntry::make('source')->label('Sumber')->badge()->state(fn (GoodsReceipt $record): string => $record->sourceLabel())
+                    ->color(fn (GoodsReceipt $record): string => $record->nonPoReceipt ? 'warning' : 'gray'),
+                TextEntry::make('nonPoReceipt.receipt_number')->label('Penerimaan Lokal')
+                    ->visible(fn (GoodsReceipt $record): bool => $record->nonPoReceipt !== null)
+                    ->url(fn (GoodsReceipt $record): ?string => $record->nonPoReceipt && NonPoReceiptResource::canView($record->nonPoReceipt) ? NonPoReceiptResource::getUrl('view', ['record' => $record->nonPoReceipt]) : null),
                 TextEntry::make('status')->badge()->formatStateUsing(fn (string $state): string => match ($state) {
                     GoodsReceipt::STATUS_SUCCEEDED => 'Berhasil', GoodsReceipt::STATUS_FAILED => 'Gagal', GoodsReceipt::STATUS_UNKNOWN => 'Perlu Rekonsiliasi', default => 'Diproses',
                 })->color(fn (string $state): string => match ($state) {
@@ -129,11 +135,14 @@ class GoodsReceiptResource extends Resource
     {
         return $table
             ->recordTitleAttribute('reference_number')
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('nonPoReceipt:id,goods_receipt_id,receipt_number'))
             ->columns([
                 TextColumn::make('reference_number')
                     ->label('Nomor PO')
                     ->searchable(),
                 TextColumn::make('esb_goods_receipt_number')->label('Nomor GR')->searchable()->placeholder('-'),
+                TextColumn::make('source')->label('Sumber')->badge()->state(fn (GoodsReceipt $record): string => $record->sourceLabel())
+                    ->color(fn (GoodsReceipt $record): string => $record->nonPoReceipt ? 'warning' : 'gray'),
                 TextColumn::make('goods_receipt_date')->label('Tanggal')->date('d M Y')->sortable(),
                 TextColumn::make('supplier_name')->label('Supplier')->searchable(),
                 TextColumn::make('branch_name')->label('Cabang')->searchable(),
@@ -150,6 +159,12 @@ class GoodsReceiptResource extends Resource
                 SelectFilter::make('status')->options([
                     GoodsReceipt::STATUS_SUCCEEDED => 'Berhasil', GoodsReceipt::STATUS_FAILED => 'Gagal', GoodsReceipt::STATUS_UNKNOWN => 'Perlu Rekonsiliasi', GoodsReceipt::STATUS_PROCESSING => 'Diproses',
                 ]),
+                SelectFilter::make('source')->label('Sumber')->options(['purchase_order' => 'PO Normal', 'non_po' => 'PO Susulan'])
+                    ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                        'purchase_order' => $query->whereDoesntHave('nonPoReceipt'),
+                        'non_po' => $query->whereHas('nonPoReceipt'),
+                        default => $query,
+                    }),
             ])
             ->recordActions([
                 ViewAction::make(),

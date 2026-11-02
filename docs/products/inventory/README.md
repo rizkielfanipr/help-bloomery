@@ -1,6 +1,6 @@
 # Inventory
 
-Stock card harian store, penerimaan barang dari Purchase Order ESB beserta QC inbound, Item Journal (penyesuaian stok ESB), lokasi penyimpanan, pengaturan produk, dan penerimaan material marketing. Kondisi per 30 Oktober 2026.
+Stock card harian store, penerimaan barang dari Purchase Order ESB beserta QC inbound, Item Journal (penyesuaian stok ESB), lokasi penyimpanan, pengaturan produk, dan penerimaan material marketing. Kondisi per 2 November 2026.
 
 ## Lokasi
 
@@ -15,7 +15,7 @@ Stock card harian store, penerimaan barang dari Purchase Order ESB beserta QC in
 | | Product List | `view product list`, `edit product list` |
 | | Material Marketing (Perlu Diterima) | `view marketing material fulfillments`, `process marketing material as inventory` |
 | Employee App | Tile **Stock Card** | `access employee app stock card` |
-| Employee App | Tile **Receiving** | `access employee app goods receipt` |
+| Employee App | Tile **Receiving** | `access employee app goods receipt`; mode **Tanpa PO** juga memerlukan `create non po receipts`, kirim memerlukan `submit non po receipts` |
 | Employee App | Tile **Item Journal** | `access employee app item journal` + `view quality control item journals`; aksi: `create/submit quality control item journals`, `delete quality control item journal attachments` |
 
 ## Stock Card
@@ -51,6 +51,24 @@ Back office **Receiving** bersifat read-only dan menampilkan nomor PO, nomor GR,
 
 Remediasi: [Receiving Terpusat BLSS](receiving-central-blss/README.md) — [PRD](receiving-central-blss/prd.md), [laporan implementasi](receiving-central-blss/reports/implementation-report.md), dan [rollout runbook](receiving-central-blss/rollout.md).
 
+Mutasi Goods Receipt, baik Dengan PO maupun PO Susulan, melewati `CreateGoodsReceiptAction` yang sama: simpan QC lokal per `submission_key` lebih dulu, lalu kirim ke ESB di luar transaction.
+
+### Receiving Tanpa PO
+
+Exception workflow untuk barang yang datang sebelum PO tersedia ([PRD](non-po-receiving/prd.md)). Tile **Receiving** menampilkan pilihan **Dengan PO** / **Tanpa PO** bagi user yang berhak; Receiving Dengan PO tidak berubah.
+
+1. Company terkunci `BLSS`. Inventory memilih cabang dan lokasi ESB, mengisi supplier teks, tanggal, alasan, dokumen, foto dokumen, dan foto barang.
+2. Produk dipilih dari modal **Pilih Produk** yang sama dengan Item Journal: pencarian nama/kode dan pagination server-side, tanpa jumlah stok. Modal menutup setelah satu produk dipilih. Product Detail ID + UOM yang sama ditolak; produk bebas teks tidak ada.
+3. QC, batch, expiry, dan foto bukti memakai form Receiving yang sama. `Accepted + Hold + Rejected` harus sama dengan qty fisik.
+4. **Simpan Draft** boleh belum lengkap dan tidak memanggil ESB. **Kirim Ke Purchasing** memvalidasi data tersimpan, membaca ulang cabang, lokasi, dan produk dari ESB, membuat nomor `NPR-*`, tanpa POST Goods Receipt.
+5. Hasil kirim mengikuti QC: ada Accepted → `awaiting_purchasing` dan notifikasi Purchasing; semua Hold (atau Hold + Rejected) → `qc_hold` dan tetap lokal; semua Rejected → `qc_rejected` tanpa Vendor Compliance Incident karena belum ada GR dan supplier resmi.
+6. Setelah terkirim, Inventory hanya dapat mengubah melalui `revision_requested` atau `qc_hold`. Draft, `qc_hold`, dan `revision_requested` dapat dibatalkan Inventory dengan alasan. Record tidak pernah dihapus dari UI.
+7. Barang tetap hold administratif sampai Goods Receipt berhasil. Proses Purchasing ada di [PO Susulan](../purchasing/README.md#po-susulan).
+
+Status: `draft`, `awaiting_purchasing`, `po_in_progress`, `revision_requested`, `po_linked`, `gr_processing`, `gr_failed`, `gr_unknown`, `qc_hold`, `qc_rejected`, `completed`, `cancelled`. Transisi ada di `NonPoReceiptStatus::canTransitionTo()` dan setiap perubahan tercatat di status history. Foto disimpan privat di disk `b2` pada `non-po-receipts/{submission_key}/`; path yang bukan milik record diabaikan dan foto yang dilepas dari draft dihapus setelah commit.
+
+Back Office **Receiving** menampilkan kolom dan filter **Sumber** (`PO Normal`/`PO Susulan`) serta tautan ke record lokal bagi yang berhak. Penerimaan yang masih menunggu PO tidak muncul di daftar GR final.
+
 ## Item Journal
 
 Penyesuaian stok (tambah/kurang) ke ESB Core. Nama model, tabel, route resource, dan permission aksi masih memakai prefix legacy `quality_control_item_journal*`/`QualityControlItemJournal*` agar data lama, deep link, dan monitoring tetap valid.
@@ -84,18 +102,18 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 
 | Lapisan | Lokasi |
 |---|---|
-| Back Office | `app/Filament/Helpdesk/Resources/{StockCards,GoodsReceipts,QualityControlItemJournals,Locations,LocationTypes}/`, `app/Filament/Helpdesk/Pages/{StockCardSettingsPage,ProductListPage}.php` |
-| Employee App | `app/Filament/Casual/Pages/{StockCardPage,StockCardEntryPage,StockCardCalendarPage,StockCardHistoryPage,GoodsReceiptPage,ItemJournalPage}.php` |
-| Action | `app/Actions/Inventory/StockCard/` |
-| Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,EsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService,EsbItemJournalService}.php`, `app/Services/Monitoring/EsbTransactionRecorder.php`, `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
-| Policy | `app/Policies/{StockCardPolicy,GoodsReceiptPolicy,QualityControlItemJournalPolicy}.php` |
-| Enum | `app/Enums/StockCardStatus.php` |
-| Model | `app/Models/{StockCard,GoodsReceipt,QualityControlItemJournal,Location,ProductSetting}*.php` |
-| Test | `tests/Feature/{StockCard,GoodsReceipt,Receiving,EsbBranchMapping,QualityControlItemJournal,Location,ProductList}*Test.php`, `tests/Unit/{GoodsReceiptServiceTest,InboundGoodsReceiptQcServiceTest}.php` |
+| Back Office | `app/Filament/Helpdesk/Resources/{StockCards,GoodsReceipts,NonPoReceipts,QualityControlItemJournals,Locations,LocationTypes}/`, `app/Filament/Helpdesk/Pages/{StockCardSettingsPage,ProductListPage}.php` |
+| Employee App | `app/Filament/Casual/Pages/{StockCardPage,StockCardEntryPage,StockCardCalendarPage,StockCardHistoryPage,GoodsReceiptPage,NonPoReceiptPage,ItemJournalPage}.php`, `app/Filament/Casual/Concerns/`, `resources/views/filament/casual/pages/partials/` |
+| Action | `app/Actions/Inventory/{StockCard,Receiving}/` |
+| Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,NonPoReceiptNotifier,EsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService,EsbItemJournalService}.php`, `app/Services/Monitoring/EsbTransactionRecorder.php`, `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
+| Policy | `app/Policies/{StockCardPolicy,GoodsReceiptPolicy,NonPoReceiptPolicy,QualityControlItemJournalPolicy}.php` |
+| Enum | `app/Enums/{StockCardStatus,NonPoReceiptStatus}.php` |
+| Model | `app/Models/{StockCard,GoodsReceipt,NonPoReceipt,QualityControlItemJournal,Location,ProductSetting}*.php` |
+| Test | `tests/Feature/{StockCard,GoodsReceipt,Receiving,NonPoReceipt,EsbBranchMapping,QualityControlItemJournal,Location,ProductList}*Test.php`, `tests/Unit/{GoodsReceiptServiceTest,InboundGoodsReceiptQcServiceTest}.php` |
 
 ## Data
 
-`StockCard` dan item-nya, `GoodsReceipt`, `GoodsReceiptItem`, `GoodsReceiptExpiry`, `Location`, `LocationType`, `ProductSetting`. Lihat [Data Model](../../architecture/data-model.md#inventory). Item Journal memakai `QualityControlItemJournal`, `QualityControlItemJournalDetail`, dan `QualityControlItemJournalAttachment` (nama legacy, tercatat di [Data Model](../../architecture/data-model.md#quality-control)).
+`StockCard` dan item-nya, `GoodsReceipt`, `GoodsReceiptItem`, `GoodsReceiptExpiry`, `NonPoReceipt`, `NonPoReceiptItem`, `NonPoReceiptBatch`, `NonPoReceiptStatusHistory`, `Location`, `LocationType`, `ProductSetting`. Lihat [Data Model](../../architecture/data-model.md#inventory). Item Journal memakai `QualityControlItemJournal`, `QualityControlItemJournalDetail`, dan `QualityControlItemJournalAttachment` (nama legacy, tercatat di [Data Model](../../architecture/data-model.md#quality-control)).
 
 ## Dokumen terkait
 
@@ -105,9 +123,10 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | [Receiving Terpusat BLSS](receiving-central-blss/README.md) | In development — kode tanpa mapping branch lokal selesai di PR; menunggu review, UAT staging, dan rollout production |
 | [PRD Item Journal Inventory](item-journal/prd.md) | Implemented — tile mandiri, foto camera-first image-only, dan menu Back Office di Inventory |
 | [Stock Card Draft Workflow](stock-card-draft-workflow/README.md) | In development — kode selesai di PR; menunggu review, CI, dan UAT staging |
+| [Penerimaan Tanpa PO / PO Susulan](non-po-receiving/README.md) | In development — kode selesai di PR; menunggu review, CI, dan UAT staging |
 
 Dataset: [development-todo.csv](development-todo.csv).
 
 ## Role bawaan
 
-`STORE_STAFF` mengisi stock card dan membuat Item Journal (journal sendiri). `SUPERVISOR_STORE` dan `FINANCE_STAFF` me-review stock card. `INVENTORY_STAFF` memakai Receiving, menerima material marketing, dan membuka Back Office Item Journal tanpa view-all; `view all quality control item journals` diberikan per role lewat Role & Permission. `QUALITY_CONTROL` tetap mendapat tile dan aksi Item Journal; `QUALITY_CONTROL_SUPERVISOR` melihat semua journal di Back Office.
+`STORE_STAFF` mengisi stock card dan membuat Item Journal (journal sendiri). `SUPERVISOR_STORE` dan `FINANCE_STAFF` me-review stock card. `INVENTORY_STAFF` memakai Receiving termasuk mode Tanpa PO, menerima material marketing, dan membuka Back Office Item Journal tanpa view-all; `view all quality control item journals` diberikan per role lewat Role & Permission. `QUALITY_CONTROL` tetap mendapat tile dan aksi Item Journal; `QUALITY_CONTROL_SUPERVISOR` melihat semua journal di Back Office.

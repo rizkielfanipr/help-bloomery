@@ -100,7 +100,7 @@
                             @error('branchId')<p class="{{ $error }}">{{ $message }}</p>@enderror
                         </div>
                         <div>
-                            <label class="{{ $label }}">Lokasi ESB <span class="text-red-500">*</span><select wire:model.live="locationId" @disabled(blank($branchId)) class="{{ $field }}"><option value="">{{ blank($branchId) ? 'Pilih cabang terlebih dahulu' : 'Pilih lokasi' }}</option>@foreach ($locations as $location)<option value="{{ $location['locationID'] }}">{{ $location['locationName'] }}</option>@endforeach</select></label>
+                            <label class="{{ $label }}">Lokasi ESB <span class="text-red-500">*</span><select wire:model="locationId" @disabled(blank($branchId)) class="{{ $field }}"><option value="">{{ blank($branchId) ? 'Pilih cabang terlebih dahulu' : 'Pilih lokasi' }}</option>@foreach ($locations as $location)<option value="{{ $location['locationID'] }}">{{ $location['locationName'] }}</option>@endforeach</select></label>
                             @error('locationId')<p class="{{ $error }}">{{ $message }}</p>@enderror
                         </div>
                         <div>
@@ -211,7 +211,7 @@
                     </button>
                 </div>
 
-                @include('filament.casual.pages.partials.esb-product-picker-sheet', ['pickerDescription' => 'Master Product ESB aktif untuk Receiving Tanpa PO.', 'pickerSelectMethod' => 'addProduct'])
+                @include('filament.casual.pages.partials.esb-product-picker-sheet', ['pickerDescription' => 'Master Product ESB aktif untuk Receiving Tanpa PO.', 'pickerSelectMethod' => 'addProduct', 'pickerShowsStock' => false])
             @endif
         </div>
     </main>

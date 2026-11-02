@@ -38,6 +38,11 @@ trait ManagesEsbStockProductPicker
     /** @return array<int, array<string, mixed>> */
     abstract private function pickerBranches(): array;
 
+    private function pickerShowsStock(): bool
+    {
+        return true;
+    }
+
     public function loadProducts(bool $resetPage = false): void
     {
         if ($resetPage) {
@@ -55,7 +60,7 @@ trait ManagesEsbStockProductPicker
             $productOptions = app(EsbService::class)->getActiveProductDetailsByCodes(
                 array_column($list['data'], 'productCode'),
             );
-            $this->productOptions = $this->withAvailableStocks($productOptions);
+            $this->productOptions = $this->pickerShowsStock() ? $this->withAvailableStocks($productOptions) : $productOptions;
             $this->productPage = $list['page'];
             $this->productTotal = $list['count'];
             $this->productPerPage = $list['limit'];

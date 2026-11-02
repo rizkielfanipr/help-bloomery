@@ -1,7 +1,7 @@
 {{--
     Mobile-first product picker shared by the Item Journal and Receiving Tanpa PO tiles. The host uses
     ManagesEsbStockProductPicker and passes $pickerDescription and $pickerSelectMethod (called with
-    the Product Detail ID).
+    the Product Detail ID). Hosts that override pickerShowsStock() also pass $pickerShowsStock = false.
 --}}
 @if($productPickerOpen)
     <div wire:init="loadProducts" class="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-6">
@@ -15,7 +15,8 @@
                 <label class="relative"><x-heroicon-o-magnifying-glass class="absolute left-3 top-3 h-4 w-4 text-gray-400" /><input type="search" wire:model.live.debounce.700ms="productSearch" class="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-950" placeholder="Cari nama produk"></label>
                 <label class="relative"><x-heroicon-o-qr-code class="absolute left-3 top-3 h-4 w-4 text-gray-400" /><input type="search" wire:model.live.debounce.700ms="productCodeSearch" class="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm dark:border-gray-700 dark:bg-gray-950" placeholder="Cari kode produk"></label>
             </div>
-            @if($stockLoadWarning)
+            @if(! ($pickerShowsStock ?? true))
+            @elseif($stockLoadWarning)
                 <div class="border-b border-amber-100 bg-amber-50 px-5 py-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">{{ $stockLoadWarning }}</div>
             @elseif(blank($branchId) || blank($locationId))
                 <div class="border-b border-blue-100 bg-blue-50 px-5 py-3 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">Pilih cabang dan lokasi untuk melihat stok saat ini.</div>
@@ -30,9 +31,11 @@
                             <span class="min-w-0">
                                 <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $product['productName'] }}</span>
                                 <span class="mt-1 block text-xs text-gray-500"><span class="font-mono text-blue-600">{{ $product['productCode'] }}</span> · {{ $product['unit'] ?: '-' }}</span>
+                                @if($pickerShowsStock ?? true)
                                 <span class="mt-1 block text-xs font-medium {{ $product['availableStock'] !== null ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400' }}">
                                     Stok saat ini: {{ $product['availableStock'] !== null ? ((float) $product['availableStock'] === 0.0 ? '0' : rtrim(rtrim(number_format((float) $product['availableStock'], 4, ',', '.'), '0'), ',')).' '.($product['availableStockUnit'] ?: $product['unit']) : 'tidak tersedia' }}
                                 </span>
+                                @endif
                             </span>
                             <x-heroicon-o-plus-circle class="h-5 w-5 shrink-0 text-blue-500" />
                         </button>

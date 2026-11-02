@@ -2,7 +2,7 @@
 document_id: INVENTORY-NON-PO-RECEIVING-PRD
 title: PRD — Penerimaan Tanpa PO dan PO Susulan
 status: in-development
-version: 1.2
+version: 1.3
 owner: Inventory
 technical_owner: Information Technology
 created_at: 2026-11-02
@@ -229,7 +229,7 @@ Constraint: internal number unique, submission key unique, linked PO unique saat
 
 - Pilihan **Dengan PO** dan **Tanpa PO**, mobile-first.
 - Save Draft dan Kirim ke Purchasing.
-- Product picker memakai modal **Pilih Produk** yang sama dengan Item Journal (bottom sheet di mobile): search nama/kode, stok saat ini, pagination, loading/empty/error. Satu produk per pilihan; modal menutup setelah produk dipilih.
+- Product picker memakai modal **Pilih Produk** yang sama dengan Item Journal (bottom sheet di mobile): search nama/kode, pagination, loading/empty/error, tanpa jumlah stok. Satu produk per pilihan; modal menutup setelah produk dipilih.
 - Item menampilkan produk/UOM/qty split/batch/QC/foto.
 - History menampilkan progress Purchasing.
 
@@ -351,5 +351,5 @@ Tidak ada blocker dokumentasi. Default MVP: hold sampai GR; PO manual; satu rece
 | §13 hanya menyebut "manual resolution/reconciliation" | Aksi **Rekonsiliasi GR**: tautkan nomor GR yang sudah ada, kirim ulang eksplisit dengan alasan, atau batalkan. Monitoring direkonsiliasi pada transaksi yang sama | FR-14 dan rollout §9 mensyaratkan jalur eksplisit yang diaudit |
 | Revisi dapat menemukan seluruh barang ternyata Hold/Rejected | `revision_requested` boleh menuju `qc_hold`/`qc_rejected` | Mengikuti aturan bisnis 18 |
 | All-Rejected tidak mempunyai GR dan supplier authoritative | Tidak membuat Vendor Compliance Incident; bukti QC tetap lokal. Mixed Accepted/Rejected membuat incident saat GR dibuat dengan supplier PO | Incident existing wajib tertaut ke item GR |
-| Mode Tanpa PO terutama dipakai di handphone; modal tabel pola BOM tidak nyaman di layar kecil (permintaan user, 2 November 2026) | Modal mengikuti **Pilih Produk** Item Journal melalui partial dan trait bersama. Filter kategori dan multi-select pola BOM dihapus; stok saat ini ditampilkan bila cabang dan lokasi sudah dipilih | Kedua tile tetap identik karena memakai komponen yang sama |
+| Mode Tanpa PO terutama dipakai di handphone; modal tabel pola BOM tidak nyaman di layar kecil (permintaan user, 2 November 2026) | Modal mengikuti **Pilih Produk** Item Journal melalui partial dan trait bersama. Filter kategori dan multi-select pola BOM dihapus. Jumlah stok tidak ditampilkan pada Receiving (permintaan user, 2 November 2026) dan saldo tidak dibaca dari ESB | Kedua tile tetap identik karena memakai komponen yang sama |
 | Sumber GR dapat diturunkan dari tautan `non_po_receipts.goods_receipt_id` | Tidak menambah kolom pada `goods_receipts`; GR tanpa tautan berarti `PO Normal` | §20 menyebut kolom source hanya bila diperlukan |

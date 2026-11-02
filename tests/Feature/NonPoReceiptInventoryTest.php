@@ -60,7 +60,7 @@ function fakeInventoryEsb(?array $products = null): void
     app()->instance(EsbService::class, $esb);
 
     $stock = Mockery::mock(EsbStockMovementService::class);
-    $stock->shouldReceive('availableBalancesForItemJournal')->with('BLSS', 'BLS', 9, 'Warehouse')->andReturn(['balances' => ['PRD-501|KG' => ['quantity' => 12.5, 'unit' => 'KG']]])->byDefault();
+    $stock->shouldNotReceive('availableBalancesForItemJournal');
     app()->instance(EsbStockMovementService::class, $stock);
 }
 
@@ -196,8 +196,8 @@ it('picks products from the same sheet as Item Journal, one at a time, and refus
         ->assertSeeHtml('placeholder="Cari kode produk"')
         ->assertSeeHtml('wire:click="addProduct(501)"')
         ->assertSee('Butter')
-        ->assertSee('Pilih cabang dan lokasi untuk melihat stok saat ini.')
-        ->assertSee('Stok saat ini: tidak tersedia')
+        ->assertDontSee('stok saat ini')
+        ->assertDontSee('Stok saat ini')
         ->call('addProduct', 501)
         ->assertSet('productPickerOpen', false)
         ->assertDontSee('Cari nama produk');
@@ -210,7 +210,7 @@ it('picks products from the same sheet as Item Journal, one at a time, and refus
     $component->call('openProductPicker')->call('loadProducts')->call('addProduct', 999)->assertStatus(422);
 });
 
-it('searches and pages the picker on the server and shows stock for the chosen location', function () {
+it('searches and pages the picker on the server without reading or showing stock', function () {
     $journalService = app(EsbItemJournalService::class);
     $journalService->shouldReceive('products')->with('BLSS', Mockery::on(fn (array $filters): bool => $filters['productName'] === 'butter' && $filters['page'] === 1))
         ->once()->andReturn(['page' => 1, 'limit' => 20, 'count' => 40, 'prev' => null, 'next' => 'next', 'data' => [['productCode' => 'PRD-501']]]);
@@ -224,23 +224,10 @@ it('searches and pages the picker on the server and shows stock for the chosen l
         ->call('openProductPicker')
         ->set('productSearch', 'butter')
         ->assertSet('productHasNext', true)
-        ->assertSee('Stok saat ini: 12,5 KG')
+        ->assertDontSee('Stok saat ini')
         ->call('nextProductPage')
         ->assertSet('productPage', 2)
         ->assertSet('productHasNext', false);
-});
-
-it('keeps picking available when stock cannot be read', function () {
-    app(EsbStockMovementService::class)->shouldReceive('availableBalancesForItemJournal')->andThrow(new RuntimeException('ESB down'));
-
-    Livewire::test(NonPoReceiptPage::class)
-        ->call('openForm')
-        ->set('branchId', '10')
-        ->call('openProductPicker')
-        ->call('loadProducts')
-        ->assertSee('Stok saat ini tidak dapat dimuat dari ESB')
-        ->call('addProduct', 501)
-        ->assertSet('items.0.productDetailID', 501);
 });
 
 it('rejects duplicate product identity on the action and in the database', function () {

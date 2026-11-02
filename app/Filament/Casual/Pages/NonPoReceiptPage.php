@@ -188,13 +188,7 @@ class NonPoReceiptPage extends Page
     public function updatedBranchId(): void
     {
         $this->locationId = '';
-        $this->stockLoadWarning = null;
         $this->loadLocations();
-    }
-
-    public function updatedLocationId(): void
-    {
-        $this->stockLoadWarning = null;
     }
 
     public function openProductPicker(): void
@@ -354,6 +348,11 @@ class NonPoReceiptPage extends Page
         })->all();
     }
 
+    private function pickerShowsStock(): bool
+    {
+        return false;
+    }
+
     private function pickerCompanyCode(): string
     {
         return self::COMPANY_CODE;
@@ -434,6 +433,6 @@ class NonPoReceiptPage extends Page
         $this->resetValidation();
         $this->reset('submissionKey', 'goodsReceiptDate', 'branchId', 'locationId', 'supplierText', 'supplierContact', 'reason', 'documentType', 'documentNumber', 'documentDate',
             'documentMatch', 'documentNotes', 'additionalInfo', 'documentPhotos', 'goodsPhotos', 'storedDocumentPhotos', 'storedGoodsPhotos', 'items', 'activeItemIndex',
-            'productPickerOpen', 'productSearch', 'productCodeSearch', 'productPage', 'productTotal', 'productHasNext', 'productOptions', 'stockLoadWarning', 'verifiedProducts', 'branches', 'locations', 'revisionNote', 'loadError');
+            'productPickerOpen', 'productSearch', 'productCodeSearch', 'productPage', 'productTotal', 'productHasNext', 'productOptions', 'verifiedProducts', 'branches', 'locations', 'revisionNote', 'loadError');
     }
 }

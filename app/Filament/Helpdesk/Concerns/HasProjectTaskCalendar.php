@@ -96,7 +96,7 @@ trait HasProjectTaskCalendar
         $month = $this->selectedTaskCalendarMonth();
         [$calendarStart, $calendarEnd] = app(ProjectTaskCalendarQuery::class)->visibleRange($month);
         $tasks = $this->taskCalendarTasks();
-        $releaseProjects = $this->projects()
+        $releaseProjects = $this->calendarProjects()
             ->filter(fn (RndProject $project): bool => $project->end_date->betweenIncluded($calendarStart, $calendarEnd));
         $weeks = [];
 

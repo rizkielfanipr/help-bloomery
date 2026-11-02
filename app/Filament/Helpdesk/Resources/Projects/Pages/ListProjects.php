@@ -12,6 +12,7 @@ use App\Models\Branch;
 use App\Models\RndProject;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -33,8 +34,6 @@ class ListProjects extends ListRecords
     public ?int $openTask = null;
 
     public string $projectSearch = '';
-
-    public string $projectStatus = '';
 
     public string $projectTypeFilter = '';
 
@@ -84,24 +83,48 @@ class ListProjects extends ListRecords
         }
     }
 
-    public function projects(): Collection
+    /**
+     * Source of the main list only: Projects whose period contains today
+     * (docs/products/rnd/project-active-list/prd.md §11).
+     */
+    public function activeProjects(): Collection
+    {
+        return $this->filteredProjectsQuery()
+            ->withCount(['products', 'premixAssemblies', 'partnershipMenus'])
+            ->whereDate('start_date', '<=', today())
+            ->whereDate('end_date', '>=', today())
+            ->latest('updated_at')
+            ->get();
+    }
+
+    /**
+     * Source of the release dates on both calendars: every non-archived Project, because a release
+     * date stays relevant before and after the Project's active period.
+     */
+    public function calendarProjects(): Collection
+    {
+        return $this->filteredProjectsQuery()->get();
+    }
+
+    public function hasActiveProjectFilters(): bool
+    {
+        return $this->projectSearch !== '' || $this->projectTypeFilter !== '';
+    }
+
+    public function resetProjectFilters(): void
+    {
+        $this->reset(['projectSearch', 'projectTypeFilter']);
+    }
+
+    private function filteredProjectsQuery(): Builder
     {
         return RndProject::query()
-            ->when($this->projectStatus === 'archived', fn ($query) => $query->onlyTrashed())
-            ->withCount(['products', 'premixAssemblies', 'partnershipMenus'])
             ->when($this->projectTypeFilter !== '', fn ($query) => $query->where('project_type', $this->projectTypeFilter))
             ->when($this->projectSearch !== '', fn ($query) => $query->where(function ($query): void {
                 $query
                     ->where('name', 'like', '%'.$this->projectSearch.'%')
                     ->orWhere('description', 'like', '%'.$this->projectSearch.'%');
-            }))
-            ->when($this->projectStatus === 'upcoming', fn ($query) => $query->whereDate('start_date', '>', today()))
-            ->when($this->projectStatus === 'active', fn ($query) => $query
-                ->whereDate('start_date', '<=', today())
-                ->whereDate('end_date', '>=', today()))
-            ->when($this->projectStatus === 'completed', fn ($query) => $query->whereDate('end_date', '<', today()))
-            ->latest('updated_at')
-            ->get();
+            }));
     }
 
     /**
@@ -112,7 +135,7 @@ class ListProjects extends ListRecords
         $month = $this->selectedCalendarMonth();
         $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::MONDAY);
         $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SUNDAY);
-        $projects = $this->projects()
+        $projects = $this->calendarProjects()
             ->filter(fn (RndProject $project): bool => $project->end_date->betweenIncluded($calendarStart, $calendarEnd));
         $weeks = [];
 
@@ -154,10 +177,6 @@ class ListProjects extends ListRecords
 
     public function showProjectCalendar(): void
     {
-        if ($this->projectStatus === 'archived') {
-            return;
-        }
-
         $this->projectView = 'calendar';
         $this->ensureCalendarMonthIsSet();
     }

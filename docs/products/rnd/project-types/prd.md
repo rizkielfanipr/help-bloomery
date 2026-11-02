@@ -1,5 +1,7 @@
 # PRD — Tipe Project R&D: Release Product, Premix, dan Partnership
 
+> **Catatan scope index (2 November 2026):** requirement pencarian/filter waktu dan tampilan daftar Project pada §8.1 dan §10.1 digantikan oleh [PRD Daftar Project Aktif](../project-active-list/prd.md). Kontrak tipe Project, detail workspace, Task Calendar, dan arsip backend dalam dokumen ini tetap berlaku.
+
 ## 1. Identitas dokumen
 
 | Item | Nilai |
@@ -129,7 +131,7 @@ Task Calendar dan arsip tetap merupakan fasilitas umum Project, bukan konten dom
 - Sebagai user R&D yang berwenang, saya dapat membuat Project dan memilih tipe yang sesuai.
 - Sebagai user, saya dapat melihat tipe langsung dari daftar dan header detail.
 - Sebagai user, saya dapat memfilter Project berdasarkan tipe.
-- Sebagai user, saya tetap dapat menggunakan pencarian, filter waktu/status, task, dan arsip sesuai hak existing.
+- Sebagai user, saya tetap dapat menggunakan pencarian, task, dan aksi Project sesuai hak existing. Daftar utama hanya menampilkan Project aktif dan tidak lagi menyediakan filter waktu/status; lihat [PRD Daftar Project Aktif](../project-active-list/prd.md).
 
 ### 8.2 Premix
 
@@ -181,7 +183,7 @@ Task Calendar dan arsip tetap merupakan fasilitas umum Project, bukan konten dom
 
 ### 10.1 Daftar Project
 
-- Pertahankan route, navigation group, search, pagination, dan filter existing.
+- Route dan navigation group tetap dipertahankan. Scope data, bentuk list, search, dan filter index mengikuti [PRD Daftar Project Aktif](../project-active-list/prd.md).
 - Tambahkan badge tipe dengan label teks; warna bukan satu-satunya pembeda.
 - Tambahkan filter tipe: Semua, Release Product, Premix, Partnership.
 - Kolom ringkasan harus relevan terhadap tipe:

@@ -31,6 +31,8 @@ Back office menyediakan filter status, cabang, dan jenis pembelian, serta export
 
 Antrean Purchasing untuk Master Bahan: menambah kandidat supplier (nama, merek, harga, MOQ, lead time, kontak, lampiran penawaran), menyerahkan sampel ke R&D beserta foto, dan sourcing tanpa project untuk produk ESB existing. Alur lengkap dan aturan statusnya ada di [Research & Development](../rnd/README.md#master-bahan-dan-sourcing).
 
+Index dan modal detail menampilkan **Masuk Sourcing**, **Selesai Sourcing**, dan **Durasi** kalender ([Pelacakan Durasi Sourcing](sourcing-duration-tracking/README.md)). Tabel dapat difilter per rentang tanggal masuk atau selesai dan per kondisi Masih Berjalan atau Selesai. Timestamp hanya ditulis server; penyelesaian sourcing mengikuti aturan di [Research & Development](../rnd/README.md#durasi-sourcing). Kolom **Diperbarui** beserta filternya tetap tersedia lewat pengelola kolom dan tersembunyi secara default.
+
 ## Material Marketing
 
 1. Desain mengunggah material marketing pada produk Project R&D (permission `upload marketing materials`).
@@ -63,11 +65,19 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | Policy | `app/Policies/{VendorComplianceIncidentPolicy,NonPoReceiptPolicy}.php` |
 | Enum | `app/Enums/{PurchaseRequestStatus,PurchaseType,MarketingMaterialFulfillmentStatus,NonPoReceiptStatus}.php` |
 | Model | `app/Models/{PurchaseRequest,PurchasingRequest,VendorCompliance,MarketingMaterialFulfillment,NonPoReceipt}*.php` |
-| Test | `tests/Feature/{PurchaseRequest,MarketingMaterialFulfillment,MaterialSourcing,NonPoReceipt}*Test.php` |
+| Durasi sourcing | `app/Services/Rnd/Material/MaterialSourcingTimeline.php`, `resources/views/filament/helpdesk/material-sourcings/view-sourcing.blade.php`, `app/Console/Commands/BackfillMaterialSourcingDurationsCommand.php` |
+| Test | `tests/Feature/{PurchaseRequest,MarketingMaterialFulfillment,MaterialSourcing,NonPoReceipt,BackfillMaterialSourcingDurations}*Test.php`, `tests/Unit/MaterialSourcingTimelineTest.php` |
 
 ## Data
 
 `PurchaseRequest`, `PurchaseRequestStatusHistory`, `VendorComplianceIncident`, `MarketingMaterialFulfillment`, `RndProjectMarketingMaterial`, `MaterialSourcing`. Lihat [Data Model](../../architecture/data-model.md#purchasing).
+
+## Dokumen terkait
+
+| Dokumen | Status |
+|---|---|
+| [Pelacakan Durasi Sourcing](sourcing-duration-tracking/README.md) dan [PRD](sourcing-duration-tracking/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
+| [Receiving tanpa PO](../inventory/non-po-receiving/README.md) dan [PRD](../inventory/non-po-receiving/prd.md) | Implemented |
 
 ## Role bawaan
 

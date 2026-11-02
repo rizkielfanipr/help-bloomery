@@ -10,6 +10,21 @@
     </div>
 
     <div class="max-h-[calc(100dvh-16rem)] space-y-3 overflow-y-auto overscroll-contain pb-1 pr-1 sm:max-h-[60dvh]">
+        <dl class="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 p-3 text-sm sm:grid-cols-2 lg:grid-cols-5 dark:border-gray-700">
+            @foreach ([
+                'Status Sourcing' => $record->sourcing_status->getLabel(),
+                'Asal Sourcing' => $record->isStandalone() ? 'Mandiri' : 'Project',
+                'Masuk Sourcing' => \App\Services\Rnd\Material\MaterialSourcingTimeline::startedLabel($record),
+                'Selesai Sourcing' => \App\Services\Rnd\Material\MaterialSourcingTimeline::completedLabel($record),
+                'Durasi Sourcing' => \App\Services\Rnd\Material\MaterialSourcingTimeline::durationLabel($record),
+            ] as $label => $value)
+                <div class="min-w-0">
+                    <dt class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $label }}</dt>
+                    <dd class="mt-0.5 break-words font-semibold text-gray-900 dark:text-white">{{ $value }}</dd>
+                </div>
+            @endforeach
+        </dl>
+
         @forelse ($record->sourcings as $sourcing)
             <livewire:material-sourcing-supplier-card :sourcing="$sourcing" :key="'sourcing-supplier-'.$sourcing->id" />
         @empty

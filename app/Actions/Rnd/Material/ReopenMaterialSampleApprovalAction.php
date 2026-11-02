@@ -57,13 +57,15 @@ class ReopenMaterialSampleApprovalAction
                 ->where('status', MaterialSampleCycleStatus::Approved->value)->latest('cycle_number')->first();
             $cycle?->fill(['status' => MaterialSampleCycleStatus::Received, 'evaluation' => null, 'evaluation_reason' => null, 'evaluated_by' => null, 'evaluated_at' => null])->save();
 
+            $previousCompletedAt = $material->sourcing_completed_at;
             $material->forceFill([
                 'sourcing_status' => MaterialSourcingStatus::SampleReceived,
+                'sourcing_completed_at' => null,
                 'sourcing_selected_id' => null,
                 'pricing_status' => MaterialPricingStatus::NotReady,
                 'workflow_completed_at' => null,
             ])->save();
-            $this->audit->event($material, 'sample_approval_reopened', $actor, $reason, MaterialSourcingStatus::ApprovedByRnd->value, MaterialSourcingStatus::SampleReceived->value, ['cycle' => $cycle?->cycle_number]);
+            $this->audit->event($material, 'sample_approval_reopened', $actor, $reason, MaterialSourcingStatus::ApprovedByRnd->value, MaterialSourcingStatus::SampleReceived->value, ['cycle' => $cycle?->cycle_number, 'previous_sourcing_completed_at' => $previousCompletedAt?->toIso8601String()]);
 
             return null;
         });

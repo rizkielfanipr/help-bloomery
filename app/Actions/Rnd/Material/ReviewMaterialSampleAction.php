@@ -62,14 +62,16 @@ class ReviewMaterialSampleAction
                 default => [MaterialSampleCycleStatus::Rejected, MaterialSourcingStatus::RejectedByRnd],
             };
 
-            $cycle->fill(['status' => $cycleStatus, 'evaluation' => $decision, 'evaluation_reason' => $reason, 'evaluated_by' => $actor->id, 'evaluated_at' => now()])->save();
+            $evaluatedAt = now();
+            $cycle->fill(['status' => $cycleStatus, 'evaluation' => $decision, 'evaluation_reason' => $reason, 'evaluated_by' => $actor->id, 'evaluated_at' => $evaluatedAt])->save();
 
             $previous = $material->sourcing_status;
             $material->forceFill([
                 'sourcing_status' => $materialStatus,
                 'sourcing_selected_id' => $decision === RndMaterialSampleCycle::EVALUATION_APPROVE ? $cycle->material_sourcing_id : null,
                 'rnd_reviewed_by' => $actor->id,
-                'rnd_reviewed_at' => now(),
+                'rnd_reviewed_at' => $evaluatedAt,
+                'sourcing_completed_at' => $materialStatus->isSourcingFinal() ? $evaluatedAt : null,
                 'rnd_note' => $decision === RndMaterialSampleCycle::EVALUATION_APPROVE ? null : trim((string) $reason),
             ])->save();
             MaterialSourcingApproval::query()->create([
@@ -89,7 +91,10 @@ class ReviewMaterialSampleAction
                 $this->notifier->notify($material, 'resample_requested', 'Sampel ulang diminta: '.$material->product_code, (string) $reason);
             }
 
-            $this->audit->event($material, 'sample_'.$decision, $actor, $reason, $previous?->value, $materialStatus->value, ['cycle' => $cycle->cycle_number]);
+            $this->audit->event($material, 'sample_'.$decision, $actor, $reason, $previous?->value, $materialStatus->value, ['cycle' => $cycle->cycle_number] + ($materialStatus->isSourcingFinal() ? [
+                'sourcing_completed_at' => $evaluatedAt->toIso8601String(),
+                'sourcing_outcome' => $decision === RndMaterialSampleCycle::EVALUATION_APPROVE ? 'approved' : 'rejected',
+            ] : []));
 
             if ($decision === RndMaterialSampleCycle::EVALUATION_APPROVE) {
                 $this->pricing->ensure($material->refresh(), $actor);

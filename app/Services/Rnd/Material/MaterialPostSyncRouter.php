@@ -34,9 +34,9 @@ class MaterialPostSyncRouter
             DB::transaction(function () use ($material, $actor): void {
                 $updated = RndProductEsbMaterial::query()->whereKey($material->id)
                     ->where(fn ($query) => $query->whereNull('sourcing_status')->orWhere('sourcing_status', '!=', MaterialSourcingStatus::NotRequired->value))
-                    ->update(['sourcing_status' => MaterialSourcingStatus::NotRequired->value]);
+                    ->update(['sourcing_status' => MaterialSourcingStatus::NotRequired->value, 'sourcing_completed_at' => null]);
                 if ($updated === 1) {
-                    $this->audit->event($material, 'sourcing_not_required', $actor, to: MaterialSourcingStatus::NotRequired->value, metadata: ['reason' => 'wip']);
+                    $this->audit->event($material, 'sourcing_not_required', $actor, to: MaterialSourcingStatus::NotRequired->value, metadata: array_filter(['reason' => 'wip', 'previous_sourcing_completed_at' => $material->sourcing_completed_at?->toIso8601String()]));
                 }
             });
         }

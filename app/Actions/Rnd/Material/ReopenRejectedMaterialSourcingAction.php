@@ -43,13 +43,15 @@ class ReopenRejectedMaterialSourcingAction
             }
 
             $next = $material->sourcings()->exists() ? MaterialSourcingStatus::SourcingInProgress : MaterialSourcingStatus::WaitingPurchasing;
+            $previousCompletedAt = $material->sourcing_completed_at;
             $material->forceFill([
                 'sourcing_status' => $next,
+                'sourcing_completed_at' => null,
                 'sourcing_selected_id' => null,
                 'workflow_completed_at' => null,
             ])->save();
 
-            $this->audit->event($material, 'sourcing_reopened', $actor, trim($reason), MaterialSourcingStatus::RejectedByRnd->value, $next->value);
+            $this->audit->event($material, 'sourcing_reopened', $actor, trim($reason), MaterialSourcingStatus::RejectedByRnd->value, $next->value, ['previous_sourcing_completed_at' => $previousCompletedAt?->toIso8601String()]);
             $this->notifier->notify($material, 'sourcing_reopened', 'Sourcing dibuka kembali: '.$material->product_code, 'R&D membuka kembali sourcing yang ditolak. Alasan: '.trim($reason));
         });
     }

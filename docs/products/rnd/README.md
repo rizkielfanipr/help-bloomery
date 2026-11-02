@@ -20,7 +20,7 @@ Pengembangan produk dari project sampai rilis: project dan produk, BOM di ESB, M
 
 ## Project dan produk
 
-- **Project**: nama, deskripsi, tanggal mulai, dan tanggal rilis (end date), dengan tampilan daftar dan **kalender** yang menggabungkan tanggal rilis dan deadline task. Tipe project: `release_product`, `premix`, `partnership` (premix punya assembly; partnership punya menu dan equipment).
+- **Project**: nama, deskripsi, tanggal mulai, dan tanggal rilis (end date), dengan daftar Project dan **kalender** yang menggabungkan tanggal rilis dan deadline task. Tipe project: `release_product`, `premix`, `partnership` (premix punya assembly; partnership punya menu dan equipment). Perubahan terencana [Daftar Project Aktif](project-active-list/README.md) akan mengganti grid kartu menjadi list responsif dan membatasi daftar utama pada Project aktif; kode production saat ini belum berubah.
 - **Produk Project**: status `draft`, `development`, `trial`, `ready`, `released`, `cancelled`. Gerbang Ready/Released mewajibkan setiap WIP pada BOM produk punya master Shelf Life aktif.
 - Halaman produk menyediakan:
   - **BOM** — menautkan BOM ESB (impor dari katalog), mengedit komponen langsung ke ESB, instruksi BOM dengan gambar, BOM menu, dan PDF BOM.
@@ -134,6 +134,7 @@ Model `Rnd*`, `MaterialSourcing`, `MaterialSourcingApproval`, `PrefixCategory`, 
 | [PRD Project Task Calendar](project-task-calendar/prd.md) | Implemented |
 | [PRD Project Checkpoint Calendar](project-checkpoint-calendar/prd.md) | Implemented |
 | [PRD Project Types](project-types/prd.md) | Implemented |
+| [Daftar Project Aktif](project-active-list/README.md) dan [PRD](project-active-list/prd.md) | Draft — dokumentasi lengkap; belum ada perubahan kode aplikasi |
 | [PRD WIP Shelf Life](wip-shelf-life/prd.md) | Implemented |
 | [PRD Internal Memo — Brand](internal-memo-brand/prd.md) | Implemented — scope brand dan katalog BLSS |
 | [PRD Internal Memo — Simplification](internal-memo-simplification/prd.md) | Implemented — alur operasional memo saat ini |

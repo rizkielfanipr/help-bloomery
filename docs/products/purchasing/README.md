@@ -41,6 +41,8 @@ Index dan modal detail menampilkan **Masuk Sourcing**, **Selesai Sourcing**, dan
 
 Status: `not_started`, `ordered`, `received`.
 
+Planning [Master Design Library](../brand-marketing/design-master-library/README.md) menempatkan katalog desain reusable pada domain Brand Marketing berdasarkan Brand. Purchasing direncanakan memperoleh akses baca dan unduh file production versi published; planning ini belum mengubah antrean fulfillment di atas.
+
 ## PO Susulan
 
 Antrean **Permintaan PO Susulan dari Receiving** untuk barang yang sudah dicatat Inventory [tanpa PO](../inventory/README.md#receiving-tanpa-po). Badge menghitung `awaiting_purchasing`, `po_in_progress`, `revision_requested`, `gr_failed`, dan `gr_unknown`; draft tidak tampil. Spesifikasi: [PRD](../inventory/non-po-receiving/prd.md).
@@ -78,6 +80,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 |---|---|
 | [Pelacakan Durasi Sourcing](sourcing-duration-tracking/README.md) dan [PRD](sourcing-duration-tracking/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
 | [Receiving tanpa PO](../inventory/non-po-receiving/README.md) dan [PRD](../inventory/non-po-receiving/prd.md) | Implemented |
+| [Master Design Library](../brand-marketing/design-master-library/README.md) dan [PRD](../brand-marketing/design-master-library/prd.md) | Draft — planning, belum diimplementasikan |
 
 ## Role bawaan
 

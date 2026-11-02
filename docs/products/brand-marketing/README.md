@@ -14,6 +14,8 @@ Permintaan desain dan konten dari cabang ke tim brand marketing. Kondisi per 27 
 
 Upload material marketing pada produk Project R&D memakai permission `upload marketing materials` (grup Brand Marketing). Alurnya ada di [Purchasing](../purchasing/README.md#material-marketing).
 
+Planning **Master Design Library** berbasis satu Brand per bundle tersedia di [Master Design Library](design-master-library/README.md). Statusnya masih draft dan belum menggambarkan perilaku aplikasi saat ini. Versi pertama merencanakan pengelolaan bundle/version/file oleh Brand Marketing serta akses baca/unduh production file oleh Purchasing tanpa mengubah material Project R&D existing.
+
 ## Permintaan Design
 
 1. Cabang mengajukan dari tile **Desain**: kategori, judul, keterangan, dan lampiran. Riwayat tersedia di Employee App.
@@ -42,6 +44,12 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 ## Data
 
 `DesignRequest`, `DesignRequestStatusHistory`, `DesignCategory`, `ContentRequest`, `ContentRequestStatusHistory`. Lihat [Data Model](../../architecture/data-model.md#brand-marketing).
+
+## Dokumen terkait
+
+| Dokumen | Status |
+|---|---|
+| [Master Design Library](design-master-library/README.md) dan [PRD](design-master-library/prd.md) | Draft — planning, belum diimplementasikan |
 
 ## Role bawaan
 

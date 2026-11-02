@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\RndProject;
 use App\Services\RndProjectMaterialForecastService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Color;
 use OpenSpout\Common\Entity\Style\Style;
@@ -25,6 +27,9 @@ class RndProjectMaterialForecastExportController extends Controller
             'boms.documentMaterials',
         ]);
 
+        $selectedProductIds = $this->selectedProductIds($request, $project, $forecastService);
+        $menuScope = $this->menuScope($project, $selectedProductIds);
+
         $path = tempnam(sys_get_temp_dir(), 'rnd_material_forecast_').'.xlsx';
         $writer = new Writer;
         $writer->openToFile($path);
@@ -36,7 +41,7 @@ class RndProjectMaterialForecastExportController extends Controller
                 $writer->addNewSheetAndMakeItCurrent()->setName($sheetName);
             }
 
-            $this->writeSheet($writer, $project, $forecastService->calculate($project, $type), $sheetName);
+            $this->writeSheet($writer, $project, $forecastService->calculate($project, $type, $selectedProductIds), $sheetName, $menuScope);
         }
 
         $writer->close();
@@ -48,8 +53,45 @@ class RndProjectMaterialForecastExportController extends Controller
         )->deleteFileAfterSend(true);
     }
 
+    /**
+     * Every ID must belong to this Project and have a positive Sales Projection, so a tampered or
+     * stale link gets no file at all instead of a partial one. The response names no menu or ID.
+     *
+     * @return list<int>
+     */
+    private function selectedProductIds(Request $request, RndProject $project, RndProjectMaterialForecastService $forecastService): array
+    {
+        $eligibleProductIds = collect($forecastService->menuOptions($project))
+            ->where('is_eligible', true)
+            ->pluck('id')
+            ->all();
+
+        $validator = Validator::make($request->only('menu_ids'), [
+            'menu_ids' => ['nullable', 'array'],
+            'menu_ids.*' => ['required', 'integer', Rule::in($eligibleProductIds)],
+        ]);
+
+        abort_if($validator->fails(), 422, 'Pilihan menu tidak valid untuk Project ini. Muat ulang halaman lalu pilih menu kembali.');
+
+        return collect($request->input('menu_ids'))
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /** @param list<int> $selectedProductIds */
+    private function menuScope(RndProject $project, array $selectedProductIds): string
+    {
+        if ($selectedProductIds === []) {
+            return 'All Menu';
+        }
+
+        return $project->products->whereIn('id', $selectedProductIds)->pluck('name')->implode(', ');
+    }
+
     /** @param array<string, mixed> $forecast */
-    private function writeSheet(Writer $writer, RndProject $project, array $forecast, string $sheetName): void
+    private function writeSheet(Writer $writer, RndProject $project, array $forecast, string $sheetName, string $menuScope): void
     {
         $titleStyle = (new Style)->setFontBold()->setFontSize(14)->setBackgroundColor('047857')->setFontColor(Color::WHITE);
         $infoStyle = (new Style)->setFontSize(10)->setBackgroundColor('D1FAE5');
@@ -58,6 +100,7 @@ class RndProjectMaterialForecastExportController extends Controller
 
         $writer->addRow(Row::fromValues(["MATERIAL FORECAST {$sheetName}", '', '', '', ''], $titleStyle));
         $writer->addRow(Row::fromValues(['Project', $this->safeText($project->name)], $infoStyle));
+        $writer->addRow(Row::fromValues(['Scope Menu', $this->safeText($menuScope)], $infoStyle));
         $writer->addRow(Row::fromValues(['Total Sales Projection', (float) $forecast['projected_units'], 'unit'], $infoStyle));
         $writer->addRow(Row::fromValues(['Persentase Forecast', (float) $forecast['forecast_percentage'], '%'], $infoStyle));
         $writer->addRow(Row::fromValues(['Forecast Efektif', (float) $forecast['effective_projected_units'], 'unit'], $infoStyle));

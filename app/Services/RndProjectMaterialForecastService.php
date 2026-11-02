@@ -21,9 +21,39 @@ class RndProjectMaterialForecastService
     ) {}
 
     /**
+     * Menus of the Project that can scope the forecast. A menu is eligible only while its Sales
+     * Projection total is positive, the same condition calculate() uses to include a product.
+     *
+     * @return list<array{id: int, name: string, code: ?string, projected_units: float, has_main_recipe: bool, has_menu_bom: bool, is_eligible: bool}>
+     */
+    public function menuOptions(RndProject $project): array
+    {
+        return $project->products
+            ->map(function (RndProjectProduct $product): array {
+                $projectedUnits = (float) $product->salesProjections->sum('target_quantity');
+
+                return [
+                    'id' => (int) $product->id,
+                    'name' => $product->name,
+                    'code' => $product->product_code,
+                    'projected_units' => $projectedUnits,
+                    'has_main_recipe' => $product->boms->contains(fn ($bom): bool => $bom->pivot->usage_type === 'main'),
+                    'has_menu_bom' => $product->boms->contains(fn ($bom): bool => $bom->pivot->usage_type === 'menu'),
+                    'is_eligible' => $projectedUnits > 0,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Null or an empty list means All Menu. Project BOMs stay available as recipe sources because
+     * a selected menu can resolve a WIP from a recipe attached to a menu that is not selected.
+     *
+     * @param  list<int>|null  $selectedProductIds
      * @return array{rows: list<array{code: string, name: string, unit: string, quantity: float, effective_quantity: float, is_calculated: bool, calculation_notes: list<string>}>, projection_details: list<array{name: string, quantity: float, effective_quantity: float, is_calculated: bool}>, forecast_percentage: float, projected_units: float, effective_projected_units: float, projection_products: int, projected_products: int, warnings: list<string>, recipe_notes: list<string>}
      */
-    public function calculate(RndProject $project, string $forecastType = 'kitchen'): array
+    public function calculate(RndProject $project, string $forecastType = 'kitchen', ?array $selectedProductIds = null): array
     {
         $this->outputConversionFactors = [];
         $materials = [];
@@ -36,7 +66,11 @@ class RndProjectMaterialForecastService
         $recipeNotes = [];
         $forecastPercentage = min(100, max(1, (float) ($project->forecast_percentage ?? 100)));
 
-        foreach ($project->products as $product) {
+        $products = in_array($selectedProductIds, [null, []], true)
+            ? $project->products
+            : $project->products->whereIn('id', $selectedProductIds);
+
+        foreach ($products as $product) {
             $projectedQuantity = (float) $product->salesProjections->sum('target_quantity');
 
             if ($projectedQuantity <= 0) {

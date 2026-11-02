@@ -1,7 +1,7 @@
 ---
 document_id: RND-MATERIAL-FORECAST-MENU-FILTER-PRD
 title: PRD — Filter Menu Material Forecast
-status: draft
+status: implemented
 version: 1.0
 owner: Research & Development
 technical_owner: Information Technology
@@ -24,7 +24,7 @@ supersedes: null
 |---|---|
 | Domain | Research & Development |
 | Fitur | Filter Menu Material Forecast |
-| Status | draft |
+| Status | implemented |
 | Prioritas | TBD — belum ditetapkan owner bisnis |
 | Target pengguna | User Back Office yang dapat melihat Material Forecast |
 | Modul terdampak | Research & Development → Project → Material Forecast |
@@ -199,7 +199,7 @@ Filter ditempatkan pada header Material Forecast dekat toggle Forecast Kitchen/S
 ### 17.3 Picker
 
 - Judul dan deskripsi konteks.
-- Search nama atau product code dengan debounce wajar.
+- Search nama atau product code dilakukan di browser atas daftar menu Project, tanpa round-trip server per ketikan.
 - Checkbox multiple selection.
 - Baris menu menampilkan nama, code bila ada, total projection, status Main Recipe, dan status BOM Menu.
 - Menu tanpa projection disabled dengan label **Belum memiliki Sales Projection**.
@@ -305,11 +305,11 @@ Tidak ada keputusan yang memblokir dokumentasi. User telah menyetujui All Menu d
 
 ## 28. Definition of Done
 
-- [ ] Seluruh acceptance criteria terpenuhi.
-- [ ] Test service, Livewire, authorization, security, export, dan regression lulus.
-- [ ] All Menu terbukti backward-compatible.
-- [ ] Tidak ada migration, dependency, permission, atau integrasi baru.
-- [ ] UI responsif dan aksesibel diperiksa.
-- [ ] Dokumentasi fitur dan README R&D diperbarui sesuai kode.
-- [ ] Implementation report mencatat hasil dan deviasi aktual.
-- [ ] Pull Request siap direview; merge/deployment tetap keputusan user.
+- [x] Seluruh acceptance criteria terpenuhi.
+- [x] Test service, Livewire, authorization, security, export, dan regression lulus.
+- [x] All Menu terbukti backward-compatible.
+- [x] Tidak ada migration, dependency, permission, atau integrasi baru.
+- [ ] UI responsif dan aksesibel diperiksa di browser — belum dilakukan; masuk UAT staging, lihat [laporan implementasi](reports/implementation-report.md).
+- [x] Dokumentasi fitur dan README R&D diperbarui sesuai kode.
+- [x] Implementation report mencatat hasil dan deviasi aktual.
+- [x] Pull Request siap direview; merge/deployment tetap keputusan user.

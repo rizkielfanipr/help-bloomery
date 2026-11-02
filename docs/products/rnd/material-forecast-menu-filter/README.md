@@ -3,7 +3,7 @@
 | Atribut | Nilai |
 |---|---|
 | Domain | Research & Development |
-| Status | draft |
+| Status | implemented |
 | Owner | Research & Development |
 | Technical owner | Information Technology |
 | Modul terdampak | Back Office → Research & Development → Project → Material Forecast |
@@ -17,9 +17,8 @@ Fitur ini menambahkan scope menu pada Material Forecast di detail Project R&D. U
 
 | Dokumen | Status | Keterangan |
 |---|---|---|
-| [PRD](prd.md) | draft | Sumber requirement canonical |
-| [Implementation plan](implementation-plan.md) | draft | Urutan teknis, file terdampak, test, dan quality gate |
-| [Implementation prompt](implementation-prompt.md) | draft | Prompt siap pakai untuk agent implementasi |
+| [PRD](prd.md) | implemented | Sumber requirement canonical |
+| [Implementation plan](implementation-plan.md) | implemented | Urutan teknis, file terdampak, test, dan quality gate |
 
 Rollout runbook terpisah tidak dibuat karena fitur tidak memerlukan migration, environment variable, permission baru, queue/scheduler, integrasi baru, atau langkah manual server.
 
@@ -36,10 +35,11 @@ Rollout runbook terpisah tidak dibuat karena fitur tidak memerlukan migration, e
 
 | Laporan | Tanggal |
 |---|---|
-| Belum ada — implementasi belum dimulai | — |
+| [Laporan implementasi](reports/implementation-report.md) | 2 November 2026 |
 
 ## Riwayat status
 
 | Tanggal | Status | Catatan |
 |---|---|---|
 | 2026-11-02 | draft | Paket planning dibuat berdasarkan audit kode existing; belum ada perubahan aplikasi |
+| 2026-11-02 | implemented | Filter diimplementasikan; pemeriksaan UI di browser menjadi bagian UAT staging |

@@ -1,7 +1,7 @@
 ---
 document_id: RND-MATERIAL-FORECAST-MENU-FILTER-PLAN
 title: Implementation Plan — Filter Menu Material Forecast
-status: draft
+status: implemented
 version: 1.0
 owner: Research & Development
 technical_owner: Information Technology
@@ -153,24 +153,24 @@ Revert PR aplikasi. Karena default API/service/URL tetap backward-compatible dan
 
 ## 15. Quality gates
 
-- [ ] PRD approved sebelum aplikasi diubah.
-- [ ] Branch implementasi dari latest `main`; tidak commit di `main`.
-- [ ] Laravel Boost `search-docs` dijalankan sebelum code change.
-- [ ] Characterization dan test baru lulus.
-- [ ] Authorization/data isolation direview.
-- [ ] `vendor/bin/pint --dirty --format agent` lulus.
-- [ ] `bash ops/ci/check-doc-links.sh` lulus.
-- [ ] `bash ops/ci/check-code-map.sh` lulus.
-- [ ] `git diff --check` lulus.
+- [x] PRD approved sebelum aplikasi diubah.
+- [x] Branch implementasi dari latest `main`; tidak commit di `main`.
+- [x] Laravel Boost `search-docs` dijalankan sebelum code change.
+- [x] Characterization dan test baru lulus.
+- [x] Authorization/data isolation direview.
+- [x] `vendor/bin/pint --dirty --format agent` lulus.
+- [x] `bash ops/ci/check-doc-links.sh` lulus.
+- [x] `bash ops/ci/check-code-map.sh` lulus.
+- [x] `git diff --check` lulus.
 - [ ] CI Pull Request hijau.
 
 ## 16. Definition of Done
 
-- [ ] Semua phase dan acceptance criteria PRD selesai.
-- [ ] All Menu, single, multiple, Kitchen, Store, dan export terbukti konsisten.
-- [ ] Tidak ada mutation/filter persistence yang tidak disetujui.
-- [ ] README R&D cocok dengan kode aktual.
-- [ ] PRD/README fitur diperbarui ke lifecycle sebenarnya.
-- [ ] `reports/implementation-report.md` dibuat.
-- [ ] `implementation-prompt.md` dihapus setelah implementasi selesai.
-- [ ] PR berbahasa Indonesia dan belum di-merge/deploy tanpa keputusan user.
+- [x] Semua phase dan acceptance criteria PRD selesai.
+- [x] All Menu, single, multiple, Kitchen, Store, dan export terbukti konsisten.
+- [x] Tidak ada mutation/filter persistence yang tidak disetujui.
+- [x] README R&D cocok dengan kode aktual.
+- [x] PRD/README fitur diperbarui ke lifecycle sebenarnya.
+- [x] `reports/implementation-report.md` dibuat.
+- [x] `implementation-prompt.md` dihapus setelah implementasi selesai.
+- [x] PR berbahasa Indonesia dan belum di-merge/deploy tanpa keputusan user.

@@ -29,7 +29,7 @@ Pengembangan produk dari project sampai rilis: project dan produk, BOM di ESB, M
   - **Analisis harga menu** — weighted average harga bahan, food cost, dan rekomendasi harga per region.
   - **Master Bahan/WIP** — membuat bahan baru dengan prefix nama, lalu mengirimnya ke review IT (lihat bagian berikut).
   - **Material marketing** — packaging, stiker, foto produk, social media, katalog, lainnya. Tipe fisik diteruskan ke Purchasing dan Inventory.
-  - **Material Forecast** — kebutuhan bahan berdasarkan proyeksi penjualan, dengan export.
+  - **Material Forecast** — kebutuhan bahan berdasarkan proyeksi penjualan, dengan export. Perubahan terencana [Filter Menu Material Forecast](material-forecast-menu-filter/README.md) akan menambahkan scope All/single/multiple menu yang konsisten untuk Kitchen, Store, dan Excel; kode production saat ini masih menghitung seluruh menu.
   - **Shelf Life WIP** — mengisi master yang belum ada (tidak mengedit master existing).
 - Proyeksi penjualan per region dibaca di menu [Sales & Growth](../sales-growth/README.md).
 
@@ -138,6 +138,7 @@ Model `Rnd*`, `MaterialSourcing`, `MaterialSourcingApproval`, `PrefixCategory`, 
 | [PRD Project Types](project-types/prd.md) | Implemented |
 | [Daftar Project Aktif](project-active-list/README.md) dan [PRD](project-active-list/prd.md) | Implemented |
 | [Daftar Project Nonaktif](project-inactive-list/README.md) dan [PRD](project-inactive-list/prd.md) | Implemented |
+| [Filter Menu Material Forecast](material-forecast-menu-filter/README.md) dan [PRD](material-forecast-menu-filter/prd.md) | Draft — planning lengkap; belum ada perubahan kode aplikasi |
 | [PRD WIP Shelf Life](wip-shelf-life/prd.md) | Implemented |
 | [PRD Internal Memo — Brand](internal-memo-brand/prd.md) | Implemented — scope brand dan katalog BLSS |
 | [PRD Internal Memo — Simplification](internal-memo-simplification/prd.md) | Implemented — alur operasional memo saat ini |

@@ -5,9 +5,11 @@ use App\Actions\Rnd\Material\ClaimMaterialReviewAction;
 use App\Enums\MarketingMaterialFulfillmentStatus;
 use App\Enums\MaterialReviewStatus;
 use App\Enums\MaterialSourcingStatus;
+use App\Enums\RndProjectType;
 use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ListProjects;
 use App\Filament\Helpdesk\Resources\Projects\Pages\ViewProject;
+use App\Filament\Helpdesk\Resources\Projects\ProjectResource;
 use App\Http\Controllers\Helpdesk\RndProductBomPdfController;
 use App\Models\Branch;
 use App\Models\MaterialSourcing;
@@ -17,6 +19,8 @@ use App\Models\RndBomInstruction;
 use App\Models\RndProductEsbMaterial;
 use App\Models\RndProject;
 use App\Models\RndProjectBom;
+use App\Models\RndProjectPartnershipMenu;
+use App\Models\RndProjectPremixAssembly;
 use App\Models\RndProjectProduct;
 use App\Models\SalesRegion;
 use App\Models\User;
@@ -86,6 +90,7 @@ it('automatically detaches BOM relations when deleting a menu', function () {
 });
 
 it('archives and restores a project without deleting its local data or attachments', function () {
+    Carbon::setTestNow('2026-10-15');
     Storage::fake('b2');
     Http::preventStrayRequests();
 
@@ -180,12 +185,10 @@ it('archives and restores a project without deleting its local data or attachmen
     }
 
     $page
-        ->set('projectStatus', 'archived')
-        ->assertSee('Project to Delete')
-        ->assertSee('Pulihkan Project')
+        ->assertDontSee('Pulihkan Project')
         ->call('restoreProject', $project->id)
         ->assertHasNoErrors()
-        ->assertDontSee('Project to Delete');
+        ->assertSee('Project to Delete');
 
     $this->assertNotSoftDeleted($project);
     $this->assertModelExists($product);
@@ -689,38 +692,51 @@ it('shows each project only on its release date in the monthly calendar', functi
         ->assertSee('Project Calendar Seasonal');
 });
 
-it('blocks switching to the release calendar while the archived status filter is active', function () {
-    Livewire::test(ListProjects::class)
-        ->set('projectStatus', 'archived')
-        ->call('showProjectCalendar')
-        ->assertSet('projectView', 'list');
-});
-
-it('keeps the status filter applied when browsing the release calendar', function () {
+it('never shows archived projects on the release calendar', function () {
     Carbon::setTestNow('2026-09-15');
 
     RndProject::query()->create([
-        'name' => 'Completed Release',
-        'start_date' => '2026-01-01',
-        'end_date' => '2026-09-10',
-        'created_by' => auth()->id(),
-    ]);
-    RndProject::query()->create([
-        'name' => 'Active Release',
+        'name' => 'Archived Release',
         'start_date' => '2026-09-01',
         'end_date' => '2026-09-20',
         'created_by' => auth()->id(),
-    ]);
+    ])->delete();
 
     Livewire::test(ListProjects::class)
-        ->set('projectStatus', 'completed')
+        ->call('showProjectCalendar')
+        ->assertSet('projectView', 'calendar')
+        ->set('calendarMonth', '2026-09')
+        ->assertDontSee('Archived Release');
+});
+
+it('keeps upcoming active and completed releases on the calendar while the list stays active-only', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    foreach ([
+        'Completed Release' => ['2026-01-01', '2026-09-10'],
+        'Active Release' => ['2026-09-01', '2026-09-20'],
+        'Upcoming Release' => ['2026-09-25', '2026-09-28'],
+    ] as $name => [$startDate, $endDate]) {
+        RndProject::query()->create([
+            'name' => $name,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'created_by' => auth()->id(),
+        ]);
+    }
+
+    Livewire::test(ListProjects::class)
+        ->assertSee('Active Release')
+        ->assertDontSee('Completed Release')
+        ->assertDontSee('Upcoming Release')
         ->call('showProjectCalendar')
         ->set('calendarMonth', '2026-09')
         ->assertSee('Completed Release')
-        ->assertDontSee('Active Release')
-        ->set('projectStatus', 'active')
         ->assertSee('Active Release')
-        ->assertDontSee('Completed Release');
+        ->assertSee('Upcoming Release')
+        ->call('showProjectList')
+        ->assertDontSee('Completed Release')
+        ->assertDontSee('Upcoming Release');
 });
 
 it('keeps the search filter applied when browsing the release calendar', function () {
@@ -743,6 +759,201 @@ it('keeps the search filter applied when browsing the release calendar', functio
         ->set('projectSearch', 'croissant')
         ->assertSee('Croissant Autumn Release')
         ->assertDontSee('Donut Autumn Release');
+});
+
+it('lists only active projects including those starting or ending today, newest update first', function () {
+    Carbon::setTestNow('2026-09-15 10:00:00');
+
+    $project = fn (string $name, string $startDate, string $endDate) => RndProject::factory()->create([
+        'name' => $name,
+        'start_date' => $startDate,
+        'end_date' => $endDate,
+    ]);
+
+    $project('Starts Today', '2026-09-15', '2026-09-30');
+    Carbon::setTestNow('2026-09-15 10:05:00');
+    $project('Ends Today', '2026-09-01', '2026-09-15');
+    $project('Upcoming Tomorrow', '2026-09-16', '2026-09-30');
+    $project('Completed Yesterday', '2026-09-01', '2026-09-14');
+    $project('Archived Active', '2026-09-01', '2026-09-30')->delete();
+
+    $page = Livewire::test(ListProjects::class)
+        ->assertSeeInOrder(['Ends Today', 'Starts Today'])
+        ->assertDontSee('Upcoming Tomorrow')
+        ->assertDontSee('Completed Yesterday')
+        ->assertDontSee('Archived Active')
+        ->assertDontSee('Semua Status');
+
+    expect($page->instance()->activeProjects()->pluck('name')->all())->toBe(['Ends Today', 'Starts Today']);
+});
+
+it('keeps search and type filters inside the active scope', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    RndProject::factory()->create(['name' => 'Croissant Active', 'description' => null, 'start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+    RndProject::factory()->premix()->create(['name' => 'Premix Active', 'description' => 'Croissant base', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+    RndProject::factory()->create(['name' => 'Croissant Completed', 'start_date' => '2026-08-01', 'end_date' => '2026-08-31']);
+    RndProject::factory()->premix()->create(['name' => 'Croissant Premix Upcoming', 'start_date' => '2026-10-01', 'end_date' => '2026-10-31']);
+    RndProject::factory()->premix()->create(['name' => 'Croissant Premix Archived', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30'])->delete();
+
+    $visibleNames = fn ($page): array => $page->instance()->activeProjects()->pluck('name')->sort()->values()->all();
+
+    $page = Livewire::test(ListProjects::class)->set('projectSearch', 'croissant');
+    expect($visibleNames($page))->toBe(['Croissant Active', 'Premix Active']);
+
+    $page->set('projectTypeFilter', RndProjectType::Premix->value)
+        ->assertSee('Premix Active')
+        ->assertDontSee('Croissant Active')
+        ->assertDontSee('Croissant Premix Upcoming')
+        ->assertDontSee('Croissant Premix Archived');
+    expect($visibleNames($page))->toBe(['Premix Active']);
+});
+
+it('shows the content label and count that match each project type', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $period = ['start_date' => '2026-09-01', 'end_date' => '2026-09-30'];
+    $release = RndProject::factory()->create(['name' => 'Release Row'] + $period);
+    $premix = RndProject::factory()->premix()->create(['name' => 'Premix Row'] + $period);
+    $partnership = RndProject::factory()->partnership()->create(['name' => 'Partnership Row'] + $period);
+
+    foreach (['Satu', 'Dua'] as $productName) {
+        $release->products()->create(['name' => $productName, 'status' => 'development', 'created_by' => auth()->id()]);
+    }
+    RndProjectPremixAssembly::factory()->count(3)->create(['rnd_project_id' => $premix->id]);
+    RndProjectPartnershipMenu::factory()->count(4)->create(['rnd_project_id' => $partnership->id]);
+
+    $page = Livewire::test(ListProjects::class)
+        ->assertSee('Product Release')
+        ->assertSee('BOM Assembly')
+        ->assertSee('Menu Partnership');
+
+    $projects = $page->instance()->activeProjects()->keyBy('name');
+
+    expect($projects['Release Row']->products_count)->toBe(2)
+        ->and($projects['Premix Row']->premix_assemblies_count)->toBe(3)
+        ->and($projects['Partnership Row']->partnership_menus_count)->toBe(4);
+
+    expect(preg_replace('/\s+/', ' ', strip_tags($page->html())))
+        ->toContain('Product Release 2')
+        ->toContain('BOM Assembly 3')
+        ->toContain('Menu Partnership 4');
+});
+
+it('does not run per-project count queries when rendering the active list', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    RndProject::factory()->count(5)->create(['start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+
+    $page = Livewire::test(ListProjects::class);
+
+    DB::enableQueryLog();
+    $projects = $page->instance()->activeProjects();
+    $projects->each(fn (RndProject $project): int => $project->products_count + $project->premix_assemblies_count + $project->partnership_menus_count);
+
+    expect($projects)->toHaveCount(5)
+        ->and(DB::getQueryLog())->toHaveCount(1);
+    DB::disableQueryLog();
+});
+
+it('separates the empty state without active projects from an empty filter result', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $page = Livewire::test(ListProjects::class)
+        ->assertSee('Tidak ada project aktif saat ini.')
+        ->assertDontSee('Project aktif tidak ditemukan.')
+        ->assertDontSee('Reset Filter');
+
+    RndProject::factory()->create(['name' => 'Visible Active', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+
+    $page->set('projectSearch', 'tidak-ada-yang-cocok')
+        ->assertSee('Project aktif tidak ditemukan.')
+        ->assertSee('Reset Filter')
+        ->assertDontSee('Tidak ada project aktif saat ini.')
+        ->assertDontSee('Visible Active')
+        ->call('resetProjectFilters')
+        ->assertSet('projectSearch', '')
+        ->assertSet('projectTypeFilter', '')
+        ->assertSee('Visible Active');
+
+    $page->set('projectTypeFilter', RndProjectType::Partnership->value)
+        ->assertSee('Project aktif tidak ditemukan.')
+        ->assertDontSee('Tidak ada project aktif saat ini.');
+});
+
+it('offers the create action on the empty state only to users allowed to create', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    Livewire::test(ListProjects::class)
+        ->assertSeeHtml('wire:click="openCreateProjectModal"');
+
+    $viewer = User::factory()->create(['is_active' => true]);
+    $viewer->givePermissionTo(['access backoffice', 'view rnd projects']);
+    $this->actingAs($viewer);
+
+    Livewire::test(ListProjects::class)
+        ->assertSee('Tidak ada project aktif saat ini.')
+        ->assertDontSeeHtml('wire:click="openCreateProjectModal"');
+});
+
+it('renders project row actions per permission and rejects unauthorized mutations on the server', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $project = RndProject::factory()->create(['name' => 'Guarded Project', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+
+    Livewire::test(ListProjects::class)
+        ->assertSeeHtml('aria-label="Buka Project Guarded Project"')
+        ->assertSeeHtml('aria-label="Edit Project Guarded Project"')
+        ->assertSeeHtml('aria-label="Arsipkan Project Guarded Project"')
+        ->assertSee(ProjectResource::getUrl('view', ['record' => $project]));
+
+    $viewer = User::factory()->create(['is_active' => true]);
+    $viewer->givePermissionTo(['access backoffice', 'view rnd projects']);
+    $this->actingAs($viewer);
+
+    Livewire::test(ListProjects::class)
+        ->assertSeeHtml('aria-label="Buka Project Guarded Project"')
+        ->assertDontSeeHtml('aria-label="Edit Project Guarded Project"')
+        ->assertDontSeeHtml('aria-label="Arsipkan Project Guarded Project"')
+        ->assertDontSeeHtml('wire:click="openCreateProjectModal"');
+
+    Livewire::test(ListProjects::class)->call('openCreateProjectModal')->assertForbidden();
+    Livewire::test(ListProjects::class)->call('openEditProjectModal', $project->id)->assertForbidden();
+    Livewire::test(ListProjects::class)->call('archiveProject', $project->id)->assertForbidden();
+
+    expect($project->fresh()->trashed())->toBeFalse();
+});
+
+it('removes a project from the list after it is archived or edited out of the active period', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    $archived = RndProject::factory()->create(['name' => 'Soon Archived', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+    $edited = RndProject::factory()->create(['name' => 'Soon Completed', 'start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+
+    Livewire::test(ListProjects::class)
+        ->assertSee('Soon Archived')
+        ->assertSee('Soon Completed')
+        ->call('archiveProject', $archived->id)
+        ->assertDontSee('Soon Archived')
+        ->call('openEditProjectModal', $edited->id)
+        ->set('projectEndDate', '2026-09-10')
+        ->call('saveProject')
+        ->assertHasNoErrors()
+        ->assertDontSee('Soon Completed');
+
+    expect($edited->fresh()->end_date->toDateString())->toBe('2026-09-10');
+});
+
+it('escapes project names on the list and wraps long values without a card grid', function () {
+    Carbon::setTestNow('2026-09-15');
+
+    RndProject::factory()->create(['name' => '<b>Injected</b> '.str_repeat('Panjang', 40), 'start_date' => '2026-09-01', 'end_date' => '2026-09-30']);
+
+    Livewire::test(ListProjects::class)
+        ->assertDontSeeHtml('<b>Injected</b>')
+        ->assertSeeHtml('[overflow-wrap:anywhere]')
+        ->assertDontSeeHtml('md:grid-cols-2 2xl:grid-cols-3')
+        ->assertDontSeeHtml('min-h-72');
 });
 
 it('creates a project', function () {
@@ -1615,7 +1826,9 @@ it('suggests the next ESB product code from the highest code in its category', f
         && (int) $request['categoryID'] === 11);
 });
 
-it('renders project cards and the individual project workspace', function () {
+it('renders the project list row and the individual project workspace', function () {
+    Carbon::setTestNow('2026-09-15');
+
     $project = RndProject::query()->create([
         'name' => 'Menu Lebaran 2027',
         'description' => 'Pengembangan rangkaian menu Lebaran.',

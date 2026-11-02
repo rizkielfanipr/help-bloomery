@@ -1,7 +1,7 @@
 ---
 document_id: RND-PROJECT-ACTIVE-LIST-PLAN
 title: Implementation Plan — Daftar Project Aktif
-status: draft
+status: implemented
 version: 1.0
 owner: Research & Development
 technical_owner: Information Technology
@@ -84,7 +84,7 @@ Not applicable — tidak ada perubahan schema, index database, constraint, atau 
 ## 8. Authorization
 
 - Tidak ada permission baru atau perubahan `config/permissions.php`.
-- Pertahankan `view/create/update/delete/restore rnd projects` sesuai Policy/Resource existing.
+- Pertahankan `view/create/edit/delete rnd projects` sesuai `HasPermissions` existing; restore memakai `edit rnd projects`.
 - Pertahankan `view rnd project tasks` untuk kalender.
 - Test visibility UI dan penolakan server-side pada mutation tetap diperlukan.
 
@@ -150,24 +150,24 @@ Revert PR aplikasi. Karena tidak ada perubahan data/schema, rollback tidak memer
 
 ## 15. Quality gates
 
-- [ ] PRD berstatus approved sebelum kode aplikasi dimulai.
-- [ ] Branch implementasi dibuat dari latest `main`; tidak commit di `main`.
-- [ ] Laravel Boost `search-docs` dijalankan sebelum code change.
-- [ ] Characterization/regression test ditulis dan lulus.
-- [ ] `vendor/bin/pint --dirty --format agent` lulus.
-- [ ] `bash ops/ci/check-doc-links.sh` lulus.
-- [ ] `bash ops/ci/check-code-map.sh` lulus.
-- [ ] `git diff --check` lulus.
+- [x] PRD disetujui melalui permintaan implementasi user pada 2 November 2026.
+- [x] Branch implementasi dibuat dari latest `main`; tidak commit di `main`.
+- [x] Laravel Boost `search-docs` dijalankan sebelum code change.
+- [x] Characterization/regression test ditulis dan lulus.
+- [x] `vendor/bin/pint --dirty --format agent` lulus.
+- [x] `bash ops/ci/check-doc-links.sh` lulus.
+- [x] `bash ops/ci/check-code-map.sh` lulus.
+- [x] `git diff --check` lulus.
 - [ ] CI Pull Request hijau.
 - [ ] Review authorization, data safety, responsive UI, dan kalender selesai.
 
 ## 16. Definition of Done
 
-- [ ] Semua phase selesai sesuai PRD.
-- [ ] Daftar aktif dan kalender mempunyai boundary query yang tidak saling merusak.
-- [ ] Test aktual dan hasilnya dicatat.
-- [ ] README R&D cocok dengan kode setelah implementasi.
-- [ ] PRD/README fitur berstatus sesuai lifecycle sebenarnya.
-- [ ] `reports/implementation-report.md` dibuat.
-- [ ] `implementation-prompt.md` dihapus setelah implementasi selesai.
+- [x] Semua phase selesai sesuai PRD.
+- [x] Daftar aktif dan kalender mempunyai boundary query yang tidak saling merusak.
+- [x] Test aktual dan hasilnya dicatat.
+- [x] README R&D cocok dengan kode setelah implementasi.
+- [x] PRD/README fitur berstatus sesuai lifecycle sebenarnya.
+- [x] `reports/implementation-report.md` dibuat.
+- [x] `implementation-prompt.md` dihapus setelah implementasi selesai.
 - [ ] Pull Request berbahasa Indonesia menggunakan template repository.

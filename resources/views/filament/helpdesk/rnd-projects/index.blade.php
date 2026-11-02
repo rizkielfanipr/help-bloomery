@@ -20,7 +20,7 @@
             </div>
             <div class="flex items-center gap-2 border-t border-gray-200 bg-gray-50/60 px-5 py-3 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800/30 dark:text-gray-400 sm:px-6">
                 <x-heroicon-o-information-circle class="h-4 w-4 shrink-0 text-blue-500" />
-                <span>Pilih project untuk mengelola produk, dokumen CCP, kebutuhan bahan, dan tahapan pengembangan.</span>
+                <span>Daftar menampilkan project yang sedang aktif. Pilih project untuk mengelola produk, dokumen CCP, kebutuhan bahan, dan tahapan pengembangan.</span>
             </div>
         </section>
 
@@ -113,20 +113,13 @@
         @endif
 
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_190px_190px_auto]">
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_190px_auto]">
                 <div class="relative">
                     <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                    <input wire:model.live.debounce.300ms="projectSearch" type="search" placeholder="Cari nama atau deskripsi project..."
+                    <input wire:model.live.debounce.300ms="projectSearch" type="search" placeholder="Cari nama atau deskripsi project..." aria-label="Cari nama atau deskripsi project"
                            class="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800">
                 </div>
-                <select wire:model.live="projectStatus" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800">
-                    <option value="">Semua Status</option>
-                    <option value="upcoming">Upcoming</option>
-                    <option value="active">Active</option>
-                    <option value="completed">Completed</option>
-                    <option value="archived">Diarsipkan</option>
-                </select>
-                <select wire:model.live="projectTypeFilter" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800">
+                <select wire:model.live="projectTypeFilter" aria-label="Filter tipe project" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800">
                     <option value="">Semua Tipe</option>
                     @foreach(\App\Enums\RndProjectType::cases() as $type)
                         <option value="{{ $type->value }}">{{ $type->label() }}</option>
@@ -134,7 +127,7 @@
                 </select>
                 <div class="inline-flex rounded-lg border border-gray-300 bg-gray-50 p-1 dark:border-gray-600 dark:bg-gray-800">
                     <button type="button" wire:click="showProjectList" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'list' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
-                        <x-heroicon-o-squares-2x2 class="h-4 w-4" /> Daftar
+                        <x-heroicon-o-list-bullet class="h-4 w-4" /> Daftar
                     </button>
                     @can('view rnd project tasks')
                         <button type="button" wire:click="showProjectTasks" class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-semibold transition {{ $projectView === 'tasks' ? 'bg-white text-blue-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-blue-300 dark:ring-gray-600' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}">
@@ -220,86 +213,98 @@
             </section>
         @else
             @php
-                $projects = $this->projects();
+                $projects = $this->activeProjects();
             @endphp
-            <section class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
-            @forelse($projects as $project)
-                @php
-                    $status = $project->trashed() ? 'Archived' : (today()->lt($project->start_date) ? 'Upcoming' : (today()->gt($project->end_date) ? 'Completed' : 'Active'));
-                    $statusClass = match($status) {
-                        'Active' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-                        'Completed' => 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-                        'Archived' => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-                        default => 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-                    };
-                    $duration = max(1, $project->start_date->diffInDays($project->end_date) + 1);
-                    $elapsed = min($duration, max(0, $project->start_date->diffInDays(today(), false) + 1));
-                    $progress = $status === 'Completed' ? 100 : ($status === 'Upcoming' ? 0 : min(100, (int) round(($elapsed / $duration) * 100)));
-                @endphp
-                <article class="group flex min-h-72 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:-translate-y-0.5 hover:border-blue-300 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-blue-700">
-                    <div class="h-1.5 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-                    <div class="flex flex-1 flex-col p-5">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300">
-                                <x-heroicon-o-folder-open class="h-6 w-6" />
-                            </div>
-                            <span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $statusClass }}">{{ $status }}</span>
-                        </div>
-                        <span class="mt-3 inline-flex w-fit rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{{ $project->project_type->label() }}</span>
-                        <h3 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">{{ $project->name }}</h3>
-                        <p class="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-gray-500">{{ $project->description ?: 'Tidak ada deskripsi project.' }}</p>
-
-                        <div class="mt-5">
-                            <div class="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                                <p class="text-xs text-gray-400">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => 'BOM Assembly', \App\Enums\RndProjectType::Partnership => 'Menu Partnership', default => 'Product Release' } }}</p>
-                                <p class="mt-1 text-lg font-bold text-gray-900 dark:text-white">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => $project->premix_assemblies_count, \App\Enums\RndProjectType::Partnership => $project->partnership_menus_count, default => $project->products_count } }}</p>
-                            </div>
-                        </div>
-
-                        <div class="mt-4">
-                            <div class="mb-1.5 flex items-center justify-between text-xs">
-                                <span class="text-gray-500">{{ $project->start_date->format('d M Y') }} – {{ $project->end_date->format('d M Y') }}</span>
-                                <span class="font-bold text-blue-600">{{ $progress }}%</span>
-                            </div>
-                            <div class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-                                <div class="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500" style="width: {{ $progress }}%"></div>
-                            </div>
-                        </div>
-
-                        <div class="mt-5 flex items-center gap-2">
-                            @if($project->trashed())
-                                @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canRestore($project))
-                                    <button type="button" x-on:click="window.BloomeryConfirm.show({ title: 'Pulihkan Project?', text: @js('Project '.$project->name.' akan dikembalikan ke daftar aktif.'), confirmText: 'Pulihkan Project', icon: 'question', confirmColor: '#059669' }).then((confirmed) => { if (confirmed) $wire.restoreProject({{ $project->id }}) })" wire:loading.attr="disabled" wire:target="restoreProject({{ $project->id }})" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
-                                        <x-heroicon-o-arrow-path class="h-4 w-4" /> Pulihkan Project
-                                    </button>
-                                @endif
-                            @else
-                                <a href="{{ \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project]) }}" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                                    Buka Project
-                                    <x-heroicon-o-arrow-right class="h-4 w-4" />
-                                </a>
-                                @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project))
-                                    <button type="button" wire:click="openEditProjectModal({{ $project->id }})" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800" title="Edit Project">
-                                        <x-heroicon-o-pencil-square class="h-5 w-5" />
-                                    </button>
-                                @endif
-                                @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canDelete($project))
-                                    <button type="button" x-on:click="window.BloomeryConfirm.show({ title: 'Arsipkan Project?', text: @js('Project '.$project->name.' akan disembunyikan dari daftar aktif. Seluruh Menu, BOM, dan attachment tetap tersimpan.'), confirmText: 'Arsipkan Project' }).then((confirmed) => { if (confirmed) $wire.archiveProject({{ $project->id }}) })" wire:loading.attr="disabled" wire:target="archiveProject({{ $project->id }})" class="rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30" title="Arsipkan Project">
-                                        <x-heroicon-o-archive-box class="h-5 w-5" />
-                                    </button>
-                                @endif
-                            @endif
-                        </div>
+            @if($projects->isEmpty())
+                <section class="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-16 text-center dark:border-gray-700 dark:bg-gray-900">
+                    @if($this->hasActiveProjectFilters())
+                        <x-heroicon-o-magnifying-glass class="mx-auto h-12 w-12 text-gray-300" />
+                        <h3 class="mt-3 font-bold text-gray-800 dark:text-gray-100">Project aktif tidak ditemukan.</h3>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Ubah kata kunci atau tipe, atau reset filter untuk melihat seluruh project aktif.</p>
+                        <button type="button" wire:click="resetProjectFilters" wire:loading.attr="disabled" wire:target="resetProjectFilters" class="mt-4 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">
+                            <x-heroicon-o-arrow-path class="h-4 w-4" /> Reset Filter
+                        </button>
+                    @else
+                        <x-heroicon-o-folder-plus class="mx-auto h-12 w-12 text-gray-300" />
+                        <h3 class="mt-3 font-bold text-gray-800 dark:text-gray-100">Tidak ada project aktif saat ini.</h3>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Project muncul di daftar ini selama periodenya mencakup hari ini.</p>
+                        @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canCreate())
+                            <button type="button" wire:click="openCreateProjectModal" class="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                                <x-heroicon-o-plus class="h-4 w-4" /> Buat Project
+                            </button>
+                        @endif
+                    @endif
+                </section>
+            @else
+                <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900" aria-label="Daftar project aktif">
+                    <div aria-hidden="true" class="hidden gap-3 border-b border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-400 xl:grid xl:grid-cols-[minmax(0,1fr)_7.5rem_6.5rem_6.5rem_6rem_7.75rem]">
+                        <span>Project</span>
+                        <span>Tipe</span>
+                        <span>Periode</span>
+                        <span>Isi</span>
+                        <span>Progress</span>
+                        <span class="text-right">Aksi</span>
                     </div>
-                </article>
-            @empty
-                <div class="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center dark:border-gray-700 dark:bg-gray-900">
-                    <x-heroicon-o-folder-plus class="mx-auto h-12 w-12 text-gray-300" />
-                    <h3 class="mt-3 font-bold text-gray-800 dark:text-gray-100">Belum ada project</h3>
-                    <p class="mt-1 text-sm text-gray-500">Buat project terlebih dahulu sebelum mengelola BOM atau resep.</p>
-                </div>
-            @endforelse
-            </section>
+                    <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @foreach($projects as $project)
+                            @php
+                                $duration = max(1, $project->start_date->diffInDays($project->end_date) + 1);
+                                $elapsed = min($duration, max(0, $project->start_date->diffInDays(today(), false) + 1));
+                                $progress = min(100, (int) round(($elapsed / $duration) * 100));
+                                $viewUrl = \App\Filament\Helpdesk\Resources\Projects\ProjectResource::getUrl('view', ['record' => $project]);
+                            @endphp
+                            <li wire:key="active-project-{{ $project->id }}" class="grid gap-3 p-4 transition hover:bg-gray-50 dark:hover:bg-gray-800/40 xl:grid-cols-[minmax(0,1fr)_7.5rem_6.5rem_6.5rem_6rem_7.75rem] xl:items-center xl:px-5 xl:py-3">
+                                <div class="min-w-0">
+                                    <a href="{{ $viewUrl }}" class="text-sm font-bold text-gray-900 [overflow-wrap:anywhere] hover:text-blue-700 dark:text-white dark:hover:text-blue-300">{{ $project->name }}</a>
+                                    @if(filled($project->description))
+                                        <p class="mt-0.5 line-clamp-2 text-xs leading-5 text-gray-500 [overflow-wrap:anywhere] dark:text-gray-400">{{ $project->description }}</p>
+                                    @endif
+                                </div>
+                                <div class="min-w-0">
+                                    <span class="inline-flex w-fit rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">{{ $project->project_type->label() }}</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3 xl:contents">
+                                    <div class="min-w-0">
+                                        <p class="text-xs text-gray-400 xl:hidden">Periode</p>
+                                        <p class="text-xs font-medium text-gray-700 dark:text-gray-200">
+                                            <span class="whitespace-nowrap">{{ $project->start_date->format('d M Y') }}</span> – <span class="whitespace-nowrap">{{ $project->end_date->format('d M Y') }}</span>
+                                        </p>
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="text-xs text-gray-400">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => 'BOM Assembly', \App\Enums\RndProjectType::Partnership => 'Menu Partnership', default => 'Product Release' } }}</p>
+                                        <p class="text-sm font-bold text-gray-900 dark:text-white">{{ match($project->project_type) { \App\Enums\RndProjectType::Premix => $project->premix_assemblies_count, \App\Enums\RndProjectType::Partnership => $project->partnership_menus_count, default => $project->products_count } }}</p>
+                                    </div>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="mb-1 flex items-center justify-between gap-2 text-xs xl:justify-end">
+                                        <span class="text-gray-400 xl:hidden">Progress</span>
+                                        <span class="font-bold text-blue-600 dark:text-blue-400">{{ $progress }}%</span>
+                                    </div>
+                                    <div aria-hidden="true" class="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                                        <div class="h-full rounded-full bg-blue-500" style="width: {{ $progress }}%"></div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 xl:justify-end">
+                                    <a href="{{ $viewUrl }}" aria-label="Buka Project {{ $project->name }}" title="Buka Project" class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-700 xl:flex-none xl:p-2">
+                                        <span class="xl:hidden">Buka Project</span>
+                                        <x-heroicon-o-arrow-right class="h-4 w-4" />
+                                    </a>
+                                    @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canEdit($project))
+                                        <button type="button" wire:click="openEditProjectModal({{ $project->id }})" wire:loading.attr="disabled" wire:target="openEditProjectModal({{ $project->id }})" aria-label="Edit Project {{ $project->name }}" title="Edit Project" class="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
+                                            <x-heroicon-o-pencil-square class="h-4 w-4" />
+                                        </button>
+                                    @endif
+                                    @if(\App\Filament\Helpdesk\Resources\Projects\ProjectResource::canDelete($project))
+                                        <button type="button" x-on:click="window.BloomeryConfirm.show({ title: 'Arsipkan Project?', text: @js('Project '.$project->name.' akan disembunyikan dari daftar aktif. Seluruh Menu, BOM, dan attachment tetap tersimpan.'), confirmText: 'Arsipkan Project' }).then((confirmed) => { if (confirmed) $wire.archiveProject({{ $project->id }}) })" wire:loading.attr="disabled" wire:target="archiveProject({{ $project->id }})" aria-label="Arsipkan Project {{ $project->name }}" title="Arsipkan Project" class="rounded-lg border border-amber-200 p-2 text-amber-700 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-900 dark:text-amber-300 dark:hover:bg-amber-950/30">
+                                            <x-heroicon-o-archive-box class="h-4 w-4" />
+                                        </button>
+                                    @endif
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </section>
+            @endif
         @endif
     </div>
 </x-filament-panels::page>

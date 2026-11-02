@@ -1,7 +1,7 @@
 ---
 document_id: RND-PROJECT-ACTIVE-LIST-PRD
 title: PRD — Daftar Project Aktif
-status: draft
+status: implemented
 version: 1.0
 owner: Research & Development
 technical_owner: Information Technology
@@ -27,7 +27,7 @@ supersedes: null
 |---|---|
 | Domain | Research & Development |
 | Fitur | Daftar Project Aktif |
-| Status | draft |
+| Status | implemented |
 | Prioritas | TBD — belum ditetapkan owner bisnis |
 | Target pengguna | User Back Office dengan akses Project R&D |
 | Modul terdampak | Research & Development → Project |
@@ -53,6 +53,7 @@ Tim R&D menggunakan index Project sebagai titik masuk pekerjaan yang sedang berj
 - Search nama/deskripsi dan filter `RndProjectType` sudah tersedia.
 - Kalender gabungan Task/release memakai `HasProjectTaskCalendar`; deep-link dashboard memakai query parameter `openTask`.
 - Arsip menggunakan soft delete dan action restore existing hanya terlihat melalui filter Archived pada index.
+- Aksi edit/arsip memakai permission `edit rnd projects` dan `delete rnd projects`; restore memakai `edit rnd projects` melalui `HasPermissions`.
 - `ProjectResource::table()` bukan renderer utama index karena `ListProjects` memakai custom view.
 
 ## 5. Problem statement
@@ -92,7 +93,7 @@ Daftar Project tidak efisien untuk pemindaian operasional karena setiap Project 
 |---|---|---|
 | Viewer Project R&D | Melihat, mencari, memfilter, dan membuka Project aktif | `view rnd projects` |
 | Creator Project R&D | Membuat Project baru | `create rnd projects` |
-| Editor Project R&D | Mengubah identitas/periode Project | `update rnd projects` |
+| Editor Project R&D | Mengubah identitas/periode Project | `edit rnd projects` |
 | Archiver Project R&D | Mengarsipkan Project aktif | `delete rnd projects` |
 | Viewer Task R&D | Menggunakan kalender Task dan membuka detail task | `view rnd project tasks` |
 
@@ -271,7 +272,7 @@ Rollback dilakukan dengan revert commit/PR UI dan query. Tidak ada rollback data
 
 ## 26. Open decisions
 
-Tidak ada keputusan yang memblokir dokumentasi. Keputusan kalender Task dipertahankan dan daftar utama hanya menampilkan Project aktif telah dikonfirmasi pada 2 November 2026. Kebutuhan UI pengelolaan arsip terpisah menjadi pekerjaan lanjutan bila diminta.
+Tidak ada keputusan yang memblokir dokumentasi. Keputusan kalender Task dipertahankan dan daftar utama hanya menampilkan Project aktif telah dikonfirmasi pada 2 November 2026. Kebutuhan UI pengelolaan arsip terpisah menjadi pekerjaan lanjutan bila diminta. Hasil implementasi: [laporan](reports/implementation-report.md).
 
 ## 27. Implementation phases
 
@@ -284,11 +285,11 @@ Tidak ada keputusan yang memblokir dokumentasi. Keputusan kalender Task dipertah
 
 ## 28. Definition of Done
 
-- [ ] Seluruh acceptance criteria terpenuhi.
-- [ ] Test terdampak ditambahkan dan lulus.
-- [ ] Authorization diuji untuk role yang berhak dan tidak berhak.
-- [ ] Tidak ada migration, dependency, permission, atau integrasi baru.
-- [ ] Kalender Task dan deep-link existing terbukti tidak regresi.
-- [ ] Dokumentasi fitur dan README domain diperbarui.
-- [ ] Implementation report mencatat hasil, deviasi, dan test aktual.
-- [ ] Pull Request ke `main` siap direview dan belum di-merge/deploy tanpa keputusan user.
+- [x] Seluruh acceptance criteria terpenuhi.
+- [x] Test terdampak ditambahkan dan lulus.
+- [x] Authorization diuji untuk role yang berhak dan tidak berhak.
+- [x] Tidak ada migration, dependency, permission, atau integrasi baru.
+- [x] Kalender Task dan deep-link existing terbukti tidak regresi.
+- [x] Dokumentasi fitur dan README domain diperbarui.
+- [x] Implementation report mencatat hasil, deviasi, dan test aktual.
+- [x] Pull Request ke `main` siap direview dan belum di-merge/deploy tanpa keputusan user.

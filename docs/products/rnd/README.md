@@ -20,7 +20,8 @@ Pengembangan produk dari project sampai rilis: project dan produk, BOM di ESB, M
 
 ## Project dan produk
 
-- **Project**: nama, deskripsi, tanggal mulai, dan tanggal rilis (end date), dengan daftar Project dan **kalender** yang menggabungkan tanggal rilis dan deadline task. Tipe project: `release_product`, `premix`, `partnership` (premix punya assembly; partnership punya menu dan equipment). Perubahan terencana [Daftar Project Aktif](project-active-list/README.md) akan mengganti grid kartu menjadi list responsif dan membatasi daftar utama pada Project aktif; kode production saat ini belum berubah.
+- **Project**: nama, deskripsi, tanggal mulai, dan tanggal rilis (end date), dengan **daftar Project aktif** dan **kalender** yang menggabungkan tanggal rilis dan deadline task. Tipe project: `release_product`, `premix`, `partnership` (premix punya assembly; partnership punya menu dan equipment).
+- **Daftar Project aktif** ([PRD](project-active-list/prd.md)): list responsif yang hanya memuat Project tidak terarsip dengan `start_date <= hari ini <= end_date`, inklusif, urut `updated_at` terbaru. Search nama/deskripsi dan filter tipe hanya mempersempit scope aktif; tidak ada filter status. Setiap baris menampilkan identitas, tipe, periode, jumlah isi per tipe, progress waktu, dan aksi buka/edit/arsip sesuai permission. Project Upcoming, Completed, dan Archived tidak muncul di daftar, tetapi datanya tetap tersimpan dan route detailnya tetap berlaku. Kalender rilis dan kalender Task tetap memuat rilis seluruh Project tidak terarsip serta mengikuti search/filter tipe; deep-link `openTask` tidak bergantung pada status Project. Index tidak lagi menyediakan UI restore; method backend `restoreProject` tetap ada.
 - **Produk Project**: status `draft`, `development`, `trial`, `ready`, `released`, `cancelled`. Gerbang Ready/Released mewajibkan setiap WIP pada BOM produk punya master Shelf Life aktif.
 - Halaman produk menyediakan:
   - **BOM** — menautkan BOM ESB (impor dari katalog), mengedit komponen langsung ke ESB, instruksi BOM dengan gambar, BOM menu, dan PDF BOM.
@@ -134,7 +135,7 @@ Model `Rnd*`, `MaterialSourcing`, `MaterialSourcingApproval`, `PrefixCategory`, 
 | [PRD Project Task Calendar](project-task-calendar/prd.md) | Implemented |
 | [PRD Project Checkpoint Calendar](project-checkpoint-calendar/prd.md) | Implemented |
 | [PRD Project Types](project-types/prd.md) | Implemented |
-| [Daftar Project Aktif](project-active-list/README.md) dan [PRD](project-active-list/prd.md) | Draft — dokumentasi lengkap; belum ada perubahan kode aplikasi |
+| [Daftar Project Aktif](project-active-list/README.md) dan [PRD](project-active-list/prd.md) | Implemented |
 | [PRD WIP Shelf Life](wip-shelf-life/prd.md) | Implemented |
 | [PRD Internal Memo — Brand](internal-memo-brand/prd.md) | Implemented — scope brand dan katalog BLSS |
 | [PRD Internal Memo — Simplification](internal-memo-simplification/prd.md) | Implemented — alur operasional memo saat ini |

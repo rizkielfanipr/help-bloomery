@@ -74,6 +74,23 @@ it('opens the task detail directly when linked with ?openTask=', function () {
         ->assertSee('Deep Linked Task');
 });
 
+it('opens a deep-linked task whose project is no longer active', function () {
+    $completedProject = RndProject::factory()->create([
+        'start_date' => today()->subMonths(2)->toDateString(),
+        'end_date' => today()->subMonth()->toDateString(),
+    ]);
+    $branch = Branch::factory()->create();
+    $task = RndProjectTask::factory()->create(['rnd_project_id' => $completedProject->id, 'title' => 'Historical Deep Linked Task']);
+    $task->branches()->attach($branch->id);
+    RndProjectTaskAssignment::factory()->create([
+        'rnd_project_task_id' => $task->id, 'branch_id' => $branch->id, 'user_id' => $this->admin->id, 'status' => 'assigned',
+    ]);
+
+    $this->get(ProjectResource::getUrl('index', ['openTask' => $task->id]))
+        ->assertOk()
+        ->assertSee('Historical Deep Linked Task');
+});
+
 it('shows the reminder modal once per session while active assignments exist', function () {
     $branch = Branch::factory()->create();
     $task = RndProjectTask::factory()->create(['rnd_project_id' => $this->project->id, 'title' => 'Modal Task']);

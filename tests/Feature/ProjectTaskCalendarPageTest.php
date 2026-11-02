@@ -63,6 +63,29 @@ it('shows the release date for a project alongside tasks in the merged Kalender 
         ->assertSee('Merged View Release');
 });
 
+it('keeps tasks and release markers of non-active projects in the merged Kalender', function () {
+    $this->travelTo('2026-09-15');
+
+    $manager = User::factory()->create(['is_active' => true, 'access_all_branches' => true]);
+    $manager->givePermissionTo(['view rnd projects', 'view rnd project tasks']);
+    $this->actingAs($manager);
+
+    $completed = RndProject::query()->create(['name' => 'Completed Marker', 'start_date' => '2026-08-01', 'end_date' => '2026-09-10']);
+    RndProject::query()->create(['name' => 'Upcoming Marker', 'start_date' => '2026-09-20', 'end_date' => '2026-09-28']);
+    RndProject::query()->create(['name' => 'Archived Marker', 'start_date' => '2026-09-01', 'end_date' => '2026-09-20'])->delete();
+    RndProjectTask::factory()->create(['rnd_project_id' => $completed->id, 'title' => 'Historical Calendar Task', 'due_date' => '2026-09-08']);
+
+    Livewire::test(ListProjects::class)
+        ->assertDontSee('Completed Marker')
+        ->assertDontSee('Upcoming Marker')
+        ->call('showProjectTasks')
+        ->set('taskCalendarMonth', '2026-09')
+        ->assertSee('Completed Marker')
+        ->assertSee('Upcoming Marker')
+        ->assertSee('Historical Calendar Task')
+        ->assertDontSee('Archived Marker');
+});
+
 it('lists the signed-in PIC own assignments as cards in the Tugas Saya sidebar', function () {
     $pic = User::factory()->create(['is_active' => true, 'access_all_branches' => false]);
     $pic->givePermissionTo(['view rnd projects', 'view rnd project tasks', 'respond rnd project tasks']);

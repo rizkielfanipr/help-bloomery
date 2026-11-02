@@ -3,7 +3,7 @@
 | Atribut | Nilai |
 |---|---|
 | Domain | Research & Development |
-| Status | draft |
+| Status | implemented |
 | Owner | Research & Development |
 | Technical owner | Information Technology |
 | Modul terdampak | Back Office → Research & Development → Project |
@@ -17,9 +17,8 @@ Perubahan ini mengganti grid kartu pada daftar utama Project R&D menjadi daftar 
 
 | Dokumen | Status | Keterangan |
 |---|---|---|
-| [PRD](prd.md) | draft | Sumber requirement canonical untuk tampilan dan scope daftar Project aktif |
-| [Implementation plan](implementation-plan.md) | draft | Urutan teknis, file terdampak, test, dan quality gate |
-| [Implementation prompt](implementation-prompt.md) | draft | Prompt siap pakai untuk agent implementasi |
+| [PRD](prd.md) | implemented | Sumber requirement canonical untuk tampilan dan scope daftar Project aktif |
+| [Implementation plan](implementation-plan.md) | implemented | Urutan teknis, file terdampak, test, dan quality gate |
 
 ## Keputusan
 
@@ -33,10 +32,11 @@ Perubahan ini mengganti grid kartu pada daftar utama Project R&D menjadi daftar 
 
 | Laporan | Tanggal |
 |---|---|
-| Belum ada — implementasi belum dimulai | — |
+| [Laporan implementasi](reports/implementation-report.md) | 2026-11-02 |
 
 ## Riwayat status
 
 | Tanggal | Status | Catatan |
 |---|---|---|
 | 2026-11-02 | draft | PRD, implementation plan, dan prompt implementasi dibuat; belum mengubah kode aplikasi |
+| 2026-11-02 | implemented | Daftar aktif, list responsif, dan pemisahan query kalender selesai pada branch `feature/rnd-active-project-list`; menunggu review, merge, dan UAT staging |

@@ -28,6 +28,29 @@ class StockCardPolicy
         return $user->can('edit stock cards') && $user->canAccessBranch($stockCard->branch_id);
     }
 
+    public function createDraft(User $user): bool
+    {
+        return $user->is_active
+            && $user->branch_id !== null
+            && $user->can('access employee app stock card')
+            && $this->create($user);
+    }
+
+    /** Staff can only change a report that is still a draft on their own branch. */
+    public function editDraft(User $user, StockCard $stockCard): bool
+    {
+        return $user->is_active
+            && $user->branch_id === $stockCard->branch_id
+            && $user->can('access employee app stock card')
+            && $stockCard->status === StockCardStatus::Draft
+            && $this->update($user, $stockCard);
+    }
+
+    public function submit(User $user, StockCard $stockCard): bool
+    {
+        return $this->editDraft($user, $stockCard);
+    }
+
     public function delete(User $user, StockCard $stockCard): bool
     {
         return $user->can('delete stock cards') && $user->canAccessBranch($stockCard->branch_id);

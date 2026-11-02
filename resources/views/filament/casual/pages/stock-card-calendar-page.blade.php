@@ -47,11 +47,16 @@
 
             {{-- Summary cards --}}
             @if($calendar['pastDaysCount'] > 0)
-                <div class="mb-4 grid grid-cols-2 gap-3">
+                <div class="mb-4 grid grid-cols-3 gap-3">
                     <div class="rounded-xl bg-white px-3 py-3 ring-1 ring-black/5 dark:bg-gray-900">
                         <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Submit</p>
                         <p class="mt-1 text-xl font-bold text-blue-600">{{ $calendar['submittedCount'] }}</p>
                         <p class="text-[11px] text-gray-400">dari {{ $calendar['pastDaysCount'] }} hari</p>
+                    </div>
+                    <div class="rounded-xl bg-white px-3 py-3 ring-1 ring-black/5 dark:bg-gray-900">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Draft</p>
+                        <p class="mt-1 text-xl font-bold {{ $calendar['draftCount'] > 0 ? 'text-amber-500' : 'text-gray-300' }}">{{ $calendar['draftCount'] }}</p>
+                        <p class="text-[11px] text-gray-400">belum dikirim</p>
                     </div>
                     <div class="rounded-xl bg-white px-3 py-3 ring-1 ring-black/5 dark:bg-gray-900">
                         <p class="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Belum Submit</p>
@@ -82,7 +87,7 @@
                             ? 'bg-blue-600 dark:bg-blue-700'
                             : ($day['isFuture']
                                 ? 'bg-white/60 dark:bg-gray-900/60'
-                                : ($day['isSubmitted'] ? 'bg-blue-50 ring-blue-200 dark:bg-blue-900/20 dark:ring-blue-800' : 'bg-white dark:bg-gray-900'));
+                                : ($day['isSubmitted'] ? 'bg-blue-50 ring-blue-200 dark:bg-blue-900/20 dark:ring-blue-800' : ($day['isDraft'] ? 'bg-amber-50 ring-amber-200 dark:bg-amber-900/20 dark:ring-amber-800' : 'bg-white dark:bg-gray-900')));
                         $dayTextColor = $day['isToday']
                             ? 'text-white font-bold'
                             : ($day['isFuture'] ? 'text-gray-300 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300');
@@ -94,8 +99,8 @@
                         <span class="text-xs leading-none {{ $dayTextColor }}">{{ $day['day'] }}</span>
 
                         @if(! $day['isFuture'])
-                            <div class="mt-1 h-1.5 w-1.5 rounded-full
-                                {{ $day['isToday'] ? 'bg-white/70' : ($day['isSubmitted'] ? 'bg-blue-500' : 'bg-red-300') }}">
+                            <div @if($day['isDraft']) data-stock-card-draft="{{ $day['date'] }}" @endif class="mt-1 h-1.5 w-1.5 rounded-full
+                                {{ $day['isDraft'] ? 'bg-amber-400' : ($day['isToday'] ? 'bg-white/70' : ($day['isSubmitted'] ? 'bg-blue-500' : 'bg-red-300')) }}">
                             </div>
                         @endif
                     </a>
@@ -109,6 +114,10 @@
                     <div class="flex items-center gap-2">
                         <div class="h-2 w-2 flex-shrink-0 rounded-full bg-blue-500"></div>
                         <span class="text-xs text-gray-500">Stock card sudah disubmit</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="h-2 w-2 flex-shrink-0 rounded-full bg-amber-400"></div>
+                        <span class="text-xs text-gray-500">Draft belum dikirim</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <div class="h-2 w-2 flex-shrink-0 rounded-full bg-red-300"></div>

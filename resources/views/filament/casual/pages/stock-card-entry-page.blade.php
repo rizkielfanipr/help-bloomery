@@ -8,6 +8,7 @@
      x-data="{
          search: '',
          categoryPage: 0,
+         draftRequestFailed: false,
          matchesSearch(name, code) {
              if (this.search === '') return true;
              const q = this.search.toLowerCase();
@@ -17,7 +18,14 @@
              return products.some((product) => this.matchesSearch(product.name, product.code));
          }
      }"
-     x-init="$wire.on('stock-card-fetch-next', () => $wire.call('fetchNextCatalogMovement'))">
+     x-init="
+         $wire.on('stock-card-fetch-next', () => $wire.call('fetchNextCatalogMovement'));
+         $wire.$interceptRequest(({ onFailure, onError, onSuccess }) => {
+             onFailure(() => draftRequestFailed = true);
+             onError(() => draftRequestFailed = true);
+             onSuccess(() => draftRequestFailed = false);
+         });
+     ">
 
     {{-- HEADER --}}
     <div class="flex-shrink-0 px-5 pb-8 pt-14">
@@ -82,6 +90,30 @@
                         <p class="text-sm font-semibold text-green-700 dark:text-green-400">{{ \App\Enums\StockCardStatus::Completed->getLabel() }}</p>
                         <p class="text-xs text-green-600 dark:text-green-500">Stock card sudah final dan tidak dapat diubah kembali.</p>
                     </div>
+                </div>
+            @endif
+
+            @if(! $isSubmitted && $rows !== [])
+                @php $draftFilledCount = collect($rows)->filter(fn ($r) => filled($r['actual_qty'] ?? null))->count(); @endphp
+                <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20" role="status" aria-live="polite">
+                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">Draft · {{ $draftFilledCount }}/{{ count($rows) }} item terisi</p>
+                    <p class="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                        <span wire:loading wire:target.except="requestConfirm,cancelConfirm,submit,loadProductCatalog,fetchNextCatalogMovement">Menyimpan draft…</span>
+                        <span wire:loading.remove wire:target.except="requestConfirm,cancelConfirm,submit,loadProductCatalog,fetchNextCatalogMovement">
+                            @if($draftSaveState === 'failed')
+                                <span class="font-medium text-red-600 dark:text-red-400">Gagal menyimpan draft — <button type="button" wire:click="saveDraft" class="font-semibold underline">Coba lagi</button></span>
+                            @else
+                                <span x-show="draftRequestFailed" x-cloak class="font-medium text-red-600 dark:text-red-400">Gagal menyimpan draft — <button type="button" wire:click="saveDraft" class="font-semibold underline">Coba lagi</button></span>
+                                <span x-show="! draftRequestFailed">
+                                    @if($draftSaveState === 'saved' && $draftSavedAt)
+                                        Draft tersimpan pukul {{ $draftSavedAt }}
+                                    @else
+                                        Isian tersimpan otomatis saat Anda mengetik.
+                                    @endif
+                                </span>
+                            @endif
+                        </span>
+                    </p>
                 </div>
             @endif
 
@@ -210,7 +242,7 @@
             @if(! empty($rows))
 
                 @php
-                    $filledCount = collect($rows)->filter(fn ($r) => $r['actual_qty'] !== '')->count();
+                    $filledCount = collect($rows)->filter(fn ($r) => filled($r['actual_qty'] ?? null))->count();
                     $groupedRows = collect($rows)
                         ->map(fn (array $row, int $index): array => ['index' => $index, 'row' => $row])
                         ->sort(function (array $left, array $right): int {
@@ -282,6 +314,9 @@
                                                class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-right text-base font-mono text-slate-700 placeholder-slate-300 focus:border-blue-400 focus:outline-none focus:ring-0 dark:border-gray-700 dark:bg-gray-800 dark:text-slate-200">
                                     @endif
                                 </div>
+                                @error("rows.{$idx}.actual_qty")
+                                    <p class="mt-1 text-right text-xs text-red-500">{{ $message }}</p>
+                                @enderror
 
                                 @if($isSubmitted)
                                     @if(! empty($row['notes']))
@@ -345,30 +380,35 @@
             {{-- Submit / Confirm area --}}
             @if(! $isSubmitted)
                 @if($showConfirm)
-                    <p class="text-center text-xs text-slate-400 dark:text-slate-500">
-                        Data tidak dapat diubah setelah disimpan
+                    <p class="text-center text-xs text-slate-500 dark:text-slate-400">
+                        Setelah dikirim, data akan terkunci. Koreksi hanya dapat dilakukan melalui Supervisor/Finance.
                     </p>
                     <div class="flex gap-3">
-                        <button wire:click="cancelConfirm"
-                                class="flex flex-1 items-center justify-center rounded-2xl bg-gray-100 py-4 text-sm font-semibold text-slate-600 transition active:bg-gray-200 dark:bg-gray-800 dark:text-slate-300">
+                        <button wire:click="cancelConfirm" wire:loading.attr="disabled" wire:target="submit"
+                                class="flex flex-1 items-center justify-center rounded-2xl bg-gray-100 py-4 text-sm font-semibold text-slate-600 transition active:bg-gray-200 disabled:opacity-60 dark:bg-gray-800 dark:text-slate-300">
                             Batal
                         </button>
-                        <button wire:click="save" wire:loading.attr="disabled"
+                        <button wire:click="submit" wire:loading.attr="disabled" wire:target="submit"
                                 class="flex flex-[2] items-center justify-center gap-1.5 rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700 disabled:opacity-60">
-                            <svg wire:loading.remove wire:target="save" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"/>
-                            </svg>
-                            <span wire:loading.remove wire:target="save">Ya, Simpan</span>
-                            <span wire:loading wire:target="save">Menyimpan...</span>
+                            <span wire:loading.remove wire:target="submit">Ya, Kirim</span>
+                            <span wire:loading wire:target="submit">Mengirim...</span>
                         </button>
                     </div>
                 @else
-                    <button wire:click="requestConfirm" wire:loading.attr="disabled"
-                            @disabled(! $catalogLoaded || $catalogLoading)
-                            class="w-full rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700 disabled:opacity-60">
-                        <span wire:loading.remove wire:target="requestConfirm">{{ $catalogLoaded ? 'Simpan Stock Card' : 'Menyiapkan Produk…' }}</span>
-                        <span wire:loading wire:target="requestConfirm">Memvalidasi...</span>
-                    </button>
+                    <div class="flex gap-3">
+                        <button wire:click="saveDraft" wire:loading.attr="disabled" wire:target="saveDraft"
+                                @disabled($rows === [])
+                                class="flex-1 rounded-2xl border border-gray-200 bg-white py-4 text-sm font-semibold text-slate-700 transition active:bg-gray-100 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-slate-200">
+                            <span wire:loading.remove wire:target="saveDraft">Simpan Draft</span>
+                            <span wire:loading wire:target="saveDraft">Menyimpan...</span>
+                        </button>
+                        <button wire:click="requestConfirm" wire:loading.attr="disabled" wire:target="requestConfirm"
+                                @disabled(! $catalogLoaded || $catalogLoading)
+                                class="flex-[2] rounded-2xl bg-blue-600 py-4 text-sm font-semibold text-white transition active:scale-95 active:bg-blue-700 disabled:opacity-60">
+                            <span wire:loading.remove wire:target="requestConfirm">{{ $catalogLoaded ? 'Kirim untuk Review' : 'Menyiapkan Produk…' }}</span>
+                            <span wire:loading wire:target="requestConfirm">Memvalidasi...</span>
+                        </button>
+                    </div>
                 @endif
             @endif
 

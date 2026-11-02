@@ -80,15 +80,9 @@ it('persists progress as a draft so a refresh does not lose it', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
+    seedStockCardDraft($this->branch, [['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'product_category' => 'Barang WIP']]);
+
     Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [[
-            'product_code' => 'MAT-001',
-            'product_name' => 'Ayam',
-            'product_category' => 'Barang WIP',
-            'system_unit' => 'KG',
-            'actual_qty' => '',
-            'notes' => '',
-        ]])
         ->set('rows.0.actual_qty', '5')
         ->set('rows.0.notes', 'Catatan uji')
         ->set('employeeIds', [$this->employee->id]);
@@ -127,10 +121,9 @@ it('blocks save when a row has empty actual_qty', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
+    seedStockCardDraft($this->branch, [['product_code' => 'MAT-001', 'product_name' => 'Ayam']]);
+
     Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [
-            ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '', 'notes' => ''],
-        ])
         ->set('catalogLoaded', true)
         ->call('requestConfirm')
         ->assertNotified();
@@ -140,15 +133,16 @@ it('saves stock card with entries and marks as submitted', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
+    seedStockCardDraft($this->branch, [
+        ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'actual_qty' => '5'],
+        ['product_code' => 'MAT-002', 'product_name' => 'Beras', 'actual_qty' => '9', 'notes' => 'Tercecer saat pindah'],
+    ]);
+
     $page = Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [
-            ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
-            ['product_code' => 'MAT-002', 'product_name' => 'Beras', 'system_unit' => 'KG', 'actual_qty' => '9', 'notes' => 'Tercecer saat pindah'],
-        ])
         ->set('employeeIds', [$this->employee->id])
         ->set('catalogLoaded', true)
         ->call('requestConfirm')
-        ->call('save')
+        ->call('submit')
         ->assertSet('isSubmitted', true);
 
     // The read-only view right after submit renders from submittedEmployees
@@ -169,10 +163,9 @@ it('requires at least one staff in charge before confirming submission', functio
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
+    seedStockCardDraft($this->branch, [['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'actual_qty' => '5']]);
+
     Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [
-            ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
-        ])
         ->set('employeeIds', [])
         ->set('catalogLoaded', true)
         ->call('requestConfirm')
@@ -185,10 +178,9 @@ it('rejects an employee id that does not belong to an active employee on the bra
 
     $otherBranchEmployee = Employee::factory()->create(['branch_id' => Branch::factory()->create()->id]);
 
+    seedStockCardDraft($this->branch, [['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'actual_qty' => '5']]);
+
     Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [
-            ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
-        ])
         ->set('employeeIds', [$otherBranchEmployee->id])
         ->set('catalogLoaded', true)
         ->call('requestConfirm')
@@ -357,15 +349,10 @@ it('preserves filled draft rows that are no longer returned by the rolling catal
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
+    seedStockCardDraft($this->branch, [['product_code' => 'OLD-001', 'product_name' => 'Draft Lama', 'product_category' => 'Bahan Baku']]);
+
     Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [[
-            'product_code' => 'OLD-001',
-            'product_name' => 'Draft Lama',
-            'product_category' => 'Bahan Baku',
-            'system_unit' => 'KG',
-            'actual_qty' => '3',
-            'notes' => '',
-        ]])
+        ->set('rows.0.actual_qty', '3')
         ->set('employeeIds', [$this->employee->id]);
 
     Livewire::test(StockCardEntryPage::class)
@@ -377,14 +364,13 @@ it('marks rolling Stock Movement entries as automatic products', function () {
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
+    seedStockCardDraft($this->branch, [['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'actual_qty' => '5']]);
+
     Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [
-            ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
-        ])
         ->set('employeeIds', [$this->employee->id])
         ->set('catalogLoaded', true)
         ->call('requestConfirm')
-        ->call('save')
+        ->call('submit')
         ->assertSet('isSubmitted', true);
 
     $entry = StockCardEntry::where('product_code', 'MAT-001')->first();
@@ -490,14 +476,13 @@ it('shows the staff in charge in the back office list and detail view', function
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     actingAs($this->storeUser);
 
+    seedStockCardDraft($this->branch, [['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'actual_qty' => '5']]);
+
     Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [
-            ['product_code' => 'MAT-001', 'product_name' => 'Ayam', 'system_unit' => 'KG', 'actual_qty' => '5', 'notes' => ''],
-        ])
         ->set('employeeIds', [$this->employee->id])
         ->set('catalogLoaded', true)
         ->call('requestConfirm')
-        ->call('save')
+        ->call('submit')
         ->assertSet('isSubmitted', true);
 
     $card = StockCard::where('branch_id', $this->branch->id)->whereDate('report_date', now())->firstOrFail();

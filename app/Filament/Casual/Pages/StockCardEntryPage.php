@@ -2,26 +2,27 @@
 
 namespace App\Filament\Casual\Pages;
 
+use App\Actions\Inventory\StockCard\PrepareStockCardDraftAction;
+use App\Actions\Inventory\StockCard\SaveStockCardDraftAction;
+use App\Actions\Inventory\StockCard\SubmitStockCardAction;
 use App\Enums\StockCardStatus;
 use App\Models\BranchEsbCode;
 use App\Models\Employee;
 use App\Models\StockCard;
-use App\Models\StockCardApproval;
 use App\Models\StockCardEmployee;
 use App\Models\StockCardEntry;
-use App\Models\User;
 use App\Services\EsbStockMovementService;
 use App\Services\StockCardCategoryFilter;
 use App\Services\StockCardDailySelectionService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Support\Htmlable;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
@@ -96,11 +97,31 @@ class StockCardEntryPage extends Page
     #[Locked]
     public ?string $catalogFetchKey = null;
 
+    /** The date every mutation uses; reportDate stays writable because it is bound to the URL. */
+    #[Locked]
+    public string $draftDate = '';
+
+    /** @var list<int> Rows changed in the browser and not yet confirmed saved. */
+    #[Locked]
+    public array $dirtyRowIndexes = [];
+
+    #[Locked]
+    public bool $employeesDirty = false;
+
+    /** idle, saved, or failed; only ever set from the outcome of a save on the server. */
+    #[Locked]
+    public string $draftSaveState = 'idle';
+
+    #[Locked]
+    public ?string $draftSavedAt = null;
+
     public function mount(): void
     {
         if (! $this->reportDate) {
             $this->reportDate = now()->toDateString();
         }
+
+        $this->draftDate = Carbon::parse($this->reportDate)->toDateString();
 
         $this->catalogPeriodFrom = Carbon::parse($this->reportDate)->toDateString();
         $this->catalogPeriodTo = $this->reportDate;
@@ -154,7 +175,7 @@ class StockCardEntryPage extends Page
             'product_name' => $entry->product_name,
             'product_category' => $entry->product_category ?? 'Tanpa Kategori',
             'system_unit' => $entry->system_unit,
-            'actual_qty' => $entry->actual_qty !== null ? rtrim(rtrim((string) $entry->actual_qty, '0'), '.') : '',
+            'actual_qty' => $entry->actual_qty !== null ? $this->formatQuantity((string) $entry->actual_qty) : '',
             'notes' => $entry->notes ?? '',
         ])->values()->all();
 
@@ -166,8 +187,18 @@ class StockCardEntryPage extends Page
                 'position' => $e->employee_position,
             ])->all();
         } else {
-            $this->employeeIds = $card->employees->pluck('employee_id')->filter()->values()->all();
+            $storedEmployeeIds = $card->employees->pluck('employee_id')->filter()->values()->all();
+            $this->employeeIds = $this->employees->pluck('id')->intersect($storedEmployeeIds)->values()->all();
+            // A deactivated employee has no checkbox to untick, so replace them on the next save.
+            $this->employeesDirty = count($this->employeeIds) !== $card->employees->count();
+            $this->draftSaveState = 'saved';
+            $this->draftSavedAt = $card->updated_at?->format('H:i');
         }
+    }
+
+    private function formatQuantity(string $quantity): string
+    {
+        return str_contains($quantity, '.') ? rtrim(rtrim($quantity, '0'), '.') : $quantity;
     }
 
     #[Computed]
@@ -185,6 +216,13 @@ class StockCardEntryPage extends Page
     public function loadProductCatalog(): void
     {
         if ($this->isSubmitted || $this->catalogLoading || $this->catalogLoaded) {
+            return;
+        }
+
+        // A draft already holds its product list, so resuming it must not depend on ESB being up.
+        if ($this->rows !== []) {
+            $this->catalogLoaded = true;
+
             return;
         }
 
@@ -300,18 +338,6 @@ class StockCardEntryPage extends Page
     /** @param array<string, mixed> $catalog */
     private function applyProductCatalog(array $catalog): void
     {
-        $existingRows = collect($this->rows)->keyBy('product_code');
-
-        if ($existingRows->isNotEmpty()) {
-            $this->catalogPeriodFrom = $catalog['period_from'];
-            $this->catalogPeriodTo = $catalog['period_to'];
-            $this->catalogFailedRequests = $catalog['failed_requests'];
-            $this->catalogLoading = false;
-            $this->catalogLoaded = true;
-
-            return;
-        }
-
         $filteredProducts = app(StockCardCategoryFilter::class)->filter($catalog['products'], $this->categorySettingsSnapshot);
         $branch = auth()->user()?->branch;
         if (! $branch) {
@@ -348,24 +374,40 @@ class StockCardEntryPage extends Page
             return;
         }
 
-        $catalogRows = collect($catalog['products'])->map(function (array $product): array {
-            return [
-                'product_code' => $product['product_code'],
-                'product_name' => $product['product_name'],
-                'product_category' => $product['category'],
-                'system_unit' => $product['unit'],
-                'actual_qty' => '',
-                'notes' => '',
-            ];
-        });
-        $this->rows = $catalogRows->values()->all();
         $this->catalogPeriodFrom = $catalog['period_from'];
         $this->catalogPeriodTo = $catalog['period_to'];
         $this->catalogFailedRequests = $catalog['failed_requests'];
         $this->catalogLoading = false;
         $this->catalogLoaded = true;
 
-        $this->persistDraft();
+        try {
+            app(PrepareStockCardDraftAction::class)->execute(
+                auth()->user(),
+                $this->draftDate,
+                self::FLAG_UNIT,
+                collect($catalog['products'])->map(fn (array $product): array => [
+                    'product_code' => $product['product_code'],
+                    'product_name' => $product['product_name'],
+                    'product_category' => $product['category'],
+                    'system_unit' => $product['unit'],
+                ])->values()->all(),
+                $this->categorySettingsSnapshot,
+                $this->selectionSnapshot,
+            );
+        } catch (AuthorizationException) {
+            $this->catalogError = 'Akun Anda tidak memiliki izin membuat Stock Card.';
+
+            return;
+        }
+
+        $pendingEmployeeIds = $this->employeesDirty ? $this->employeeIds : null;
+        $this->loadData();
+
+        if ($pendingEmployeeIds !== null) {
+            $this->employeeIds = $pendingEmployeeIds;
+            $this->employeesDirty = true;
+            $this->persistDirtyDraft();
+        }
 
         if ($this->catalogFailedRequests > 0) {
             Notification::make()
@@ -389,93 +431,151 @@ class StockCardEntryPage extends Page
     }
 
     /**
-     * Fires after any live-bound input changes (qty/notes on a row). Saves
-     * a draft immediately so an accidental refresh/reload doesn't lose
-     * progress — the draft is a normal StockCard/StockCardEntry row with
-     * status left at Draft, restored by loadData() on the next mount.
+     * Only a row's qty and notes are user input. Product identity comes from the server, so a request
+     * rewriting it, or replacing the whole list, is refused.
      */
-    public function updated(string $property): void
+    public function updating(string $property): void
     {
-        if (str_starts_with($property, 'rows.') || $property === 'employeeIds') {
-            $this->persistDraft();
+        if (preg_match('/^rows(\.|$)/', $property) === 1 && preg_match('/^rows\.\d+\.(actual_qty|notes)$/', $property) !== 1) {
+            abort(403);
         }
     }
 
-    private function persistDraft(): void
+    /** Autosave after a live-bound input changes, writing only the rows that changed. */
+    public function updated(string $property): void
+    {
+        if (preg_match('/^rows\.(\d+)\.(actual_qty|notes)$/', $property, $match) === 1) {
+            $rowIndex = (int) $match[1];
+
+            if (! isset($this->rows[$rowIndex]['product_code'])) {
+                unset($this->rows[$rowIndex]);
+
+                return;
+            }
+
+            $this->dirtyRowIndexes = collect($this->dirtyRowIndexes)->push($rowIndex)->unique()->values()->all();
+        } elseif ($property === 'employeeIds') {
+            $this->employeesDirty = true;
+        } else {
+            return;
+        }
+
+        $this->persistDirtyDraft();
+    }
+
+    public function saveDraft(): void
     {
         if ($this->isSubmitted) {
             return;
         }
 
-        $user = auth()->user();
-        if (! $user->branch_id) {
+        if ($this->rows === []) {
+            Notification::make()->title('Belum ada produk untuk disimpan')->warning()->send();
+
             return;
         }
 
-        $card = StockCard::where('branch_id', $user->branch_id)
-            ->whereDate('report_date', $this->reportDate)
-            ->first();
-
-        if (! $card) {
-            try {
-                $card = StockCard::create([
-                    'branch_id' => $user->branch_id,
-                    'report_date' => $this->reportDate,
-                    'flag_unit' => self::FLAG_UNIT,
-                    'status' => StockCardStatus::Draft->value,
-                    'category_settings_snapshot' => $this->categorySettingsSnapshot,
-                    'selection_snapshot' => $this->selectionSnapshot,
-                ]);
-            } catch (QueryException) {
-                // Another persistDraft() call within the same request already created it.
-                $card = StockCard::where('branch_id', $user->branch_id)
-                    ->whereDate('report_date', $this->reportDate)
-                    ->firstOrFail();
-            }
+        if ($this->persistDirtyDraft()) {
+            Notification::make()->title('Draft tersimpan')->success()->send();
         }
-
-        if ($card->selection_snapshot === null && $this->selectionSnapshot !== []) {
-            $card->update(['selection_snapshot' => $this->selectionSnapshot]);
-        }
-
-        $currentCodes = collect($this->rows)->pluck('product_code')->all();
-
-        StockCardEntry::where('stock_card_id', $card->id)
-            ->whereNotIn('product_code', $currentCodes)
-            ->delete();
-
-        foreach ($this->rows as $row) {
-            StockCardEntry::updateOrCreate(
-                ['stock_card_id' => $card->id, 'product_code' => $row['product_code']],
-                [
-                    'product_name' => $row['product_name'],
-                    'product_category' => $row['product_category'] ?? null,
-                    'system_qty' => null,
-                    'system_unit' => $row['system_unit'],
-                    'is_manual' => false,
-                    'actual_qty' => $row['actual_qty'] !== '' ? (float) $row['actual_qty'] : null,
-                    'notes' => $row['notes'] !== '' ? $row['notes'] : null,
-                ]
-            );
-        }
-
-        $this->syncEmployees($card);
     }
 
-    private function syncEmployees(StockCard $card): void
+    /**
+     * Save what changed; a row that fails stays dirty so the next attempt retries it. An invalid qty
+     * does not hold back the other rows, and until the product list exists there is nothing to save.
+     */
+    private function persistDirtyDraft(): bool
     {
-        $employees = Employee::query()->whereIn('id', $this->employeeIds)->get();
-
-        $card->employees()->delete();
-
-        if ($employees->isNotEmpty()) {
-            $card->employees()->createMany($employees->map(fn (Employee $employee): array => [
-                'employee_id' => $employee->id,
-                'employee_code' => $employee->employee_code,
-                'employee_name' => $employee->name,
-                'employee_position' => $employee->position,
-            ])->all());
+        if ($this->isSubmitted || $this->rows === []) {
+            return false;
         }
+
+        $this->resetValidation(['employeeIds', 'employeeIds.*']);
+        $changes = [];
+        $invalidIndexes = [];
+
+        foreach ($this->dirtyRowIndexes as $rowIndex) {
+            $row = $this->rows[$rowIndex];
+            $this->resetValidation("rows.{$rowIndex}.actual_qty");
+
+            if (! StockCardEntry::isValidQuantity($row['actual_qty'] ?? null)) {
+                $invalidIndexes[] = $rowIndex;
+                $this->addError("rows.{$rowIndex}.actual_qty", 'Qty harus berupa angka minimal 0 dengan maksimal 4 angka desimal.');
+
+                continue;
+            }
+
+            $changes[$rowIndex] = [
+                'product_code' => $row['product_code'],
+                'actual_qty' => $row['actual_qty'] ?? null,
+                'notes' => $row['notes'] ?? null,
+            ];
+        }
+
+        try {
+            $card = app(SaveStockCardDraftAction::class)->execute(
+                auth()->user(),
+                $this->draftDate,
+                $changes,
+                $this->employeesDirty ? $this->employeeIds : null,
+            );
+        } catch (ValidationException $exception) {
+            $this->draftSaveState = 'failed';
+
+            if ($exception->validator->errors()->has('status')) {
+                $this->handleLockedCard($exception);
+
+                return false;
+            }
+
+            throw $exception;
+        } catch (AuthorizationException) {
+            $this->draftSaveState = 'failed';
+            Notification::make()->title('Anda tidak memiliki izin mengubah Stock Card ini')->danger()->send();
+
+            return false;
+        } catch (\Throwable $exception) {
+            $this->draftSaveState = 'failed';
+            $this->logFailure('save_draft', $exception);
+
+            return false;
+        }
+
+        $this->dirtyRowIndexes = $invalidIndexes;
+        $this->employeesDirty = false;
+
+        if ($invalidIndexes !== []) {
+            $this->draftSaveState = 'failed';
+
+            return false;
+        }
+
+        $this->draftSaveState = 'saved';
+        $this->draftSavedAt = $card->updated_at?->format('H:i');
+
+        return true;
+    }
+
+    /** The draft was submitted elsewhere: show the stored, read-only report. */
+    private function handleLockedCard(ValidationException $exception): void
+    {
+        $this->dirtyRowIndexes = [];
+        $this->employeesDirty = false;
+        $this->showConfirm = false;
+        $this->loadData();
+        Notification::make()->title($exception->validator->errors()->first('status'))->warning()->send();
+    }
+
+    /** No qty, notes, or message: an exception text can carry the submitted values. */
+    private function logFailure(string $operation, \Throwable $exception): void
+    {
+        Log::error('Stock Card employee app mutation failed', [
+            'operation' => $operation,
+            'branch_id' => auth()->user()?->branch_id,
+            'report_date' => $this->draftDate,
+            'status' => $this->status->value,
+            'exception' => $exception::class,
+        ]);
     }
 
     public function requestConfirm(): void
@@ -497,7 +597,7 @@ class StockCardEntryPage extends Page
         }
 
         foreach ($this->rows as $row) {
-            if ($row['actual_qty'] === '' || $row['actual_qty'] === null) {
+            if (blank($row['actual_qty'] ?? null)) {
                 Notification::make()
                     ->title('Ada qty aktual yang belum diisi')
                     ->body('Pastikan semua item sudah diisi qty aktualnya.')
@@ -508,26 +608,13 @@ class StockCardEntryPage extends Page
             }
         }
 
-        $this->validateEmployees(auth()->user());
+        if ($this->employeeIds === []) {
+            $this->addError('employeeIds', 'Pilih minimal satu staff yang mengisi Stock Card.');
 
-        $this->showConfirm = true;
-    }
+            return;
+        }
 
-    private function validateEmployees(User $user): void
-    {
-        $this->validate([
-            'employeeIds' => ['required', 'array', 'min:1'],
-            'employeeIds.*' => [
-                'integer',
-                Rule::exists('employees', 'id')->where(fn ($query) => $query
-                    ->where('branch_id', $user->branch_id)
-                    ->where('is_active', true)),
-            ],
-        ], [
-            'employeeIds.required' => 'Pilih minimal satu staff yang mengisi Stock Card.',
-            'employeeIds.min' => 'Pilih minimal satu staff yang mengisi Stock Card.',
-            'employeeIds.*.exists' => 'Staff tidak aktif atau tidak terdaftar pada branch ini.',
-        ]);
+        $this->showConfirm = $this->persistDirtyDraft();
     }
 
     public function cancelConfirm(): void
@@ -535,59 +622,52 @@ class StockCardEntryPage extends Page
         $this->showConfirm = false;
     }
 
-    public function save(): void
+    /**
+     * The confirmation is only a courtesy: anything sent here is validated again by the Action.
+     */
+    public function submit(): void
     {
         if ($this->isSubmitted) {
             return;
         }
 
-        $user = auth()->user();
-
-        $this->validateEmployees($user);
-
-        $this->persistDraft();
-
-        $card = StockCard::where('branch_id', $user->branch_id)
-            ->whereDate('report_date', $this->reportDate)
-            ->first();
-
-        if ($card) {
-            // Snapshot what staff reported now — this is what the Supervisor
-            // will see as the baseline to compare their own correction against.
-            $card->entries()->update(['reported_qty' => DB::raw('actual_qty')]);
-
-            $card->update([
-                'submitted_by' => $user->id,
-                'submitted_at' => now(),
-                'status' => StockCardStatus::PendingSupervisor->value,
-            ]);
-
-            StockCardApproval::create([
-                'stock_card_id' => $card->id,
-                'stage' => 'submitter',
-                'action' => 'submitted',
-                'actor_id' => $user->id,
-                'notes' => null,
-                'revision_number' => $card->revision_number,
-            ]);
-        }
-
-        $this->status = StockCardStatus::PendingSupervisor;
-        $this->isSubmitted = true;
         $this->showConfirm = false;
 
-        // The read-only view right after submit renders from this array, not
-        // a fresh mount()/loadData() — populate it so staff names don't
-        // appear blank until the next full page load.
-        $this->submittedEmployees = Employee::query()
-            ->whereIn('id', $this->employeeIds)
-            ->get()
-            ->map(fn (Employee $employee): array => [
-                'code' => $employee->employee_code,
-                'name' => $employee->name,
-                'position' => $employee->position,
-            ])->all();
+        if (($this->dirtyRowIndexes !== [] || $this->employeesDirty) && ! $this->persistDirtyDraft()) {
+            return;
+        }
 
-        Notification::make()->title('Stock Card berhasil disimpan')->success()->send();
+        try {
+            app(SubmitStockCardAction::class)->execute(auth()->user(), $this->draftDate);
+        } catch (ValidationException $exception) {
+            $errors = $exception->validator->errors();
+
+            if ($errors->has('status')) {
+                $this->handleLockedCard($exception);
+
+                return;
+            }
+
+            if ($errors->has('rows')) {
+                Notification::make()->title('Stock Card belum lengkap')->body($errors->first('rows'))->warning()->send();
+
+                return;
+            }
+
+            throw $exception;
+        } catch (AuthorizationException) {
+            Notification::make()->title('Anda tidak memiliki izin mengirim Stock Card ini')->danger()->send();
+
+            return;
+        } catch (\Throwable $exception) {
+            $this->logFailure('submit', $exception);
+            Notification::make()->title('Stock Card gagal dikirim')->body('Draft tetap tersimpan. Silakan coba lagi.')->danger()->send();
+
+            return;
+        }
+
+        $this->loadData();
+
+        Notification::make()->title('Stock Card berhasil dikirim untuk review')->success()->send();
     }
 }

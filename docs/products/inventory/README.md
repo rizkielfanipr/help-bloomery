@@ -27,6 +27,15 @@ Stock card harian store, penerimaan barang dari Purchase Order ESB beserta QC in
 
 Status: `draft`, `pending_supervisor`, `pending_finance`, `completed`.
 
+**Draft** ([PRD](stock-card-draft-workflow/prd.md)): laporan dapat dicicil dan bersifat bersama untuk satu branch dan tanggal.
+
+- Membuka Stock Card menyiapkan draft dan daftar produk tanpa qty. Draft yang sudah punya daftar produk dilanjutkan tanpa memanggil ESB, dan baris yang sudah ada tidak terhapus walau katalog berubah.
+- Perubahan qty, catatan, dan Staff In Charge tersimpan otomatis per baris yang berubah. Halaman menampilkan **Menyimpan draft…**, **Draft tersimpan pukul HH:mm**, atau **Gagal menyimpan draft — Coba lagi**, dan ada tombol **Simpan Draft**.
+- Qty kosong tersimpan `null` (belum dihitung) dan tampil kosong; `0` hanya berarti stok fisik nol. Qty terisi harus angka minimal 0 dengan maksimal empat desimal.
+- Tile menampilkan **Belum dimulai**, **Draft · x/y item terisi**, **Menunggu review Supervisor**, **Menunggu review Finance**, atau **Selesai**. Kalender menandai draft terpisah dari submitted dan belum submit; riwayat tidak memuat draft.
+- **Kirim untuk Review** mewajibkan semua qty dan minimal satu Staff In Charge aktif dari branch tersebut, memvalidasi ulang di server, lalu dalam satu transaction menyimpan `reported_qty`, pengirim, status `pending_supervisor`, dan satu approval. Setelah itu laporan terkunci bagi staff.
+- Menyimpan dan mengirim draft memerlukan `access employee app stock card` dan `edit stock cards` pada branch user; menyiapkan draft memerlukan `create stock cards`.
+
 **Stock Card Settings** mengatur kategori produk per company code yang ikut stock card. Sumber mapping ESB per branch ditentukan di Master Branch (*Sumber Stock Card & Memo Internal*).
 
 ## Receiving
@@ -77,6 +86,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 |---|---|
 | Back Office | `app/Filament/Helpdesk/Resources/{StockCards,GoodsReceipts,QualityControlItemJournals,Locations,LocationTypes}/`, `app/Filament/Helpdesk/Pages/{StockCardSettingsPage,ProductListPage}.php` |
 | Employee App | `app/Filament/Casual/Pages/{StockCardPage,StockCardEntryPage,StockCardCalendarPage,StockCardHistoryPage,GoodsReceiptPage,ItemJournalPage}.php` |
+| Action | `app/Actions/Inventory/StockCard/` |
 | Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,EsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService,EsbItemJournalService}.php`, `app/Services/Monitoring/EsbTransactionRecorder.php`, `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
 | Policy | `app/Policies/{StockCardPolicy,GoodsReceiptPolicy,QualityControlItemJournalPolicy}.php` |
 | Enum | `app/Enums/StockCardStatus.php` |
@@ -94,6 +104,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | [PRD Receiving Simplification](receiving-simplification/prd.md) | Implemented — UI batch/Detail Batch dan aksi massal; requirement branch/multi-company lama diamendemen |
 | [Receiving Terpusat BLSS](receiving-central-blss/README.md) | In development — kode tanpa mapping branch lokal selesai di PR; menunggu review, UAT staging, dan rollout production |
 | [PRD Item Journal Inventory](item-journal/prd.md) | Implemented — tile mandiri, foto camera-first image-only, dan menu Back Office di Inventory |
+| [Stock Card Draft Workflow](stock-card-draft-workflow/README.md) | In development — kode selesai di PR; menunggu review, CI, dan UAT staging |
 
 Dataset: [development-todo.csv](development-todo.csv).
 

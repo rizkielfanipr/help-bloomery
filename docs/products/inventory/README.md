@@ -27,6 +27,8 @@ Stock card harian store, penerimaan barang dari Purchase Order ESB beserta QC in
 
 Status: `draft`, `pending_supervisor`, `pending_finance`, `completed`.
 
+Planning penyempurnaan draft: [Stock Card Draft Workflow](stock-card-draft-workflow/README.md). Rencana ini mempertahankan qty belum dihitung sebagai `null` (field kosong), nilai `0` hanya untuk stok fisik nol, serta memisahkan **Simpan Draft** dari **Kirim untuk Review**. Belum ada perubahan kode aplikasi pada planning ini.
+
 **Stock Card Settings** mengatur kategori produk per company code yang ikut stock card. Sumber mapping ESB per branch ditentukan di Master Branch (*Sumber Stock Card & Memo Internal*).
 
 ## Receiving
@@ -94,6 +96,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | [PRD Receiving Simplification](receiving-simplification/prd.md) | Implemented — UI batch/Detail Batch dan aksi massal; requirement branch/multi-company lama diamendemen |
 | [Receiving Terpusat BLSS](receiving-central-blss/README.md) | In development — kode tanpa mapping branch lokal selesai di PR; menunggu review, UAT staging, dan rollout production |
 | [PRD Item Journal Inventory](item-journal/prd.md) | Implemented — tile mandiri, foto camera-first image-only, dan menu Back Office di Inventory |
+| [Stock Card Draft Workflow](stock-card-draft-workflow/README.md) | Draft — planning explicit draft, restore nilai terakhir, dan submit atomik |
 
 Dataset: [development-todo.csv](development-todo.csv).
 

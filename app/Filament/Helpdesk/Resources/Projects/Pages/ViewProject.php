@@ -32,8 +32,10 @@ use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\WithFileUploads;
 use Throwable;
 
@@ -76,6 +78,20 @@ class ViewProject extends ViewRecord
     public string $forecastType = 'kitchen';
 
     public string $forecastPercentage = '100';
+
+    /**
+     * Applied menu scope of the Material Forecast; empty means All Menu. The URL can carry anything,
+     * so this is only a request: forecastMenuFilter() resolves it against the Project on every read.
+     *
+     * @var array<int, mixed>
+     */
+    #[Url(as: 'menu_ids', except: [])]
+    public array $forecastMenuIds = [];
+
+    public bool $forecastMenuPickerOpen = false;
+
+    /** @var array<int, mixed> */
+    public array $forecastMenuDraftIds = [];
 
     public array $ccpDocumentUploads = [];
 
@@ -1411,6 +1427,87 @@ class ViewProject extends ViewRecord
         $this->forecastType = $forecastType;
     }
 
+    public function openForecastMenuPicker(): void
+    {
+        abort_unless(auth()->user()?->can('view material forecast'), 403);
+
+        $this->resetValidation('forecastMenuDraftIds');
+        $this->forecastMenuDraftIds = $this->forecastMenuFilter()['applied_ids'];
+        $this->forecastMenuPickerOpen = true;
+    }
+
+    public function closeForecastMenuPicker(): void
+    {
+        abort_unless(auth()->user()?->can('view material forecast'), 403);
+
+        $this->resetValidation('forecastMenuDraftIds');
+        $this->forecastMenuDraftIds = [];
+        $this->forecastMenuPickerOpen = false;
+    }
+
+    public function applyForecastMenus(): void
+    {
+        abort_unless(auth()->user()?->can('view material forecast'), 403);
+
+        $this->resetValidation('forecastMenuDraftIds');
+        $eligibleMenuIds = collect($this->forecastMenuFilter()['options'])->where('is_eligible', true)->pluck('id');
+        $draftIds = collect($this->forecastMenuDraftIds)->map(fn (mixed $id): string => is_scalar($id) ? (string) $id : '');
+        $selectedMenuIds = $eligibleMenuIds->filter(fn (int $id): bool => $draftIds->contains((string) $id))->values()->all();
+        $validator = Validator::make(['forecastMenuDraftIds' => $this->forecastMenuDraftIds], [
+            'forecastMenuDraftIds' => ['array'],
+            'forecastMenuDraftIds.*' => ['integer', Rule::in($eligibleMenuIds->all())],
+        ]);
+
+        if ($validator->fails()) {
+            $this->forecastMenuDraftIds = $selectedMenuIds;
+            $this->addError('forecastMenuDraftIds', 'Sebagian menu tidak lagi tersedia dan sudah dilepas dari pilihan. Periksa kembali lalu terapkan.');
+
+            return;
+        }
+
+        $this->forecastMenuIds = $selectedMenuIds;
+        $this->forecastMenuDraftIds = [];
+        $this->forecastMenuPickerOpen = false;
+    }
+
+    public function resetForecastMenus(): void
+    {
+        abort_unless(auth()->user()?->can('view material forecast'), 403);
+
+        $this->resetValidation('forecastMenuDraftIds');
+        $this->forecastMenuIds = [];
+        $this->forecastMenuDraftIds = [];
+        $this->forecastMenuPickerOpen = false;
+    }
+
+    /**
+     * Resolve the requested menu IDs against the Project's eligible menus. Unknown, foreign, and
+     * no-longer-eligible IDs never reach the calculation; only their count is reported.
+     *
+     * @return array{options: list<array{id: int, name: string, code: ?string, projected_units: float, has_main_recipe: bool, has_menu_bom: bool, is_eligible: bool}>, applied_ids: list<int>, eligible_count: int, discarded_count: int}
+     */
+    public function forecastMenuFilter(): array
+    {
+        abort_unless(auth()->user()?->can('view material forecast'), 403);
+
+        $options = app(RndProjectMaterialForecastService::class)->menuOptions($this->record);
+        $eligibleIds = collect($options)->where('is_eligible', true)->pluck('id');
+        $requestedIds = collect($this->forecastMenuIds)
+            ->map(fn (mixed $id): string => is_scalar($id) ? (string) $id : '')
+            ->unique();
+        $appliedIds = $eligibleIds
+            ->filter(fn (int $id): bool => $requestedIds->contains((string) $id))
+            ->values()
+            ->all();
+
+        return [
+            'options' => $options,
+            'applied_ids' => $appliedIds,
+            'eligible_count' => $eligibleIds->count(),
+            'discarded_count' => $requestedIds->count() - count($appliedIds),
+        ];
+    }
+
     public function saveForecastPercentage(): void
     {
         abort_unless(auth()->user()?->can('edit material forecast'), 403);
@@ -1436,7 +1533,11 @@ class ViewProject extends ViewRecord
     {
         abort_unless(auth()->user()?->can('view material forecast'), 403);
 
-        return app(RndProjectMaterialForecastService::class)->calculate($this->record, $this->forecastType);
+        return app(RndProjectMaterialForecastService::class)->calculate(
+            $this->record,
+            $this->forecastType,
+            $this->forecastMenuFilter()['applied_ids'],
+        );
     }
 
     private function reloadProject(): void

@@ -260,19 +260,48 @@
         @endif
 
         @can('view material forecast')
-            @php $materialForecast = $this->materialForecast(); @endphp
+            @php
+                $materialForecast = $this->materialForecast();
+                $forecastMenuFilter = $this->forecastMenuFilter();
+                $appliedForecastMenuIds = $forecastMenuFilter['applied_ids'];
+                $hasForecastMenuSelection = $appliedForecastMenuIds !== [];
+                $selectedForecastMenus = collect($forecastMenuFilter['options'])->whereIn('id', $appliedForecastMenuIds)->values();
+                $forecastBomLabel = $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe';
+            @endphp
             <section class="overflow-hidden rounded-2xl border border-emerald-200 bg-white dark:border-emerald-900/70 dark:bg-gray-900">
                 <div class="flex flex-wrap gap-2 border-b border-gray-200 bg-white px-5 py-3 dark:border-gray-700 dark:bg-gray-900" role="group" aria-label="Jenis Material Forecast">
-                    <button type="button" wire:click="setForecastType('kitchen')" wire:loading.attr="disabled" wire:target="setForecastType" aria-pressed="{{ $forecastType === 'kitchen' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60', 'bg-emerald-600 text-white' => $forecastType === 'kitchen', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'kitchen'])><x-heroicon-o-building-storefront class="h-4 w-4" />Forecast Kitchen</button>
-                    <button type="button" wire:click="setForecastType('store')" wire:loading.attr="disabled" wire:target="setForecastType" aria-pressed="{{ $forecastType === 'store' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60', 'bg-blue-600 text-white' => $forecastType === 'store', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'store'])><x-heroicon-o-shopping-bag class="h-4 w-4" />Forecast Store</button>
-                    <a href="{{ route('helpdesk.rnd-projects.material-forecast-export', ['project' => $project->id]) }}" class="ml-auto inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                    <button type="button" wire:click="setForecastType('kitchen')" wire:loading.attr="disabled" wire:target="setForecastType,applyForecastMenus,resetForecastMenus" aria-pressed="{{ $forecastType === 'kitchen' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60', 'bg-emerald-600 text-white' => $forecastType === 'kitchen', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'kitchen'])><x-heroicon-o-building-storefront class="h-4 w-4" />Forecast Kitchen</button>
+                    <button type="button" wire:click="setForecastType('store')" wire:loading.attr="disabled" wire:target="setForecastType,applyForecastMenus,resetForecastMenus" aria-pressed="{{ $forecastType === 'store' ? 'true' : 'false' }}" @class(['inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition disabled:cursor-wait disabled:opacity-60', 'bg-blue-600 text-white' => $forecastType === 'store', 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800' => $forecastType !== 'store'])><x-heroicon-o-shopping-bag class="h-4 w-4" />Forecast Store</button>
+                    <a href="{{ route('helpdesk.rnd-projects.material-forecast-export', ['project' => $project->id] + ($hasForecastMenuSelection ? ['menu_ids' => $appliedForecastMenuIds] : [])) }}" class="ml-auto inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
                         <x-heroicon-o-arrow-down-tray class="h-4 w-4" />Export Excel
                     </a>
-                    <span wire:loading.flex wire:target="setForecastType" role="status" class="items-center gap-2 self-center text-xs font-medium text-gray-500">
+                    <span wire:loading.flex wire:target="setForecastType,applyForecastMenus,resetForecastMenus" role="status" class="items-center gap-2 self-center text-xs font-medium text-gray-500">
                         <x-filament::loading-indicator class="h-4 w-4" />
                         Menghitung forecast…
                     </span>
                 </div>
+                <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-5 py-3 dark:border-gray-700 dark:bg-gray-900" role="group" aria-label="Filter menu Material Forecast">
+                    <span class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Menu Projection</span>
+                    <button type="button" wire:key="forecast-menu-picker-trigger" wire:click="openForecastMenuPicker" wire:loading.attr="disabled" wire:target="openForecastMenuPicker" aria-haspopup="dialog" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50 disabled:cursor-wait disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                        <x-heroicon-o-funnel class="h-4 w-4" />
+                        {{ $hasForecastMenuSelection ? count($appliedForecastMenuIds).' dari '.$forecastMenuFilter['eligible_count'].' menu dipilih' : 'All Menu' }}
+                    </button>
+                    @if($hasForecastMenuSelection)
+                        @foreach($selectedForecastMenus->take(3) as $selectedForecastMenu)
+                            <span wire:key="forecast-menu-chip-{{ $selectedForecastMenu['id'] }}" title="{{ $selectedForecastMenu['name'] }}" class="max-w-full truncate rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 sm:max-w-xs dark:bg-emerald-950/40 dark:text-emerald-300">{{ $selectedForecastMenu['name'] }}</span>
+                        @endforeach
+                        @if($selectedForecastMenus->count() > 3)
+                            <span class="text-xs font-medium text-gray-500">+{{ $selectedForecastMenus->count() - 3 }} menu lainnya</span>
+                        @endif
+                        <button type="button" wire:click="resetForecastMenus" wire:loading.attr="disabled" wire:target="resetForecastMenus" class="text-xs font-bold text-blue-600 hover:text-blue-700 disabled:opacity-60 dark:text-blue-400">Kembali ke All Menu</button>
+                    @endif
+                </div>
+                @if($forecastMenuFilter['discarded_count'] > 0)
+                    <div class="flex items-start gap-3 border-b border-amber-200 bg-amber-50 px-5 py-3 text-xs leading-5 text-amber-800 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-200" role="status">
+                        <x-heroicon-o-exclamation-triangle class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                        <p>{{ $forecastMenuFilter['discarded_count'] }} pilihan menu tidak lagi tersedia pada Project ini sehingga tidak dihitung. {{ $hasForecastMenuSelection ? 'Hasil memakai menu terpilih yang masih valid.' : 'Hasil kembali memakai All Menu.' }} Buka Menu Projection untuk memilih ulang.</p>
+                    </div>
+                @endif
                 <div class="border-b border-emerald-200 bg-emerald-50/70 p-5 dark:border-emerald-900/70 dark:bg-emerald-950/20">
                     <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
                         <div class="flex items-start gap-3">
@@ -282,15 +311,15 @@
                             <div>
                                 <p class="text-xs font-bold uppercase tracking-wider text-emerald-600">Purchasing Preparation</p>
                                 <h3 class="mt-1 text-xl font-bold text-gray-900 dark:text-white">Material Forecast · {{ $forecastType === 'store' ? 'Store' : 'Kitchen' }}</h3>
-                                <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">Perkiraan total bahan baku yang perlu disiapkan Purchasing berdasarkan proyeksi penjualan seluruh produk dalam project dan {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}.</p>
+                                <p class="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">Perkiraan total bahan baku yang perlu disiapkan Purchasing berdasarkan proyeksi penjualan {{ $hasForecastMenuSelection ? count($appliedForecastMenuIds).' menu terpilih' : 'seluruh menu dalam project' }} dan {{ $forecastBomLabel }}. Seluruh bulan, region, channel, dan branch projection tetap dijumlahkan.</p>
                                 <div class="mt-3 inline-flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-gray-900 dark:text-emerald-200">
                                     <x-heroicon-o-variable class="h-4 w-4 shrink-0" />
                                     <span><strong>Rumus:</strong> Sales Projection × Qty {{ $forecastType === 'store' ? 'BOM Menu. Komponen ditampilkan langsung tanpa menguraikan WIP.' : 'Main Recipe + Tolerance bahan. WIP dihitung proporsional: kebutuhan WIP ÷ hasil per resep × bahan resep.' }}</span>
                                 </div>
                                 <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $forecastType === 'store' ? 'Forecast berhenti pada komponen langsung BOM Menu. WIP tetap ditampilkan sebagai WIP dan tidak dibuka menjadi bahan resep.' : 'Component dan WIP ditelusuri sampai bahan baku terakhir.' }} Bahan dengan kode dan unit yang sama otomatis dijumlahkan. {{ $forecastType === 'store' ? 'Jika satu produk memiliki beberapa BOM Menu, setiap BOM Menu dihitung memakai seluruh proyeksi produk tersebut.' : '' }}</p>
                                 <div class="mt-3 rounded-lg border border-dashed border-emerald-300 bg-emerald-50/60 px-3 py-2.5 text-xs leading-5 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-100">
-                                    <p class="font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Perhitungan Project Ini</p>
-                                    <p class="mt-1">Sales Projection {{ number_format($materialForecast['projected_units'], 2, ',', '.') }} unit × Persentase Forecast {{ number_format($materialForecast['forecast_percentage'], 2, ',', '.') }}% = <strong>{{ number_format($materialForecast['effective_projected_units'], 2, ',', '.') }} unit forecast efektif</strong> yang dipakai pada rumus di atas untuk seluruh {{ $materialForecast['projected_products'] }} menu yang punya {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }}.</p>
+                                    <p class="font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">{{ $hasForecastMenuSelection ? 'Perhitungan Menu Terpilih' : 'Perhitungan Project Ini' }}</p>
+                                    <p class="mt-1">Sales Projection {{ number_format($materialForecast['projected_units'], 2, ',', '.') }} unit × Persentase Forecast {{ number_format($materialForecast['forecast_percentage'], 2, ',', '.') }}% = <strong>{{ number_format($materialForecast['effective_projected_units'], 2, ',', '.') }} unit forecast efektif</strong> yang dipakai pada rumus di atas untuk {{ $hasForecastMenuSelection ? '' : 'seluruh ' }}{{ $materialForecast['projected_products'] }} menu yang punya {{ $forecastBomLabel }}.</p>
                                     @if($materialForecast['recipe_notes'] !== [])
                                         <p class="mt-2 font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Resep WIP Bersama (Proporsional)</p>
                                         <ul class="mt-1 space-y-1.5">
@@ -324,7 +353,7 @@
                                     <x-heroicon-o-chart-bar class="h-5 w-5" />
                                 </div>
                                 <div class="min-w-0">
-                                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">Sales Projection Project</p>
+                                    <p class="text-[10px] font-bold uppercase tracking-wide text-gray-400">{{ $hasForecastMenuSelection ? 'Sales Projection Menu Terpilih' : 'Sales Projection Project' }}</p>
                                     <div class="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                                         <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ number_format($materialForecast['projected_units'], 0, ',', '.') }}</p>
                                         <p class="text-xs font-medium text-gray-500">unit dari {{ number_format($materialForecast['projection_products']) }} menu</p>
@@ -410,12 +439,80 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="px-5 py-10 text-center text-gray-500">Belum ada forecast. Isi Sales Projection dan {{ $forecastType === 'store' ? 'BOM Menu' : 'Main Recipe' }} pada produk project ini.</td></tr>
+                                <tr><td colspan="6" class="px-5 py-10 text-center text-gray-500">
+                                    @if($materialForecast['projection_products'] > 0)
+                                        Belum ada kebutuhan material. {{ $hasForecastMenuSelection ? 'Menu terpilih' : 'Menu berprojection' }} belum memiliki {{ $forecastBomLabel }} yang dapat dihitung.
+                                    @else
+                                        Belum ada forecast. Isi Sales Projection dan {{ $forecastBomLabel }} pada produk project ini.
+                                    @endif
+                                </td></tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
             </section>
+            @if($forecastMenuPickerOpen)
+                <div wire:key="forecast-menu-picker-modal" class="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="Pilih Menu Projection"
+                     x-data="{
+                        search: '',
+                        labels: @js(collect($forecastMenuFilter['options'])->mapWithKeys(fn (array $option): array => [$option['id'] => mb_strtolower($option['name'].' '.($option['code'] ?? ''))])),
+                        matches(id) { return this.labels[id].includes(this.search.trim().toLowerCase()) },
+                        get hasMatches() { return Object.keys(this.labels).some((id) => this.matches(id)) },
+                     }"
+                     x-trap.inert.noscroll="true"
+                     x-on:keydown.escape.window="$wire.closeForecastMenuPicker()">
+                    <button type="button" wire:click="closeForecastMenuPicker" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup pilih menu"></button>
+                    <x-rnd.picker-modal title="Pilih Menu Projection" description="Hasil Kitchen, Store, dan Excel hanya dihitung dari menu terpilih setelah Terapkan. Seluruh bulan, region, channel, dan branch projection menu tetap dijumlahkan.">
+                        <x-slot:close>
+                            <button type="button" wire:click="closeForecastMenuPicker" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Tutup"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
+                        </x-slot:close>
+                        <div class="border-b border-gray-200 p-4 dark:border-gray-700">
+                            <input x-model="search" autofocus type="search" placeholder="Cari nama atau kode menu..." aria-label="Cari nama atau kode menu" class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                            @error('forecastMenuDraftIds')<p class="mt-2 text-xs font-medium text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-4">
+                            @forelse($forecastMenuFilter['options'] as $option)
+                                <label wire:key="forecast-menu-option-{{ $option['id'] }}" x-show="matches({{ $option['id'] }})" @class([
+                                    'flex items-start gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-700',
+                                    'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' => $option['is_eligible'],
+                                    'cursor-not-allowed bg-gray-50 dark:bg-gray-800/50' => ! $option['is_eligible'],
+                                ])>
+                                    <input wire:model="forecastMenuDraftIds" type="checkbox" value="{{ $option['id'] }}" @disabled(! $option['is_eligible']) class="mt-1 rounded border-gray-300 text-blue-600 disabled:opacity-50">
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block break-words font-bold text-gray-900 dark:text-white">{{ $option['name'] }}</span>
+                                        @if(filled($option['code']))<span class="block break-all font-mono text-xs text-gray-500">{{ $option['code'] }}</span>@endif
+                                        <span class="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-bold">
+                                            <span @class(['rounded-full px-2 py-0.5', 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300' => $option['has_main_recipe'], 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' => ! $option['has_main_recipe']])>{{ $option['has_main_recipe'] ? 'Main Recipe tersedia' : 'Belum ada Main Recipe' }}</span>
+                                            <span @class(['rounded-full px-2 py-0.5', 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' => $option['has_menu_bom'], 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' => ! $option['has_menu_bom']])>{{ $option['has_menu_bom'] ? 'BOM Menu tersedia' : 'Belum ada BOM Menu' }}</span>
+                                        </span>
+                                    </span>
+                                    <span class="shrink-0 text-right">
+                                        @if($option['is_eligible'])
+                                            <span class="block text-sm font-bold text-gray-900 dark:text-white">{{ number_format($option['projected_units'], 0, ',', '.') }}</span>
+                                            <span class="block text-[10px] text-gray-500">unit projection</span>
+                                        @else
+                                            <span class="block max-w-[7.5rem] text-xs font-semibold text-gray-500 dark:text-gray-400">Belum memiliki Sales Projection</span>
+                                        @endif
+                                    </span>
+                                </label>
+                            @empty
+                                <p class="py-10 text-center text-sm text-gray-500">Project ini belum memiliki menu.</p>
+                            @endforelse
+                            @if($forecastMenuFilter['options'] !== [])
+                                <p x-show="! hasMatches" x-cloak class="py-10 text-center text-sm text-gray-500">Tidak ada menu yang sesuai pencarian.</p>
+                            @endif
+                        </div>
+                        <div class="flex flex-col gap-3 border-t border-gray-200 p-4 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
+                            <span class="text-sm text-gray-500"><span x-text="$wire.forecastMenuDraftIds.length">{{ count($forecastMenuDraftIds) }}</span> menu dipilih</span>
+                            <div class="flex flex-wrap gap-2 sm:justify-end">
+                                <button type="button" wire:click="resetForecastMenus" wire:loading.attr="disabled" wire:target="resetForecastMenus,applyForecastMenus" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">All Menu</button>
+                                <button type="button" wire:click="closeForecastMenuPicker" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800">Batal</button>
+                                <button type="button" wire:click="applyForecastMenus" wire:loading.attr="disabled" wire:target="resetForecastMenus,applyForecastMenus" x-bind:disabled="$wire.forecastMenuDraftIds.length === 0" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">Terapkan</button>
+                            </div>
+                        </div>
+                    </x-rnd.picker-modal>
+                </div>
+            @endif
         @endcan
 
         <div>

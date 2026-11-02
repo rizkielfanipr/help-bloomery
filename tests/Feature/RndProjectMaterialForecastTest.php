@@ -10,6 +10,8 @@ use App\Services\EsbService;
 use App\Services\RndProjectMaterialForecastService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use Livewire\Livewire;
 use OpenSpout\Reader\XLSX\Reader;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -834,4 +836,592 @@ it('hides the material forecast section from a BOM viewer without view material 
         ->assertDontSee('Purchasing Preparation')
         ->call('setForecastType', 'store')
         ->assertForbidden();
+});
+
+/**
+ * Project at 50% with Alpha (two regions, two channels), Beta (shares a material with Alpha and has
+ * an unresolved WIP), Gamma (BOM but no projection), and Delta (projection but no BOM).
+ *
+ * @return array{project: RndProject, alpha: int, beta: int, gamma: int, delta: int}
+ */
+function createMenuScopedForecastProject(User $user, string $name = 'Menu Scope Forecast', int $esbBomIdBase = 9600): array
+{
+    $core = Mockery::mock(EsbBillOfMaterialService::class);
+    $core->shouldReceive('getBillOfMaterials')->andReturn(['data' => []]);
+    app()->instance(EsbBillOfMaterialService::class, $core);
+    config()->set('cache.default', 'array');
+
+    $project = RndProject::query()->create([
+        'name' => $name,
+        'start_date' => '2026-09-01',
+        'end_date' => '2026-12-31',
+        'forecast_percentage' => 50,
+        'created_by' => $user->id,
+    ]);
+    $regions = collect(['A', 'B'])->map(fn (string $suffix) => SalesRegion::query()->create([
+        'name' => "$name Region $suffix",
+        'code' => substr(md5($name), 0, 8).$suffix,
+        'is_active' => true,
+        'sort_order' => 7,
+    ]));
+    $menus = [];
+
+    foreach (['Alpha', 'Beta', 'Gamma', 'Delta'] as $index => $menuName) {
+        $menus[strtolower($menuName)] = $project->products()->create([
+            'name' => "$menuName Scope Menu",
+            'product_code' => "MENU-$menuName-$esbBomIdBase",
+            'status' => 'development',
+            'created_by' => $user->id,
+        ]);
+        DB::table('rnd_project_products')->where('id', $menus[strtolower($menuName)]->id)->update(['updated_at' => now()->subMinutes($index)]);
+    }
+
+    foreach ([
+        ['alpha', 0, '2026-11-01', 'offline', 10],
+        ['alpha', 1, '2026-12-01', 'online', 30],
+        ['beta', 0, '2026-11-01', 'all', 20],
+        ['delta', 0, '2026-11-01', 'all', 10],
+    ] as [$menu, $region, $month, $channel, $quantity]) {
+        $menus[$menu]->salesProjections()->create([
+            'sales_region_id' => $regions[$region]->id,
+            'projection_month' => $month,
+            'channel' => $channel,
+            'target_quantity' => $quantity,
+            'target_revenue' => 1000000,
+            'created_by' => $user->id,
+        ]);
+    }
+
+    $attach = function (string $menu, string $usageType, string $bomName, array $snapshot) use (&$esbBomIdBase, $menus, $project, $user): void {
+        $bom = $project->boms()->create([
+            'esb_bom_id' => $esbBomIdBase++,
+            'bom_name' => $bomName,
+            'detail_snapshot' => $snapshot,
+            'created_by' => $user->id,
+        ]);
+        $menus[$menu]->boms()->attach($bom->id, ['usage_type' => $usageType]);
+    };
+
+    $attach('alpha', 'main', 'Alpha Mix', [
+        'productCode' => 'BW-ALPHA',
+        'convertionQty' => 100,
+        'bomDetails' => [
+            ['productCode' => 'RAW-SHARED', 'productName' => 'Bahan Bersama', 'uomName' => 'GR', 'qty' => 10],
+            ['productCode' => 'RAW-ALPHA', 'productName' => 'Bahan Alpha', 'uomName' => 'GR', 'qty' => 5],
+        ],
+    ]);
+    $attach('alpha', 'menu', 'Alpha BOM Menu', ['bomDetails' => [
+        ['productCode' => 'BW-ALPHA', 'productName' => 'Alpha Mix', 'uomName' => 'GR', 'qty' => 10],
+    ]]);
+    $attach('beta', 'main', 'Beta Main', ['bomDetails' => [
+        ['productCode' => 'RAW-SHARED', 'productName' => 'Bahan Bersama', 'uomName' => 'GR', 'qty' => 3],
+        ['productCode' => 'RAW-BETA', 'productName' => 'Bahan Beta', 'uomName' => 'GR', 'qty' => 1],
+        ['productCode' => 'BW-MISSING', 'productName' => 'WIP Hilang', 'categoryName' => 'Barang WIP', 'uomName' => 'GR', 'qty' => 1],
+    ]]);
+    $attach('beta', 'menu', 'Beta BOM Menu', ['bomDetails' => [
+        ['productCode' => 'RAW-CUP', 'productName' => 'Cup', 'uomName' => 'PCS', 'qty' => 1],
+    ]]);
+    $attach('gamma', 'main', 'Gamma Main', ['bomDetails' => [
+        ['productCode' => 'RAW-GAMMA', 'productName' => 'Bahan Gamma', 'uomName' => 'GR', 'qty' => 1],
+    ]]);
+
+    $project->load(['products.boms.documentMaterials', 'products.salesProjections', 'boms.documentMaterials']);
+
+    return [
+        'project' => $project,
+        'alpha' => $menus['alpha']->id,
+        'beta' => $menus['beta']->id,
+        'gamma' => $menus['gamma']->id,
+        'delta' => $menus['delta']->id,
+    ];
+}
+
+function actingAsForecastUser(array $permissions = ['view material forecast']): User
+{
+    test()->seed(RolesAndPermissionsSeeder::class);
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    $user = User::factory()->create(['is_active' => true]);
+    $user->givePermissionTo(['access backoffice', 'view rnd projects', 'view bill of materials', ...$permissions]);
+    test()->actingAs($user);
+
+    return $user;
+}
+
+/** @return array<string, list<array<int, mixed>>> */
+function readForecastWorkbook(TestResponse $response): array
+{
+    $reader = new Reader;
+    $reader->open($response->baseResponse->getFile()->getPathname());
+    $sheets = [];
+    foreach ($reader->getSheetIterator() as $sheet) {
+        $sheets[$sheet->getName()] = array_values(collect(iterator_to_array($sheet->getRowIterator()))
+            ->map(fn ($row): array => $row->toArray())
+            ->all());
+    }
+    $reader->close();
+
+    return $sheets;
+}
+
+/** @param list<array<int, mixed>> $rows */
+function forecastSheetRow(array $rows, string $label): ?array
+{
+    return collect($rows)->first(fn (array $row): bool => ($row[0] ?? null) === $label);
+}
+
+it('keeps the exact All Menu result for missing, null, and empty menu selections', function () {
+    $scope = createMenuScopedForecastProject(User::factory()->create());
+    $service = app(RndProjectMaterialForecastService::class);
+
+    $kitchen = $service->calculate($scope['project']);
+    $store = $service->calculate($scope['project'], 'store');
+
+    expect($kitchen['projected_units'])->toBe(70.0)
+        ->and($kitchen['effective_projected_units'])->toBe(35.0)
+        ->and($kitchen['projection_products'])->toBe(3)
+        ->and($kitchen['projected_products'])->toBe(2)
+        ->and(collect($kitchen['rows'])->map(fn (array $row): array => [$row['code'], $row['quantity'], $row['product_count']])->all())->toBe([
+            ['RAW-SHARED', 50.0, 2],
+            ['RAW-ALPHA', 10.0, 1],
+            ['RAW-BETA', 10.0, 1],
+        ])
+        ->and($kitchen['warnings'])->toHaveCount(1)
+        ->and($kitchen['recipe_notes'])->toHaveCount(1)
+        ->and(collect($store['rows'])->map(fn (array $row): array => [$row['code'], $row['quantity'], $row['product_count']])->all())->toBe([
+            ['BW-ALPHA', 200.0, 1],
+            ['RAW-CUP', 10.0, 1],
+        ])
+        ->and($service->calculate($scope['project'], 'kitchen', null))->toBe($kitchen)
+        ->and($service->calculate($scope['project'], 'kitchen', []))->toBe($kitchen)
+        ->and($service->calculate($scope['project'], 'store', []))->toBe($store);
+});
+
+it('limits every forecast output to a single selected menu', function () {
+    $scope = createMenuScopedForecastProject(User::factory()->create());
+    $service = app(RndProjectMaterialForecastService::class);
+
+    $beta = $service->calculate($scope['project'], 'kitchen', [$scope['beta']]);
+    $alpha = $service->calculate($scope['project'], 'kitchen', [$scope['alpha']]);
+
+    expect($beta['projected_units'])->toBe(20.0)
+        ->and($beta['effective_projected_units'])->toBe(10.0)
+        ->and($beta['projection_products'])->toBe(1)
+        ->and($beta['projected_products'])->toBe(1)
+        ->and(collect($beta['projection_details'])->pluck('name')->all())->toBe(['Beta Scope Menu'])
+        ->and(collect($beta['rows'])->map(fn (array $row): array => [$row['code'], $row['quantity'], $row['product_count']])->all())->toBe([
+            ['RAW-SHARED', 30.0, 1],
+            ['RAW-BETA', 10.0, 1],
+        ])
+        ->and($beta['warnings'])->toHaveCount(1)
+        ->and($beta['warnings'][0])->toContain('BW-MISSING')
+        ->and($beta['recipe_notes'])->toBe([])
+        ->and($alpha['warnings'])->toBe([])
+        ->and($alpha['recipe_notes'])->toHaveCount(1)
+        ->and(collect($alpha['rows'])->pluck('code')->all())->not->toContain('RAW-BETA');
+});
+
+it('sums every month, region, and channel of the selected menus and applies the global percentage', function () {
+    $scope = createMenuScopedForecastProject(User::factory()->create());
+
+    $forecast = app(RndProjectMaterialForecastService::class)
+        ->calculate($scope['project'], 'kitchen', [$scope['alpha'], $scope['beta']]);
+
+    expect($forecast['projected_units'])->toBe(60.0)
+        ->and($forecast['effective_projected_units'])->toBe(30.0)
+        ->and($forecast['forecast_percentage'])->toBe(50.0)
+        ->and($forecast['projection_products'])->toBe(2)
+        ->and(collect($forecast['projection_details'])->firstWhere('name', 'Alpha Scope Menu')['quantity'])->toBe(40.0)
+        ->and(collect($forecast['rows'])->firstWhere('code', 'RAW-SHARED')['quantity'])->toBe(50.0)
+        ->and(collect($forecast['rows'])->firstWhere('code', 'RAW-SHARED')['product_count'])->toBe(2);
+});
+
+it('never calculates a menu without projection or a menu of another project', function () {
+    $user = User::factory()->create();
+    $scope = createMenuScopedForecastProject($user);
+    $otherScope = createMenuScopedForecastProject($user, 'Other Scope Forecast', 9700);
+    $service = app(RndProjectMaterialForecastService::class);
+
+    $noProjection = $service->calculate($scope['project'], 'kitchen', [$scope['gamma']]);
+    $foreign = $service->calculate($scope['project'], 'kitchen', [$otherScope['alpha']]);
+
+    expect($noProjection['rows'])->toBe([])
+        ->and($noProjection['projection_products'])->toBe(0)
+        ->and($foreign['rows'])->toBe([])
+        ->and($foreign['projected_units'])->toBe(0.0)
+        ->and(collect($service->menuOptions($scope['project']))->where('is_eligible', true)->pluck('id')->sort()->values()->all())
+        ->toBe(collect([$scope['alpha'], $scope['beta'], $scope['delta']])->sort()->values()->all());
+});
+
+it('adds no query when calculating a menu selection on an eager loaded project', function () {
+    $scope = createMenuScopedForecastProject(User::factory()->create());
+    $service = app(RndProjectMaterialForecastService::class);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $service->menuOptions($scope['project']);
+    $service->calculate($scope['project']);
+    $service->calculate($scope['project'], 'kitchen', [$scope['alpha']]);
+    $service->calculate($scope['project'], 'store', [$scope['alpha'], $scope['beta']]);
+    $queries = DB::getQueryLog();
+    DB::disableQueryLog();
+
+    expect($queries)->toBe([]);
+});
+
+it('opens with All Menu and applies a draft selection only after Terapkan', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    $page = Livewire::test(ViewProject::class, ['record' => $scope['project']->id])
+        ->assertSet('forecastMenuIds', [])
+        ->assertSee('All Menu')
+        ->assertSee('Sales Projection Project')
+        ->assertSee('RAW-BETA')
+        ->assertDontSee('Terapkan');
+
+    $page->call('openForecastMenuPicker')
+        ->assertSet('forecastMenuPickerOpen', true)
+        ->assertSee('Belum memiliki Sales Projection')
+        ->assertSee('Main Recipe tersedia')
+        ->assertSee('Belum ada BOM Menu')
+        ->assertSee('MENU-Gamma-9600')
+        ->set('forecastMenuDraftIds', [(string) $scope['beta']])
+        ->assertSet('forecastMenuIds', [])
+        ->assertSee('RAW-ALPHA');
+
+    expect($page->instance()->materialForecast()['projected_units'])->toBe(70.0);
+
+    $page->call('applyForecastMenus')
+        ->assertHasNoErrors()
+        ->assertSet('forecastMenuPickerOpen', false)
+        ->assertSet('forecastMenuIds', [$scope['beta']])
+        ->assertSee('1 dari 3 menu dipilih')
+        ->assertSee('Sales Projection Menu Terpilih')
+        ->assertSee('RAW-BETA')
+        ->assertDontSee('RAW-ALPHA');
+
+    expect($page->instance()->materialForecast()['projected_units'])->toBe(20.0);
+});
+
+it('discards the draft on cancel and returns to All Menu with one action', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    $page = Livewire::test(ViewProject::class, ['record' => $scope['project']->id])
+        ->call('openForecastMenuPicker')
+        ->set('forecastMenuDraftIds', [$scope['alpha']])
+        ->call('closeForecastMenuPicker')
+        ->assertSet('forecastMenuPickerOpen', false)
+        ->assertSet('forecastMenuDraftIds', [])
+        ->assertSet('forecastMenuIds', []);
+
+    $page->call('openForecastMenuPicker')
+        ->set('forecastMenuDraftIds', [$scope['alpha'], $scope['beta']])
+        ->call('applyForecastMenus')
+        ->assertSee('2 dari 3 menu dipilih')
+        ->call('openForecastMenuPicker')
+        ->assertSet('forecastMenuDraftIds', [$scope['alpha'], $scope['beta']])
+        ->set('forecastMenuDraftIds', [$scope['beta']])
+        ->call('closeForecastMenuPicker')
+        ->assertSee('2 dari 3 menu dipilih')
+        ->call('resetForecastMenus')
+        ->assertSet('forecastMenuIds', [])
+        ->assertSee('Sales Projection Project');
+
+    expect($page->instance()->materialForecast()['projected_units'])->toBe(70.0);
+});
+
+it('keeps the applied menus when switching between Kitchen and Store', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    $page = Livewire::test(ViewProject::class, ['record' => $scope['project']->id])
+        ->call('openForecastMenuPicker')
+        ->set('forecastMenuDraftIds', [$scope['beta']])
+        ->call('applyForecastMenus')
+        ->call('setForecastType', 'store')
+        ->assertSet('forecastMenuIds', [$scope['beta']])
+        ->assertSee('RAW-CUP')
+        ->assertDontSee('BW-ALPHA');
+
+    expect($page->instance()->materialForecast()['projection_products'])->toBe(1);
+
+    $page->call('setForecastType', 'kitchen')
+        ->assertSet('forecastMenuIds', [$scope['beta']])
+        ->assertSee('RAW-BETA')
+        ->assertDontSee('RAW-ALPHA');
+});
+
+it('restores the applied menus from the URL and points the export at the applied state', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+    $expectedExportUrl = route('helpdesk.rnd-projects.material-forecast-export', [
+        'project' => $scope['project']->id,
+        'menu_ids' => [$scope['beta']],
+    ]);
+
+    $page = Livewire::withQueryParams(['menu_ids' => [(string) $scope['beta']]])
+        ->test(ViewProject::class, ['record' => $scope['project']->id])
+        ->assertSee('1 dari 3 menu dipilih')
+        ->assertSeeHtml(e($expectedExportUrl));
+
+    expect($page->instance()->materialForecast()['projected_units'])->toBe(20.0);
+
+    $page->call('openForecastMenuPicker')
+        ->set('forecastMenuDraftIds', [$scope['alpha']])
+        ->assertSeeHtml(e($expectedExportUrl));
+});
+
+it('links the export without a menu scope while All Menu is active', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    Livewire::test(ViewProject::class, ['record' => $scope['project']->id])
+        ->assertSeeHtml('href="'.route('helpdesk.rnd-projects.material-forecast-export', ['project' => $scope['project']->id]).'"');
+});
+
+it('discards stale, foreign, and malformed URL selections without leaking other projects', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+    $otherScope = createMenuScopedForecastProject($user, 'Secret Scope Forecast', 9700);
+
+    $partial = Livewire::withQueryParams(['menu_ids' => [$scope['beta'], $scope['gamma'], $otherScope['alpha'], 'abc']])
+        ->test(ViewProject::class, ['record' => $scope['project']->id])
+        ->assertSee('3 pilihan menu tidak lagi tersedia')
+        ->assertSee('Hasil memakai menu terpilih yang masih valid.')
+        ->assertSee('1 dari 3 menu dipilih')
+        ->assertDontSee('Secret Scope Forecast');
+
+    expect($partial->instance()->forecastMenuFilter()['applied_ids'])->toBe([$scope['beta']])
+        ->and($partial->instance()->materialForecast()['projected_units'])->toBe(20.0);
+
+    $allStale = Livewire::withQueryParams(['menu_ids' => [$otherScope['alpha']]])
+        ->test(ViewProject::class, ['record' => $scope['project']->id])
+        ->assertSee('Hasil kembali memakai All Menu.')
+        ->assertSeeHtml('href="'.route('helpdesk.rnd-projects.material-forecast-export', ['project' => $scope['project']->id]).'"');
+
+    expect($allStale->instance()->materialForecast()['projected_units'])->toBe(70.0);
+
+    $wrongType = Livewire::withQueryParams(['menu_ids' => 'abc'])
+        ->test(ViewProject::class, ['record' => $scope['project']->id])
+        ->assertSet('forecastMenuIds', []);
+
+    expect($wrongType->instance()->materialForecast()['projected_units'])->toBe(70.0);
+});
+
+it('marks a selection stale when its menu loses the projection after being applied', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    $page = Livewire::test(ViewProject::class, ['record' => $scope['project']->id])
+        ->call('openForecastMenuPicker')
+        ->set('forecastMenuDraftIds', [$scope['alpha'], $scope['beta']])
+        ->call('applyForecastMenus');
+
+    RndProductSalesProjection::query()->where('rnd_project_product_id', $scope['beta'])->delete();
+
+    $page->call('$refresh')
+        ->assertSee('1 pilihan menu tidak lagi tersedia');
+
+    expect($page->instance()->forecastMenuFilter()['applied_ids'])->toBe([$scope['alpha']]);
+});
+
+it('rejects draft menus that are not eligible and keeps the picker open', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+    $otherScope = createMenuScopedForecastProject($user, 'Other Draft Forecast', 9700);
+
+    foreach ([$scope['gamma'], $otherScope['alpha'], 'abc'] as $invalidId) {
+        Livewire::test(ViewProject::class, ['record' => $scope['project']->id])
+            ->call('openForecastMenuPicker')
+            ->set('forecastMenuDraftIds', [$scope['beta'], $invalidId])
+            ->call('applyForecastMenus')
+            ->assertHasErrors('forecastMenuDraftIds')
+            ->assertSet('forecastMenuPickerOpen', true)
+            ->assertSet('forecastMenuDraftIds', [$scope['beta']])
+            ->assertSet('forecastMenuIds', []);
+    }
+});
+
+it('treats applying an empty draft as All Menu', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    Livewire::withQueryParams(['menu_ids' => [$scope['beta']]])
+        ->test(ViewProject::class, ['record' => $scope['project']->id])
+        ->call('openForecastMenuPicker')
+        ->set('forecastMenuDraftIds', [])
+        ->call('applyForecastMenus')
+        ->assertHasNoErrors()
+        ->assertSet('forecastMenuIds', [])
+        ->assertSee('Sales Projection Project');
+});
+
+it('distinguishes the empty states of the forecast table', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    Livewire::withQueryParams(['menu_ids' => [$scope['delta']]])
+        ->test(ViewProject::class, ['record' => $scope['project']->id])
+        ->assertSee('Menu terpilih belum memiliki Main Recipe yang dapat dihitung.')
+        ->assertDontSee('Belum ada forecast.');
+});
+
+it('does not change business data when filtering and lets a viewer filter without edit permission', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+    $snapshot = fn (): array => [
+        RndProject::query()->findOrFail($scope['project']->id)->getAttributes(),
+        RndProductSalesProjection::query()->orderBy('id')->get()->map->getAttributes()->all(),
+        DB::table('rnd_project_products')->orderBy('id')->get()->all(),
+        DB::table('rnd_project_boms')->orderBy('id')->get()->all(),
+    ];
+    $before = $snapshot();
+
+    Livewire::test(ViewProject::class, ['record' => $scope['project']->id])
+        ->call('openForecastMenuPicker')
+        ->set('forecastMenuDraftIds', [$scope['beta']])
+        ->call('applyForecastMenus')
+        ->assertHasNoErrors()
+        ->call('resetForecastMenus')
+        ->assertHasNoErrors();
+
+    expect($snapshot())->toEqual($before);
+});
+
+it('forbids every filter action without view material forecast', function (string $method) {
+    $user = actingAsForecastUser([]);
+    $scope = createMenuScopedForecastProject($user);
+
+    Livewire::test(ViewProject::class, ['record' => $scope['project']->id])
+        ->assertDontSee('Menu Projection')
+        ->call($method)
+        ->assertForbidden();
+})->with(['openForecastMenuPicker', 'closeForecastMenuPicker', 'applyForecastMenus', 'resetForecastMenus', 'forecastMenuFilter']);
+
+it('does not add page queries when a menu selection is applied', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+    $countQueries = function (array $queryParams) use ($scope): int {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        Livewire::withQueryParams($queryParams)->test(ViewProject::class, ['record' => $scope['project']->id]);
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $count;
+    };
+
+    $countQueries([]);
+    $allMenuQueries = $countQueries([]);
+
+    expect($countQueries(['menu_ids' => [$scope['alpha'], $scope['beta']]]))->toBeLessThanOrEqual($allMenuQueries);
+});
+
+it('exports All Menu with scope metadata when no menu parameter is present', function (array $query) {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    $response = $this->get(route('helpdesk.rnd-projects.material-forecast-export', ['project' => $scope['project']->id, ...$query]));
+
+    $response->assertOk();
+    $sheets = readForecastWorkbook($response);
+
+    expect(forecastSheetRow($sheets['Kitchen'], 'Scope Menu'))->toBe(['Scope Menu', 'All Menu'])
+        ->and(forecastSheetRow($sheets['Store'], 'Scope Menu'))->toBe(['Scope Menu', 'All Menu'])
+        ->and(forecastSheetRow($sheets['Kitchen'], 'Total Sales Projection')[1])->toEqual(70)
+        ->and(forecastSheetRow($sheets['Kitchen'], 'RAW-ALPHA'))->not->toBeNull()
+        ->and(forecastSheetRow($sheets['Kitchen'], 'RAW-BETA'))->not->toBeNull();
+})->with([
+    'no parameter' => [[]],
+    'empty parameter' => [['menu_ids' => '']],
+]);
+
+it('exports the selected menus on both sheets with the same totals as the page', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+
+    $response = $this->get(route('helpdesk.rnd-projects.material-forecast-export', [
+        'project' => $scope['project']->id,
+        'menu_ids' => [$scope['beta'], $scope['beta']],
+    ]));
+
+    $response->assertOk();
+    $sheets = readForecastWorkbook($response);
+    $service = app(RndProjectMaterialForecastService::class);
+
+    expect(array_keys($sheets))->toBe(['Kitchen', 'Store'])
+        ->and(forecastSheetRow($sheets['Kitchen'], 'Scope Menu'))->toBe(['Scope Menu', 'Beta Scope Menu'])
+        ->and(forecastSheetRow($sheets['Store'], 'Scope Menu'))->toBe(['Scope Menu', 'Beta Scope Menu'])
+        ->and(forecastSheetRow($sheets['Kitchen'], 'Total Sales Projection')[1])->toEqual($service->calculate($scope['project'], 'kitchen', [$scope['beta']])['projected_units'])
+        ->and(forecastSheetRow($sheets['Store'], 'Forecast Efektif')[1])->toEqual($service->calculate($scope['project'], 'store', [$scope['beta']])['effective_projected_units'])
+        ->and(forecastSheetRow($sheets['Kitchen'], 'RAW-BETA')[3])->toEqual(10)
+        ->and(forecastSheetRow($sheets['Kitchen'], 'RAW-SHARED')[3])->toEqual(30)
+        ->and(forecastSheetRow($sheets['Kitchen'], 'RAW-ALPHA'))->toBeNull()
+        ->and(forecastSheetRow($sheets['Store'], 'RAW-CUP')[3])->toEqual(10)
+        ->and(forecastSheetRow($sheets['Store'], 'BW-ALPHA'))->toBeNull()
+        ->and(forecastSheetRow($sheets['Kitchen'], 'Alpha Scope Menu'))->toBeNull();
+
+    $multiple = $this->get(route('helpdesk.rnd-projects.material-forecast-export', [
+        'project' => $scope['project']->id,
+        'menu_ids' => [$scope['alpha'], $scope['beta']],
+    ]));
+    $multipleSheets = readForecastWorkbook($multiple);
+
+    expect(forecastSheetRow($multipleSheets['Store'], 'Scope Menu'))->toBe(['Scope Menu', 'Alpha Scope Menu, Beta Scope Menu'])
+        ->and(forecastSheetRow($multipleSheets['Kitchen'], 'RAW-SHARED')[4])->toEqual(2)
+        ->and(forecastSheetRow($multipleSheets['Store'], 'Total Sales Projection')[1])->toEqual(60);
+});
+
+it('rejects the whole export for any invalid menu without producing a file or naming a menu', function () {
+    config()->set('app.debug', false);
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+    $otherScope = createMenuScopedForecastProject($user, 'Secret Export Forecast', 9700);
+    $exportUrl = fn (mixed $menuIds): string => route('helpdesk.rnd-projects.material-forecast-export', [
+        'project' => $scope['project']->id,
+        'menu_ids' => $menuIds,
+    ]);
+
+    foreach ([
+        'foreign' => $exportUrl([$scope['beta'], $otherScope['alpha']]),
+        'no projection' => $exportUrl([$scope['gamma']]),
+        'missing' => $exportUrl([999999]),
+        'not an integer' => $exportUrl(['abc']),
+        'not an array' => $exportUrl($scope['beta']),
+    ] as $url) {
+        $response = $this->get($url);
+
+        $response->assertStatus(422);
+        expect($response->baseResponse)->not->toBeInstanceOf(BinaryFileResponse::class)
+            ->and($response->getContent())->not->toContain('Secret Export Forecast')
+            ->and($response->getContent())->not->toContain('Alpha Scope Menu');
+    }
+});
+
+it('forbids a scoped export without view material forecast', function () {
+    $user = actingAsForecastUser([]);
+    $scope = createMenuScopedForecastProject($user);
+
+    $this->get(route('helpdesk.rnd-projects.material-forecast-export', [
+        'project' => $scope['project']->id,
+        'menu_ids' => [$scope['beta']],
+    ]))->assertForbidden();
+});
+
+it('neutralizes a spreadsheet formula in the exported menu scope', function () {
+    $user = actingAsForecastUser();
+    $scope = createMenuScopedForecastProject($user);
+    $scope['project']->products()->whereKey($scope['beta'])->update(['name' => '=HYPERLINK("http://example.test")']);
+
+    $response = $this->get(route('helpdesk.rnd-projects.material-forecast-export', [
+        'project' => $scope['project']->id,
+        'menu_ids' => [$scope['beta']],
+    ]));
+
+    $response->assertOk();
+    $sheets = readForecastWorkbook($response);
+
+    expect(forecastSheetRow($sheets['Kitchen'], 'Scope Menu')[1])->toBe("'=HYPERLINK(\"http://example.test\")")
+        ->and(forecastSheetRow($sheets['Store'], 'Scope Menu')[1])->toBe("'=HYPERLINK(\"http://example.test\")");
 });

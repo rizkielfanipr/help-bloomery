@@ -100,7 +100,7 @@ Path final mengikuti sibling/convention setelah audit implementasi.
 ## 9. UI
 
 1. Reuse Receiving QC/batch/photos.
-2. Reuse UX modal BOM, tetapi datasource Master Product purchase/inventory.
+2. Reuse modal **Pilih Produk** Item Journal melalui partial dan trait bersama.
 3. Server-side search/pagination dan stable keys.
 4. Purchasing comparison matrix local vs PO authoritative.
 5. Exact mismatch memblokir; supplier mismatch warning + confirmation.

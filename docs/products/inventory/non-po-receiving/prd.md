@@ -2,7 +2,7 @@
 document_id: INVENTORY-NON-PO-RECEIVING-PRD
 title: PRD — Penerimaan Tanpa PO dan PO Susulan
 status: in-development
-version: 1.1
+version: 1.2
 owner: Inventory
 technical_owner: Information Technology
 created_at: 2026-11-02
@@ -56,7 +56,7 @@ Audit repository per 2 November 2026 menemukan:
 - Hanya qty Accepted yang dikirim ke ESB; Hold/Rejected tetap tercatat lokal.
 - `PurchaseRequest` adalah permintaan sebelum pembelian dan satu item per request; `PurchasingRequest` tidak mempunyai UI/ESB linkage yang sesuai.
 - Repository dapat membaca PO dan membuat GR, tetapi tidak mempunyai kontrak API membuat PO ESB.
-- Pola branch/location/Master Product tersedia pada Item Journal dan pola modal product picker tersedia pada BOM.
+- Pola branch/location/Master Product dan modal pemilih produk mobile tersedia pada Item Journal.
 - Master Supplier API tidak diperlukan pada desain yang disepakati karena supplier awal berupa teks.
 
 ## 5. Problem statement
@@ -113,7 +113,7 @@ Audit repository per 2 November 2026 menemukan:
 1. Inventory membuka tile **Receiving** dan memilih **Dengan PO** atau **Tanpa PO**.
 2. Pada Tanpa PO, company terkunci `BLSS`; user memilih branch dan location ESB.
 3. User mengisi supplier teks, tanggal, alasan, dokumen, dan foto.
-4. User menambah produk melalui modal Master Product seperti **Tambah Komponen** BOM.
+4. User menambah produk melalui modal **Pilih Produk** yang sama dengan Item Journal.
 5. User mengisi physical/accepted/hold/rejected qty, batch, expiry, QC, dan bukti item.
 6. User menyimpan draft atau **Kirim ke Purchasing**.
 7. Sistem membuat nomor `NPR-*`, menyimpan snapshot lokal, dan memberi notifikasi.
@@ -229,7 +229,7 @@ Constraint: internal number unique, submission key unique, linked PO unique saat
 
 - Pilihan **Dengan PO** dan **Tanpa PO**, mobile-first.
 - Save Draft dan Kirim ke Purchasing.
-- Product picker seperti Tambah Komponen BOM: search kode/nama, filter, pagination, multi-select, loading/empty/error.
+- Product picker memakai modal **Pilih Produk** yang sama dengan Item Journal (bottom sheet di mobile): search nama/kode, stok saat ini, pagination, loading/empty/error. Satu produk per pilihan; modal menutup setelah produk dipilih.
 - Item menampilkan produk/UOM/qty split/batch/QC/foto.
 - History menampilkan progress Purchasing.
 
@@ -293,7 +293,7 @@ Application dapat di-rollback tanpa menghapus record. Migration rollback hanya s
 1. Receiving existing tetap berjalan.
 2. Inventory dapat draft/submit non-PO dari tile Receiving.
 3. Supplier teks; product/branch/location terstruktur.
-4. Product picker mengikuti pola BOM dan mencegah duplicate identity.
+4. Product picker sama dengan Item Journal dan mencegah duplicate identity.
 5. Submit tidak memanggil GR ESB dan hanya membuat satu queue item.
 6. Purchasing dapat process/revision/cancel dengan audit.
 7. PO selalu diverifikasi dari ESB.
@@ -345,10 +345,11 @@ Tidak ada blocker dokumentasi. Default MVP: hold sampai GR; PO manual; satu rece
 | Temuan | Keputusan | Alasan |
 |---|---|---|
 | Master Product (`mapProductDetail`) hanya memberi `productDetailID` dan nama `unit`; `uomID` hanya ada pada detail PO | Identitas lokal memakai Product Detail ID + nama unit ternormalisasi (trim, case-insensitive). Saat verifikasi, Product Detail ID wajib sama dan nama unit wajib cocok dengan `uomName` PO; `uom_id` disimpan dari PO | Tidak ada ID UOM yang bisa dibandingkan sebelum PO ada |
-| List Master Product tidak mengekspos flag purchase/inventory yang dapat diverifikasi | Picker memakai data aktif pola BOM (`ManagesEsbProductPicker`) tanpa filter tambahan; produk yang tidak dapat dibeli otomatis gagal exact match karena tidak mungkin ada di PO | Menghindari filter berdasarkan field yang kontraknya belum terbukti |
+| List Master Product tidak mengekspos flag purchase/inventory yang dapat diverifikasi | Picker memakai daftar produk aktif company `BLSS` seperti Item Journal tanpa filter tambahan; produk yang tidak dapat dibeli otomatis gagal exact match karena tidak mungkin ada di PO | Menghindari filter berdasarkan field yang kontraknya belum terbukti |
 | Detail PO hanya memuat `qty`, tanpa qty diterima | Outstanding = `qty` PO dikurangi Accepted GR lokal pada PO yang sama (pola Receiving normal). Verifikasi non-PO juga menghitung GR `processing`/`unknown` agar konservatif | Over-receipt lebih berbahaya daripada penolakan sementara |
 | PO yang berubah setelah `po_linked` membuat record buntu pada lifecycle awal | Pemeriksaan ulang yang gagal mengembalikan `po_linked` ke `po_in_progress` dan melepas tautan PO, tercatat di history | Tanpa jalur kembali, record tidak dapat diselesaikan |
 | §13 hanya menyebut "manual resolution/reconciliation" | Aksi **Rekonsiliasi GR**: tautkan nomor GR yang sudah ada, kirim ulang eksplisit dengan alasan, atau batalkan. Monitoring direkonsiliasi pada transaksi yang sama | FR-14 dan rollout §9 mensyaratkan jalur eksplisit yang diaudit |
 | Revisi dapat menemukan seluruh barang ternyata Hold/Rejected | `revision_requested` boleh menuju `qc_hold`/`qc_rejected` | Mengikuti aturan bisnis 18 |
 | All-Rejected tidak mempunyai GR dan supplier authoritative | Tidak membuat Vendor Compliance Incident; bukti QC tetap lokal. Mixed Accepted/Rejected membuat incident saat GR dibuat dengan supplier PO | Incident existing wajib tertaut ke item GR |
+| Mode Tanpa PO terutama dipakai di handphone; modal tabel pola BOM tidak nyaman di layar kecil (permintaan user, 2 November 2026) | Modal mengikuti **Pilih Produk** Item Journal melalui partial dan trait bersama. Filter kategori dan multi-select pola BOM dihapus; stok saat ini ditampilkan bila cabang dan lokasi sudah dipilih | Kedua tile tetap identik karena memakai komponen yang sama |
 | Sumber GR dapat diturunkan dari tautan `non_po_receipts.goods_receipt_id` | Tidak menambah kolom pada `goods_receipts`; GR tanpa tautan berarti `PO Normal` | §20 menyebut kolom source hanya bila diperlukan |

@@ -6,8 +6,8 @@ use App\Actions\Inventory\Receiving\SaveNonPoReceiptDraftAction;
 use App\Actions\Inventory\Receiving\SubmitNonPoReceiptAction;
 use App\Actions\Purchasing\NonPoReceipt\CancelNonPoReceiptAction;
 use App\Enums\NonPoReceiptStatus;
+use App\Filament\Casual\Concerns\ManagesEsbStockProductPicker;
 use App\Filament\Casual\Concerns\ManagesReceivingItems;
-use App\Filament\Helpdesk\Concerns\ManagesEsbProductPicker;
 use App\Models\NonPoReceipt;
 use App\Models\NonPoReceiptItem;
 use App\Services\EsbGoodsReceiptService;
@@ -31,7 +31,7 @@ use Throwable;
  */
 class NonPoReceiptPage extends Page
 {
-    use ManagesEsbProductPicker;
+    use ManagesEsbStockProductPicker;
     use ManagesReceivingItems;
     use WithFileUploads;
 
@@ -87,8 +87,6 @@ class NonPoReceiptPage extends Page
     public array $items = [];
 
     public ?int $activeItemIndex = null;
-
-    public bool $inlineProductModalOpen = false;
 
     /** @var array<int, array<string, mixed>> Server-fetched product data; items only ever copy their snapshot from here. */
     #[Locked]
@@ -190,25 +188,34 @@ class NonPoReceiptPage extends Page
     public function updatedBranchId(): void
     {
         $this->locationId = '';
+        $this->stockLoadWarning = null;
         $this->loadLocations();
+    }
+
+    public function updatedLocationId(): void
+    {
+        $this->stockLoadWarning = null;
     }
 
     public function openProductPicker(): void
     {
-        $this->resetInlineProductPicker();
-        $this->inlineProductModalOpen = true;
+        $this->productSearch = '';
+        $this->productCodeSearch = '';
+        $this->productPage = 1;
+        $this->productPickerOpen = true;
     }
 
     public function closeProductPicker(): void
     {
-        $this->inlineProductModalOpen = false;
+        $this->productPickerOpen = false;
     }
 
-    /** Stays open so several products can be added in a row; re-selecting one is refused. */
+    /** Options are display data here too: SubmitNonPoReceiptAction verifies every product again. */
     public function addProduct(int $productDetailId): void
     {
-        $product = collect($this->inlineProductOptions)->firstWhere('productDetailID', $productDetailId);
+        $product = collect($this->productOptions)->firstWhere('productDetailID', $productDetailId);
         abort_unless(is_array($product), 422, 'Produk tidak ada pada hasil Master Product.');
+        $this->closeProductPicker();
 
         if (collect($this->items)->contains(fn (array $item): bool => (int) $item['productDetailID'] === $productDetailId
             && NonPoReceiptItem::normalizeUom($item['uomName']) === NonPoReceiptItem::normalizeUom($product['unit'] ?? ''))) {
@@ -347,6 +354,17 @@ class NonPoReceiptPage extends Page
         })->all();
     }
 
+    private function pickerCompanyCode(): string
+    {
+        return self::COMPANY_CODE;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function pickerBranches(): array
+    {
+        return $this->branches;
+    }
+
     private function loadBranches(): void
     {
         try {
@@ -416,6 +434,6 @@ class NonPoReceiptPage extends Page
         $this->resetValidation();
         $this->reset('submissionKey', 'goodsReceiptDate', 'branchId', 'locationId', 'supplierText', 'supplierContact', 'reason', 'documentType', 'documentNumber', 'documentDate',
             'documentMatch', 'documentNotes', 'additionalInfo', 'documentPhotos', 'goodsPhotos', 'storedDocumentPhotos', 'storedGoodsPhotos', 'items', 'activeItemIndex',
-            'inlineProductModalOpen', 'verifiedProducts', 'branches', 'locations', 'revisionNote', 'loadError');
+            'productPickerOpen', 'productSearch', 'productCodeSearch', 'productPage', 'productTotal', 'productHasNext', 'productOptions', 'stockLoadWarning', 'verifiedProducts', 'branches', 'locations', 'revisionNote', 'loadError');
     }
 }

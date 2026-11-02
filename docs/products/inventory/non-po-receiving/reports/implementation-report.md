@@ -31,7 +31,7 @@ Acuan: `docs/products/inventory/non-po-receiving/prd.md`
 ## 2. Ringkasan perubahan
 
 - `GoodsReceiptPage` kini mendelegasikan mutasi ke `CreateGoodsReceiptAction`. Aturan QC per item pindah ke `InboundGoodsReceiptQcService::itemViolations()`, perilaku item ke trait `ManagesReceivingItems`, dan modal QC ke partial yang dipakai bersama. Test Receiving existing tidak diubah.
-- `NonPoReceiptPage` adalah mode Tanpa PO pada tile Receiving, dengan Action draft dan submit di `app/Actions/Inventory/Receiving/`.
+- `NonPoReceiptPage` adalah mode Tanpa PO pada tile Receiving, dengan Action draft dan submit di `app/Actions/Inventory/Receiving/`. Modal **Pilih Produk** Item Journal diekstrak ke partial `esb-product-picker-sheet` dan trait `ManagesEsbStockProductPicker`, lalu dipakai kedua tile.
 - `NonPoReceiptResource` adalah submenu **PO Susulan**, dengan Action di `app/Actions/Purchasing/NonPoReceipt/`.
 - Back Office Receiving menampilkan sumber dan tautan; System Monitoring membedakan lewat aksi `submit_non_po`, idempotency key `non-po-goods-receipt:*`, dan label record lokal.
 

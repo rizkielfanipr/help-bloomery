@@ -28,7 +28,7 @@ Workflow exception untuk mencatat barang yang sudah datang tanpa Purchase Order.
 | Entry tetap melalui tile **Receiving**, tanpa tile baru | Disepakati |
 | Submenu Purchasing bernama **PO Susulan** | Disepakati |
 | Supplier awal berupa teks dan supplier PO menjadi data authoritative | Disepakati |
-| Produk dipilih dari Master Product melalui modal seperti Tambah Komponen BOM | Disepakati |
+| Produk dipilih dari Master Product melalui modal **Pilih Produk** yang sama dengan Item Journal | Disepakati |
 | Matching memakai Product Detail ID dan UOM dari item PO | Disepakati |
 | Purchasing membuat PO manual di ESB pada MVP | Disepakati |
 | **Verifikasi PO & Proses GR** memproses GR setelah validasi lulus | Disepakati |

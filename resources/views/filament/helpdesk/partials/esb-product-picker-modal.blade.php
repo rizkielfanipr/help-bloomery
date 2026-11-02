@@ -1,8 +1,7 @@
 {{--
     ESB product picker modal, identical for the BOM "Tambah Komponen" and the Memo Internal
     "Tambah Product" flows. The host uses ManagesEsbProductPicker and passes $pickerTitle,
-    $pickerSelectMethod (called with the Product Detail ID), and $pickerCloseAction. Hosts that keep
-    the modal open to add several products also pass $pickerSelectedProductIds to mark chosen rows.
+    $pickerSelectMethod (called with the Product Detail ID), and $pickerCloseAction.
 --}}
 @if($inlineProductModalOpen)
     <div wire:init="loadInlineProducts" class="fixed inset-0 z-[160] flex items-center justify-center p-3 sm:p-6">
@@ -69,7 +68,7 @@
                                 data-unit="{{ mb_strtolower($option['unit'] ?? '') }}"
                                 data-conversion="{{ mb_strtolower($conversionLabel) }}"
                                 x-show="$el.dataset.unit.includes(unitFilter) && $el.dataset.conversion.includes(conversionFilter.toLowerCase())"
-                                @class(['cursor-pointer text-gray-700 transition hover:bg-blue-50 dark:text-gray-200 dark:hover:bg-blue-950/30', 'bg-emerald-50 dark:bg-emerald-950/30' => in_array((int) $productDetailId, $pickerSelectedProductIds ?? [], true)])
+                                class="cursor-pointer text-gray-700 transition hover:bg-blue-50 dark:text-gray-200 dark:hover:bg-blue-950/30"
                             >
                                 <td class="px-4 py-3"><p class="truncate font-mono font-semibold text-blue-700 dark:text-blue-300">{{ $option['productCode'] ?: '-' }}</p></td>
                                 <td class="px-4 py-3"><p class="truncate font-semibold text-gray-900 dark:text-white">{{ $option['productName'] ?: '-' }}</p></td>

@@ -58,7 +58,7 @@ Mutasi Goods Receipt, baik Dengan PO maupun PO Susulan, melewati `CreateGoodsRec
 Exception workflow untuk barang yang datang sebelum PO tersedia ([PRD](non-po-receiving/prd.md)). Tile **Receiving** menampilkan pilihan **Dengan PO** / **Tanpa PO** bagi user yang berhak; Receiving Dengan PO tidak berubah.
 
 1. Company terkunci `BLSS`. Inventory memilih cabang dan lokasi ESB, mengisi supplier teks, tanggal, alasan, dokumen, foto dokumen, dan foto barang.
-2. Produk dipilih dari modal Master Product (pola **Tambah Komponen** BOM): pencarian dan pagination server-side, modal tetap terbuka untuk memilih beberapa produk. Product Detail ID + UOM yang sama ditolak; produk bebas teks tidak ada.
+2. Produk dipilih dari modal **Pilih Produk** yang sama dengan Item Journal: pencarian nama/kode dan pagination server-side, stok saat ini bila cabang dan lokasi sudah dipilih. Modal menutup setelah satu produk dipilih. Product Detail ID + UOM yang sama ditolak; produk bebas teks tidak ada.
 3. QC, batch, expiry, dan foto bukti memakai form Receiving yang sama. `Accepted + Hold + Rejected` harus sama dengan qty fisik.
 4. **Simpan Draft** boleh belum lengkap dan tidak memanggil ESB. **Kirim Ke Purchasing** memvalidasi data tersimpan, membaca ulang cabang, lokasi, dan produk dari ESB, membuat nomor `NPR-*`, tanpa POST Goods Receipt.
 5. Hasil kirim mengikuti QC: ada Accepted → `awaiting_purchasing` dan notifikasi Purchasing; semua Hold (atau Hold + Rejected) → `qc_hold` dan tetap lokal; semua Rejected → `qc_rejected` tanpa Vendor Compliance Incident karena belum ada GR dan supplier resmi.
@@ -103,7 +103,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | Lapisan | Lokasi |
 |---|---|
 | Back Office | `app/Filament/Helpdesk/Resources/{StockCards,GoodsReceipts,NonPoReceipts,QualityControlItemJournals,Locations,LocationTypes}/`, `app/Filament/Helpdesk/Pages/{StockCardSettingsPage,ProductListPage}.php` |
-| Employee App | `app/Filament/Casual/Pages/{StockCardPage,StockCardEntryPage,StockCardCalendarPage,StockCardHistoryPage,GoodsReceiptPage,NonPoReceiptPage,ItemJournalPage}.php`, `app/Filament/Casual/Concerns/ManagesReceivingItems.php`, `resources/views/filament/casual/pages/partials/` |
+| Employee App | `app/Filament/Casual/Pages/{StockCardPage,StockCardEntryPage,StockCardCalendarPage,StockCardHistoryPage,GoodsReceiptPage,NonPoReceiptPage,ItemJournalPage}.php`, `app/Filament/Casual/Concerns/`, `resources/views/filament/casual/pages/partials/` |
 | Action | `app/Actions/Inventory/{StockCard,Receiving}/` |
 | Logika | `app/Services/{StockCard*,InboundGoodsReceiptQcService,NonPoReceiptNotifier,EsbGoodsReceiptService,EsbBranchMappingResolver,EsbStockMovementService,EsbItemJournalService}.php`, `app/Services/Monitoring/EsbTransactionRecorder.php`, `app/Http/Controllers/Helpdesk/{LocationLabelPdfController,ProductLabelPdfController}.php` |
 | Policy | `app/Policies/{StockCardPolicy,GoodsReceiptPolicy,NonPoReceiptPolicy,QualityControlItemJournalPolicy}.php` |

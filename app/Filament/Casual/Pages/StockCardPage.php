@@ -55,6 +55,7 @@ class StockCardPage extends Page
 
         return StockCard::where('branch_id', $user->branch_id)
             ->whereDate('report_date', $this->reportDate ?: now()->toDateString())
+            ->withCount(['entries', 'entries as filled_entries_count' => fn ($query) => $query->whereNotNull('actual_qty')])
             ->first();
     }
 }

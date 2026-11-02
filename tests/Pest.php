@@ -1,12 +1,15 @@
 <?php
 
 use App\Actions\CalculateBasketSizeAction;
+use App\Enums\StockCardStatus;
 use App\Models\BasketSizeRecord;
 use App\Models\Branch;
 use App\Models\Employee;
 use App\Models\RndInternalMemo;
 use App\Models\RndInternalMemoCatalogSync;
 use App\Models\SalesReport;
+use App\Models\StockCard;
+use App\Models\StockCardEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -335,4 +338,41 @@ function esbProductionOrderDetailResponse(array $header = [], ?array $details = 
         'editor' => ['username' => '', 'fullName' => ''],
         'authorizer' => ['username' => 'supervisor.contoh', 'fullName' => 'Supervisor Contoh'],
     ]];
+}
+
+/**
+ * A draft as the catalog would have prepared it: the Employee App can only update existing entries.
+ *
+ * @param  list<array{product_code: string, product_name?: string, product_category?: ?string, system_unit?: ?string, actual_qty?: mixed, notes?: ?string}>  $entries
+ */
+function seedStockCardDraft(Branch $branch, array $entries, array $employeeIds = [], ?string $reportDate = null): StockCard
+{
+    $card = StockCard::factory()->create([
+        'branch_id' => $branch->id,
+        'report_date' => $reportDate ?? now()->toDateString(),
+        'status' => StockCardStatus::Draft->value,
+        'submitted_by' => null,
+        'submitted_at' => null,
+    ]);
+
+    foreach ($entries as $entry) {
+        StockCardEntry::factory()->create([
+            'stock_card_id' => $card->id,
+            'product_name' => $entry['product_code'],
+            'is_manual' => false,
+            'system_unit' => 'KG',
+            ...$entry,
+        ]);
+    }
+
+    foreach (Employee::query()->whereIn('id', $employeeIds)->get() as $employee) {
+        $card->employees()->create([
+            'employee_id' => $employee->id,
+            'employee_code' => $employee->employee_code,
+            'employee_name' => $employee->name,
+            'employee_position' => $employee->position,
+        ]);
+    }
+
+    return $card;
 }

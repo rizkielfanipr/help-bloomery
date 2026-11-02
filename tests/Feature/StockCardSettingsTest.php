@@ -350,12 +350,13 @@ it('groups and sorts products by category on the staff entry page', function () 
     Filament::setCurrentPanel(Filament::getPanel('casual'));
     $this->actingAs($this->staff);
 
+    seedStockCardDraft($this->branch, [
+        ['product_code' => 'PKG-01', 'product_name' => 'Zebra Box', 'product_category' => 'Packaging'],
+        ['product_code' => 'RAW-02', 'product_name' => 'Banana', 'product_category' => 'Bahan Baku'],
+        ['product_code' => 'RAW-01', 'product_name' => 'Apple', 'product_category' => 'Bahan Baku'],
+    ]);
+
     $page = Livewire::test(StockCardEntryPage::class)
-        ->set('rows', [
-            ['product_code' => 'PKG-01', 'product_name' => 'Zebra Box', 'product_category' => 'Packaging', 'system_unit' => 'PCS', 'actual_qty' => '', 'notes' => ''],
-            ['product_code' => 'RAW-02', 'product_name' => 'Banana', 'product_category' => 'Bahan Baku', 'system_unit' => 'KG', 'actual_qty' => '', 'notes' => ''],
-            ['product_code' => 'RAW-01', 'product_name' => 'Apple', 'product_category' => 'Bahan Baku', 'system_unit' => 'KG', 'actual_qty' => '', 'notes' => ''],
-        ])
         ->set('rows.2.actual_qty', '7')
         ->set('rows.2.notes', 'Sudah dihitung')
         ->assertSet('rows.2.actual_qty', '7')

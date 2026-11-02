@@ -1,7 +1,7 @@
 ---
 document_id: INVENTORY-STOCK-CARD-DRAFT-WORKFLOW-PLAN
 title: Implementation Plan — Stock Card Draft Workflow
-status: draft
+status: in-development
 version: 1.0
 owner: Inventory
 technical_owner: Information Technology
@@ -151,22 +151,22 @@ Rollback application release. Tidak ada schema/data conversion sehingga draft ba
 
 ## 15. Quality gates
 
-- [ ] `php artisan test --compact tests/Feature/StockCardTest.php`
-- [ ] `php artisan test --compact tests/Feature/StockCardPolicyTest.php`
-- [ ] `php artisan test --compact tests/Feature/StockCardApprovalWorkflowTest.php`
-- [ ] Test Stock Card lain yang terdeteksi `rg --files tests | rg 'StockCard'` lulus
-- [ ] `vendor/bin/pint --dirty --format agent`
-- [ ] `bash ops/ci/check-doc-links.sh`
-- [ ] `bash ops/ci/check-code-map.sh`
-- [ ] `git diff --check`
+- [x] `php artisan test --compact tests/Feature/StockCardTest.php`
+- [x] `php artisan test --compact tests/Feature/StockCardPolicyTest.php`
+- [x] `php artisan test --compact tests/Feature/StockCardApprovalWorkflowTest.php`
+- [x] Test Stock Card lain yang terdeteksi `rg --files tests | rg 'StockCard'` lulus
+- [x] `vendor/bin/pint --dirty --format agent`
+- [x] `bash ops/ci/check-doc-links.sh`
+- [x] `bash ops/ci/check-code-map.sh`
+- [x] `git diff --check`
 - [ ] CI Pull Request hijau
-- [ ] Review authorization, transaction, null/zero, dan branch scope
+- [x] Review authorization, transaction, null/zero, dan branch scope
 
 ## 16. Definition of Done
 
 - [ ] Semua phase dan acceptance criteria PRD selesai.
 - [ ] PRD berstatus `implemented` setelah production sesuai proses proyek.
-- [ ] README Inventory menjelaskan perilaku final.
-- [ ] `reports/implementation-report.md` memuat hasil, deviasi, test, dan risiko.
-- [ ] Implementation prompt dihapus setelah implementasi selesai.
+- [x] README Inventory menjelaskan perilaku final.
+- [x] `reports/implementation-report.md` memuat hasil, deviasi, test, dan risiko.
+- [x] Implementation prompt dihapus setelah implementasi selesai.
 - [ ] Branch fitur di-push dan PR Bahasa Indonesia dibuka ke `main`.

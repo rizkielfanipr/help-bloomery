@@ -77,16 +77,22 @@ class StockCardCalendarPage extends Page
         $days = [];
         $submittedCount = 0;
         $missedCount = 0;
+        $draftCount = 0;
         $current = $start->copy();
 
         while ($current <= $end) {
             $dateKey = $current->toDateString();
             $isPast = $current->lte($today);
             $card = $cards->get($dateKey);
-            $isSubmitted = $card !== null && $card->status !== StockCardStatus::Draft;
+            $isDraft = $card?->status === StockCardStatus::Draft;
+            $isSubmitted = $card !== null && ! $isDraft;
 
             if ($isPast) {
-                $isSubmitted ? $submittedCount++ : $missedCount++;
+                match (true) {
+                    $isSubmitted => $submittedCount++,
+                    $isDraft => $draftCount++,
+                    default => $missedCount++,
+                };
             }
 
             $days[] = [
@@ -95,6 +101,7 @@ class StockCardCalendarPage extends Page
                 'isToday' => $current->isToday(),
                 'isFuture' => ! $isPast,
                 'isSubmitted' => $isSubmitted,
+                'isDraft' => $isDraft,
                 'submittedBy' => $card?->submittedBy?->name,
             ];
 
@@ -102,7 +109,7 @@ class StockCardCalendarPage extends Page
         }
 
         $pastDaysCount = $today->between($start, $end)
-            ? $today->diffInDays($start) + 1
+            ? (int) $start->diffInDays($today) + 1
             : ($today->gt($end) ? $end->daysInMonth : 0);
 
         return [
@@ -111,6 +118,7 @@ class StockCardCalendarPage extends Page
             'days' => $days,
             'submittedCount' => $submittedCount,
             'missedCount' => $missedCount,
+            'draftCount' => $draftCount,
             'pastDaysCount' => $pastDaysCount,
         ];
     }

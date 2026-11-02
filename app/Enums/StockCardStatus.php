@@ -22,6 +22,17 @@ enum StockCardStatus: string implements HasColor, HasLabel
         };
     }
 
+    /** Wording for store staff on the Employee App. */
+    public function getStaffLabel(): string
+    {
+        return match ($this) {
+            self::Draft => 'Draft',
+            self::PendingSupervisor => 'Menunggu review Supervisor',
+            self::PendingFinance => 'Menunggu review Finance',
+            self::Completed => 'Selesai',
+        };
+    }
+
     public function getColor(): string
     {
         return match ($this) {

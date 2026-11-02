@@ -1,7 +1,7 @@
 ---
 document_id: INVENTORY-STOCK-CARD-DRAFT-WORKFLOW-PRD
 title: PRD — Stock Card Draft Workflow
-status: draft
+status: in-development
 version: 1.0
 owner: Inventory
 technical_owner: Information Technology
@@ -20,7 +20,7 @@ supersedes: null
 
 # PRD — Stock Card Draft Workflow
 
-> Dokumen ini menjadi kontrak untuk penyempurnaan draft Stock Card. Implementasi belum dimulai selama status dokumen masih `draft`.
+> Dokumen ini menjadi kontrak untuk penyempurnaan draft Stock Card. Kode selesai di Pull Request dan menunggu review, CI, serta UAT staging.
 
 ## 1. Identitas dan status
 
@@ -28,7 +28,7 @@ supersedes: null
 |---|---|
 | Domain | Inventory |
 | Fitur | Stock Card Draft Workflow |
-| Status | draft |
+| Status | in-development |
 | Prioritas | P1 |
 | Target pengguna | `STORE_STAFF` dan role lain yang memperoleh akses Employee App Stock Card |
 | Modul terdampak | Employee App → Stock Card; Back Office review tidak berubah |
@@ -304,9 +304,9 @@ Tidak ada keputusan bisnis yang memblokir dokumentasi. Default implementasi yang
 
 ## 28. Definition of Done
 
-- [ ] Seluruh acceptance criteria terpenuhi.
-- [ ] Test draft, submit, authorization, double-submit, dan regresi lulus.
-- [ ] Mutation dipindahkan dari Page ke Action yang terotorisasi.
-- [ ] Tidak ada migration, permission, dependency, atau integrasi baru tanpa amendment PRD.
-- [ ] `docs/products/inventory/README.md` sesuai dengan perilaku implementasi.
-- [ ] Implementation report mencatat hasil, deviasi, test, dan risiko lanjutan.
+- [ ] Seluruh acceptance criteria terpenuhi — butir CI dan perilaku di perangkat menunggu Pull Request dan UAT staging.
+- [x] Test draft, submit, authorization, double-submit, dan regresi lulus.
+- [x] Mutation dipindahkan dari Page ke Action yang terotorisasi.
+- [x] Tidak ada migration, permission, dependency, atau integrasi baru tanpa amendment PRD.
+- [x] `docs/products/inventory/README.md` sesuai dengan perilaku implementasi.
+- [x] Implementation report mencatat hasil, deviasi, test, dan risiko lanjutan.

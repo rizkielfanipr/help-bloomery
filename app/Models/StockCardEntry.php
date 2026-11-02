@@ -33,6 +33,30 @@ class StockCardEntry extends Model
         'is_manual' => 'boolean',
     ];
 
+    /** Empty means not counted yet, which is valid in a draft; zero is a real count. */
+    public static function isValidQuantity(mixed $value): bool
+    {
+        if (is_array($value) || is_object($value) || is_bool($value)) {
+            return false;
+        }
+
+        $quantity = trim((string) $value);
+
+        return $quantity === ''
+            || preg_match('/^(?:\d{1,16}(?:\.\d{0,4})?|\.\d{1,4})$/D', $quantity) === 1;
+    }
+
+    public static function normalizeQuantity(mixed $value): ?string
+    {
+        $quantity = rtrim(trim((string) $value), '.');
+
+        if ($quantity === '') {
+            return null;
+        }
+
+        return str_starts_with($quantity, '.') ? '0'.$quantity : $quantity;
+    }
+
     public function stockCard(): BelongsTo
     {
         return $this->belongsTo(StockCard::class);

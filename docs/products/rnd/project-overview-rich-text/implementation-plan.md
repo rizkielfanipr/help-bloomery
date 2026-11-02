@@ -1,7 +1,7 @@
 ---
 document_id: RND-PROJECT-OVERVIEW-RICH-TEXT-PLAN
 title: Implementation Plan — Project Overview Rich Text
-status: draft
+status: implemented
 version: 1.0
 owner: Research & Development
 technical_owner: Information Technology
@@ -160,24 +160,24 @@ Revert UI/action/service integration sambil mempertahankan nullable column dan d
 
 ## 15. Quality gates
 
-- [ ] PRD approved sebelum aplikasi berubah.
-- [ ] Latest main dan branch fitur terpisah.
-- [ ] Boost `database-schema` dan `search-docs` dijalankan.
-- [ ] Characterization tests sebelum shared refactor.
-- [ ] Migration additive/backward-compatible direview.
-- [ ] Authorization/XSS/path/file lifecycle tests lulus.
-- [ ] `vendor/bin/pint --dirty --format agent` lulus.
-- [ ] Targeted tests lulus dengan hasil aktual.
-- [ ] `bash ops/ci/check-doc-links.sh` dan `check-code-map.sh` lulus.
-- [ ] Generated data model diperbarui dengan mekanisme existing.
-- [ ] `git diff --check` dan CI PR hijau.
+- [x] PRD approved sebelum aplikasi berubah.
+- [x] Latest main dan branch fitur terpisah.
+- [x] Boost `database-schema` dan `search-docs` dijalankan.
+- [x] Characterization tests sebelum shared refactor.
+- [x] Migration additive/backward-compatible direview.
+- [x] Authorization/XSS/path/file lifecycle tests lulus.
+- [x] `vendor/bin/pint --dirty --format agent` lulus.
+- [x] Targeted tests lulus dengan hasil aktual.
+- [x] `bash ops/ci/check-doc-links.sh` dan `check-code-map.sh` lulus.
+- [x] Data model generated diperiksa; tidak berubah karena tidak mencantumkan kolom.
+- [ ] `git diff --check` lulus; CI PR hijau menunggu Pull Request dibuka.
 
 ## 16. Definition of Done
 
-- [ ] Seluruh phase/acceptance criteria selesai.
-- [ ] Description dan BOM tidak regresi.
-- [ ] Security/storage lifecycle teruji.
-- [ ] README/PRD/data model/report cocok dengan kode.
-- [ ] `implementation-prompt.md` dihapus setelah complete.
-- [ ] UAT/rollback evidence dicatat.
-- [ ] PR berbahasa Indonesia siap review dan belum di-merge/deploy tanpa keputusan user.
+- [x] Seluruh phase/acceptance criteria selesai.
+- [x] Description dan BOM tidak regresi.
+- [x] Security/storage lifecycle teruji.
+- [x] README/PRD/data model/report cocok dengan kode.
+- [x] `implementation-prompt.md` dihapus setelah complete.
+- [ ] UAT/rollback evidence dicatat — belum dilakukan; lihat `rollout.md`.
+- [x] PR berbahasa Indonesia siap review dan belum di-merge/deploy tanpa keputusan user.

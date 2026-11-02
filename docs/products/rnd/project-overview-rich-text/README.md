@@ -3,7 +3,7 @@
 | Atribut | Nilai |
 |---|---|
 | Domain | Research & Development |
-| Status | draft |
+| Status | implemented |
 | Owner | Research & Development |
 | Technical owner | Information Technology |
 | Modul terdampak | Back Office → Research & Development → Project → Detail Project |
@@ -17,10 +17,9 @@ Fitur ini menambahkan **Project Overview** rich-text pada detail Project R&D unt
 
 | Dokumen | Status | Keterangan |
 |---|---|---|
-| [PRD](prd.md) | draft | Sumber requirement canonical |
-| [Implementation plan](implementation-plan.md) | draft | Urutan teknis, migration, security, test, dan quality gate |
-| [Implementation prompt](implementation-prompt.md) | draft | Prompt siap pakai untuk agent implementasi |
-| [Rollout runbook](rollout.md) | draft | Migration, UAT, monitoring, dan rollback aman |
+| [PRD](prd.md) | implemented | Sumber requirement canonical |
+| [Implementation plan](implementation-plan.md) | implemented | Urutan teknis, migration, security, test, dan quality gate |
+| [Rollout runbook](rollout.md) | draft | Migration, UAT, monitoring, dan rollback aman; belum dijalankan |
 
 ## Keputusan
 
@@ -35,10 +34,11 @@ Fitur ini menambahkan **Project Overview** rich-text pada detail Project R&D unt
 
 | Laporan | Tanggal |
 |---|---|
-| Belum ada — implementasi belum dimulai | — |
+| [Laporan implementasi](reports/implementation-report.md) | 2 November 2026 |
 
 ## Riwayat status
 
 | Tanggal | Status | Catatan |
 |---|---|---|
 | 2026-11-02 | draft | Paket planning dibuat berdasarkan audit Project dan rich-text BOM; belum ada perubahan aplikasi |
+| 2026-11-02 | implemented | Overview diimplementasikan; UAT browser dan rollout belum dijalankan |

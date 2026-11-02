@@ -1,7 +1,7 @@
 ---
 document_id: RND-PROJECT-OVERVIEW-RICH-TEXT-PRD
 title: PRD — Project Overview Rich Text
-status: draft
+status: implemented
 version: 1.0
 owner: Research & Development
 technical_owner: Information Technology
@@ -24,7 +24,7 @@ supersedes: null
 |---|---|
 | Domain | Research & Development |
 | Fitur | Project Overview Rich Text |
-| Status | draft |
+| Status | implemented |
 | Prioritas | TBD — belum ditetapkan owner bisnis |
 | Target pengguna | User Back Office yang melihat/mengelola Project R&D |
 | Modul terdampak | Research & Development → Project → Detail Project |
@@ -237,7 +237,8 @@ Ekstrak rich-content sanitization/render/path extraction/orphan detection dari p
 - Overview tidak ikut eager-load/select pada daftar Project bila tidak diperlukan.
 - Editor hanya dimount ketika action modal dibuka.
 - Tidak ada query/storage call di Blade.
-- HTML dibatasi oleh validation sesuai kapasitas LONGTEXT dan batas payload Livewire; nilai final ditentukan setelah verifikasi dokumentasi/version stack.
+- HTML dibatasi validation maksimum 5.000.000 karakter, sama dengan Informasi BOM.
+- `overview_html` berada di `$hidden` agar tidak ikut snapshot Livewire melalui `$data` milik `ViewRecord`.
 - File tidak disimpan base64 di database.
 - Sanitizer deterministic dan mempunyai unit/feature security coverage.
 - Save tidak menurunkan availability detail Project bila storage gagal; konten lama tetap utuh.
@@ -321,11 +322,11 @@ Tidak ada keputusan yang memblokir dokumentasi. Planning menetapkan Overview seb
 
 ## 28. Definition of Done
 
-- [ ] Seluruh acceptance criteria terpenuhi.
-- [ ] Schema production diverifikasi sebelum migration.
-- [ ] Migration additive/reversible dipahami dan rollback production aman.
-- [ ] Authorization, XSS, attachment isolation/lifecycle, dan regression diuji.
-- [ ] Description/list/search dan Informasi BOM tidak regresi.
-- [ ] Dokumentasi fitur, README R&D, dan generated data model diperbarui.
-- [ ] Implementation report mencatat hasil dan deviasi.
-- [ ] Pull Request siap direview; merge/deployment tetap keputusan user.
+- [x] Seluruh acceptance criteria terpenuhi, kecuali CI yang menunggu Pull Request dibuka.
+- [ ] Schema production diverifikasi sebelum migration — baru schema lokal yang diperiksa; lakukan saat rollout.
+- [x] Migration additive/reversible dipahami dan rollback production aman.
+- [x] Authorization, XSS, attachment isolation/lifecycle, dan regression diuji.
+- [x] Description/list/search dan Informasi BOM tidak regresi.
+- [x] Dokumentasi fitur dan README R&D diperbarui; data model generated tidak berubah, lihat [laporan implementasi](reports/implementation-report.md).
+- [x] Implementation report mencatat hasil dan deviasi.
+- [x] Pull Request siap direview; merge/deployment tetap keputusan user.

@@ -35,10 +35,10 @@ use App\Services\Rnd\Bom\ProjectWipRecipeDiscovery;
 use App\Services\Rnd\BomCalculationService;
 use App\Services\Rnd\Material\MaterialAuditLogger;
 use App\Services\Rnd\MenuPricingCalculator;
+use App\Services\Rnd\RndRichContentService;
 use App\Services\SyncRndEsbMaterialFromRemote;
 use Filament\Actions\Action;
 use Filament\Forms\Components\RichEditor;
-use Filament\Forms\Components\RichEditor\RichContentRenderer;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -430,80 +430,17 @@ class ViewProjectProductPage extends Page
 
     private function sanitizeBomInstruction(string $html): string
     {
-        $html = strip_tags($html, '<p><br><strong><b><em><i><u><s><ol><ul><li><h1><h2><h3><blockquote><a><img>');
-        $html = preg_replace('/\son\w+\s*=\s*(["\']).*?\1/iu', '', $html) ?? '';
-        $html = preg_replace('/javascript\s*:/iu', '', $html) ?? '';
-        $html = preg_replace_callback('/<img\b[^>]*>/iu', function (array $match): string {
-            $dimensions = $this->sanitizeInstructionImageDimensions($match[0]);
-
-            if (preg_match('/\bdata-id\s*=\s*(["\'])(.*?)\1/iu', $match[0], $dataId)) {
-                $path = html_entity_decode($dataId[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $expectedPrefix = "rnd/bom-instructions/{$this->projectId}/{$this->productId}/rich-editor/";
-
-                return str_starts_with($path, $expectedPrefix)
-                    ? '<img data-id="'.e($path).'" alt="Foto proses BOM"'.$dimensions.'>'
-                    : '';
-            }
-
-            if (! preg_match('/\bsrc\s*=\s*(["\'])(.*?)\1/iu', $match[0], $src)) {
-                return '';
-            }
-
-            $url = $src[2];
-            $isBase64 = preg_match('/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/iu', $url) === 1;
-            $isStoredImage = preg_match($this->storedImageUrlPattern(), $url) === 1;
-
-            if (! $isBase64 && ! $isStoredImage) {
-                return '';
-            }
-
-            return '<img src="'.e($url).'" alt="Foto proses BOM"'.$dimensions.'>';
-        }, $html) ?? '';
-        $html = preg_replace_callback('/<a\b[^>]*>/iu', static function (array $match): string {
-            if (! preg_match('/\bhref\s*=\s*(["\'])(.*?)\1/iu', $match[0], $hrefMatch)) {
-                return '<a>';
-            }
-
-            $href = html_entity_decode($hrefMatch[2], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $href = preg_replace('/[\x00-\x20]+/u', '', $href) ?? $href;
-
-            $scheme = null;
-            if (preg_match('/^([a-z][a-z0-9+.\-]*):/i', $href, $schemeMatch)) {
-                $scheme = strtolower($schemeMatch[1]);
-            }
-
-            $isSafeRelative = $scheme === null && ! str_starts_with($href, '//');
-            $isAllowedScheme = $scheme !== null && in_array($scheme, ['http', 'https', 'mailto'], true);
-
-            if (! $isSafeRelative && ! $isAllowedScheme) {
-                return '<a>';
-            }
-
-            return '<a href="'.e($href).'" target="_blank" rel="noopener noreferrer">';
-        }, $html) ?? '';
-
-        return trim($html);
+        return app(RndRichContentService::class)->sanitizeLegacy(
+            $html,
+            $this->bomInstructionAttachmentPrefix(),
+            $this->storedImageUrlPattern(),
+            'Foto proses BOM',
+        );
     }
 
-    private function sanitizeInstructionImageDimensions(string $imageTag): string
+    private function bomInstructionAttachmentPrefix(): string
     {
-        $attributes = '';
-
-        foreach (['width', 'height'] as $attribute) {
-            if (! preg_match('/\b'.$attribute.'\s*=\s*(["\'])(.*?)\1/iu', $imageTag, $match)) {
-                continue;
-            }
-
-            $value = strtolower(trim(html_entity_decode($match[2], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-
-            if (preg_match('/^(?:[1-9]\d{0,3})(?:px|%)?$/', $value) !== 1) {
-                continue;
-            }
-
-            $attributes .= ' '.$attribute.'="'.e($value).'"';
-        }
-
-        return $attributes;
+        return "rnd/bom-instructions/{$this->projectId}/{$this->productId}/rich-editor/";
     }
 
     private function convertLegacyInstructionImages(string $html): string
@@ -523,14 +460,7 @@ class ViewProjectProductPage extends Page
 
     private function renderBomInstruction(string $html): string
     {
-        if (! str_contains($html, 'data-id=')) {
-            return $html;
-        }
-
-        return RichContentRenderer::make($html)
-            ->fileAttachmentsDisk('b2')
-            ->fileAttachmentsVisibility('private')
-            ->toHtml();
+        return app(RndRichContentService::class)->render($html);
     }
 
     private function storedImageUrlPattern(): string
@@ -539,35 +469,17 @@ class ViewProjectProductPage extends Page
             .$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)$#iu';
     }
 
-    /**
-     * @return array<int, string>
-     */
-    private function extractStoredImagePaths(string $html): array
-    {
-        preg_match_all(
-            '#/rnd-bom-instruction-images/(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)#iu',
-            $html,
-            $matches,
-        );
-
-        preg_match_all(
-            '#data-id=(["\'])(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/rich-editor/[^"\']+)\1#iu',
-            $html,
-            $attachmentMatches,
-        );
-
-        return array_values(array_unique(array_merge($matches[1] ?? [], $attachmentMatches[2] ?? [])));
-    }
-
     private function pruneOrphanedStoredImages(string $previousHtml, string $sanitizedHtml): void
     {
-        $removed = array_diff(
-            $this->extractStoredImagePaths($previousHtml),
-            $this->extractStoredImagePaths($sanitizedHtml),
+        $removed = app(RndRichContentService::class)->orphanedAttachmentPaths(
+            $previousHtml,
+            $sanitizedHtml,
+            $this->bomInstructionAttachmentPrefix(),
+            '#/rnd-bom-instruction-images/(rnd/bom-instructions/'.$this->projectId.'/'.$this->productId.'/\d+/inline/[A-Za-z0-9\-]+\.jpg)#iu',
         );
 
         if ($removed !== []) {
-            Storage::disk('b2')->delete(array_values($removed));
+            Storage::disk('b2')->delete($removed);
         }
     }
 

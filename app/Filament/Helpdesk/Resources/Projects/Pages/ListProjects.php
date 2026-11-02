@@ -209,6 +209,7 @@ class ListProjects extends ListRecords
     private function filteredProjectsQuery(): Builder
     {
         return RndProject::query()
+            ->select(RndProject::LIST_COLUMNS)
             ->when($this->projectTypeFilter !== '', fn ($query) => $query->where('project_type', $this->projectTypeFilter))
             ->when($this->projectSearch !== '', fn ($query) => $query->where(function ($query): void {
                 $query

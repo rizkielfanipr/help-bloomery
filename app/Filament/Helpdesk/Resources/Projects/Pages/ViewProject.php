@@ -8,6 +8,7 @@ use App\Actions\Rnd\Project\AddPremixAssembliesAction;
 use App\Actions\Rnd\Project\RemovePartnershipMenuAction;
 use App\Actions\Rnd\Project\RemovePremixAssemblyAction;
 use App\Actions\Rnd\Project\UpdateRndProjectAction;
+use App\Actions\Rnd\Project\UpdateRndProjectOverviewAction;
 use App\Enums\RndProjectType;
 use App\Filament\Helpdesk\Concerns\ManagesEsbProductPicker;
 use App\Filament\Helpdesk\Concerns\ReleasesBomToStoreSop;
@@ -23,17 +24,23 @@ use App\Services\EsbService;
 use App\Services\Rnd\InternalMemo\InternalMemoCatalogContext;
 use App\Services\Rnd\Project\PartnershipMenuCatalogQuery;
 use App\Services\Rnd\Project\PremixAssemblyCatalogQuery;
+use App\Services\Rnd\RndRichContentService;
 use App\Services\Rnd\ShelfLife\ProjectProductShelfLifeReadiness;
 use App\Services\RndProjectMaterialForecastService;
 use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Forms\Components\RichEditor;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Support\Enums\Width;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\WithFileUploads;
@@ -240,6 +247,95 @@ class ViewProject extends ViewRecord
         $this->editProjectModalOpen = false;
         $this->reloadProject();
         Notification::make()->title('Project berhasil diperbarui')->success()->send();
+    }
+
+    public function editProjectOverviewAction(): Action
+    {
+        return Action::make('editProjectOverview')
+            ->authorize(fn (): bool => ProjectResource::canEdit($this->record))
+            ->modalHeading('Edit Project Overview')
+            ->modalDescription('Gunakan format teks, daftar, tautan, dan gambar untuk menjelaskan konteks Project.')
+            ->modalWidth(Width::FiveExtraLarge)
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->fillForm(fn (): array => ['content' => $this->sanitizedProjectOverview()])
+            ->schema([
+                RichEditor::make('content')
+                    ->label('Project Overview')
+                    ->toolbarButtons([
+                        ['bold', 'italic', 'underline'],
+                        ['h2', 'h3'],
+                        ['bulletList', 'orderedList'],
+                        ['link', 'attachFiles'],
+                        ['undo', 'redo'],
+                    ])
+                    ->fileAttachmentsDisk('b2')
+                    ->fileAttachmentsDirectory(fn (): string => $this->record->overviewAttachmentDirectory())
+                    ->fileAttachmentsVisibility('private')
+                    ->fileAttachmentsAcceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->fileAttachmentsMaxSize(8192)
+                    ->resizableImages()
+                    ->preventFileAttachmentPathTampering(
+                        allowFilePathUsing: fn (string $file): bool => app(RndRichContentService::class)
+                            ->isAllowedAttachmentPath($file, $this->record->overviewAttachmentDirectory().'/'),
+                    )
+                    ->validationMessages(['tampered' => 'Konten memuat gambar yang tidak dapat digunakan pada Project ini.'])
+                    ->extraInputAttributes([
+                        'style' => 'min-height: 16rem; max-height: 60vh; overflow-y: auto;',
+                    ])
+                    ->maxLength(RndRichContentService::MAX_HTML_LENGTH),
+            ])
+            ->modalSubmitActionLabel('Simpan Overview')
+            ->action(function (Action $action, array $data, UpdateRndProjectOverviewAction $updateOverview): void {
+                $actor = auth()->user();
+                abort_unless($actor !== null, 403);
+
+                try {
+                    $updateOverview->execute($actor, $this->record, $data['content'] ?? null);
+                } catch (ValidationException|AuthorizationException $exception) {
+                    throw $exception;
+                } catch (Throwable $exception) {
+                    report($exception);
+                    Notification::make()
+                        ->title('Project Overview gagal disimpan')
+                        ->body('Konten sebelumnya tetap tersimpan. Silakan coba lagi.')
+                        ->danger()
+                        ->send();
+                    $action->halt();
+                }
+
+                $this->reloadProject();
+                Notification::make()->title('Project Overview berhasil disimpan')->success()->send();
+            });
+    }
+
+    /**
+     * Temporary URLs make a cold render call storage once per image, and this page re-renders on
+     * every interaction. The TTL stays under the 30-minute minimum life of those URLs.
+     */
+    public function projectOverviewHtml(): ?string
+    {
+        $html = $this->sanitizedProjectOverview();
+
+        if ($html === null) {
+            return null;
+        }
+
+        return Cache::remember(
+            'rnd.project-overview.'.$this->record->id.'.'.md5($html),
+            now()->addMinutes(15),
+            fn (): string => app(RndRichContentService::class)->render($html),
+        );
+    }
+
+    /** Stored content is sanitized again so a row changed outside the Action cannot render unsafely. */
+    private function sanitizedProjectOverview(): ?string
+    {
+        return app(RndRichContentService::class)->sanitize(
+            $this->record->overview_html,
+            $this->record->overviewAttachmentDirectory().'/',
+            UpdateRndProjectOverviewAction::IMAGE_ALT,
+        );
     }
 
     public function openPremixPicker(): void

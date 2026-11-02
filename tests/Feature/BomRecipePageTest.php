@@ -1407,6 +1407,119 @@ it('deletes orphaned R2 images from storage when removed from BOM instruction co
     Storage::disk('b2')->assertMissing($path);
 });
 
+it('keeps the exact sanitized output of BOM instructions', function (string $input, string $expected) {
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+    $prefix = "rnd/bom-instructions/{$this->project->id}/{$this->product->id}/rich-editor/";
+    $otherPrefix = 'rnd/bom-instructions/999999/999999/rich-editor/';
+
+    Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('saveInlineBomInstruction', 1054, str_replace(['{prefix}', '{other}'], [$prefix, $otherPrefix], $input))
+        ->assertHasNoErrors();
+
+    expect(RndBomInstruction::query()->firstOrFail()->content_html)
+        ->toBe(str_replace('{prefix}', $prefix, $expected));
+})->with([
+    'formatting and lists' => [
+        ' <h2>Judul</h2><p><strong>A</strong> <em>B</em></p><ol><li>Satu</li></ol><blockquote>K</blockquote> ',
+        '<h2>Judul</h2><p><strong>A</strong> <em>B</em></p><ol><li>Satu</li></ol><blockquote>K</blockquote>',
+    ],
+    'disallowed tags and quoted handlers' => [
+        '<div onclick="x()"><h2 onclick="alert(1)">J</h2></div><script>alert(1)</script><iframe src="x"></iframe>',
+        '<h2>J</h2>alert(1)',
+    ],
+    'safe link attributes' => [
+        '<a href="https://bloomery.org/a?b=1" onclick="x()" class="y">T</a>',
+        '<a href="https://bloomery.org/a?b=1" target="_blank" rel="noopener noreferrer">T</a>',
+    ],
+    'relative and mailto links' => [
+        '<a href="/resep">R</a><a href="mailto:a@b.test">M</a>',
+        '<a href="/resep" target="_blank" rel="noopener noreferrer">R</a><a href="mailto:a@b.test" target="_blank" rel="noopener noreferrer">M</a>',
+    ],
+    'unsafe links' => [
+        '<a href="//evil.test">P</a><a href="data:text/html,x">D</a><a>N</a>',
+        '<a>P</a><a>D</a><a>N</a>',
+    ],
+    'attachment with dimensions' => [
+        '<img data-id="{prefix}a.jpg" src="https://x.test/signed" width="640" height="50%" style="x" onerror="y">',
+        '<img data-id="{prefix}a.jpg" alt="Foto proses BOM" width="640" height="50%">',
+    ],
+    'attachment outside the product prefix' => [
+        '<p>A</p><img data-id="{other}a.jpg">',
+        '<p>A</p>',
+    ],
+    'external image' => [
+        '<p>A</p><img src="https://evil.test/a.jpg">',
+        '<p>A</p>',
+    ],
+    'invalid dimensions' => [
+        '<img data-id="{prefix}a.jpg" width="calc(1)" height="99999">',
+        '<img data-id="{prefix}a.jpg" alt="Foto proses BOM">',
+    ],
+]);
+
+it('deletes only the rich editor attachments removed from a BOM instruction', function () {
+    Storage::fake('b2');
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+    $prefix = "rnd/bom-instructions/{$this->project->id}/{$this->product->id}/rich-editor/";
+    Storage::disk('b2')->put($prefix.'keep.jpg', 'keep');
+    Storage::disk('b2')->put($prefix.'drop.jpg', 'drop');
+
+    $page = Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ])->call('saveInlineBomInstruction', 1054, '<img data-id="'.$prefix.'keep.jpg"><img data-id="'.$prefix.'drop.jpg">')
+        ->assertHasNoErrors();
+
+    $page->call('saveInlineBomInstruction', 1054, '<img data-id="'.$prefix.'keep.jpg">')
+        ->assertHasNoErrors();
+
+    Storage::disk('b2')->assertExists($prefix.'keep.jpg');
+    Storage::disk('b2')->assertMissing($prefix.'drop.jpg');
+});
+
+it('renders BOM attachments privately and leaves content without attachments untouched', function () {
+    Storage::fake('b2');
+    $projectBom = RndProjectBom::query()->create([
+        'rnd_project_id' => $this->project->id,
+        'esb_bom_id' => 1054,
+        'bom_code' => 'BOM-1054',
+        'bom_name' => 'Crepes Assembly',
+        'created_by' => auth()->id(),
+    ]);
+    $this->product->boms()->attach($projectBom->id, ['usage_type' => 'main']);
+    $path = "rnd/bom-instructions/{$this->project->id}/{$this->product->id}/rich-editor/a.jpg";
+    Storage::disk('b2')->put($path, 'bytes');
+    $component = Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->project->id,
+        'product' => $this->product->id,
+    ]);
+
+    $component->call('saveInlineBomInstruction', 1054, '<p>Polos</p>');
+    expect($component->get('bomInstructions')[1054]['content_html'])->toBe('<p>Polos</p>');
+
+    $component->call('saveInlineBomInstruction', 1054, '<p>Foto</p><img data-id="'.$path.'">');
+    expect($component->get('bomInstructions')[1054]['content_html'])
+        ->toContain('src="')
+        ->toContain('a.jpg')
+        ->toContain('Foto');
+});
+
 function bomDetail(): array
 {
     return [

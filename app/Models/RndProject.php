@@ -21,12 +21,37 @@ class RndProject extends Model
     protected $fillable = [
         'name',
         'description',
+        'overview_html',
         'project_type',
         'partnership_event_name',
         'start_date',
         'end_date',
         'forecast_percentage',
         'created_by',
+    ];
+
+    /**
+     * Filament's ViewRecord copies attributesToArray() into its public $data property, which would
+     * send the raw HTML in the Livewire snapshot on every request.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['overview_html'];
+
+    /** Columns for list screens, which never need the potentially large overview_html. */
+    public const LIST_COLUMNS = [
+        'id',
+        'name',
+        'description',
+        'project_type',
+        'partnership_event_name',
+        'start_date',
+        'end_date',
+        'forecast_percentage',
+        'created_by',
+        'created_at',
+        'updated_at',
+        'deleted_at',
     ];
 
     protected function casts(): array
@@ -42,6 +67,11 @@ class RndProject extends Model
     public function boms(): HasMany
     {
         return $this->hasMany(RndProjectBom::class)->latest('updated_at');
+    }
+
+    public function overviewAttachmentDirectory(): string
+    {
+        return "rnd/project-overviews/{$this->id}/rich-editor";
     }
 
     public function products(): HasMany

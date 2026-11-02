@@ -87,8 +87,12 @@ class AddMaterialSupplierCandidatesAction
                 return;
             }
 
-            $material->update([
+            $previous = $material->sourcing_status;
+            $previousCompletedAt = $material->sourcing_completed_at;
+            $material->forceFill([
                 'sourcing_status' => MaterialSourcingStatus::PendingRndReview,
+                'sourcing_requested_at' => $material->sourcing_requested_at ?? (in_array($previous, MaterialSourcingStatus::withoutDurationCases(), true) ? now() : null),
+                'sourcing_completed_at' => null,
                 'sourcing_selected_id' => null,
                 'rnd_reviewed_by' => null,
                 'rnd_reviewed_at' => null,
@@ -96,7 +100,13 @@ class AddMaterialSupplierCandidatesAction
                 'finance_reviewed_by' => null,
                 'finance_reviewed_at' => null,
                 'finance_note' => null,
-            ]);
+            ])->save();
+
+            if ($previous?->isSourcingFinal()) {
+                $this->audit->event($material, 'legacy_sourcing_resubmitted', $actor, from: $previous->value, to: MaterialSourcingStatus::PendingRndReview->value, metadata: [
+                    'previous_sourcing_completed_at' => $previousCompletedAt?->toIso8601String(),
+                ]);
+            }
         });
     }
 }

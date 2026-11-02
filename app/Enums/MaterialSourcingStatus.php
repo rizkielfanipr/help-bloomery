@@ -63,6 +63,27 @@ enum MaterialSourcingStatus: string implements HasColor, HasLabel
         };
     }
 
+    /**
+     * A final sourcing decision: the duration stops here (docs/products/purchasing/sourcing-duration-tracking/prd.md §13).
+     * A later reopen or resubmission moves the record back to an active status.
+     */
+    public function isSourcingFinal(): bool
+    {
+        return in_array($this, self::finalCases(), true);
+    }
+
+    /** @return list<self> */
+    public static function finalCases(): array
+    {
+        return [self::Approved, self::Rejected, self::ApprovedByRnd, self::RejectedByRnd];
+    }
+
+    /** @return list<self> */
+    public static function withoutDurationCases(): array
+    {
+        return [self::NotStarted, self::NotRequired];
+    }
+
     public function isLegacy(): bool
     {
         return in_array($this, [self::NotStarted, self::PendingRndReview, self::PendingFinanceReview, self::Approved, self::Rejected], true);

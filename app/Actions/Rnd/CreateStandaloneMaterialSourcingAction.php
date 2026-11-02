@@ -91,6 +91,7 @@ class CreateStandaloneMaterialSourcingAction
                 'esb_product_code' => (string) $product['productCode'],
                 'sourcing_status' => MaterialSourcingStatus::PendingRndReview,
                 'sourcing_origin' => RndProductEsbMaterial::SOURCING_ORIGIN_STANDALONE,
+                'sourcing_requested_at' => now(),
                 'created_by' => $actor->id,
             ]);
 

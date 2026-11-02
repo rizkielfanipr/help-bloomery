@@ -8,6 +8,7 @@ use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
 use App\Models\RndProductEsbMaterial;
+use App\Services\Rnd\Material\MaterialSourcingTimeline;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -218,10 +219,25 @@ class MaterialSourcingResource extends Resource
             TextColumn::make('sourcings_count')
                 ->label('SUPPLIER'),
 
+            TextColumn::make('sourcing_requested_at')
+                ->label('MASUK SOURCING')
+                ->state(fn (RndProductEsbMaterial $record): string => MaterialSourcingTimeline::startedLabel($record))
+                ->sortable(),
+
+            TextColumn::make('sourcing_completed_at')
+                ->label('SELESAI SOURCING')
+                ->state(fn (RndProductEsbMaterial $record): string => MaterialSourcingTimeline::completedLabel($record))
+                ->sortable(),
+
+            TextColumn::make('sourcing_duration')
+                ->label('DURASI')
+                ->state(fn (RndProductEsbMaterial $record): string => MaterialSourcingTimeline::durationLabel($record)),
+
             TextColumn::make('updated_at')
                 ->label('DIPERBARUI')
                 ->date('d M Y')
-                ->sortable(),
+                ->sortable()
+                ->toggleable(isToggledHiddenByDefault: true),
         ];
     }
 
@@ -274,6 +290,18 @@ class MaterialSourcingResource extends Resource
                 ->label('STATUS SOURCING')
                 ->options(MaterialSourcingStatus::class),
 
+            self::dateRangeFilter('sourcing_requested_at', 'MASUK SOURCING'),
+
+            self::dateRangeFilter('sourcing_completed_at', 'SELESAI SOURCING'),
+
+            SelectFilter::make('sourcing_duration_state')
+                ->label('KONDISI DURASI')
+                ->options([
+                    MaterialSourcingTimeline::STATE_RUNNING => 'Masih Berjalan',
+                    MaterialSourcingTimeline::STATE_COMPLETED => 'Selesai',
+                ])
+                ->query(fn (Builder $query, array $data): Builder => MaterialSourcingTimeline::scopeState($query, $data['value'] ?? null)),
+
             Filter::make('updated_at')
                 ->label('DIPERBARUI')
                 ->form([
@@ -284,6 +312,19 @@ class MaterialSourcingResource extends Resource
                     ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('updated_at', '>=', $date))
                     ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate('updated_at', '<=', $date))),
         ];
+    }
+
+    private static function dateRangeFilter(string $column, string $label): Filter
+    {
+        return Filter::make($column)
+            ->label($label)
+            ->form([
+                DatePicker::make('from')->label('Dari Tanggal'),
+                DatePicker::make('until')->label('Sampai Tanggal'),
+            ])
+            ->query(fn (Builder $query, array $data): Builder => $query
+                ->when($data['from'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate($column, '>=', $date))
+                ->when($data['until'] ?? null, fn (Builder $query, string $date): Builder => $query->whereDate($column, '<=', $date)));
     }
 
     public static function getEloquentQuery(): Builder

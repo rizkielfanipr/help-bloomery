@@ -15,17 +15,20 @@
         'keterangan' => '18%',
         'status' => '9%',
         'priority' => '9%',
-        'product.project.name' => '18%',
-        'product.name' => '17%',
-        'product_name' => '22%',
-        'product_code' => '12%',
-        'sourcing_status' => '13%',
-        'sourcings_count' => '7%',
+        'product.project.name' => '13%',
+        'product.name' => '12%',
+        'product_name' => '16%',
+        'product_code' => '9%',
+        'sourcing_status' => '12%',
+        'sourcings_count' => '6%',
+        'sourcing_requested_at' => '11%',
+        'sourcing_completed_at' => '11%',
+        'sourcing_duration' => '10%',
         'updated_at' => '11%',
         default => null,
     };
     $inputClass = 'mt-2 block w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-normal normal-case tracking-normal text-gray-900 shadow-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white';
-    $dateFilterName = $name === 'updated_at' ? 'updated_at' : 'created_at';
+    $dateFilterName = in_array($name, ['updated_at', 'sourcing_requested_at', 'sourcing_completed_at'], true) ? $name : 'created_at';
 @endphp
 
 @once
@@ -72,7 +75,7 @@
     </style>
 @endonce
 
-<th class="fi-ta-header-cell align-top" @if($width) style="width: {{ $width }}" @endif>
+<th class="fi-ta-header-cell align-top" @if($width) style="width: {{ $width }};{{ $name === 'product_name' ? ' min-width: 13rem;' : '' }}" @endif>
     @if($sortable)
         <button
             type="button"
@@ -93,6 +96,8 @@
 
         @case('created_at')
         @case('updated_at')
+        @case('sourcing_requested_at')
+        @case('sourcing_completed_at')
             <div
                 x-data="{
                     open: false,
@@ -188,7 +193,7 @@
                         this.hover = null;
                     },
                 }"
-                class="relative mt-2 min-w-56"
+                class="relative mt-2 {{ str_starts_with($name, 'sourcing_') ? 'min-w-44' : 'min-w-56' }}"
             >
                 <button
                     x-ref="trigger"
@@ -274,6 +279,14 @@
                 @foreach(MaterialSourcingStatus::cases() as $status)
                     <option value="{{ $status->value }}">{{ $status->getLabel() }}</option>
                 @endforeach
+            </select>
+            @break
+
+        @case('sourcing_duration')
+            <select wire:model.live="tableFilters.sourcing_duration_state.value" class="{{ $inputClass }}">
+                <option value="">- Semua -</option>
+                <option value="{{ \App\Services\Rnd\Material\MaterialSourcingTimeline::STATE_RUNNING }}">Masih Berjalan</option>
+                <option value="{{ \App\Services\Rnd\Material\MaterialSourcingTimeline::STATE_COMPLETED }}">Selesai</option>
             </select>
             @break
 

@@ -1,6 +1,6 @@
 # Research & Development
 
-Pengembangan produk dari project sampai rilis: project dan produk, BOM di ESB, Master Bahan dengan review IT, sourcing dan evaluasi sampel, harga resmi, shelf life WIP, memo internal ke operasional, dan kalender tugas lintas cabang. Kondisi per 27 Oktober 2026.
+Pengembangan produk dari project sampai rilis: project dan produk, BOM di ESB, Master Bahan dengan review IT, sourcing dan evaluasi sampel, harga resmi, shelf life WIP, memo internal ke operasional, dan kalender tugas lintas cabang. Kondisi per 2 November 2026.
 
 ## Lokasi
 
@@ -83,6 +83,16 @@ Alur bahan baru dari R&D sampai harga resmi. Status dilacak dalam beberapa dimen
 
 **Sourcing tanpa project** (Sourcing Bahan → Buat Sourcing) memilih produk ESB existing dan masih memakai approval legacy (R&D lalu Finance). Penyatuan dengan alur sampel menunggu keputusan PRD §32 butir 8. Data legacy tetap bisa dibaca dan diproses dengan alur lamanya. Audit trail per bahan tersimpan di `rnd_material_audit_logs`.
 
+### Durasi sourcing
+
+Sourcing Bahan dan Review Sourcing memakai kolom, filter, dan ringkasan modal yang sama ([PRD](../purchasing/sourcing-duration-tracking/prd.md)). Durasi memakai waktu kalender dan dihitung saat tampilan dirender, tidak disimpan.
+
+- **Mulai** (`sourcing_requested_at`): diisi sekali saat bahan masuk antrean Purchasing setelah sync terverifikasi, saat sourcing mandiri dibuat, atau saat bahan legacy `not_started` menerima supplier pertama. Resample dan reopen tidak mengubahnya.
+- **Selesai** (`sourcing_completed_at`): diisi pada `approved_by_rnd`, `rejected_by_rnd`, `approved` (approval Finance), dan `rejected` (penolakan R&D), dalam transaksi yang sama dengan perubahan status. Resample dan penolakan Finance yang mengembalikan record ke `pending_rnd_review` tetap berjalan. Pricelist dan `workflow_completed_at` tidak memengaruhi durasi.
+- **Reopen dan pengajuan ulang** (buka ulang approval, buka kembali penolakan, tambah atau ubah supplier legacy): mengosongkan tanggal selesai dan durasi berjalan lagi dari tanggal mulai awal. Audit log menyimpan tanggal selesai sebelumnya pada `previous_sourcing_completed_at`.
+- **Tampilan**: record berjalan menampilkan suffix `berjalan`. Data yang tidak terbukti atau berkronologi tidak valid menampilkan `Tidak Tersedia`. `not_started` dan `not_required` menampilkan `—`.
+- **Data lama**: `rnd:backfill-sourcing-durations` hanya mengisi field null dari sumber yang terbukti: sourcing mandiri dari `created_at`; keputusan sampel dari `evaluated_at` siklus terbaru yang cocok; legacy dari `finance_reviewed_at` atau `rnd_reviewed_at`. Tanggal mulai record project yang null, termasuk project legacy, tetap null.
+
 ## Memo Internal
 
 - Memo per **Brand** dan periode (Company Code selalu BLSS; satu memo aktif per brand, periode, dan revisi). Menu dipilih dari katalog Master Menu BLSS global yang disinkronkan di background.
@@ -107,6 +117,7 @@ Master prefix untuk penamaan Master Bahan di halaman produk project: kode, label
 | `product-price-index:sync` | Senin 01:00 — snapshot harga PO |
 | `rnd:audit-material-legacy` | Dry-run: klasifikasi Master Bahan legacy |
 | `rnd:audit-wip-shelf-life` | Dry-run: konflik identitas shelf life WIP |
+| `rnd:backfill-sourcing-durations` | Isi tanggal mulai dan selesai sourcing dari sumber terbukti; dry-run kecuali `--apply` |
 | `rnd:backfill-internal-memo-brands` | Isi brand memo lama dari branch lama; dry-run kecuali `--apply` |
 | `esb:create-units`, `esb:rename-products`, `esb:replace-product-units`, `esb:replace-bom-units`, `esb:set-recipe-unit`, `esb:normalize-mille-crepe-whole-menus` | Utilitas one-off perubahan massal di ESB berdasarkan file Excel; setiap perubahan diverifikasi |
 
@@ -121,8 +132,8 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | Policy | `app/Policies/Rnd*.php` |
 | Enum | `app/Enums/{Rnd,Material}*.php` |
 | Model | `app/Models/{Rnd,MaterialSourcing,Prefix,ProductPrice}*.php` |
-| Command | `app/Console/Commands/{AuditRndMaterialLegacy,AuditWipShelfLife,BackfillInternalMemoBrands,SendRndProjectTaskReminders,SyncRndEsbMaterials,SyncProductPriceIndex}Command.php`, `app/Console/Commands/Esb*.php` |
-| Test | `tests/Feature/{Rnd,ProjectTask,Bom,MaterialSourcing,ProductPriceIndex,ShelfLife}*Test.php`, `tests/Feature/MaterialWorkflow/`, `tests/Unit/{InternalMemo,RndInternalMemo}*Test.php` |
+| Command | `app/Console/Commands/{AuditRndMaterialLegacy,AuditWipShelfLife,BackfillInternalMemoBrands,BackfillMaterialSourcingDurations,SendRndProjectTaskReminders,SyncRndEsbMaterials,SyncProductPriceIndex}Command.php`, `app/Console/Commands/Esb*.php` |
+| Test | `tests/Feature/{Rnd,ProjectTask,Bom,MaterialSourcing,ProductPriceIndex,ShelfLife,BackfillMaterialSourcingDurations}*Test.php`, `tests/Feature/MaterialWorkflow/`, `tests/Unit/{InternalMemo,RndInternalMemo,MaterialSourcingTimeline}*Test.php` |
 
 ## Data
 
@@ -134,6 +145,7 @@ Model `Rnd*`, `MaterialSourcing`, `MaterialSourcingApproval`, `PrefixCategory`, 
 |---|---|
 | [PRD BOM Adjustment](bom-adjustment/prd.md) | Implemented |
 | [PRD Material Sourcing Lifecycle](material-sourcing-lifecycle/prd.md) | Implemented; open decision §32 butir 8 (sourcing tanpa project) |
+| [Pelacakan Durasi Sourcing](../purchasing/sourcing-duration-tracking/README.md) | Implemented; rollout dan UAT staging belum dijalankan |
 | [PRD Project Task Calendar](project-task-calendar/prd.md) | Implemented |
 | [PRD Project Checkpoint Calendar](project-checkpoint-calendar/prd.md) | Implemented |
 | [PRD Project Types](project-types/prd.md) | Implemented |

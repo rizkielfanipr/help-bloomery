@@ -140,6 +140,7 @@ class RndProductEsbMaterial extends Model
             'esb_verified_at' => 'datetime',
             'pricing_status' => MaterialPricingStatus::class,
             'sourcing_requested_at' => 'datetime',
+            'sourcing_completed_at' => 'datetime',
             'workflow_completed_at' => 'datetime',
         ];
     }

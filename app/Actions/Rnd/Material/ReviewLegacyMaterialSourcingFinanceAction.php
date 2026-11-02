@@ -5,6 +5,7 @@ namespace App\Actions\Rnd\Material;
 use App\Enums\MaterialSourcingStatus;
 use App\Models\RndProductEsbMaterial;
 use App\Models\User;
+use App\Services\Rnd\Material\MaterialAuditLogger;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -13,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class ReviewLegacyMaterialSourcingFinanceAction
 {
+    public function __construct(private readonly MaterialAuditLogger $audit) {}
+
     /**
      * @throws AuthorizationException|ValidationException
      */
@@ -37,11 +40,14 @@ class ReviewLegacyMaterialSourcingFinanceAction
             }
 
             $approved = $validated['decision'] === 'approve';
+            $reviewedAt = now();
+            $previous = $material->sourcing_status;
             $material->forceFill([
                 'finance_reviewed_by' => $actor->id,
-                'finance_reviewed_at' => now(),
+                'finance_reviewed_at' => $reviewedAt,
                 'finance_note' => $validated['note'] ?? null,
                 'sourcing_status' => $approved ? MaterialSourcingStatus::Approved : MaterialSourcingStatus::PendingRndReview,
+                'sourcing_completed_at' => $approved ? $reviewedAt : null,
             ])->save();
 
             $material->sourcingApprovals()->create([
@@ -50,6 +56,13 @@ class ReviewLegacyMaterialSourcingFinanceAction
                 'actor_id' => $actor->id,
                 'notes' => $validated['note'] ?? null,
             ]);
+
+            if ($approved) {
+                $this->audit->event($material, 'legacy_sourcing_approved', $actor, $validated['note'] ?? null, $previous?->value, MaterialSourcingStatus::Approved->value, [
+                    'sourcing_completed_at' => $reviewedAt->toIso8601String(),
+                    'sourcing_outcome' => 'approved',
+                ]);
+            }
         });
     }
 }

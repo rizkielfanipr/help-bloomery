@@ -51,6 +51,8 @@ Back office **Receiving** bersifat read-only dan menampilkan nomor PO, nomor GR,
 
 Remediasi: [Receiving Terpusat BLSS](receiving-central-blss/README.md) — [PRD](receiving-central-blss/prd.md), [laporan implementasi](receiving-central-blss/reports/implementation-report.md), dan [rollout runbook](receiving-central-blss/rollout.md).
 
+Planning baru: [Penerimaan Tanpa PO / PO Susulan](non-po-receiving/README.md). Inventory tetap masuk melalui tile **Receiving**, memilih mode **Tanpa PO**, mencatat supplier teks serta produk dari Master Product, lalu mengirim data lokal ke Purchasing untuk dibuatkan PO. Belum ada perubahan kode aplikasi pada planning ini.
+
 ## Item Journal
 
 Penyesuaian stok (tambah/kurang) ke ESB Core. Nama model, tabel, route resource, dan permission aksi masih memakai prefix legacy `quality_control_item_journal*`/`QualityControlItemJournal*` agar data lama, deep link, dan monitoring tetap valid.
@@ -105,6 +107,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | [Receiving Terpusat BLSS](receiving-central-blss/README.md) | In development — kode tanpa mapping branch lokal selesai di PR; menunggu review, UAT staging, dan rollout production |
 | [PRD Item Journal Inventory](item-journal/prd.md) | Implemented — tile mandiri, foto camera-first image-only, dan menu Back Office di Inventory |
 | [Stock Card Draft Workflow](stock-card-draft-workflow/README.md) | In development — kode selesai di PR; menunggu review, CI, dan UAT staging |
+| [Penerimaan Tanpa PO / PO Susulan](non-po-receiving/README.md) | Draft — planning local receiving, antrean PO Susulan, verifikasi PO, dan GR otomatis |
 
 Dataset: [development-todo.csv](development-todo.csv).
 

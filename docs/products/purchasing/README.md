@@ -38,6 +38,10 @@ Antrean Purchasing untuk Master Bahan: menambah kandidat supplier (nama, merek, 
 
 Status: `not_started`, `ordered`, `received`.
 
+## PO Susulan
+
+Planning: [Penerimaan Tanpa PO / PO Susulan](../inventory/non-po-receiving/README.md). Submenu **PO Susulan** akan menjadi antrean Purchasing untuk penerimaan yang sudah dicatat Inventory tanpa PO. Purchasing membuat PO manual di ESB, memasukkan nomor PO, lalu aplikasi memverifikasi Product Detail ID, UOM, branch, status, dan outstanding qty sebelum memproses Goods Receipt. Belum ada perubahan kode aplikasi pada planning ini.
+
 ## Peta kode
 
 Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{a,b}` dan `*` adalah glob dari root repository.

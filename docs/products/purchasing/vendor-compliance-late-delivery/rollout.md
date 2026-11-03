@@ -33,16 +33,18 @@ supersedes: null
 
 | Variabel | Wajib | Default | Keterangan |
 |---|---|---|---|
-| Feature flag/config assessment | Tidak — hanya bila pola feature flag existing dipakai | Off sampai migration selesai | Nama final mengikuti konfigurasi existing; jangan membuat env baru tanpa kebutuhan |
+| Feature flag/config assessment | Tidak | Not applicable | Tidak dibuat: repository tidak mempunyai pola feature flag existing. Assessment aktif bersama deploy; penghentian darurat lewat rollback aplikasi |
 | Timezone aplikasi | Ya | `Asia/Jakarta` sesuai konfigurasi aplikasi | Diverifikasi, tidak diubah khusus fitur |
 | Credential ESB existing | Ya | Existing | Tidak ada credential/endpoint baru |
 | Queue notification existing | Sesuai implementasi | Existing | Tidak ada queue baru bila notifikasi synchronous-after-commit memadai |
 
-Tidak ada environment variable baru yang wajib pada planning ini. Bila implementasi memerlukan config matrix scoring, gunakan config versioned dalam repository dan dokumentasikan perubahan sebelum rollout.
+Tidak ada environment variable baru. Matrix poin ada di `LateDeliveryScoring` dengan versi `late-delivery-v1` yang tersimpan pada insiden confirmed.
 
 ## 3. Migration
 
-Urutan yang diharapkan:
+Migration: `2026_11_03_204208_add_delivery_assessment_to_goods_receipts_table` dan `2026_11_03_204209_extend_vendor_compliance_incidents_for_late_delivery` (juga membuat `vendor_compliance_incident_events`). Rehearsal MySQL lokal (salinan schema empat tabel, karena migrate dari nol gagal pada migration lama `marketing_material_fulfillments` yang nama index-nya terlalu panjang) lulus: dua insiden legacy tetap utuh dan menjadi `not_applicable`, FK item tetap ada, `source_key` ganda ditolak, dan `down()` menolak rollback setelah ada insiden header-level atau insiden ganda per item.
+
+Urutan dalam migration:
 
 1. Tambah field assessment nullable pada `goods_receipts`.
 2. Tambah field source/liability/date/scoring nullable/default-compatible pada `vendor_compliance_incidents`.
@@ -74,13 +76,13 @@ Sebelum production, catat durasi migration staging, lock yang terjadi, versi dat
 ## 7. Deployment steps
 
 1. Pastikan backup dan CI valid.
-2. Deploy artifact sesuai release pipeline dengan assessment tetap off bila feature flag digunakan.
+2. Deploy artifact sesuai release pipeline. Tidak ada feature flag; assessment aktif bersama deploy.
 3. Jalankan migration dan catat durasi/hasil.
 4. Jalankan permission sync existing; tidak ada grant role baru pada rekomendasi v1.
-5. Aktifkan assessment setelah schema dan application health valid bila feature flag digunakan.
+5. Periksa health aplikasi dan Receiving segera setelah deploy.
 6. Jalankan smoke test Receiving on-time, late, dan PO Susulan menggunakan data staging fiktif.
 7. Jalankan smoke test Purchasing pending → confirmed dan pending → waived.
-8. Jalankan reconciliation read-only dan periksa tidak ada duplicate source key/gap pada data uji.
+8. Jalankan `php artisan vendor-compliance:reconcile-late-delivery` (read-only) dan pastikan tidak ada gap pada data uji.
 9. Mulai observation window; jangan menjalankan historical backfill.
 
 ## 8. Smoke test
@@ -139,8 +141,8 @@ Ambang rollback/hotfix: submit Receiving gagal karena assessment, PO Susulan mem
 
 ## 12. Rollback steps
 
-1. Nonaktifkan feature flag/config assessment bila tersedia.
-2. Hentikan confirm/waive baru melalui konfigurasi atau deploy application sebelumnya.
+1. Tidak ada feature flag; hentikan assessment dan confirm/waive baru dengan rollback aplikasi.
+2. Bila hanya review yang bermasalah, cabut sementara `edit vendor compliance incidents` dari reviewer melalui Role & Permission.
 3. Rollback application artifact sesuai pipeline.
 4. Pertahankan kolom/index/schema additive dan data incident yang sudah tercipta.
 5. Jangan mengembalikan unique `goods_receipt_item_id`, drop kolom, menghapus kandidat, atau mengubah poin secara otomatis.

@@ -1,7 +1,7 @@
 ---
 document_id: PURCHASING-VENDOR-COMPLIANCE-LATE-DELIVERY-PLAN
 title: Implementation Plan — Vendor Compliance Keterlambatan Delivery PO
-status: draft
+status: implemented
 version: 1.0
 owner: Purchasing
 technical_owner: Information Technology

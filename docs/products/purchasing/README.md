@@ -28,7 +28,10 @@ Back office menyediakan filter status, cabang, dan jenis pembelian, serta export
 ## Vendor Compliance
 
 - Insiden dibuat otomatis saat Receiving menolak item. Isinya: nomor insiden, vendor, nomor PO, produk, kategori, qty rejected, dan **poin demerit**. Bobot demerit: cold chain dan shelf life 20; sampling 15; document, quantity, quality, dan packaging 10; lainnya 5.
-- Purchasing menindaklanjuti dengan status penanganan (`open`, `in_progress`, `claim_or_return_submitted`, `resolved`), jenis tindak lanjut (klaim vendor, retur barang, penggantian barang, credit note, lainnya), dan catatan.
+- Purchasing menindaklanjuti dengan status penanganan (`open`, `in_progress`, `claim_or_return_submitted`, `resolved`), jenis tindak lanjut (klaim vendor, retur barang, penggantian barang, credit note, lainnya), dan catatan. Form tindak lanjut hanya mengubah field penanganan.
+- **Late Delivery** ([PRD](vendor-compliance-late-delivery/prd.md)): Receiving PO normal yang tanggal penerimaannya melewati `requiredDate` PO membuat satu insiden header-level (`goods_receipt_item_id` kosong, kolom produk **Level PO**) per company + nomor PO, dengan `liability_status = pending` dan 0 poin. Partial GR berikutnya memperbarui keterlambatan maksimum dan tanggal terakhir tanpa insiden atau poin baru. PO Susulan tidak pernah dinilai. User aktif dengan `edit vendor compliance incidents` menerima notifikasi.
+- Di detail, **Konfirmasi Pelanggaran** menetapkan `confirmed` dengan matrix `late-delivery-v1` (1–2 hari = low/5 poin, 3–7 = medium/10, lebih dari 7 = high/20). **Berikan Pengecualian** wajib alasan, menetapkan `waived` dengan 0 poin, dan menutup status penanganan. Keduanya memerlukan `edit vendor compliance incidents`, final pada v1, dan tercatat di `vendor_compliance_incident_events`. Insiden `pending` tidak dapat ditandai Selesai. Insiden QC berstatus liability `not_applicable` dan dapat hidup bersama insiden Late Delivery pada GR yang sama.
+- Index memiliki filter kategori (termasuk Late Delivery) dan filter Verifikasi Keterlambatan (`pending`, `confirmed`, `waived`). `php artisan vendor-compliance:reconcile-late-delivery` melaporkan GR terlambat tanpa kandidat dan antrean verifikasi tanpa menulis data.
 
 ## Sourcing Bahan
 
@@ -78,20 +81,21 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 
 | Lapisan | Lokasi |
 |---|---|
-| Back Office | `app/Filament/Helpdesk/Resources/{PurchaseRequests,VendorComplianceIncidents,MaterialSourcings,MaterialSourcingRequests,MarketingMaterialFulfillments,NonPoReceipts}/`, `resources/views/filament/helpdesk/{non-po-receipts,material-sourcing-requests}/` |
-| Action | `app/Actions/Purchasing/{NonPoReceipt,MaterialSourcingRequest}/` |
-| Service | `app/Services/Purchasing/`, `app/Services/Rnd/Material/ActiveEsbProductDetailResolver.php` |
+| Back Office | `app/Filament/Helpdesk/Resources/{PurchaseRequests,VendorComplianceIncidents,MaterialSourcings,MaterialSourcingRequests,MarketingMaterialFulfillments,NonPoReceipts}/`, `resources/views/filament/helpdesk/{non-po-receipts,material-sourcing-requests,vendor-compliance-incidents}/` |
+| Action | `app/Actions/Purchasing/{NonPoReceipt,MaterialSourcingRequest,VendorCompliance}/` |
+| Service | `app/Services/Purchasing/`, `app/Services/Purchasing/VendorCompliance/`, `app/Services/Rnd/Material/ActiveEsbProductDetailResolver.php` |
+| Command | `app/Console/Commands/ReconcileLateDeliveryComplianceCommand.php` |
 | Employee App | `app/Filament/Casual/Pages/{PurchaseRequestPage,PurchaseRequestHistoryPage,MaterialSourcingRequestPage,MaterialSourcingRequestHistoryPage}.php`, `resources/views/filament/casual/pages/material-sourcing-request*.blade.php`, `resources/views/components/material-sourcing-request/` |
 | Lampiran | `app/Http/Controllers/MaterialSourcingRequestAttachmentController.php` |
 | Policy | `app/Policies/{VendorComplianceIncidentPolicy,NonPoReceiptPolicy,MaterialSourcingRequestPolicy}.php` |
-| Enum | `app/Enums/{PurchaseRequestStatus,PurchaseType,MarketingMaterialFulfillmentStatus,NonPoReceiptStatus,MaterialSourcingRequestStatus}.php` |
+| Enum | `app/Enums/{PurchaseRequestStatus,PurchaseType,MarketingMaterialFulfillmentStatus,NonPoReceiptStatus,MaterialSourcingRequestStatus,VendorComplianceLiabilityStatus}.php` |
 | Model | `app/Models/{PurchaseRequest,PurchasingRequest,VendorCompliance,MarketingMaterialFulfillment,NonPoReceipt,MaterialSourcingRequest}*.php` |
 | Durasi sourcing | `app/Services/Rnd/Material/MaterialSourcingTimeline.php`, `resources/views/filament/helpdesk/material-sourcings/view-sourcing.blade.php`, `app/Console/Commands/BackfillMaterialSourcingDurationsCommand.php` |
-| Test | `tests/Feature/{PurchaseRequest,MarketingMaterialFulfillment,MaterialSourcing,MaterialSourcingRequest,NonPoReceipt,BackfillMaterialSourcingDurations}*Test.php`, `tests/Unit/MaterialSourcingTimelineTest.php` |
+| Test | `tests/Feature/{PurchaseRequest,MarketingMaterialFulfillment,MaterialSourcing,MaterialSourcingRequest,NonPoReceipt,BackfillMaterialSourcingDurations,VendorComplianceResource,LateDelivery}*Test.php`, `tests/Unit/{MaterialSourcingTimeline,DeliveryDelayCalculator}Test.php` |
 
 ## Data
 
-`PurchaseRequest`, `PurchaseRequestStatusHistory`, `VendorComplianceIncident`, `MarketingMaterialFulfillment`, `RndProjectMarketingMaterial`, `MaterialSourcing`, `MaterialSourcingRequest`, `MaterialSourcingRequestStatusHistory`. Lihat [Data Model](../../architecture/data-model.md#purchasing).
+`PurchaseRequest`, `PurchaseRequestStatusHistory`, `VendorComplianceIncident`, `MarketingMaterialFulfillment`, `RndProjectMarketingMaterial`, `MaterialSourcing`, `MaterialSourcingRequest`, `MaterialSourcingRequestStatusHistory`, `VendorComplianceIncidentEvent`. Lihat [Data Model](../../architecture/data-model.md#purchasing).
 
 ## Dokumen terkait
 
@@ -101,7 +105,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | [Receiving tanpa PO](../inventory/non-po-receiving/README.md) dan [PRD](../inventory/non-po-receiving/prd.md) | Implemented |
 | [Master Design Library](../brand-marketing/design-master-library/README.md) dan [PRD](../brand-marketing/design-master-library/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
 | [Request Sourcing melalui Employee App](employee-sourcing-request/README.md) dan [PRD](employee-sourcing-request/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
-| [Vendor Compliance Keterlambatan Delivery PO](vendor-compliance-late-delivery/README.md) dan [PRD](vendor-compliance-late-delivery/prd.md) | Draft; belum diimplementasikan |
+| [Vendor Compliance Keterlambatan Delivery PO](vendor-compliance-late-delivery/README.md) dan [PRD](vendor-compliance-late-delivery/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
 
 ## Role bawaan
 

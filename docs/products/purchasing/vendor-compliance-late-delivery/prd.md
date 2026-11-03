@@ -1,8 +1,8 @@
 ---
 document_id: PURCHASING-VENDOR-COMPLIANCE-LATE-DELIVERY-PRD
 title: PRD — Vendor Compliance Keterlambatan Delivery PO
-status: in-development
-version: 1.1
+status: implemented
+version: 1.2
 owner: Purchasing
 technical_owner: Information Technology
 created_at: 2026-11-03
@@ -31,7 +31,7 @@ supersedes: null
 |---|---|
 | Domain | Purchasing |
 | Fitur | Vendor Compliance Keterlambatan Delivery PO |
-| Status | in-development |
+| Status | implemented |
 | Prioritas | TBD — belum ditetapkan owner bisnis |
 | Target pengguna | Inventory Receiving dan Purchasing |
 | Modul terdampak | Inventory Receiving, Goods Receipt, Purchasing Vendor Compliance |

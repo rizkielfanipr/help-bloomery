@@ -115,6 +115,9 @@ class GoodsReceiptResource extends Resource
                     GoodsReceipt::STATUS_SUCCEEDED => 'success', GoodsReceipt::STATUS_FAILED, GoodsReceipt::STATUS_UNKNOWN => 'danger', default => 'warning',
                 }),
                 TextEntry::make('goods_receipt_date')->label('Tanggal')->date('d M Y'),
+                TextEntry::make('po_required_date')->label('Tanggal Dibutuhkan PO')->date('d M Y')->placeholder('-'),
+                TextEntry::make('delivery_assessment_status')->label('Ketepatan Delivery')->badge()->placeholder('Belum Dinilai')
+                    ->suffix(fn (GoodsReceipt $record): string => $record->delivery_delay_days ? " · {$record->delivery_delay_days} hari" : ''),
                 TextEntry::make('supplier_name')->label('Supplier'),
                 TextEntry::make('branch_name')->label('Cabang'),
                 TextEntry::make('location_name')->label('Lokasi'),

@@ -6,7 +6,7 @@ version: 1.0
 owner: Brand Marketing
 technical_owner: Information Technology
 created_at: 2026-11-02
-updated_at: 2026-11-02
+updated_at: 2026-11-03
 target_release: TBD
 related_documents:
   - docs/products/brand-marketing/design-master-library/prd.md
@@ -87,10 +87,14 @@ Brand Marketing memiliki Master Design berbasis satu Brand per bundle, versionin
 ## Aturan UI
 - Menu canonical Brand Marketing → Master Design; jangan buat master kedua di Purchasing.
 - Index mode list/table, filter Brand default Semua Brand.
-- Purchasing melihat published version default dan UI read-only.
+- Detail mengikuti pola visual resources/views/filament/helpdesk/rnd-projects/view.blade.php: summary card lalu card Informasi Bundle, Current Version, Design Items, Spesifikasi Produksi, Design Files, Revision History, dan Audit Activity.
+- Gunakan rounded-2xl, border netral, background white/dark, header section, icon block, status badge berteks, dan minim shadow sesuai UI existing; jangan mengekstrak komponen generik tanpa reuse nyata.
+- Metadata summary boleh berbentuk grid pada desktop, tetapi seluruh card wajib stack satu kolom pada mobile tanpa horizontal scroll halaman.
+- Tempatkan lifecycle action pada summary/current-version card dan file action dekat file terkait.
+- Purchasing melihat published version default dengan struktur card yang sama dalam UI read-only; sembunyikan mutation dan source download yang tidak diizinkan.
 - Preview lazy, ZIP/source tidak dirender.
 - Terapkan loading/error/empty/disabled/double-submit guard.
-- Verifikasi viewport 360/390/768/1024/1440, zoom 200%, keyboard, dark mode, nama panjang, failed upload.
+- Verifikasi viewport 360/390/768/1024/1440, zoom 200%, keyboard, dark mode, urutan card, nama panjang, empty state, permission visibility, dan failed upload.
 
 ## Tahapan implementasi
 1. Phase 0 audit upload config/infra, role reviewer/publisher, MIME, limit, query, dan characterization existing; catat keputusan.

@@ -6,7 +6,7 @@ version: 1.0
 owner: Brand Marketing
 technical_owner: Information Technology
 created_at: 2026-11-02
-updated_at: 2026-11-02
+updated_at: 2026-11-03
 target_release: TBD
 related_documents:
   - docs/products/brand-marketing/README.md
@@ -298,17 +298,27 @@ Filter: Semua Brand (default), Brand tertentu, kategori, status, physical/digita
 
 ### 17.3 Detail
 
-Urutan:
+Halaman detail menggunakan pola visual **Project Detail R&D** sebagai referensi utama: konten dibagi menjadi section berbentuk card yang jelas, bukan satu form panjang atau tabel besar. Implementasi tidak harus menyalin markup secara literal, tetapi harus konsisten dengan bahasa visual project existing: `rounded-2xl`, border netral, background putih/dark, header section, icon block, status badge, serta tanpa shadow dekoratif berlebihan.
 
-1. identitas Brand dan bundle;
-2. status/current version dan aksi sesuai permission;
-3. daftar item dengan preview;
-4. spesifikasi produksi;
-5. file per role;
-6. revision history;
-7. audit ringkas.
+Susunan card:
 
-Purchasing melihat published version default. Designer dapat memilih draft/revisi dan membandingkan metadata tanpa diff visual binary.
+1. **Summary card** — breadcrumb Master Design, Brand, kode/nama bundle, kategori, deskripsi, status bundle/current version, periode berlaku, creator/publisher, waktu pembaruan, dan aksi utama sesuai permission.
+2. **Informasi Bundle** — metadata bundle dan Brand yang bersifat stabil.
+3. **Current Version** — version number, lifecycle status, change summary, reviewer/publisher, review/publish note, serta pemilih revisi bagi Designer.
+4. **Design Items** — daftar item desain dengan preview lazy, tipe, sifat physical/digital, dan status kelengkapan. Setiap item dapat memakai nested compact card/list; jangan membuat card dekoratif untuk setiap field kecil.
+5. **Spesifikasi Produksi** — dimensions, material, finishing, color/print notes, sides, dan notes untuk item fisik; data kosong menampilkan empty state yang jelas.
+6. **Design Files** — file dikelompokkan menurut role `preview`, `production`, `source`, dan `supporting`, dengan metadata file, badge role, serta aksi preview/download sesuai permission.
+7. **Revision History** — urutan version, status, actor, waktu, dan ringkasan perubahan; published/superseded tetap read-only.
+8. **Audit Activity** — event penting, actor, waktu, dan alasan tanpa signed URL atau credential.
+
+Aturan perilaku detail:
+
+- Purchasing membuka halaman detail yang sama, tetapi default ke published version, hanya melihat data published, dan hanya memperoleh aksi download production yang diizinkan Policy.
+- Designer dapat memilih draft/revisi serta membandingkan metadata tanpa diff visual binary.
+- Aksi global seperti edit bundle, buat revisi, submit review, publish, archive/restore ditempatkan pada summary/current-version card; aksi file ditempatkan pada card file terkait.
+- Pada desktop, metadata ringkas boleh memakai grid dua hingga empat kolom seperti Project Detail. Pada mobile, seluruh card dan metadata stack menjadi satu kolom tanpa horizontal scroll halaman.
+- Tampilan card hanya berlaku untuk halaman detail. Halaman index tetap list/table sesuai §17.2 agar comparison dan filtering efisien.
+- Referensi implementasi visual: `resources/views/filament/helpdesk/rnd-projects/view.blade.php`; reuse token/pola existing dan jangan mengekstrak komponen generik baru sebelum terbukti digunakan ulang.
 
 ### 17.4 Form/version editor
 
@@ -443,6 +453,7 @@ Detail ada di [Rollout Runbook](rollout.md).
 11. Index/filter/detail responsive dan tidak mempunyai N+1.
 12. Project R&D serta fulfillment existing tetap berfungsi tanpa perubahan data.
 13. Tidak ada public file URL, hard delete UI, dependency baru, atau integrasi eksternal.
+14. Halaman detail memakai section card yang konsisten dengan Project Detail R&D, responsif, dan tetap read-only bagi Purchasing.
 
 ## 26. Risiko dan mitigasi
 

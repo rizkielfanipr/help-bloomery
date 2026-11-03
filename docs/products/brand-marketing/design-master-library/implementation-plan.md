@@ -6,7 +6,7 @@ version: 1.0
 owner: Brand Marketing
 technical_owner: Information Technology
 created_at: 2026-11-02
-updated_at: 2026-11-02
+updated_at: 2026-11-03
 target_release: TBD
 related_documents:
   - docs/products/brand-marketing/design-master-library/prd.md
@@ -111,12 +111,16 @@ Satu branch/PR implementasi disarankan agar schema, writer, reader, dan authoriz
 ## 10. UI
 
 - Resource list/table untuk comparison; tidak memakai card sebagai default index.
+- Halaman detail mengikuti pola visual `resources/views/filament/helpdesk/rnd-projects/view.blade.php`: summary card di atas dan section card terpisah untuk Informasi Bundle, Current Version, Design Items, Spesifikasi Produksi, Design Files, Revision History, dan Audit Activity.
+- Gunakan bahasa visual existing berupa `rounded-2xl`, border netral, background white/dark, header section, icon block, badge berteks, dan minim shadow; jangan membuat komponen generik baru sebelum ada reuse nyata.
+- Metadata summary memakai grid responsif; card stack satu kolom pada mobile dan tidak menyebabkan horizontal scroll halaman.
+- Aksi lifecycle ditempatkan pada summary/current-version card, sedangkan preview/download/upload ditempatkan dekat file atau item terkait.
 - Brand filter default Semua Brand.
 - Designer memakai create/edit/revision actions sesuai status.
-- Purchasing mendapatkan read-only detail dan production download.
+- Purchasing mendapatkan struktur detail card yang sama dalam mode read-only, hanya untuk published version dan production download yang diizinkan.
 - File preview lazy; source/ZIP tidak dirender.
 - Form menjaga input saat validation/upload gagal dan mencegah double submit.
-- Verifikasi responsive dan keyboard mengikuti PRD §17.
+- Verifikasi responsive dan keyboard mengikuti PRD §17, termasuk snapshot/manual UAT desktop serta mobile untuk urutan card, nama panjang, empty state, dan action visibility per permission.
 
 ## 11. Testing per phase
 
@@ -126,7 +130,7 @@ Satu branch/PR implementasi disarankan agar schema, writer, reader, dan authoriz
 | 1 | Schema invariant, model relation/cast, Policy matrix, permission registry |
 | 2 | Fake disk upload/download/rollback/tamper/role/size/MIME/checksum |
 | 3 | Lifecycle happy/invalid paths, immutable published, concurrency publish, archive |
-| 4 | Filament list/filter/action/detail/editor, read-only Purchasing, responsive manual UAT |
+| 4 | Filament list/filter/action/detail/editor, struktur detail card seperti Project Detail R&D, read-only Purchasing, responsive manual UAT |
 | 5 | Regression Project R&D/fulfillment, query count, docs checks, full targeted suite |
 
 ## 12. Observability

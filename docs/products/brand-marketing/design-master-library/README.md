@@ -31,6 +31,7 @@ Master Design Library direncanakan sebagai katalog desain reusable berdasarkan B
 | Purchasing hanya membaca published version dan mengunduh file production | Dikunci dalam PRD |
 | Published version immutable; perubahan membuat revisi baru | Dikunci dalam PRD |
 | File master disimpan privat dan tidak ditimpa | Dikunci dalam PRD |
+| Index memakai list/table; detail memakai section card seperti Project Detail R&D | Dikunci dalam PRD |
 | Integrasi Project R&D/fulfillment bukan scope versi pertama | Dikunci dalam PRD |
 
 ## Laporan
@@ -43,4 +44,5 @@ Master Design Library direncanakan sebagai katalog desain reusable berdasarkan B
 
 | Tanggal | Status | Catatan |
 |---|---|---|
+| 2026-11-03 | draft | Spesifikasi UI detail diperjelas menjadi summary dan section card mengikuti pola Project Detail R&D; index tetap list/table |
 | 2026-11-02 | draft | Planning dibuat berdasarkan audit Brand Marketing, Project R&D, Purchasing, Brand, permission, dan penyimpanan file existing |

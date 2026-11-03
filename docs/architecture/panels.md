@@ -1,6 +1,6 @@
 # Panel dan Navigasi
 
-Aplikasi mendaftarkan lima panel Filament di `bootstrap/providers.php`. Dokumen ini mencerminkan kode per 2 November 2026.
+Aplikasi mendaftarkan lima panel Filament di `bootstrap/providers.php`. Dokumen ini mencerminkan kode per 3 November 2026.
 
 | Panel | ID | Path | Provider | Syarat akses (`User::canAccessPanel()`) |
 |---|---|---|---|---|
@@ -35,7 +35,7 @@ Sidebar Back Office tidak memakai navigation API Filament. Struktur menunya ditu
 | Finance | Sales Report Settings, Sales Report Scores, Sales Report, Compliment Types, Basket Size, Product Pricelist | `edit sales report settings`, `view sales report scores`, `view sales reports`, `view compliment types`, `view basket sizes`, `view material pricelist` | [Finance](../products/finance/README.md) |
 | Sales & Growth | Sales Projection | `view sales projections` | [Sales & Growth](../products/sales-growth/README.md) |
 | Analytics | Sales Information, Ordering Recommendation, Ordering Settings, Promotion Information, Stock Information | `view sales information`, `view ordering recommendations`, `manage ordering recommendation settings`, `view promotion information`, `view stock information` | [Analytics](../products/analytics/README.md) |
-| Brand Marketing | Permintaan Design, Kategori Design, Permintaan Konten | `view design requests`, `view design categories`, `view content requests` | [Brand Marketing](../products/brand-marketing/README.md) |
+| Brand Marketing | Permintaan Design, Kategori Design, Permintaan Konten, Master Design | `view design requests`, `view design categories`, `view content requests`, `view design master bundles` | [Brand Marketing](../products/brand-marketing/README.md) |
 | Management Access | Pengguna, Role & Permission | `view users`, `view roles` | [Access Management](../products/access-management/README.md) |
 | Master | Brand, Branch, Employee, WhatsApp | `view brands`, `view branches`, `view employees`, `edit whatsapp settings` | [Master Data](../products/master-data/README.md) |
 

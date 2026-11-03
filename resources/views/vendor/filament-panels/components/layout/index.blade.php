@@ -238,6 +238,7 @@
                 ['label' => 'Permintaan Design', 'icon' => 'palette', 'perm' => 'view design requests',    'href' => $r('filament.helpdesk.resources.design-requests.index'),   'active' => $active($r('filament.helpdesk.resources.design-requests.index'))],
                 ['label' => 'Kategori Design',   'icon' => 'tag',     'perm' => 'view design categories',  'href' => $r('filament.helpdesk.resources.design-categories.index'), 'active' => $active($r('filament.helpdesk.resources.design-categories.index'))],
                 ['label' => 'Permintaan Konten', 'icon' => 'video',   'perm' => 'view content requests',   'href' => $r('filament.helpdesk.resources.content-requests.index'),  'active' => $active($r('filament.helpdesk.resources.content-requests.index'))],
+                ['label' => 'Master Design',     'icon' => 'layers',  'perm' => 'view design master bundles', 'href' => $r('filament.helpdesk.resources.marketing-design-bundles.index'), 'active' => $active($r('filament.helpdesk.resources.marketing-design-bundles.index'))],
             ],
         ],
         [

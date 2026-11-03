@@ -1,7 +1,7 @@
 ---
 document_id: BRAND-MARKETING-DESIGN-MASTER-LIBRARY-PLAN
 title: Implementation Plan — Master Design Library Berbasis Brand
-status: draft
+status: implemented
 version: 1.0
 owner: Brand Marketing
 technical_owner: Information Technology
@@ -164,21 +164,21 @@ Ikuti [rollout.md](rollout.md): schema → application → permission sync → r
 
 ## 16. Quality gates
 
-- [ ] Targeted model/policy/workflow/file/Filament tests lulus
-- [ ] Regression marketing material Project R&D dan fulfillment lulus
-- [ ] Query count dan storage failure paths diverifikasi
-- [ ] `vendor/bin/pint --dirty --format agent`
-- [ ] `bash ops/ci/check-doc-links.sh`
-- [ ] `bash ops/ci/check-code-map.sh`
-- [ ] `git diff --check`
+- [x] Targeted model/policy/workflow/file/Filament tests lulus
+- [x] Regression marketing material Project R&D dan fulfillment lulus
+- [x] Query count dan storage failure paths diverifikasi
+- [x] `vendor/bin/pint --dirty --format agent`
+- [x] `bash ops/ci/check-doc-links.sh`
+- [x] `bash ops/ci/check-code-map.sh`
+- [x] `git diff --check`
 - [ ] Responsive/keyboard/file UAT staging dicatat
 - [ ] CI Pull Request hijau
 
 ## 17. Definition of Done
 
-- [ ] Semua acceptance criteria PRD terpenuhi.
+- [x] Semua acceptance criteria PRD terpenuhi pada test dan pemeriksaan lokal.
 - [ ] Permission dan role staging diuji.
-- [ ] Published/download/file lifecycle aman dan teruji.
-- [ ] README/architecture sesuai kode aktual.
-- [ ] Implementation report dibuat.
-- [ ] Implementation prompt dihapus setelah implementasi selesai.
+- [x] Published/download/file lifecycle aman dan teruji pada fake disk; storage sungguhan menunggu UAT staging.
+- [x] README/architecture sesuai kode aktual.
+- [x] Implementation report dibuat.
+- [x] Implementation prompt dihapus setelah implementasi selesai.

@@ -16,24 +16,26 @@ supersedes: null
 
 # Rollout Runbook — Master Design Library Berbasis Brand
 
-> Nama migration, permission final, dan batas upload final diisi pada implementation report. Dokumen draft ini tidak mengotorisasi production deployment.
+> Migration: `2026_11_03_081707_create_marketing_design_tables`. Batas upload final: 12 MB per file. Dokumen ini masih draft sampai UAT staging selesai dan tidak mengotorisasi production deployment.
 
 ## 1. Prerequisite
 
 - [ ] PR implementasi merged dan CI hijau.
 - [ ] Migration additive serta rollback direview.
-- [ ] Keputusan reviewer/publisher dan limit/format file dikunci.
+- [ ] Brand Marketing menunjuk reviewer dan publisher. Limit dan format file sudah dikunci pada PRD §18.2.
+- [ ] Batas PHP (`upload_max_filesize`, `post_max_size`) dan reverse proxy staging serta production diverifikasi minimal 12 MB.
 - [ ] Backup database mengikuti prosedur release existing.
 - [ ] Storage staging mempunyai ruang dan private temporary URL berfungsi.
+- [ ] `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=local` terpasang seperti `.env.example`, karena checksum dihitung dari file sementara lokal.
 - [ ] UAT Designer dan Purchasing dijadwalkan.
 
 ## 2. Environment dan configuration
 
-Tidak ada environment variable baru yang direncanakan. Gunakan Storage disk existing. Jika Phase 0 menemukan konfigurasi upload server perlu diubah, nama variabel/setting dan dampaknya wajib ditambahkan pada implementation report tanpa menulis secret.
+Tidak ada environment variable baru. File memakai Storage disk `b2` existing. Konfigurasi Livewire tidak diubah, sehingga batas upload global tetap 12 MB.
 
 ## 3. Migration
 
-- Tabel baru: bundle, version, item, file, dan audit sesuai nama final implementasi.
+- Tabel baru: `marketing_design_bundles`, `marketing_design_bundle_versions`, `marketing_design_items`, `marketing_design_files`, dan `marketing_design_audit_logs`.
 - Seluruh perubahan additive; tidak mengubah tabel Project R&D/fulfillment.
 - Tidak ada backfill atau pemindahan binary dalam migration.
 - Audit lock/duration migration pada staging sebelum production.
@@ -58,9 +60,10 @@ Object storage melalui disk Laravel existing adalah satu-satunya boundary. Tidak
 2. Deploy migration additive serta aplikasi melalui pipeline existing.
 3. Jalankan `permissions:sync` melalui pipeline existing.
 4. Berikan permission melalui UI Role & Permission:
-   - Designer: view/create/edit/upload;
-   - Reviewer/Publisher: review/publish/archive sesuai keputusan owner;
-   - Purchasing: view dan download production saja.
+   - Designer: `view`, `create`, dan `edit design master bundles`, `upload design master files`, serta `download design master production files` dan `download design master source files` agar dapat memeriksa file;
+   - Reviewer: `view design master bundles`, `review design master bundles`, dan permission unduh yang diperlukan;
+   - Publisher: `view design master bundles`, `publish design master bundles`, `archive design master bundles`, dan permission unduh yang diperlukan;
+   - Purchasing: `view design master bundles` dan `download design master production files` saja.
 5. Jangan menjalankan role seeder production.
 6. Buat bundle/file uji nonproduction pada staging dan jalankan smoke test.
 7. Setelah UAT disetujui, lakukan production rollout sesuai approval user.

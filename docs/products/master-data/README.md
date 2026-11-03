@@ -15,7 +15,7 @@ Resource **Region Penjualan** (`SalesRegionResource`) terdaftar dan memiliki per
 
 ## Brand
 
-Nama brand dan jumlah cabang. Brand dipakai oleh branch, SOP Store, Memo Internal, dan filter analitik.
+Nama brand dan jumlah cabang. Brand dipakai oleh branch, SOP Store, Memo Internal, [Master Design](../brand-marketing/README.md#master-design), dan filter analitik. Brand yang masih mempunyai bundle Master Design tidak dapat dihapus.
 
 ## Branch
 

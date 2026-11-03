@@ -14,6 +14,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -74,7 +75,13 @@ class BrandResource extends Resource
             ])
             ->recordActions([
                 EditAction::make()->iconButton()->tooltip('Edit'),
-                DeleteAction::make()->iconButton()->tooltip('Hapus')->requiresConfirmation(),
+                DeleteAction::make()->iconButton()->tooltip('Hapus')->requiresConfirmation()
+                    ->before(function (Brand $record, DeleteAction $action): void {
+                        if ($record->designBundles()->exists()) {
+                            Notification::make()->danger()->title('Brand tidak dapat dihapus')->body('Brand ini masih mempunyai bundle Master Design.')->send();
+                            $action->cancel();
+                        }
+                    }),
             ])
             ->toolbarActions([
                 Action::make('create')

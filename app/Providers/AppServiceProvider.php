@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Filament\Casual\Resources\ServiceRequests\Pages\ListServiceRequests as CasualListServiceRequests;
 use App\Filament\Helpdesk\Resources\CustomerComplaints\Pages\ListCustomerComplaints;
 use App\Filament\Helpdesk\Resources\ErpRepairRequests\Pages\ListErpRepairRequests;
+use App\Filament\Helpdesk\Resources\MarketingDesignBundles\MarketingDesignBundleResource;
+use App\Filament\Helpdesk\Resources\MarketingDesignBundles\Pages\ListMarketingDesignBundles;
 use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillments;
 use App\Filament\Helpdesk\Resources\MarketingMaterialFulfillments\Pages\ListMarketingMaterialFulfillmentsToReceive;
 use App\Filament\Helpdesk\Resources\MaterialPricelists\Pages\ListMaterialPricelists;
@@ -67,6 +69,15 @@ class AppServiceProvider extends ServiceProvider
                 ListMaterialSourcings::class,
                 ListReviewSourcings::class,
             ],
+        );
+
+        FilamentView::registerRenderHook(
+            TablesRenderHook::HEADER_CELL,
+            fn (array $data) => view('filament.helpdesk.marketing-design-bundles.table-header-cell', $data + [
+                'brandOptions' => $data['column']->getName() === 'brand.name' ? MarketingDesignBundleResource::brandOptions() : [],
+                'isInternal' => MarketingDesignBundleResource::viewerIsInternal(),
+            ]),
+            scopes: ListMarketingDesignBundles::class,
         );
 
         FilamentView::registerRenderHook(

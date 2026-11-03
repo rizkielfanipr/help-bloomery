@@ -1,8 +1,8 @@
 ---
 document_id: BRAND-MARKETING-DESIGN-MASTER-LIBRARY-PRD
 title: PRD — Master Design Library Berbasis Brand
-status: draft
-version: 1.0
+status: implemented
+version: 1.1
 owner: Brand Marketing
 technical_owner: Information Technology
 created_at: 2026-11-02
@@ -19,7 +19,7 @@ supersedes: null
 
 # PRD — Master Design Library Berbasis Brand
 
-> Dokumen ini adalah kontrak planning. Dokumen belum mengotorisasi migration production, perubahan role production, pemindahan file existing, atau deployment.
+> Implementasi selesai pada branch fitur; UAT staging belum dijalankan. Dokumen ini tidak mengotorisasi migration production, perubahan role production, pemindahan file existing, atau deployment.
 
 ## 1. Identitas dan status
 
@@ -27,7 +27,7 @@ supersedes: null
 |---|---|
 | Domain | Brand Marketing |
 | Fitur | Master Design Library Berbasis Brand |
-| Status | draft |
+| Status | implemented |
 | Prioritas | P1 |
 | Target pengguna | Designer Marketing dan Purchasing |
 | Modul terdampak | Brand Marketing; Purchasing sebagai consumer |
@@ -117,6 +117,7 @@ Belum ada sumber kebenaran yang dapat menjawab:
 | Reviewer Brand Marketing | Review dan memberi keputusan | `review design master bundles` |
 | Publisher Brand Marketing | Publish revisi dan archive bundle | `publish design master bundles`, `archive design master bundles` |
 | Purchasing | Melihat published version dan mengunduh file production | `view design master bundles`, `download design master production files` |
+| Pemegang akses source | Mengunduh file source | `download design master source files`, diberikan terpisah |
 | Administrator | Memberikan permission melalui Role & Permission | Permission management existing |
 
 Tidak ada permission hard delete pada versi pertama.
@@ -147,7 +148,7 @@ Tidak ada permission hard delete pada versi pertama.
 
 ## 11. Business rules
 
-1. Setiap bundle wajib dimiliki tepat satu record `Brand` existing.
+1. Setiap bundle wajib dimiliki tepat satu record `Brand` existing. Brand tidak dapat diubah setelah bundle dibuat karena menjadi identitas bundle dan bagian path file.
 2. Kode bundle dinormalisasi dan unik case-insensitive dalam satu Brand; kode yang sama boleh dipakai Brand lain.
 3. Kategori bundle versi pertama: `regular`, `seasonal`, `campaign`, `product_launch`, `store_opening`, `partnership`, `event`, `other`.
 4. Satu bundle dapat memiliki banyak revisi, tetapi maksimal satu published version aktif.
@@ -158,7 +159,7 @@ Tidak ada permission hard delete pada versi pertama.
 9. Satu version wajib mempunyai minimal satu item sebelum review/publish.
 10. Vocabulary tipe material mengikuti tipe marketing material existing agar tidak membuat label paralel tanpa alasan.
 11. Item fisik ditentukan server-side dari tipe yang disepakati, bukan checkbox browser yang bebas dimanipulasi.
-12. Item fisik wajib mempunyai spesifikasi produksi dan minimal satu file `production` sebelum publish.
+12. Item fisik wajib mempunyai spesifikasi produksi, minimal dimensi dan material, serta minimal satu file `production` sebelum review dan publish.
 13. Setiap item published wajib mempunyai minimal satu preview yang aman ditampilkan; source/supporting bersifat opsional sesuai kebutuhan.
 14. File dibedakan sebagai `source`, `preview`, `production`, atau `supporting`.
 15. File tidak pernah ditimpa pada path yang sama; upload revisi membuat record/path baru.
@@ -229,14 +230,15 @@ Rejection non-final direpresentasikan sebagai `revision_required` agar histori t
 - lifecycle status;
 - change summary dan review/publish notes;
 - creator, reviewer, publisher, timestamps;
-- active/published uniqueness dijaga dengan constraint/transaction yang sesuai database existing.
+- `published_marker` bernilai 1 hanya saat published dan NULL pada status lain; unique `(bundle, published_marker)` menjadi penjaga database di MySQL dan SQLite, sedangkan row lock bundle menyerialkan publish.
 
 ### 14.3 `MarketingDesignItem`
 
 - version ID;
 - type, title, description, sort order;
 - structured production fields: dimensions, material specification, finishing, color/print notes, sides, dan notes;
-- sifat fisik diturunkan dari type pada server.
+- sifat fisik diturunkan dari type pada server;
+- soft delete, agar item yang dilepas dari draft tetap terlacak.
 
 ### 14.4 `MarketingDesignFile`
 
@@ -245,7 +247,8 @@ Rejection non-final direpresentasikan sebagai `revision_required` agar histori t
 - original name, MIME, extension, size, checksum;
 - uploader dan upload timestamp;
 - optional reused-from file ID bila revision memakai binary yang sama;
-- tidak ada public URL tersimpan.
+- tidak ada public URL tersimpan;
+- soft delete, object storage tetap ada.
 
 ### 14.5 `MarketingDesignAuditLog`
 
@@ -272,6 +275,20 @@ Not applicable — fitur versi pertama tidak memanggil ESB atau layanan desain e
 9. Checksum membantu mendeteksi binary sama, tetapi tidak digunakan untuk melewati authorization.
 10. Tidak ada hard delete UI; operasi cleanup storage harus melalui audit terpisah.
 11. Permission baru ditambahkan ke `config/permissions.php`; pemberian ke role production dilakukan melalui Role & Permission, bukan menjalankan seeder.
+12. Pengguna **internal** adalah pemilik `view design master bundles` yang juga memiliki salah satu permission create, edit, upload, review, publish, atau archive. Hanya pengguna internal yang dapat melihat version nonpublished, version superseded, dan bundle archived.
+13. Pengguna noninternal seperti Purchasing hanya dapat membuka bundle aktif dan version berstatus `published`. URL langsung ke version superseded, version draft, atau bundle archived ditolak agar vendor tidak menerima desain lama.
+14. Akses file per role:
+
+| Role file | Syarat, selain dapat melihat version |
+|---|---|
+| Preview | Tidak ada syarat tambahan |
+| Production | `download design master production files` |
+| Source | `download design master source files` |
+| Supporting | Pengguna internal |
+
+Permission unduh berlaku juga bagi Designer dan Reviewer, sehingga role mereka perlu diberi permission tersebut agar dapat memeriksa file.
+
+15. Aturan status berlaku bagi semua pengguna, termasuk SUPERADMIN. `Gate::before` melewati method Policy sepenuhnya, sehingga mutasi dan akses file Master Design mengevaluasi method Policy secara langsung; SUPERADMIN tetap lolos pemeriksaan permission di dalamnya.
 
 ## 17. UI/UX specification
 
@@ -315,15 +332,15 @@ Aturan perilaku detail:
 
 - Purchasing membuka halaman detail yang sama, tetapi default ke published version, hanya melihat data published, dan hanya memperoleh aksi download production yang diizinkan Policy.
 - Designer dapat memilih draft/revisi serta membandingkan metadata tanpa diff visual binary.
-- Aksi global seperti edit bundle, buat revisi, submit review, publish, archive/restore ditempatkan pada summary/current-version card; aksi file ditempatkan pada card file terkait.
+- Aksi global seperti edit bundle, buat revisi, submit review, publish, archive/restore ditempatkan pada summary/current-version card; aksi file ditempatkan pada card file terkait, sedangkan unggah file baru berada pada item karena file selalu milik satu item.
 - Pada desktop, metadata ringkas boleh memakai grid dua hingga empat kolom seperti Project Detail. Pada mobile, seluruh card dan metadata stack menjadi satu kolom tanpa horizontal scroll halaman.
 - Tampilan card hanya berlaku untuk halaman detail. Halaman index tetap list/table sesuai §17.2 agar comparison dan filtering efisien.
 - Referensi implementasi visual: `resources/views/filament/helpdesk/rnd-projects/view.blade.php`; reuse token/pola existing dan jangan mengekstrak komponen generik baru sebelum terbukti digunakan ulang.
 
 ### 17.4 Form/version editor
 
-- Form dibagi menjadi Informasi Bundle, Informasi Version, Item, Spesifikasi, dan File.
-- Item panjang memakai repeater/list server-driven yang stabil; upload tidak hilang saat validasi gagal.
+- Bundle dibuat dari modal pada index. Editor berada pada halaman detail: modal bundle, ringkasan version, item beserta spesifikasi, dan upload per item.
+- Item panjang memakai list server-driven yang stabil; upload tidak hilang saat validasi gagal.
 - Loading/progress, jenis file, batas ukuran, error, retry, dan cancel harus terlihat.
 - Mutation dicegah dari double submit.
 - Draft dapat disimpan tanpa memenuhi publish guard; guard lengkap dijalankan saat submit review/publish.
@@ -363,14 +380,27 @@ brand-marketing/design-master/
 | Source | File editable/original | ZIP sebagai container aman pada versi pertama |
 | Supporting | Guide/mockup/dokumen pendukung | PDF, JPG, JPEG, PNG, WEBP, ZIP |
 
-Ukuran maksimum final wajib diverifikasi terhadap limit Livewire, PHP, reverse proxy, dan object storage saat Phase 0. Baseline proposal: preview 15 MB/file; production/source/supporting 100 MB/file. Jika infrastruktur tidak mendukung, nilai diturunkan dan dicatat sebelum implementasi, bukan diam-diam saat coding.
+**Keputusan Phase 0 (2026-11-03):** batas final versi pertama adalah **12 MB per file untuk seluruh role**, bukan proposal awal 15 MB/100 MB.
+
+| Lapisan | Hasil audit | Dampak |
+|---|---|---|
+| Livewire | `temporary_file_upload.rules` bernilai `null`, sehingga berlaku default `max:12288` (12 MB) global untuk semua upload aplikasi | Batas nyata; aturan Action yang lebih besar tidak pernah tercapai |
+| Konfigurasi Livewire global | Menaikkan aturan memperbesar pintu upload seluruh komponen, bukan hanya Master Design, dan tidak dapat dibatasi per halaman | Tidak diubah pada PR ini |
+| PHP dan reverse proxy production | Konfigurasinya tidak berada di repository dan tidak dapat diverifikasi dari kode | Wajib diverifikasi pada UAT staging; bila lebih kecil dari 12 MB, batas diturunkan |
+| Object storage | Tidak ada batas relevan pada ukuran 12 MB | Tidak membatasi |
+
+Batas berada pada satu konstanta di enum role file. Menaikkannya memerlukan keputusan terpisah IT dan Brand Marketing: audit PHP/reverse proxy, perubahan aturan Livewire global, dan evaluasi `max_upload_time`.
+
+MIME diperiksa dari isi file dan ekstensi yang disimpan diturunkan server dari MIME tersebut. Source versi pertama hanya menerima ZIP.
 
 ### 18.3 Lifecycle
 
 - Upload baru ditulis ke path unik.
 - Database record dibuat hanya setelah storage berhasil; kegagalan database membersihkan object baru yang belum direferensikan.
 - Published/superseded/archive tidak menghapus object.
-- Temporary URL maksimum mengikuti pola download existing dan tidak disimpan.
+- Temporary URL berumur 15 menit mengikuti pola download existing dan tidak disimpan.
+- Mengganti atau melepas file pada draft hanya menandai record sebagai terhapus lunak; object tetap ada.
+- Revisi baru mereferensikan object yang sama lewat `reused_from_file_id` tanpa menyalin binary.
 - Cleanup orphan hanya melalui command/report terpisah setelah reference audit; tidak termasuk versi pertama.
 
 ## 19. Non-functional requirements
@@ -468,15 +498,13 @@ Detail ada di [Rollout Runbook](rollout.md).
 | Master dianggap transaksi order | Domain tercampur | Order/fulfillment menjadi fitur terpisah |
 | Data project lama dimigrasi otomatis | File/link rusak | No backfill pada versi pertama |
 
-## 27. Open decisions
+## 27. Keputusan Phase 0
 
-| No | Keputusan | Rekomendasi/default planning | Pemilik | Batas |
-|---|---|---|---|---|
-| 1 | Siapa reviewer dan publisher secara organisasi? | Permission terpisah; boleh user berbeda atau orang sama | Brand Marketing | Sebelum pemberian role staging |
-| 2 | Limit file final setelah audit infrastruktur | Preview 15 MB; lainnya 100 MB per file | IT + Brand Marketing | Phase 0 implementasi |
-| 3 | Apakah source selain ZIP perlu didukung langsung? | V1 source wajib ZIP; format native ditinjau setelah UAT | Brand Marketing | Sebelum implementasi upload |
-
-Keputusan tersebut tidak mengubah arsitektur utama dan dapat dikunci pada Phase 0 sebelum application code terkait ditulis.
+| No | Keputusan | Hasil | Status |
+|---|---|---|---|
+| 1 | Reviewer dan publisher organisasi | Permission terpisah; boleh user berbeda atau orang yang sama. Tidak ada role bawaan baru, pemilihan orang dilakukan Brand Marketing lewat Role & Permission | Default planning dipakai; penunjukan orang menunggu Brand Marketing |
+| 2 | Limit file final | 12 MB per file untuk semua role (§18.2) | Dikunci untuk versi pertama |
+| 3 | Source selain ZIP | Versi pertama wajib ZIP | Default planning dipakai |
 
 ## 28. Implementation phases
 
@@ -492,10 +520,10 @@ Keputusan tersebut tidak mengubah arsitektur utama dan dapat dikunci pada Phase 
 
 ## 29. Definition of Done
 
-- [ ] Semua acceptance criteria terpenuhi.
-- [ ] Open decision Phase 0 dicatat pada implementation report.
-- [ ] Test workflow, authorization, file lifecycle, concurrency, dan regression lulus.
-- [ ] Migration additive dan rollback dipahami.
+- [x] Semua acceptance criteria terpenuhi pada test dan pemeriksaan lokal; bukti staging menunggu UAT.
+- [x] Open decision Phase 0 dicatat pada implementation report.
+- [x] Test workflow, authorization, file lifecycle, concurrency, dan regression lulus.
+- [x] Migration additive dan rollback dipahami.
 - [ ] Permission staging diberikan dan diuji tanpa seeder production.
-- [ ] README Brand Marketing/Purchasing dan arsitektur diperbarui sesuai implementasi aktual.
-- [ ] Implementation report mencatat deviasi, limit file final, bukti UAT, dan risiko lanjutan.
+- [x] README Brand Marketing/Purchasing dan arsitektur diperbarui sesuai implementasi aktual.
+- [ ] Implementation report mencatat deviasi, limit file final, dan risiko lanjutan sudah selesai; bukti UAT staging menunggu pelaksanaan.

@@ -11,6 +11,7 @@ Permintaan pembelian dari store, insiden kepatuhan vendor dari penerimaan barang
 | | Sourcing Bahan | `view material sourcings`, `submit material sourcing`, `hand over material samples` |
 | | Material Marketing (Perlu Dipesan) | `view marketing material fulfillments`, `process marketing material as purchasing` |
 | | PO Susulan | `view non po purchase order requests`; aksi: `process non po purchase order requests`; batal: `cancel non po purchase order requests` |
+| Back Office → Brand Marketing | Master Design (baca) | `view design master bundles`, `download design master production files` |
 | Employee App | Tile **Purchasing** | `access employee app purchasing` |
 
 ## Permintaan Pembelian
@@ -41,7 +42,7 @@ Index dan modal detail menampilkan **Masuk Sourcing**, **Selesai Sourcing**, dan
 
 Status: `not_started`, `ordered`, `received`.
 
-Planning [Master Design Library](../brand-marketing/design-master-library/README.md) menempatkan katalog desain reusable pada domain Brand Marketing berdasarkan Brand. Purchasing direncanakan memperoleh akses baca dan unduh file production versi published; planning ini belum mengubah antrean fulfillment di atas.
+Purchasing juga dapat membuka [Master Design](../brand-marketing/README.md#master-design) di grup Brand Marketing dengan permission di atas: melihat version published dari bundle aktif dan mengunduh file production, tanpa aksi mutasi, file source, atau file supporting. Master Design tidak terhubung dengan antrean fulfillment di atas.
 
 ## PO Susulan
 
@@ -80,8 +81,8 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 |---|---|
 | [Pelacakan Durasi Sourcing](sourcing-duration-tracking/README.md) dan [PRD](sourcing-duration-tracking/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
 | [Receiving tanpa PO](../inventory/non-po-receiving/README.md) dan [PRD](../inventory/non-po-receiving/prd.md) | Implemented |
-| [Master Design Library](../brand-marketing/design-master-library/README.md) dan [PRD](../brand-marketing/design-master-library/prd.md) | Draft — planning, belum diimplementasikan |
+| [Master Design Library](../brand-marketing/design-master-library/README.md) dan [PRD](../brand-marketing/design-master-library/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
 
 ## Role bawaan
 
-`PURCHASING_STAFF` mengelola semua menu di atas; `cancel non po purchase order requests` tidak termasuk bawaan dan diberikan lewat Role & Permission. `STORE_STAFF` mengajukan permintaan pembelian.
+`PURCHASING_STAFF` mengelola semua menu di atas dan membaca Master Design; `cancel non po purchase order requests` tidak termasuk bawaan dan diberikan lewat Role & Permission. `STORE_STAFF` mengajukan permintaan pembelian.

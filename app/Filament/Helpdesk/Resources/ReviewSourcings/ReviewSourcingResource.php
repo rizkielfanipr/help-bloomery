@@ -114,7 +114,7 @@ class ReviewSourcingResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['product.project'])
+            ->with(['product.project', 'sourcingRequest:id,rnd_product_esb_material_id,request_number,company_code'])
             ->withCount('sourcings');
     }
 

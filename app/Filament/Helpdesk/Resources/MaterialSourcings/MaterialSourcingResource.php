@@ -6,6 +6,7 @@ use App\Actions\Rnd\Material\AddMaterialSupplierCandidatesAction;
 use App\Actions\Rnd\Material\ReviewLegacyMaterialSourcingFinanceAction;
 use App\Enums\MaterialSourcingStatus;
 use App\Filament\Helpdesk\Concerns\HasPermissions;
+use App\Filament\Helpdesk\Resources\MaterialSourcingRequests\MaterialSourcingRequestResource;
 use App\Filament\Helpdesk\Resources\MaterialSourcings\Pages\ListMaterialSourcings;
 use App\Models\RndProductEsbMaterial;
 use App\Services\Rnd\Material\MaterialSourcingTimeline;
@@ -188,7 +189,12 @@ class MaterialSourcingResource extends Resource
         return [
             TextColumn::make('product.project.name')
                 ->label('PROJECT')
-                ->default('Mandiri')
+                ->state(fn (RndProductEsbMaterial $record): string => $record->product?->project?->name
+                    ?? ($record->sourcingRequest ? 'Request User' : 'Mandiri'))
+                ->description(fn (RndProductEsbMaterial $record): ?string => $record->sourcingRequest?->request_number)
+                ->url(fn (RndProductEsbMaterial $record): ?string => $record->sourcingRequest && MaterialSourcingRequestResource::canView($record->sourcingRequest)
+                    ? MaterialSourcingRequestResource::getUrl('view', ['record' => $record->sourcingRequest])
+                    : null)
                 ->searchable()
                 ->sortable(),
 
@@ -330,7 +336,7 @@ class MaterialSourcingResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['product.project'])
+            ->with(['product.project', 'sourcingRequest:id,rnd_product_esb_material_id,request_number,company_code'])
             ->withCount('sourcings');
     }
 

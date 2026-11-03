@@ -109,7 +109,7 @@ it('keeps the BOM name input visible when creating a Store BOM', function () {
         ->assertDontSeeHtml('wire:model="data.selectedUserAccess"');
 });
 
-it('stores a newly created ESB BOM inside its project', function () {
+it('stores a newly created ESB BOM inside its project without a BOM code', function () {
     config()->set([
         'cache.default' => 'array',
         'esb.core.base_url' => 'https://core-esb.test',
@@ -180,13 +180,14 @@ it('stores a newly created ESB BOM inside its project', function () {
         ->assertHasNoErrors();
 
     Http::assertSent(fn ($request): bool => $request->url() === 'https://core-esb.test/product/bom'
+        && $request['bomCode'] === ''
         && ! array_key_exists('documentMaterials', $request->data())
         && collect($request['bomDetails'])->doesntContain(fn (array $row): bool => ($row['productName'] ?? null) === 'Air'));
 
     $this->assertDatabaseHas('rnd_project_boms', [
         'rnd_project_id' => $this->project->id,
         'esb_bom_id' => 424,
-        'bom_code' => 'CRS',
+        'bom_code' => '',
         'bom_name' => 'Croissant',
         'product_name' => 'Croissant',
     ]);
@@ -204,7 +205,7 @@ it('stores a newly created ESB BOM inside its project', function () {
     ]);
 });
 
-it('creates a BOM Menu with bomTypeID 3 when usageType is menu', function () {
+it('creates a BOM Menu with bomTypeID 3 and no BOM code when usageType is menu', function () {
     config()->set([
         'cache.default' => 'array',
         'esb.core.base_url' => 'https://core-esb.test',
@@ -279,6 +280,7 @@ it('creates a BOM Menu with bomTypeID 3 when usageType is menu', function () {
         // (unlike Assembly), nor a top-level productDetailID (no result product)
         // — neither must be sent for a Menu BOM.
         return $request['bomTypeID'] === 3
+            && $request['bomCode'] === ''
             && $request['accessType'] === 0
             && $request['selectedUserAccess'] === []
             && ! array_key_exists('productDetailID', $request->data())
@@ -288,6 +290,7 @@ it('creates a BOM Menu with bomTypeID 3 when usageType is menu', function () {
     $this->assertDatabaseHas('rnd_project_boms', [
         'rnd_project_id' => $this->project->id,
         'esb_bom_id' => 777,
+        'bom_code' => '',
         'bom_type_name' => 'Menu',
     ]);
     $projectBomId = RndProjectBom::query()->where('esb_bom_id', 777)->value('id');

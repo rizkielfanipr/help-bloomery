@@ -120,7 +120,7 @@ class CreateBomRecipePage extends Page
 
         $this->data = [
             'bomName' => $productRecord->name,
-            'bomCode' => $productRecord->product_code ?: 'BOM-'.$productRecord->id,
+            'bomCode' => '',
             'productDetailID' => '',
             'notes' => '',
             'bomCostTotal' => 0,
@@ -237,7 +237,6 @@ class CreateBomRecipePage extends Page
             $product = $this->products[$productDetailId];
             $this->data['productDetailID'] = $productDetailId;
             $this->data['bomName'] = (string) ($product['productName'] ?? $this->productName);
-            $this->data['bomCode'] = (string) (($product['productCode'] ?? '') ?: 'BOM-'.$productDetailId);
             $this->resetValidation('data.productDetailID');
 
             return;
@@ -364,7 +363,6 @@ class CreateBomRecipePage extends Page
             $resultProduct = $this->selectedProducts[(int) ($this->data['productDetailID'] ?? 0)] ?? null;
             if ($resultProduct) {
                 $this->data['bomName'] = (string) ($resultProduct['productName'] ?? $this->productName);
-                $this->data['bomCode'] = (string) (($resultProduct['productCode'] ?? '') ?: 'BOM-'.$resultProduct['productDetailID']);
             }
             $this->data['bomCostTotal'] = 0;
             $this->data['notes'] = '';
@@ -377,7 +375,7 @@ class CreateBomRecipePage extends Page
 
         $validated = $this->validate([
             'data.bomName' => ['required', 'string', 'max:255'],
-            'data.bomCode' => ['required', 'string', 'max:100'],
+            'data.bomCode' => $this->isEditing ? ['required', 'string', 'max:100'] : ['nullable', 'string', 'max:100'],
             'data.productDetailID' => $isMenu ? ['nullable', 'integer'] : ['required', 'integer', Rule::in(array_keys($this->selectedProducts))],
             'data.notes' => ['nullable', 'string', 'max:2000'],
             'data.bomCostTotal' => ['required', 'numeric', 'min:0'],
@@ -405,6 +403,12 @@ class CreateBomRecipePage extends Page
         $documentMaterials = $payload['documentMaterials'] ?? [];
         unset($payload['documentMaterials']);
         $payload['bomTypeID'] = $isMenu ? 3 : 1;
+
+        // New recipes carry no BOM code, as when R&D uploads a BOM manually in ESB: ESB rejects
+        // a code that another BOM already holds, and a blank code is never taken.
+        if (! $this->isEditing) {
+            $payload['bomCode'] = '';
+        }
 
         // BOM Menu has no "Product Hasil" concept in ESB's API — only Assembly
         // BOMs carry a top-level productDetailID.

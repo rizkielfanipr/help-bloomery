@@ -271,6 +271,12 @@ class RndProductEsbMaterial extends Model
         return $this->belongsTo(MaterialSourcing::class, 'sourcing_selected_id');
     }
 
+    /** The Employee App request this standalone sourcing was converted from, if any (badge "Request User"). */
+    public function sourcingRequest(): HasOne
+    {
+        return $this->hasOne(MaterialSourcingRequest::class);
+    }
+
     public function reviews(): HasMany
     {
         return $this->hasMany(RndMaterialReview::class)->orderByDesc('submission_version');

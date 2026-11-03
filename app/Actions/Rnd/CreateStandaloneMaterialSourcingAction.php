@@ -5,8 +5,7 @@ namespace App\Actions\Rnd;
 use App\Enums\MaterialSourcingStatus;
 use App\Models\RndProductEsbMaterial;
 use App\Models\User;
-use App\Services\EsbMasterProductService;
-use App\Services\EsbService;
+use App\Services\Rnd\Material\ActiveEsbProductDetailResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -28,10 +27,7 @@ use Throwable;
  */
 class CreateStandaloneMaterialSourcingAction
 {
-    public function __construct(
-        private readonly EsbService $esb,
-        private readonly EsbMasterProductService $masterProducts,
-    ) {}
+    public function __construct(private readonly ActiveEsbProductDetailResolver $products) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -114,18 +110,14 @@ class CreateStandaloneMaterialSourcingAction
     private function activeProduct(string $productCode, int $productDetailId): array
     {
         try {
-            $details = $this->masterProducts->filterActiveProductDetails(
-                $this->esb->getActiveProductDetailsByCodes([$productCode]),
-            );
+            $detail = $this->products->find($productCode, $productDetailId);
         } catch (Throwable $exception) {
             report($exception);
 
             throw ValidationException::withMessages(['product_code' => 'Master Product ESB belum dapat dihubungi. Coba lagi beberapa saat lagi.']);
         }
 
-        $detail = $details[$productDetailId] ?? null;
-
-        if (! is_array($detail) || (string) ($detail['productCode'] ?? '') !== $productCode || blank($detail['productName'] ?? null)) {
+        if ($detail === null) {
             throw ValidationException::withMessages(['product_code' => 'Bahan tidak ditemukan atau sudah tidak aktif di Master Product ESB. Pilih ulang bahan.']);
         }
 

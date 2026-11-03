@@ -28,6 +28,7 @@ use App\Http\Controllers\Helpdesk\RndProjectMaterialForecastExportController;
 use App\Http\Controllers\Helpdesk\RndProjectTaskAttachmentController;
 use App\Http\Controllers\Helpdesk\ShelfLifeExportController;
 use App\Http\Controllers\Helpdesk\StoreSalesOrderAttachmentController;
+use App\Http\Controllers\MaterialSourcingRequestAttachmentController;
 use App\Http\Controllers\MonitoringBrowserErrorController;
 use App\Http\Controllers\MonitoringDeploymentIngestionController;
 use App\Http\Controllers\SalesReportEvidenceController;
@@ -164,6 +165,9 @@ Route::middleware(['auth'])->group(function (): void {
         ->name('helpdesk.marketing-design-files.preview');
     Route::get('/marketing-design-files/{file}/download', [MarketingDesignFileController::class, 'download'])
         ->name('helpdesk.marketing-design-files.download');
+    Route::get('/material-sourcing-request-attachments/{sourcingRequest}/{index}', [MaterialSourcingRequestAttachmentController::class, 'show'])
+        ->whereNumber('index')
+        ->name('material-sourcing-request-attachments.show');
     Route::get('/rnd-project-task-attachments/{path}', [RndProjectTaskAttachmentController::class, 'show'])
         ->where('path', '.*')
         ->name('helpdesk.rnd-project-tasks.attachments.show');

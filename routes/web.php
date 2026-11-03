@@ -14,6 +14,7 @@ use App\Http\Controllers\Helpdesk\CustomerComplaintAttachmentController;
 use App\Http\Controllers\Helpdesk\DriverMealAllowanceExportController;
 use App\Http\Controllers\Helpdesk\LegacyShelfLifeRedirectController;
 use App\Http\Controllers\Helpdesk\LocationLabelPdfController;
+use App\Http\Controllers\Helpdesk\MarketingDesignFileController;
 use App\Http\Controllers\Helpdesk\ProductLabelPdfController;
 use App\Http\Controllers\Helpdesk\RndBomInstructionImageController;
 use App\Http\Controllers\Helpdesk\RndInternalMemoPdfController;
@@ -159,6 +160,10 @@ Route::middleware(['auth'])->group(function (): void {
         ->name('sales-report-evidence.void');
     Route::get('/rnd-material-sample-attachments/{attachment}', [RndMaterialSampleAttachmentController::class, 'show'])
         ->name('helpdesk.rnd-material-sample-attachments.show');
+    Route::get('/marketing-design-files/{file}/preview', [MarketingDesignFileController::class, 'preview'])
+        ->name('helpdesk.marketing-design-files.preview');
+    Route::get('/marketing-design-files/{file}/download', [MarketingDesignFileController::class, 'download'])
+        ->name('helpdesk.marketing-design-files.download');
     Route::get('/rnd-project-task-attachments/{path}', [RndProjectTaskAttachmentController::class, 'show'])
         ->where('path', '.*')
         ->name('helpdesk.rnd-project-tasks.attachments.show');

@@ -1,6 +1,6 @@
 # RBAC — Role, Permission, dan Branch Scope
 
-Akses diatur dengan Spatie Laravel Permission. Kode memeriksa **permission** dan **branch scope**, bukan nama role (kecuali `SUPERADMIN`). Dokumen ini mencerminkan kode per 2 November 2026.
+Akses diatur dengan Spatie Laravel Permission. Kode memeriksa **permission** dan **branch scope**, bukan nama role (kecuali `SUPERADMIN`). Dokumen ini mencerminkan kode per 3 November 2026.
 
 ## Sumber permission
 
@@ -23,7 +23,7 @@ Untuk menambah permission: tambahkan di `config/permissions.php` (atau `permissi
 | Quality Control | Audit QC dan Checklist QC (dari `permissionDefinition()` resource) |
 | Finance | Sales Report Settings, Sales Report Scores, Sales Report, Compliment Types, Basket Size, Sourcing Bahan, Product Pricelist |
 | Purchasing | Vendor Compliance, Permintaan Pembelian, Sourcing Bahan, Proses Material Marketing, PO Susulan |
-| Brand Marketing | Permintaan Design, Kategori Design, Permintaan Konten, Marketing Material |
+| Brand Marketing | Permintaan Design, Kategori Design, Permintaan Konten, Marketing Material, Master Design |
 | Information Technology | Permintaan ERP, Modul ERP, Request Type, Bulk Data |
 | Research & Development | Bill of Material, Project, Product Price Index, Sourcing Bahan, Memo Internal, Master Bahan Workflow, Recipe Adjustment, Shelf Life WIP, Material Forecast, Task Calendar, Task Template |
 | Kitchen | Jadwal Produksi |
@@ -51,14 +51,14 @@ Role dan permission awal dibuat oleh `database/seeders/RolesAndPermissionsSeeder
 | `TECHNICIAN` | Employee App Teknisi; Service Request, Maintenance Bulanan, Asset QR |
 | `IT_STAFF` | Permintaan ERP, Modul ERP, Request Type, Bulk Data, System Monitoring, Review Data Master Bahan |
 | `RND_STAFF` | BOM, Project, Product Price Index, Memo Internal, Recipe Adjustment, Shelf Life, Material Forecast, Task Calendar, Review Sourcing |
-| `PURCHASING_STAFF` | Permintaan Pembelian, Sourcing Bahan, serah sampel, Material Marketing, Vendor Compliance, lihat dan proses PO Susulan |
-| `DESIGN_STAFF` | Lihat Project dan Shelf Life, unggah material marketing |
+| `PURCHASING_STAFF` | Permintaan Pembelian, Sourcing Bahan, serah sampel, Material Marketing, Vendor Compliance, lihat dan proses PO Susulan, baca Master Design dan unduh file desain |
+| `DESIGN_STAFF` | Lihat Project dan Shelf Life, unggah material marketing, kelola Master Design, unduh file desain |
 | `INVENTORY_STAFF` | Employee App Receiving termasuk buat dan kirim Tanpa PO, lihat Goods Receipt, terima Material Marketing, Back Office Item Journal (tanpa view-all) |
 | `FINANCE_STAFF` | Review Sales Report sebagai Finance, settlement, Compliment Types, Basket Size, Stock Card Finance, Product Pricelist |
 | `QUALITY_CONTROL` | Employee App Quality Control, audit QC, tile dan aksi Item Journal |
 | `QUALITY_CONTROL_SUPERVISOR` | Audit QC, Item Journal semua user, Checklist QC |
 
-Permission yang sengaja tidak diberikan ke role mana pun oleh seeder, misalnya `reopen material sample approval` dan `cancel non po purchase order requests`, harus diberikan manual sesuai kebijakan.
+Permission yang sengaja tidak diberikan ke role mana pun oleh seeder, misalnya `reopen material sample approval`, `cancel non po purchase order requests`, dan `archive design master bundles`, harus diberikan manual sesuai kebijakan.
 
 ## Branch scope
 

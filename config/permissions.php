@@ -113,6 +113,14 @@ return [
         'Kategori Design' => ['view design categories', 'create design categories', 'edit design categories', 'delete design categories'],
         'Permintaan Konten' => ['view content requests', 'create content requests', 'edit content requests', 'delete content requests'],
         'Marketing Material' => ['upload marketing materials'],
+        'Master Design' => [
+            'view design master bundles',
+            'create design master bundles',
+            'edit design master bundles',
+            'upload design master files',
+            'archive design master bundles',
+            'download design master files',
+        ],
     ],
 
     'Information Technology' => [

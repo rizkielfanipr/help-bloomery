@@ -18,4 +18,9 @@ class Brand extends Model
     {
         return $this->hasMany(Branch::class);
     }
+
+    public function designBundles(): HasMany
+    {
+        return $this->hasMany(MarketingDesignBundle::class);
+    }
 }

@@ -11,6 +11,7 @@ Permintaan pembelian dari store, insiden kepatuhan vendor dari penerimaan barang
 | | Sourcing Bahan | `view material sourcings`, `submit material sourcing`, `hand over material samples` |
 | | Material Marketing (Perlu Dipesan) | `view marketing material fulfillments`, `process marketing material as purchasing` |
 | | PO Susulan | `view non po purchase order requests`; aksi: `process non po purchase order requests`; batal: `cancel non po purchase order requests` |
+| Back Office → Brand Marketing | Master Design (baca) | `view design master bundles`, `download design master files` |
 | Employee App | Tile **Purchasing** | `access employee app purchasing` |
 
 ## Permintaan Pembelian
@@ -40,6 +41,8 @@ Index dan modal detail menampilkan **Masuk Sourcing**, **Selesai Sourcing**, dan
 3. Inventory di **Perlu Diterima** menandai **Diterima**: jumlah, tanggal terima, lokasi penyimpanan, dan catatan.
 
 Status: `not_started`, `ordered`, `received`.
+
+Purchasing juga dapat membuka [Master Design](../brand-marketing/README.md#master-design) di grup Brand Marketing dengan permission di atas: melihat bundle aktif dan mengunduh file desain tanpa aksi mutasi. Master Design tidak terhubung dengan antrean fulfillment di atas.
 
 ## PO Susulan
 
@@ -78,7 +81,8 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 |---|---|
 | [Pelacakan Durasi Sourcing](sourcing-duration-tracking/README.md) dan [PRD](sourcing-duration-tracking/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
 | [Receiving tanpa PO](../inventory/non-po-receiving/README.md) dan [PRD](../inventory/non-po-receiving/prd.md) | Implemented |
+| [Master Design Library](../brand-marketing/design-master-library/README.md) dan [PRD](../brand-marketing/design-master-library/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
 
 ## Role bawaan
 
-`PURCHASING_STAFF` mengelola semua menu di atas; `cancel non po purchase order requests` tidak termasuk bawaan dan diberikan lewat Role & Permission. `STORE_STAFF` mengajukan permintaan pembelian.
+`PURCHASING_STAFF` mengelola semua menu di atas dan membaca Master Design; `cancel non po purchase order requests` tidak termasuk bawaan dan diberikan lewat Role & Permission. `STORE_STAFF` mengajukan permintaan pembelian.

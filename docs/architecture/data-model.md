@@ -1,6 +1,6 @@
 # Data Model
 
-Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (167 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0; bagian Inventory ditambah empat model `NonPoReceipt*` dengan cara yang sama pada 2 November 2026). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
+Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (167 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0; bagian Inventory ditambah empat model `NonPoReceipt*` dengan cara yang sama pada 2 November 2026; bagian Brand Marketing ditambah empat model `MarketingDesign*` dengan cara yang sama pada 3 November 2026). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
 
 Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type eksplisit (`metode→Model (Tipe)`).
 
@@ -12,7 +12,7 @@ Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type ekspli
 | `Branch` | `branches` | esbCodes→BranchEsbCode (HasMany), stockCardEsbCode→BranchEsbCode (BelongsTo), brand→Brand (BelongsTo), users→User (HasMany), supervisors→User (BelongsToMany), openings→CasualPositionOpening (HasMany), clockRecords→CasualClockRecord (HasMany), briefingTasks→BriefingTask (HasMany), briefingBranchSettings→BriefingBranchSetting (HasMany), qualityControlAudits→QualityControlAudit (HasMany), salesReports→SalesReport (HasMany), salesProjectionTargets→RndProductSalesProjection (BelongsToMany), salesShifts→BranchSalesShift (HasMany), activeSalesShifts→BranchSalesShift (HasMany), employees→Employee (HasMany) |
 | `BranchEsbCode` | `branch_esb_codes` | branch→Branch (BelongsTo) |
 | `BranchSalesShift` | `branch_sales_shifts` | branch→Branch (BelongsTo), basketSizeRecords→BasketSizeRecord (HasMany) |
-| `Brand` | `brands` | branches→Branch (HasMany) |
+| `Brand` | `brands` | branches→Branch (HasMany), designBundles→MarketingDesignBundle (HasMany) |
 | `Employee` | `employees` | branch→Branch (BelongsTo), salesReports→SalesReport (HasManyThrough) |
 | `EsbPaymentMethodCache` | `esb_payment_method_cache` | — |
 | `NotificationDelivery` | `notification_deliveries` | — |
@@ -241,6 +241,10 @@ Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type ekspli
 | `DesignCategory` | `design_categories` | designRequests→DesignRequest (HasMany) |
 | `DesignRequest` | `design_requests` | statusHistories→DesignRequestStatusHistory (HasMany), requester→User (BelongsTo), branch→Branch (BelongsTo), category→DesignCategory (BelongsTo) |
 | `DesignRequestStatusHistory` | `design_request_status_histories` | designRequest→DesignRequest (BelongsTo), changedBy→User (BelongsTo) |
+| `MarketingDesignAuditLog` | `marketing_design_audit_logs` | bundle→MarketingDesignBundle (BelongsTo), actor→User (BelongsTo) |
+| `MarketingDesignBundle` | `marketing_design_bundles` | brand→Brand (BelongsTo), items→MarketingDesignItem (HasMany), auditLogs→MarketingDesignAuditLog (HasMany), creator→User (BelongsTo), updater→User (BelongsTo), archiver→User (BelongsTo) |
+| `MarketingDesignFile` | `marketing_design_files` | item→MarketingDesignItem (BelongsTo), uploader→User (BelongsTo) |
+| `MarketingDesignItem` | `marketing_design_items` | bundle→MarketingDesignBundle (BelongsTo), file→MarketingDesignFile (HasOne) |
 
 ## Analytics
 

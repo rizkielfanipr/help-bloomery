@@ -146,6 +146,7 @@ it('records a created BOM and blocks resending the same recipe while its result 
 
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
+        'https://core-esb.test/product/bom?*' => Http::response(['status' => 'ok', 'result' => ['page' => 1, 'limit' => 5000, 'count' => 0, 'data' => []]]),
         'https://core-esb.test/product/bom' => Http::failedConnection('cURL error 28: Operation timed out'),
     ]);
 
@@ -183,6 +184,7 @@ it('records a successful BOM create with its ESB BOM ID and local project BOM', 
     $product = $project->products()->create(['name' => 'Release', 'status' => 'development', 'created_by' => $admin->id]);
     Http::fake([
         'https://core-esb.test/auth/login' => Http::response(['status' => 'ok', 'result' => ['accessToken' => 'token']]),
+        'https://core-esb.test/product/bom?*' => Http::response(['status' => 'ok', 'result' => ['page' => 1, 'limit' => 5000, 'count' => 0, 'data' => []]]),
         'https://core-esb.test/product/bom' => Http::response(['status' => 'ok', 'result' => ['bomID' => 424]]),
     ]);
 

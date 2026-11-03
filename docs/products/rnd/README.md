@@ -26,7 +26,7 @@ Pengembangan produk dari project sampai rilis: project dan produk, BOM di ESB, M
 - **Tab Nonaktif** ([PRD](project-inactive-list/prd.md)): list Project Upcoming, Completed, dan Archived dengan filter status, tipe, dan search serta pagination 20 record per halaman; tidak pernah memuat Project aktif. Project Upcoming/Completed dapat dibuka, diubah, dan diarsipkan sesuai permission. Project Archived hanya memiliki aksi **Pulihkan** (`edit rnd projects`), halaman detailnya tidak dapat dibuka, dan pemulihan tidak mengubah periodenya.
 - **Produk Project**: status `draft`, `development`, `trial`, `ready`, `released`, `cancelled`. Gerbang Ready/Released mewajibkan setiap WIP pada BOM produk punya master Shelf Life aktif.
 - Halaman produk menyediakan:
-  - **BOM** — menautkan BOM ESB (impor dari katalog), mengedit komponen langsung ke ESB, instruksi BOM dengan gambar, BOM menu, dan PDF BOM.
+  - **BOM** — menautkan BOM ESB (impor dari katalog), mengedit komponen langsung ke ESB, instruksi BOM dengan gambar, BOM menu, dan PDF BOM. **Buat Resep** tidak meminta kode BOM: kode diambil dari kode produk hasil (Assembly) atau kode produk Project (Menu), lalu diberi akhiran `-2`, `-3`, dan seterusnya bila kode itu sudah dipakai BOM aktif/nonaktif di ESB.
   - **Analisis harga menu** — weighted average harga bahan, food cost, dan rekomendasi harga per region.
   - **Master Bahan/WIP** — membuat bahan baru dengan prefix nama, lalu mengirimnya ke review IT (lihat bagian berikut).
   - **Material marketing** — packaging, stiker, foto produk, social media, katalog, lainnya. Tipe fisik diteruskan ke Purchasing dan Inventory.

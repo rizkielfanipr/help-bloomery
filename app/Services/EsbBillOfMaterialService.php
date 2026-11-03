@@ -54,6 +54,47 @@ class EsbBillOfMaterialService
         return $all;
     }
 
+    /**
+     * Return the preferred BOM code, or the first free "{code}-{n}" variant when an active or
+     * inactive ESB BOM already holds it, because ESB rejects a create whose bomCode is taken.
+     */
+    public function availableBomCode(string $preferredCode): string
+    {
+        $baseCode = mb_substr(trim($preferredCode), 0, 90);
+        $takenCodes = $this->takenBomCodes();
+        $candidate = $baseCode;
+        $suffix = 2;
+
+        while (isset($takenCodes[mb_strtoupper($candidate)])) {
+            $candidate = $baseCode.'-'.$suffix++;
+        }
+
+        return $candidate;
+    }
+
+    /** @return array<string, true> */
+    private function takenBomCodes(): array
+    {
+        $taken = [];
+
+        foreach ([1, 0] as $flagActive) {
+            $page = 1;
+            do {
+                $result = $this->getBillOfMaterials(['page' => $page, 'limit' => 5000, 'flagActive' => $flagActive]);
+                foreach ($result['data'] as $bom) {
+                    $code = mb_strtoupper(trim((string) ($bom['bomCode'] ?? '')));
+                    if ($code !== '') {
+                        $taken[$code] = true;
+                    }
+                }
+                $page++;
+                $hasNext = filled($result['next']) || (($result['page'] * $result['limit']) < $result['count']);
+            } while ($hasNext && $page <= 20);
+        }
+
+        return $taken;
+    }
+
     /** @return array<string, mixed> */
     public function getBillOfMaterial(int $bomId): array
     {

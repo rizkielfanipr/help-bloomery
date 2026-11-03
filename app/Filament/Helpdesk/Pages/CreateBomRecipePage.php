@@ -16,6 +16,7 @@ use App\Services\Monitoring\EsbTransactionScope;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
@@ -438,8 +439,9 @@ class CreateBomRecipePage extends Page
 
         // docs/products/system-monitoring/prd.md §11.6: a BOM create whose ESB result is unknown must be
         // reconciled before the same payload can be sent again, and a concurrent double submit
-        // only sends one request.
-        $idempotencyKey = 'rnd-bom-create:'.hash('sha256', $this->projectId.'|'.$this->productId.'|'.json_encode($payload));
+        // only sends one request. The key leaves out bomCode, which is resolved against ESB below
+        // and changes once an earlier attempt has taken the preferred code.
+        $idempotencyKey = 'rnd-bom-create:'.hash('sha256', $this->projectId.'|'.$this->productId.'|'.json_encode(Arr::except($payload, 'bomCode')));
         if ($this->hasUnreconciledBomCreate($idempotencyKey)) {
             Notification::make()
                 ->title('Pengiriman BOM sebelumnya belum pasti')
@@ -458,6 +460,8 @@ class CreateBomRecipePage extends Page
         }
 
         try {
+            $payload['bomCode'] = app(EsbBillOfMaterialService::class)->availableBomCode($payload['bomCode']);
+
             $bomId = app(EsbTransactionRecorder::class)->transaction(
                 'rnd_bom',
                 'create_bom',

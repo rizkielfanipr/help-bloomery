@@ -123,6 +123,7 @@ it('stores a newly created ESB BOM inside its project', function () {
             'status' => 'ok',
             'result' => ['accessToken' => 'access-token'],
         ]),
+        'https://core-esb.test/product/bom?*' => Http::response(['status' => 'ok', 'result' => ['page' => 1, 'limit' => 5000, 'count' => 0, 'data' => []]]),
         'https://core-esb.test/product/bom' => Http::response([
             'status' => 'ok',
             'result' => ['bomID' => 424],
@@ -218,6 +219,7 @@ it('creates a BOM Menu with bomTypeID 3 when usageType is menu', function () {
             'status' => 'ok',
             'result' => ['accessToken' => 'access-token'],
         ]),
+        'https://core-esb.test/product/bom?*' => Http::response(['status' => 'ok', 'result' => ['page' => 1, 'limit' => 5000, 'count' => 0, 'data' => []]]),
         'https://core-esb.test/product/bom' => Http::response([
             'status' => 'ok',
             'result' => ['bomID' => 777],
@@ -295,6 +297,64 @@ it('creates a BOM Menu with bomTypeID 3 when usageType is menu', function () {
         'rnd_project_product_id' => $this->product->id,
         'rnd_project_bom_id' => $projectBomId,
         'usage_type' => 'menu',
+    ]);
+});
+
+it('sends the next free BOM code when an active or inactive ESB BOM already holds the product code', function () {
+    config()->set([
+        'cache.default' => 'array',
+        'esb.core.base_url' => 'https://core-esb.test',
+        'esb.core.username' => 'integration-user',
+        'esb.core.password' => 'integration-password',
+    ]);
+    Cache::flush();
+
+    Http::fake(function ($request) {
+        if (str_ends_with($request->url(), '/auth/login')) {
+            return Http::response(['status' => 'ok', 'result' => ['accessToken' => 'access-token']]);
+        }
+
+        if ($request->method() === 'POST') {
+            return Http::response(['status' => 'ok', 'result' => ['bomID' => 778]]);
+        }
+
+        $codes = (int) $request['flagActive'] === 1 ? ['prd-test', 'BW1399'] : ['PRD-TEST-2'];
+
+        return Http::response(['status' => 'ok', 'result' => [
+            'page' => 1,
+            'limit' => 5000,
+            'count' => count($codes),
+            'data' => array_map(fn (string $code): array => ['bomID' => 1, 'bomCode' => $code], $codes),
+        ]]);
+    });
+
+    Livewire::withQueryParams(['usageType' => 'menu'])
+        ->test(CreateBomRecipePage::class, ['project' => $this->project->id, 'product' => $this->product->id])
+        ->assertSet('data.bomCode', 'PRD-TEST')
+        ->set('selectedProducts', [
+            202 => ['productDetailID' => 202, 'productName' => 'Croissant', 'productCode' => 'CRS', 'unit' => 'PCS', 'baseUnit' => 'PCS', 'basePrice' => 15000, 'receiptTolerance' => 0],
+        ])
+        ->set('data.bomDetails', [[
+            'ID' => 0,
+            'productDetailID' => 202,
+            'lastHPP' => 15000,
+            'qty' => 1,
+            'yieldPercent' => 0,
+            'printGroup' => '',
+            'tolerancePercent' => 0,
+        ]])
+        ->call('create')
+        ->assertHasNoErrors()
+        ->assertNotified('Resep berhasil dibuat');
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/product/bom')
+        && $request['bomCode'] === 'PRD-TEST-3');
+
+    $this->assertDatabaseHas('rnd_project_boms', [
+        'esb_bom_id' => 778,
+        'bom_code' => 'PRD-TEST-3',
+        'bom_type_name' => 'Menu',
     ]);
 });
 

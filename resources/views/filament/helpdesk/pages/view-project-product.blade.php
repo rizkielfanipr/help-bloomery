@@ -345,6 +345,13 @@
                                 <button type="button" wire:click="openSourcingDetail({{ $esbMaterial->id }})" class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950/30"><x-heroicon-o-eye class="h-4 w-4" />Detail Sourcing</button>
                             </td>
                             <td class="max-w-72 px-4 py-3 text-xs">
+                                @if($esbMaterial->review_status === \App\Enums\MaterialReviewStatus::RevisionRequired && ($revisionReview = $esbMaterial->latestReview)?->reason)
+                                    <div class="mb-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 dark:border-amber-800 dark:bg-amber-950/30">
+                                        <p class="flex items-center gap-1 font-bold text-amber-800 dark:text-amber-300"><x-heroicon-o-exclamation-triangle class="h-4 w-4 shrink-0" aria-hidden="true" />Catatan revisi IT</p>
+                                        <p class="mt-1 whitespace-pre-line break-words text-amber-900 dark:text-amber-200">{{ $revisionReview->reason }}</p>
+                                        <p class="mt-1 text-[11px] text-amber-700 dark:text-amber-400">{{ $revisionReview->reviewer?->name ?? 'IT' }}@if($revisionReview->reviewed_at) · {{ $revisionReview->reviewed_at->format('d M Y H:i') }}@endif</p>
+                                    </div>
+                                @endif
                                 @if($esbMaterial->sync_error)<p class="line-clamp-3 text-red-600" title="{{ $esbMaterial->sync_error }}">{{ $esbMaterial->sync_error }}</p>
                                 @else<p class="line-clamp-3 text-gray-500">{{ $esbMaterial->notes ?: '-' }}</p>@endif
                             </td>

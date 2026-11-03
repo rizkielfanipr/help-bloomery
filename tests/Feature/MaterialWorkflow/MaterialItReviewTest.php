@@ -7,6 +7,7 @@ use App\Actions\Rnd\Material\SubmitMaterialForItReviewAction;
 use App\Actions\Rnd\Material\WithdrawMaterialReviewAction;
 use App\Enums\MaterialReviewStatus;
 use App\Enums\NotificationDeliveryStatus;
+use App\Filament\Helpdesk\Pages\ViewProjectProductPage;
 use App\Filament\Helpdesk\Resources\MaterialReviews\Pages\ListMaterialReviews;
 use App\Models\NotificationDelivery;
 use App\Models\RndMaterialAuditLog;
@@ -94,6 +95,32 @@ it('lets one IT reviewer claim and blocks a second reviewer', function () {
 
     expect(fn () => app(ClaimMaterialReviewAction::class)->execute($this->material, $this->otherIt))->toThrow(ValidationException::class);
     expect(fn () => app(ReturnMaterialForRevisionAction::class)->execute($this->material, $this->otherIt, 'Kategori tidak sesuai standar'))->toThrow(ValidationException::class);
+});
+
+it('shows the IT revision note on the project product page until R&D resubmits', function () {
+    Notification::fake();
+    Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+    submitMaterial($this->material, $this->rnd);
+    app(ClaimMaterialReviewAction::class)->execute($this->material, $this->it);
+    app(ReturnMaterialForRevisionAction::class)->execute($this->material, $this->it, 'Kategori harus Bahan Baku Kering');
+
+    $this->actingAs($this->rnd);
+    $page = fn () => Livewire::test(ViewProjectProductPage::class, [
+        'project' => $this->material->product->rnd_project_id,
+        'product' => $this->material->rnd_project_product_id,
+    ]);
+
+    $page()
+        ->assertSee('Catatan revisi IT')
+        ->assertSee('Kategori harus Bahan Baku Kering')
+        ->assertSee($this->it->name);
+
+    $this->material->refresh()->update(['sub_category_id' => 22]);
+    submitMaterial($this->material->refresh(), $this->rnd);
+
+    $page()
+        ->assertDontSee('Catatan revisi IT')
+        ->assertDontSee('Kategori harus Bahan Baku Kering');
 });
 
 it('returns for revision with a reason and lets R&D resubmit as a new version', function () {

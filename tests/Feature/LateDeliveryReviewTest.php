@@ -117,7 +117,7 @@ it('lists Late Delivery next to QC incidents with category and liability filters
         ->assertSee('Level PO')
         ->assertSee('Late Delivery')
         ->assertSee('5 hari')
-        ->assertSee('Dibutuhkan 10 Oct 2026')
+        ->assertSee('Butuh 10 Oct · Terima 15 Oct')
         ->assertSee('Menunggu Verifikasi')
         ->assertSee('Susu Segar')
         ->filterTable('category', 'late_delivery')

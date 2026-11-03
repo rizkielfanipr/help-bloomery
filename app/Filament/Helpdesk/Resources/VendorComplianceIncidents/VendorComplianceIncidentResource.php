@@ -138,12 +138,13 @@ class VendorComplianceIncidentResource extends Resource
                 TextEntry::make('item.quarantine_location')->label('Lokasi Quarantine')->placeholder('-')
                     ->visible(fn (VendorComplianceIncident $record): bool => ! $record->isLateDelivery()),
                 TextEntry::make('category')->label('Kategori')->badge()->formatStateUsing(fn (string $state): string => static::categoryLabel($state)),
-                TextEntry::make('severity')->label('Severity')->badge(),
+                TextEntry::make('severity')->label('Severity')->badge()->placeholder('Ditetapkan saat verifikasi')
+                    ->state(fn (VendorComplianceIncident $record): ?string => $record->liability_status === VendorComplianceLiabilityStatus::Pending ? null : $record->severity),
                 TextEntry::make('demerit_points')->label('Poin Demerit')->suffix(' Poin')->badge()->color('danger'),
                 TextEntry::make('description')->label(fn (VendorComplianceIncident $record): string => $record->isLateDelivery() ? 'Keterangan' : 'Alasan Penolakan')->columnSpanFull(),
                 TextEntry::make('reportedBy.name')->label('Dilaporkan Oleh')->placeholder('-'),
             ]),
-            Section::make('Informasi Keterlambatan')->columns(3)
+            Section::make('Informasi Keterlambatan')->columns(3)->columnSpanFull()
                 ->visible(fn (VendorComplianceIncident $record): bool => $record->isLateDelivery())
                 ->schema([
                     TextEntry::make('liability_status')->label('Status Verifikasi')->badge(),
@@ -158,7 +159,7 @@ class VendorComplianceIncidentResource extends Resource
                         ->visible(fn (VendorComplianceIncident $record): bool => filled($record->waiver_reason)),
                     View::make('filament.helpdesk.vendor-compliance-incidents.po-receipts')->columnSpanFull(),
                 ]),
-            Section::make('Riwayat Verifikasi')
+            Section::make('Riwayat Verifikasi')->columnSpanFull()
                 ->visible(fn (VendorComplianceIncident $record): bool => $record->isLateDelivery())
                 ->schema([
                     RepeatableEntry::make('events')->hiddenLabel()->columns(4)->schema([
@@ -188,9 +189,9 @@ class VendorComplianceIncidentResource extends Resource
             ->columns([
                 TextColumn::make('incident_number')->label('Nomor Insiden')->searchable()->copyable(),
                 TextColumn::make('occurred_at')->label('Tanggal')->dateTime('d M Y H:i')->sortable(),
-                TextColumn::make('supplier_name')->label('Vendor')->searchable()->sortable(),
+                TextColumn::make('supplier_name')->label('Vendor')->searchable()->sortable()->wrap(),
                 TextColumn::make('goodsReceipt.reference_number')->label('Nomor PO')->searchable(),
-                TextColumn::make('item.product_name')->label('Produk')->searchable()
+                TextColumn::make('item.product_name')->label('Produk')->searchable()->wrap()
                     ->state(fn (VendorComplianceIncident $record): ?string => $record->isLateDelivery() ? 'Level PO' : $record->item?->product_name),
                 TextColumn::make('category')->label('Kategori')->badge()->formatStateUsing(fn (string $state): string => static::categoryLabel($state)),
                 TextColumn::make('affected_quantity')->label('Qty / Terlambat')
@@ -198,8 +199,9 @@ class VendorComplianceIncidentResource extends Resource
                         ? $record->delay_days.' hari'
                         : rtrim(rtrim(number_format((float) $record->affected_quantity, 4, ',', '.'), '0'), ','))
                     ->description(fn (VendorComplianceIncident $record): ?string => $record->isLateDelivery()
-                        ? 'Dibutuhkan '.($record->required_date?->format('d M Y') ?? '-').' · Diterima '.($record->latest_late_receipt_date?->format('d M Y') ?? '-')
-                        : null),
+                        ? 'Butuh '.($record->required_date?->format('d M') ?? '-').' · Terima '.($record->latest_late_receipt_date?->format('d M') ?? '-')
+                        : null)
+                    ->wrap(),
                 TextColumn::make('liability_status')->label('Verifikasi')->badge()
                     ->state(fn (VendorComplianceIncident $record): ?VendorComplianceLiabilityStatus => $record->isLateDelivery() ? $record->liability_status : null)
                     ->placeholder('-'),

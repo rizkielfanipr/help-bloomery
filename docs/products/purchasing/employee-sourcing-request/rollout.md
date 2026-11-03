@@ -34,11 +34,11 @@ supersedes: null
 |---|---|---|---|
 | Variabel baru | Tidak | Not applicable | Fitur memakai konfigurasi database, storage private, dan ESB read existing |
 
-Audit Phase 0 wajib memastikan limit Livewire/PHP/reverse proxy mendukung attachment baseline. Jangan menaikkan limit global hanya untuk fitur ini tanpa keputusan terpisah.
+Lampiran dibatasi 10 MB per file dan 5 file per request (PRD §29), di bawah batas upload Livewire global 12 MB. Pastikan `upload_max_filesize`, `post_max_size`, dan reverse proxy staging/production minimal 12 MB. Jangan menaikkan limit global hanya untuk fitur ini tanpa keputusan terpisah.
 
 ## 3. Migration
 
-- Migration menambah tabel `material_sourcing_requests` dan status history dengan FK/index/unique constraint.
+- Migration `2026_11_03_154852_create_material_sourcing_requests_tables` menambah tabel `material_sourcing_requests` dan `material_sourcing_request_status_histories` dengan FK/index/unique constraint.
 - Nullable unique link ke `rnd_product_esb_materials` mencegah conversion ganda.
 - Tidak ada backfill atau perubahan data sourcing existing.
 - Ukuran tabel baru kosong saat deploy sehingga lock diperkirakan rendah; hasil aktual staging dicatat pada implementation report.
@@ -46,7 +46,7 @@ Audit Phase 0 wajib memastikan limit Livewire/PHP/reverse proxy mendukung attach
 
 ## 4. Queue dan scheduler
 
-Not applicable — versi pertama tidak menambah scheduler atau background job wajib. Bila implementasi akhir memakai queued notification existing, deployment mengikuti worker/configuration existing dan tidak menambah queue baru.
+Not applicable — tidak ada scheduler atau job baru. Notifikasi memakai Filament database notification yang dikirim sinkron setelah commit.
 
 ## 5. External integration
 

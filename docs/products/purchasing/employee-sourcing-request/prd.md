@@ -1,8 +1,8 @@
 ---
 document_id: PURCHASING-EMPLOYEE-SOURCING-REQUEST-PRD
 title: PRD — Request Sourcing melalui Employee App
-status: draft
-version: 1.0
+status: implemented
+version: 1.2
 owner: Purchasing
 technical_owner: Information Technology
 created_at: 2026-11-03
@@ -30,7 +30,7 @@ supersedes: null
 |---|---|
 | Domain | Purchasing |
 | Fitur | Request Sourcing melalui Employee App |
-| Status | draft |
+| Status | implemented |
 | Prioritas | TBD — belum ditetapkan owner bisnis |
 | Target pengguna | User Employee App dengan permission; Purchasing sebagai processor |
 | Modul terdampak | Employee App, Purchasing, Research & Development |
@@ -419,6 +419,8 @@ Detail operasional ada di [Rollout Runbook](rollout.md).
 
 Tidak ada open decision yang mengubah arsitektur utama atau memblokir pembuatan dokumentasi. Keputusan final dicatat sebelum field/role terkait diimplementasikan.
 
+Keputusan butir 2 dan 3 dikunci pada §29. Butir 1 tetap menunggu Purchasing dan Administrator sebelum UAT staging; implementasi tidak memberikan permission baru ke role mana pun melalui seeder.
+
 ## 27. Implementation phases
 
 | Phase | Scope | Output |
@@ -439,3 +441,19 @@ Tidak ada open decision yang mengubah arsitektur utama atau memblokir pembuatan 
 - [ ] Product picker/attachment/conversion diuji di staging.
 - [ ] Dokumentasi Purchasing, R&D, panels, RBAC, dan data model sesuai implementasi.
 - [ ] Implementation report mencatat hasil, deviasi, migration, permission, dan UAT.
+
+## 29. Keputusan Phase 0
+
+Hasil audit repository pada commit `de0cbab7` (3 November 2026):
+
+| Area | Keputusan |
+|---|---|
+| Product picker | `ManagesEsbStockProductPicker` dipakai tanpa refactor. Host mengembalikan `pickerShowsStock() = false`, `pickerCompanyCode() = 'BLSS'`, dan `pickerBranches() = []`; dalam mode tanpa stok trait tidak membaca branch/location. Partial `esb-product-picker-sheet` di-include dengan `pickerShowsStock = false`. |
+| Verifikasi produk | Pembacaan ulang Product Detail aktif dipindahkan dari method private `CreateStandaloneMaterialSourcingAction` ke `App\Services\Rnd\Material\ActiveEsbProductDetailResolver`, lalu dipakai submit/resubmit request dan sourcing mandiri. Pesan error sourcing mandiri tidak berubah. |
+| Attachment | Disimpan sebagai metadata JSON (`path`, `name`, `mime`, `size`) pada request, mengikuti Request ERP. Maksimum 5 file, 10 MB per file, format JPG, JPEG, PNG, WEBP, dan PDF. Disk privat `b2` dengan prefix `purchasing/material-sourcing-requests/{request_id}/`. File diunduh lewat controller terotorisasi yang men-stream isi file tanpa signed URL. Upload gagal di tengah transaksi menghapus file yang sudah tersimpan; file yang dilepas saat kirim ulang dihapus setelah commit. |
+| Estimasi kebutuhan | Opsional (butir 3 §26), angka desimal > 0 dengan UOM dari snapshot produk. |
+| Nomor request | `MSR-{YYYYMMDD}-{id 6 digit}`, diisi dalam transaksi pembuatan. |
+| Idempotency submit | `submission_key` UUID unik dibuat saat form dibuka; submit ulang dengan key yang sama mengembalikan request yang sudah ada. |
+| Notifikasi | Filament database notification setelah commit, mengikuti `NonPoReceiptNotifier`. Submit/kirim ulang memberi tahu user aktif dengan `process material sourcing requests`; revisi, tolak, dan conversion memberi tahu requester. Kegagalan notifikasi tidak menggagalkan transisi. |
+| PIC | Revisi, tolak, dan conversion hanya oleh PIC yang melakukan **Mulai Proses**. SUPERADMIN mengikuti `Gate::before`; invariant status dan conversion tetap dijaga di Action. |
+| Role | Tidak ada grant baru di `RolesAndPermissionsSeeder`; permission tersedia lewat `permissions:sync` dan diberikan melalui Role & Permission. |

@@ -15,14 +15,14 @@ Untuk menambah permission: tambahkan di `config/permissions.php` (atau `permissi
 | Domain | Fitur |
 |---|---|
 | Akses Back Office | Back Office |
-| Akses Employee App | Absensi, Driver, Teknisi, Request Teknisi, Briefing, Submit Daily Briefing, Sales Report, Stock Card, Penerimaan Barang, Item Journal, Purchasing, Desain, Konten, ERP, Quality Control, SOP Store, Customer Complaints, Store Sales Order |
+| Akses Employee App | Absensi, Driver, Teknisi, Request Teknisi, Briefing, Submit Daily Briefing, Sales Report, Stock Card, Penerimaan Barang, Item Journal, Purchasing, Desain, Konten, ERP, Quality Control, SOP Store, Request Sourcing, Customer Complaints, Store Sales Order |
 | Human Resources | Casual Staff, Posisi Casual, Lowongan Posisi, Absensi Casual, Daily Briefing, Monitoring Poin, Review Monitoring Poin, Nilai Briefing, Pengaturan Briefing, Bobot Penilaian Briefing |
 | Driver | Uang Makan Driver, Perjalanan, Rute Perjalanan, Kendaraan |
 | Teknisi | Service Request, Asset QR, Maintenance Bulanan |
 | Inventory | Stock Card Settings, Stock Card, Penerimaan, Penerimaan Tanpa PO, Product List, Proses Material Marketing, Item Journal (nama permission legacy `… quality control item journal…`) |
 | Quality Control | Audit QC dan Checklist QC (dari `permissionDefinition()` resource) |
 | Finance | Sales Report Settings, Sales Report Scores, Sales Report, Compliment Types, Basket Size, Sourcing Bahan, Product Pricelist |
-| Purchasing | Vendor Compliance, Permintaan Pembelian, Sourcing Bahan, Proses Material Marketing, PO Susulan |
+| Purchasing | Vendor Compliance, Permintaan Pembelian, Sourcing Bahan, Permintaan Sourcing, Proses Material Marketing, PO Susulan |
 | Brand Marketing | Permintaan Design, Kategori Design, Permintaan Konten, Marketing Material, Master Design |
 | Information Technology | Permintaan ERP, Modul ERP, Request Type, Bulk Data |
 | Research & Development | Bill of Material, Project, Product Price Index, Sourcing Bahan, Memo Internal, Master Bahan Workflow, Recipe Adjustment, Shelf Life WIP, Material Forecast, Task Calendar, Task Template |
@@ -58,7 +58,7 @@ Role dan permission awal dibuat oleh `database/seeders/RolesAndPermissionsSeeder
 | `QUALITY_CONTROL` | Employee App Quality Control, audit QC, tile dan aksi Item Journal |
 | `QUALITY_CONTROL_SUPERVISOR` | Audit QC, Item Journal semua user, Checklist QC |
 
-Permission yang sengaja tidak diberikan ke role mana pun oleh seeder, misalnya `reopen material sample approval`, `cancel non po purchase order requests`, dan `archive design master bundles`, harus diberikan manual sesuai kebijakan.
+Permission yang sengaja tidak diberikan ke role mana pun oleh seeder, misalnya `reopen material sample approval`, `cancel non po purchase order requests`, `archive design master bundles`, dan seluruh permission Request Sourcing (`access employee app sourcing request`, `view material sourcing requests`, `process material sourcing requests`), harus diberikan manual sesuai kebijakan.
 
 ## Branch scope
 

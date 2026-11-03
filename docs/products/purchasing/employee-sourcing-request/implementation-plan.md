@@ -1,7 +1,7 @@
 ---
 document_id: PURCHASING-EMPLOYEE-SOURCING-REQUEST-PLAN
 title: Implementation Plan — Request Sourcing melalui Employee App
-status: draft
+status: implemented
 version: 1.0
 owner: Purchasing
 technical_owner: Information Technology

@@ -16,7 +16,6 @@ use App\Services\Monitoring\EsbTransactionScope;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Url;
@@ -121,7 +120,7 @@ class CreateBomRecipePage extends Page
 
         $this->data = [
             'bomName' => $productRecord->name,
-            'bomCode' => $productRecord->product_code ?: 'BOM-'.$productRecord->id,
+            'bomCode' => '',
             'productDetailID' => '',
             'notes' => '',
             'bomCostTotal' => 0,
@@ -238,7 +237,6 @@ class CreateBomRecipePage extends Page
             $product = $this->products[$productDetailId];
             $this->data['productDetailID'] = $productDetailId;
             $this->data['bomName'] = (string) ($product['productName'] ?? $this->productName);
-            $this->data['bomCode'] = (string) (($product['productCode'] ?? '') ?: 'BOM-'.$productDetailId);
             $this->resetValidation('data.productDetailID');
 
             return;
@@ -365,7 +363,6 @@ class CreateBomRecipePage extends Page
             $resultProduct = $this->selectedProducts[(int) ($this->data['productDetailID'] ?? 0)] ?? null;
             if ($resultProduct) {
                 $this->data['bomName'] = (string) ($resultProduct['productName'] ?? $this->productName);
-                $this->data['bomCode'] = (string) (($resultProduct['productCode'] ?? '') ?: 'BOM-'.$resultProduct['productDetailID']);
             }
             $this->data['bomCostTotal'] = 0;
             $this->data['notes'] = '';
@@ -378,7 +375,7 @@ class CreateBomRecipePage extends Page
 
         $validated = $this->validate([
             'data.bomName' => ['required', 'string', 'max:255'],
-            'data.bomCode' => ['required', 'string', 'max:100'],
+            'data.bomCode' => $this->isEditing ? ['required', 'string', 'max:100'] : ['nullable', 'string', 'max:100'],
             'data.productDetailID' => $isMenu ? ['nullable', 'integer'] : ['required', 'integer', Rule::in(array_keys($this->selectedProducts))],
             'data.notes' => ['nullable', 'string', 'max:2000'],
             'data.bomCostTotal' => ['required', 'numeric', 'min:0'],
@@ -406,6 +403,12 @@ class CreateBomRecipePage extends Page
         $documentMaterials = $payload['documentMaterials'] ?? [];
         unset($payload['documentMaterials']);
         $payload['bomTypeID'] = $isMenu ? 3 : 1;
+
+        // New recipes carry no BOM code, as when R&D uploads a BOM manually in ESB: ESB rejects
+        // a code that another BOM already holds, and a blank code is never taken.
+        if (! $this->isEditing) {
+            $payload['bomCode'] = '';
+        }
 
         // BOM Menu has no "Product Hasil" concept in ESB's API — only Assembly
         // BOMs carry a top-level productDetailID.
@@ -439,9 +442,8 @@ class CreateBomRecipePage extends Page
 
         // docs/products/system-monitoring/prd.md §11.6: a BOM create whose ESB result is unknown must be
         // reconciled before the same payload can be sent again, and a concurrent double submit
-        // only sends one request. The key leaves out bomCode, which is resolved against ESB below
-        // and changes once an earlier attempt has taken the preferred code.
-        $idempotencyKey = 'rnd-bom-create:'.hash('sha256', $this->projectId.'|'.$this->productId.'|'.json_encode(Arr::except($payload, 'bomCode')));
+        // only sends one request.
+        $idempotencyKey = 'rnd-bom-create:'.hash('sha256', $this->projectId.'|'.$this->productId.'|'.json_encode($payload));
         if ($this->hasUnreconciledBomCreate($idempotencyKey)) {
             Notification::make()
                 ->title('Pengiriman BOM sebelumnya belum pasti')
@@ -460,8 +462,6 @@ class CreateBomRecipePage extends Page
         }
 
         try {
-            $payload['bomCode'] = app(EsbBillOfMaterialService::class)->availableBomCode($payload['bomCode']);
-
             $bomId = app(EsbTransactionRecorder::class)->transaction(
                 'rnd_bom',
                 'create_bom',

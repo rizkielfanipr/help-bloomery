@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\MarketingDesignBundleVersion;
+use App\Models\MarketingDesignBundle;
 use App\Models\MarketingDesignItem;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -14,7 +14,7 @@ class MarketingDesignItemFactory extends Factory
     public function definition(): array
     {
         return [
-            'marketing_design_bundle_version_id' => MarketingDesignBundleVersion::factory(),
+            'marketing_design_bundle_id' => MarketingDesignBundle::factory(),
             'type' => 'social_media',
             'title' => fake()->words(2, true),
         ];

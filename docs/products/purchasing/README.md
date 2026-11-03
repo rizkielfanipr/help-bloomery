@@ -11,7 +11,7 @@ Permintaan pembelian dari store, insiden kepatuhan vendor dari penerimaan barang
 | | Sourcing Bahan | `view material sourcings`, `submit material sourcing`, `hand over material samples` |
 | | Material Marketing (Perlu Dipesan) | `view marketing material fulfillments`, `process marketing material as purchasing` |
 | | PO Susulan | `view non po purchase order requests`; aksi: `process non po purchase order requests`; batal: `cancel non po purchase order requests` |
-| Back Office → Brand Marketing | Master Design (baca) | `view design master bundles`, `download design master production files` |
+| Back Office → Brand Marketing | Master Design (baca) | `view design master bundles`, `download design master files` |
 | Employee App | Tile **Purchasing** | `access employee app purchasing` |
 
 ## Permintaan Pembelian
@@ -42,7 +42,7 @@ Index dan modal detail menampilkan **Masuk Sourcing**, **Selesai Sourcing**, dan
 
 Status: `not_started`, `ordered`, `received`.
 
-Purchasing juga dapat membuka [Master Design](../brand-marketing/README.md#master-design) di grup Brand Marketing dengan permission di atas: melihat version published dari bundle aktif dan mengunduh file production, tanpa aksi mutasi, file source, atau file supporting. Master Design tidak terhubung dengan antrean fulfillment di atas.
+Purchasing juga dapat membuka [Master Design](../brand-marketing/README.md#master-design) di grup Brand Marketing dengan permission di atas: melihat bundle aktif dan mengunduh file desain tanpa aksi mutasi. Master Design tidak terhubung dengan antrean fulfillment di atas.
 
 ## PO Susulan
 

@@ -51,14 +51,14 @@ Role dan permission awal dibuat oleh `database/seeders/RolesAndPermissionsSeeder
 | `TECHNICIAN` | Employee App Teknisi; Service Request, Maintenance Bulanan, Asset QR |
 | `IT_STAFF` | Permintaan ERP, Modul ERP, Request Type, Bulk Data, System Monitoring, Review Data Master Bahan |
 | `RND_STAFF` | BOM, Project, Product Price Index, Memo Internal, Recipe Adjustment, Shelf Life, Material Forecast, Task Calendar, Review Sourcing |
-| `PURCHASING_STAFF` | Permintaan Pembelian, Sourcing Bahan, serah sampel, Material Marketing, Vendor Compliance, lihat dan proses PO Susulan, baca Master Design dan unduh file production |
-| `DESIGN_STAFF` | Lihat Project dan Shelf Life, unggah material marketing, kelola draft Master Design, unduh file production dan source |
+| `PURCHASING_STAFF` | Permintaan Pembelian, Sourcing Bahan, serah sampel, Material Marketing, Vendor Compliance, lihat dan proses PO Susulan, baca Master Design dan unduh file desain |
+| `DESIGN_STAFF` | Lihat Project dan Shelf Life, unggah material marketing, kelola Master Design, unduh file desain |
 | `INVENTORY_STAFF` | Employee App Receiving termasuk buat dan kirim Tanpa PO, lihat Goods Receipt, terima Material Marketing, Back Office Item Journal (tanpa view-all) |
 | `FINANCE_STAFF` | Review Sales Report sebagai Finance, settlement, Compliment Types, Basket Size, Stock Card Finance, Product Pricelist |
 | `QUALITY_CONTROL` | Employee App Quality Control, audit QC, tile dan aksi Item Journal |
 | `QUALITY_CONTROL_SUPERVISOR` | Audit QC, Item Journal semua user, Checklist QC |
 
-Permission yang sengaja tidak diberikan ke role mana pun oleh seeder, misalnya `reopen material sample approval`, `cancel non po purchase order requests`, `review design master bundles`, `publish design master bundles`, dan `archive design master bundles`, harus diberikan manual sesuai kebijakan.
+Permission yang sengaja tidak diberikan ke role mana pun oleh seeder, misalnya `reopen material sample approval`, `cancel non po purchase order requests`, dan `archive design master bundles`, harus diberikan manual sesuai kebijakan.
 
 ## Branch scope
 

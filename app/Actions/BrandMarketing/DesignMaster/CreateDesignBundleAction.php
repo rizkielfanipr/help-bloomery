@@ -4,7 +4,6 @@ namespace App\Actions\BrandMarketing\DesignMaster;
 
 use App\Enums\MarketingDesignAuditEvent;
 use App\Enums\MarketingDesignBundleStatus;
-use App\Enums\MarketingDesignVersionStatus;
 use App\Models\MarketingDesignBundle;
 use App\Models\User;
 use App\Services\BrandMarketing\DesignMaster\MarketingDesignAuditLogger;
@@ -14,7 +13,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Creates a bundle under exactly one Brand together with its Version 1 draft (PRD §10.1).
+ * Creates a bundle under exactly one Brand (PRD §10.1).
  */
 class CreateDesignBundleAction
 {
@@ -41,14 +40,7 @@ class CreateDesignBundleAction
                     'updated_by' => $actor->id,
                 ]);
 
-                $version = $bundle->versions()->create([
-                    'version_number' => 1,
-                    'status' => MarketingDesignVersionStatus::Draft,
-                    'created_by' => $actor->id,
-                ]);
-
                 $this->audit->log(MarketingDesignAuditEvent::BundleCreated, $bundle, $actor);
-                $this->audit->log(MarketingDesignAuditEvent::VersionCreated, $bundle, $actor, $version, toStatus: $version->status->value);
 
                 return $bundle;
             });

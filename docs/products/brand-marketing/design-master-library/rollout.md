@@ -22,7 +22,7 @@ supersedes: null
 
 - [ ] PR implementasi merged dan CI hijau.
 - [ ] Migration additive serta rollback direview.
-- [ ] Brand Marketing menunjuk reviewer dan publisher. Limit dan format file sudah dikunci pada PRD §18.2.
+- [ ] Brand Marketing menunjuk pemegang permission arsip. Limit dan format file sudah dikunci pada PRD §18.2.
 - [ ] Batas PHP (`upload_max_filesize`, `post_max_size`) dan reverse proxy staging serta production diverifikasi minimal 12 MB.
 - [ ] Backup database mengikuti prosedur release existing.
 - [ ] Storage staging mempunyai ruang dan private temporary URL berfungsi.
@@ -35,7 +35,7 @@ Tidak ada environment variable baru. File memakai Storage disk `b2` existing. Ko
 
 ## 3. Migration
 
-- Tabel baru: `marketing_design_bundles`, `marketing_design_bundle_versions`, `marketing_design_items`, `marketing_design_files`, dan `marketing_design_audit_logs`.
+- Tabel baru: `marketing_design_bundles`, `marketing_design_items`, `marketing_design_files`, dan `marketing_design_audit_logs`.
 - Seluruh perubahan additive; tidak mengubah tabel Project R&D/fulfillment.
 - Tidak ada backfill atau pemindahan binary dalam migration.
 - Audit lock/duration migration pada staging sebelum production.
@@ -60,10 +60,9 @@ Object storage melalui disk Laravel existing adalah satu-satunya boundary. Tidak
 2. Deploy migration additive serta aplikasi melalui pipeline existing.
 3. Jalankan `permissions:sync` melalui pipeline existing.
 4. Berikan permission melalui UI Role & Permission:
-   - Designer: `view`, `create`, dan `edit design master bundles`, `upload design master files`, serta `download design master production files` dan `download design master source files` agar dapat memeriksa file;
-   - Reviewer: `view design master bundles`, `review design master bundles`, dan permission unduh yang diperlukan;
-   - Publisher: `view design master bundles`, `publish design master bundles`, `archive design master bundles`, dan permission unduh yang diperlukan;
-   - Purchasing: `view design master bundles` dan `download design master production files` saja.
+   - Designer: `view`, `create`, dan `edit design master bundles`, `upload design master files`, serta `download design master files`;
+   - Pengelola arsip: `view design master bundles` dan `archive design master bundles`;
+   - Purchasing: `view design master bundles` dan `download design master files` saja.
 5. Jangan menjalankan role seeder production.
 6. Buat bundle/file uji nonproduction pada staging dan jalankan smoke test.
 7. Setelah UAT disetujui, lakukan production rollout sesuai approval user.
@@ -72,13 +71,13 @@ Object storage melalui disk Laravel existing adalah satu-satunya boundary. Tidak
 
 - [ ] Menu hanya tampil untuk user dengan permission view.
 - [ ] Bundle wajib memilih Brand dan code unik per Brand.
-- [ ] Draft dapat disimpan tanpa publish readiness.
-- [ ] Submit/revision/approve/publish berjalan sesuai Policy.
-- [ ] Revisi baru men-supersede versi lama dan versi lama tetap read-only.
+- [ ] Tambah Item mewajibkan file desain; spesifikasi diisi terpisah; Ganti File menyimpan file baru tanpa menghapus object lama.
+- [ ] Item yang belum lengkap ditandai Belum Lengkap tanpa memblokir penyimpanan.
 - [ ] Preview dapat dilihat dengan temporary URL.
-- [ ] Purchasing dapat download production, tidak dapat source/mutation.
+- [ ] Purchasing dapat mengunduh file desain dan tidak dapat melakukan mutasi.
 - [ ] User tanpa permission ditolak pada URL/action/download langsung.
 - [ ] Archive tidak menghapus file/history.
+- [ ] Hapus item meminta konfirmasi, menghapus item beserta object-nya, dan tercatat di audit.
 - [ ] Project R&D upload dan Material Marketing fulfillment existing tetap berjalan.
 
 ## 9. Data verification
@@ -87,8 +86,6 @@ Verifikasi agregat tanpa mencatat nama/file sensitif:
 
 1. Tidak ada bundle tanpa Brand.
 2. Tidak ada duplicate normalized code dalam Brand.
-3. Tidak ada bundle dengan lebih dari satu published version aktif.
-4. Tidak ada physical item published tanpa production file/spec wajib.
 5. Tidak ada stored public/signed URL pada tabel file.
 6. Jumlah object uji sesuai record file dan rollback cleanup test.
 7. Tabel existing tidak berubah jumlah/status akibat rollout.
@@ -99,7 +96,6 @@ Pantau:
 
 - error/latency upload dan download;
 - authorization denial tidak wajar;
-- failed publish/concurrency;
 - object storage error dan kemungkinan orphan;
 - query count/latency index/detail;
 - laporan Designer/Purchasing tentang versi/file salah.
@@ -109,7 +105,7 @@ Signed URL, credential, dan nama file sensitif tidak dicatat pada log monitoring
 ## 11. Rollback trigger
 
 - File source dapat diakses Purchasing/user tanpa permission.
-- Published version dapat diedit atau terdapat dua published version aktif.
+- Bundle arsip dapat diubah atau terlihat oleh Purchasing.
 - Upload meninggalkan data/object tidak konsisten secara berulang.
 - Menu/index/detail gagal digunakan oleh role yang benar.
 - Workflow Project R&D/fulfillment existing mengalami regresi.
@@ -124,7 +120,7 @@ Signed URL, credential, dan nama file sensitif tidak dicatat pada log monitoring
 
 ## 13. Post-rollout observation
 
-- Observasi minimal mencakup create draft, review/revision, publish, revision kedua, archive, Designer download, dan Purchasing production download.
+- Observasi minimal mencakup buat bundle, tambah item beserta file, isi spesifikasi, ganti file, archive, dan unduhan Purchasing.
 - Catat hasil dan limit file aktual pada implementation report.
 - Integrasi Project R&D/order tidak dimulai otomatis setelah library live; memerlukan PRD dan approval terpisah.
 

@@ -30,45 +30,33 @@ Upload material marketing pada produk Project R&D memakai permission `upload mar
 
 ## Master Design
 
-Katalog desain reusable dengan satu Brand per bundle ([PRD](design-master-library/prd.md)). Data ini terpisah dari material marketing Project R&D dan tidak membuat order atau fulfillment.
+Penyimpanan file desain dengan satu Brand per bundle ([PRD](design-master-library/prd.md)). Index memakai pola list Project R&D: pencarian, filter Brand/kategori/tipe item/fisik-digital, tab Aktif/Diarsipkan untuk pengguna internal, dan pagination 20 bundle. Data ini terpisah dari material marketing Project R&D dan tidak membuat order atau fulfillment. Tidak ada version, review, atau publish; isi bundle aktif langsung terlihat oleh Purchasing.
 
-| Status version | Arti | Aksi berikutnya |
-|---|---|---|
-| `draft` | Sedang disusun | Kirim untuk Review |
-| `in_review` | Menunggu reviewer | Setujui, atau kembalikan dengan alasan |
-| `revision_required` | Perlu diperbaiki | Perbaiki sebagai Draft |
-| `approved` | Menunggu publish | Publish, atau kembalikan dengan alasan |
-| `published` | Versi aktif, maksimal satu per bundle, immutable | Berubah menjadi `superseded` saat revisi baru dipublikasikan |
-| `superseded` | Versi lama, read-only | Tidak ada |
+| Status bundle | Arti |
+|---|---|
+| `active` | Dapat diubah dan terlihat oleh Purchasing |
+| `archived` | Tidak dapat diubah dan hanya terlihat oleh pengguna internal; dapat dipulihkan |
 
 **Aturan utama**
 
 - Brand tidak dapat diubah setelah bundle dibuat. Kode bundle dinormalisasi dan unik per Brand. Kategori: reguler, seasonal, campaign, product launch, store opening, partnership, event, lainnya.
-- Membuat bundle otomatis membuat Version 1. Revisi disalin dari version published dan hanya dapat dibuat bila tidak ada version lain yang masih berjalan. Item disalin, sedangkan file mereferensikan object yang sama.
-- Syarat review dan publish: minimal satu item, setiap item punya preview, dan item fisik (Design Packaging, Sticker) punya dimensi, material, serta file production.
-- Arsip hanya mengubah status bundle. Tidak ada hard delete; item dan file yang dilepas dari draft hanya terhapus lunak, dan object tetap tersimpan.
-- Aturan status berlaku bagi semua pengguna, termasuk SUPERADMIN.
-- Notifikasi database: reviewer saat dikirim, pembuat version saat dikembalikan, dan pemegang izin unduh production saat publish.
+- **Tambah Item** meminta tipe (mengikuti material marketing Project R&D), nama, deskripsi, dan satu file desain yang wajib diunggah langsung. File tidak dibedakan per jenis.
+- Spesifikasi produksi tidak ditanyakan saat menambah item. Item fisik (Design Packaging, Sticker) diisi lewat **Isi Spesifikasi** pada card Spesifikasi Produksi, yang menampilkan list item beserta nama, tipe, file desain, dan status kelengkapannya. Item fisik tanpa dimensi atau material ditandai **Belum Lengkap**; tanda ini hanya informasi.
+- **Unduh** selalu tampil bagi pemegang permission unduh dan nonaktif bila item belum punya file. Tombol file berlabel **Unggah File** bila item belum punya file dan **Ganti File** bila sudah ada. Mengganti file menyimpan file baru pada path baru; file lama terhapus lunak dan object-nya tetap tersimpan.
+- **Hapus** item bersifat permanen: item, file desain, file lama hasil penggantian, dan object-nya di penyimpanan ikut terhapus dan tidak dapat dikembalikan. Audit tetap mencatat siapa menghapus item apa. Bundle tidak dapat dihapus, hanya diarsipkan.
+- Aturan status bundle berlaku bagi semua pengguna, termasuk SUPERADMIN.
 
-**File** disimpan privat di disk `b2` dengan path berbasis ID dan checksum SHA-256. Batas 12 MB per file; alasannya ada di [PRD §18.2](design-master-library/prd.md#182-file-role-dan-format-awal). Unduhan melewati pemeriksaan akses, memakai URL sementara 15 menit, dan unduhan production/source tercatat di audit.
-
-| Role file | Format | Syarat akses |
-|---|---|---|
-| Preview | JPG, JPEG, PNG, WEBP, PDF | Dapat melihat version |
-| Production | PDF, ZIP | `download design master production files` |
-| Source | ZIP | `download design master source files` |
-| Supporting | PDF, JPG, JPEG, PNG, WEBP, ZIP | Pengguna internal |
+**File** disimpan privat di disk `b2` dengan path berbasis ID dan checksum SHA-256. Format JPG, JPEG, PNG, WEBP, PDF, dan ZIP, maksimal 12 MB; alasannya ada di [PRD §18.2](design-master-library/prd.md#182-format-dan-batas-file). Unduhan dan preview (gambar dan PDF) melewati pemeriksaan akses dan memakai URL sementara 15 menit; setiap unduhan tercatat di audit.
 
 **Izin Master Design**
 
 | Peran | Permission |
 |---|---|
 | Designer | `create design master bundles`, `edit design master bundles`, `upload design master files` |
-| Reviewer | `review design master bundles` |
-| Publisher | `publish design master bundles`, `archive design master bundles` |
-| Purchasing | `download design master production files` |
+| Pengelola arsip | `archive design master bundles` |
+| Pengunduh file (Designer dan Purchasing) | `download design master files` |
 
-Semua peran juga memerlukan `view design master bundles`. Pemilik salah satu permission mutasi di atas adalah pengguna internal yang dapat melihat semua version dan bundle arsip. Pengguna lain, termasuk Purchasing, hanya melihat version published dari bundle aktif; URL ke bundle lain menghasilkan 404.
+Semua peran juga memerlukan `view design master bundles`. Pemilik salah satu permission create, edit, upload, atau archive adalah pengguna internal yang dapat melihat bundle arsip. Pengguna lain, termasuk Purchasing, hanya melihat bundle aktif; URL ke bundle arsip menghasilkan 404.
 
 ## Peta kode
 
@@ -87,7 +75,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 
 ## Data
 
-`DesignRequest`, `DesignRequestStatusHistory`, `DesignCategory`, `ContentRequest`, `ContentRequestStatusHistory`, `MarketingDesignBundle`, `MarketingDesignBundleVersion`, `MarketingDesignItem`, `MarketingDesignFile`, `MarketingDesignAuditLog`. Lihat [Data Model](../../architecture/data-model.md#brand-marketing).
+`DesignRequest`, `DesignRequestStatusHistory`, `DesignCategory`, `ContentRequest`, `ContentRequestStatusHistory`, `MarketingDesignBundle`, `MarketingDesignItem`, `MarketingDesignFile`, `MarketingDesignAuditLog`. Lihat [Data Model](../../architecture/data-model.md#brand-marketing).
 
 ## Dokumen terkait
 
@@ -97,4 +85,4 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 
 ## Role bawaan
 
-`STORE_STAFF` mengajukan permintaan desain dan konten. `DESIGN_STAFF` mengunggah material marketing serta mengelola draft Master Design dan dapat mengunduh file production dan source. Permission review, publish, dan archive tidak termasuk role bawaan dan diberikan lewat Role & Permission. Pengelolaan back office diberikan sesuai permission.
+`STORE_STAFF` mengajukan permintaan desain dan konten. `DESIGN_STAFF` mengunggah material marketing serta mengelola Master Design dan dapat mengunduh file desain. Permission `archive design master bundles` tidak termasuk role bawaan dan diberikan lewat Role & Permission. Pengelolaan back office diberikan sesuai permission.

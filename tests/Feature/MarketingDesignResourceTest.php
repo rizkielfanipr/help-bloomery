@@ -1,15 +1,12 @@
 <?php
 
 use App\Enums\MarketingDesignBundleStatus;
-use App\Enums\MarketingDesignFileRole;
-use App\Enums\MarketingDesignVersionStatus;
 use App\Filament\Helpdesk\Resources\Brands\Pages\ListBrands;
 use App\Filament\Helpdesk\Resources\MarketingDesignBundles\MarketingDesignBundleResource;
 use App\Filament\Helpdesk\Resources\MarketingDesignBundles\Pages\ListMarketingDesignBundles;
 use App\Filament\Helpdesk\Resources\MarketingDesignBundles\Pages\ViewMarketingDesignBundle;
 use App\Models\Brand;
 use App\Models\MarketingDesignBundle;
-use App\Models\MarketingDesignBundleVersion;
 use App\Models\MarketingDesignFile;
 use App\Models\MarketingDesignItem;
 use App\Models\User;
@@ -32,23 +29,16 @@ beforeEach(function () {
     $this->designer->assignRole('DESIGN_STAFF');
     $this->purchasing = User::factory()->create(['is_active' => true]);
     $this->purchasing->assignRole('PURCHASING_STAFF');
-    $this->manager = User::factory()->create(['is_active' => true]);
-    $this->manager->givePermissionTo(
-        'access backoffice',
-        'view design master bundles', 'create design master bundles', 'edit design master bundles', 'upload design master files',
-        'review design master bundles', 'publish design master bundles', 'archive design master bundles',
-    );
+    $this->archiver = User::factory()->create(['is_active' => true]);
+    $this->archiver->givePermissionTo('access backoffice', 'view design master bundles', 'archive design master bundles');
 });
 
-function publishedDesignBundle(array $bundleAttributes = [], string $itemType = 'packaging_design'): MarketingDesignBundle
+/** A bundle with one item and its design file. */
+function filledDesignBundle(array $bundleAttributes = [], string $itemType = 'packaging_design'): MarketingDesignBundle
 {
     $bundle = MarketingDesignBundle::factory()->create($bundleAttributes);
-    $version = MarketingDesignBundleVersion::factory()->published()->for($bundle, 'bundle')->create();
-    $item = MarketingDesignItem::factory()->physical()->for($version, 'version')->create(['type' => $itemType, 'title' => 'Item '.$bundle->code]);
-
-    foreach (MarketingDesignFileRole::cases() as $role) {
-        MarketingDesignFile::factory()->role($role)->for($item, 'item')->create(['original_name' => $role->value.'-file.'.($role === MarketingDesignFileRole::Preview ? 'jpg' : 'zip')]);
-    }
+    $item = MarketingDesignItem::factory()->physical()->for($bundle, 'bundle')->create(['type' => $itemType, 'title' => 'Item '.$bundle->code]);
+    MarketingDesignFile::factory()->image()->for($item, 'item')->create(['original_name' => 'desain-'.$bundle->code.'.jpg']);
 
     return $bundle;
 }
@@ -58,6 +48,11 @@ function viewDesignPage(MarketingDesignBundle $bundle, User $user)
     test()->actingAs($user);
 
     return Livewire::test(ViewMarketingDesignBundle::class, ['record' => $bundle->getRouteKey()]);
+}
+
+function renderedButton(string $label): string
+{
+    return '/>\s*'.preg_quote($label, '/').'\s*</';
 }
 
 describe('navigation and access', function () {
@@ -77,96 +72,140 @@ describe('navigation and access', function () {
             ->and(MarketingDesignBundleResource::canDeleteAny())->toBeFalse();
     });
 
-    it('returns 404 when purchasing opens a draft or archived bundle by URL', function () {
-        $draft = MarketingDesignBundleVersion::factory()->create()->bundle;
-        $archived = publishedDesignBundle();
-        $archived->update(['status' => MarketingDesignBundleStatus::Archived]);
+    it('returns 404 when purchasing opens an archived bundle by URL', function () {
+        $archived = MarketingDesignBundle::factory()->archived()->create();
 
-        $this->actingAs($this->purchasing)->get(MarketingDesignBundleResource::getUrl('view', ['record' => $draft], panel: 'helpdesk'))->assertNotFound();
         $this->actingAs($this->purchasing)->get(MarketingDesignBundleResource::getUrl('view', ['record' => $archived], panel: 'helpdesk'))->assertNotFound();
+        $this->actingAs($this->designer)->get(MarketingDesignBundleResource::getUrl('view', ['record' => $archived], panel: 'helpdesk'))->assertOk();
     });
 });
 
+/** IDs of the bundles on the current index page. */
+function listedBundleIds($page): array
+{
+    return $page->instance()->bundles()->getCollection()->modelKeys();
+}
+
 describe('index', function () {
-    it('shows purchasing active published bundles only, and designers their drafts', function () {
-        $published = publishedDesignBundle();
-        $draft = MarketingDesignBundleVersion::factory()->create()->bundle;
-        $archived = publishedDesignBundle();
-        $archived->update(['status' => MarketingDesignBundleStatus::Archived]);
+    it('renders the Project-style header, filter bar, and list', function () {
+        $bundle = filledDesignBundle(['name' => 'Paket Lebaran']);
+
+        $this->actingAs($this->designer);
+        Livewire::test(ListMarketingDesignBundles::class)
+            ->assertOk()
+            ->assertSeeInOrder(['Brand Marketing', 'Master Design', 'Aktif', 'Diarsipkan', 'Semua Brand', 'Semua Kategori', 'Semua Tipe Item', 'Bundle', 'Brand', 'Kategori', 'Item', 'Diperbarui', 'Paket Lebaran'])
+            ->assertSee($bundle->brand->name)
+            ->assertSee('Halaman 1 / 1');
+    });
+
+    it('shows purchasing active bundles only, without the archived tab', function () {
+        $active = MarketingDesignBundle::factory()->create();
+        $archived = MarketingDesignBundle::factory()->archived()->create();
 
         $this->actingAs($this->purchasing);
-        Livewire::test(ListMarketingDesignBundles::class)
-            ->assertCanSeeTableRecords([$published])
-            ->assertCanNotSeeTableRecords([$draft, $archived])
+        $page = Livewire::test(ListMarketingDesignBundles::class)
             ->assertActionHidden('createBundle')
-            ->filterTable('status', MarketingDesignBundleStatus::Archived->value)
-            ->assertCanNotSeeTableRecords([$archived]);
+            ->assertDontSee('Diarsipkan');
+        expect(listedBundleIds($page))->toBe([$active->id]);
 
-        $this->actingAs($this->designer);
-        Livewire::test(ListMarketingDesignBundles::class)
-            ->assertCanSeeTableRecords([$published, $draft])
-            ->assertCanNotSeeTableRecords([$archived])
-            ->filterTable('status', MarketingDesignBundleStatus::Archived->value)
-            ->assertCanSeeTableRecords([$archived]);
+        $page->call('showArchived')->set('statusView', 'archived');
+        expect(listedBundleIds($page))->toBe([$active->id]);
     });
 
-    it('defaults to all brands and filters by brand, category, type, nature, and version status', function () {
+    it('lets internal users switch to archived bundles', function () {
+        $active = MarketingDesignBundle::factory()->create();
+        $archived = MarketingDesignBundle::factory()->archived()->create();
+
+        $this->actingAs($this->designer);
+        $page = Livewire::test(ListMarketingDesignBundles::class);
+        expect(listedBundleIds($page))->toBe([$active->id]);
+
+        $page->call('showArchived');
+        expect(listedBundleIds($page))->toBe([$archived->id]);
+
+        $page->call('showActive');
+        expect(listedBundleIds($page))->toBe([$active->id]);
+    });
+
+    it('defaults to all brands and filters by brand, category, type, and nature', function () {
         $brandA = Brand::factory()->create(['name' => 'Brand A']);
-        $packaging = publishedDesignBundle(['brand_id' => $brandA->id, 'category' => 'seasonal']);
-        $social = publishedDesignBundle(['category' => 'campaign'], 'social_media');
-        $draft = MarketingDesignBundleVersion::factory()->create()->bundle;
+        $packaging = filledDesignBundle(['brand_id' => $brandA->id, 'category' => 'seasonal']);
+        $social = filledDesignBundle(['category' => 'campaign'], 'social_media');
 
         $this->actingAs($this->designer);
-        $table = fn () => Livewire::test(ListMarketingDesignBundles::class);
+        $ids = fn (array $filters) => listedBundleIds(tap(Livewire::test(ListMarketingDesignBundles::class), function ($page) use ($filters): void {
+            foreach ($filters as $property => $value) {
+                $page->set($property, $value);
+            }
+        }));
 
-        $table()->assertTableFilterExists('brand_id')->assertCanSeeTableRecords([$packaging, $social, $draft]);
-        $table()->filterTable('brand_id', $brandA->id)->assertCanSeeTableRecords([$packaging])->assertCanNotSeeTableRecords([$social]);
-        $table()->filterTable('category', 'campaign')->assertCanSeeTableRecords([$social])->assertCanNotSeeTableRecords([$packaging]);
-        $table()->filterTable('item_type', 'social_media')->assertCanSeeTableRecords([$social])->assertCanNotSeeTableRecords([$packaging]);
-        $table()->filterTable('nature', 'physical')->assertCanSeeTableRecords([$packaging])->assertCanNotSeeTableRecords([$social]);
-        $table()->filterTable('nature', 'digital')->assertCanSeeTableRecords([$social])->assertCanNotSeeTableRecords([$packaging]);
-        $table()->filterTable('version_status', MarketingDesignVersionStatus::Draft->value)->assertCanSeeTableRecords([$draft])->assertCanNotSeeTableRecords([$packaging]);
+        expect($ids([]))->toEqualCanonicalizing([$packaging->id, $social->id])
+            ->and($ids(['brandFilter' => (string) $brandA->id]))->toBe([$packaging->id])
+            ->and($ids(['categoryFilter' => 'campaign']))->toBe([$social->id])
+            ->and($ids(['itemTypeFilter' => 'social_media']))->toBe([$social->id])
+            ->and($ids(['natureFilter' => 'physical']))->toBe([$packaging->id])
+            ->and($ids(['natureFilter' => 'digital']))->toBe([$social->id]);
     });
 
-    it('searches code and name', function () {
-        $target = publishedDesignBundle(['code' => 'LEBARAN-27', 'normalized_code' => 'LEBARAN-27', 'name' => 'Paket Ramadan']);
-        $other = publishedDesignBundle(['code' => 'XMAS', 'normalized_code' => 'XMAS', 'name' => 'Natal']);
+    it('searches code, name, and description, and resets filters', function () {
+        $target = MarketingDesignBundle::factory()->create(['code' => 'LEBARAN-27', 'normalized_code' => 'LEBARAN-27', 'name' => 'Paket Ramadan', 'description' => 'Hampers premium']);
+        $other = MarketingDesignBundle::factory()->create(['code' => 'XMAS', 'normalized_code' => 'XMAS', 'name' => 'Natal']);
 
         $this->actingAs($this->designer);
-        Livewire::test(ListMarketingDesignBundles::class)->filterTable('search', ['value' => 'lebaran'])->assertCanSeeTableRecords([$target])->assertCanNotSeeTableRecords([$other]);
-        Livewire::test(ListMarketingDesignBundles::class)->filterTable('search', ['value' => 'ramadan'])->assertCanSeeTableRecords([$target])->assertCanNotSeeTableRecords([$other]);
+        foreach (['lebaran', 'ramadan', 'premium'] as $term) {
+            expect(listedBundleIds(Livewire::test(ListMarketingDesignBundles::class)->set('search', $term)))->toBe([$target->id]);
+        }
+
+        Livewire::test(ListMarketingDesignBundles::class)
+            ->set('search', 'tidak-ada')
+            ->assertSee('Bundle tidak ditemukan.')
+            ->call('resetFilters')
+            ->assertSet('search', '')
+            ->assertSee('Natal');
+
+        expect($other->exists)->toBeTrue();
     });
 
-    it('paginates on the server', function () {
-        MarketingDesignBundle::factory()->count(12)->create();
+    it('counts items and paginates with numbered pages', function () {
+        $bundle = MarketingDesignBundle::factory()->create(['updated_at' => now()->addDay()]);
+        MarketingDesignItem::factory()->count(3)->for($bundle, 'bundle')->create();
+        MarketingDesignBundle::factory()->count(21)->create();
 
         $this->actingAs($this->designer);
-        Livewire::test(ListMarketingDesignBundles::class)->assertCountTableRecords(12)->assertSee('12');
-        expect(Livewire::test(ListMarketingDesignBundles::class)->instance()->getTableRecords()->count())->toBe(10);
+        $page = Livewire::test(ListMarketingDesignBundles::class);
+        $bundles = $page->instance()->bundles();
+
+        expect($bundles->total())->toBe(22)
+            ->and($bundles->count())->toBe(20)
+            ->and($bundles->getCollection()->firstWhere('id', $bundle->id)->items_count)->toBe(3);
+
+        $page->assertSee('Halaman 1 / 2')->call('goToBundlesPage', 2)->assertSet('bundlesPage', 2)->assertSee('Halaman 2 / 2');
+        expect($page->instance()->bundles()->count())->toBe(2);
+
+        $page->call('nextBundlesPage')->assertSet('bundlesPage', 2)->set('search', 'x')->assertSet('bundlesPage', 1);
     });
 
     it('does not run more queries as bundles and items grow', function () {
         $countQueries = function (): int {
             $this->actingAs($this->designer);
-            Filament::setCurrentPanel(Filament::getPanel('helpdesk'));
+            $page = Livewire::test(ListMarketingDesignBundles::class);
             DB::flushQueryLog();
             DB::enableQueryLog();
-            Livewire::test(ListMarketingDesignBundles::class)->instance()->getTableRecords();
+            $page->instance()->bundles();
             $count = count(DB::getQueryLog());
             DB::disableQueryLog();
 
             return $count;
         };
 
-        publishedDesignBundle();
+        filledDesignBundle();
         $few = $countQueries();
 
         foreach (range(1, 8) as $ignored) {
-            publishedDesignBundle();
+            filledDesignBundle();
         }
-        $many = $countQueries();
 
-        expect($many)->toBeLessThanOrEqual($few);
+        expect($countQueries())->toBeLessThanOrEqual($few);
     });
 
     it('creates a bundle from the modal and opens its detail', function () {
@@ -188,7 +227,6 @@ describe('index', function () {
             ->mountAction('createBundle')
             ->assertFormFieldExists('code', 'mountedActionSchema0')
             ->assertFormFieldDoesNotExist('valid_from', 'mountedActionSchema0')
-            ->assertFormFieldDoesNotExist('valid_until', 'mountedActionSchema0')
             ->assertFormFieldDoesNotExist('change_summary', 'mountedActionSchema0');
     });
 
@@ -215,6 +253,114 @@ describe('index', function () {
 });
 
 describe('detail', function () {
+    it('renders the section cards in the specified order without version, file, or audit cards', function () {
+        $html = viewDesignPage(filledDesignBundle(), $this->designer)->assertOk()->html();
+
+        $positions = array_map(fn (string $card): int|false => strpos($html, 'data-design-card="'.$card.'"'), ['summary', 'bundle', 'items', 'specs']);
+
+        expect($positions)->not->toContain(false)
+            ->and($positions)->toBe(collect($positions)->sort()->values()->all())
+            ->and($html)->not->toContain('data-design-card="files"')
+            ->and($html)->not->toContain('data-design-card="audit"')
+            ->and($html)->not->toContain('Audit Activity')
+            ->and($html)->not->toContain('data-design-card="version"')
+            ->and($html)->not->toContain('data-design-card="history"');
+    });
+
+    it('gives purchasing a read-only view with the design file to download', function () {
+        $bundle = filledDesignBundle();
+        $page = viewDesignPage($bundle, $this->purchasing);
+
+        $page->assertOk()->assertSee('desain-'.$bundle->code.'.jpg');
+
+        foreach (['editBundle', 'archiveBundle', 'addItem'] as $action) {
+            $page->assertActionHidden($action);
+        }
+
+        foreach (['Edit Bundle', 'Arsipkan', 'Pulihkan', 'Tambah Item', 'Ganti File', 'Unggah File', 'Isi Spesifikasi', 'Hapus'] as $label) {
+            expect($page->html())->not->toMatch(renderedButton($label));
+        }
+
+        expect($page->html())->toContain('Unduh');
+    });
+
+    it('hides the download button and preview without the download permission', function () {
+        $viewer = User::factory()->create(['is_active' => true]);
+        $viewer->givePermissionTo('access backoffice', 'view design master bundles');
+        $bundle = filledDesignBundle();
+
+        $html = viewDesignPage($bundle, $viewer)->assertSee('desain-'.$bundle->code.'.jpg')->html();
+
+        expect($html)->not->toContain('marketing-design-files')->not->toMatch(renderedButton('Unduh'));
+    });
+
+    it('renders only the buttons each role may use', function () {
+        $bundle = filledDesignBundle();
+
+        $designer = viewDesignPage($bundle, $this->designer)->html();
+        foreach (['Edit Bundle', 'Tambah Item', 'Ganti File', 'Isi Spesifikasi'] as $label) {
+            expect($designer)->toMatch(renderedButton($label));
+        }
+        expect($designer)->not->toMatch(renderedButton('Arsipkan'));
+
+        $archiver = viewDesignPage($bundle, $this->archiver)->html();
+        expect($archiver)->toMatch(renderedButton('Arsipkan'))->not->toMatch(renderedButton('Tambah Item'));
+    });
+
+    it('shows empty states for a new bundle', function () {
+        viewDesignPage(MarketingDesignBundle::factory()->create(), $this->designer)
+            ->assertSee('Belum ada item desain pada bundle ini.')
+            ->assertSee('Bundle ini tidak mempunyai item fisik.');
+    });
+
+    it('marks incomplete items for internal users only', function () {
+        $item = MarketingDesignItem::factory()->create(['type' => 'sticker']);
+
+        viewDesignPage($item->bundle, $this->designer)->assertSee('Belum Lengkap')->assertSee('Spesifikasi dimensi dan material belum diisi');
+        viewDesignPage($item->bundle, $this->purchasing)->assertDontSee('Belum Lengkap');
+    });
+
+    it('lists each physical item with its identity and specification status', function () {
+        $bundle = MarketingDesignBundle::factory()->create();
+        $empty = MarketingDesignItem::factory()->for($bundle, 'bundle')->create(['type' => 'sticker', 'title' => 'Sticker Tutup']);
+        MarketingDesignFile::factory()->for($empty, 'item')->create(['original_name' => 'tutup-final.pdf']);
+        MarketingDesignItem::factory()->physical()->for($bundle, 'bundle')->create(['title' => 'Box Kue', 'finishing' => 'Doff']);
+        MarketingDesignItem::factory()->for($bundle, 'bundle')->create(['type' => 'social_media', 'title' => 'Post Digital']);
+
+        $html = viewDesignPage($bundle, $this->designer)
+            ->assertSeeInOrder(['Spesifikasi Produksi', 'Sticker Tutup', 'tutup-final.pdf', 'Perlu Dilengkapi', 'Spesifikasi produksi belum diisi.', 'Box Kue', 'Spesifikasi Lengkap', 'Doff'])
+            ->html();
+
+        $specCard = substr($html, strpos($html, 'data-design-card="specs"'));
+        expect($specCard)->not->toContain('Post Digital');
+    });
+
+    it('shows the item being specified inside the specification modal', function () {
+        $item = MarketingDesignItem::factory()->create(['type' => 'sticker', 'title' => 'Sticker Tutup']);
+        MarketingDesignFile::factory()->for($item, 'item')->create(['original_name' => 'tutup-final.pdf']);
+
+        viewDesignPage($item->bundle, $this->designer)
+            ->mountAction(TestAction::make('editSpecification')->arguments(['item' => $item->id]))
+            ->assertSeeInOrder(['Spesifikasi Produksi', 'Sticker Tutup', 'Sticker', 'tutup-final.pdf'])
+            ->assertFormFieldExists('dimensions', 'mountedActionSchema0');
+    });
+
+    it('never renders a signed URL or storage path', function () {
+        $bundle = filledDesignBundle();
+        $path = $bundle->items()->sole()->file->path;
+
+        viewDesignPage($bundle, $this->purchasing)->assertDontSeeHtml($path)->assertDontSeeHtml('X-Amz-Signature');
+    });
+
+    it('wraps long names and offers a lazy preview', function () {
+        $longName = str_repeat('NamaBundleSangatPanjang', 8);
+
+        viewDesignPage(filledDesignBundle(['name' => $longName]), $this->purchasing)
+            ->assertSee($longName)
+            ->assertSeeHtml('break-words')
+            ->assertSeeHtml('loading="lazy"');
+    });
+
     it('does not run more queries as items and files grow', function () {
         $countQueries = function (MarketingDesignBundle $bundle): int {
             $this->actingAs($this->purchasing);
@@ -227,288 +373,149 @@ describe('detail', function () {
             return $count;
         };
 
-        $small = publishedDesignBundle();
-        $large = publishedDesignBundle();
-        $version = $large->publishedVersion;
+        $small = filledDesignBundle();
+        $large = filledDesignBundle();
 
         foreach (range(1, 6) as $ignored) {
-            $item = MarketingDesignItem::factory()->physical()->for($version, 'version')->create();
-            MarketingDesignFile::factory()->count(3)->for($item, 'item')->create(['uploaded_by' => $this->designer->id]);
+            $item = MarketingDesignItem::factory()->physical()->for($large, 'bundle')->create();
+            MarketingDesignFile::factory()->image()->for($item, 'item')->create(['uploaded_by' => $this->designer->id]);
         }
 
         $countQueries($small);
 
         expect($countQueries($large))->toBeLessThanOrEqual($countQueries($small) + 1);
     });
-
-    it('renders the section cards in the specified order', function () {
-        $html = viewDesignPage(publishedDesignBundle(), $this->designer)->assertOk()->html();
-
-        $positions = array_map(fn (string $card): int|false => strpos($html, 'data-design-card="'.$card.'"'), ['summary', 'bundle', 'version', 'items', 'specs', 'files', 'history', 'audit']);
-
-        expect($positions)->not->toContain(false)
-            ->and($positions)->toBe(collect($positions)->sort()->values()->all());
-    });
-
-    it('gives purchasing a read-only published view without source files', function () {
-        $bundle = publishedDesignBundle();
-        $draft = MarketingDesignBundleVersion::factory()->for($bundle, 'bundle')->create(['version_number' => 2, 'change_summary' => 'RAHASIA-DRAFT']);
-        MarketingDesignItem::factory()->for($draft, 'version')->create(['title' => 'ITEM-DRAFT']);
-
-        $page = viewDesignPage($bundle, $this->purchasing);
-
-        $page->assertOk()
-            ->assertSee('production-file.zip')
-            ->assertSee('preview-file.jpg')
-            ->assertDontSee('source-file.zip')
-            ->assertDontSee('supporting-file.zip')
-            ->assertDontSee('RAHASIA-DRAFT')
-            ->assertDontSee('ITEM-DRAFT')
-            ->assertDontSeeHtml('id="design-version-select"');
-
-        foreach (['editBundle', 'createRevision', 'archiveBundle', 'editVersionSummary', 'submitVersion', 'approveVersion', 'requestRevision', 'publishVersion', 'addItem'] as $action) {
-            $page->assertActionHidden($action);
-        }
-
-        foreach (['Edit Bundle', 'Buat Revisi', 'Arsipkan', 'Pulihkan', 'Edit Ringkasan', 'Kirim untuk Review', 'Setujui', 'Kembalikan untuk Revisi', 'Tambah Item', 'Unggah File', 'Ganti', 'Lepas'] as $label) {
-            $page->assertDontSeeHtml('>'.$label);
-            expect($page->html())->not->toMatch('/>\s*'.preg_quote($label, '/').'\s*</');
-        }
-
-        expect($page->html())->toContain('Unduh');
-    });
-
-    it('ignores a tampered version selection from purchasing', function () {
-        $bundle = publishedDesignBundle();
-        $draft = MarketingDesignBundleVersion::factory()->for($bundle, 'bundle')->create(['version_number' => 2]);
-        MarketingDesignItem::factory()->for($draft, 'version')->create(['title' => 'ITEM-DRAFT']);
-
-        viewDesignPage($bundle, $this->purchasing)
-            ->set('selectedVersionId', $draft->id)
-            ->assertDontSee('ITEM-DRAFT');
-    });
-
-    it('ignores a version selection from another bundle', function () {
-        $bundle = publishedDesignBundle();
-        $foreign = MarketingDesignBundleVersion::factory()->create();
-        MarketingDesignItem::factory()->for($foreign, 'version')->create(['title' => 'ITEM-ASING']);
-
-        viewDesignPage($bundle, $this->designer)
-            ->set('selectedVersionId', $foreign->id)
-            ->assertDontSee('ITEM-ASING');
-    });
-
-    it('lets a designer switch revisions and compare metadata', function () {
-        $bundle = publishedDesignBundle();
-        $published = $bundle->publishedVersion;
-        $base = $published->items()->sole();
-        $revision = MarketingDesignBundleVersion::factory()->for($bundle, 'bundle')->create(['version_number' => 2, 'cloned_from_version_id' => $published->id]);
-        MarketingDesignItem::factory()->physical()->for($revision, 'version')->create(['title' => 'Judul Berubah', 'type' => $base->type, 'cloned_from_item_id' => $base->id]);
-        MarketingDesignItem::factory()->for($revision, 'version')->create(['title' => 'Item Tambahan']);
-
-        viewDesignPage($bundle, $this->designer)
-            ->assertSee('Judul Berubah')
-            ->assertSee('Perbandingan metadata dengan V1')
-            ->assertSee('Item baru: Item Tambahan')
-            ->assertSee('Judul Berubah berubah pada: Judul')
-            ->call('selectVersion', $published->id)
-            ->assertSee($base->title)
-            ->assertDontSee('Item Tambahan');
-    });
-
-    it('shows empty states for a new draft', function () {
-        $bundle = MarketingDesignBundleVersion::factory()->create()->bundle;
-
-        viewDesignPage($bundle, $this->designer)
-            ->assertSee('Belum ada item desain pada version ini.')
-            ->assertSee('Version ini tidak mempunyai item fisik.')
-            ->assertSee('Belum ada file production.')
-            ->assertSee('Version belum mempunyai item.');
-    });
-
-    it('never renders a signed URL or storage path', function () {
-        $bundle = publishedDesignBundle();
-        $path = $bundle->publishedVersion->items()->sole()->files()->first()->path;
-
-        viewDesignPage($bundle, $this->purchasing)->assertDontSeeHtml($path)->assertDontSeeHtml('X-Amz-Signature');
-    });
-
-    it('wraps long names without a fixed width and offers a lazy preview', function () {
-        $longName = str_repeat('NamaBundleSangatPanjang', 8);
-        $bundle = publishedDesignBundle(['name' => $longName]);
-
-        viewDesignPage($bundle, $this->purchasing)
-            ->assertSee($longName)
-            ->assertSeeHtml('break-words')
-            ->assertSeeHtml('loading="lazy"');
-    });
 });
 
-describe('editor workflow', function () {
-    it('runs add item, upload, submit, review, publish, and revision through the page', function () {
-        $bundle = MarketingDesignBundleVersion::factory()->create()->bundle;
-        $version = $bundle->versions()->sole();
+describe('editor', function () {
+    it('adds an item with its file, edits it, fills the specification, replaces the file, and deletes it permanently', function () {
+        $bundle = MarketingDesignBundle::factory()->create();
+        $page = viewDesignPage($bundle, $this->designer);
 
-        $designerPage = viewDesignPage($bundle, $this->designer);
-        $designerPage->callAction('addItem', ['type' => 'social_media', 'title' => 'Post IG'])
+        viewDesignPage($bundle, $this->designer)->mountAction('addItem')
+            ->assertFormFieldExists('file', 'mountedActionSchema0')
+            ->assertFormFieldDoesNotExist('dimensions', 'mountedActionSchema0')
+            ->assertFormFieldDoesNotExist('role', 'mountedActionSchema0');
+
+        $page->callAction('addItem', ['type' => 'packaging_design', 'title' => 'Box Kue', 'file' => UploadedFile::fake()->image('box.jpg')])
             ->assertHasNoFormErrors()
             ->assertNotified('Item ditambahkan')
-            ->assertSee('Post IG');
+            ->assertSee('Box Kue')
+            ->assertSee('box.jpg');
 
-        $item = $version->items()->sole();
-        $designerPage->callAction(TestAction::make('uploadFile')->arguments(['item' => $item->id]), [
-            'role' => MarketingDesignFileRole::Preview->value,
-            'file' => UploadedFile::fake()->image('post.jpg'),
-        ])->assertHasNoFormErrors()->assertNotified('File diunggah')->assertSee('post.jpg');
+        $item = $bundle->items()->sole();
+        $file = $item->file;
 
-        expect($item->files()->sole()->role)->toBe(MarketingDesignFileRole::Preview);
+        $page->callAction(TestAction::make('editItem')->arguments(['item' => $item->id]), ['type' => 'sticker', 'title' => 'Sticker Baru'])
+            ->assertNotified('Item diperbarui');
+        expect($item->fresh()->title)->toBe('Sticker Baru')->and($item->fresh()->isPhysical())->toBeTrue();
 
-        $designerPage->callAction('submitVersion')->assertNotified('Version dikirim untuk review');
-        expect($version->fresh()->status)->toBe(MarketingDesignVersionStatus::InReview);
-        $designerPage->assertActionHidden('addItem')->assertActionHidden('submitVersion');
+        $page->callAction(TestAction::make('editSpecification')->arguments(['item' => $item->id]), ['dimensions' => '5 x 5 cm', 'material_specification' => 'Vinyl'])
+            ->assertNotified('Spesifikasi disimpan');
+        expect($item->fresh()->dimensions)->toBe('5 x 5 cm');
 
-        viewDesignPage($bundle->fresh(), $this->manager)
-            ->callAction('approveVersion', ['note' => 'Bagus'])
-            ->assertNotified('Version disetujui')
-            ->callAction('publishVersion', ['note' => 'Rilis'])
-            ->assertNotified('Version dipublikasikan');
+        $page->callAction(TestAction::make('replaceFile')->arguments(['item' => $item->id]), ['file' => UploadedFile::fake()->create('baru.pdf', 10, 'application/pdf')])
+            ->assertNotified('File desain disimpan');
+        expect($file->fresh()->trashed())->toBeTrue()->and($item->fresh()->file->original_name)->toBe('baru.pdf');
 
-        expect($version->fresh()->status)->toBe(MarketingDesignVersionStatus::Published);
+        $page->callAction(TestAction::make('deleteItem')->arguments(['item' => $item->id]))->assertNotified('Item dihapus permanen');
 
-        viewDesignPage($bundle->fresh(), $this->designer)
-            ->assertActionHidden('addItem')
-            ->callAction('createRevision', ['change_summary' => 'Warna baru'])
-            ->assertNotified('Draft revisi dibuat');
-
-        expect($bundle->versions()->count())->toBe(2)
-            ->and($bundle->versions()->where('version_number', 2)->sole()->items()->count())->toBe(1);
+        expect($item->fresh())->toBeNull();
     });
 
-    it('returns a version with a required reason and reopens it', function () {
-        $version = MarketingDesignBundleVersion::factory()->status(MarketingDesignVersionStatus::InReview)->create();
+    it('labels the file action and download button by whether the item has a file', function () {
+        $bundle = MarketingDesignBundle::factory()->create();
+        $withFile = MarketingDesignItem::factory()->for($bundle, 'bundle')->create(['title' => 'Dengan File']);
+        MarketingDesignFile::factory()->for($withFile, 'item')->create();
+        MarketingDesignItem::factory()->for($bundle, 'bundle')->create(['title' => 'Tanpa File']);
 
-        viewDesignPage($version->bundle, $this->manager)
-            ->callAction('requestRevision', [])
-            ->assertHasFormErrors(['reason' => 'required']);
+        $html = viewDesignPage($bundle, $this->designer)->html();
+        $withoutFileCard = substr($html, strpos($html, 'Tanpa File'));
+        $withFileCard = substr($html, strpos($html, 'Dengan File'), strpos($html, 'Tanpa File') - strpos($html, 'Dengan File'));
 
-        viewDesignPage($version->bundle, $this->manager)
-            ->callAction('requestRevision', ['reason' => 'Warna salah'])
-            ->assertNotified('Version dikembalikan untuk revisi')
-            ->callAction('reopenVersion')
-            ->assertNotified('Version kembali menjadi draft');
-
-        expect($version->fresh()->status)->toBe(MarketingDesignVersionStatus::Draft);
+        expect($withFileCard)->toMatch(renderedButton('Ganti File'))->toContain('marketing-design-files')
+            ->and($withoutFileCard)->toMatch(renderedButton('Unggah File'))->toContain('Belum ada file desain')->toMatch('/<button[^>]*disabled[^>]*title="Belum ada file desain"|title="Belum ada file desain"[^>]*disabled/');
     });
 
-    it('reports readiness failures on submit and keeps the draft', function () {
-        $version = MarketingDesignBundleVersion::factory()->create();
+    it('uploads the first file for an item that has none', function () {
+        $item = MarketingDesignItem::factory()->create();
 
-        viewDesignPage($version->bundle, $this->designer)
-            ->callAction('submitVersion')
-            ->assertNotified('Belum dapat diproses');
+        viewDesignPage($item->bundle, $this->designer)
+            ->callAction(TestAction::make('replaceFile')->arguments(['item' => $item->id, 'hasFile' => false]), ['file' => UploadedFile::fake()->image('pertama.jpg')])
+            ->assertNotified('File desain disimpan');
 
-        expect($version->fresh()->status)->toBe(MarketingDesignVersionStatus::Draft);
+        expect($item->fresh()->file->original_name)->toBe('pertama.jpg');
+    });
+
+    it('requires the design file when adding an item', function () {
+        $bundle = MarketingDesignBundle::factory()->create();
+
+        viewDesignPage($bundle, $this->designer)
+            ->callAction('addItem', ['type' => 'other', 'title' => 'Tanpa File'])
+            ->assertHasFormErrors(['file' => 'required']);
+
+        expect(MarketingDesignItem::count())->toBe(0);
+    });
+
+    it('edits the bundle with the brand locked', function () {
+        $bundle = MarketingDesignBundle::factory()->create();
+
+        viewDesignPage($bundle, $this->designer)
+            ->callAction('editBundle', ['code' => 'BARU', 'name' => 'Nama Baru', 'category' => 'event', 'brand_id' => Brand::factory()->create()->id])
+            ->assertNotified('Bundle diperbarui');
+
+        expect($bundle->fresh()->name)->toBe('Nama Baru')->and($bundle->fresh()->brand_id)->toBe($bundle->brand_id);
     });
 
     it('reports a rejected upload and stores nothing', function () {
-        $version = MarketingDesignBundleVersion::factory()->create();
-        $item = MarketingDesignItem::factory()->for($version, 'version')->create();
+        $bundle = MarketingDesignBundle::factory()->create();
 
-        viewDesignPage($version->bundle, $this->designer)
-            ->callAction(TestAction::make('uploadFile')->arguments(['item' => $item->id]), [
-                'role' => MarketingDesignFileRole::Source->value,
-                'file' => UploadedFile::fake()->create('desain.pdf', 10, 'application/pdf'),
-            ]);
+        viewDesignPage($bundle, $this->designer)
+            ->callAction('addItem', ['type' => 'other', 'title' => 'SVG', 'file' => UploadedFile::fake()->create('logo.svg', 10, 'image/svg+xml')]);
 
-        expect(MarketingDesignFile::count())->toBe(0)
+        expect(MarketingDesignItem::count())->toBe(0)
+            ->and(MarketingDesignFile::count())->toBe(0)
             ->and(Storage::disk('b2')->allFiles())->toBeEmpty();
     });
 
-    it('edits, replaces, and removes on a draft', function () {
-        $version = MarketingDesignBundleVersion::factory()->create();
-        $item = MarketingDesignItem::factory()->for($version, 'version')->create();
-        $file = MarketingDesignFile::factory()->for($item, 'item')->create();
+    it('cannot reach an item of another bundle through tampered arguments', function () {
+        $bundle = MarketingDesignBundle::factory()->create();
+        $foreign = MarketingDesignItem::factory()->create(['title' => 'Asing']);
 
-        $page = viewDesignPage($version->bundle, $this->designer);
-        $page->callAction(TestAction::make('editItem')->arguments(['item' => $item->id]), ['type' => 'sticker', 'title' => 'Sticker Baru', 'dimensions' => '5 x 5 cm'])
-            ->assertNotified('Item diperbarui');
-        expect($item->fresh()->isPhysical())->toBeTrue()->and($item->fresh()->dimensions)->toBe('5 x 5 cm');
-
-        $page->callAction(TestAction::make('replaceFile')->arguments(['file' => $file->id]), ['file' => UploadedFile::fake()->image('baru.jpg')])
-            ->assertNotified('File diganti');
-        expect($file->fresh()->trashed())->toBeTrue();
-
-        $replacement = $item->files()->sole();
-        $page->callAction(TestAction::make('removeFile')->arguments(['file' => $replacement->id]))->assertNotified('File dilepas');
-        $page->callAction(TestAction::make('removeItem')->arguments(['item' => $item->id]))->assertNotified('Item dilepas');
-
-        expect($item->fresh()->trashed())->toBeTrue();
-    });
-
-    it('cannot reach an item of another version through tampered arguments', function () {
-        $version = MarketingDesignBundleVersion::factory()->create();
-        $foreign = MarketingDesignItem::factory()->for(MarketingDesignBundleVersion::factory(), 'version')->create(['title' => 'Asing']);
-
-        expect(fn () => viewDesignPage($version->bundle, $this->designer)->callAction(TestAction::make('removeItem')->arguments(['item' => $foreign->id])))
+        expect(fn () => viewDesignPage($bundle, $this->designer)->callAction(TestAction::make('deleteItem')->arguments(['item' => $foreign->id])))
             ->toThrow(ModelNotFoundException::class);
 
-        expect($foreign->fresh()->trashed())->toBeFalse();
+        expect($foreign->fresh())->not->toBeNull();
     });
 
-    it('archives and restores from the page, hiding it from purchasing', function () {
-        $bundle = publishedDesignBundle();
+    it('archives with a required reason and restores, hiding the bundle from purchasing meanwhile', function () {
+        $bundle = filledDesignBundle();
 
-        viewDesignPage($bundle, $this->manager)
+        viewDesignPage($bundle, $this->archiver)
+            ->callAction('archiveBundle', [])
+            ->assertHasFormErrors(['reason' => 'required']);
+
+        viewDesignPage($bundle, $this->archiver)
             ->callAction('archiveBundle', ['reason' => 'Selesai'])
             ->assertNotified('Bundle diarsipkan')
-            ->assertSee('Diarsipkan: Selesai')
-            ->assertActionHidden('createRevision')
-            ->callAction('restoreBundle')
-            ->assertNotified('Bundle dipulihkan');
+            ->assertSee('Diarsipkan: Selesai');
+
+        $this->actingAs($this->purchasing)->get(MarketingDesignBundleResource::getUrl('view', ['record' => $bundle], panel: 'helpdesk'))->assertNotFound();
+        viewDesignPage($bundle->fresh(), $this->designer)->assertActionHidden('addItem')->assertActionHidden('editBundle');
+
+        viewDesignPage($bundle->fresh(), $this->archiver)->callAction('restoreBundle')->assertNotified('Bundle dipulihkan');
 
         expect($bundle->fresh()->status)->toBe(MarketingDesignBundleStatus::Active);
     });
 
-    it('renders only the buttons each role may use on a draft', function () {
-        $version = MarketingDesignBundleVersion::factory()->create();
-        MarketingDesignFile::factory()->for(MarketingDesignItem::factory()->for($version, 'version'), 'item')->create();
-
-        $designer = viewDesignPage($version->bundle, $this->designer)->html();
-        foreach (['Kirim untuk Review', 'Tambah Item', 'Unggah File', 'Ganti'] as $label) {
-            expect($designer)->toMatch('/>\s*'.$label.'\s*</');
-        }
-        foreach (['Setujui', 'Publish', 'Arsipkan'] as $label) {
-            expect($designer)->not->toMatch('/>\s*'.$label.'\s*</');
-        }
-
-        $reviewer = User::factory()->create(['is_active' => true]);
-        $reviewer->givePermissionTo('access backoffice', 'view design master bundles', 'review design master bundles');
-        $version->update(['status' => MarketingDesignVersionStatus::InReview]);
-
-        $reviewerHtml = viewDesignPage($version->bundle->fresh(), $reviewer)->html();
-        expect($reviewerHtml)->toMatch('/>\s*Setujui\s*</')->not->toMatch('/>\s*Tambah Item\s*</')->not->toMatch('/>\s*Publish\s*</');
-    });
-
-    it('hides lifecycle buttons from SUPERADMIN when the status does not allow them', function () {
+    it('hides SUPERADMIN buttons the bundle status does not allow', function () {
         $admin = User::factory()->create(['is_active' => true]);
         $admin->assignRole('SUPERADMIN');
-        $version = MarketingDesignBundleVersion::factory()->create();
 
-        $page = viewDesignPage($version->bundle, $admin)
-            ->assertActionVisible('submitVersion')
-            ->assertActionHidden('publishVersion')
-            ->assertActionHidden('approveVersion')
-            ->assertActionHidden('restoreBundle');
+        $active = viewDesignPage(MarketingDesignBundle::factory()->create(), $admin)->assertActionVisible('addItem')->assertActionHidden('restoreBundle');
+        expect($active->html())->not->toMatch(renderedButton('Pulihkan'));
 
-        expect($page->html())->not->toMatch('/>\s*Publish\s*</')->not->toMatch('/>\s*Pulihkan\s*</');
-    });
-
-    it('offers a revision only when no other version is open', function () {
-        $bundle = publishedDesignBundle();
-        viewDesignPage($bundle, $this->designer)->assertActionVisible('createRevision');
-
-        MarketingDesignBundleVersion::factory()->for($bundle, 'bundle')->create(['version_number' => 2]);
-        viewDesignPage($bundle->fresh(), $this->designer)->assertActionHidden('createRevision');
+        viewDesignPage(MarketingDesignBundle::factory()->archived()->create(), $admin)->assertActionHidden('addItem')->assertActionVisible('restoreBundle');
     });
 });
 

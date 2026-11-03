@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\MarketingDesignBundleCategory;
 use App\Enums\MarketingDesignBundleStatus;
-use App\Enums\MarketingDesignVersionStatus;
 use App\Policies\MarketingDesignBundlePolicy;
 use Database\Factories\MarketingDesignBundleFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +11,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 use LogicException;
 
@@ -64,16 +62,14 @@ class MarketingDesignBundle extends Model
         return $this->status === MarketingDesignBundleStatus::Active;
     }
 
-    /** Internal users see every bundle; everyone else only active bundles that have a published version. */
+    /** Internal users see every bundle; everyone else only active bundles. */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if (app(MarketingDesignBundlePolicy::class)->viewUnpublished($user)) {
+        if (app(MarketingDesignBundlePolicy::class)->viewArchived($user)) {
             return $query;
         }
 
-        return $query
-            ->where('status', MarketingDesignBundleStatus::Active)
-            ->whereHas('versions', fn (Builder $versions): Builder => $versions->where('status', MarketingDesignVersionStatus::Published));
+        return $query->where('status', MarketingDesignBundleStatus::Active);
     }
 
     public function brand(): BelongsTo
@@ -81,19 +77,9 @@ class MarketingDesignBundle extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    public function versions(): HasMany
+    public function items(): HasMany
     {
-        return $this->hasMany(MarketingDesignBundleVersion::class);
-    }
-
-    public function publishedVersion(): HasOne
-    {
-        return $this->hasOne(MarketingDesignBundleVersion::class)->where('status', MarketingDesignVersionStatus::Published);
-    }
-
-    public function latestVersion(): HasOne
-    {
-        return $this->hasOne(MarketingDesignBundleVersion::class)->latestOfMany('version_number');
+        return $this->hasMany(MarketingDesignItem::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function auditLogs(): HasMany

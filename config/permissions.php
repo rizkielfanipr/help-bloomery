@@ -118,11 +118,8 @@ return [
             'create design master bundles',
             'edit design master bundles',
             'upload design master files',
-            'review design master bundles',
-            'publish design master bundles',
             'archive design master bundles',
-            'download design master production files',
-            'download design master source files',
+            'download design master files',
         ],
     ],
 

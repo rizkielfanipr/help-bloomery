@@ -2,13 +2,12 @@
 
 namespace App\Policies;
 
-use App\Enums\MarketingDesignVersionStatus;
 use App\Models\MarketingDesignBundle;
 use App\Models\User;
 
 /**
  * docs/products/brand-marketing/design-master-library/prd.md §16: every ability checks the permission
- * and the bundle state on the server; hiding a button is never the security boundary.
+ * and the bundle status on the server; hiding a button is never the security boundary.
  */
 class MarketingDesignBundlePolicy
 {
@@ -16,8 +15,6 @@ class MarketingDesignBundlePolicy
         'create design master bundles',
         'edit design master bundles',
         'upload design master files',
-        'review design master bundles',
-        'publish design master bundles',
         'archive design master bundles',
     ];
 
@@ -26,21 +23,15 @@ class MarketingDesignBundlePolicy
         return $user->can('view design master bundles');
     }
 
-    /** Internal users may see unpublished and superseded versions and archived bundles. */
-    public function viewUnpublished(User $user): bool
+    /** Internal users may see archived bundles. */
+    public function viewArchived(User $user): bool
     {
         return $this->viewAny($user) && $user->canAny(self::INTERNAL_PERMISSIONS);
     }
 
     public function view(User $user, MarketingDesignBundle $bundle): bool
     {
-        if ($this->viewUnpublished($user)) {
-            return true;
-        }
-
-        return $this->viewAny($user)
-            && $bundle->isActive()
-            && $bundle->versions()->where('status', MarketingDesignVersionStatus::Published)->exists();
+        return $this->viewArchived($user) || ($this->viewAny($user) && $bundle->isActive());
     }
 
     public function create(User $user): bool
@@ -50,21 +41,26 @@ class MarketingDesignBundlePolicy
 
     public function update(User $user, MarketingDesignBundle $bundle): bool
     {
-        return $this->viewAny($user) && $user->can('edit design master bundles') && $bundle->isActive();
+        return $bundle->isActive() && $this->viewAny($user) && $user->can('edit design master bundles');
     }
 
-    public function createRevision(User $user, MarketingDesignBundle $bundle): bool
+    public function editContent(User $user, MarketingDesignBundle $bundle): bool
     {
         return $this->update($user, $bundle);
     }
 
+    public function uploadFile(User $user, MarketingDesignBundle $bundle): bool
+    {
+        return $bundle->isActive() && $this->viewAny($user) && $user->can('upload design master files');
+    }
+
     public function archive(User $user, MarketingDesignBundle $bundle): bool
     {
-        return $this->viewAny($user) && $user->can('archive design master bundles') && $bundle->isActive();
+        return $bundle->isActive() && $this->viewAny($user) && $user->can('archive design master bundles');
     }
 
     public function restore(User $user, MarketingDesignBundle $bundle): bool
     {
-        return $this->viewAny($user) && $user->can('archive design master bundles') && ! $bundle->isActive();
+        return ! $bundle->isActive() && $this->viewAny($user) && $user->can('archive design master bundles');
     }
 }

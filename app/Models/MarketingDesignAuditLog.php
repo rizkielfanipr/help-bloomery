@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use LogicException;
 
 /**
- * Append-only Master Design audit (PRD §14.5, §20). Metadata never holds signed URLs or credentials.
+ * Append-only Master Design audit (PRD §14.4, §20). Metadata never holds signed URLs or credentials.
  */
 class MarketingDesignAuditLog extends Model
 {
@@ -16,7 +16,6 @@ class MarketingDesignAuditLog extends Model
 
     protected $fillable = [
         'marketing_design_bundle_id',
-        'marketing_design_bundle_version_id',
         'marketing_design_item_id',
         'marketing_design_file_id',
         'event',
@@ -45,11 +44,6 @@ class MarketingDesignAuditLog extends Model
     public function bundle(): BelongsTo
     {
         return $this->belongsTo(MarketingDesignBundle::class, 'marketing_design_bundle_id');
-    }
-
-    public function version(): BelongsTo
-    {
-        return $this->belongsTo(MarketingDesignBundleVersion::class, 'marketing_design_bundle_version_id');
     }
 
     public function actor(): BelongsTo

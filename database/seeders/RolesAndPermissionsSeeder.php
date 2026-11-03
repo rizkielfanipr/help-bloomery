@@ -152,7 +152,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view vendor compliance incidents', 'edit vendor compliance incidents',
                 // `cancel non po purchase order requests` is granted per role through the UI (rollout.md §4).
                 'view non po purchase order requests', 'process non po purchase order requests',
-                'view design master bundles', 'download design master production files',
+                'view design master bundles', 'download design master files',
             ]);
 
         Role::firstOrCreate(['name' => 'DESIGN_STAFF', 'guard_name' => 'web'])
@@ -160,9 +160,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 'access backoffice',
                 'view rnd projects', 'upload marketing materials',
                 'view wip shelf life',
-                // Review, publish, and archive permissions are granted per person through the UI (design-master-library/rollout.md §7).
+                // Archiving is granted per person through the UI (design-master-library/rollout.md §7).
                 'view design master bundles', 'create design master bundles', 'edit design master bundles', 'upload design master files',
-                'download design master production files', 'download design master source files',
+                'download design master files',
             ]);
 
         Role::firstOrCreate(['name' => 'INVENTORY_STAFF', 'guard_name' => 'web'])

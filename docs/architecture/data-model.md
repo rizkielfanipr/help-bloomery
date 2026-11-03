@@ -1,6 +1,6 @@
 # Data Model
 
-Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (167 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0; bagian Inventory ditambah empat model `NonPoReceipt*` dengan cara yang sama pada 2 November 2026; bagian Brand Marketing ditambah lima model `MarketingDesign*` dengan cara yang sama pada 3 November 2026). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
+Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (167 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0; bagian Inventory ditambah empat model `NonPoReceipt*` dengan cara yang sama pada 2 November 2026; bagian Brand Marketing ditambah empat model `MarketingDesign*` dengan cara yang sama pada 3 November 2026). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
 
 Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type eksplisit (`metode→Model (Tipe)`).
 
@@ -241,11 +241,10 @@ Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type ekspli
 | `DesignCategory` | `design_categories` | designRequests→DesignRequest (HasMany) |
 | `DesignRequest` | `design_requests` | statusHistories→DesignRequestStatusHistory (HasMany), requester→User (BelongsTo), branch→Branch (BelongsTo), category→DesignCategory (BelongsTo) |
 | `DesignRequestStatusHistory` | `design_request_status_histories` | designRequest→DesignRequest (BelongsTo), changedBy→User (BelongsTo) |
-| `MarketingDesignAuditLog` | `marketing_design_audit_logs` | bundle→MarketingDesignBundle (BelongsTo), version→MarketingDesignBundleVersion (BelongsTo), actor→User (BelongsTo) |
-| `MarketingDesignBundle` | `marketing_design_bundles` | brand→Brand (BelongsTo), versions→MarketingDesignBundleVersion (HasMany), publishedVersion→MarketingDesignBundleVersion (HasOne), latestVersion→MarketingDesignBundleVersion (HasOne), auditLogs→MarketingDesignAuditLog (HasMany), creator→User (BelongsTo), updater→User (BelongsTo), archiver→User (BelongsTo) |
-| `MarketingDesignBundleVersion` | `marketing_design_bundle_versions` | bundle→MarketingDesignBundle (BelongsTo), items→MarketingDesignItem (HasMany), clonedFrom→MarketingDesignBundleVersion (BelongsTo), creator→User (BelongsTo), submitter→User (BelongsTo), reviewer→User (BelongsTo), publisher→User (BelongsTo) |
-| `MarketingDesignFile` | `marketing_design_files` | item→MarketingDesignItem (BelongsTo), reusedFrom→MarketingDesignFile (BelongsTo), uploader→User (BelongsTo) |
-| `MarketingDesignItem` | `marketing_design_items` | version→MarketingDesignBundleVersion (BelongsTo), clonedFrom→MarketingDesignItem (BelongsTo), files→MarketingDesignFile (HasMany) |
+| `MarketingDesignAuditLog` | `marketing_design_audit_logs` | bundle→MarketingDesignBundle (BelongsTo), actor→User (BelongsTo) |
+| `MarketingDesignBundle` | `marketing_design_bundles` | brand→Brand (BelongsTo), items→MarketingDesignItem (HasMany), auditLogs→MarketingDesignAuditLog (HasMany), creator→User (BelongsTo), updater→User (BelongsTo), archiver→User (BelongsTo) |
+| `MarketingDesignFile` | `marketing_design_files` | item→MarketingDesignItem (BelongsTo), uploader→User (BelongsTo) |
+| `MarketingDesignItem` | `marketing_design_items` | bundle→MarketingDesignBundle (BelongsTo), file→MarketingDesignFile (HasOne) |
 
 ## Analytics
 

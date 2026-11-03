@@ -5,7 +5,6 @@ namespace App\Services\BrandMarketing\DesignMaster;
 use App\Enums\MarketingDesignAuditEvent;
 use App\Models\MarketingDesignAuditLog;
 use App\Models\MarketingDesignBundle;
-use App\Models\MarketingDesignBundleVersion;
 use App\Models\MarketingDesignFile;
 use App\Models\MarketingDesignItem;
 use App\Models\User;
@@ -23,7 +22,6 @@ class MarketingDesignAuditLogger
         MarketingDesignAuditEvent $event,
         MarketingDesignBundle $bundle,
         User $actor,
-        ?MarketingDesignBundleVersion $version = null,
         ?MarketingDesignItem $item = null,
         ?MarketingDesignFile $file = null,
         ?string $fromStatus = null,
@@ -37,7 +35,6 @@ class MarketingDesignAuditLogger
 
         return MarketingDesignAuditLog::query()->create([
             'marketing_design_bundle_id' => $bundle->id,
-            'marketing_design_bundle_version_id' => $version?->id,
             'marketing_design_item_id' => $item?->id,
             'marketing_design_file_id' => $file?->id,
             'event' => $event,

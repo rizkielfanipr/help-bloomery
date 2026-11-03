@@ -2,9 +2,8 @@
 
 namespace App\Services\BrandMarketing\DesignMaster;
 
-use App\Enums\MarketingDesignFileRole;
+use App\Models\MarketingDesignBundle;
 use App\Models\MarketingDesignFile;
-use App\Models\MarketingDesignItem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -16,33 +15,62 @@ use Throwable;
 /**
  * Private object storage of design files (PRD §18). Validates MIME from the content and the size,
  * builds the path from IDs only, and never overwrites an object. `discard()` removes an object
- * written for a record that could not be saved. No other code path deletes objects.
+ * written for a record that could not be saved, and `purge()` removes the objects of a
+ * permanently deleted item. No other code path deletes objects.
  */
 class MarketingDesignFileStore
 {
     public const DISK = 'b2';
 
+    /** Matches the global Livewire temporary upload rule; raising it needs the infrastructure audit in PRD §18.2. */
+    public const MAX_KILOBYTES = 12288;
+
+    public const EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'zip'];
+
+    private const EXTENSION_BY_MIME = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+        'application/pdf' => 'pdf',
+        'application/zip' => 'zip',
+    ];
+
     private const TEMPORARY_URL_MINUTES = 15;
+
+    /**
+     * Browsers on Windows report ZIP files as application/x-zip-compressed, so the upload field also accepts it;
+     * the server still validates the MIME detected from the content.
+     *
+     * @return list<string>
+     */
+    public static function acceptedBrowserTypes(): array
+    {
+        return [...array_keys(self::EXTENSION_BY_MIME), 'application/x-zip-compressed'];
+    }
+
+    public static function formatHint(): string
+    {
+        return 'Format '.strtoupper(implode(', ', self::EXTENSIONS)).'. Maksimal '.(self::MAX_KILOBYTES / 1024).' MB.';
+    }
 
     /**
      * @return array{disk: string, path: string, original_name: string, mime_type: string, extension: string, size_bytes: int, checksum_sha256: string}
      *
      * @throws ValidationException
      */
-    public function store(UploadedFile $file, MarketingDesignItem $item, MarketingDesignFileRole $role): array
+    public function store(UploadedFile $file, MarketingDesignBundle $bundle): array
     {
-        $this->validate($file, $role);
+        $this->validate($file);
 
         $mimeType = (string) $file->getMimeType();
-        $extension = (string) MarketingDesignFileRole::extensionForMime($mimeType);
+        $extension = self::EXTENSION_BY_MIME[$mimeType];
         $checksum = hash_file('sha256', (string) $file->getRealPath());
-        $name = Str::uuid().'.'.$extension;
-        $directory = $this->directory($item, $role);
+        $directory = sprintf('brand-marketing/design-master/brand-%d/bundle-%d', $bundle->brand_id, $bundle->id);
 
         try {
-            $path = Storage::disk(self::DISK)->putFileAs($directory, $file, $name);
+            $path = Storage::disk(self::DISK)->putFileAs($directory, $file, Str::uuid().'.'.$extension);
         } catch (Throwable $exception) {
-            Log::warning('Master Design upload failed', ['item_id' => $item->id, 'role' => $role->value, 'exception' => $exception::class]);
+            Log::warning('Master Design upload failed', ['bundle_id' => $bundle->id, 'exception' => $exception::class]);
             $path = false;
         }
 
@@ -71,6 +99,23 @@ class MarketingDesignFileStore
         }
     }
 
+    /**
+     * Removes the objects of permanently deleted records. A failure is logged and leaves an orphan
+     * object rather than undoing the deletion.
+     *
+     * @param  list<array{disk: string, path: string}>  $files
+     */
+    public function purge(array $files): void
+    {
+        foreach ($files as $file) {
+            try {
+                Storage::disk($file['disk'])->delete($file['path']);
+            } catch (Throwable $exception) {
+                Log::warning('Master Design object purge failed', ['exception' => $exception::class]);
+            }
+        }
+    }
+
     public function exists(MarketingDesignFile $file): bool
     {
         return Storage::disk($file->disk)->exists($file->path);
@@ -87,35 +132,21 @@ class MarketingDesignFileStore
         ]);
     }
 
-    private function directory(MarketingDesignItem $item, MarketingDesignFileRole $role): string
-    {
-        $version = $item->version;
-
-        return sprintf(
-            'brand-marketing/design-master/brand-%d/bundle-%d/version-%d/item-%d/%s',
-            $version->bundle->brand_id,
-            $version->marketing_design_bundle_id,
-            $version->id,
-            $item->id,
-            $role->value,
-        );
-    }
-
     /** @throws ValidationException */
-    private function validate(UploadedFile $file, MarketingDesignFileRole $role): void
+    private function validate(UploadedFile $file): void
     {
         Validator::make(['file' => $file], [
             'file' => [
                 'required',
                 'file',
-                'extensions:'.implode(',', $role->extensions()),
-                'mimetypes:'.implode(',', $role->mimeTypes()),
-                'max:'.MarketingDesignFileRole::MAX_KILOBYTES,
+                'extensions:'.implode(',', self::EXTENSIONS),
+                'mimetypes:'.implode(',', array_keys(self::EXTENSION_BY_MIME)),
+                'max:'.self::MAX_KILOBYTES,
             ],
         ], [
-            'file.extensions' => $role->getLabel().' ditolak. '.$role->formatHint(),
-            'file.mimetypes' => $role->getLabel().' ditolak. '.$role->formatHint(),
-            'file.max' => 'Ukuran file melebihi batas. '.$role->formatHint(),
+            'file.extensions' => 'File ditolak. '.self::formatHint(),
+            'file.mimetypes' => 'File ditolak. '.self::formatHint(),
+            'file.max' => 'Ukuran file melebihi batas. '.self::formatHint(),
         ])->validate();
     }
 }

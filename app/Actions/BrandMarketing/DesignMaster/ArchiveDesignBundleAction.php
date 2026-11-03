@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Archiving only changes the bundle status: versions, items, files, objects, and audit stay (PRD §11.19).
+ * Archiving only changes the bundle status: items, files, objects, and audit stay (PRD §11.13).
  */
 class ArchiveDesignBundleAction
 {

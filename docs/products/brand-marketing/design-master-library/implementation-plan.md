@@ -17,6 +17,8 @@ supersedes: null
 
 Acuan requirement: `docs/products/brand-marketing/design-master-library/prd.md`. Dokumen ini mengatur urutan teknis; requirement final tetap berada di PRD.
 
+> Sejak PRD v2.0, version, revisi, review, publish, dan notifikasi tidak diimplementasikan. Bagian rencana di bawah yang menyebutnya tidak berlaku lagi; scope aktual ada di PRD §8–§14.
+
 ## 1. Scope implementasi
 
 - **Termasuk:** library per Brand, bundle/version/item/file, private storage, review/publish/supersede/archive, audit, permission Designer/Purchasing, index/detail/editor, download terotorisasi, migration, tests, docs, dan rollout.

@@ -2,55 +2,26 @@
 
 namespace App\Policies;
 
-use App\Enums\MarketingDesignFileRole;
-use App\Models\MarketingDesignBundleVersion;
 use App\Models\MarketingDesignFile;
 use App\Models\User;
 
 /**
- * File access per role and version status (PRD §16). Source access is never implied by the view or
- * production permissions.
+ * Access to a design file (PRD §16): the user must see the bundle and hold the download permission.
+ * Inline preview is limited to images and PDFs.
  */
 class MarketingDesignFilePolicy
 {
-    public function __construct(
-        private readonly MarketingDesignBundlePolicy $bundles,
-        private readonly MarketingDesignBundleVersionPolicy $versions,
-    ) {}
+    public function __construct(private readonly MarketingDesignBundlePolicy $bundles) {}
 
     public function preview(User $user, MarketingDesignFile $file): bool
     {
-        $version = $this->version($file);
-
-        return $version !== null
-            && $file->role === MarketingDesignFileRole::Preview
-            && $this->versions->view($user, $version);
+        return $file->isPreviewable() && $this->download($user, $file);
     }
 
     public function download(User $user, MarketingDesignFile $file): bool
     {
-        $version = $this->version($file);
+        $bundle = $file->item?->bundle;
 
-        if ($version === null || ! $this->versions->view($user, $version)) {
-            return false;
-        }
-
-        return in_array($file->role, $this->downloadableRoles($user), true);
-    }
-
-    /** @return list<MarketingDesignFileRole> */
-    public function downloadableRoles(User $user): array
-    {
-        return array_values(array_filter(MarketingDesignFileRole::cases(), fn (MarketingDesignFileRole $role): bool => match ($role) {
-            MarketingDesignFileRole::Preview => true,
-            MarketingDesignFileRole::Production => $user->can('download design master production files'),
-            MarketingDesignFileRole::Source => $user->can('download design master source files'),
-            MarketingDesignFileRole::Supporting => $this->bundles->viewUnpublished($user),
-        }));
-    }
-
-    private function version(MarketingDesignFile $file): ?MarketingDesignBundleVersion
-    {
-        return $file->item?->version;
+        return $bundle !== null && $this->bundles->view($user, $bundle) && $user->can('download design master files');
     }
 }

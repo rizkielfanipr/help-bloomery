@@ -1,19 +1,15 @@
 <?php
 
-use App\Actions\BrandMarketing\DesignMaster\ApproveDesignVersionAction;
 use App\Actions\BrandMarketing\DesignMaster\ArchiveDesignBundleAction;
 use App\Actions\BrandMarketing\DesignMaster\CreateDesignBundleAction;
-use App\Actions\BrandMarketing\DesignMaster\PublishDesignVersionAction;
 use App\Actions\BrandMarketing\DesignMaster\SaveDesignItemAction;
-use App\Actions\BrandMarketing\DesignMaster\SubmitDesignVersionAction;
-use App\Enums\MarketingDesignFileRole;
-use App\Enums\MarketingDesignVersionStatus;
+use App\Actions\BrandMarketing\DesignMaster\UpdateDesignBundleAction;
 use App\Models\Brand;
 use App\Models\MarketingDesignBundle;
-use App\Models\MarketingDesignBundleVersion;
 use App\Models\MarketingDesignFile;
 use App\Models\MarketingDesignItem;
 use App\Models\User;
+use App\Services\BrandMarketing\DesignMaster\MarketingDesignAccess;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
@@ -31,8 +27,7 @@ function designUser(string $profile): User
     match ($profile) {
         'designer' => $user->assignRole('DESIGN_STAFF'),
         'purchasing' => $user->assignRole('PURCHASING_STAFF'),
-        'reviewer' => $user->givePermissionTo('view design master bundles', 'review design master bundles'),
-        'publisher' => $user->givePermissionTo('view design master bundles', 'publish design master bundles', 'archive design master bundles'),
+        'archiver' => $user->givePermissionTo('view design master bundles', 'archive design master bundles'),
         'view_only' => $user->givePermissionTo('view design master bundles'),
         'superadmin' => $user->assignRole(Role::findOrCreate('SUPERADMIN', 'web')),
         'none' => null,
@@ -41,154 +36,85 @@ function designUser(string $profile): User
     return $user;
 }
 
-function designVersionWith(MarketingDesignVersionStatus $status): MarketingDesignBundleVersion
-{
-    return MarketingDesignBundleVersion::factory()->status($status)->create();
-}
-
-it('registers every Master Design permission', function () {
+it('registers the Master Design permissions with a single download permission', function () {
     $registered = config('permissions.Brand Marketing.Master Design');
 
-    expect($registered)->toContain(
-        'view design master bundles', 'create design master bundles', 'edit design master bundles', 'upload design master files',
-        'review design master bundles', 'publish design master bundles', 'archive design master bundles',
-        'download design master production files', 'download design master source files',
-    );
+    expect($registered)->toBe([
+        'view design master bundles',
+        'create design master bundles',
+        'edit design master bundles',
+        'upload design master files',
+        'archive design master bundles',
+        'download design master files',
+    ]);
 
     foreach ($registered as $permission) {
         expect(Permission::where('name', $permission)->exists())->toBeTrue();
     }
-
-    expect(collect($registered)->filter(fn (string $permission): bool => str_starts_with($permission, 'delete')))->toBeEmpty();
 });
 
-it('applies the bundle ability matrix', function (string $profile, array $expected) {
+it('applies the bundle ability matrix', function (string $profile, bool $archived, array $expected) {
+    $bundle = $archived ? MarketingDesignBundle::factory()->archived()->create() : MarketingDesignBundle::factory()->create();
     $user = designUser($profile);
-    $bundle = MarketingDesignBundle::factory()->create();
-    $gate = Gate::forUser($user);
+    $access = app(MarketingDesignAccess::class);
 
     expect([
-        'viewAny' => $gate->allows('viewAny', MarketingDesignBundle::class),
-        'create' => $gate->allows('create', MarketingDesignBundle::class),
-        'update' => $gate->allows('update', $bundle),
-        'archive' => $gate->allows('archive', $bundle),
+        'viewAny' => Gate::forUser($user)->allows('viewAny', MarketingDesignBundle::class),
+        'create' => Gate::forUser($user)->allows('create', MarketingDesignBundle::class),
+        'view' => $access->allows($user, 'view', $bundle),
+        'update' => $access->allows($user, 'update', $bundle),
+        'uploadFile' => $access->allows($user, 'uploadFile', $bundle),
+        'archive' => $access->allows($user, 'archive', $bundle),
+        'restore' => $access->allows($user, 'restore', $bundle),
     ])->toBe($expected);
 })->with([
-    'designer' => ['designer', ['viewAny' => true, 'create' => true, 'update' => true, 'archive' => false]],
-    'reviewer' => ['reviewer', ['viewAny' => true, 'create' => false, 'update' => false, 'archive' => false]],
-    'publisher' => ['publisher', ['viewAny' => true, 'create' => false, 'update' => false, 'archive' => true]],
-    'purchasing' => ['purchasing', ['viewAny' => true, 'create' => false, 'update' => false, 'archive' => false]],
-    'no permission' => ['none', ['viewAny' => false, 'create' => false, 'update' => false, 'archive' => false]],
-    'superadmin' => ['superadmin', ['viewAny' => true, 'create' => true, 'update' => true, 'archive' => true]],
+    'designer active' => ['designer', false, ['viewAny' => true, 'create' => true, 'view' => true, 'update' => true, 'uploadFile' => true, 'archive' => false, 'restore' => false]],
+    'designer archived' => ['designer', true, ['viewAny' => true, 'create' => true, 'view' => true, 'update' => false, 'uploadFile' => false, 'archive' => false, 'restore' => false]],
+    'archiver active' => ['archiver', false, ['viewAny' => true, 'create' => false, 'view' => true, 'update' => false, 'uploadFile' => false, 'archive' => true, 'restore' => false]],
+    'archiver archived' => ['archiver', true, ['viewAny' => true, 'create' => false, 'view' => true, 'update' => false, 'uploadFile' => false, 'archive' => false, 'restore' => true]],
+    'purchasing active' => ['purchasing', false, ['viewAny' => true, 'create' => false, 'view' => true, 'update' => false, 'uploadFile' => false, 'archive' => false, 'restore' => false]],
+    'purchasing archived' => ['purchasing', true, ['viewAny' => true, 'create' => false, 'view' => false, 'update' => false, 'uploadFile' => false, 'archive' => false, 'restore' => false]],
+    'no permission' => ['none', false, ['viewAny' => false, 'create' => false, 'view' => false, 'update' => false, 'uploadFile' => false, 'archive' => false, 'restore' => false]],
+    'superadmin active' => ['superadmin', false, ['viewAny' => true, 'create' => true, 'view' => true, 'update' => true, 'uploadFile' => true, 'archive' => true, 'restore' => false]],
+    'superadmin archived' => ['superadmin', true, ['viewAny' => true, 'create' => true, 'view' => true, 'update' => false, 'uploadFile' => false, 'archive' => false, 'restore' => true]],
 ]);
-
-it('applies the version ability matrix', function (string $profile, MarketingDesignVersionStatus $status, string $ability, bool $allowed) {
-    $version = designVersionWith($status);
-
-    expect(Gate::forUser(designUser($profile))->allows($ability, $version))->toBe($allowed);
-})->with([
-    'designer edits draft' => ['designer', MarketingDesignVersionStatus::Draft, 'editContent', true],
-    'designer uploads to draft' => ['designer', MarketingDesignVersionStatus::Draft, 'uploadFile', true],
-    'designer submits draft' => ['designer', MarketingDesignVersionStatus::Draft, 'submit', true],
-    'designer cannot edit review' => ['designer', MarketingDesignVersionStatus::InReview, 'editContent', false],
-    'designer cannot approve' => ['designer', MarketingDesignVersionStatus::InReview, 'approve', false],
-    'designer cannot publish' => ['designer', MarketingDesignVersionStatus::Approved, 'publish', false],
-    'reviewer approves' => ['reviewer', MarketingDesignVersionStatus::InReview, 'approve', true],
-    'reviewer returns review' => ['reviewer', MarketingDesignVersionStatus::InReview, 'requestRevision', true],
-    'reviewer returns approved' => ['reviewer', MarketingDesignVersionStatus::Approved, 'requestRevision', true],
-    'reviewer cannot publish' => ['reviewer', MarketingDesignVersionStatus::Approved, 'publish', false],
-    'reviewer cannot upload' => ['reviewer', MarketingDesignVersionStatus::Draft, 'uploadFile', false],
-    'publisher publishes' => ['publisher', MarketingDesignVersionStatus::Approved, 'publish', true],
-    'publisher returns approved' => ['publisher', MarketingDesignVersionStatus::Approved, 'requestRevision', true],
-    'publisher cannot return review' => ['publisher', MarketingDesignVersionStatus::InReview, 'requestRevision', false],
-    'publisher cannot approve' => ['publisher', MarketingDesignVersionStatus::InReview, 'approve', false],
-    'purchasing cannot edit' => ['purchasing', MarketingDesignVersionStatus::Draft, 'editContent', false],
-    'purchasing cannot upload' => ['purchasing', MarketingDesignVersionStatus::Draft, 'uploadFile', false],
-    'purchasing cannot approve' => ['purchasing', MarketingDesignVersionStatus::InReview, 'approve', false],
-    'purchasing cannot publish' => ['purchasing', MarketingDesignVersionStatus::Approved, 'publish', false],
-    'superadmin passes the gate' => ['superadmin', MarketingDesignVersionStatus::Approved, 'publish', true],
-]);
-
-it('shows purchasing only the published version of an active bundle', function () {
-    $purchasing = designUser('purchasing');
-    $gate = Gate::forUser($purchasing);
-
-    foreach (MarketingDesignVersionStatus::cases() as $status) {
-        $version = designVersionWith($status);
-        expect($gate->allows('view', $version))->toBe($status === MarketingDesignVersionStatus::Published);
-    }
-
-    $archived = MarketingDesignBundleVersion::factory()->published()
-        ->for(MarketingDesignBundle::factory()->archived(), 'bundle')
-        ->create();
-
-    expect($gate->allows('view', $archived))->toBeFalse()
-        ->and($gate->allows('view', $archived->bundle))->toBeFalse();
-});
 
 it('scopes visible bundles for internal and non-internal users', function () {
-    $published = MarketingDesignBundleVersion::factory()->published()->create()->bundle;
-    $draftOnly = MarketingDesignBundleVersion::factory()->create()->bundle;
-    $archived = MarketingDesignBundleVersion::factory()->published()->for(MarketingDesignBundle::factory()->archived(), 'bundle')->create()->bundle;
+    $active = MarketingDesignBundle::factory()->create();
+    $archived = MarketingDesignBundle::factory()->archived()->create();
 
-    expect(MarketingDesignBundle::query()->visibleTo(designUser('purchasing'))->pluck('id')->all())->toBe([$published->id])
-        ->and(MarketingDesignBundle::query()->visibleTo(designUser('view_only'))->pluck('id')->all())->toBe([$published->id])
-        ->and(MarketingDesignBundle::query()->visibleTo(designUser('designer'))->pluck('id')->sort()->values()->all())
-        ->toBe(collect([$published->id, $draftOnly->id, $archived->id])->sort()->values()->all());
+    expect(MarketingDesignBundle::query()->visibleTo(designUser('purchasing'))->pluck('id')->all())->toBe([$active->id])
+        ->and(MarketingDesignBundle::query()->visibleTo(designUser('view_only'))->pluck('id')->all())->toBe([$active->id])
+        ->and(MarketingDesignBundle::query()->visibleTo(designUser('designer'))->pluck('id')->sort()->values()->all())->toBe([$active->id, $archived->id]);
 });
 
-it('rejects mutation Actions on the server for users without permission', function () {
+it('rejects mutation Actions on the server for purchasing', function () {
     $purchasing = designUser('purchasing');
-    $draft = designVersionWith(MarketingDesignVersionStatus::Draft);
+    $bundle = MarketingDesignBundle::factory()->create();
 
     expect(fn () => app(CreateDesignBundleAction::class)->execute($purchasing, ['brand_id' => Brand::factory()->create()->id, 'code' => 'A', 'name' => 'A', 'category' => 'other']))->toThrow(AuthorizationException::class)
-        ->and(fn () => app(SaveDesignItemAction::class)->execute($purchasing, $draft, ['type' => 'other', 'title' => 'A']))->toThrow(AuthorizationException::class)
-        ->and(fn () => app(SubmitDesignVersionAction::class)->execute($purchasing, $draft))->toThrow(AuthorizationException::class)
-        ->and(fn () => app(ApproveDesignVersionAction::class)->execute($purchasing, designVersionWith(MarketingDesignVersionStatus::InReview)))->toThrow(AuthorizationException::class)
-        ->and(fn () => app(PublishDesignVersionAction::class)->execute($purchasing, designVersionWith(MarketingDesignVersionStatus::Approved)))->toThrow(AuthorizationException::class)
-        ->and(fn () => app(ArchiveDesignBundleAction::class)->execute($purchasing, $draft->bundle, 'alasan'))->toThrow(AuthorizationException::class);
+        ->and(fn () => app(UpdateDesignBundleAction::class)->execute($purchasing, $bundle, ['brand_id' => $bundle->brand_id, 'code' => 'A', 'name' => 'A', 'category' => 'other']))->toThrow(AuthorizationException::class)
+        ->and(fn () => app(SaveDesignItemAction::class)->create($purchasing, $bundle, ['type' => 'other', 'title' => 'A'], null))->toThrow(AuthorizationException::class)
+        ->and(fn () => app(ArchiveDesignBundleAction::class)->execute($purchasing, $bundle, 'alasan'))->toThrow(AuthorizationException::class);
 });
 
-it('applies the file access matrix per role', function (string $profile, MarketingDesignFileRole $role, bool $allowed) {
-    $version = MarketingDesignBundleVersion::factory()->published()->create();
-    $item = MarketingDesignItem::factory()->for($version, 'version')->create();
-    $file = MarketingDesignFile::factory()->role($role)->for($item, 'item')->create();
+it('applies the file access matrix', function (string $profile, bool $allowed) {
+    $file = MarketingDesignFile::factory()->create();
 
-    expect(Gate::forUser(designUser($profile))->allows('download', $file))->toBe($allowed);
+    expect(app(MarketingDesignAccess::class)->allows(designUser($profile), 'download', $file))->toBe($allowed);
 })->with([
-    'purchasing production' => ['purchasing', MarketingDesignFileRole::Production, true],
-    'purchasing preview' => ['purchasing', MarketingDesignFileRole::Preview, true],
-    'purchasing source' => ['purchasing', MarketingDesignFileRole::Source, false],
-    'purchasing supporting' => ['purchasing', MarketingDesignFileRole::Supporting, false],
-    'view only production' => ['view_only', MarketingDesignFileRole::Production, false],
-    'view only source' => ['view_only', MarketingDesignFileRole::Source, false],
-    'designer source' => ['designer', MarketingDesignFileRole::Source, true],
-    'designer supporting' => ['designer', MarketingDesignFileRole::Supporting, true],
-    'reviewer production without grant' => ['reviewer', MarketingDesignFileRole::Production, false],
-    'reviewer supporting' => ['reviewer', MarketingDesignFileRole::Supporting, true],
-    'no permission preview' => ['none', MarketingDesignFileRole::Preview, false],
-    'superadmin source' => ['superadmin', MarketingDesignFileRole::Source, true],
+    'purchasing' => ['purchasing', true],
+    'designer' => ['designer', true],
+    'view only' => ['view_only', false],
+    'archiver without grant' => ['archiver', false],
+    'no permission' => ['none', false],
+    'superadmin' => ['superadmin', true],
 ]);
 
-it('grants source only through the separate permission', function () {
-    $user = designUser('purchasing');
-    $version = MarketingDesignBundleVersion::factory()->published()->create();
-    $item = MarketingDesignItem::factory()->for($version, 'version')->create();
-    $source = MarketingDesignFile::factory()->role(MarketingDesignFileRole::Source)->for($item, 'item')->create();
+it('denies purchasing the files of an archived bundle', function () {
+    $item = MarketingDesignItem::factory()->for(MarketingDesignBundle::factory()->archived(), 'bundle')->create();
+    $file = MarketingDesignFile::factory()->for($item, 'item')->create();
 
-    expect(Gate::forUser($user)->allows('download', $source))->toBeFalse();
-
-    $user->givePermissionTo('download design master source files');
-
-    expect(Gate::forUser($user->fresh())->allows('download', $source))->toBeTrue();
-});
-
-it('denies purchasing the production file of a superseded version', function () {
-    $purchasing = designUser('purchasing');
-    $version = designVersionWith(MarketingDesignVersionStatus::Superseded);
-    $item = MarketingDesignItem::factory()->for($version, 'version')->create();
-    $file = MarketingDesignFile::factory()->role(MarketingDesignFileRole::Production)->for($item, 'item')->create();
-
-    expect(Gate::forUser($purchasing)->allows('download', $file))->toBeFalse()
-        ->and(Gate::forUser(designUser('designer'))->allows('download', $file))->toBeTrue();
+    expect(app(MarketingDesignAccess::class)->allows(designUser('purchasing'), 'download', $file))->toBeFalse()
+        ->and(app(MarketingDesignAccess::class)->allows(designUser('designer'), 'download', $file))->toBeTrue();
 });

@@ -1,15 +1,13 @@
 <?php
 
 use App\Actions\BrandMarketing\DesignMaster\ArchiveDesignBundleAction;
-use App\Actions\BrandMarketing\DesignMaster\PublishDesignVersionAction;
-use App\Actions\BrandMarketing\DesignMaster\RemoveDesignFileAction;
-use App\Actions\BrandMarketing\DesignMaster\RemoveDesignItemAction;
-use App\Actions\BrandMarketing\DesignMaster\UploadDesignFileAction;
+use App\Actions\BrandMarketing\DesignMaster\DeleteDesignItemAction;
+use App\Actions\BrandMarketing\DesignMaster\ReplaceDesignFileAction;
+use App\Actions\BrandMarketing\DesignMaster\SaveDesignItemAction;
 use App\Enums\MarketingDesignAuditEvent;
-use App\Enums\MarketingDesignFileRole;
-use App\Enums\MarketingDesignVersionStatus;
+use App\Enums\MarketingDesignBundleStatus;
 use App\Models\MarketingDesignAuditLog;
-use App\Models\MarketingDesignBundleVersion;
+use App\Models\MarketingDesignBundle;
 use App\Models\MarketingDesignFile;
 use App\Models\MarketingDesignItem;
 use App\Models\User;
@@ -30,8 +28,7 @@ beforeEach(function () {
     $this->purchasing = User::factory()->create(['is_active' => true]);
     $this->purchasing->assignRole('PURCHASING_STAFF');
 
-    $this->version = MarketingDesignBundleVersion::factory()->create();
-    $this->item = MarketingDesignItem::factory()->for($this->version, 'version')->create();
+    $this->bundle = MarketingDesignBundle::factory()->create();
 });
 
 function designPdf(string $name = 'desain final.pdf'): UploadedFile
@@ -39,23 +36,29 @@ function designPdf(string $name = 'desain final.pdf'): UploadedFile
     return UploadedFile::fake()->create($name, 100, 'application/pdf');
 }
 
-function publishedDesignFile(MarketingDesignFileRole $role): MarketingDesignFile
+function addDesignItem(UploadedFile $file, array $data = []): MarketingDesignItem
 {
-    $version = MarketingDesignBundleVersion::factory()->published()->create();
-    $item = MarketingDesignItem::factory()->for($version, 'version')->create();
-    $file = MarketingDesignFile::factory()->role($role)->for($item, 'item')->create();
+    return app(SaveDesignItemAction::class)->create(test()->designer, test()->bundle, $data + ['type' => 'packaging_design', 'title' => 'Box Kue'], $file);
+}
+
+function storedDesignFile(bool $image = false): MarketingDesignFile
+{
+    $file = $image ? MarketingDesignFile::factory()->image()->create() : MarketingDesignFile::factory()->create();
     Storage::disk('b2')->put($file->path, 'binary');
 
     return $file;
 }
 
-it('stores a private object under an ID path with metadata and checksum', function () {
+it('creates the item and its private file together, with metadata and checksum', function () {
     $upload = designPdf();
 
-    $file = app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Production, $upload);
-    $bundle = $this->version->bundle;
+    $item = addDesignItem($upload, ['description' => 'Kemasan utama']);
+    $file = $item->file;
+    $bundle = $this->bundle;
 
-    expect($file->path)->toMatch('#^brand-marketing/design-master/brand-'.$bundle->brand_id.'/bundle-'.$bundle->id.'/version-'.$this->version->id.'/item-'.$this->item->id.'/production/[0-9a-f-]{36}\.pdf$#')
+    expect($item->title)->toBe('Box Kue')
+        ->and($item->description)->toBe('Kemasan utama')
+        ->and($file->path)->toMatch('#^brand-marketing/design-master/brand-'.$bundle->brand_id.'/bundle-'.$bundle->id.'/[0-9a-f-]{36}\.pdf$#')
         ->and($file->path)->not->toContain('desain')
         ->and($file->disk)->toBe('b2')
         ->and($file->original_name)->toBe('desain final.pdf')
@@ -66,87 +69,77 @@ it('stores a private object under an ID path with metadata and checksum', functi
         ->and($file->uploaded_by)->toBe($this->designer->id);
 
     Storage::disk('b2')->assertExists($file->path);
-    expect(MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::FileUploaded)->sole()->metadata)->toMatchArray(['role' => 'production']);
+    expect(MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::ItemAdded)->sole()->marketing_design_file_id)->toBe($file->id);
 });
 
-it('never reuses a path for two uploads', function () {
-    $upload = app(UploadDesignFileAction::class);
+it('requires a design file when adding an item', function () {
+    expect(fn () => app(SaveDesignItemAction::class)->create($this->designer, $this->bundle, ['type' => 'other', 'title' => 'Tanpa File'], null))
+        ->toThrow(ValidationException::class, 'File desain wajib diunggah');
 
-    expect($upload->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf())->path)
-        ->not->toBe($upload->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf())->path);
+    expect(MarketingDesignItem::count())->toBe(0);
 });
 
-it('accepts and rejects formats per role', function (MarketingDesignFileRole $role, string $name, string $mime, bool $accepted) {
-    $file = UploadedFile::fake()->create($name, 10, $mime);
-    $action = fn () => app(UploadDesignFileAction::class)->execute($this->designer, $this->item, $role, $file);
+it('accepts and rejects formats', function (string $name, string $mime, bool $accepted) {
+    $action = fn () => addDesignItem(UploadedFile::fake()->create($name, 10, $mime));
 
     if ($accepted) {
-        expect($action()->role)->toBe($role);
+        expect($action()->file->extension)->toBe(pathinfo($name, PATHINFO_EXTENSION) === 'jpeg' ? 'jpg' : pathinfo($name, PATHINFO_EXTENSION));
 
         return;
     }
 
     expect($action)->toThrow(ValidationException::class);
     expect(Storage::disk('b2')->allFiles())->toBeEmpty()
+        ->and(MarketingDesignItem::count())->toBe(0)
         ->and(MarketingDesignFile::count())->toBe(0);
 })->with([
-    'preview jpg' => [MarketingDesignFileRole::Preview, 'a.jpg', 'image/jpeg', true],
-    'preview webp' => [MarketingDesignFileRole::Preview, 'a.webp', 'image/webp', true],
-    'preview pdf' => [MarketingDesignFileRole::Preview, 'a.pdf', 'application/pdf', true],
-    'preview svg' => [MarketingDesignFileRole::Preview, 'a.svg', 'image/svg+xml', false],
-    'preview zip' => [MarketingDesignFileRole::Preview, 'a.zip', 'application/zip', false],
-    'production pdf' => [MarketingDesignFileRole::Production, 'a.pdf', 'application/pdf', true],
-    'production zip' => [MarketingDesignFileRole::Production, 'a.zip', 'application/zip', true],
-    'production png' => [MarketingDesignFileRole::Production, 'a.png', 'image/png', false],
-    'source zip' => [MarketingDesignFileRole::Source, 'a.zip', 'application/zip', true],
-    'source pdf' => [MarketingDesignFileRole::Source, 'a.pdf', 'application/pdf', false],
-    'source psd' => [MarketingDesignFileRole::Source, 'a.psd', 'image/vnd.adobe.photoshop', false],
-    'supporting zip' => [MarketingDesignFileRole::Supporting, 'a.zip', 'application/zip', true],
-    'supporting exe' => [MarketingDesignFileRole::Supporting, 'a.exe', 'application/x-msdownload', false],
-    'renamed executable' => [MarketingDesignFileRole::Production, 'a.pdf', 'application/x-msdownload', false],
+    'jpg' => ['a.jpg', 'image/jpeg', true],
+    'jpeg' => ['a.jpeg', 'image/jpeg', true],
+    'png' => ['a.png', 'image/png', true],
+    'webp' => ['a.webp', 'image/webp', true],
+    'pdf' => ['a.pdf', 'application/pdf', true],
+    'zip' => ['a.zip', 'application/zip', true],
+    'svg' => ['a.svg', 'image/svg+xml', false],
+    'psd' => ['a.psd', 'image/vnd.adobe.photoshop', false],
+    'exe' => ['a.exe', 'application/x-msdownload', false],
+    'renamed executable' => ['a.pdf', 'application/x-msdownload', false],
 ]);
 
 it('enforces the size limit shared with the Livewire upload rule', function () {
-    $limit = MarketingDesignFileRole::MAX_KILOBYTES;
+    $limit = MarketingDesignFileStore::MAX_KILOBYTES;
     expect($limit)->toBe(12288);
 
-    $tooBig = UploadedFile::fake()->create('a.pdf', $limit + 1, 'application/pdf');
-
-    expect(fn () => app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Production, $tooBig))
+    expect(fn () => addDesignItem(UploadedFile::fake()->create('a.pdf', $limit + 1, 'application/pdf')))
         ->toThrow(ValidationException::class, 'melebihi batas');
 
-    expect(app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Production, UploadedFile::fake()->create('b.pdf', $limit, 'application/pdf')))->toBeInstanceOf(MarketingDesignFile::class);
+    expect(addDesignItem(UploadedFile::fake()->create('b.pdf', $limit, 'application/pdf'))->file)->toBeInstanceOf(MarketingDesignFile::class);
 });
 
-it('removes the new object when the database write fails', function () {
+it('removes the new object and leaves no item when the database write fails', function () {
     MarketingDesignFile::creating(fn () => throw new RuntimeException('database down'));
 
-    expect(fn () => app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf()))
-        ->toThrow(RuntimeException::class, 'database down');
+    expect(fn () => addDesignItem(designPdf()))->toThrow(RuntimeException::class, 'database down');
 
     expect(Storage::disk('b2')->allFiles())->toBeEmpty()
+        ->and(MarketingDesignItem::count())->toBe(0)
         ->and(MarketingDesignFile::count())->toBe(0);
 });
 
-it('removes the new object when the version stopped being a draft during the upload', function () {
-    $version = $this->version;
-    $item = $this->item;
-    $item->setRelation('version', $version);
-    Storage::disk('b2');
+it('removes the new object when the bundle was archived during the upload', function () {
+    $bundle = $this->bundle;
     $store = Mockery::mock(MarketingDesignFileStore::class)->makePartial();
-    $store->shouldReceive('store')->once()->andReturnUsing(function () use ($version): array {
-        $version->update(['status' => MarketingDesignVersionStatus::InReview]);
+    $store->shouldReceive('store')->once()->andReturnUsing(function () use ($bundle): array {
+        $bundle->update(['status' => MarketingDesignBundleStatus::Archived]);
         Storage::disk('b2')->put('brand-marketing/design-master/orphan.pdf', 'x');
 
         return ['disk' => 'b2', 'path' => 'brand-marketing/design-master/orphan.pdf', 'original_name' => 'a.pdf', 'mime_type' => 'application/pdf', 'extension' => 'pdf', 'size_bytes' => 1, 'checksum_sha256' => str_repeat('b', 64)];
     });
     app()->instance(MarketingDesignFileStore::class, $store);
 
-    expect(fn () => app(UploadDesignFileAction::class)->execute($this->designer, $item, MarketingDesignFileRole::Production, designPdf()))
-        ->toThrow(AuthorizationException::class);
+    expect(fn () => addDesignItem(designPdf()))->toThrow(AuthorizationException::class);
 
     Storage::disk('b2')->assertMissing('brand-marketing/design-master/orphan.pdf');
-    expect(MarketingDesignFile::count())->toBe(0);
+    expect(MarketingDesignItem::count())->toBe(0);
 });
 
 it('reports a storage failure without leaving a record', function () {
@@ -158,71 +151,90 @@ it('reports a storage failure without leaving a record', function () {
         }
     });
 
-    expect(fn () => app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf()))
-        ->toThrow(ValidationException::class, 'gagal disimpan');
+    expect(fn () => addDesignItem(designPdf()))->toThrow(ValidationException::class, 'gagal disimpan');
 
-    expect(MarketingDesignFile::count())->toBe(0);
+    expect(MarketingDesignItem::count())->toBe(0);
 });
 
-it('replaces a draft file with a new record and path while keeping the old object', function () {
-    $upload = app(UploadDesignFileAction::class);
-    $old = $upload->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf('lama.pdf'));
-    $new = $upload->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf('baru.pdf'), $old);
+it('replaces the file with a new record and path while keeping the old object', function () {
+    $item = addDesignItem(designPdf('lama.pdf'));
+    $old = $item->file;
+
+    $new = app(ReplaceDesignFileAction::class)->execute($this->designer, $item, designPdf('baru.pdf'));
 
     expect($new->path)->not->toBe($old->path)
         ->and($old->fresh()->trashed())->toBeTrue()
-        ->and($this->item->files()->pluck('id')->all())->toBe([$new->id]);
+        ->and($item->fresh()->file->id)->toBe($new->id)
+        ->and(MarketingDesignFile::query()->where('marketing_design_item_id', $item->id)->count())->toBe(1);
 
     Storage::disk('b2')->assertExists($old->path);
     Storage::disk('b2')->assertExists($new->path);
-    expect(MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::FileReplaced)->sole()->metadata['replaced_file_id'])->toBe($old->id);
+    expect(MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::FileReplaced)->sole()->metadata['replaced_file_ids'])->toBe([$old->id]);
 });
 
-it('refuses a replacement across items or roles', function () {
-    $file = app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf());
-    $otherItem = MarketingDesignItem::factory()->for($this->version, 'version')->create();
+it('keeps the current file when a replacement is rejected', function () {
+    $item = addDesignItem(designPdf());
+    $current = $item->file;
 
-    expect(fn () => app(UploadDesignFileAction::class)->execute($this->designer, $otherItem, MarketingDesignFileRole::Production, designPdf(), $file))->toThrow(ValidationException::class)
-        ->and(fn () => app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Preview, designPdf(), $file))->toThrow(ValidationException::class);
+    expect(fn () => app(ReplaceDesignFileAction::class)->execute($this->designer, $item, UploadedFile::fake()->create('a.svg', 10, 'image/svg+xml')))
+        ->toThrow(ValidationException::class);
+
+    expect($current->fresh()->trashed())->toBeFalse()
+        ->and($item->fresh()->file->id)->toBe($current->id);
 });
 
-it('keeps objects when a file or item is removed from a draft', function () {
-    $upload = app(UploadDesignFileAction::class);
-    $file = $upload->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf());
-    $other = $upload->execute($this->designer, $this->item, MarketingDesignFileRole::Preview, designPdf());
+it('keeps objects when the bundle is archived', function () {
+    $item = addDesignItem(designPdf());
+    $archiver = User::factory()->create(['is_active' => true]);
+    $archiver->givePermissionTo('view design master bundles', 'archive design master bundles');
 
-    app(RemoveDesignFileAction::class)->execute($this->designer, $file);
-    app(RemoveDesignItemAction::class)->execute($this->designer, $this->item->fresh());
+    app(ArchiveDesignBundleAction::class)->execute($archiver, $this->bundle, 'selesai');
 
-    expect($file->fresh()->trashed())->toBeTrue()
-        ->and($this->item->fresh()->trashed())->toBeTrue();
-
-    Storage::disk('b2')->assertExists($file->path);
-    Storage::disk('b2')->assertExists($other->path);
+    Storage::disk('b2')->assertExists($item->file->path);
 });
 
-it('keeps objects when publishing and archiving', function () {
-    $file = app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Preview, designPdf());
-    $publisher = User::factory()->create(['is_active' => true]);
-    $publisher->givePermissionTo('view design master bundles', 'publish design master bundles', 'archive design master bundles');
+it('permanently deletes an item with its current and replaced files and their objects, keeping the audit', function () {
+    $item = addDesignItem(designPdf('lama.pdf'));
+    $old = $item->file;
+    $new = app(ReplaceDesignFileAction::class)->execute($this->designer, $item, designPdf('baru.pdf'));
+    $other = addDesignItem(designPdf('lain.pdf'), ['title' => 'Item Lain']);
 
-    $this->version->update(['status' => MarketingDesignVersionStatus::Approved]);
-    app(PublishDesignVersionAction::class)->execute($publisher, $this->version->fresh());
-    app(ArchiveDesignBundleAction::class)->execute($publisher, $this->version->bundle, 'selesai');
+    app(DeleteDesignItemAction::class)->execute($this->designer, $item);
 
-    Storage::disk('b2')->assertExists($file->path);
-    expect(Storage::disk('b2')->allFiles())->toHaveCount(1);
+    expect(MarketingDesignItem::query()->whereKey($item->id)->exists())->toBeFalse()
+        ->and(MarketingDesignFile::withTrashed()->whereKey([$old->id, $new->id])->exists())->toBeFalse()
+        ->and($other->fresh()->file)->not->toBeNull();
+
+    Storage::disk('b2')->assertMissing($old->path);
+    Storage::disk('b2')->assertMissing($new->path);
+    Storage::disk('b2')->assertExists($other->file->path);
+
+    $log = MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::ItemDeleted)->sole();
+    expect($log->actor_id)->toBe($this->designer->id)
+        ->and($log->metadata)->toMatchArray(['item_id' => $item->id, 'title' => 'Box Kue', 'deleted_file_count' => 2])
+        ->and(MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::ItemAdded)->count())->toBe(2);
+});
+
+it('keeps the records when deleting is refused, and deletes nothing in storage', function () {
+    $item = addDesignItem(designPdf());
+    $this->bundle->update(['status' => MarketingDesignBundleStatus::Archived]);
+
+    expect(fn () => app(DeleteDesignItemAction::class)->execute($this->designer, $item))->toThrow(AuthorizationException::class)
+        ->and(fn () => app(DeleteDesignItemAction::class)->execute($this->purchasing, $item))->toThrow(AuthorizationException::class);
+
+    expect($item->fresh())->not->toBeNull();
+    Storage::disk('b2')->assertExists($item->file->path);
 });
 
 it('does not store any URL on the file table', function () {
-    $file = app(UploadDesignFileAction::class)->execute($this->designer, $this->item, MarketingDesignFileRole::Production, designPdf());
+    $file = addDesignItem(designPdf())->file;
 
     expect(json_encode($file->fresh()->getAttributes()))->not->toContain('http');
 });
 
 describe('download route', function () {
     it('redirects purchasing to a short-lived attachment URL and audits without the URL', function () {
-        $file = publishedDesignFile(MarketingDesignFileRole::Production);
+        $file = storedDesignFile();
 
         $response = $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.download', $file));
 
@@ -230,24 +242,23 @@ describe('download route', function () {
         expect($response->headers->get('Location'))->toStartWith('https://signed.test/'.$file->path)->toContain('attachment')
             ->and($response->headers->get('Cache-Control'))->toContain('no-store');
 
-        $log = MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::ProductionFileDownloaded)->sole();
+        $log = MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::FileDownloaded)->sole();
         expect($log->actor_id)->toBe($this->purchasing->id)
             ->and($log->marketing_design_file_id)->toBe($file->id)
             ->and(json_encode($log->getAttributes()))->not->toContain('signed.test');
     });
 
-    it('denies source to purchasing and audits an allowed source download', function () {
-        $file = publishedDesignFile(MarketingDesignFileRole::Source);
+    it('requires the download permission', function () {
+        $file = storedDesignFile();
+        $viewer = User::factory()->create(['is_active' => true]);
+        $viewer->givePermissionTo('view design master bundles');
 
-        $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.download', $file))->assertForbidden();
-        expect(MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::SourceFileDownloaded)->count())->toBe(0);
-
-        $this->actingAs($this->designer)->get(route('helpdesk.marketing-design-files.download', $file))->assertRedirect();
-        expect(MarketingDesignAuditLog::query()->where('event', MarketingDesignAuditEvent::SourceFileDownloaded)->count())->toBe(1);
+        $this->actingAs($viewer)->get(route('helpdesk.marketing-design-files.download', $file))->assertForbidden();
+        expect(MarketingDesignAuditLog::count())->toBe(0);
     });
 
-    it('rejects guests, users without permission, removed files, and unknown IDs', function () {
-        $file = publishedDesignFile(MarketingDesignFileRole::Production);
+    it('rejects guests, users without permission, replaced files, and unknown IDs', function () {
+        $file = storedDesignFile();
         $stranger = User::factory()->create(['is_active' => true]);
 
         $this->get(route('helpdesk.marketing-design-files.download', $file))->assertRedirect();
@@ -259,23 +270,23 @@ describe('download route', function () {
     });
 
     it('rejects a tampered path instead of reading storage', function () {
-        publishedDesignFile(MarketingDesignFileRole::Production);
+        storedDesignFile();
 
         $this->actingAs($this->purchasing)->get('/marketing-design-files/..%2F..%2Fsecret/download')->assertNotFound();
     });
 
-    it('denies purchasing an unpublished file and returns 404 for a missing object', function () {
-        $draftFile = MarketingDesignFile::factory()->role(MarketingDesignFileRole::Production)->for($this->item, 'item')->create();
-        Storage::disk('b2')->put($draftFile->path, 'binary');
-        $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.download', $draftFile))->assertForbidden();
+    it('denies purchasing the file of an archived bundle and returns 404 for a missing object', function () {
+        $archivedFile = storedDesignFile();
+        $archivedFile->item->bundle->update(['status' => MarketingDesignBundleStatus::Archived]);
+        $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.download', $archivedFile))->assertForbidden();
 
-        $missing = publishedDesignFile(MarketingDesignFileRole::Production);
+        $missing = storedDesignFile();
         Storage::disk('b2')->delete($missing->path);
         $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.download', $missing))->assertNotFound();
     });
 
     it('sanitizes the download filename', function () {
-        $file = publishedDesignFile(MarketingDesignFileRole::Production);
+        $file = storedDesignFile();
         MarketingDesignFile::query()->whereKey($file->id)->update(['original_name' => "../..\\evil\"\r\nX-Header: 1 désain.pdf"]);
 
         $name = $file->fresh()->safeDownloadName();
@@ -288,14 +299,14 @@ describe('download route', function () {
 });
 
 describe('preview route', function () {
-    it('serves only preview role files inline', function () {
-        $preview = publishedDesignFile(MarketingDesignFileRole::Preview);
-        $production = publishedDesignFile(MarketingDesignFileRole::Production);
+    it('serves images and PDFs inline without auditing, but never ZIP files', function () {
+        $image = storedDesignFile(image: true);
+        $zip = MarketingDesignFile::factory()->create(['mime_type' => 'application/zip', 'extension' => 'zip', 'original_name' => 'a.zip']);
 
-        $location = $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.preview', $preview))->assertRedirect()->headers->get('Location');
+        $location = $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.preview', $image))->assertRedirect()->headers->get('Location');
         expect(urldecode($location))->toContain('inline');
 
-        $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.preview', $production))->assertForbidden();
+        $this->actingAs($this->purchasing)->get(route('helpdesk.marketing-design-files.preview', $zip))->assertForbidden();
         expect(MarketingDesignAuditLog::query()->count())->toBe(0);
     });
 });

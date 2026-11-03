@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class GoodsReceiptItem extends Model
 {
@@ -52,8 +51,9 @@ class GoodsReceiptItem extends Model
         return $this->hasMany(GoodsReceiptExpiry::class);
     }
 
-    public function vendorComplianceIncident(): HasOne
+    /** Item-level incidents; an item may carry more than one category (PRD §14.3). */
+    public function vendorComplianceIncidents(): HasMany
     {
-        return $this->hasOne(VendorComplianceIncident::class);
+        return $this->hasMany(VendorComplianceIncident::class);
     }
 }

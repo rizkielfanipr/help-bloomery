@@ -1,8 +1,8 @@
 ---
 document_id: PURCHASING-VENDOR-COMPLIANCE-LATE-DELIVERY-PRD
 title: PRD — Vendor Compliance Keterlambatan Delivery PO
-status: draft
-version: 1.0
+status: in-development
+version: 1.1
 owner: Purchasing
 technical_owner: Information Technology
 created_at: 2026-11-03
@@ -31,7 +31,7 @@ supersedes: null
 |---|---|
 | Domain | Purchasing |
 | Fitur | Vendor Compliance Keterlambatan Delivery PO |
-| Status | draft |
+| Status | in-development |
 | Prioritas | TBD — belum ditetapkan owner bisnis |
 | Target pengguna | Inventory Receiving dan Purchasing |
 | Modul terdampak | Inventory Receiving, Goods Receipt, Purchasing Vendor Compliance |
@@ -371,6 +371,32 @@ Rollout bertahap: migration kompatibilitas → deploy code assessment → permis
 | 4 | Review manual sebelum poin | **Rekomendasi:** wajib; pending 0 poin. Opsi auto-confirm, tidak direkomendasikan | Purchasing | Sebelum workflow Action |
 | 5 | Perubahan keputusan terminal | **Rekomendasi:** tidak tersedia di v1; koreksi admin berjejak. Opsi reopen dengan permission baru | Purchasing & IT | Sebelum UAT |
 | 6 | Affected quantity header-level | **Rekomendasi:** jadikan nullable setelah audit semua consumer. Opsi tetap 0 untuk kompatibilitas | Information Technology | Phase 0 implementasi |
+
+### 26.1 Keputusan final (3 November 2026)
+
+| No | Keputusan |
+|---|---|
+| 1 | Hari kalender tanpa grace period. Penerimaan H+1 sudah terlambat 1 hari. |
+| 2 | Matrix `late-delivery-v1`: 1–2 hari = `low`/5 poin, 3–7 hari = `medium`/10 poin, lebih dari 7 hari = `high`/20 poin. Poin hanya aktif saat `confirmed`. |
+| 3 | Satu insiden per company + nomor PO; partial GR memperbarui keterlambatan maksimum. |
+| 4 | Review manual wajib; kandidat `pending` selalu 0 poin. |
+| 5 | Keputusan `confirmed`/`waived` final pada v1, tanpa reopen; koreksi lewat prosedur admin berjejak. |
+| 6 | `affected_quantity` menjadi nullable. Late Delivery menyimpan null dan UI menampilkan **Level PO**. Audit Phase 0 menemukan satu-satunya pemakai kolom ini adalah resource Vendor Compliance. |
+
+### 26.2 Keputusan teknis Phase 0
+
+| Area | Keputusan |
+|---|---|
+| Source marker | Header `CreateGoodsReceiptAction::record()` wajib membawa `source`: `purchase_order` dari `GoodsReceiptPage`, `non_po` dari `ProcessNonPoGoodsReceiptAction`. Header tanpa source ditolak. PO Susulan disimpan `not_applicable`. |
+| Snapshot | `GoodsReceiptPage::submit()` meneruskan `requiredDate` dari PO hasil re-fetch sebagai `poRequiredDate`; Action tidak membaca nilai browser. |
+| Upsert | `createOrFirst` pada unique `source_key` (`late_delivery:{COMPANY}:{PO}`, PO di-trim dan di-uppercase) di dalam transaksi Receiving, lalu `lockForUpdate` sebelum memperbarui tanggal dan delay. |
+| Partial GR setelah keputusan | Bila liability sudah `confirmed`/`waived`, GR terlambat berikutnya hanya memperbarui `latest_late_receipt_date` dan mencatat event; `delay_days`, severity, dan poin tetap seperti saat diputuskan. |
+| Severity kandidat | Kandidat `pending` menyimpan severity preview dari matrix dengan poin 0; konfirmasi menghitung ulang dari `delay_days` saat itu. |
+| Pengecualian | `waived` juga menutup status penanganan menjadi `resolved` karena tidak ada tindak lanjut vendor. |
+| Status penanganan | Form tindak lanjut menolak `resolved` selama liability masih `pending`. |
+| Audit | Tabel append-only `vendor_compliance_incident_events` mencatat `candidate_created`, `delay_updated`, `confirmed`, dan `waived` beserta actor, alasan, dan metadata. |
+| Notifikasi | Filament database notification setelah commit kepada user aktif dengan `edit vendor compliance incidents` saat kandidat baru dibuat. Notifikasi rejection existing tidak lagi terpicu oleh insiden Late Delivery. |
+| Reconciliation | Command read-only `vendor-compliance:reconcile-late-delivery`. |
 
 ## 27. Implementation phases
 

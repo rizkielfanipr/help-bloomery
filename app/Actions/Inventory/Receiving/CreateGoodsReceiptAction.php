@@ -188,7 +188,7 @@ class CreateGoodsReceiptAction
             }
             if ((float) $item['rejectedQty'] > 0) {
                 $points = $qc->demeritPoints($item['rejectionCategory']);
-                $record->vendorComplianceIncident()->create(['goods_receipt_id' => $receipt->id, 'supplier_id' => $receipt->supplier_id, 'supplier_name' => $receipt->supplier_name,
+                $record->vendorComplianceIncidents()->create(['goods_receipt_id' => $receipt->id, 'supplier_id' => $receipt->supplier_id, 'supplier_name' => $receipt->supplier_name,
                     'category' => $item['rejectionCategory'], 'severity' => $points >= 20 ? 'high' : ($points >= 10 ? 'medium' : 'low'), 'demerit_points' => $points,
                     'affected_quantity' => $item['rejectedQty'], 'status' => 'open', 'description' => $item['rejectionReason'],
                     'evidence_photos' => $item['storedEvidencePhotos'], 'reported_by' => $inspectedBy, 'occurred_at' => now()]);

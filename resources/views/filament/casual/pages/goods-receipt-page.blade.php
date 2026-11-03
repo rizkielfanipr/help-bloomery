@@ -85,7 +85,7 @@
                         </div>
                         <div class="grid grid-cols-2 divide-x divide-gray-100 border-t border-gray-100 bg-gray-50/70 px-4 py-3 dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-800/40">
                             <div class="pr-3"><p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Tanggal PO</p><p class="mt-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{{ filled($po['purchaseDate'] ?? null) ? \Illuminate\Support\Carbon::parse($po['purchaseDate'])->locale('id')->isoFormat('D MMM Y') : '-' }}</p></div>
-                            <div class="pl-3"><p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Dibutuhkan</p><p class="mt-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{{ filled($po['requiredDate'] ?? null) ? \Illuminate\Support\Carbon::parse($po['requiredDate'])->locale('id')->isoFormat('D MMM Y') : '-' }}</p></div>
+                            <div class="pl-3"><p class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Dibutuhkan</p><p class="mt-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $this->requiredDateLabel($po['requiredDate'] ?? null) }}</p></div>
                         </div>
                     </article>
                 @empty
@@ -133,7 +133,7 @@
                         </div>
                         <div class="grid grid-cols-2 divide-x divide-gray-100 py-3.5 dark:divide-gray-800">
                             <div class="pr-3"><p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Tanggal PO</p><p class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ filled($purchaseOrder['purchaseDate'] ?? null) ? \Illuminate\Support\Carbon::parse($purchaseOrder['purchaseDate'])->locale('id')->isoFormat('D MMM Y') : '-' }}</p></div>
-                            <div class="pl-3"><p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Tanggal Dibutuhkan</p><p class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ filled($purchaseOrder['requiredDate'] ?? null) ? \Illuminate\Support\Carbon::parse($purchaseOrder['requiredDate'])->locale('id')->isoFormat('D MMM Y') : '-' }}</p></div>
+                            <div class="pl-3"><p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Tanggal Dibutuhkan</p><p class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ $this->requiredDateLabel($purchaseOrder['requiredDate'] ?? null, 'Tidak Dapat Dinilai') }}</p></div>
                         </div>
                         <div class="flex items-center justify-between py-3.5">
                             <div><p class="text-[11px] font-bold uppercase tracking-wide text-slate-400">Produk Untuk Diperiksa</p><p class="mt-0.5 text-xs text-slate-500">Item dengan sisa penerimaan</p></div>
@@ -150,6 +150,15 @@
                     </div>
                     <div class="mt-4 grid gap-4">
                         <label class="{{ $label }}">Tanggal penerimaan<input wire:model.live="goodsReceiptDate" type="date" class="{{ $field }}"></label>
+                        @php $deliveryPreview = $this->deliveryPreview(); @endphp
+                        @if ($deliveryPreview['status'] === \App\Enums\DeliveryAssessmentStatus::Late)
+                            <div role="status" class="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                                <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <p><span class="font-semibold">Terdeteksi terlambat {{ $deliveryPreview['delayDays'] }} hari</span> dari tanggal dibutuhkan {{ $this->requiredDateLabel($deliveryPreview['requiredDate']) }}. Penerimaan tetap dapat diproses; catatan keterlambatan akan diverifikasi Purchasing.</p>
+                            </div>
+                        @elseif ($deliveryPreview['status'] === \App\Enums\DeliveryAssessmentStatus::NotAssessable)
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Tanggal dibutuhkan PO tidak tersedia, sehingga ketepatan waktu pengiriman tidak dapat dinilai.</p>
+                        @endif
                         <label class="{{ $label }}">Lokasi ESB<select wire:model="locationId" class="{{ $field }}"><option value="">Pilih lokasi</option>@foreach ($locations as $location)<option value="{{ $location['locationID'] }}">{{ $location['locationName'] }}</option>@endforeach</select></label>
                         <label class="{{ $label }}">Jenis Dokumen<select wire:model.live="documentType" class="{{ $field }}"><option value="delivery_note">Surat Jalan</option><option value="invoice">Invoice</option></select></label>
                         <label class="{{ $label }}">Nomor Dokumen<input wire:model="documentNumber" type="text" class="{{ $field }}"></label>

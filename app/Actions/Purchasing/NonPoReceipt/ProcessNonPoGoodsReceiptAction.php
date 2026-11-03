@@ -92,6 +92,7 @@ class ProcessNonPoGoodsReceiptAction
     private function header(NonPoReceipt $receipt): array
     {
         return [
+            'source' => GoodsReceipt::SOURCE_NON_PO,
             'submissionKey' => $receipt->submission_key, 'companyCode' => $receipt->company_code, 'purchaseNumber' => $receipt->po_number,
             'purchaseDate' => $receipt->po_date, 'goodsReceiptDate' => $receipt->receipt_date->toDateString(),
             'esbBranchId' => (int) $receipt->esb_branch_id, 'localBranchId' => $receipt->local_branch_id, 'branchName' => $receipt->branch_name,

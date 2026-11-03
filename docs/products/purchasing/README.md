@@ -82,6 +82,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 | [Pelacakan Durasi Sourcing](sourcing-duration-tracking/README.md) dan [PRD](sourcing-duration-tracking/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
 | [Receiving tanpa PO](../inventory/non-po-receiving/README.md) dan [PRD](../inventory/non-po-receiving/prd.md) | Implemented |
 | [Master Design Library](../brand-marketing/design-master-library/README.md) dan [PRD](../brand-marketing/design-master-library/prd.md) | Implemented; rollout dan UAT staging belum dijalankan |
+| [Request Sourcing melalui Employee App](employee-sourcing-request/README.md) dan [PRD](employee-sourcing-request/prd.md) | Draft planning; belum diimplementasikan |
 
 ## Role bawaan
 

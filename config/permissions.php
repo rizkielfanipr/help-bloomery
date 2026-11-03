@@ -27,6 +27,7 @@ return [
         'ERP' => ['access employee app erp'],
         'Quality Control' => ['access employee app quality control'],
         'SOP Store' => ['access employee app store sop'],
+        'Request Sourcing' => ['access employee app sourcing request'],
         // Deliberately the same permission used by CustomerComplaintPolicy::create() and the
         // back office (not a separate "access employee app ..." flag): the PRD requires the
         // Form Komplain tile to be gated by exactly one permission, `create customer complaints`
@@ -104,6 +105,7 @@ return [
         'Vendor Compliance' => ['view vendor compliance incidents', 'edit vendor compliance incidents'],
         'Permintaan Pembelian' => ['view purchase requests', 'create purchase requests', 'edit purchase requests', 'delete purchase requests'],
         'Sourcing Bahan' => ['view material sourcings', 'submit material sourcing', 'hand over material samples'],
+        'Permintaan Sourcing' => ['view material sourcing requests', 'process material sourcing requests'],
         'Proses Material Marketing' => ['view marketing material fulfillments', 'process marketing material as purchasing'],
         'PO Susulan' => ['view non po purchase order requests', 'process non po purchase order requests', 'cancel non po purchase order requests'],
     ],

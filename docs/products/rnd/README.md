@@ -81,7 +81,7 @@ Alur bahan baru dari R&D sampai harga resmi. Status dilacak dalam beberapa dimen
 | Siklus sampel | `prepared`, `handed_over`, `received`, `approved`, `resample_requested`, `rejected` |
 | Pricing | `not_ready`, `ready_for_pricing`, `draft_pricing`, `submitting`, `verification_required`, `priced`, `failed`, `cancelled` |
 
-**Sourcing tanpa project** (Sourcing Bahan → Buat Sourcing) memilih produk ESB existing dan masih memakai approval legacy (R&D lalu Finance). Penyatuan dengan alur sampel menunggu keputusan PRD §32 butir 8. Data legacy tetap bisa dibaca dan diproses dengan alur lamanya. Audit trail per bahan tersimpan di `rnd_material_audit_logs`.
+**Sourcing tanpa project** (Sourcing Bahan → Buat Sourcing) memilih produk ESB existing dan masih memakai approval legacy (R&D lalu Finance). Sourcing tanpa project juga dapat berasal dari [Request Sourcing](../purchasing/README.md#request-sourcing) Employee App yang dikonversi Purchasing; kolom Project-nya bertuliskan **Request User** dan alur reviewnya sama. Pembacaan ulang produk ESB untuk keduanya memakai `ActiveEsbProductDetailResolver`. Penyatuan dengan alur sampel menunggu keputusan PRD §32 butir 8. Data legacy tetap bisa dibaca dan diproses dengan alur lamanya. Audit trail per bahan tersimpan di `rnd_material_audit_logs`.
 
 ### Durasi sourcing
 

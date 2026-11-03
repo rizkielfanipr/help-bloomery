@@ -131,6 +131,14 @@ class LauncherPage extends Page
                 'permission' => 'access employee app purchasing',
             ],
             [
+                'label' => 'Request Sourcing',
+                'iconBg' => 'bg-teal-50',
+                'iconColor' => 'text-teal-600',
+                'path' => 'm21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607ZM10.5 7.5v6m3-3h-6',
+                'href' => fn (): string => MaterialSourcingRequestPage::getUrl(panel: 'casual'),
+                'permission' => 'access employee app sourcing request',
+            ],
+            [
                 'label' => 'Desain',
                 'iconBg' => 'bg-pink-50',
                 'iconColor' => 'text-pink-500',

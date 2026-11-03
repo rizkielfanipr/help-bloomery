@@ -128,7 +128,7 @@ Tidak ada permission hard delete pada versi pertama.
 
 1. Membuka **Brand Marketing → Master Design**.
 2. Membuat bundle dan memilih satu Brand existing.
-3. Mengisi kode, nama, kategori, periode, dan deskripsi.
+3. Mengisi kode, nama, kategori, dan deskripsi.
 4. Sistem membuat Version 1 berstatus `draft`.
 5. Designer menambahkan item, spesifikasi, preview, source, production, dan supporting file.
 6. Designer menekan **Kirim untuk Review**.
@@ -219,7 +219,7 @@ Rejection non-final direpresentasikan sebagai `revision_required` agar histori t
 
 - `brand_id` wajib;
 - normalized `code` dan `name`;
-- category, description, validity period;
+- category dan description;
 - `status` active/archived;
 - creator/updater/archive metadata;
 - unique `(brand_id, normalized_code)`.
@@ -311,7 +311,7 @@ Kolom minimum:
 - tanggal publish;
 - updated at untuk draft.
 
-Filter: Semua Brand (default), Brand tertentu, kategori, status, physical/digital, tipe item, periode, dan search kode/nama.
+Filter: Semua Brand (default), Brand tertentu, kategori, status, physical/digital, tipe item, dan search kode/nama.
 
 ### 17.3 Detail
 
@@ -319,7 +319,7 @@ Halaman detail menggunakan pola visual **Project Detail R&D** sebagai referensi 
 
 Susunan card:
 
-1. **Summary card** — breadcrumb Master Design, Brand, kode/nama bundle, kategori, deskripsi, status bundle/current version, periode berlaku, creator/publisher, waktu pembaruan, dan aksi utama sesuai permission.
+1. **Summary card** — breadcrumb Master Design, Brand, kode/nama bundle, kategori, deskripsi, status bundle/current version, creator/publisher, waktu pembaruan, dan aksi utama sesuai permission.
 2. **Informasi Bundle** — metadata bundle dan Brand yang bersifat stabil.
 3. **Current Version** — version number, lifecycle status, change summary, reviewer/publisher, review/publish note, serta pemilih revisi bagi Designer.
 4. **Design Items** — daftar item desain dengan preview lazy, tipe, sifat physical/digital, dan status kelengkapan. Setiap item dapat memakai nested compact card/list; jangan membuat card dekoratif untuk setiap field kecil.
@@ -339,7 +339,8 @@ Aturan perilaku detail:
 
 ### 17.4 Form/version editor
 
-- Bundle dibuat dari modal pada index. Editor berada pada halaman detail: modal bundle, ringkasan version, item beserta spesifikasi, dan upload per item.
+- Bundle dibuat dari modal pada index tanpa periode berlaku dan tanpa ringkasan version; ringkasan Version 1 boleh diisi kemudian lewat Edit Ringkasan pada detail.
+- Modal pembuatan hanya berisi Brand, kode, kategori, nama, dan deskripsi. Editor berada pada halaman detail: modal bundle, ringkasan version, item beserta spesifikasi, dan upload per item.
 - Item panjang memakai list server-driven yang stabil; upload tidak hilang saat validasi gagal.
 - Loading/progress, jenis file, batas ukuran, error, retry, dan cancel harus terlihat.
 - Mutation dicegah dari double submit.

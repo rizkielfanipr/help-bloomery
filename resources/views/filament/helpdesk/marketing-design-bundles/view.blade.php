@@ -61,11 +61,7 @@
                     </div>
                 </div>
             </div>
-            <div class="grid divide-y divide-gray-200 dark:divide-gray-700 sm:grid-cols-2 sm:divide-y-0 xl:grid-cols-4 xl:divide-x">
-                <div class="flex items-start gap-3 p-5">
-                    <x-heroicon-o-calendar-days class="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
-                    <div class="min-w-0"><p class="{{ $metaLabel }}">Periode Berlaku</p><p class="{{ $metaValue }}">{{ MarketingDesignBundleResource::periodLabel($bundle) }}</p></div>
-                </div>
+            <div class="grid divide-y divide-gray-200 dark:divide-gray-700 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
                 <div class="flex items-start gap-3 p-5">
                     <x-heroicon-o-user-circle class="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
                     <div class="min-w-0"><p class="{{ $metaLabel }}">Dibuat Oleh</p><p class="{{ $metaValue }}">{{ $bundle->creator?->name ?? '—' }}</p></div>

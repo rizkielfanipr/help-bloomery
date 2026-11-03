@@ -6,7 +6,6 @@ use App\Actions\BrandMarketing\DesignMaster\CreateDesignBundleAction;
 use App\Filament\Helpdesk\Resources\MarketingDesignBundles\MarketingDesignBundleResource;
 use App\Models\MarketingDesignBundle;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Validation\ValidationException;
@@ -28,10 +27,7 @@ class ListMarketingDesignBundles extends ListRecords
                 ->modalHeading('Buat Bundle Master Design')
                 ->modalDescription('Sistem membuat Version 1 berstatus Draft. Item dan file ditambahkan di halaman detail.')
                 ->modalSubmitActionLabel('Buat Bundle')
-                ->schema([
-                    ...MarketingDesignBundleResource::bundleFormSchema(),
-                    Textarea::make('change_summary')->label('Ringkasan Version 1')->rows(2)->maxLength(5000),
-                ])
+                ->schema(MarketingDesignBundleResource::bundleFormSchema())
                 ->action(function (array $data, Action $action): void {
                     try {
                         $bundle = app(CreateDesignBundleAction::class)->execute(auth()->user(), $data);

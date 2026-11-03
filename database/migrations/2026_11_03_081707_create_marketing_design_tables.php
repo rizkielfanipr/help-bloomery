@@ -16,8 +16,6 @@ return new class extends Migration
             $table->string('name');
             $table->string('category', 30);
             $table->text('description')->nullable();
-            $table->date('valid_from')->nullable();
-            $table->date('valid_until')->nullable();
             $table->string('status', 20)->default('active');
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();

@@ -14,7 +14,6 @@ use App\Models\RndProjectMarketingMaterial;
 use App\Policies\MarketingDesignBundlePolicy;
 use BackedEnum;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -119,9 +118,6 @@ class MarketingDesignBundleResource extends Resource
                     ->state(fn (MarketingDesignBundle $record): ?MarketingDesignVersionStatus => self::viewerIsInternal()
                         ? $record->latestVersion?->status
                         : $record->publishedVersion?->status),
-                TextColumn::make('valid_from')
-                    ->label('PERIODE')
-                    ->state(fn (MarketingDesignBundle $record): string => self::periodLabel($record)),
                 TextColumn::make('published_at')
                     ->label('TANGGAL PUBLISH')
                     ->state(fn (MarketingDesignBundle $record): string => $record->publishedVersion?->published_at?->format('d M Y') ?? '—')
@@ -170,11 +166,6 @@ class MarketingDesignBundleResource extends Resource
                         'digital' => self::whereHasItem($query, fn (Builder $items): Builder => $items->whereNotIn('type', RndProjectMarketingMaterial::PHYSICAL_TYPES)),
                         default => $query,
                     }),
-                Filter::make('period')
-                    ->schema([DatePicker::make('from')->label('Dari'), DatePicker::make('until')->label('Sampai')])
-                    ->query(fn (Builder $query, array $data): Builder => $query
-                        ->when(filled($data['from'] ?? null), fn (Builder $query): Builder => $query->where(fn (Builder $query): Builder => $query->whereNull('valid_until')->orWhereDate('valid_until', '>=', $data['from'])))
-                        ->when(filled($data['until'] ?? null), fn (Builder $query): Builder => $query->where(fn (Builder $query): Builder => $query->whereNull('valid_from')->orWhereDate('valid_from', '<=', $data['until'])))),
             ])
             ->filtersLayout(FiltersLayout::AboveContent)
             ->deferFilters(false)
@@ -199,20 +190,7 @@ class MarketingDesignBundleResource extends Resource
             ]),
             TextInput::make('name')->label('Nama Bundle')->required()->maxLength(255),
             Textarea::make('description')->label('Deskripsi')->rows(3)->maxLength(5000),
-            Grid::make(['default' => 1, 'sm' => 2])->schema([
-                DatePicker::make('valid_from')->label('Berlaku Dari'),
-                DatePicker::make('valid_until')->label('Berlaku Sampai')->afterOrEqual('valid_from'),
-            ]),
         ];
-    }
-
-    public static function periodLabel(MarketingDesignBundle $bundle): string
-    {
-        if ($bundle->valid_from === null && $bundle->valid_until === null) {
-            return 'Tanpa batas';
-        }
-
-        return ($bundle->valid_from?->format('d M Y') ?? '...').' – '.($bundle->valid_until?->format('d M Y') ?? '...');
     }
 
     /** @return array<int, string> */

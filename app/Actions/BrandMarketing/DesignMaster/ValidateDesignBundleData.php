@@ -16,7 +16,7 @@ class ValidateDesignBundleData
 {
     /**
      * @param  array<string, mixed>  $data
-     * @return array{brand_id: int, code: string, normalized_code: string, name: string, category: string, description: ?string, valid_from: ?string, valid_until: ?string}
+     * @return array{brand_id: int, code: string, normalized_code: string, name: string, category: string, description: ?string}
      *
      * @throws ValidationException
      */
@@ -37,8 +37,6 @@ class ValidateDesignBundleData
             'name' => ['required', 'string', 'max:255'],
             'category' => ['required', Rule::enum(MarketingDesignBundleCategory::class)],
             'description' => ['nullable', 'string', 'max:5000'],
-            'valid_from' => ['nullable', 'date'],
-            'valid_until' => ['nullable', 'date', 'after_or_equal:valid_from'],
         ], [
             'brand_id.required' => 'Brand wajib dipilih.',
             'brand_id.exists' => 'Brand tidak ditemukan.',
@@ -46,7 +44,6 @@ class ValidateDesignBundleData
             'normalized_code.unique' => 'Kode bundle sudah dipakai pada Brand ini.',
             'name.required' => 'Nama bundle wajib diisi.',
             'category.required' => 'Kategori wajib dipilih.',
-            'valid_until.after_or_equal' => 'Tanggal akhir tidak boleh sebelum tanggal mulai.',
         ])->validate();
 
         return [
@@ -56,8 +53,6 @@ class ValidateDesignBundleData
             'name' => trim((string) $validated['name']),
             'category' => $validated['category'] instanceof MarketingDesignBundleCategory ? $validated['category']->value : (string) $validated['category'],
             'description' => filled($validated['description'] ?? null) ? trim((string) $validated['description']) : null,
-            'valid_from' => $validated['valid_from'] ?? null,
-            'valid_until' => $validated['valid_until'] ?? null,
         ];
     }
 

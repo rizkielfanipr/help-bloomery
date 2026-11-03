@@ -51,6 +51,7 @@ Menu **Brand Marketing → Master Design** dipakai bersama oleh Designer, Review
 |---|---|---|---|
 | §18.2 | Baseline 15 MB dan 100 MB turun menjadi 12 MB | Batas Livewire global; PRD meminta penurunan dicatat | Bila file cetak lebih besar dibutuhkan: audit PHP/proxy dan ubah aturan Livewire pada keputusan terpisah |
 | §17.3 | Unggah file baru berada pada card Design Items, bukan Design Files | File selalu milik satu item; ganti dan lepas tetap di Design Files | Tidak ada |
+| §14.1, §17.2 | Periode berlaku dihapus dari schema, form, index, filter, dan detail; input ringkasan Version 1 dihapus dari form pembuatan | Permintaan user setelah implementasi | PRD sudah diperbarui; ringkasan tetap tersedia lewat Edit Ringkasan |
 | §17.4 | Editor berupa modal pada detail, bukan halaman form terpisah | Mengikuti pola edit Project Detail; item dan upload tetap dipisah dengan jelas | Tidak ada |
 
 ## 5. Hasil verifikasi

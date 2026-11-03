@@ -110,10 +110,10 @@ describe('index', function () {
             ->assertCanSeeTableRecords([$archived]);
     });
 
-    it('defaults to all brands and filters by brand, category, type, nature, version status, and period', function () {
+    it('defaults to all brands and filters by brand, category, type, nature, and version status', function () {
         $brandA = Brand::factory()->create(['name' => 'Brand A']);
-        $packaging = publishedDesignBundle(['brand_id' => $brandA->id, 'category' => 'seasonal', 'valid_from' => '2027-01-01', 'valid_until' => '2027-02-01']);
-        $social = publishedDesignBundle(['category' => 'campaign', 'valid_from' => '2027-06-01', 'valid_until' => '2027-07-01'], 'social_media');
+        $packaging = publishedDesignBundle(['brand_id' => $brandA->id, 'category' => 'seasonal']);
+        $social = publishedDesignBundle(['category' => 'campaign'], 'social_media');
         $draft = MarketingDesignBundleVersion::factory()->create()->bundle;
 
         $this->actingAs($this->designer);
@@ -126,7 +126,6 @@ describe('index', function () {
         $table()->filterTable('nature', 'physical')->assertCanSeeTableRecords([$packaging])->assertCanNotSeeTableRecords([$social]);
         $table()->filterTable('nature', 'digital')->assertCanSeeTableRecords([$social])->assertCanNotSeeTableRecords([$packaging]);
         $table()->filterTable('version_status', MarketingDesignVersionStatus::Draft->value)->assertCanSeeTableRecords([$draft])->assertCanNotSeeTableRecords([$packaging]);
-        $table()->filterTable('period', ['from' => '2027-06-15', 'until' => '2027-06-20'])->assertCanSeeTableRecords([$social])->assertCanNotSeeTableRecords([$packaging]);
     });
 
     it('searches code and name', function () {
@@ -180,6 +179,17 @@ describe('index', function () {
             ->assertRedirect(MarketingDesignBundleResource::getUrl('view', ['record' => MarketingDesignBundle::query()->sole()], panel: 'helpdesk'));
 
         expect(MarketingDesignBundle::query()->sole()->normalized_code)->toBe('PROMO-A');
+    });
+
+    it('asks only for brand, code, category, name, and description', function () {
+        $this->actingAs($this->designer);
+
+        Livewire::test(ListMarketingDesignBundles::class)
+            ->mountAction('createBundle')
+            ->assertFormFieldExists('code', 'mountedActionSchema0')
+            ->assertFormFieldDoesNotExist('valid_from', 'mountedActionSchema0')
+            ->assertFormFieldDoesNotExist('valid_until', 'mountedActionSchema0')
+            ->assertFormFieldDoesNotExist('change_summary', 'mountedActionSchema0');
     });
 
     it('requires a brand in the modal', function () {

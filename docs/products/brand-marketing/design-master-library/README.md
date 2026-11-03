@@ -44,6 +44,7 @@ Master Design Library adalah katalog desain reusable berdasarkan Brand. Designer
 
 | Tanggal | Status | Catatan |
 |---|---|---|
+| 2026-11-03 | implemented | Periode berlaku dan input ringkasan Version 1 dihapus dari form pembuatan bundle |
 | 2026-11-03 | implemented | Implementasi selesai pada branch fitur; UAT staging dan rollout belum dijalankan |
 | 2026-11-03 | draft | Spesifikasi UI detail diperjelas menjadi summary dan section card mengikuti pola Project Detail R&D; index tetap list/table |
 | 2026-11-02 | draft | Planning dibuat berdasarkan audit Brand Marketing, Project R&D, Purchasing, Brand, permission, dan penyimpanan file existing |

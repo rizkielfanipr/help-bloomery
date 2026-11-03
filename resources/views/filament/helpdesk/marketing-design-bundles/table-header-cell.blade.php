@@ -10,7 +10,7 @@
     $inputClass = 'mt-2 block w-full rounded-md border border-gray-300 bg-white px-2.5 py-2 text-xs font-normal normal-case tracking-normal text-gray-900 shadow-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white';
     $minWidth = match ($name) {
         'code' => '13rem',
-        'brand.name', 'valid_from' => '10rem',
+        'brand.name' => '10rem',
         'category', 'items_total', 'status', 'current_version_status' => '9rem',
         default => null,
     };
@@ -98,11 +98,6 @@
                     @endforeach
                 </select>
             @endif
-            @break
-
-        @case('valid_from')
-            <input wire:model.live="tableFilters.period.from" type="date" aria-label="Periode dari" class="{{ $inputClass }}">
-            <input wire:model.live="tableFilters.period.until" type="date" aria-label="Periode sampai" class="{{ $inputClass }}">
             @break
     @endswitch
 </th>

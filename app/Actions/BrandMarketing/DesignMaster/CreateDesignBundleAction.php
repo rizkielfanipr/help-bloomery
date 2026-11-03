@@ -34,7 +34,7 @@ class CreateDesignBundleAction
         $validated = $this->validator->validate($data);
 
         try {
-            return DB::transaction(function () use ($actor, $validated, $data): MarketingDesignBundle {
+            return DB::transaction(function () use ($actor, $validated): MarketingDesignBundle {
                 $bundle = MarketingDesignBundle::query()->create($validated + [
                     'status' => MarketingDesignBundleStatus::Active,
                     'created_by' => $actor->id,
@@ -44,7 +44,6 @@ class CreateDesignBundleAction
                 $version = $bundle->versions()->create([
                     'version_number' => 1,
                     'status' => MarketingDesignVersionStatus::Draft,
-                    'change_summary' => filled($data['change_summary'] ?? null) ? trim((string) $data['change_summary']) : null,
                     'created_by' => $actor->id,
                 ]);
 

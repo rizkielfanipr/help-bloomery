@@ -32,8 +32,6 @@ class MarketingDesignBundle extends Model
         'name',
         'category',
         'description',
-        'valid_from',
-        'valid_until',
         'status',
         'created_by',
         'updated_by',
@@ -47,8 +45,6 @@ class MarketingDesignBundle extends Model
         return [
             'category' => MarketingDesignBundleCategory::class,
             'status' => MarketingDesignBundleStatus::class,
-            'valid_from' => 'date',
-            'valid_until' => 'date',
             'archived_at' => 'datetime',
         ];
     }

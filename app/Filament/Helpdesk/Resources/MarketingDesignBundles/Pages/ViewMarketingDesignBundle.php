@@ -170,8 +170,6 @@ class ViewMarketingDesignBundle extends ViewRecord
                 'category' => $this->record->category->value,
                 'name' => $this->record->name,
                 'description' => $this->record->description,
-                'valid_from' => $this->record->valid_from?->toDateString(),
-                'valid_until' => $this->record->valid_until?->toDateString(),
             ])
             ->action(function (array $data, Action $action): void {
                 $this->runGuarded($action, 'Bundle diperbarui', fn () => app(UpdateDesignBundleAction::class)->execute(auth()->user(), $this->record, $data));

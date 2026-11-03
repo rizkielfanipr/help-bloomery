@@ -2410,6 +2410,7 @@ class ViewProjectProductPage extends Page
             'esbMaterials.selectedSourcing.submittedBy',
             'esbMaterials.rndReviewer',
             'esbMaterials.financeReviewer',
+            'esbMaterials.latestReview.reviewer',
             'regionalPrices.region',
             'currentRegionalPrices.region',
             'salesProjections.region',

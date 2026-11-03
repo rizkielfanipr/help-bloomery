@@ -59,7 +59,7 @@ Pengembangan produk dari project sampai rilis: project dan produk, BOM di ESB, M
 Alur bahan baru dari R&D sampai harga resmi. Status dilacak dalam beberapa dimensi terpisah.
 
 1. **R&D** membuat Master Bahan/WIP di produk project lalu **Kirim untuk Review IT**. Data di-snapshot dengan hash dan nomor versi, dan bahan terkunci untuk R&D. Notifikasi Telegram ke IT dikirim bila diaktifkan. R&D dapat menarik pengajuan selama belum di-claim IT.
-2. **IT** (Review Data) melakukan claim, lalu memilih salah satu: mengoreksi data teknis (kategori, UOM, SKU, konversi, flag), mengembalikan ke R&D dengan alasan, **menautkan** ke produk ESB existing (setiap unit harus cocok dengan Product Detail aktif), atau **approve push** untuk membuat produk di ESB. Approval terikat pada versi dan hash data.
+2. **IT** (Review Data) melakukan claim, lalu memilih salah satu: mengoreksi data teknis (kategori, UOM, SKU, konversi, flag), mengembalikan ke R&D dengan alasan (tampil sebagai **Catatan revisi IT** beserta reviewer dan waktunya di kolom Keterangan bahan pada halaman produk selama status `revision_required`, sampai R&D mengirim ulang), **menautkan** ke produk ESB existing (setiap unit harus cocok dengan Product Detail aktif), atau **approve push** untuk membuat produk di ESB. Approval terikat pada versi dan hash data.
 3. **Sync ESB** dibaca ulang dan setiap unit harus terpetakan sebelum statusnya `synced`. Hasil tidak pasti menjadi `needs_reconciliation`, lalu IT memverifikasi atau menyatakan tidak diterapkan.
 4. Setelah sync terverifikasi:
    - **Bahan biasa** → Sourcing Request ke Purchasing.

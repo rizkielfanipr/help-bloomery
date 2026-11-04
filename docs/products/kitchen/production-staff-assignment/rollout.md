@@ -21,7 +21,7 @@ supersedes: null
 
 ## 1. Prerequisite
 
-- [ ] OD-1–OD-3 pada PRD §26 sudah ditutup.
+- [x] OD-1–OD-3 pada PRD §26 sudah ditutup (4 November 2026).
 - [ ] PRD berstatus `approved`/`in-development` saat implementasi dan sesuai kode final.
 - [ ] Pull Request implementasi sudah di-merge dan CI hijau.
 - [ ] Implementation report, README, data model, dan permission docs sesuai implementasi.
@@ -40,7 +40,7 @@ Tidak ada feature flag, env, dependency, queue, scheduler, file storage, atau ex
 
 ## 3. Migration
 
-- Migration final menambah tabel assignment aktif dan audit event sesuai implementasi.
+- Migration final `2026_11_04_091631_create_kitchen_production_order_staff_tables` menambah `kitchen_production_order_staff_assignments` (unique `kpo_staff_assignments_detail_employee_unique`; FK detail cascade, employee/Branch/`assigned_by` set null) dan `kitchen_production_order_staff_assignment_events` (index `kpo_staff_events_detail_created_index`; seluruh FK set null). Rehearsal `up()` dan rollback struktur di MySQL lokal lulus pada 4 November 2026; rehearsal staging masih wajib.
 - Migration bersifat additive dan tidak mengubah tabel `esb_production_orders`, `esb_production_order_details`, `employees`, atau data existing.
 - Tidak ada backfill; seluruh detail existing mulai tanpa Staff Produksi.
 - Tabel baru masih kosong saat deploy sehingga lock diperkirakan rendah; hasil rehearsal staging dicatat pada implementation report.

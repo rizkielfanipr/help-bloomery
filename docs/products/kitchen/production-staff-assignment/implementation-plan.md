@@ -1,7 +1,7 @@
 ---
 document_id: KITCHEN-PRODUCTION-STAFF-ASSIGNMENT-PLAN
 title: Implementation Plan — Assignment Staff Produksi per Detail Production Order
-status: draft
+status: in-development
 version: 1.0
 owner: Kitchen
 technical_owner: Information Technology

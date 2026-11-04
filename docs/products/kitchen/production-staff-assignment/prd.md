@@ -211,7 +211,20 @@ Entitas append-only `KitchenProductionOrderStaffAssignmentEvent`:
 - snapshot employee, Branch, nomor Production Order, BOM, dan product;
 - metadata perubahan yang disanitasi.
 
-Event tidak dapat diubah atau dihapus melalui aplikasi. Nama tabel final dan strategi FK dikunci setelah audit schema Phase 0.
+Event tidak dapat diubah atau dihapus melalui aplikasi.
+
+### 14.2a Kontrak final hasil audit Phase 0
+
+| Aspek | Keputusan |
+|---|---|
+| Tabel | `kitchen_production_order_staff_assignments` (aktif) dan `kitchen_production_order_staff_assignment_events` (audit) |
+| Strategi baris | Current-row: pelepasan menghapus baris aktif; histori lengkap ada di audit. Unique `(esb_production_order_detail_id, employee_id)` berlaku untuk setiap baris aktif karena baris baru selalu mempunyai `employee_id` |
+| FK detail | Assignment `cascadeOnDelete` (detail hanya hilang bila header snapshot dihapus); audit `nullOnDelete` |
+| FK employee, Branch, actor | `nullOnDelete` pada kedua tabel, mengikuti pola `sales_report_employees`; snapshot teks menjaga histori tetap terbaca |
+| Employee terhapus | Baris aktif tetap tampil dengan label **Data employee dihapus**; karena tidak dapat dipilih lagi, baris tersebut dilepas (dengan event `unassigned`, `metadata.reason = employee_deleted`) pada penyimpanan berikutnya untuk detail itu. Picker menampilkan keterangan **akan dilepas saat disimpan** |
+| Concurrent save | Detail di-lock (`lockForUpdate`) selama transaksi. Picker mengirim ID assignment yang dilihat saat dibuka; bila berbeda dari kondisi database, penyimpanan ditolak agar perubahan pengguna lain tidak tertimpa |
+| Batas selection | Maksimal 50 Staff Produksi per detail; picker menampilkan 30 kandidat pertama dan meminta pencarian untuk sisanya |
+| Policy | Method `assignStaff` pada `EsbProductionOrderPolicy` (tanpa Policy baru) |
 
 ### 14.3 Relasi dan penghapusan
 

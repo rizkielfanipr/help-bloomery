@@ -6,6 +6,7 @@ use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Employee extends Model
@@ -43,5 +44,13 @@ class Employee extends Model
             'id',
             'sales_report_id',
         );
+    }
+
+    /**
+     * Staff Produksi on ESB Production Order details (docs/products/kitchen/production-staff-assignment/prd.md §14.3).
+     */
+    public function productionOrderStaffAssignments(): HasMany
+    {
+        return $this->hasMany(KitchenProductionOrderStaffAssignment::class);
     }
 }

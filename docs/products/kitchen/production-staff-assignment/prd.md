@@ -1,7 +1,7 @@
 ---
 document_id: KITCHEN-PRODUCTION-STAFF-ASSIGNMENT-PRD
 title: PRD — Assignment Staff Produksi per Detail Production Order
-status: draft
+status: in-development
 version: 1.0
 owner: Kitchen
 technical_owner: Information Technology
@@ -24,7 +24,7 @@ supersedes: null
 |---|---|
 | Domain | Kitchen |
 | Fitur | Assignment Staff Produksi per Detail Production Order |
-| Status | `draft` — konsep dan istilah Staff Produksi disetujui; keputusan §26 harus ditutup sebelum implementasi |
+| Status | `in-development` — OD-1–OD-3 ditutup pada 4 November 2026 |
 | Prioritas | P1 |
 | Target pengguna | Tim Kitchen dan pengelola jadwal produksi |
 | Modul terdampak | Back Office → Kitchen → Jadwal Produksi; Master Employee sebagai sumber data read-only |
@@ -153,7 +153,7 @@ Permission baru bersifat additive. Role operasional tidak mendapatkannya secara 
 14. Tidak ada request ESB saat membuka picker atau menyimpan assignment.
 15. Sync tidak menghapus assignment; detail yang tidak terlihat pada sync terakhir tetap mengikuti retention snapshot existing.
 16. Istilah UI canonical adalah **Staff Produksi**; istilah “Pengerja” tidak digunakan.
-17. Koreksi assignment setelah detail selesai mengikuti keputusan OD-2 pada §26.
+17. Koreksi assignment setelah detail selesai diperbolehkan dengan konfirmasi tambahan dan tetap menghasilkan audit event (OD-2).
 
 ## 12. Functional requirements
 
@@ -265,7 +265,7 @@ Event tidak dapat diubah atau dihapus melalui aplikasi. Nama tabel final dan str
 - Multi-select dengan assignment existing sudah terpilih.
 - Tombol **Batal** dan **Simpan Staff Produksi**.
 - Selection kosong setelah sebelumnya terisi memunculkan konfirmasi pelepasan seluruh staff.
-- Detail selesai mengikuti copy dan konfirmasi OD-2.
+- Detail selesai (`is_finished = true`) tetap dapat dikoreksi; modal menampilkan peringatan bahwa detail sudah selesai di ESB dan meminta konfirmasi sebelum menyimpan (OD-2).
 
 ### 17.3 Coverage dan responsive state
 
@@ -395,19 +395,19 @@ Tidak ada feature flag, env, queue, scheduler, dependency, atau backfill baru.
 
 ## 26. Open decisions
 
-| No | Keputusan | Opsi | Pemilik keputusan | Batas waktu |
+| No | Keputusan | Hasil | Diputuskan oleh | Tanggal |
 |---|---|---|---|---|
-| OD-1 | Eligibility Staff Produksi | **Rekomendasi:** employee aktif dan satu Branch dengan order; alternatif: seluruh employee Kitchen | Kitchen | Sebelum Phase 1 |
-| OD-2 | Koreksi assignment setelah detail `is_finished = true` | **Rekomendasi:** boleh dengan konfirmasi dan audit; alternatif: dikunci | Kitchen | Sebelum Phase 2 |
-| OD-3 | Scope MVP Employee App | **Rekomendasi:** Back Office saja; alternatif: sekaligus menambah halaman tugas employee | Kitchen | Sebelum Phase 3 |
+| OD-1 | Eligibility Staff Produksi | Employee aktif (`is_active = true`) dengan `employee.branch_id` sama dengan Branch order; divalidasi ulang di dalam transaksi | User (Kitchen) | 4 November 2026 |
+| OD-2 | Koreksi assignment setelah detail `is_finished = true` | Boleh, dengan konfirmasi tambahan di UI dan audit event seperti perubahan lain | User (Kitchen) | 4 November 2026 |
+| OD-3 | Scope MVP Employee App | Back Office saja; Employee App/**Tugas Produksi Saya** menjadi PRD terpisah | User (Kitchen) | 4 November 2026 |
 
-Keputusan yang sudah ditutup:
+Keputusan lain yang sudah ditutup:
 
 - assignment disimpan lokal per detail Production Order, bukan dikirim ke ESB;
 - nama UI canonical adalah **Staff Produksi**;
 - satu detail mendukung multiple Staff Produksi.
 
-Tidak ada keputusan blocking untuk menyelesaikan dokumentasi. OD-1–OD-3 wajib ditutup sebelum implementasi phase terkait.
+Tidak ada keputusan terbuka.
 
 ## 27. Implementation phases
 

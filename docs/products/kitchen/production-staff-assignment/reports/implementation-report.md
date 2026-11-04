@@ -57,7 +57,7 @@ Acuan: `docs/products/kitchen/production-staff-assignment/prd.md`
 
 - `tests/Feature/KitchenProductionOrderStaffAssignmentTest.php`: 40 test lulus (schema/unique, relasi/cast, append-only, permission registry, Policy matrix 8 kasus, action add/multiple/replace/release/no-op/malformed/rollback/ineligible/forged/stale/duplikat/finished/employee terhapus/tanpa ESB/snapshot tetap, sync regression, UI viewer/assigner/konfirmasi/label/forged/scope/close/coverage, query count detail+picker+kalender).
 - Regression terkait: `KitchenProductionOrderPageTest`, `KitchenProductionOrderSyncTest`, `EsbProductionOrderServiceTest`, `RolePermissionsMatrixTest`, `RbacResourceTest`, `StockCardTest`, `SalesReportApprovalWorkflowTest`, `BasketSizeTest` — 226 test lulus.
-- Full Feature suite 4 shard: hasil dicantumkan di Pull Request.
+- Full Feature suite 4 shard (`ops/ci/feature-shard.sh`): 2.522 test lulus, 0 gagal (shard 1: 730, shard 2: 708, shard 3: 636, shard 4: 448).
 - `vendor/bin/pint --dirty --format agent`, `bash ops/ci/check-doc-links.sh`, `bash ops/ci/check-code-map.sh`, `git diff --check`: lulus.
 - Migration rehearsal MySQL lokal: `up()` membuat tabel, FK, unique, dan index sesuai rancangan; `rollback` menghapus keduanya; database lokal dikembalikan ke kondisi awal.
 - Belum dilakukan: UAT staging (360/390/768/1024/1440 px, zoom 200%, dark mode, keyboard/Escape, nama panjang) dan rehearsal staging.

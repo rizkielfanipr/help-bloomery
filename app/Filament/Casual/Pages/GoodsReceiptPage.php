@@ -3,12 +3,15 @@
 namespace App\Filament\Casual\Pages;
 
 use App\Actions\Inventory\Receiving\CreateGoodsReceiptAction;
+use App\Enums\DeliveryAssessmentStatus;
 use App\Filament\Casual\Concerns\ManagesReceivingItems;
 use App\Models\GoodsReceipt;
 use App\Models\User;
+use App\Models\VendorComplianceIncident;
 use App\Services\EsbBranchMappingResolver;
 use App\Services\EsbGoodsReceiptService;
 use App\Services\InboundGoodsReceiptQcService;
+use App\Services\Purchasing\VendorCompliance\DeliveryDelayCalculator;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Contracts\Support\Htmlable;
@@ -218,6 +221,22 @@ class GoodsReceiptPage extends Page
         }
     }
 
+    /**
+     * Preview of the delivery assessment for the opened PO and the chosen receipt date. Display only:
+     * submit reads the PO again and CreateGoodsReceiptAction stores the final assessment.
+     *
+     * @return array{status: DeliveryAssessmentStatus, requiredDate: ?string, delayDays: ?int, note: ?string}
+     */
+    public function deliveryPreview(): array
+    {
+        return app(DeliveryDelayCalculator::class)->assess(data_get($this->purchaseOrder, 'requiredDate'), $this->goodsReceiptDate ?: now()->toDateString());
+    }
+
+    public function requiredDateLabel(mixed $requiredDate, string $fallback = '-'): string
+    {
+        return app(DeliveryDelayCalculator::class)->localDate($requiredDate)?->locale('id')->isoFormat('D MMM Y') ?? $fallback;
+    }
+
     public function selectPurchaseOrder(string $purchaseNumber, string $companyCode): void
     {
         try {
@@ -396,6 +415,7 @@ class GoodsReceiptPage extends Page
                 return $item;
             });
             $receipt = app(CreateGoodsReceiptAction::class)->record([
+                'source' => GoodsReceipt::SOURCE_PURCHASE_ORDER, 'poRequiredDate' => data_get($latest, 'requiredDate'),
                 'submissionKey' => $this->submissionKey, 'companyCode' => $this->sourceCompanyCode, 'purchaseNumber' => $purchaseNumber,
                 'purchaseDate' => data_get($this->purchaseOrder, 'purchaseDate'), 'goodsReceiptDate' => $this->goodsReceiptDate,
                 'esbBranchId' => (int) data_get($this->purchaseOrder, 'branchID'), 'localBranchId' => $localBranchId, 'branchName' => data_get($this->purchaseOrder, 'branchName'),
@@ -476,7 +496,8 @@ class GoodsReceiptPage extends Page
 
     private function notifyPurchasing(GoodsReceipt $receipt): void
     {
-        if (! $receipt->vendorComplianceIncidents()->exists()) {
+        // Late Delivery candidates notify their reviewers separately; this message is for QC rejections.
+        if (! $receipt->vendorComplianceIncidents()->where('category', '!=', VendorComplianceIncident::CATEGORY_LATE_DELIVERY)->exists()) {
             return;
         }
         $recipients = User::query()->where('is_active', true)->role('PURCHASING_STAFF')->get();

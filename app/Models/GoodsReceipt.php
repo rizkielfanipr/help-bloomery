@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DeliveryAssessmentStatus;
 use Database\Factories\GoodsReceiptFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,6 +29,12 @@ class GoodsReceipt extends Model
 
     public const STATUS_PARTIAL_SUCCEEDED = 'partial_succeeded';
 
+    /** Receiving with PO: delivery timeliness is assessed. */
+    public const SOURCE_PURCHASE_ORDER = 'purchase_order';
+
+    /** PO Susulan: the goods arrived before the PO existed, so timeliness is never assessed. */
+    public const SOURCE_NON_PO = 'non_po';
+
     protected $fillable = [
         'company_code', 'reference_number', 'esb_goods_receipt_number', 'purchase_date',
         'goods_receipt_date', 'esb_branch_id', 'local_branch_id', 'branch_name', 'supplier_id', 'supplier_name',
@@ -38,6 +45,7 @@ class GoodsReceipt extends Model
         'delivery_document_match', 'invoice_document_match', 'price_match', 'document_notes',
         'document_evidence_photos', 'qc_outcome', 'qc_completed_at',
         'document_type', 'document_number', 'document_date', 'document_photos', 'goods_photos',
+        'po_required_date', 'delivery_delay_days', 'delivery_assessment_status', 'delivery_assessed_at', 'delivery_assessment_note',
     ];
 
     protected function casts(): array
@@ -50,6 +58,8 @@ class GoodsReceipt extends Model
             'invoice_document_match' => 'boolean', 'price_match' => 'boolean',
             'document_evidence_photos' => 'array', 'qc_completed_at' => 'datetime',
             'document_date' => 'date', 'document_photos' => 'array', 'goods_photos' => 'array',
+            'po_required_date' => 'date', 'delivery_delay_days' => 'integer',
+            'delivery_assessment_status' => DeliveryAssessmentStatus::class, 'delivery_assessed_at' => 'datetime',
         ];
     }
 

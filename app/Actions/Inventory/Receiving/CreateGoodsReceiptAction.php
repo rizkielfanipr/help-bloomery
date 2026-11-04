@@ -2,13 +2,17 @@
 
 namespace App\Actions\Inventory\Receiving;
 
+use App\Actions\Purchasing\VendorCompliance\AssessLateDeliveryComplianceAction;
+use App\Enums\DeliveryAssessmentStatus;
 use App\Models\GoodsReceipt;
 use App\Services\EsbGoodsReceiptService;
 use App\Services\InboundGoodsReceiptQcService;
 use App\Services\Monitoring\EsbTransactionRecorder;
+use App\Services\Purchasing\VendorCompliance\DeliveryDelayCalculator;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -23,17 +27,27 @@ class CreateGoodsReceiptAction
         private readonly EsbGoodsReceiptService $goodsReceipts,
         private readonly InboundGoodsReceiptQcService $qc,
         private readonly EsbTransactionRecorder $recorder,
+        private readonly DeliveryDelayCalculator $deliveryDelay,
+        private readonly AssessLateDeliveryComplianceAction $lateDelivery,
     ) {}
 
     /**
      * Persist the receipt once per submission key. A repeated key returns the existing receipt with
      * `wasRecentlyCreated` false and writes nothing.
      *
-     * @param  array{submissionKey: string, companyCode: string, purchaseNumber: string, purchaseDate: mixed, goodsReceiptDate: string, esbBranchId: int, localBranchId: ?int, branchName: ?string, supplierId: mixed, supplierName: ?string, location: array{locationID: int, locationName: string}, documentType: string, documentNumber: string, documentDate: mixed, documentPhotos: array<int, string>, goodsPhotos: array<int, string>, poDocumentMatch: bool, documentMatch: bool, priceMatch: bool, documentNotes: ?string, additionalInfo: ?string}  $header
+     * `source` is required so PO Susulan is never assessed for late delivery; `poRequiredDate` is the
+     * `requiredDate` of the PO the caller just read again from ESB
+     * (docs/products/purchasing/vendor-compliance-late-delivery/prd.md §11).
+     *
+     * @param  array{source: string, poRequiredDate?: mixed, submissionKey: string, companyCode: string, purchaseNumber: string, purchaseDate: mixed, goodsReceiptDate: string, esbBranchId: int, localBranchId: ?int, branchName: ?string, supplierId: mixed, supplierName: ?string, location: array{locationID: int, locationName: string}, documentType: string, documentNumber: string, documentDate: mixed, documentPhotos: array<int, string>, goodsPhotos: array<int, string>, poDocumentMatch: bool, documentMatch: bool, priceMatch: bool, documentNotes: ?string, additionalInfo: ?string}  $header
      * @param  Collection<int|string, array<string, mixed>>  $items  QC-assessed items in the Receiving array shape.
      */
     public function record(array $header, Collection $items, int $actorId): GoodsReceipt
     {
+        if (! in_array($header['source'] ?? null, [GoodsReceipt::SOURCE_PURCHASE_ORDER, GoodsReceipt::SOURCE_NON_PO], true)) {
+            throw new InvalidArgumentException('Sumber Goods Receipt wajib purchase_order atau non_po.');
+        }
+
         $payload = $this->payload($header, $items);
 
         return DB::transaction(fn (): GoodsReceipt => $this->persist($header, $payload, $items, $actorId));
@@ -126,6 +140,9 @@ class CreateGoodsReceiptAction
         $goodsPhotos = $header['goodsPhotos'];
 
         $payloadHash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+        $delivery = $header['source'] === GoodsReceipt::SOURCE_NON_PO
+            ? ['status' => DeliveryAssessmentStatus::NotApplicable, 'requiredDate' => null, 'delayDays' => null, 'note' => null]
+            : $this->deliveryDelay->assess($header['poRequiredDate'] ?? null, $header['goodsReceiptDate']);
         $receipt = GoodsReceipt::query()->createOrFirst(['submission_key' => $header['submissionKey']], [
             'company_code' => $header['companyCode'], 'reference_number' => $header['purchaseNumber'], 'purchase_date' => $header['purchaseDate'], 'goods_receipt_date' => $header['goodsReceiptDate'],
             'esb_branch_id' => $header['esbBranchId'], 'local_branch_id' => $header['localBranchId'], 'branch_name' => $header['branchName'],
@@ -147,6 +164,8 @@ class CreateGoodsReceiptAction
             'status' => $accepted > 0 ? GoodsReceipt::STATUS_PROCESSING : ($rejected > 0 && $hold <= 0 ? GoodsReceipt::STATUS_QC_REJECTED : GoodsReceipt::STATUS_QC_HOLD),
             'payload_hash' => $payloadHash, 'attempted_at' => now(),
             'submitted_by' => $actorId, 'submitted_at' => now(), 'request_payload' => $payload,
+            'po_required_date' => $delivery['requiredDate'], 'delivery_delay_days' => $delivery['delayDays'],
+            'delivery_assessment_status' => $delivery['status'], 'delivery_assessed_at' => now(), 'delivery_assessment_note' => $delivery['note'],
         ]);
         if (! $receipt->wasRecentlyCreated) {
             return $receipt;
@@ -188,12 +207,13 @@ class CreateGoodsReceiptAction
             }
             if ((float) $item['rejectedQty'] > 0) {
                 $points = $qc->demeritPoints($item['rejectionCategory']);
-                $record->vendorComplianceIncident()->create(['goods_receipt_id' => $receipt->id, 'supplier_id' => $receipt->supplier_id, 'supplier_name' => $receipt->supplier_name,
+                $record->vendorComplianceIncidents()->create(['goods_receipt_id' => $receipt->id, 'supplier_id' => $receipt->supplier_id, 'supplier_name' => $receipt->supplier_name,
                     'category' => $item['rejectionCategory'], 'severity' => $points >= 20 ? 'high' : ($points >= 10 ? 'medium' : 'low'), 'demerit_points' => $points,
                     'affected_quantity' => $item['rejectedQty'], 'status' => 'open', 'description' => $item['rejectionReason'],
                     'evidence_photos' => $item['storedEvidencePhotos'], 'reported_by' => $inspectedBy, 'occurred_at' => now()]);
             }
         }
+        $this->lateDelivery->execute($receipt, $actorId);
 
         return $receipt;
     }

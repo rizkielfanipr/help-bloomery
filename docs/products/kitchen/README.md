@@ -59,4 +59,5 @@ Snapshot ESB: `EsbProductionOrder`, `EsbProductionOrderDetail`, `EsbProductionOr
 | Dokumen | Status |
 |---|---|
 | [Jadwal Produksi](production-schedule/README.md) dan [PRD](production-schedule/prd.md) §25–§38 — kalender Production Order ESB | In development (kode selesai, belum rollout) |
+| [Assignment Staff Produksi](production-staff-assignment/README.md) dan [PRD](production-staff-assignment/prd.md) | Draft — assignment lokal per detail Production Order belum diimplementasikan |
 | [PRD](production-schedule/prd.md) §1–§24 — rencana produksi lokal | Deprecated (dihapus v3.0) |

@@ -161,9 +161,9 @@
                                         <span @class(['inline-flex h-6 w-6 items-center justify-center rounded-full', 'bg-blue-600 font-bold text-white' => $day['isToday'], 'text-gray-700 dark:text-gray-200' => $day['isCurrentMonth'] && ! $day['isToday'], 'text-gray-300 dark:text-gray-600' => ! $day['isCurrentMonth']])>{{ $day['date']->day }}</span>
                                     </div>
                                     @foreach($day['orders'] as $index => $order)
-                                        <button type="button" wire:key="kitchen-po-chip-{{ $order->id }}" wire:click="openProductionOrder({{ $order->id }})" x-show="expanded || {{ $index < 3 ? 'true' : 'false' }}" title="Production Order {{ $order->production_order_num }} · {{ $order->branch?->name }} · {{ $order->label() }} · {{ $order->details_count }} item" class="w-full rounded-md border px-1.5 py-1 text-left text-[11px] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 {{ $chipClass }}">
+                                        <button type="button" wire:key="kitchen-po-chip-{{ $order->id }}" wire:click="openProductionOrder({{ $order->id }})" x-show="expanded || {{ $index < 3 ? 'true' : 'false' }}" title="Production Order {{ $order->production_order_num }} · {{ $order->branch?->name }} · {{ $order->label() }} · {{ $order->details_count }} item{{ $order->details_count > 0 ? ' · Staff Produksi '.$order->staffed_details_count.' dari '.$order->details_count.' detail' : '' }}" class="w-full rounded-md border px-1.5 py-1 text-left text-[11px] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 {{ $chipClass }}">
                                             <span class="flex min-w-0 items-center gap-1"><span class="{{ $esbBadge }}">ESB</span><span class="truncate font-bold">{{ $order->production_order_num }}</span></span>
-                                            <span class="block truncate opacity-80">{{ $order->branch?->name }} · {{ $order->label() }} · {{ $order->details_synced_at ? $order->details_count.' item' : 'detail diproses' }}</span>
+                                            <span class="block truncate opacity-80">{{ $order->branch?->name }} · {{ $order->label() }} · {{ $order->details_synced_at ? $order->details_count.' item' : 'detail diproses' }}{{ $order->details_synced_at && $order->details_count > 0 ? ' · Staff '.$order->staffed_details_count.'/'.$order->details_count : '' }}</span>
                                         </button>
                                     @endforeach
                                     @if(count($day['orders']) > 3)
@@ -187,7 +187,7 @@
                                             <span class="flex min-w-0 items-center gap-1.5"><span class="{{ $esbBadge }}">ESB</span><span class="min-w-0 break-words font-bold">{{ $order->production_order_num }}</span></span>
                                             <span class="shrink-0 text-xs font-semibold">{{ $order->label() }}</span>
                                         </span>
-                                        <span class="mt-1 block break-words text-xs opacity-80">{{ $order->branch?->name }} · {{ $order->details_synced_at ? $order->details_count.' item' : 'detail diproses' }}</span>
+                                        <span class="mt-1 block break-words text-xs opacity-80">{{ $order->branch?->name }} · {{ $order->details_synced_at ? $order->details_count.' item' : 'detail diproses' }}{{ $order->details_synced_at && $order->details_count > 0 ? ' · Staff Produksi '.$order->staffed_details_count.' dari '.$order->details_count.' detail' : '' }}</span>
                                     </button>
                                 @endforeach
                             </div>
@@ -203,7 +203,7 @@
     {{-- Production Order detail: read-only, close is the only action (prd.md §34.3) --}}
     @if($productionOrderId !== null)
         @php($poDetail = $this->productionOrderDetail)
-        <div x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window="$wire.closeModal()" class="fixed inset-0 z-[130] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="kitchen-po-title">
+        <div x-data x-trap.inert.noscroll="true" x-on:keydown.escape.window="if (! document.getElementById('kitchen-staff-picker')) $wire.closeModal()" class="fixed inset-0 z-[130] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="kitchen-po-title">
             <button type="button" wire:click="closeModal" class="absolute inset-0 bg-gray-950/60" aria-label="Tutup detail Production Order" tabindex="-1"></button>
             @if(! $poDetail)
                 <x-rnd.picker-modal title="Production Order ESB" maxWidth="5xl">
@@ -222,6 +222,7 @@
                             <span class="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">{{ $order->label() }}</span>
                             <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-300">Hanya baca — perubahan dilakukan di ESB</span>
                         </div>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">Data Production Order berasal dari ESB dan hanya dapat dibaca. Assignment Staff Produksi dikelola di Bloomery Office.</p>
                         @if($poDetail['notSeenInLatestSync'])
                             <p class="rounded-lg border px-3 py-2 text-sm {{ $toneClass['amber'] }}" role="status">Tidak terlihat pada sinkronisasi terakhir. Data di bawah adalah data terakhir yang tersimpan.</p>
                         @endif
@@ -237,7 +238,12 @@
                         </dl>
 
                         <div>
-                            <h4 class="mb-2 text-sm font-semibold text-gray-800 dark:text-gray-100">Detail Produksi ({{ $order->details->count() }})</h4>
+                            <div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Detail Produksi ({{ $order->details->count() }})</h4>
+                                @if(! $poDetail['detailsPending'] && $order->details->isNotEmpty())
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $poDetail['staffedDetails'] }} dari {{ $order->details->count() }} detail sudah memiliki Staff Produksi</p>
+                                @endif
+                            </div>
                             @if($poDetail['detailsPending'])
                                 <p class="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">Detail Production Order ini sedang diambil dari ESB.</p>
                             @else
@@ -256,6 +262,33 @@
                                                     @endif
                                                     <p class="text-sm font-bold tabular-nums text-gray-900 dark:text-white">{{ \App\Filament\Helpdesk\Pages\KitchenProductionSchedulePage::formatQuantity($detail->quantity) }} <span class="text-xs font-semibold text-gray-500">{{ $detail->uom_name }}</span></p>
                                                 </div>
+                                            </div>
+                                            {{-- Staff Produksi: local assignment, after quantity/status and before material (staff-assignment prd.md §17.1) --}}
+                                            <div class="mt-3 rounded-lg border border-gray-100 bg-gray-50/70 p-2.5 dark:border-gray-800 dark:bg-gray-800/30">
+                                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                                    <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">Staff Produksi</p>
+                                                    @if($poDetail['canAssignStaff'])
+                                                        <button type="button" wire:click="openStaffPicker({{ $detail->id }})" wire:loading.attr="disabled" wire:target="openStaffPicker({{ $detail->id }})" class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-2.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-60 dark:border-indigo-800 dark:bg-gray-900 dark:text-indigo-300 dark:hover:bg-indigo-950/40">
+                                                            <x-heroicon-o-user-group class="h-4 w-4" /> Atur Staff Produksi
+                                                        </button>
+                                                    @endif
+                                                </div>
+                                                @if($detail->staffAssignments->isEmpty())
+                                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Belum ada Staff Produksi yang ditugaskan.</p>
+                                                @else
+                                                    <ul class="mt-2 flex flex-wrap gap-1.5">
+                                                        @foreach($detail->staffAssignments as $assignment)
+                                                            @php($staffWarning = $assignment->historyWarning($order->branch_id))
+                                                            <li wire:key="po-staff-{{ $assignment->id }}" title="{{ $assignment->assignedBy ? 'Ditugaskan oleh '.$assignment->assignedBy->name : '' }}" class="inline-flex min-w-0 max-w-full flex-wrap items-center gap-x-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-0.5 text-xs dark:border-gray-700 dark:bg-gray-900">
+                                                                <span class="break-words font-semibold text-gray-900 dark:text-white">{{ $assignment->employee_name }}</span>
+                                                                <span class="break-words text-gray-500 dark:text-gray-400">{{ $assignment->employee_code }}{{ $assignment->employee_position ? ' · '.$assignment->employee_position : '' }}</span>
+                                                                @if($staffWarning)
+                                                                    <span class="inline-flex items-center gap-0.5 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"><x-heroicon-m-exclamation-triangle class="h-3 w-3" aria-hidden="true" />{{ $staffWarning }}</span>
+                                                                @endif
+                                                            </li>
+                                                        @endforeach
+                                                    </ul>
+                                                @endif
                                             </div>
                                             @if(! empty($detail->materials))
                                                 <button type="button" x-on:click="open = ! open" x-bind:aria-expanded="open.toString()" aria-controls="po-materials-{{ $detail->id }}" class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:underline dark:text-indigo-300">
@@ -284,6 +317,10 @@
                         <button type="button" wire:click="closeModal" class="h-9 rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200">Tutup</button>
                     </div>
                 </x-rnd.picker-modal>
+            @endif
+
+            @if($staffDetailId !== null)
+                @include('filament.helpdesk.pages.partials.kitchen-production-staff-picker')
             @endif
         </div>
     @endif

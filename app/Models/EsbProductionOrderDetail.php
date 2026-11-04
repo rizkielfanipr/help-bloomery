@@ -6,6 +6,7 @@ use Database\Factories\EsbProductionOrderDetailFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * One BOM/product row of an ESB Production Order snapshot (docs/products/kitchen/production-schedule/prd.md §29.2).
@@ -34,5 +35,19 @@ class EsbProductionOrderDetail extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(EsbProductionOrder::class, 'esb_production_order_id');
+    }
+
+    /**
+     * Local Staff Produksi (docs/products/kitchen/production-staff-assignment/prd.md §14.3). Keyed by the local
+     * detail ID, which the sync keeps stable by upserting on `external_detail_id`.
+     */
+    public function staffAssignments(): HasMany
+    {
+        return $this->hasMany(KitchenProductionOrderStaffAssignment::class);
+    }
+
+    public function staffAssignmentEvents(): HasMany
+    {
+        return $this->hasMany(KitchenProductionOrderStaffAssignmentEvent::class);
     }
 }

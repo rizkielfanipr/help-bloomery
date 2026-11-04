@@ -19,8 +19,8 @@ use Illuminate\Support\Collection;
  * Read model for the Jadwal Produksi calendar of ESB Production Orders
  * (docs/products/kitchen/production-schedule/prd.md §32–§34, §38). It reads local snapshots only — never ESB —
  * within the visible Monday–Sunday range and the Kitchen-Brand Branch scope, applied in SQL.
- * Details and materials are never loaded here; the query count stays flat regardless of the
- * number of orders.
+ * Details, materials, and Staff Produksi are never loaded here (only counted); the query count
+ * stays flat regardless of the number of orders.
  */
 class ProductionOrderCalendarQuery
 {
@@ -89,7 +89,11 @@ class ProductionOrderCalendarQuery
             ->whereDate('production_order_date', '<=', $end->toDateString())
             ->when(filled($filters['branch_id'] ?? null), fn (Builder $query) => $query->where('branch_id', (int) $filters['branch_id']))
             ->when(filled($filters['status'] ?? null), fn (Builder $query) => $query->where('status_id', (string) $filters['status']))
-            ->withCount('details')
+            ->withCount([
+                'details',
+                // Staff Produksi coverage (staff-assignment prd.md §17.3): one subquery, employees never loaded.
+                'details as staffed_details_count' => fn (Builder $query): Builder => $query->whereHas('staffAssignments'),
+            ])
             ->with('branch:id,name')
             ->orderBy('production_order_date')
             ->orderBy('branch_id')

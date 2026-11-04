@@ -214,6 +214,9 @@ return [
             'view kitchen production schedules',
             'view all branch kitchen production schedules',
             'sync kitchen production orders',
+            // docs/products/kitchen/production-staff-assignment/prd.md §16: local Staff Produksi only,
+            // never an ESB mutation; also needs `view kitchen production schedules`.
+            'assign kitchen production order staff',
         ],
     ],
 

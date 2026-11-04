@@ -2,9 +2,13 @@
 
 namespace App\Filament\Helpdesk\Pages;
 
+use App\Actions\Kitchen\AssignProductionOrderStaffAction;
 use App\Actions\Kitchen\RequestProductionOrderSyncAction;
 use App\Models\Branch;
+use App\Models\Employee;
 use App\Models\EsbProductionOrder;
+use App\Models\EsbProductionOrderDetail;
+use App\Models\KitchenProductionOrderStaffAssignment;
 use App\Services\Kitchen\ProductionOrderCalendarQuery;
 use App\Services\Kitchen\ProductionOrderDetailBuilder;
 use BackedEnum;
@@ -17,7 +21,10 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Throwable;
 use UnitEnum;
@@ -27,7 +34,9 @@ use UnitEnum;
  * calendar of ESB Production Orders with a mobile agenda and one detail dialog. It reads local
  * snapshots only; ESB is never called while rendering or opening a detail, and nothing on the page
  * mutates data. The page holds only IDs and filter values; every detail is re-queried inside the
- * Kitchen-Brand scope and re-authorized on the server.
+ * Kitchen-Brand scope and re-authorized on the server. The only mutation is the local Staff Produksi
+ * assignment per detail (docs/products/kitchen/production-staff-assignment/prd.md), delegated to
+ * `AssignProductionOrderStaffAction`; the ESB snapshot itself stays read-only.
  */
 class KitchenProductionSchedulePage extends Page
 {
@@ -56,6 +65,22 @@ class KitchenProductionSchedulePage extends Page
     public string $filterStatus = '';
 
     public ?int $productionOrderId = null;
+
+    /** Detail whose Staff Produksi picker is open. */
+    #[Locked]
+    public ?int $staffDetailId = null;
+
+    public string $staffSearch = '';
+
+    /** @var list<int|string> employee IDs; validated again by the Action */
+    public array $selectedStaffIds = [];
+
+    /** @var list<int> assignment IDs shown when the picker opened, to refuse a save over someone else's */
+    #[Locked]
+    public array $staffExpectedAssignmentIds = [];
+
+    /** @var list<string>|null warnings awaiting confirmation before saving */
+    public ?array $staffConfirmation = null;
 
     public static function canAccess(): bool
     {
@@ -254,7 +279,7 @@ class KitchenProductionSchedulePage extends Page
     }
 
     /**
-     * @return array{order: EsbProductionOrder, notSeenInLatestSync: bool, detailsPending: bool}|null
+     * @return array{order: EsbProductionOrder, notSeenInLatestSync: bool, detailsPending: bool, canAssignStaff: bool, staffedDetails: int}|null
      */
     #[Computed]
     public function productionOrderDetail(): ?array
@@ -272,7 +297,155 @@ class KitchenProductionSchedulePage extends Page
 
     public function closeModal(): void
     {
+        $this->closeStaffPicker();
         $this->productionOrderId = null;
+    }
+
+    // ── Staff Produksi (staff-assignment prd.md §17) ────────────────────
+
+    public function openStaffPicker(int $detailId): void
+    {
+        $this->closeStaffPicker();
+
+        try {
+            $detail = app(ProductionOrderDetailBuilder::class)->staffPickerDetail(Auth::user(), $detailId);
+        } catch (AuthorizationException|ModelNotFoundException) {
+            $detail = null;
+        }
+
+        if ($detail === null || $detail->esb_production_order_id !== $this->productionOrderId) {
+            Notification::make()->title('Staff Produksi tidak dapat diatur untuk detail ini.')->danger()->send();
+
+            return;
+        }
+
+        $this->staffDetailId = $detail->id;
+        $this->selectedStaffIds = $detail->staffAssignments->pluck('employee_id')->filter()->map(fn (int $id): string => (string) $id)->values()->all();
+        $this->staffExpectedAssignmentIds = $detail->staffAssignments->modelKeys();
+    }
+
+    /**
+     * @return array{detail: EsbProductionOrderDetail, employees: EloquentCollection<int, Employee>, hasMore: bool}|null
+     */
+    #[Computed]
+    public function staffPicker(): ?array
+    {
+        if ($this->staffDetailId === null) {
+            return null;
+        }
+
+        $builder = app(ProductionOrderDetailBuilder::class);
+
+        try {
+            $detail = $builder->staffPickerDetail(Auth::user(), $this->staffDetailId);
+        } catch (AuthorizationException|ModelNotFoundException) {
+            return null;
+        }
+
+        return ['detail' => $detail, ...$builder->staffCandidates($detail, $this->staffSearch)];
+    }
+
+    public function updatedSelectedStaffIds(): void
+    {
+        $this->staffConfirmation = null;
+    }
+
+    /**
+     * Releasing every staff member and correcting a finished detail (OD-2) need a second click. The
+     * Action re-authorizes and re-validates; this method only prepares the call and its feedback.
+     */
+    public function saveStaff(bool $confirmed = false): void
+    {
+        $picker = $this->staffPicker;
+
+        if ($picker === null) {
+            $this->closeStaffPicker();
+            Notification::make()->title('Staff Produksi tidak dapat diatur untuk detail ini.')->danger()->send();
+
+            return;
+        }
+
+        $detail = $picker['detail'];
+        $warnings = [];
+
+        if ($this->selectionChanges($detail)) {
+            if ($this->selectedStaffIds === [] && $detail->staffAssignments->isNotEmpty()) {
+                $warnings[] = 'Semua Staff Produksi pada detail ini akan dilepas.';
+            }
+
+            if ($detail->is_finished) {
+                $warnings[] = 'Detail ini sudah selesai di ESB. Koreksi Staff Produksi tetap dicatat di riwayat perubahan.';
+            }
+        }
+
+        if ($warnings !== [] && ! $confirmed) {
+            $this->staffConfirmation = $warnings;
+
+            return;
+        }
+
+        try {
+            $result = app(AssignProductionOrderStaffAction::class)
+                ->execute(Auth::user(), $detail->id, $this->selectedStaffIds, $this->staffExpectedAssignmentIds);
+        } catch (ValidationException $exception) {
+            $this->staffConfirmation = null;
+            $this->addError('selectedStaffIds', collect($exception->errors())->flatten()->first());
+
+            return;
+        } catch (AuthorizationException|ModelNotFoundException) {
+            $this->closeStaffPicker();
+            Notification::make()->title('Anda tidak lagi dapat mengatur Staff Produksi untuk detail ini.')->danger()->send();
+
+            return;
+        } catch (Throwable $exception) {
+            Log::error('Kitchen Staff Produksi assignment failed.', [
+                'production_order_id' => $detail->esb_production_order_id,
+                'production_order_detail_id' => $detail->id,
+                'branch_id' => $detail->order->branch_id,
+                'actor_id' => Auth::id(),
+                'error' => $exception::class,
+            ]);
+            report($exception);
+            $this->staffConfirmation = null;
+            $this->addError('selectedStaffIds', 'Staff Produksi gagal disimpan. Coba lagi beberapa saat lagi.');
+
+            return;
+        }
+
+        $this->closeStaffPicker();
+        unset($this->productionOrderDetail, $this->calendar);
+
+        $result['assigned'] + $result['unassigned'] === 0
+            ? Notification::make()->title('Tidak ada perubahan Staff Produksi.')->info()->send()
+            : Notification::make()->title('Staff Produksi disimpan.')->success()->send();
+    }
+
+    public function cancelStaffConfirmation(): void
+    {
+        $this->staffConfirmation = null;
+    }
+
+    public function closeStaffPicker(): void
+    {
+        $this->staffDetailId = null;
+        $this->staffSearch = '';
+        $this->selectedStaffIds = [];
+        $this->staffExpectedAssignmentIds = [];
+        $this->staffConfirmation = null;
+        $this->resetErrorBag('selectedStaffIds');
+        unset($this->staffPicker);
+    }
+
+    private function selectionChanges(EsbProductionOrderDetail $detail): bool
+    {
+        $current = $detail->staffAssignments
+            ->map(fn (KitchenProductionOrderStaffAssignment $assignment): string => (string) $assignment->employee_id)
+            ->sort()
+            ->values()
+            ->all();
+        $selected = collect($this->selectedStaffIds)->map(fn (mixed $id): string => (string) $id)->sort()->values()->all();
+
+        return $current !== $selected;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────

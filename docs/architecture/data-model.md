@@ -1,6 +1,6 @@
 # Data Model
 
-Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (167 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0; bagian Inventory ditambah empat model `NonPoReceipt*` dengan cara yang sama pada 2 November 2026; bagian Brand Marketing ditambah empat model `MarketingDesign*` dengan cara yang sama pada 3 November 2026; bagian Purchasing ditambah dua model `MaterialSourcingRequest*` dan relasi `RndProductEsbMaterial::sourcingRequest` dengan cara yang sama pada 3 November 2026; Late Delivery menambah `VendorComplianceIncidentEvent`, relasi `VendorComplianceIncident::{liabilityReviewedBy,events}`, dan mengganti `GoodsReceiptItem::vendorComplianceIncident` menjadi plural dengan cara yang sama pada 3 November 2026). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
+Daftar model Eloquent di `app/Models` beserta tabel dan relasi yang dideklarasikan, dikelompokkan per domain. Dihasilkan dari kode pada 27 Oktober 2026 (167 model; bagian Kitchen diperbarui dari refleksi relasi dengan format yang sama: tiga model snapshot Production Order ESB ditambahkan dan dua model rencana lokal dihapus pada PRD v3.0; bagian Inventory ditambah empat model `NonPoReceipt*` dengan cara yang sama pada 2 November 2026; bagian Brand Marketing ditambah empat model `MarketingDesign*` dengan cara yang sama pada 3 November 2026; bagian Purchasing ditambah dua model `MaterialSourcingRequest*` dan relasi `RndProductEsbMaterial::sourcingRequest` dengan cara yang sama pada 3 November 2026; Late Delivery menambah `VendorComplianceIncidentEvent`, relasi `VendorComplianceIncident::{liabilityReviewedBy,events}`, dan mengganti `GoodsReceiptItem::vendorComplianceIncident` menjadi plural dengan cara yang sama pada 3 November 2026; Staff Produksi Kitchen menambah `KitchenProductionOrderStaffAssignment*` serta relasi `EsbProductionOrderDetail::{staffAssignments,staffAssignmentEvents}` dan `Employee::productionOrderStaffAssignments` dengan cara yang sama pada 4 November 2026). Struktur kolom lengkap ada di `database/migrations`; untuk melihat skema aktual gunakan `php artisan db:table {tabel}` atau tool `database-schema` Laravel Boost.
 
 Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type eksplisit (`metode→Model (Tipe)`).
 
@@ -13,7 +13,7 @@ Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type ekspli
 | `BranchEsbCode` | `branch_esb_codes` | branch→Branch (BelongsTo) |
 | `BranchSalesShift` | `branch_sales_shifts` | branch→Branch (BelongsTo), basketSizeRecords→BasketSizeRecord (HasMany) |
 | `Brand` | `brands` | branches→Branch (HasMany), designBundles→MarketingDesignBundle (HasMany) |
-| `Employee` | `employees` | branch→Branch (BelongsTo), salesReports→SalesReport (HasManyThrough) |
+| `Employee` | `employees` | branch→Branch (BelongsTo), salesReports→SalesReport (HasManyThrough), productionOrderStaffAssignments→KitchenProductionOrderStaffAssignment (HasMany) |
 | `EsbPaymentMethodCache` | `esb_payment_method_cache` | — |
 | `NotificationDelivery` | `notification_deliveries` | — |
 | `SalesRegion` | `sales_regions` | productPrices→RndProductRegionalPrice (HasMany), productSalesProjections→RndProductSalesProjection (HasMany) |
@@ -167,8 +167,10 @@ Kolom *Relasi* hanya memuat relasi yang dideklarasikan dengan return type ekspli
 | Model | Tabel | Relasi |
 |---|---|---|
 | `EsbProductionOrder` | `esb_production_orders` | branch→Branch (BelongsTo), mapping→BranchEsbCode (BelongsTo), details→EsbProductionOrderDetail (HasMany) |
-| `EsbProductionOrderDetail` | `esb_production_order_details` | order→EsbProductionOrder (BelongsTo) |
+| `EsbProductionOrderDetail` | `esb_production_order_details` | order→EsbProductionOrder (BelongsTo), staffAssignments→KitchenProductionOrderStaffAssignment (HasMany), staffAssignmentEvents→KitchenProductionOrderStaffAssignmentEvent (HasMany) |
 | `EsbProductionOrderSyncRun` | `esb_production_order_sync_runs` | mapping→BranchEsbCode (BelongsTo), branch→Branch (BelongsTo) |
+| `KitchenProductionOrderStaffAssignment` | `kitchen_production_order_staff_assignments` | detail→EsbProductionOrderDetail (BelongsTo), employee→Employee (BelongsTo), branch→Branch (BelongsTo), assignedBy→User (BelongsTo) |
+| `KitchenProductionOrderStaffAssignmentEvent` | `kitchen_production_order_staff_assignment_events` | order→EsbProductionOrder (BelongsTo), detail→EsbProductionOrderDetail (BelongsTo), employee→Employee (BelongsTo), actor→User (BelongsTo) |
 
 ## Purchasing
 

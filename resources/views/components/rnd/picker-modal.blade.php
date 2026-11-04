@@ -8,6 +8,7 @@
     $widthClass = match ($maxWidth) {
         '7xl' => 'max-w-7xl',
         '6xl' => 'max-w-6xl',
+        '2xl' => 'max-w-2xl',
         default => 'max-w-5xl',
     };
 @endphp

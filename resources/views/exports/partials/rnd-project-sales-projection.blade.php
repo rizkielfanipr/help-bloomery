@@ -1,5 +1,5 @@
 <section class="sales-projection-section">
-    <div class="sales-projection-title">Sales Projection</div>
+    <div class="sales-projection-title">Sales Projection Menu</div>
 
     @php
         $hasSalesProjections = $products->contains(fn ($product) => $product->salesProjections->isNotEmpty());
@@ -20,7 +20,12 @@
             <tbody>
                 @foreach($products as $product)
                     @if($product->salesProjections->isNotEmpty())
-                        @foreach($product->salesProjections as $projection)
+                        @if($showProductHeading ?? true)
+                        <tr class="sales-projection-product">
+                            <td colspan="6">{{ $product->name }} <span>{{ $product->product_code ?: 'Tanpa SKU' }}</span></td>
+                        </tr>
+                        @endif
+                        @foreach($product->salesProjections->sortBy(fn ($projection) => $projection->projection_month->format('Y-m').'-'.str_pad((string) ($projection->region?->sort_order ?? 9999), 4, '0', STR_PAD_LEFT).'-'.$projection->channel) as $projection)
                             <tr>
                                 <td>{{ $projection->projection_month->translatedFormat('M Y') }}</td>
                                 <td>
@@ -46,6 +51,6 @@
             </tbody>
         </table>
     @else
-        <div class="sales-projection-empty">Belum ada Sales Projection pada produk yang termasuk dalam dokumen Store ini.</div>
+        <div class="sales-projection-empty">Belum ada Sales Projection yang diinput untuk menu ini.</div>
     @endif
 </section>

@@ -57,12 +57,15 @@ class RndProjectBomPdfController extends Controller
     {
         abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
 
-        $products = $projectRecord->products->filter(fn ($product): bool => $product->boms->contains(
-            fn ($bom): bool => $scope === 'store'
-                ? $bom->pivot->usage_type === 'menu' && ($selectedBomIds === null || in_array($bom->id, $selectedBomIds, true))
-                : $bom->pivot->usage_type !== 'menu' && ($selectedBomIds === null || in_array($bom->id, $selectedBomIds, true)),
-        ));
-        abort_if($products->isEmpty(), 422, 'Tidak ada Bill of Material '.ucfirst($scope).' pada project ini.');
+        $products = $projectRecord->products->sortBy('id')
+            ->when($scope !== 'store', fn ($products) => $products->filter(fn ($product): bool => $product->boms->contains(
+                fn ($bom): bool => $bom->pivot->usage_type !== 'menu'
+                    && ($selectedBomIds === null || in_array($bom->id, $selectedBomIds, true)),
+            )))
+            ->values();
+        abort_if($products->isEmpty(), 422, $scope === 'store'
+            ? 'Tidak ada menu pada project ini.'
+            : 'Tidak ada Bill of Material Kitchen pada project ini.');
 
         $renderer = app(RndProductBomPdfController::class);
         $projectDocumentNumber = 'BOM-'.strtoupper($scope).'-PROJECT-'.str($projectRecord->name)->slug()->upper();
@@ -70,10 +73,14 @@ class RndProjectBomPdfController extends Controller
             $data = $renderer->buildExportData($projectRecord, $product, $scope, $selectedBomIds, $selectedComponents);
             $data['showHeader'] = $index === 0;
             $data['showFooter'] = $index === $products->count() - 1;
+            $data['documentNumber'] = $projectDocumentNumber;
+            $data['documentTitle'] = $projectRecord->name;
+            $data['documentScopeLabel'] = strtoupper($scope);
+            $data['documentStatusLabel'] = 'Cakupan';
+            $data['documentStatusValue'] = $products->count().' Produk - '.ucfirst($scope);
+            $data['projectProductPosition'] = $index + 1;
+            $data['projectProductCount'] = $products->count();
             $data['footerDocument'] = $projectDocumentNumber;
-            $data['projectSalesProjectionProducts'] = $scope === 'store' && $index === 0
-                ? $products->values()
-                : null;
 
             return view('exports.rnd-product-bom-pdf', $data)->render();
         });

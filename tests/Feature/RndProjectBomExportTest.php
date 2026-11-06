@@ -67,6 +67,88 @@ it('shows only the BOM export action granted to the user', function () {
     ]))->assertForbidden();
 });
 
+it('keeps Store export unavailable until the project has a menu', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Project Tanpa Menu',
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-12-31',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->assertSee('Export Store PDF')
+        ->assertSee('Tambahkan menu terlebih dahulu')
+        ->assertSeeHtml('aria-disabled="true"')
+        ->call('openProjectBomExport', 'store')
+        ->assertNotified('Store PDF belum tersedia')
+        ->assertSet('pdfPreview', null)
+        ->assertSet('projectExportModalOpen', false);
+
+    $this->get(route('helpdesk.rnd-projects.bom-pdf', [
+        'project' => $project->id,
+        'scope' => 'store',
+    ]))->assertUnprocessable();
+});
+
+it('keeps a menu in Store PDF when its BOM has not been input', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Project Menu Tanpa BOM',
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-12-31',
+        'created_by' => auth()->id(),
+    ]);
+    $product = $project->products()->create([
+        'name' => 'Blueberry Danish',
+        'product_code' => 'BD-001',
+        'description' => 'Danish dengan isian blueberry.',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+    $region = SalesRegion::query()->updateOrCreate(['code' => 'JKT'], [
+        'name' => 'Jakarta',
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+    RndProductSalesProjection::factory()->create([
+        'rnd_project_product_id' => $product->id,
+        'sales_region_id' => $region->id,
+        'projection_month' => '2026-12-01',
+        'channel' => 'offline',
+        'target_quantity' => 100,
+        'target_revenue' => 5000000,
+        'created_by' => auth()->id(),
+    ]);
+
+    $exportUrl = route('helpdesk.rnd-projects.bom-pdf', ['project' => $project->id, 'scope' => 'store']);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->assertSee('Export Store PDF')
+        ->assertDontSee('Tambahkan menu terlebih dahulu')
+        ->call('openProjectBomExport', 'store')
+        ->assertHasNoErrors()
+        ->assertSet('pdfPreview.download_url', $exportUrl);
+
+    $this->get($exportUrl)->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+    $exportProduct = $project->products()->with([
+        'boms',
+        'currentRegionalPrices.region',
+        'salesProjections.region',
+        'salesProjections.targetBranches',
+    ])->findOrFail($product->id);
+    $data = app(RndProductBomPdfController::class)->buildExportData($project, $exportProduct, 'store');
+    $html = view('exports.rnd-product-bom-pdf', $data)->render();
+
+    expect($html)
+        ->toContain('Blueberry Danish')
+        ->toContain('Danish dengan isian blueberry.')
+        ->toContain('Sales Projection')
+        ->toContain('Dec 2026')
+        ->toContain('BOM Store belum diinput untuk menu ini.')
+        ->and(strpos($html, 'Product Detail'))->toBeLessThan(strpos($html, 'Sales Projection'))
+        ->and(strpos($html, 'Sales Projection'))->toBeLessThan(strpos($html, 'BOM Store belum diinput untuk menu ini.'));
+});
+
 it('keeps the complete styled product document when combining project PDFs', function () {
     $controller = app(RndProjectBomPdfController::class);
     $method = new ReflectionMethod($controller, 'combineRenderedDocuments');
@@ -101,16 +183,11 @@ it('shows every regional sales channel price in the store PDF', function () {
         'shopeefood_price' => 38000,
     ];
 
-    $view = $this->view('exports.partials.rnd-bom-section', [
-        'bom' => ['bomName' => 'Menu Product', 'bomDetails' => []],
-        'bomModel' => (object) ['bom_name' => 'Menu Product', 'product_name' => 'Channel Product'],
+    $view = $this->view('exports.partials.rnd-product-summary', [
         'exportScope' => 'store',
-        'instruction' => null,
         'productPhoto' => null,
         'productRecord' => $product,
         'regionalPrices' => collect([$price]),
-        'resultUnitMap' => [],
-        'sectionLabel' => 'Menu',
     ]);
 
     $view->assertSeeTextInOrder([
@@ -122,7 +199,7 @@ it('shows every regional sales channel price in the store PDF', function () {
     ]);
 });
 
-it('renders project sales projections as a leading Store PDF section', function () {
+it('renders Sales Projection for its owning menu', function () {
     $project = RndProject::query()->create([
         'name' => 'Project Projection Store',
         'start_date' => '2026-09-01',
@@ -162,7 +239,7 @@ it('renders project sales projections as a leading Store PDF section', function 
 
     expect($html)
         ->toContain('sales-projection-section')
-        ->toContain('Sales Projection')
+        ->toContain('Sales Projection Menu')
         ->toContain('Oct 2026')
         ->toContain('Yogyakarta')
         ->toContain('Offline')
@@ -170,7 +247,8 @@ it('renders project sales projections as a leading Store PDF section', function 
         ->toContain('Rp 62.500.000')
         ->toContain('Bloomery Kaliurang: 750,00')
         ->not->toContain('Project Projection Store')
-        ->not->toContain('Salt Bread · SB-001')
+        ->toContain('Salt Bread')
+        ->toContain('SB-001')
         ->not->toContain('Prioritas pembukaan menu baru.');
 });
 

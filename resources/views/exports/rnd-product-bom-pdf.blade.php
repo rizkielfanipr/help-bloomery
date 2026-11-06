@@ -2,12 +2,14 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>Bill of Material - {{ $productRecord->name }}</title>
+    <title>Bill of Material - {{ $documentTitle ?? $productRecord->name }}</title>
     <style>
         @page { margin: 15mm; }
         * { box-sizing: border-box; }
         body { margin: 0; color: #1e293b; font-family: DejaVu Sans, sans-serif; font-size: 9pt; }
         table { width: 100%; border-collapse: collapse; }
+        thead { display: table-header-group; }
+        tr { page-break-inside: avoid; }
         .page-wrapper { width: 100%; }
 
         /* ─── PROJECT SALES PROJECTION ─── */
@@ -18,6 +20,8 @@
         .sales-projection-table td { font-size: 7.2pt; }
         .sales-projection-table .money { white-space: nowrap; text-align: right; }
         .sales-projection-branches { color: #475569; font-size: 6.8pt; line-height: 1.45; }
+        .sales-projection-product td { padding: 5px 8px; border-top: 1px solid #94a3b8; border-bottom: 1px solid #cbd5e1; background: #e2e8f0; color: #0f172a; font-size: 7.2pt; font-weight: 700; }
+        .sales-projection-product span { color: #64748b; font-family: DejaVu Sans Mono, monospace; font-size: 6.5pt; font-weight: 400; }
         .sales-projection-empty { padding: 22px; border: 1px solid #cbd5e1; background: #f8fafc; color: #64748b; text-align: center; }
 
         /* ─── KOP ─── */
@@ -36,6 +40,7 @@
 
         /* ─── PRODUCT INFORMATION TABLE ─── */
         .product-info-row td { border-color: #bfdbfe; }
+        .product-summary-table { margin-bottom: 10px; border: 1.2px solid #111827; page-break-inside: avoid; }
         .product-release-photo { width: 90px; padding: 7px; vertical-align: middle; background: #eff6ff; text-align: center; }
         .product-release-photo img { max-width: 72px; max-height: 72px; border: 1px solid #93c5fd; border-radius: 4px; }
         .product-release-placeholder { padding: 24px 3px; color: #60a5fa; background: #ffffff; border: 1px solid #bfdbfe; font-size: 7px; }
@@ -68,6 +73,8 @@
         /* ─── SECTION DIVIDER (Kitchen / Store) ─── */
         .section-divider { margin: 18px 0 10px; padding: 7px 10px; background: #0f172a; color: #ffffff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         .section-divider:first-child { margin-top: 0; }
+        .project-product-heading { margin: 0 0 9px; padding: 7px 10px; border-left: 4px solid #2563eb; background: #eff6ff; color: #1e3a8a; font-size: 8pt; font-weight: 700; text-transform: uppercase; page-break-after: avoid; }
+        .project-product-heading span { color: #64748b; font-size: 7pt; font-weight: 400; }
 
         /* ─── BOM SECTION ─── */
         .bom-section { margin-top: 10px; margin-bottom: 14px; page-break-inside: auto; }
@@ -78,7 +85,7 @@
         .bom-table tr > :first-child { border-left: 0 !important; }
         .bom-table tr > :last-child { border-right: 0 !important; }
         .bom-table > tbody:last-child > tr:last-child > td { border-bottom: 0 !important; }
-        .bom-header { padding: 6px 8px !important; background: #f8fafc; }
+        .bom-header { padding: 6px 8px !important; background: #f8fafc; page-break-after: avoid; }
         .bom-title { font-size: 9pt; font-weight: bold; }
         .bom-subtitle { margin-top: 2px; color: #64748b; font-size: 8pt; }
         .bom-result { margin-top: 5px; padding: 4px 7px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 8pt; }
@@ -119,6 +126,8 @@
         .instruction-empty { color: #94a3b8; font-size: 7.5pt; }
 
         .empty { padding: 15px !important; text-align: center; color: #94a3b8; }
+        .missing-bom-notice { padding: 14px 16px; border: 1px dashed #f59e0b; background: #fffbeb; color: #92400e; font-size: 8pt; line-height: 1.5; page-break-inside: avoid; }
+        .missing-bom-notice strong { color: #78350f; font-size: 8.5pt; }
 
         /* ─── SYSTEM-GENERATED FOOTER ─── */
         .footer { width: 100%; margin-top: 18px; padding-top: 9px; border-top: 1px solid #cbd5e1; }
@@ -139,8 +148,8 @@
         <div class="kop-logo"><img src="{{ $logo }}" alt="Bloomery"></div>
         <div class="kop-center">
             <div class="company-name">PT Bloomery Sekawan Sejahtera</div>
-            <div class="title-sop">Standar Prosedur Operasional</div>
-            <div class="project-label">Produk Baru:<br>{{ strtoupper($productRecord->name) }}</div>
+            <div class="title-sop">Standar Prosedur Operasional · BOM {{ $documentScopeLabel ?? strtoupper($exportScope) }}</div>
+            <div class="project-label">{{ strtoupper($documentTitle ?? ('Produk Baru: '.$productRecord->name)) }}</div>
         </div>
         <div class="kop-right">
             <div class="kop-right-row">
@@ -152,17 +161,29 @@
                 <div class="kop-right-value">{{ $projectRecord->start_date->format('d M Y') }} – {{ $projectRecord->end_date->format('d M Y') }}</div>
             </div>
             <div class="kop-right-row">
-                <div class="kop-right-label">Status Produk</div>
-                <div class="kop-right-value">{{ \App\Models\RndProjectProduct::STATUSES[$productRecord->status] ?? ucfirst($productRecord->status) }}</div>
+                <div class="kop-right-label">{{ $documentStatusLabel ?? 'Status Produk' }}</div>
+                <div class="kop-right-value">{{ $documentStatusValue ?? (\App\Models\RndProjectProduct::STATUSES[$productRecord->status] ?? ucfirst($productRecord->status)) }}</div>
             </div>
         </div>
     </div>
     @endif
 
-    @if($projectSalesProjectionProducts ?? null)
-        @include('exports.partials.rnd-project-sales-projection', [
-            'products' => $projectSalesProjectionProducts,
-        ])
+    @isset($projectProductPosition)
+        <div class="project-product-heading">
+            Produk {{ $projectProductPosition }} dari {{ $projectProductCount }} - {{ $productRecord->name }}
+            <span>{{ $productRecord->product_code ?: 'Tanpa SKU' }}</span>
+        </div>
+    @endisset
+
+    @if($exportScope !== 'kitchen')
+        @include('exports.partials.rnd-product-summary')
+
+        @if($exportScope === 'store')
+            @include('exports.partials.rnd-project-sales-projection', [
+                'products' => collect([$productRecord]),
+                'showProductHeading' => false,
+            ])
+        @endif
     @endif
 
     @php
@@ -227,7 +248,10 @@
     @forelse($menuBoms as $menuBom)
         @include('exports.partials.rnd-bom-section', ['bomModel' => $menuBom, 'bom' => $details[$menuBom->id], 'sectionLabel' => 'Menu', 'instruction' => $instructions[$menuBom->esb_bom_id] ?? null])
     @empty
-        <div class="bom-section"><div class="empty">Belum ada BOM Menu pada produk ini.</div></div>
+        <div class="bom-section missing-bom-notice">
+            <strong>BOM Store belum diinput untuk menu ini.</strong><br>
+            Detail produk dan Sales Projection tetap ditampilkan sesuai data yang sudah diisi.
+        </div>
     @endforelse
     @endif
 

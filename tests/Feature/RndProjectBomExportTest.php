@@ -13,6 +13,8 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
+use Symfony\Component\Process\ExecutableFinder;
+use Symfony\Component\Process\Process;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -161,8 +163,9 @@ it('keeps the complete styled product document when combining project PDFs', fun
         ->toStartWith('<!DOCTYPE html>')
         ->toContain('<style>.kop{display:table}</style>')
         ->toContain('<div class="kop">First</div>')
-        ->toContain('page-break-before: always;')
+        ->toContain('<div class="project-product-page-break"></div>')
         ->toContain('<div class="kop">Second</div>')
+        ->not->toContain('<div style="page-break-before: always;">')
         ->not->toContain('.ignored{color:red}');
 });
 
@@ -492,6 +495,47 @@ it('exports all Store BOM products in a project as one permission-protected PDF'
         ->assertOk()
         ->assertHeader('Content-Type', 'application/pdf')
         ->assertHeader('Content-Disposition', 'inline; filename=BOM-STORE-PROJECT-PROJECT-MULTI-PRODUCT.pdf');
+});
+
+it('keeps every menu in a large Store PDF after DomPDF pagination', function () {
+    $pdftotext = (new ExecutableFinder)->find('pdftotext');
+    if ($pdftotext === null) {
+        $this->markTestSkipped('Poppler pdftotext is required for the PDF pagination regression check.');
+    }
+
+    $project = RndProject::query()->create([
+        'name' => 'Large Store Export',
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-12-31',
+        'created_by' => auth()->id(),
+    ]);
+    $menuNames = collect(range(1, 14))->map(fn (int $number): string => sprintf('Regression Menu %02d', $number));
+    $menuNames->each(fn (string $name) => $project->products()->create([
+        'name' => $name,
+        'description' => str_repeat("Detail $name. ", 8),
+        'status' => 'draft',
+        'created_by' => auth()->id(),
+    ]));
+
+    $response = $this->get(route('helpdesk.rnd-projects.bom-pdf', [
+        'project' => $project->id,
+        'scope' => 'store',
+    ]))->assertOk();
+
+    $pdfPath = tempnam(sys_get_temp_dir(), 'store-pdf-');
+    $textPath = tempnam(sys_get_temp_dir(), 'store-pdf-text-');
+
+    try {
+        file_put_contents($pdfPath, $response->getContent());
+        (new Process([$pdftotext, '-layout', $pdfPath, $textPath]))->mustRun();
+        $pdfText = file_get_contents($textPath);
+
+        expect($pdfText)->toBeString();
+        $menuNames->each(fn (string $name) => expect($pdfText)->toContain($name));
+    } finally {
+        @unlink($pdfPath);
+        @unlink($textPath);
+    }
 });
 
 it('serves the BOM PDF inline for the preview modal and as an attachment for download', function () {

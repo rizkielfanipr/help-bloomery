@@ -11,6 +11,7 @@
         thead { display: table-header-group; }
         tr { page-break-inside: avoid; }
         .page-wrapper { width: 100%; }
+        .project-product-page-break { height: 0; page-break-before: always; }
 
         /* ─── PROJECT SALES PROJECTION ─── */
         .sales-projection-section { margin-bottom: 14px; page-break-inside: avoid; }

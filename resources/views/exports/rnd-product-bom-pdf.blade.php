@@ -40,6 +40,7 @@
 
         /* ─── PRODUCT INFORMATION TABLE ─── */
         .product-info-row td { border-color: #bfdbfe; }
+        .product-summary-table { margin-bottom: 10px; border: 1.2px solid #111827; page-break-inside: avoid; }
         .product-release-photo { width: 90px; padding: 7px; vertical-align: middle; background: #eff6ff; text-align: center; }
         .product-release-photo img { max-width: 72px; max-height: 72px; border: 1px solid #93c5fd; border-radius: 4px; }
         .product-release-placeholder { padding: 24px 3px; color: #60a5fa; background: #ffffff; border: 1px solid #bfdbfe; font-size: 7px; }
@@ -125,6 +126,8 @@
         .instruction-empty { color: #94a3b8; font-size: 7.5pt; }
 
         .empty { padding: 15px !important; text-align: center; color: #94a3b8; }
+        .missing-bom-notice { padding: 14px 16px; border: 1px dashed #f59e0b; background: #fffbeb; color: #92400e; font-size: 8pt; line-height: 1.5; page-break-inside: avoid; }
+        .missing-bom-notice strong { color: #78350f; font-size: 8.5pt; }
 
         /* ─── SYSTEM-GENERATED FOOTER ─── */
         .footer { width: 100%; margin-top: 18px; padding-top: 9px; border-top: 1px solid #cbd5e1; }
@@ -165,18 +168,23 @@
     </div>
     @endif
 
-    @if($projectSalesProjectionProducts ?? null)
-        @include('exports.partials.rnd-project-sales-projection', [
-            'products' => $projectSalesProjectionProducts,
-        ])
-    @endif
-
     @isset($projectProductPosition)
         <div class="project-product-heading">
             Produk {{ $projectProductPosition }} dari {{ $projectProductCount }} - {{ $productRecord->name }}
             <span>{{ $productRecord->product_code ?: 'Tanpa SKU' }}</span>
         </div>
     @endisset
+
+    @if($exportScope !== 'kitchen')
+        @include('exports.partials.rnd-product-summary')
+
+        @if($exportScope === 'store')
+            @include('exports.partials.rnd-project-sales-projection', [
+                'products' => collect([$productRecord]),
+                'showProductHeading' => false,
+            ])
+        @endif
+    @endif
 
     @php
         $groupLabels = [
@@ -240,7 +248,10 @@
     @forelse($menuBoms as $menuBom)
         @include('exports.partials.rnd-bom-section', ['bomModel' => $menuBom, 'bom' => $details[$menuBom->id], 'sectionLabel' => 'Menu', 'instruction' => $instructions[$menuBom->esb_bom_id] ?? null])
     @empty
-        <div class="bom-section"><div class="empty">Belum ada BOM Menu pada produk ini.</div></div>
+        <div class="bom-section missing-bom-notice">
+            <strong>BOM Store belum diinput untuk menu ini.</strong><br>
+            Detail produk dan Sales Projection tetap ditampilkan sesuai data yang sudah diisi.
+        </div>
     @endforelse
     @endif
 

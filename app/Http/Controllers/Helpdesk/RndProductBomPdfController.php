@@ -35,7 +35,12 @@ class RndProductBomPdfController extends Controller
 
         $projectRecord = RndProject::query()->findOrFail($project);
         $productRecord = $projectRecord->products()
-            ->with(['boms', 'currentRegionalPrices.region'])
+            ->with([
+                'boms',
+                'currentRegionalPrices.region',
+                'salesProjections.region',
+                'salesProjections.targetBranches',
+            ])
             ->findOrFail($product);
 
         $selectedBomIds = $exportScope === 'store' ? null : $this->selectedBomIds($request);
@@ -92,7 +97,7 @@ class RndProductBomPdfController extends Controller
             'store' => $bom->pivot->usage_type === 'menu',
             default => true,
         })->when($selectedBomIds !== null, fn ($boms) => $boms->whereIn('id', $selectedBomIds));
-        abort_if($exportBoms->isEmpty(), 422, 'Pilih minimal satu Bill of Material untuk diekspor.');
+        abort_if($exportBoms->isEmpty() && $exportScope !== 'store', 422, 'Pilih minimal satu Bill of Material untuk diekspor.');
         $exportBoms->loadMissing('documentMaterials');
         $details = $exportBoms->mapWithKeys(function ($bom) use ($esb, $selectedComponents): array {
             $detail = $bom->detail_snapshot ?: $esb->getBillOfMaterial($bom->esb_bom_id);

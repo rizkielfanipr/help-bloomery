@@ -57,4 +57,4 @@ Header dokumen gabungan sebelumnya menampilkan status produk pertama. Temuan ini
 
 ## 8. Prasyarat phase berikutnya
 
-Tidak ada phase berikutnya. Lakukan UAT staging pada Project tanpa BOM Store dan Project Store multi-produk sebelum production.
+Phase 2 menyusun ulang isi dokumen per menu dan mempertahankan menu yang belum memiliki BOM Store.

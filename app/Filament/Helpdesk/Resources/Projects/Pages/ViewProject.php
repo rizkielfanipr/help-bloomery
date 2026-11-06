@@ -998,10 +998,16 @@ class ViewProject extends ViewRecord
         $this->pdfPreview = null;
         $this->resetValidation('projectExportBomIds');
 
-        if ($this->projectExportBomIds === []) {
+        $hasExportContent = $scope === 'store'
+            ? $this->record->products->isNotEmpty()
+            : $this->projectExportBomIds !== [];
+
+        if (! $hasExportContent) {
             Notification::make()
                 ->title(ucfirst($scope).' PDF belum tersedia')
-                ->body('Tambahkan BOM '.ucfirst($scope).' terlebih dahulu sebelum melakukan export.')
+                ->body($scope === 'store'
+                    ? 'Tambahkan menu terlebih dahulu sebelum melakukan export.'
+                    : 'Tambahkan BOM Kitchen terlebih dahulu sebelum melakukan export.')
                 ->warning()
                 ->send();
 

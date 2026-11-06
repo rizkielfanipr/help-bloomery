@@ -27,7 +27,7 @@ Pengembangan produk dari project sampai rilis: project dan produk, BOM di ESB, M
 - **Produk Project**: status `draft`, `development`, `trial`, `ready`, `released`, `cancelled`. Gerbang Ready/Released mewajibkan setiap WIP pada BOM produk punya master Shelf Life aktif.
 - Halaman produk menyediakan:
   - **BOM** — menautkan BOM ESB (impor dari katalog), mengedit komponen langsung ke ESB, instruksi BOM dengan gambar, BOM menu, dan PDF BOM. **Buat Resep** (Assembly maupun Menu) mengirim BOM ke ESB tanpa kode BOM, sama seperti upload manual di ESB, sehingga tidak bisa bentrok dengan kode BOM lain.
-    Export PDF Project hanya aktif untuk scope yang memiliki BOM eligible. Store membutuhkan minimal satu BOM Menu; ketika kosong tombol dinonaktifkan dengan penjelasan, sementara direct request tetap ditolak server. Dokumen Project memakai identitas dokumen tunggal pada header/footer, memisahkan setiap produk ke halaman sendiri, dan menampilkan produk asal pada Sales Projection agar preview, download, dan SOP Store konsisten.
+    Export Store PDF Project aktif selama Project memiliki minimal satu menu. Setiap menu disusun sebagai satu blok berurutan: Detail Produk, Sales Projection menu tersebut, lalu BOM Store. Menu yang belum memiliki BOM Store tetap tampil dengan keterangan "BOM Store belum diinput"; bagian BOM kosong tidak dibuat dan menu tidak dihilangkan. Project tanpa menu menonaktifkan tombol export dan direct request tetap ditolak server. Dokumen Project memakai identitas dokumen tunggal pada header/footer dan memisahkan setiap menu ke halaman sendiri agar preview, download, dan SOP Store konsisten.
   - **Analisis harga menu** — weighted average harga bahan, food cost, dan rekomendasi harga per region.
   - **Master Bahan/WIP** — membuat bahan baru dengan prefix nama, lalu mengirimnya ke review IT (lihat bagian berikut).
   - **Material marketing** — packaging, stiker, foto produk, social media, katalog, lainnya. Tipe fisik diteruskan ke Purchasing dan Inventory.
@@ -130,7 +130,7 @@ Baca file di bawah ini lebih dulu; jangan menelusuri seluruh repository. Pola `{
 |---|---|
 | Back Office | `app/Filament/Helpdesk/Resources/{Projects,RndProjectTaskTemplates,RndInternalMemos,ReviewSourcings,PrefixCategories,PrefixNames}/`, `app/Filament/Helpdesk/Pages/{ViewProjectProductPage,BomAdjustmentPage,EditBomAdjustmentPage,BillOfMaterialPage,CreateBomRecipePage,WipShelfLifePage,ProductPriceIndexPage,ProductPriceIndexDetailPage}.php`, `app/Filament/Helpdesk/Concerns/` |
 | Logika | `app/Actions/Rnd/`, `app/Actions/{ArchiveRndProjectAction,RestoreRndProjectAction}.php`, `app/Services/Rnd/`, `app/Services/{RndProjectMaterialForecastService,ProductPriceIndexService,ProductPriceSnapshotService,PurchaseOrderPriceSyncService,WipPriceIndexService,SyncRndEsbMaterialFromRemote}.php`, `app/Http/Controllers/Helpdesk/{RndProjectBomPdfController,RndProductBomPdfController}.php`, `app/Jobs/Rnd/`, `app/Livewire/` |
-| View | `resources/views/filament/helpdesk/rnd-projects/view.blade.php`, `resources/views/exports/rnd-product-bom-pdf.blade.php`, `resources/views/exports/partials/rnd-{bom-section,project-sales-projection}.blade.php` |
+| View | `resources/views/filament/helpdesk/rnd-projects/view.blade.php`, `resources/views/exports/rnd-product-bom-pdf.blade.php`, `resources/views/exports/partials/rnd-{bom-section,product-summary,project-sales-projection}.blade.php` |
 | Policy | `app/Policies/Rnd*.php` |
 | Enum | `app/Enums/{Rnd,Material}*.php` |
 | Model | `app/Models/{Rnd,MaterialSourcing,Prefix,ProductPrice}*.php` |

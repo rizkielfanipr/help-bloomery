@@ -7,7 +7,7 @@
         $canExportKitchenBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export kitchen bill of materials');
         $canExportStoreBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export store bill of materials');
         $hasKitchenBom = $this->eligibleProjectExportBoms('kitchen')->isNotEmpty();
-        $hasStoreBom = $this->eligibleProjectExportBoms('store')->isNotEmpty();
+        $hasStoreExportContent = $project->products->isNotEmpty();
         $input = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
         $label = 'mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200';
     @endphp
@@ -540,11 +540,11 @@
                         @endif
                         @if($canExportStoreBom)
                             <div class="flex flex-col items-start gap-1">
-                                <button type="button" wire:click="openProjectBomExport('store')" @disabled(! $hasStoreBom) aria-disabled="{{ $hasStoreBom ? 'false' : 'true' }}" title="{{ $hasStoreBom ? 'Export Store PDF' : 'Tambahkan BOM Store terlebih dahulu' }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:border-gray-700 dark:disabled:bg-gray-800 dark:disabled:text-gray-500">
+                                <button type="button" wire:click="openProjectBomExport('store')" @disabled(! $hasStoreExportContent) aria-disabled="{{ $hasStoreExportContent ? 'false' : 'true' }}" title="{{ $hasStoreExportContent ? 'Export Store PDF' : 'Tambahkan menu terlebih dahulu' }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:border-gray-700 dark:disabled:bg-gray-800 dark:disabled:text-gray-500">
                                     <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Store PDF
                                 </button>
-                                @unless($hasStoreBom)
-                                    <span class="max-w-44 text-xs leading-4 text-gray-500 dark:text-gray-400">Tambahkan BOM Store terlebih dahulu.</span>
+                                @unless($hasStoreExportContent)
+                                    <span class="max-w-44 text-xs leading-4 text-gray-500 dark:text-gray-400">Tambahkan menu terlebih dahulu.</span>
                                 @endunless
                             </div>
                         @endif

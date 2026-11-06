@@ -155,16 +155,16 @@ it('keeps the complete styled product document when combining project PDFs', fun
     $controller = app(RndProjectBomPdfController::class);
     $method = new ReflectionMethod($controller, 'combineRenderedDocuments');
     $html = $method->invoke($controller, collect([
-        '<!DOCTYPE html><html><head><style>.kop{display:table}</style></head><body><div class="kop">First</div></body></html>',
-        '<!DOCTYPE html><html><head><style>.ignored{color:red}</style></head><body><div class="kop">Second</div></body></html>',
+        '<!DOCTYPE html><html><head><style>.kop{display:table}</style></head><body><div class="page-wrapper"><div class="kop">First</div></div></body></html>',
+        '<!DOCTYPE html><html><head><style>.ignored{color:red}</style></head><body><div class="page-wrapper"><div class="kop">Second</div></div></body></html>',
     ]));
 
     expect($html)
         ->toStartWith('<!DOCTYPE html>')
         ->toContain('<style>.kop{display:table}</style>')
         ->toContain('<div class="kop">First</div>')
-        ->toContain('<div class="project-product-page-break"></div>')
-        ->toContain('<div class="kop">Second</div>')
+        ->toContain('<div class="page-wrapper project-product-next-page"><div class="kop">Second</div>')
+        ->not->toContain('project-product-page-break')
         ->not->toContain('<div style="page-break-before: always;">')
         ->not->toContain('.ignored{color:red}');
 });

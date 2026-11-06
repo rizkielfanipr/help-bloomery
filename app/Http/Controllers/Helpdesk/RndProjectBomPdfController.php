@@ -117,11 +117,15 @@ class RndProjectBomPdfController extends Controller
                     return '';
                 }
 
-                // Do not wrap a complete product document in a page-break container. DomPDF can
-                // discard later siblings when that container itself spans multiple pages (for
-                // example a Store menu with several BOM sections). A standalone divider starts the
-                // next product on a new page while keeping every product as a top-level sibling.
-                return '<div class="project-product-page-break"></div>'.$body[1];
+                // Apply the page break to the product's existing top-level wrapper. DomPDF can
+                // collapse an empty page-break divider and can discard later content when a full
+                // document is nested inside another page-break container.
+                return preg_replace(
+                    '/class="page-wrapper"/',
+                    'class="page-wrapper project-product-next-page"',
+                    $body[1],
+                    1,
+                ) ?? $body[1];
             })
             ->filter()
             ->implode('');

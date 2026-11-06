@@ -20,6 +20,9 @@
             <tbody>
                 @foreach($products as $product)
                     @if($product->salesProjections->isNotEmpty())
+                        <tr class="sales-projection-product">
+                            <td colspan="6">{{ $product->name }} <span>{{ $product->product_code ?: 'Tanpa SKU' }}</span></td>
+                        </tr>
                         @foreach($product->salesProjections as $projection)
                             <tr>
                                 <td>{{ $projection->projection_month->translatedFormat('M Y') }}</td>

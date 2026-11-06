@@ -67,6 +67,34 @@ it('shows only the BOM export action granted to the user', function () {
     ]))->assertForbidden();
 });
 
+it('keeps Store export unavailable until the project has a Store BOM', function () {
+    $project = RndProject::query()->create([
+        'name' => 'Project Tanpa Store BOM',
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-12-31',
+        'created_by' => auth()->id(),
+    ]);
+    $project->products()->create([
+        'name' => 'Menu Tanpa Resep Store',
+        'status' => 'development',
+        'created_by' => auth()->id(),
+    ]);
+
+    Livewire::test(ViewProject::class, ['record' => $project->id])
+        ->assertSee('Export Store PDF')
+        ->assertSee('Tambahkan BOM Store terlebih dahulu')
+        ->assertSeeHtml('aria-disabled="true"')
+        ->call('openProjectBomExport', 'store')
+        ->assertNotified('Store PDF belum tersedia')
+        ->assertSet('pdfPreview', null)
+        ->assertSet('projectExportModalOpen', false);
+
+    $this->get(route('helpdesk.rnd-projects.bom-pdf', [
+        'project' => $project->id,
+        'scope' => 'store',
+    ]))->assertUnprocessable();
+});
+
 it('keeps the complete styled product document when combining project PDFs', function () {
     $controller = app(RndProjectBomPdfController::class);
     $method = new ReflectionMethod($controller, 'combineRenderedDocuments');
@@ -170,7 +198,8 @@ it('renders project sales projections as a leading Store PDF section', function 
         ->toContain('Rp 62.500.000')
         ->toContain('Bloomery Kaliurang: 750,00')
         ->not->toContain('Project Projection Store')
-        ->not->toContain('Salt Bread · SB-001')
+        ->toContain('Salt Bread')
+        ->toContain('SB-001')
         ->not->toContain('Prioritas pembukaan menu baru.');
 });
 

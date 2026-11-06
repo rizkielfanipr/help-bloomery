@@ -57,7 +57,7 @@ class RndProjectBomPdfController extends Controller
     {
         abort_unless(in_array($scope, ['kitchen', 'store'], true), 422);
 
-        $products = $projectRecord->products->filter(fn ($product): bool => $product->boms->contains(
+        $products = $projectRecord->products->sortBy('id')->filter(fn ($product): bool => $product->boms->contains(
             fn ($bom): bool => $scope === 'store'
                 ? $bom->pivot->usage_type === 'menu' && ($selectedBomIds === null || in_array($bom->id, $selectedBomIds, true))
                 : $bom->pivot->usage_type !== 'menu' && ($selectedBomIds === null || in_array($bom->id, $selectedBomIds, true)),
@@ -70,6 +70,13 @@ class RndProjectBomPdfController extends Controller
             $data = $renderer->buildExportData($projectRecord, $product, $scope, $selectedBomIds, $selectedComponents);
             $data['showHeader'] = $index === 0;
             $data['showFooter'] = $index === $products->count() - 1;
+            $data['documentNumber'] = $projectDocumentNumber;
+            $data['documentTitle'] = $projectRecord->name;
+            $data['documentScopeLabel'] = strtoupper($scope);
+            $data['documentStatusLabel'] = 'Cakupan';
+            $data['documentStatusValue'] = $products->count().' Produk - '.ucfirst($scope);
+            $data['projectProductPosition'] = $index + 1;
+            $data['projectProductCount'] = $products->count();
             $data['footerDocument'] = $projectDocumentNumber;
             $data['projectSalesProjectionProducts'] = $scope === 'store' && $index === 0
                 ? $products->values()

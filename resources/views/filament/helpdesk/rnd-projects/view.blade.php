@@ -6,6 +6,8 @@
         $canDelete = \App\Filament\Helpdesk\Resources\Projects\ProjectResource::canDelete($project);
         $canExportKitchenBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export kitchen bill of materials');
         $canExportStoreBom = auth()->user()?->hasRole('SUPERADMIN') || auth()->user()?->can('export store bill of materials');
+        $hasKitchenBom = $this->eligibleProjectExportBoms('kitchen')->isNotEmpty();
+        $hasStoreBom = $this->eligibleProjectExportBoms('store')->isNotEmpty();
         $input = 'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white';
         $label = 'mb-1.5 block text-sm font-semibold text-gray-700 dark:text-gray-200';
     @endphp
@@ -527,14 +529,24 @@
                     </div>
                     <div class="flex flex-wrap gap-2">
                         @if($canExportKitchenBom)
-                            <button type="button" wire:click="openProjectBomExport('kitchen')" class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100">
-                                <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Kitchen PDF
-                            </button>
+                            <div class="flex flex-col items-start gap-1">
+                                <button type="button" wire:click="openProjectBomExport('kitchen')" @disabled(! $hasKitchenBom) aria-disabled="{{ $hasKitchenBom ? 'false' : 'true' }}" title="{{ $hasKitchenBom ? 'Export Kitchen PDF' : 'Tambahkan BOM Kitchen terlebih dahulu' }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3.5 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:border-gray-700 dark:disabled:bg-gray-800 dark:disabled:text-gray-500">
+                                    <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Kitchen PDF
+                                </button>
+                                @unless($hasKitchenBom)
+                                    <span class="max-w-44 text-xs leading-4 text-gray-500 dark:text-gray-400">Tambahkan BOM Kitchen terlebih dahulu.</span>
+                                @endunless
+                            </div>
                         @endif
                         @if($canExportStoreBom)
-                            <button type="button" wire:click="openProjectBomExport('store')" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100">
-                                <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Store PDF
-                            </button>
+                            <div class="flex flex-col items-start gap-1">
+                                <button type="button" wire:click="openProjectBomExport('store')" @disabled(! $hasStoreBom) aria-disabled="{{ $hasStoreBom ? 'false' : 'true' }}" title="{{ $hasStoreBom ? 'Export Store PDF' : 'Tambahkan BOM Store terlebih dahulu' }}" class="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:border-gray-700 dark:disabled:bg-gray-800 dark:disabled:text-gray-500">
+                                    <x-heroicon-o-document-arrow-down class="h-4 w-4" /> Export Store PDF
+                                </button>
+                                @unless($hasStoreBom)
+                                    <span class="max-w-44 text-xs leading-4 text-gray-500 dark:text-gray-400">Tambahkan BOM Store terlebih dahulu.</span>
+                                @endunless
+                            </div>
                         @endif
                         @if($canManage)
                             <button type="button" wire:click="openCreateProduct" class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">
